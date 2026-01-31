@@ -406,7 +406,7 @@ export const PracticeClientsPage = () => {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US'
+    country: ''
   });
 
   const sortedClients = useMemo(
@@ -663,7 +663,7 @@ export const PracticeClientsPage = () => {
       city: '',
       state: '',
       postalCode: '',
-      country: 'US'
+      country: ''
     });
   }, []);
 
@@ -691,7 +691,7 @@ export const PracticeClientsPage = () => {
         city: '',
         state: '',
         postalCode: '',
-        country: 'US'
+        country: ''
       });
       setIsEditClientOpen(true);
     } catch (error) {
@@ -713,6 +713,20 @@ export const PracticeClientsPage = () => {
     setEditClientSubmitting(true);
     setEditClientError(null);
     try {
+      const addressLine1 = editClientForm.addressLine1.trim();
+      const addressLine2 = editClientForm.addressLine2.trim();
+      const city = editClientForm.city.trim();
+      const state = editClientForm.state.trim();
+      const postalCode = editClientForm.postalCode.trim();
+      const country = editClientForm.country.trim();
+      const hasAddress =
+        Boolean(addressLine1) ||
+        Boolean(addressLine2) ||
+        Boolean(city) ||
+        Boolean(state) ||
+        Boolean(postalCode) ||
+        Boolean(country);
+
       await updateUserDetail(currentPractice.id, editClientForm.id, {
         name,
         email,
@@ -720,14 +734,16 @@ export const PracticeClientsPage = () => {
         status: editClientForm.status,
         currency: editClientForm.currency.trim() || 'usd',
         event_name: editClientForm.eventName.trim() || undefined,
-        address: {
-          line1: editClientForm.addressLine1.trim() || undefined,
-          line2: editClientForm.addressLine2.trim() || undefined,
-          city: editClientForm.city.trim() || undefined,
-          state: editClientForm.state.trim() || undefined,
-          postal_code: editClientForm.postalCode.trim() || undefined,
-          country: editClientForm.country.trim() || 'US'
-        }
+        ...(hasAddress && {
+          address: {
+            line1: addressLine1 || undefined,
+            line2: addressLine2 || undefined,
+            city: city || undefined,
+            state: state || undefined,
+            postal_code: postalCode || undefined,
+            country: country || undefined
+          }
+        })
       });
       await fetchClientsPage(1, { replace: true });
       resetEditClientForm();

@@ -26,9 +26,11 @@ Worker (local dev): worker/.dev.vars for secrets (see dev.vars.example). Worker 
 
 Routing rules:
 - Cloudflare Pages `public/_redirects` must include:
-  /api/*              /api/:splat        200
-  /__better-auth__/*  /__better-auth__/:splat 200
-  /*                  /index.html        200
+```
+/api/*              /api/:splat        200
+/__better-auth__/*  /__better-auth__/:splat 200
+/*                  /index.html        200
+```
 - No internal <a href="/..."> for in-app routes. Use preact-iso Link or location.route()/navigate().
 - Only use hard navigations for cross-origin URLs, Stripe checkout, or external auth redirects.
 - Avoid manual path parsing in MainApp; prefer Router routes for /practice/* and /client/*.
