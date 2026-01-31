@@ -605,6 +605,214 @@ export async function deletePracticeMember(
   );
 }
 
+export type UserDetailStatus = 'lead' | 'active' | 'inactive' | 'archived';
+
+export type UserDetailRecord = {
+  id: string;
+  organization_id: string;
+  user_id: string | null;
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  address_id: string | null;
+  status: UserDetailStatus;
+  currency: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserDetailListResponse = {
+  data: UserDetailRecord[];
+  total: number;
+};
+
+export async function listUserDetails(
+  practiceId: string,
+  params?: {
+    search?: string;
+    status?: UserDetailStatus;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<UserDetailListResponse> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.get(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
+    { params }
+  );
+  const payload = response.data;
+  if (isRecord(payload) && Array.isArray(payload.data)) {
+    return {
+      data: payload.data as UserDetailRecord[],
+      total: typeof payload.total === 'number' ? payload.total : payload.data.length
+    };
+  }
+  return {
+    data: [],
+    total: 0
+  };
+}
+
+export async function getUserDetail(
+  practiceId: string,
+  userDetailId: string
+): Promise<UserDetailRecord | null> {
+  if (!practiceId || !userDetailId) {
+    throw new Error('practiceId and userDetailId are required');
+  }
+  const response = await apiClient.get(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`
+  );
+  const payload = response.data;
+  if (isRecord(payload) && isRecord(payload.data)) {
+    return payload.data as UserDetailRecord;
+  }
+  return null;
+}
+
+export async function createUserDetail(
+  practiceId: string,
+  payload: Record<string, unknown>
+): Promise<UserDetailRecord | null> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.post(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
+    payload
+  );
+  const data = response.data;
+  if (isRecord(data) && isRecord(data.data)) {
+    return data.data as UserDetailRecord;
+  }
+  return null;
+}
+
+export async function updateUserDetail(
+  practiceId: string,
+  userDetailId: string,
+  payload: Record<string, unknown>
+): Promise<UserDetailRecord | null> {
+  if (!practiceId || !userDetailId) {
+    throw new Error('practiceId and userDetailId are required');
+  }
+  const response = await apiClient.put(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`,
+    payload
+  );
+  const data = response.data;
+  if (isRecord(data) && isRecord(data.data)) {
+    return data.data as UserDetailRecord;
+  }
+  return null;
+}
+
+export async function deleteUserDetail(
+  practiceId: string,
+  userDetailId: string
+): Promise<void> {
+  if (!practiceId || !userDetailId) {
+    throw new Error('practiceId and userDetailId are required');
+  }
+  await apiClient.delete(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`
+  );
+}
+
+export type UserDetailMemoRecord = {
+  id: string;
+  memo?: string | null;
+  content?: string | null;
+  body?: string | null;
+  note?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+  } | null;
+};
+
+export async function listUserDetailMemos(
+  practiceId: string,
+  userDetailId: string
+): Promise<UserDetailMemoRecord[]> {
+  if (!practiceId || !userDetailId) {
+    throw new Error('practiceId and userDetailId are required');
+  }
+  const response = await apiClient.get(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos`
+  );
+  const payload = response.data;
+  if (isRecord(payload) && Array.isArray(payload.data)) {
+    return payload.data as UserDetailMemoRecord[];
+  }
+  if (Array.isArray(payload)) {
+    return payload as UserDetailMemoRecord[];
+  }
+  return [];
+}
+
+export async function createUserDetailMemo(
+  practiceId: string,
+  userDetailId: string,
+  payload: Record<string, unknown>
+): Promise<UserDetailMemoRecord | null> {
+  if (!practiceId || !userDetailId) {
+    throw new Error('practiceId and userDetailId are required');
+  }
+  const response = await apiClient.post(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos`,
+    payload
+  );
+  const data = response.data;
+  if (isRecord(data) && isRecord(data.data)) {
+    return data.data as UserDetailMemoRecord;
+  }
+  return null;
+}
+
+export async function updateUserDetailMemo(
+  practiceId: string,
+  userDetailId: string,
+  memoId: string,
+  payload: Record<string, unknown>
+): Promise<UserDetailMemoRecord | null> {
+  if (!practiceId || !userDetailId || !memoId) {
+    throw new Error('practiceId, userDetailId, and memoId are required');
+  }
+  const response = await apiClient.put(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`,
+    payload
+  );
+  const data = response.data;
+  if (isRecord(data) && isRecord(data.data)) {
+    return data.data as UserDetailMemoRecord;
+  }
+  return null;
+}
+
+export async function deleteUserDetailMemo(
+  practiceId: string,
+  userDetailId: string,
+  memoId: string
+): Promise<void> {
+  if (!practiceId || !userDetailId || !memoId) {
+    throw new Error('practiceId, userDetailId, and memoId are required');
+  }
+  await apiClient.delete(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`
+  );
+}
+
 export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');

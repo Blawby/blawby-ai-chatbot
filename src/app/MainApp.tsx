@@ -735,8 +735,11 @@ export function MainApp({
   ]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
     const inviteLink = readPendingPracticeInviteLink();
-    if (!inviteLink || typeof window === 'undefined') {
+    if (!inviteLink) {
       return;
     }
 

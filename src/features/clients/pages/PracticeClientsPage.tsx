@@ -7,6 +7,18 @@ import { Avatar } from '@/shared/ui/profile';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
+import { formatDate } from '@/shared/utils/dateTime';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import {
+  listUserDetails,
+  listUserDetailMemos,
+  createUserDetailMemo,
+  updateUserDetailMemo,
+  deleteUserDetailMemo,
+  type UserDetailRecord,
+  type UserDetailStatus,
+  type UserDetailMemoRecord
+} from '@/shared/lib/apiClient';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,19 +34,20 @@ import {
   DocumentTextIcon as DocumentTextOutlineIcon
 } from '@heroicons/react/24/outline';
 
-type ClientStatus = 'Client' | 'Lead';
+const STATUS_LABELS: Record<UserDetailStatus, string> = {
+  lead: 'Lead',
+  active: 'Client',
+  inactive: 'Inactive',
+  archived: 'Archived'
+};
 
 type ClientRecord = {
   id: string;
   name: string;
   email: string;
   phone?: string | null;
-  status: ClientStatus;
-  activity: TimelineItem[];
+  status: UserDetailStatus;
 };
-
-const slugify = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
 const formatPhoneNumber = (phone?: string | null) => {
   if (!phone) return 'Not provided';
@@ -61,175 +74,6 @@ const splitName = (fullName: string) => {
   return { first, last };
 };
 
-const buildActivity = (clientName: string): TimelineItem[] => {
-  const baseId = slugify(clientName);
-  const manager = {
-    name: 'Chelsea Hagon',
-    imageUrl:
-      'https://images.unsplash.com/photo-1550525811-e5869dd03032?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'
-  };
-  const reviewer = {
-    name: 'Alex Curren'
-  };
-
-  return [
-    {
-      id: `${baseId}-created`,
-      type: 'created',
-      person: manager,
-      date: '7d ago',
-      dateTime: '2026-01-18T10:32',
-      action: 'created the client record.'
-    },
-    {
-      id: `${baseId}-edited`,
-      type: 'edited',
-      person: manager,
-      date: '6d ago',
-      dateTime: '2026-01-19T11:03',
-      action: 'updated intake details.'
-    },
-    {
-      id: `${baseId}-sent`,
-      type: 'sent',
-      person: manager,
-      date: '6d ago',
-      dateTime: '2026-01-19T11:24',
-      action: 'sent the invoice.'
-    },
-    {
-      id: `${baseId}-commented`,
-      type: 'commented',
-      person: manager,
-      comment: `Messaged ${clientName}, they reassured us the invoice will be paid by the 25th.`,
-      date: '3d ago',
-      dateTime: '2026-01-22T15:56'
-    },
-    {
-      id: `${baseId}-viewed`,
-      type: 'viewed',
-      person: reviewer,
-      date: '2d ago',
-      dateTime: '2026-01-23T09:12',
-      action: 'viewed the invoice.'
-    },
-    {
-      id: `${baseId}-paid`,
-      type: 'paid',
-      person: reviewer,
-      date: '1d ago',
-      dateTime: '2026-01-24T09:20',
-      action: 'paid the invoice.'
-    }
-  ];
-};
-
-const makeClient = (name: string, status: ClientStatus, phone: string | null) => ({
-  id: `client-${slugify(name)}`,
-  name,
-  email: `${slugify(name).replace(/-/g, '.')}@blawby.com`,
-  phone,
-  status,
-  activity: buildActivity(name)
-});
-
-const baseClients: ClientRecord[] = [
-  {
-    id: 'client-avery-chen',
-    name: 'Avery Chen',
-    email: 'avery.chen@blawby.com',
-    phone: '4155550198',
-    status: 'Client',
-    activity: buildActivity('Avery Chen')
-  },
-  {
-    id: 'client-jordan-patel',
-    name: 'Jordan Patel',
-    email: 'jordan.patel@blawby.com',
-    phone: '3125550144',
-    status: 'Lead',
-    activity: buildActivity('Jordan Patel')
-  },
-  {
-    id: 'client-luna-martinez',
-    name: 'Luna Martinez',
-    email: 'luna.martinez@blawby.com',
-    phone: '6465550177',
-    status: 'Client',
-    activity: buildActivity('Luna Martinez')
-  },
-  {
-    id: 'client-miles-okafor',
-    name: 'Miles Okafor',
-    email: 'miles.okafor@blawby.com',
-    phone: null,
-    status: 'Lead',
-    activity: buildActivity('Miles Okafor')
-  },
-  {
-    id: 'client-priya-desai',
-    name: 'Priya Desai',
-    email: 'priya.desai@blawby.com',
-    phone: '2125550113',
-    status: 'Client',
-    activity: buildActivity('Priya Desai')
-  },
-  {
-    id: 'client-sawyer-brooks',
-    name: 'Sawyer Brooks',
-    email: 'sawyer.brooks@blawby.com',
-    phone: '9175550135',
-    status: 'Client',
-    activity: buildActivity('Sawyer Brooks')
-  },
-  {
-    id: 'client-talia-nguyen',
-    name: 'Talia Nguyen',
-    email: 'talia.nguyen@blawby.com',
-    phone: null,
-    status: 'Lead',
-    activity: buildActivity('Talia Nguyen')
-  },
-  {
-    id: 'client-zane-howard',
-    name: 'Zane Howard',
-    email: 'zane.howard@blawby.com',
-    phone: '3055550122',
-    status: 'Client',
-    activity: buildActivity('Zane Howard')
-  }
-];
-
-const extraClients: ClientRecord[] = [
-  makeClient('Brooke Alvarez', 'Lead', '6195550147'),
-  makeClient('Cameron Whitfield', 'Client', '5035550192'),
-  makeClient('Daria Feldman', 'Client', null),
-  makeClient('Elliot Park', 'Lead', '2135550188'),
-  makeClient('Fatima Yusuf', 'Client', '2065550174'),
-  makeClient('Gianna Russo', 'Client', null),
-  makeClient('Hector Ibarra', 'Lead', '7025550161'),
-  makeClient('Isabel Flores', 'Client', '9175550126'),
-  makeClient('Jonas Keller', 'Lead', '4155550112'),
-  makeClient('Keira Dawson', 'Client', null),
-  makeClient('Levi Grant', 'Client', '8085550140'),
-  makeClient('Maya Kapoor', 'Lead', '3125550194'),
-  makeClient('Noah Bennett', 'Client', '6465550189'),
-  makeClient('Olivia Rhodes', 'Lead', null),
-  makeClient('Paolo Ricci', 'Client', '3475550133'),
-  makeClient('Quinn Bailey', 'Lead', '5125550166'),
-  makeClient('Renee Wallace', 'Client', null),
-  makeClient('Samir Haddad', 'Client', '2125550179'),
-  makeClient('Tessa Nguyen', 'Lead', '4155550155'),
-  makeClient('Uma Patel', 'Client', null),
-  makeClient('Victor Chen', 'Lead', '7185550107'),
-  makeClient('Willa Parks', 'Client', '9095550129'),
-  makeClient('Xavier Ortiz', 'Lead', null),
-  makeClient('Yara Haddad', 'Client', '3055550170'),
-  makeClient('Zoe Hart', 'Lead', '6465550148')
-];
-
-const mockClients: ClientRecord[] = [...baseClients, ...extraClients];
-
 const EmptyState = () => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
@@ -252,24 +96,40 @@ const EmptyState = () => (
   </div>
 );
 
-const StatusPill = ({ status }: { status: ClientStatus }) => (
+const StatusPill = ({ status }: { status: UserDetailStatus }) => (
   <span
     className={cn(
       'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-      status === 'Client'
+      status === 'active'
         ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
-        : 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+        : status === 'lead'
+          ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+          : status === 'inactive'
+            ? 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-200'
+            : 'bg-slate-200 text-slate-700 dark:bg-slate-900/40 dark:text-slate-200'
     )}
   >
-    {status}
+    {STATUS_LABELS[status]}
   </span>
 );
 
 const ClientDetailPanel = ({
   client,
+  activity,
+  onAddMemo,
+  memoSubmitting = false,
+  onEditMemo,
+  onDeleteMemo,
+  memoActionId,
   paddingClassName = 'px-6 py-6'
 }: {
   client: ClientRecord;
+  activity: TimelineItem[];
+  onAddMemo?: (value: string) => void | Promise<void>;
+  memoSubmitting?: boolean;
+  onEditMemo?: (memoId: string, value: string) => void | Promise<void>;
+  onDeleteMemo?: (memoId: string) => void | Promise<void>;
+  memoActionId?: string | null;
   paddingClassName?: string;
 }) => (
   <div className="h-full overflow-y-auto">
@@ -330,7 +190,18 @@ const ClientDetailPanel = ({
       <div className="pt-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Activity Feed</h3>
         <div className="mt-4 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
-          <ActivityTimeline items={client.activity} showComposer composerDisabled />
+          <ActivityTimeline
+            items={activity}
+            showComposer
+            composerDisabled={!onAddMemo}
+            composerSubmitting={memoSubmitting}
+            onComposerSubmit={onAddMemo}
+            composerLabel="Add memo"
+            composerPlaceholder="Add a memo..."
+            onEditComment={onEditMemo}
+            onDeleteComment={onDeleteMemo}
+            commentActionsDisabled={memoSubmitting || Boolean(memoActionId)}
+          />
         </div>
       </div>
     </div>
@@ -339,9 +210,17 @@ const ClientDetailPanel = ({
 
 export const PracticeClientsPage = () => {
   const isMobile = useMobileDetection();
+  const { currentPractice } = usePracticeManagement();
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsError, setClientsError] = useState<string | null>(null);
+  const [memoTimeline, setMemoTimeline] = useState<Record<string, TimelineItem[]>>({});
+  const [memoSubmitting, setMemoSubmitting] = useState(false);
+  const [memoActionId, setMemoActionId] = useState<string | null>(null);
+
   const sortedClients = useMemo(
-    () => [...mockClients].sort((a, b) => a.name.localeCompare(b.name)),
-    []
+    () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
+    [clients]
   );
   const groupedClients = useMemo(() => {
     return sortedClients.reduce<Record<string, ClientRecord[]>>((acc, client) => {
@@ -364,12 +243,156 @@ export const PracticeClientsPage = () => {
     return sortedClients.find((client) => client.id === selectedClientId) ?? sortedClients[0] ?? null;
   }, [selectedClientId, sortedClients]);
 
+  const selectedClientActivity = useMemo(() => {
+    if (!selectedClient) return [];
+    return memoTimeline[selectedClient.id] ?? [];
+  }, [memoTimeline, selectedClient]);
+
   const handleSelectClient = useCallback((clientId: string) => {
     setSelectedClientId(clientId);
     if (isMobile) {
       setIsDrawerOpen(true);
     }
   }, [isMobile]);
+
+  const buildClientRecord = useCallback((detail: UserDetailRecord): ClientRecord => {
+    const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown Client';
+    return {
+      id: detail.id,
+      name,
+      email: detail.user?.email ?? 'Unknown email',
+      phone: detail.user?.phone ?? null,
+      status: detail.status
+    };
+  }, []);
+
+  const mapMemosToTimeline = useCallback((client: ClientRecord, memos: UserDetailMemoRecord[]): TimelineItem[] => {
+    return memos.map((memo, index) => {
+      const rawDate =
+        memo.created_at ||
+        memo.createdAt ||
+        memo.updated_at ||
+        memo.updatedAt ||
+        new Date().toISOString();
+      const comment =
+        memo.memo ??
+        memo.content ??
+        memo.body ??
+        memo.note ??
+        '';
+      const personName =
+        memo.user?.name ??
+        memo.user?.email ??
+        'Team member';
+      const date = formatDate(rawDate);
+      return {
+        id: memo.id ?? `${client.id}-memo-${index}`,
+        type: 'commented',
+        person: {
+          name: personName || 'Team member'
+        },
+        date,
+        dateTime: rawDate,
+        comment
+      };
+    });
+  }, []);
+
+  const refreshClientMemos = useCallback(async (client: ClientRecord) => {
+    if (!currentPractice?.id) return;
+    const memos = await listUserDetailMemos(currentPractice.id, client.id);
+    setMemoTimeline((prev) => ({
+      ...prev,
+      [client.id]: mapMemosToTimeline(client, memos)
+    }));
+  }, [currentPractice?.id, mapMemosToTimeline]);
+
+  useEffect(() => {
+    if (!currentPractice?.id) {
+      setClients([]);
+      return;
+    }
+
+    setClientsLoading(true);
+    setClientsError(null);
+
+    listUserDetails(currentPractice.id, { limit: 100, offset: 0 })
+      .then((response) => {
+        const nextClients = response.data.map(buildClientRecord);
+        setClients(nextClients);
+        if (nextClients.length > 0) {
+          setSelectedClientId((prev) => (prev && nextClients.some(c => c.id === prev) ? prev : nextClients[0].id));
+        } else {
+          setSelectedClientId('');
+        }
+      })
+      .catch((error) => {
+        console.error('[Clients] Failed to load user details', error);
+        setClientsError('Failed to load clients');
+      })
+      .finally(() => {
+        setClientsLoading(false);
+      });
+  }, [buildClientRecord, currentPractice?.id]);
+
+  useEffect(() => {
+    if (!currentPractice?.id || !selectedClient) return;
+    if (memoTimeline[selectedClient.id]) return;
+
+    refreshClientMemos(selectedClient)
+      .catch((error) => {
+        console.error('[Clients] Failed to load client memos', error);
+        setMemoTimeline((prev) => ({
+          ...prev,
+          [selectedClient.id]: []
+        }));
+      });
+  }, [currentPractice?.id, memoTimeline, refreshClientMemos, selectedClient]);
+
+  const handleMemoSubmit = useCallback(async (text: string) => {
+    if (!currentPractice?.id || !selectedClient) return;
+    if (memoSubmitting) return;
+
+    setMemoSubmitting(true);
+    try {
+      await createUserDetailMemo(currentPractice.id, selectedClient.id, { memo: text });
+      await refreshClientMemos(selectedClient);
+    } catch (error) {
+      console.error('[Clients] Failed to create memo', error);
+    } finally {
+      setMemoSubmitting(false);
+    }
+  }, [currentPractice?.id, memoSubmitting, refreshClientMemos, selectedClient]);
+
+  const handleMemoEdit = useCallback(async (memoId: string, text: string) => {
+    if (!currentPractice?.id || !selectedClient) return;
+    if (memoActionId) return;
+    setMemoActionId(memoId);
+    try {
+      await updateUserDetailMemo(currentPractice.id, selectedClient.id, memoId, { memo: text });
+      await refreshClientMemos(selectedClient);
+    } catch (error) {
+      console.error('[Clients] Failed to update memo', error);
+    } finally {
+      setMemoActionId(null);
+    }
+  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient]);
+
+  const handleMemoDelete = useCallback(async (memoId: string) => {
+    if (!currentPractice?.id || !selectedClient) return;
+    if (memoActionId) return;
+    const confirmed = window.confirm('Delete this memo?');
+    if (!confirmed) return;
+    setMemoActionId(memoId);
+    try {
+      await deleteUserDetailMemo(currentPractice.id, selectedClient.id, memoId);
+      await refreshClientMemos(selectedClient);
+    } catch (error) {
+      console.error('[Clients] Failed to delete memo', error);
+    } finally {
+      setMemoActionId(null);
+    }
+  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient]);
 
   const updateCurrentLetter = useCallback(() => {
     const container = listRef.current;
@@ -417,6 +440,38 @@ export const PracticeClientsPage = () => {
       container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
     }
   }, []);
+
+  if (clientsLoading) {
+    return (
+      <div className="h-full p-6">
+        <div className="max-w-6xl mx-auto h-full">
+          <PageHeader
+            title="Clients"
+            subtitle="A unified list of client relationships tied to conversations and matters."
+          />
+          <div className="mt-6 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg min-h-[520px] flex items-center justify-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Loading clients...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (clientsError) {
+    return (
+      <div className="h-full p-6">
+        <div className="max-w-6xl mx-auto h-full">
+          <PageHeader
+            title="Clients"
+            subtitle="A unified list of client relationships tied to conversations and matters."
+          />
+          <div className="mt-6 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg min-h-[520px] flex items-center justify-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{clientsError}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (sortedClients.length === 0) {
     return (
@@ -539,7 +594,15 @@ export const PracticeClientsPage = () => {
             </div>
             <div className="hidden lg:block flex-1">
               {selectedClient ? (
-                <ClientDetailPanel client={selectedClient} />
+                <ClientDetailPanel
+                  client={selectedClient}
+                  activity={selectedClientActivity}
+                  onAddMemo={handleMemoSubmit}
+                  memoSubmitting={memoSubmitting}
+                  onEditMemo={handleMemoEdit}
+                  onDeleteMemo={handleMemoDelete}
+                  memoActionId={memoActionId}
+                />
               ) : (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
@@ -565,7 +628,16 @@ export const PracticeClientsPage = () => {
           type="drawer"
           title="Client Details"
         >
-          <ClientDetailPanel client={selectedClient} paddingClassName="px-0 py-0" />
+          <ClientDetailPanel
+            client={selectedClient}
+            activity={selectedClientActivity}
+            onAddMemo={handleMemoSubmit}
+            memoSubmitting={memoSubmitting}
+            onEditMemo={handleMemoEdit}
+            onDeleteMemo={handleMemoDelete}
+            memoActionId={memoActionId}
+            paddingClassName="px-0 py-0"
+          />
         </Modal>
       )}
     </div>
