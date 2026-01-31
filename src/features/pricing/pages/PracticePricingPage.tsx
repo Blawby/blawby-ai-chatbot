@@ -75,7 +75,7 @@ export const PracticePricingPage = () => {
   }, [currentPractice?.consultationFee]);
   const activeBillingIncrement = useMemo(() => {
     const raw = currentPractice?.billingIncrementMinutes;
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
   }, [currentPractice?.billingIncrementMinutes]);
 
   const feeEnabled = typeof activeFee === 'number' && activeFee > 0;
@@ -120,7 +120,7 @@ export const PracticePricingPage = () => {
   const openBillingModal = () => {
     const nextBilling = typeof activeBillingIncrement === 'number' && activeBillingIncrement > 0
       ? activeBillingIncrement
-      : undefined;
+      : 6;
     setBillingDraft(nextBilling);
     setShowBillingValidation(false);
     setIsBillingModalOpen(true);

@@ -1079,8 +1079,10 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if (paymentUrl !== undefined) normalized.payment_url = paymentUrl;
   const calendlyUrl = normalizeTextOrUndefined(payload.calendlyUrl);
   if (calendlyUrl !== undefined) normalized.calendly_url = calendlyUrl;
-  if ('billingIncrementMinutes' in payload && payload.billingIncrementMinutes !== undefined) {
-    if (typeof payload.billingIncrementMinutes === 'number' && Number.isFinite(payload.billingIncrementMinutes)) {
+  if ('billingIncrementMinutes' in payload) {
+    if (payload.billingIncrementMinutes === null) {
+      normalized.billing_increment_minutes = null;
+    } else if (typeof payload.billingIncrementMinutes === 'number' && Number.isFinite(payload.billingIncrementMinutes)) {
       normalized.billing_increment_minutes = Math.round(payload.billingIncrementMinutes);
     }
   }
