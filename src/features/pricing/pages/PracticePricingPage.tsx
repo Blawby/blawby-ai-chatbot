@@ -31,7 +31,7 @@ import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 
 const DEFAULT_PREVIEW_FEE = 150;
 
-type PricingModelTab = 'intake-fees' | 'hourly-rates' | 'contingency-fees' | 'project-fees';
+type PricingModelTab = 'intake-fees' | 'hourly-rates' | 'contingency-fees' | 'project-fees' | 'billing-increment';
 
 const formatDate = (value?: string | null, locale = 'en') => {
   if (!value) return '—';
@@ -373,7 +373,7 @@ export const PracticePricingPage = () => {
       onSelect: () => navigate('/practice/pricing/consultation-fee')
     },
     {
-      id: 'intake-fees',
+      id: 'billing-increment',
       label: 'Billing increment',
       description: 'Set the time-based billing step (1–60 min).',
       onSelect: () => navigate('/practice/pricing/billing-increment')
@@ -418,6 +418,12 @@ export const PracticePricingPage = () => {
       title: 'Create a project fee',
       description: 'Build fixed-fee templates for common matters.',
       action: 'Create project fee'
+    }
+    ,
+    'billing-increment': {
+      title: 'Set a billing increment',
+      description: 'Choose how many minutes each billing step represents.',
+      action: 'Set billing increment'
     }
   };
 
