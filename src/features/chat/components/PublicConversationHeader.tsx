@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 
@@ -17,12 +18,13 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
   presenceStatus,
   onBack
 }) => {
+  const { t } = useTranslation();
   const resolvedName = typeof practiceName === 'string'
     ? practiceName.trim()
     : '';
   const resolvedActive = typeof activeLabel === 'string' && activeLabel.trim().length > 0
     ? activeLabel.trim()
-    : 'Active now';
+    : t('embed.header.activeNow');
 
   return (
     <header className="flex items-center gap-3 border-b border-light-border bg-light-bg px-4 py-3 dark:border-dark-border dark:bg-dark-bg">
@@ -30,7 +32,7 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
         type="button"
         onClick={onBack}
         className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/10"
-        aria-label="Back"
+        aria-label={t('embed.header.back')}
       >
         <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
       </button>

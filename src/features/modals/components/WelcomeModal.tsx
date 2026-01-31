@@ -8,7 +8,9 @@ import ModalFooter from './ModalFooter';
 import { 
   ChatBubbleLeftRightIcon, 
   ShieldCheckIcon, 
-  ExclamationTriangleIcon 
+  ExclamationTriangleIcon,
+  BriefcaseIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline';
 
 interface WelcomeModalProps {
@@ -22,24 +24,57 @@ const WelcomeModal = ({ isOpen, onClose, onComplete, workspace }: WelcomeModalPr
   const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const tips = [
+  const isClient = workspace === 'client';
+
+  const tips = isClient ? [
+    {
+      id: 'messaging',
+      icon: ChatBubbleLeftRightIcon,
+      iconColor: 'text-blue-500',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/30',
+      title: t('welcome.client.tips.messaging.title'),
+      description: t('welcome.client.tips.messaging.description')
+    },
+    {
+      id: 'matters',
+      icon: BriefcaseIcon,
+      iconColor: 'text-green-500',
+      bgColor: 'bg-green-50 dark:bg-green-900/30',
+      title: t('welcome.client.tips.matters.title'),
+      description: t('welcome.client.tips.matters.description')
+    },
+    {
+      id: 'payments',
+      icon: CreditCardIcon,
+      iconColor: 'text-purple-500',
+      bgColor: 'bg-purple-50 dark:bg-purple-900/30',
+      title: t('welcome.client.tips.payments.title'),
+      description: t('welcome.client.tips.payments.description')
+    }
+  ] : [
     {
       id: 'askAway',
       icon: ChatBubbleLeftRightIcon,
       iconColor: 'text-blue-500',
       bgColor: 'bg-blue-50 dark:bg-blue-900/30',
+      title: t('onboarding.welcome.tips.askAway.title'),
+      description: t('onboarding.welcome.tips.askAway.description')
     },
     {
       id: 'privacy',
       icon: ShieldCheckIcon,
       iconColor: 'text-green-500',
       bgColor: 'bg-green-50 dark:bg-green-900/30',
+      title: t('onboarding.welcome.tips.privacy.title'),
+      description: t('onboarding.welcome.tips.privacy.description')
     },
     {
       id: 'accuracy',
       icon: ExclamationTriangleIcon,
       iconColor: 'text-yellow-500',
       bgColor: 'bg-yellow-50 dark:bg-yellow-900/30',
+      title: t('onboarding.welcome.tips.accuracy.title'),
+      description: t('onboarding.welcome.tips.accuracy.description')
     },
   ];
 
@@ -55,10 +90,14 @@ const WelcomeModal = ({ isOpen, onClose, onComplete, workspace }: WelcomeModalPr
 
   const title = workspace === 'practice'
     ? t('welcome.lawyer.title')
-    : t('onboarding.welcome.title');
+    : isClient 
+      ? t('welcome.client.title')
+      : t('onboarding.welcome.title');
   const subtitle = workspace === 'practice'
     ? t('welcome.lawyer.subtitle')
-    : t('onboarding.welcome.subtitle');
+    : isClient 
+      ? t('welcome.client.subtitle')
+      : t('onboarding.welcome.subtitle');
 
   return (
     <Modal
@@ -84,12 +123,12 @@ const WelcomeModal = ({ isOpen, onClose, onComplete, workspace }: WelcomeModalPr
                   <Icon className={`h-6 w-6 ${tip.iconColor}`} />
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {t(`onboarding.welcome.tips.${tip.id}.title`)}
+                  {tip.title}
                 </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   {tip.id === 'privacy' ? (
                     <Trans
-                      i18nKey={`onboarding.welcome.tips.${tip.id}.description`}
+                      i18nKey="onboarding.welcome.tips.privacy.description"
                       components={{
                         helpCenterLink: (
                           <a 
@@ -104,9 +143,9 @@ const WelcomeModal = ({ isOpen, onClose, onComplete, workspace }: WelcomeModalPr
                       }}
                     />
                   ) : (
-                    t(`onboarding.welcome.tips.${tip.id}.description`)
+                    tip.description
                   )}
-                </p>
+                </div>
               </div>
             );
           })}

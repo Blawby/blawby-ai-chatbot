@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useTranslation } from 'react-i18next';
 import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon } from '@heroicons/react/24/outline';
 
 interface PublicEmbedNavigationProps {
@@ -10,6 +11,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   activeTab,
   onSelectTab
 }) => {
+  const { t } = useTranslation();
   const isHome = activeTab === 'home';
   const isMessages = activeTab === 'messages';
 
@@ -27,7 +29,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
           aria-current={isHome ? 'page' : undefined}
         >
           <HomeIcon className="h-5 w-5" aria-hidden="true" />
-          <span>Home</span>
+          <span>{t('embed.navigation.home')}</span>
         </button>
         <button
           type="button"
@@ -36,7 +38,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
           aria-current={isMessages ? 'page' : undefined}
         >
           <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />
-          <span>Messages</span>
+          <span>{t('embed.navigation.messages')}</span>
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useTranslation } from 'react-i18next';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
@@ -26,6 +27,7 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
   onOpenRecentMessage,
   recentMessage
 }) => {
+  const { t } = useTranslation();
   const resolvedName = typeof practiceName === 'string'
     ? practiceName.trim()
     : '';
@@ -63,8 +65,8 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
         </div>
 
         <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">
-          <div className="animate-float-in">Hi there 👋</div>
-          <div className="animate-float-in [animation-delay:120ms]">How can we help?</div>
+          <div className="animate-float-in">{t('embed.home.greeting')}</div>
+          <div className="animate-float-in [animation-delay:120ms]">{t('embed.home.helpPrompt')}</div>
         </div>
       </section>
 
@@ -75,10 +77,10 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
             className="rounded-2xl border border-light-border bg-light-card-bg px-4 py-4 text-left shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg"
-            aria-label="Open recent message"
+            aria-label={t('embed.home.recentMessage')}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Recent message
+              {t('embed.home.recentMessage')}
             </div>
             <div className="mt-3 flex items-center gap-3">
               <Avatar
@@ -109,18 +111,18 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
           onClick={onSendMessage}
           disabled={!canSendMessage}
           className="group flex w-full items-center justify-between rounded-2xl border border-light-border bg-light-card-bg px-5 py-4 text-left text-gray-900 shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg dark:text-gray-100"
-          aria-label="Send us a message"
+          aria-label={t('embed.home.sendMessage')}
         >
-          <span className="text-base font-semibold">Send us a message</span>
+          <span className="text-base font-semibold">{t('embed.home.sendMessage')}</span>
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-500 text-gray-900 shadow-sm transition group-hover:scale-[1.02] group-hover:bg-accent-600">
             <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
           </span>
         </button>
 
         <div className="rounded-3xl border border-light-border bg-light-card-bg px-5 py-6 shadow-[0_20px_48px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Need to speak to a lawyer?</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('embed.home.consultation.title')}</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Share a few details and we will connect you with the right attorney for your situation.
+            {t('embed.home.consultation.description')}
           </p>
           <div className="mt-4">
             <Button
@@ -131,11 +133,11 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
               onClick={onRequestConsultation}
               disabled={!canRequestConsultation}
             >
-              Request Consultation
+              {t('embed.home.consultation.button')}
             </Button>
           </div>
           <div className="mt-4 text-center text-xs font-medium text-gray-400 dark:text-gray-500">
-            Powered by {poweredByLink}
+            {t('embed.home.poweredBy')} {poweredByLink}
           </div>
         </div>
       </section>
