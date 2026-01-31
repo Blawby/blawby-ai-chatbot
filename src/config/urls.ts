@@ -33,6 +33,7 @@
  *   /api/subscription/*            - Subscription management
  *   /api/members/*                 - Member management
  *   /api/practice/client-intakes/* - Intake settings, status, creation
+ *   /api/user-details/*            - Client user details & memos
  *   /api/conversations/:id/link    - Conversation link generation
  */
 

@@ -14,34 +14,17 @@ describe('RoleBadge', () => {
   it('should render admin role with correct styling', () => {
     render(<RoleBadge roleType="admin" />);
     
-    const badge = screen.getByText('Admin');
+    const badge = screen.getByText('Lawyer');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveClass('bg-primary-500', 'text-white');
   });
 
-  it('should render attorney role with correct styling', () => {
-    render(<RoleBadge roleType="attorney" />);
+  it('should render member role with correct styling', () => {
+    render(<RoleBadge roleType="member" />);
     
-    const badge = screen.getByText('Attorney');
+    const badge = screen.getByText('Client');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-blue-500', 'text-white');
-  });
-
-  it('should render paralegal role with correct styling', () => {
-    render(<RoleBadge roleType="paralegal" />);
-    
-    const badge = screen.getByText('Paralegal');
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-green-500', 'text-white');
-  });
-
-  it('should handle unknown role gracefully', () => {
-    // @ts-expect-error Testing unknown role
-    render(<RoleBadge roleType="unknown" />);
-    
-    const badge = screen.getByText('Unknown');
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('px-2', 'py-1', 'text-xs', 'font-medium', 'rounded');
+    expect(badge).toHaveClass('bg-emerald-500', 'text-white');
   });
 
   it('should apply custom className when provided', () => {
@@ -52,11 +35,12 @@ describe('RoleBadge', () => {
   });
 
   it('should have consistent base classes for all roles', () => {
-    const roles = ['owner', 'admin', 'attorney', 'paralegal'] as const;
+    const roles = ['owner', 'admin', 'member'] as const;
     
     roles.forEach(role => {
       const { unmount } = render(<RoleBadge roleType={role} />);
-      const badge = screen.getByText(role.charAt(0).toUpperCase() + role.slice(1));
+      const label = role === 'admin' ? 'Lawyer' : role === 'member' ? 'Client' : 'Owner';
+      const badge = screen.getByText(label);
       
       expect(badge).toHaveClass(
         'px-2',

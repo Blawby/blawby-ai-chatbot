@@ -6,7 +6,9 @@ import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { createPracticeInvitation, linkConversationToUser } from '@/shared/lib/apiClient';
+import { storePendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
+import type { Role } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
 
 type AuthMode = 'signin' | 'signup';
@@ -21,6 +23,8 @@ interface AuthFormProps {
     conversationId?: string | null;
     practiceId?: string | null;
   };
+  autoInviteOnAuth?: boolean;
+  inviteRole?: Role;
   showHeader?: boolean;
   showGoogleSignIn?: boolean;
   className?: string;
@@ -33,6 +37,8 @@ const AuthForm = ({
   onError,
   onModeChange,
   conversationContext,
+  autoInviteOnAuth = false,
+  inviteRole = 'member',
   showHeader = true,
   showGoogleSignIn = true,
   className = ''
@@ -149,6 +155,29 @@ const AuthForm = ({
     return promise;
   }, [conversationContext?.conversationId, conversationContext?.practiceId, onError]);
 
+  const createPracticeInviteIfNeeded = useCallback(async (email: string | null | undefined) => {
+    if (!autoInviteOnAuth) {
+      return;
+    }
+    const practiceId = conversationContext?.practiceId;
+    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
+    if (!practiceId || !normalizedEmail) {
+      return;
+    }
+
+    try {
+      const result = await createPracticeInvitation(practiceId, {
+        email: normalizedEmail,
+        role: inviteRole
+      });
+      if (result?.inviteUrl) {
+        storePendingPracticeInviteLink(result.inviteUrl);
+      }
+    } catch (error) {
+      console.warn('[AuthForm] Failed to create practice invitation', error);
+    }
+  }, [autoInviteOnAuth, conversationContext?.practiceId, inviteRole]);
+
   const notifySuccess = useCallback(async (user: unknown) => {
     if (!onSuccess) return;
 
@@ -203,6 +232,7 @@ const AuthForm = ({
 
         setMessage(t('messages.accountCreated'));
         await linkConversationIfNeeded();
+        await createPracticeInviteIfNeeded(result.data?.user?.email ?? formData.email);
         await notifySuccess(result.data?.user ?? null);
         navigateToStoredRedirect();
       } else {
@@ -232,6 +262,7 @@ const AuthForm = ({
 
         setMessage(t('messages.signedIn'));
         await linkConversationIfNeeded();
+        await createPracticeInviteIfNeeded(result.data?.user?.email ?? formData.email);
         await notifySuccess(result.data?.user ?? null);
         navigateToStoredRedirect();
       }

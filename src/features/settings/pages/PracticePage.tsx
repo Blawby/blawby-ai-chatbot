@@ -180,7 +180,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }, [practice, currentUserEmail, members, session?.user?.id]);
 
   const roleFromMembers = currentMember?.role ?? null;
-  const currentUserRole = activeMemberRole ?? roleFromMembers ?? 'paralegal';
+  const currentUserRole = activeMemberRole ?? roleFromMembers ?? 'member';
   const isOwner = currentUserRole === 'owner';
   const servicesList = useMemo(() => {
     const source = practiceDetails?.services ?? practice?.services;
