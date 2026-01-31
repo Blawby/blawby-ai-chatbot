@@ -9,7 +9,7 @@ import {
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
-import { EmailInput, FileInput, Input, Switch } from '@/shared/ui/input';
+import { FileInput, Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -34,6 +34,7 @@ import {
 
 interface OnboardingDetails {
   contactPhone?: string;
+  businessEmail?: string;
   website?: string;
   addressLine1?: string;
   addressLine2?: string;
@@ -62,7 +63,8 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
       description: details.description ?? undefined,
       isPublic: details.isPublic ?? undefined,
       services: details.services ?? undefined,
-      contactPhone: details.businessPhone ?? undefined
+      contactPhone: details.businessPhone ?? undefined,
+      businessEmail: details.businessEmail ?? undefined
     }
     : {};
   const baseFromPractice: OnboardingDetails = {
@@ -77,7 +79,8 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
     description: practice.description ?? undefined,
     isPublic: practice.isPublic ?? undefined,
     services: practice.services ?? undefined,
-    contactPhone: practice.businessPhone ?? undefined
+    contactPhone: practice.businessPhone ?? undefined,
+    businessEmail: practice.businessEmail ?? undefined
   };
   return { ...baseFromPractice, ...baseFromDetails };
 };
@@ -149,7 +152,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [editPracticeForm, setEditPracticeForm] = useState<EditPracticeFormState>({
     name: '',
     slug: '',
-    businessEmail: '',
     logo: ''
   });
   
@@ -270,9 +272,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const [isSettingsSaving, setIsSettingsSaving] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
   const [contactDraft, setContactDraft] = useState({
     website: '',
+    businessEmail: '',
     phone: '',
     addressLine1: '',
     addressLine2: '',
@@ -346,7 +348,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const openEditPracticeModal = () => {
     if (!practice) return;
-    const detailsEmail = practiceDetails?.businessEmail ?? practice.businessEmail ?? '';
     setLogoFiles([]);
     setLogoUploadProgress(null);
     setLogoUploading(false);
@@ -354,10 +355,10 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setEditPracticeForm({
       name: practice.name,
       slug: practice.slug || '',
-      businessEmail: detailsEmail,
       logo: practice.logo || ''
     });
     setDescriptionDraft(descriptionValue);
+    setIntroDraft(introMessageValue);
     setIsEditPracticeModalOpen(true);
   };
 
@@ -404,21 +405,20 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setIsSettingsSaving(true);
     try {
       const trimmedDescription = descriptionDraft.trim();
-      const trimmedEmail = editPracticeForm.businessEmail.trim();
-      const businessEmail = trimmedEmail ? trimmedEmail : undefined;
+      const trimmedIntro = introDraft.trim();
       const comparison = {
         name: practice.name,
         slug: practice.slug ?? null,
         logo: practice.logo ?? null,
-        businessEmail: practiceDetails?.businessEmail ?? practice.businessEmail ?? null,
-        description: practiceDetails?.description ?? practice.description ?? null
+        description: practiceDetails?.description ?? practice.description ?? null,
+        introMessage: practiceDetails?.introMessage ?? practice.introMessage ?? null
       };
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
         name: editPracticeForm.name,
         slug: editPracticeForm.slug,
         logo: trimmedLogo ? trimmedLogo : undefined,
-        businessEmail,
-        description: trimmedDescription ? trimmedDescription : undefined
+        description: trimmedDescription ? trimmedDescription : undefined,
+        introMessage: trimmedIntro ? trimmedIntro : undefined
       }, { compareTo: comparison });
 
       if (Object.keys(practicePayload).length > 0) {
@@ -453,6 +453,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setIsSettingsSaving(true);
     try {
       const { detailsPayload } = buildPracticeProfilePayloads({
+        businessEmail: updates.businessEmail,
         businessPhone: updates.contactPhone,
         website: updates.website,
         addressLine1: updates.addressLine1,
@@ -485,6 +486,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const openContactModal = () => {
     setContactDraft({
       website: websiteValue,
+      businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
       phone: phoneValue,
       addressLine1: onboardingData.addressLine1 || '',
       addressLine2: onboardingData.addressLine2 || '',
@@ -496,15 +498,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setIsContactModalOpen(true);
   };
 
-  const openIntroModal = () => {
-    setIntroDraft(introMessageValue);
-    setIsIntroModalOpen(true);
-  };
-
   const handleSaveContact = async () => {
     const success = await saveOnboardingSettings(
       {
         website: (contactDraft.website ?? '').trim(),
+        businessEmail: (contactDraft.businessEmail ?? '').trim(),
         contactPhone: (contactDraft.phone ?? '').trim(),
         addressLine1: (contactDraft.addressLine1 ?? '').trim(),
         addressLine2: (contactDraft.addressLine2 ?? '').trim(),
@@ -517,18 +515,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     );
     if (success) {
       setIsContactModalOpen(false);
-    }
-  };
-
-  const handleSaveIntro = async () => {
-    const success = await saveOnboardingSettings(
-      {
-        introMessage: introDraft.trim()
-      },
-      'Intro message updated.'
-    );
-    if (success) {
-      setIsIntroModalOpen(false);
     }
   };
 
@@ -700,38 +686,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                       onClick={openContactModal}
                       className="sm:hidden"
                       aria-label="Manage contact details"
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Intro Message Row */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Intro Message</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {introMessageValue ? truncateText(introMessageValue, 90) : 'Not set'}
-                    </p>
-                  </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={openIntroModal}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={openIntroModal}
-                      className="sm:hidden"
-                      aria-label="Manage intro message"
                       icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
                     />
                   </div>
@@ -927,17 +881,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           </div>
 
           <div>
-            <EmailInput
-              label="Business email"
-              value={editPracticeForm.businessEmail}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, businessEmail: value }))}
-              placeholder="contact@yourfirm.com"
-              disabled={isSettingsSaving}
-              showValidation
-            />
-          </div>
-
-          <div>
             {showLogoUploader ? (
               <>
                 <FileInput
@@ -992,7 +935,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <PracticeProfileTextFields
               description={descriptionDraft}
               onDescriptionChange={setDescriptionDraft}
-              showIntro={false}
+              introMessage={introDraft}
+              onIntroChange={setIntroDraft}
+              showIntro
               descriptionRows={4}
               descriptionLabel="Business description"
               descriptionPlaceholder="Tell us about your business..."
@@ -1025,6 +970,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           <PracticeContactFields
             data={{
               website: contactDraft.website,
+              businessEmail: contactDraft.businessEmail,
               contactPhone: contactDraft.phone,
               addressLine1: contactDraft.addressLine1,
               addressLine2: contactDraft.addressLine2,
@@ -1037,6 +983,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               setContactDraft((prev) => ({
                 ...prev,
                 website: next.website ?? prev.website ?? '',
+                businessEmail: next.businessEmail ?? prev.businessEmail ?? '',
                 phone: next.contactPhone ?? prev.phone ?? '',
                 addressLine1: next.addressLine1 ?? prev.addressLine1 ?? '',
                 addressLine2: next.addressLine2 ?? prev.addressLine2 ?? '',
@@ -1058,35 +1005,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               Cancel
             </Button>
             <Button onClick={handleSaveContact} disabled={isSettingsSaving}>
-              Save
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Intro Message Modal */}
-      <Modal
-        isOpen={isIntroModalOpen}
-        onClose={() => setIsIntroModalOpen(false)}
-        title="Intro Message"
-      >
-        <div className="space-y-4">
-          <PracticeProfileTextFields
-            introMessage={introDraft}
-            onIntroChange={setIntroDraft}
-            showDescription={false}
-            introRows={4}
-            disabled={isSettingsSaving}
-          />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setIsIntroModalOpen(false)}
-              disabled={isSettingsSaving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveIntro} disabled={isSettingsSaving}>
               Save
             </Button>
           </div>

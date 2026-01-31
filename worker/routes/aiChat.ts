@@ -48,6 +48,41 @@ const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; c
 
 const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
 
+const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null): Record<string, unknown> | null => {
+  if (!details) return null;
+  const normalized = { ...details };
+  const normalizeMoney = (value: unknown): number | null | undefined => {
+    if (value === null) return null;
+    if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+    return value / 100;
+  };
+  if ('consultation_fee' in normalized) {
+    const next = normalizeMoney(normalized.consultation_fee);
+    if (next !== undefined) {
+      normalized.consultation_fee = next;
+    }
+  }
+  if ('consultationFee' in normalized) {
+    const next = normalizeMoney(normalized.consultationFee);
+    if (next !== undefined) {
+      normalized.consultationFee = next;
+    }
+  }
+  if ('payment_link_prefill_amount' in normalized) {
+    const next = normalizeMoney(normalized.payment_link_prefill_amount);
+    if (next !== undefined) {
+      normalized.payment_link_prefill_amount = next;
+    }
+  }
+  if ('paymentLinkPrefillAmount' in normalized) {
+    const next = normalizeMoney(normalized.paymentLinkPrefillAmount);
+    if (next !== undefined) {
+      normalized.paymentLinkPrefillAmount = next;
+    }
+  }
+  return normalized;
+};
+
 export async function handleAiChat(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     throw HttpErrors.methodNotAllowed('Method not allowed');
@@ -66,6 +101,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
 
   const body = await parseJsonBody(request) as {
     conversationId?: string;
+    practiceSlug?: string;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
   };
 
@@ -119,7 +155,13 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     payload: { conversationId: body.conversationId }
   });
 
-  const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, practiceId);
+  const practiceSlug = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
+  const { details, isPublic } = await fetchPracticeDetailsWithCache(
+    env,
+    request,
+    practiceId,
+    practiceSlug || undefined
+  );
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
   let reply: string;
   let model = env.AI_MODEL || DEFAULT_AI_MODEL;
@@ -141,6 +183,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
       reply = `We currently handle ${formatServiceList(serviceNames)}. Would you like to request a consultation?`;
     }
   } else {
+    const aiDetails = normalizePracticeDetailsForAi(details);
     const aiClient = createAiClient(env);
     if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
       model = 'openai/gpt-4o-mini';
@@ -161,7 +204,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
         },
         {
           role: 'system',
-          content: `PRACTICE_CONTEXT: ${JSON.stringify(details)}`
+          content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`
         },
         ...body.messages.map((message) => ({
           role: message.role,

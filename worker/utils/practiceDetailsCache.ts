@@ -1,4 +1,5 @@
 import type { Env } from '../types.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 const CACHE_TTL_SECONDS = 600;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -18,7 +19,8 @@ const extractDetailsContainer = (payload: unknown): Record<string, unknown> | nu
 export const fetchPracticeDetailsWithCache = async (
   env: Env,
   request: Request,
-  practiceId: string
+  practiceId: string,
+  practiceSlug?: string | null
 ): Promise<{
   details: Record<string, unknown> | null;
   isPublic: boolean;
@@ -36,16 +38,41 @@ export const fetchPracticeDetailsWithCache = async (
     }
   }
 
+  const isUuid = (value: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+  let resolvedSlug = practiceSlug?.trim() || practiceId;
+  if (!practiceSlug && isUuid(practiceId)) {
+    try {
+      const practice = await RemoteApiService.getPractice(env, practiceId, request);
+      if (practice?.slug) {
+        resolvedSlug = practice.slug;
+      }
+    } catch {
+      resolvedSlug = practiceId;
+    }
+  }
+
   const baseUrl = new URL(request.url);
-  baseUrl.pathname = `/api/practice/details/${encodeURIComponent(practiceId)}`;
+  baseUrl.pathname = `/api/practice/details/${encodeURIComponent(resolvedSlug)}`;
   baseUrl.search = '';
 
-  const response = await fetch(baseUrl.toString(), {
+  let response = await fetch(baseUrl.toString(), {
     method: 'GET',
     headers: {
       Accept: 'application/json'
     }
   });
+
+  if (!response.ok && resolvedSlug !== practiceId) {
+    baseUrl.pathname = `/api/practice/details/${encodeURIComponent(practiceId)}`;
+    response = await fetch(baseUrl.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      }
+    });
+  }
 
   if (!response.ok) {
     return { details: null, isPublic: false };

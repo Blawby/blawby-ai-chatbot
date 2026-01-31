@@ -4,7 +4,6 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 export type EditPracticeFormState = {
   name: string;
   slug: string;
-  businessEmail: string;
   logo: string;
 };
 
@@ -32,7 +31,6 @@ export const usePracticeMembersSync = ({
     setEditPracticeForm({
       name: practice.name,
       slug: practice.slug || '',
-      businessEmail: practice.businessEmail ?? '',
       logo: practice.logo || ''
     });
 

@@ -2,10 +2,11 @@
  * PracticeContactFields - shared contact/address fields for onboarding and settings.
  */
 
-import { Input, PhoneInput, URLInput } from '@/shared/ui/input';
+import { EmailInput, Input, PhoneInput, URLInput } from '@/shared/ui/input';
 
 export interface PracticeContactData {
   website?: string;
+  businessEmail?: string;
   contactPhone?: string;
   addressLine1?: string;
   addressLine2?: string;
@@ -36,8 +37,17 @@ export const PracticeContactFields = ({
         placeholder="https://yourfirm.com"
       />
 
+      <EmailInput
+        label="Business Email"
+        value={data.businessEmail || ''}
+        onChange={(value) => onChange({ ...data, businessEmail: value })}
+        disabled={disabled}
+        placeholder="contact@yourfirm.com"
+        showValidation
+      />
+
       <PhoneInput
-        label="Phone"
+        label="Business Phone"
         value={data.contactPhone || ''}
         onChange={(value) => onChange({ ...data, contactPhone: value })}
         disabled={disabled}

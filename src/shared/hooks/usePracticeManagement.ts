@@ -116,6 +116,7 @@ export interface Practice {
   calendlyUrl: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  billingIncrementMinutes?: number | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -387,6 +388,17 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     }
     return undefined;
   };
+  const getDetailNumber = (camel: string, snake: string): number | null | undefined => {
+    const candidate =
+      (raw as Record<string, unknown>)[camel] ?? (raw as Record<string, unknown>)[snake];
+    if (candidate === null) return null;
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      const parsed = Number(candidate);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  };
 
   const services = (() => {
     const candidate =
@@ -451,6 +463,7 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessOnboardingSkipped: onboardingSkipped,
     businessOnboardingHasDraft: onboardingData != null && Object.keys(onboardingData).length > 0,
     businessOnboardingStatus: onboardingStatus,
+    billingIncrementMinutes: getDetailNumber('billingIncrementMinutes', 'billing_increment_minutes') ?? null,
     website: getDetailString('website', 'website'),
     addressLine1: getDetailString('addressLine1', 'address_line_1'),
     addressLine2: getDetailString('addressLine2', 'address_line_2'),
@@ -487,6 +500,7 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfDefined('consultationFee', details.consultationFee as Practice['consultationFee'] | undefined);
   setIfDefined('paymentUrl', details.paymentUrl as Practice['paymentUrl'] | undefined);
   setIfDefined('calendlyUrl', details.calendlyUrl as Practice['calendlyUrl'] | undefined);
+  setIfDefined('billingIncrementMinutes', details.billingIncrementMinutes as Practice['billingIncrementMinutes'] | undefined);
   setIfNonNull('website', details.website as Practice['website'] | undefined | null);
   setIfNonNull('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined | null);
   setIfNonNull('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined | null);
