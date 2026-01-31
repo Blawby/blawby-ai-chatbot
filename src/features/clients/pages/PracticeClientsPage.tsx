@@ -10,6 +10,7 @@ import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import {
   listUserDetails,
   listUserDetailMemos,
@@ -362,6 +363,7 @@ const ClientDetailPanel = ({
 export const PracticeClientsPage = () => {
   const isMobile = useMobileDetection();
   const { currentPractice } = usePracticeManagement();
+  const { showError } = useToastContext();
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [clientsError, setClientsError] = useState<string | null>(null);
@@ -568,10 +570,11 @@ export const PracticeClientsPage = () => {
       await refreshClientMemos(selectedClient);
     } catch (error) {
       console.error('[Clients] Failed to create memo', error);
+      showError('Could not add memo', 'Please try again.');
     } finally {
       setMemoSubmitting(false);
     }
-  }, [currentPractice?.id, memoSubmitting, refreshClientMemos, selectedClient]);
+  }, [currentPractice?.id, memoSubmitting, refreshClientMemos, selectedClient, showError]);
 
   const handleMemoEdit = useCallback(async (memoId: string, text: string) => {
     if (!currentPractice?.id || !selectedClient) return;
@@ -582,10 +585,11 @@ export const PracticeClientsPage = () => {
       await refreshClientMemos(selectedClient);
     } catch (error) {
       console.error('[Clients] Failed to update memo', error);
+      showError('Could not update memo', 'Please try again.');
     } finally {
       setMemoActionId(null);
     }
-  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient]);
+  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient, showError]);
 
   const handleMemoDelete = useCallback(async (memoId: string) => {
     if (!currentPractice?.id || !selectedClient) return;
@@ -598,10 +602,11 @@ export const PracticeClientsPage = () => {
       await refreshClientMemos(selectedClient);
     } catch (error) {
       console.error('[Clients] Failed to delete memo', error);
+      showError('Could not delete memo', 'Please try again.');
     } finally {
       setMemoActionId(null);
     }
-  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient]);
+  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient, showError]);
 
   const handleOpenAddClient = useCallback(() => {
     setAddClientError(null);
@@ -742,12 +747,12 @@ export const PracticeClientsPage = () => {
     try {
       await deleteUserDetail(currentPractice.id, selectedClient.id);
       await fetchClientsPage(1, { replace: true });
-      setSelectedClientId('');
       setIsDrawerOpen(false);
     } catch (error) {
       console.error('[Clients] Failed to delete client', error);
+      showError('Could not delete client', 'Please try again.');
     }
-  }, [currentPractice?.id, fetchClientsPage, selectedClient]);
+  }, [currentPractice?.id, fetchClientsPage, selectedClient, showError]);
 
   const handleSubmitAddClient = useCallback(async () => {
     if (!currentPractice?.id) return;

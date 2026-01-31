@@ -75,14 +75,14 @@ export const ActivityTimeline = ({
 
   const handleSubmit = useCallback(async (event: Event) => {
     event.preventDefault();
-    if (isSubmitDisabled) return;
+    if (composerDisabled || composerSubmitting) return;
     const trimmed = resolvedValue.trim();
     if (!trimmed) return;
     await onComposerSubmit?.(trimmed);
     if (!isControlled) {
       setDraft('');
     }
-  }, [isControlled, isSubmitDisabled, onComposerSubmit, resolvedValue]);
+  }, [composerDisabled, composerSubmitting, isControlled, onComposerSubmit, resolvedValue]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
