@@ -84,6 +84,7 @@ export interface Practice {
   calendlyUrl: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  billingIncrementMinutes?: number | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -131,14 +132,13 @@ export interface CreatePracticeRequest {
   calendlyUrl?: string;
 }
 
-export type UpdatePracticeRequest = Partial<CreatePracticeRequest>;
-
 export interface PracticeDetailsUpdate {
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
+  billingIncrementMinutes?: number | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -154,12 +154,15 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
 }
 
+export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
+
 export interface PracticeDetails {
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
+  billingIncrementMinutes?: number | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -344,6 +347,16 @@ function normalizePracticePayload(payload: unknown): Practice {
     calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
     createdAt: toNullableString(record.createdAt ?? record.created_at),
     updatedAt: toNullableString(record.updatedAt ?? record.updated_at),
+    billingIncrementMinutes: (() => {
+      const value = record.billingIncrementMinutes ?? record.billing_increment_minutes;
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string' && value.trim().length > 0) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      return null;
+    })(),
     website: toNullableString(record.website),
     addressLine1: toNullableString(record.addressLine1 ?? record.address_line_1),
     addressLine2: toNullableString(record.addressLine2 ?? record.address_line_2),
@@ -860,12 +873,12 @@ export async function updatePracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const normalized = normalizePracticeDetailsPayload(details);
+  const normalized = normalizePracticeUpdatePayload(details);
   if (import.meta.env.DEV) {
     console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
   }
   const response = await apiClient.put(
-    `/api/practice/${encodeURIComponent(practiceId)}/details`,
+    `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     { signal: config?.signal }
   );
@@ -881,7 +894,7 @@ export async function getPracticeDetails(
   }
   try {
     const response = await apiClient.get(
-      `/api/practice/${encodeURIComponent(practiceId)}/details`,
+      `/api/practice/${encodeURIComponent(practiceId)}`,
       { signal: config?.signal }
     );
     return normalizePracticeDetailsResponse(response.data);
@@ -962,31 +975,12 @@ export async function getPublicPracticeDetails(
 }
 
 function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
-  const normalized: Record<string, unknown> = {};
+  const normalized = normalizePracticeDetailsPayload(payload);
 
   if ('name' in payload && payload.name !== undefined) normalized.name = payload.name;
   if ('slug' in payload && payload.slug !== undefined) normalized.slug = payload.slug;
   if ('logo' in payload && payload.logo !== undefined) normalized.logo = payload.logo;
   if ('metadata' in payload && payload.metadata !== undefined) normalized.metadata = payload.metadata;
-
-  if ('businessEmail' in payload && payload.businessEmail !== undefined) {
-    normalized.business_email = payload.businessEmail;
-  }
-  if ('businessPhone' in payload && payload.businessPhone !== undefined) {
-    normalized.business_phone = payload.businessPhone;
-  }
-  if ('consultationFee' in payload && payload.consultationFee !== undefined) {
-    if (typeof payload.consultationFee === 'number') {
-      assertMajorUnits(payload.consultationFee, 'practice.consultationFee');
-    }
-    normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee ?? null);
-  }
-  if ('paymentUrl' in payload && payload.paymentUrl !== undefined) {
-    normalized.payment_url = payload.paymentUrl;
-  }
-  if ('calendlyUrl' in payload && payload.calendlyUrl !== undefined) {
-    normalized.calendly_url = payload.calendlyUrl;
-  }
 
   return normalized;
 }
@@ -1057,42 +1051,53 @@ function extractPublicPracticeId(payload: unknown): string | null {
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
-  const normalizeTextOrNull = (value: unknown): string | null | undefined => {
-    if (value === undefined) return undefined; // Not provided
-    if (value === null) return null; // Explicit clear
+  const normalizeTextOrUndefined = (value: unknown): string | undefined => {
+    if (value === undefined || value === null) return undefined; // Do not send nulls
     if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    return trimmed.length > 0 ? trimmed : undefined;
   };
+  const normalizeServiceKey = (value: string): string => (
+    value
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+  );
 
-  const businessEmail = normalizeTextOrNull(payload.businessEmail);
+  const businessEmail = normalizeTextOrUndefined(payload.businessEmail);
   if (businessEmail !== undefined) normalized.business_email = businessEmail;
-  const businessPhone = normalizeTextOrNull(payload.businessPhone);
+  const businessPhone = normalizeTextOrUndefined(payload.businessPhone);
   if (businessPhone !== undefined) normalized.business_phone = businessPhone;
-  if ('consultationFee' in payload && payload.consultationFee !== undefined) {
+  if ('consultationFee' in payload && payload.consultationFee !== undefined && payload.consultationFee !== null) {
     if (typeof payload.consultationFee === 'number') {
       assertMajorUnits(payload.consultationFee, 'practice.consultationFee');
     }
-    normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee ?? null);
+    normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee);
   }
-  const paymentUrl = normalizeTextOrNull(payload.paymentUrl);
+  const paymentUrl = normalizeTextOrUndefined(payload.paymentUrl);
   if (paymentUrl !== undefined) normalized.payment_url = paymentUrl;
-  const calendlyUrl = normalizeTextOrNull(payload.calendlyUrl);
+  const calendlyUrl = normalizeTextOrUndefined(payload.calendlyUrl);
   if (calendlyUrl !== undefined) normalized.calendly_url = calendlyUrl;
-  const website = normalizeTextOrNull(payload.website);
+  if ('billingIncrementMinutes' in payload && payload.billingIncrementMinutes !== undefined) {
+    if (typeof payload.billingIncrementMinutes === 'number' && Number.isFinite(payload.billingIncrementMinutes)) {
+      normalized.billing_increment_minutes = Math.round(payload.billingIncrementMinutes);
+    }
+  }
+  const website = normalizeTextOrUndefined(payload.website);
   if (website !== undefined) normalized.website = website;
   const address: Record<string, unknown> = {};
-  const addressLine1 = normalizeTextOrNull(payload.addressLine1);
+  const addressLine1 = normalizeTextOrUndefined(payload.addressLine1);
   if (addressLine1 !== undefined) address.line1 = addressLine1;
-  const addressLine2 = normalizeTextOrNull(payload.addressLine2);
+  const addressLine2 = normalizeTextOrUndefined(payload.addressLine2);
   if (addressLine2 !== undefined) address.line2 = addressLine2;
-  const city = normalizeTextOrNull(payload.city);
+  const city = normalizeTextOrUndefined(payload.city);
   if (city !== undefined) address.city = city;
-  const state = normalizeTextOrNull(payload.state);
+  const state = normalizeTextOrUndefined(payload.state);
   if (state !== undefined) address.state = state;
-  const postalCode = normalizeTextOrNull(payload.postalCode);
+  const postalCode = normalizeTextOrUndefined(payload.postalCode);
   if (postalCode !== undefined) address.postal_code = postalCode;
-  const country = normalizeTextOrNull(payload.country);
+  const country = normalizeTextOrUndefined(payload.country);
   if (country !== undefined) address.country = country;
   if (Object.keys(address).length > 0) {
     normalized.address = address;
@@ -1103,9 +1108,9 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  const introMessage = normalizeTextOrNull(payload.introMessage);
+  const introMessage = normalizeTextOrUndefined(payload.introMessage);
   if (introMessage !== undefined) normalized.intro_message = introMessage;
-  const description = normalizeTextOrNull(payload.description);
+  const description = normalizeTextOrUndefined(payload.description);
   if (description !== undefined) normalized.overview = description;
   if ('isPublic' in payload && payload.isPublic !== undefined) {
     normalized.is_public = payload.isPublic;
@@ -1117,13 +1122,25 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
           if (!isRecord(service)) {
             return null;
           }
-          const id = toNullableString(service.id);
+          const rawId = toNullableString(service.id);
+          const id = rawId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawId)
+            ? rawId
+            : null;
           const name = toNullableString(service.name ?? service.title);
-          if (!id || !name) {
+          if (!name) {
             return null;
           }
           const description = toNullableString(service.description);
-          const next: Record<string, unknown> = { id, name };
+          const rawKey = toNullableString(service.key);
+          const baseKey = rawKey ?? name ?? id;
+          const key = baseKey ? normalizeServiceKey(baseKey) : '';
+          if (!key) {
+            return null;
+          }
+          const next: Record<string, unknown> = { name, key };
+          if (id) {
+            next.id = id;
+          }
           if (description) {
             next.description = description;
           }
@@ -1153,6 +1170,8 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     'businessEmail',
     'consultation_fee',
     'consultationFee',
+    'billing_increment_minutes',
+    'billingIncrementMinutes',
     'payment_url',
     'paymentUrl',
     'calendly_url',
@@ -1163,25 +1182,44 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     'services',
     'address'
   ].some((key) => key in value));
+  const resolveCandidate = (value: unknown): Record<string, unknown> | null =>
+    isRecord(value) && hasMappedDetailKey(value) ? value : null;
   const container = (() => {
     if ('details' in payload && isRecord(payload.details)) {
       if ('data' in payload.details && isRecord(payload.details.data)) {
-        return payload.details.data;
+        const nested = resolveCandidate(payload.details.data);
+        if (nested) return nested;
       }
-      return payload.details;
+      const direct = resolveCandidate(payload.details);
+      if (direct) return direct;
     }
     if ('data' in payload && isRecord(payload.data)) {
       if ('details' in payload.data && isRecord(payload.data.details)) {
-        return payload.data.details;
+        const nested = resolveCandidate(payload.data.details);
+        if (nested) return nested;
       }
-      return payload.data;
+      if ('practice' in payload.data && isRecord(payload.data.practice)) {
+        const nested = resolveCandidate(payload.data.practice);
+        if (nested) return nested;
+      }
+      if ('organization' in payload.data && isRecord(payload.data.organization)) {
+        const nested = resolveCandidate(payload.data.organization);
+        if (nested) return nested;
+      }
+      const direct = resolveCandidate(payload.data);
+      if (direct) return direct;
     }
-    if (hasMappedDetailKey(payload)) {
-      return payload;
+    if ('practice' in payload && isRecord(payload.practice)) {
+      const nested = resolveCandidate(payload.practice);
+      if (nested) return nested;
     }
-    return null;
+    if ('organization' in payload && isRecord(payload.organization)) {
+      const nested = resolveCandidate(payload.organization);
+      if (nested) return nested;
+    }
+    return resolveCandidate(payload);
   })();
-  if (!container || !hasMappedDetailKey(container)) {
+  if (!container) {
     return null;
   }
 
@@ -1193,6 +1231,24 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     for (const key of keys) {
       if (key in source) {
         return toNullableString(source[key]);
+      }
+    }
+    return undefined;
+  };
+  const getOptionalNullableNumber = (
+    source: Record<string, unknown>,
+    keys: string[]
+  ): number | null | undefined => {
+    for (const key of keys) {
+      if (key in source) {
+        const value = source[key];
+        if (value === null) return null;
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        if (typeof value === 'string' && value.trim().length > 0) {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : undefined;
+        }
+        return undefined;
       }
     }
     return undefined;
@@ -1214,6 +1270,7 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     })(),
     paymentUrl: getOptionalNullableString(container, ['payment_url', 'paymentUrl']),
     calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
+    billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes', 'billingIncrementMinutes']),
     website: getOptionalNullableString(container, ['website']),
     introMessage: getOptionalNullableString(container, ['intro_message', 'introMessage']),
     description: getOptionalNullableString(container, ['overview', 'description']),

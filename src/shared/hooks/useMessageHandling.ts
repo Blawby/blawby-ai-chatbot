@@ -1175,6 +1175,7 @@ export const useMessageHandling = ({
         { role: 'user' as const, content: trimmedMessage }
       ];
 
+      const resolvedPracticeSlug = (practiceSlug ?? '').trim() || undefined;
       const aiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -1184,6 +1185,7 @@ export const useMessageHandling = ({
         body: JSON.stringify({
           conversationId,
           practiceId: resolvedPracticeId,
+          practiceSlug: resolvedPracticeSlug,
           messages: aiMessages
         })
       });
@@ -1225,6 +1227,7 @@ export const useMessageHandling = ({
     messages,
     mode,
     practiceId,
+    practiceSlug,
     onError,
     sendMessageOverWs,
     updateConversationMetadata

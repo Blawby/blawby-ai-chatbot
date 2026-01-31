@@ -3,6 +3,7 @@ import { useLocation } from 'preact-iso';
 import {
   CreditCardIcon,
   EllipsisHorizontalIcon,
+  ClockIcon,
   LockClosedIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
@@ -13,7 +14,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { asMajor, asMinor, toMinorUnitsValue, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Switch } from '@/shared/ui/input';
+import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
 import { PageHeader } from '@/shared/ui/layout';
 import { Breadcrumbs } from '@/shared/ui/navigation';
@@ -50,6 +51,9 @@ export const PracticePricingPage = () => {
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [feeEnabledDraft, setFeeEnabledDraft] = useState(false);
   const [feeDraft, setFeeDraft] = useState<MajorAmount | undefined>(undefined);
+  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
+  const [billingDraft, setBillingDraft] = useState<number | undefined>(undefined);
+  const [showBillingValidation, setShowBillingValidation] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const checkoutPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -63,13 +67,19 @@ export const PracticePricingPage = () => {
     ? pathSegments[2]
     : undefined;
   const isConsultationDetail = detailSlug === 'consultation-fee';
+  const isBillingDetail = detailSlug === 'billing-increment';
 
   const activeFee = useMemo(() => {
     const raw = currentPractice?.consultationFee;
     return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
   }, [currentPractice?.consultationFee]);
+  const activeBillingIncrement = useMemo(() => {
+    const raw = currentPractice?.billingIncrementMinutes;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+  }, [currentPractice?.billingIncrementMinutes]);
 
   const feeEnabled = typeof activeFee === 'number' && activeFee > 0;
+  const billingEnabled = typeof activeBillingIncrement === 'number' && activeBillingIncrement > 0;
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
     return formatCurrency(activeFee, 'USD', locale);
@@ -105,6 +115,19 @@ export const PracticePricingPage = () => {
 
   const closeFeeModal = () => {
     setIsFeeModalOpen(false);
+  };
+
+  const openBillingModal = () => {
+    const nextBilling = typeof activeBillingIncrement === 'number' && activeBillingIncrement > 0
+      ? activeBillingIncrement
+      : undefined;
+    setBillingDraft(nextBilling);
+    setShowBillingValidation(false);
+    setIsBillingModalOpen(true);
+  };
+
+  const closeBillingModal = () => {
+    setIsBillingModalOpen(false);
   };
 
   const handlePreviewPayment = () => {
@@ -144,6 +167,44 @@ export const PracticePricingPage = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to update consultation fee.';
       showError('Consultation fee', message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const billingValidationError = showBillingValidation && (!Number.isFinite(billingDraft) || (billingDraft ?? 0) < 1 || (billingDraft ?? 0) > 60)
+    ? 'Enter a value between 1 and 60 minutes.'
+    : undefined;
+
+  const handleSaveBillingIncrement = async () => {
+    if (!currentPractice) {
+      showError('Billing increment', 'Missing practice information.');
+      return;
+    }
+    if (!canEdit) {
+      showError('Billing increment', 'Only owners and admins can update pricing.');
+      return;
+    }
+    if (!Number.isFinite(billingDraft) || (billingDraft ?? 0) < 1 || (billingDraft ?? 0) > 60) {
+      setShowBillingValidation(true);
+      showError('Billing increment', 'Enter a value between 1 and 60 minutes.');
+      return;
+    }
+
+    const nextValue = Math.round(billingDraft ?? 0);
+    if (nextValue === activeBillingIncrement) {
+      setIsBillingModalOpen(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updatePracticeDetails(currentPractice.id, { billingIncrementMinutes: nextValue });
+      showSuccess('Billing increment updated', 'Your billing increment has been saved.');
+      setIsBillingModalOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update billing increment.';
+      showError('Billing increment', message);
     } finally {
       setIsSaving(false);
     }
@@ -231,17 +292,75 @@ export const PracticePricingPage = () => {
     }
   };
 
-  const modelRows = modelTab === 'intake-fees' ? [consultationRow] : [];
+  const billingRow: DataTableRow = {
+    id: 'billing-increment',
+    onClick: () => navigate('/practice/pricing/billing-increment'),
+    cells: {
+      name: (
+        <div className="flex items-center gap-3">
+          <span className="h-10 w-10 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 flex items-center justify-center">
+            <ClockIcon className="h-4 w-4 text-gray-500 dark:text-gray-300" aria-hidden="true" />
+          </span>
+          <div>
+            <div className="text-sm font-semibold text-gray-900 dark:text-white">Billing increment</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Time-based billing step</div>
+          </div>
+        </div>
+      ),
+      pricing: billingEnabled ? (
+        <div>
+          <div className="text-sm font-semibold text-gray-900 dark:text-white">{activeBillingIncrement} min</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Per increment</div>
+        </div>
+      ) : (
+        <span className="text-sm text-gray-500 dark:text-gray-400">Not set</span>
+      ),
+      updated: updatedAt,
+      created: createdAt,
+      action: (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-200 dark:hover:bg-white/5"
+              aria-label="Open billing increment actions"
+              icon={
+                <EllipsisHorizontalIcon className="h-5 w-5" />
+              }
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[9rem]">
+            <DropdownMenuItem onSelect={() => navigate('/practice/pricing/billing-increment')}>
+              Edit
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+  };
+
+  const modelRows = modelTab === 'intake-fees' ? [consultationRow, billingRow] : [];
   const totalCount = modelRows.length;
-  const activeCount = modelTab === 'intake-fees' && feeEnabled ? 1 : 0;
+  const activeCount = modelTab === 'intake-fees'
+    ? (feeEnabled ? 1 : 0) + (billingEnabled ? 1 : 0)
+    : 0;
   const archivedCount = Math.max(0, totalCount - activeCount);
 
   const filteredRows = (() => {
     if (activeTab === 'active') {
-      return modelTab === 'intake-fees' && feeEnabled ? modelRows : [];
+      if (modelTab !== 'intake-fees') return [];
+      return modelRows.filter((row) => (
+        (row.id === 'consultation-fee' && feeEnabled) ||
+        (row.id === 'billing-increment' && billingEnabled)
+      ));
     }
     if (activeTab === 'archived') {
-      return modelTab === 'intake-fees' && !feeEnabled ? modelRows : [];
+      if (modelTab !== 'intake-fees') return [];
+      return modelRows.filter((row) => (
+        (row.id === 'consultation-fee' && !feeEnabled) ||
+        (row.id === 'billing-increment' && !billingEnabled)
+      ));
     }
     return modelRows;
   })();
@@ -252,6 +371,12 @@ export const PracticePricingPage = () => {
       label: 'Intake fee',
       description: 'Charge clients before intake confirmation.',
       onSelect: () => navigate('/practice/pricing/consultation-fee')
+    },
+    {
+      id: 'intake-fees',
+      label: 'Billing increment',
+      description: 'Set the time-based billing step (1–60 min).',
+      onSelect: () => navigate('/practice/pricing/billing-increment')
     },
     {
       id: 'hourly-rates',
@@ -298,7 +423,7 @@ export const PracticePricingPage = () => {
 
   const modelEmptyState = emptyStateCopy[modelTab];
 
-  if (!isConsultationDetail) {
+  if (!isConsultationDetail && !isBillingDetail) {
     return (
       <div className="h-full overflow-y-auto p-6 pb-32">
         <div className="max-w-6xl mx-auto space-y-6">
@@ -405,7 +530,7 @@ export const PracticePricingPage = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[14rem]">
                     {createOptions.map((option) => (
-                      <DropdownMenuItem key={option.id} onSelect={option.onSelect}>
+                      <DropdownMenuItem key={`${option.id}-${option.label}`} onSelect={option.onSelect}>
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{option.label}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">{option.description}</div>
@@ -440,6 +565,87 @@ export const PracticePricingPage = () => {
               {filteredRows.length} item{filteredRows.length === 1 ? '' : 's'}
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isBillingDetail) {
+    return (
+      <div className="h-full overflow-y-auto p-6 pb-32">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <Breadcrumbs
+            items={[
+              { label: 'Pricing catalog', href: '/practice/pricing' },
+              { label: 'Billing increment' }
+            ]}
+            onNavigate={navigate}
+          />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Billing increment</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Set the default time step for billing calculations.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={openBillingModal} disabled={!canEdit}>
+              Edit
+            </Button>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-500 dark:text-gray-400">Current increment</div>
+              <div className="text-base font-semibold text-gray-900 dark:text-white">
+                {billingEnabled ? `${activeBillingIncrement} minutes` : 'Not set'}
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              Use values between 1 and 60 minutes.
+            </p>
+          </div>
+
+          <Modal isOpen={isBillingModalOpen} onClose={closeBillingModal} title="Billing increment">
+            <div className="space-y-4">
+              <Input
+                type="number"
+                label="Billing increment (minutes)"
+                description="Used for time-based billing."
+                value={Number.isFinite(billingDraft) ? String(billingDraft) : ''}
+                onChange={(value) => {
+                  setShowBillingValidation(false);
+                  const trimmed = value.trim();
+                  if (!trimmed) {
+                    setBillingDraft(undefined);
+                    return;
+                  }
+                  const parsed = Number(trimmed);
+                  if (Number.isFinite(parsed)) {
+                    setBillingDraft(parsed);
+                  }
+                }}
+                min={1}
+                max={60}
+                step={1}
+                inputMode="numeric"
+                disabled={!canEdit || isSaving}
+                error={billingValidationError}
+              />
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="secondary" onClick={closeBillingModal} disabled={isSaving}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveBillingIncrement}
+                  disabled={!canEdit || isSaving}
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
         </div>
       </div>
     );
