@@ -747,7 +747,7 @@ export function MainApp({
       const resolved = new URL(inviteLink, window.location.origin);
       const sameOrigin = resolved.origin === window.location.origin;
       if (sameOrigin) {
-        window.location.assign(resolved.toString());
+        navigate(`${resolved.pathname}${resolved.search}${resolved.hash}`);
         clearPendingPracticeInviteLink();
         return;
       }
@@ -761,8 +761,8 @@ export function MainApp({
       console.warn('[Invite] Failed to navigate to invite link', error);
     }
 
-    showInfo('Join your practice', 'Open the invite link sent to your email to finish joining.');
-  }, [showInfo]);
+    showInfo('Join your practice', 'Open your invite link to finish joining the practice.');
+  }, [navigate, showInfo]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

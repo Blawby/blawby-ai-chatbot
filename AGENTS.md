@@ -23,3 +23,13 @@ Frontend (local dev): .env in repo root for VITE_* vars. Production: Cloudflare 
 Worker (local dev): worker/.dev.vars for secrets (see dev.vars.example). Worker non-secrets live in worker/wrangler.toml [env.*.vars].
 - BACKEND_API_URL determines which remote backend the worker calls (RemoteApiService); must be set explicitly.
 - Production worker route: ai.blawby.com/api/* (worker/wrangler.toml).
+
+Routing rules:
+- Cloudflare Pages `public/_redirects` must include:
+  /api/*              /api/:splat        200
+  /__better-auth__/*  /__better-auth__/:splat 200
+  /*                  /index.html        200
+- No internal <a href="/..."> for in-app routes. Use preact-iso Link or location.route()/navigate().
+- Only use hard navigations for cross-origin URLs, Stripe checkout, or external auth redirects.
+- Avoid manual path parsing in MainApp; prefer Router routes for /practice/* and /client/*.
+- Keep Workbox/PWA navigation denylist for /api/*; index.html fallback only for document navigations.

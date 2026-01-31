@@ -726,10 +726,8 @@ export async function deleteUserDetail(
 
 export type UserDetailMemoRecord = {
   id: string;
-  memo?: string | null;
   content?: string | null;
-  body?: string | null;
-  note?: string | null;
+  event_time?: string | null;
   created_at?: string;
   updated_at?: string;
   createdAt?: string;
