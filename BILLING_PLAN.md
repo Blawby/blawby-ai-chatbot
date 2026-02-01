@@ -429,9 +429,9 @@ COMMENT ON TABLE webhook_events IS 'Idempotency log for Stripe webhooks - preven
 ```
 
 **Retention Policy**:
-- Nightly cron (`0 3 * * *`) runs `DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '90 days'` using the cleanup index above.
-- Cloudflare Worker cron + background queue will emit metrics for rows deleted; PagerDuty alert triggers if cleanup fails for 2 consecutive days.
-- Runbook section "Webhook Retention" updated with verification + manual cleanup steps.
+- Nightly cron on the billing API server (`0 3 * * * /opt/blawby/bin/webhook_cleanup.sh`) runs `DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '90 days'` using the cleanup index above. This job executes inside the same VPC as Postgres to avoid edge latency/timeouts.
+- The cleanup script emits Datadog metrics (`cleanup.deleted_count`) and opens a PagerDuty incident automatically if two consecutive runs delete 0 rows or exit non-zero.
+- Runbook section "Webhook Retention" documents how to verify the systemd timer, rerun the script manually (`sudo systemctl start webhook-cleanup.service`), and perform manual deletes if required.
 
 **Acceptance Criteria**:
 - [ ] Table created successfully
@@ -1716,26 +1716,49 @@ async function handleInvoicePaid(event: Stripe.Event) {
 ```typescript
 async function handleInvoicePaymentFailed(event: Stripe.Event) {
   const stripeInvoice = event.data.object as Stripe.Invoice;
+
+  const [webhookRow] = await db.insert(webhookEvents)
+    .values({
+      event_id: event.id,
+      event_type: event.type,
+      status: 'processing',
+      payload: event as any,
+    })
+    .onConflictDoNothing()
+    .returning();
+
+  if (!webhookRow) {
+    console.log(`Webhook ${event.id} already processed (payment_failed), skipping`);
+    return;
+  }
   
-  // Idempotency guard
-  await db.transaction(async (tx) => {
-    try {
-      await tx.insert(webhookEvents).values({
-        event_id: event.id,
-        event_type: event.type,
-      });
-    } catch (error) {
-      if (error.code === '23505') return;
-      throw error;
-    }
-    
-    await tx.update(invoices)
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(webhookEvents)
+        .set({ status: 'processing', error_message: null })
+        .where(eq(webhookEvents.event_id, event.id));
+
+      await tx.update(invoices)
+        .set({
+          status: 'open',
+          updated_at: new Date(),
+        })
+        .where(eq(invoices.stripe_invoice_id, stripeInvoice.id));
+    });
+
+    await db.update(webhookEvents)
+      .set({ status: 'processed', processed_at: new Date(), error_message: null })
+      .where(eq(webhookEvents.event_id, event.id));
+  } catch (error) {
+    await db.update(webhookEvents)
       .set({
-        status: 'open', // Keep open for retry
-        updated_at: new Date(),
+        status: 'failed',
+        processed_at: new Date(),
+        error_message: error instanceof Error ? error.message : 'Unknown error',
       })
-      .where(eq(invoices.stripe_invoice_id, stripeInvoice.id));
-  });
+      .where(eq(webhookEvents.event_id, event.id));
+    throw error;
+  }
   
   // TODO: Send notification to user about payment failure
 }
@@ -2729,7 +2752,7 @@ export async function listInvoices(
 **Escalation**:
 - On-call Engineer (see PagerDuty “Billing Platform” schedule)
 - Escalation path: On-call Engineer → Billing Tech Lead (see internal directory) → CTO (see internal directory)
-- Runbook location: [Billing issue tracker](https://github.com/blawby/blawby-ai-chatbot/issues)
+- Runbook location: [Billing V2 Incident Runbook](docs/runbooks/BILLING_V2_INCIDENT.md) — contains DB diagnostic queries, rollback steps, dashboard links, Stripe manual-intervention procedures, and escalation criteria.
 
 **Automated Rollback Triggers**:
 - Payment success rate < 95%
@@ -2816,30 +2839,91 @@ export async function listInvoices(
 #### Scenario 1: Duplicate Transfer Detected
 - Alert: "Duplicate transfer detected for invoice X"
 - Action: Immediately disable billing_v2_enabled flag
+- Command: `pnpm run feature-flags:disable billing_v2_enabled`
 - Investigate: Check billing_transactions table for duplicates
+- SQL:
+```sql
+psql "$BILLING_DATABASE_URL" -c "
+SELECT invoice_id, stripe_transfer_id, COUNT(*) AS dupes
+FROM billing_transactions
+WHERE status = 'completed'
+GROUP BY invoice_id, stripe_transfer_id
+HAVING COUNT(*) > 1;
+"
+```
+- Logs: `kubectl logs deploy/billing-worker | grep "stripe.transfers.create"`
 - Resolve: Refund duplicate transfer via Stripe dashboard
+- REVIEW BEFORE RUNNING (requeue transfer): `pnpm ts-node scripts/reverse-transfer.ts --invoice <invoice_id>`
+- Dashboard: [Transfers Dashboard](https://grafana.blawby.com/d/billing-transfers)
 - Root cause: Review idempotency key generation
 
 #### Scenario 2: Webhook Processing Failure
 - Alert: "Webhook processing time > 2s"
 - Action: Check webhook_events table for backlog
+- SQL:
+```sql
+psql "$BILLING_DATABASE_URL" -c "
+SELECT event_id, event_type, status, created_at, processed_at
+FROM webhook_events
+WHERE status != 'processed'
+ORDER BY created_at
+LIMIT 50;
+"
+```
 - Investigate: Identify slow queries or Stripe API issues
+- Logs: `kubectl logs deploy/billing-worker | grep webhook`
+- Command: `EXPLAIN ANALYZE` on slow query reported in logs
 - Resolve: Scale webhook workers if needed
+- REVIEW BEFORE RUNNING: `kubectl scale deploy/billing-worker --replicas=6`
 - Mitigation: Replay failed webhooks manually
+- Replay command: `pnpm ts-node scripts/replay-webhook.ts --event-id <event_id>`
+- Dashboard: [Webhook Ops](https://grafana.blawby.com/d/billing-webhooks)
 
 #### Scenario 3: Payment Failure Spike
 - Alert: "Payment success rate < 95%"
 - Action: Check Stripe status page
+- Link: <https://status.stripe.com>
 - Investigate: Review error logs for common failure patterns
+- Logs: `kubectl logs deploy/frontend-api | grep "payment_intent"`
+- SQL:
+```sql
+psql "$BILLING_DATABASE_URL" -c "
+SELECT status, COUNT(*)
+FROM invoices
+WHERE updated_at > NOW() - INTERVAL '1 hour'
+GROUP BY status;
+"
+```
 - Resolve: If Stripe issue: wait for resolution. If code issue: rollback
+- REVIEW BEFORE RUNNING (backend rollback): `./scripts/deploy.sh backend --rollback`
 - Communication: Notify users if widespread
+- Metrics Dashboard: [Payments KPI](https://grafana.blawby.com/d/billing-payments)
 
 #### Scenario 4: Negative Balance Detected
 - Alert: "Negative retainer balance detected"
 - Action: Immediately disable retainer draws
+- Command: `pnpm run feature-flags:disable retainer_draws_enabled`
 - Investigate: Check for race condition in draw logic
+- SQL:
+```sql
+psql "$BILLING_DATABASE_URL" -c "
+SELECT id, matter_id, retainer_balance
+FROM matters
+WHERE retainer_balance < 0
+ORDER BY updated_at DESC;
+"
+```
 - Resolve: Manually correct balance, identify root cause
+- REVIEW BEFORE RUNNING (balance fix): 
+```sql
+psql "$BILLING_DATABASE_URL" -c "
+UPDATE matters
+SET retainer_balance = 0, updated_at = NOW()
+WHERE id = '<matter_id>';
+"
+```
 - Prevention: Add additional locking if needed
+- Dashboard: [Retainer Balances](https://grafana.blawby.com/d/billing-retainers)
 
 ---
 
