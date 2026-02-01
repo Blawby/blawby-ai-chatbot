@@ -639,7 +639,9 @@ function isRetriableStripeError(error: any): boolean {
 // src/modules/billing/services/escrow.service.ts
 export class EscrowService {
   constructor(
-    private meteredService: MeteredProductsService
+    private meteredService: MeteredProductsService,
+    private permissionService: PermissionService,
+    private jobQueue: Queue
   ) {}
 
   async releaseFunds(params: {
@@ -691,8 +693,11 @@ export class EscrowService {
         throw new Error('Unauthorized: User does not own this milestone');
       }
       
-      // TODO: Add role/permission check for project membership
-      // e.g., verify user has 'release_funds' permission on matter
+      // Explicit role/permission check
+      const hasPermission = await this.permissionService.userHasPermission(params.userId, inv.matter_id, 'release_funds');
+      if (!hasPermission) {
+        throw new Error('Unauthorized: User missing release_funds permission');
+      }
       
       // Fetch matter for connected account
       const [mat] = await tx.select()
@@ -752,8 +757,38 @@ export class EscrowService {
         })
         .where(eq(billingTransactions.id, transactionId));
       
-      // TODO: Enqueue to background job for manual retry
-      throw error;
+      // Enqueue to background job for automated retry
+      try {
+        await this.jobQueue.add('retry_transfer', {
+          transfer_params: {
+            amount: invoice.amount_paid,
+            currency: invoice.currency,
+            destination: matter.stripe_connected_account_id,
+            metadata: {
+              invoice_id: invoice.id,
+              milestone_id: params.milestoneId,
+              matter_id: invoice.matter_id,
+            }
+          },
+          idempotency_key: `release-${invoice.id}`,
+          context: {
+            invoice_id: invoice.id,
+            error_message: error instanceof Error ? error.message : 'Unknown error'
+          }
+        }, {
+          attempts: 5,
+          backoff: {
+            type: 'exponential',
+            delay: 1000
+          }
+        });
+
+        // Abort current flow but treat as "handled" via queue
+        throw new Error('Transfer failed - queued for background retry');
+      } catch (queueError) {
+        // Only surface original error if enqueue fails
+        throw error;
+      }
     }
     
     // 3. Transaction: Update to completed state
