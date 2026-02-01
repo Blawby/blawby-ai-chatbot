@@ -699,6 +699,16 @@ export class EscrowService {
       if (!inv) {
         throw new Error('No paid invoice found in escrow for this milestone');
       }
+
+      // Fallback permission check using the locked invoice context
+      const hasLockedPermission = await this.permissionService.userHasPermission(
+        params.userId,
+        inv.matter_id,
+        'release_funds'
+      );
+      if (!hasLockedPermission) {
+        throw new Error('Unauthorized: User missing release_funds permission');
+      }
       
       // Fetch milestone for ownership verification
       const [ms] = await tx.select()
@@ -2496,5 +2506,3 @@ The following items need completion in future phases:
 6. **Automated Dunning**: Escalating reminders for failed subscription payments
 
 ---
-
-**END OF IMPLEMENTATION PLAN**
