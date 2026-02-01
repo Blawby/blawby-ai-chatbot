@@ -2727,9 +2727,9 @@ export async function listInvoices(
 - Stage 4 (Day 7+, 100%): Extended observation with defined rollback criteria for 24h before declaring steady state
 
 **Escalation**:
-- On-call engineer: Emily Tran (PagerDuty: +1-415-555-0112, Slack @emily.tran)
-- Escalation path: On-call Engineer → Billing Tech Lead (Marco Ruiz, +1-917-555-0144) → CTO (Priya Natarajan, +1-650-555-0198)
-- Runbook location: https://wiki.blawby.com/runbooks/billing-v2-escalation
+- On-call Engineer (see PagerDuty “Billing Platform” schedule)
+- Escalation path: On-call Engineer → Billing Tech Lead (see internal directory) → CTO (see internal directory)
+- Runbook location: [Billing issue tracker](https://github.com/blawby/blawby-ai-chatbot/issues)
 
 **Automated Rollback Triggers**:
 - Payment success rate < 95%
