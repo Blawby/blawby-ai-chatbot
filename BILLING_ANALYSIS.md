@@ -148,17 +148,58 @@ sequenceDiagram
 ### **A. Module Structure: `src/modules/billing`**
 This module is the "Financial Engine" connecting Matters (Work) to Stripe (Money).
 
-**1. Database Schema**
-*   **File**: `src/modules/billing/database/schema/invoices.schema.ts`
-    *   `id`: uuid
-    *   `stripe_invoice_id`: text (unique)
-    *   `matter_id`: uuid (FK to matters.id)
-    *   `amount_total`: integer (cents)
-    *   `amount_platform_fee`: integer (cents)
-    *   `status`: enum ('draft', 'open', 'paid', 'void')
-    *   `escrow_status`: enum ('none', 'held', 'released')
+**1. Database Schema Specifications (Drizzle)**
+
 *   **File**: `src/modules/matters/database/schema/matters.schema.ts`
-    *   **ADD**: `retainer_balance` (integer, default 0).
+```typescript
+// Add to 'matters' table definition:
+retainer_balance: integer('retainer_balance').default(0).notNull(), // Stores amount in cents
+```
+
+*   **File**: `src/modules/billing/database/schema/invoices.schema.ts` (New)
+```typescript
+export const invoices = pgTable('invoices', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stripe_invoice_id: text('stripe_invoice_id').unique().notNull(),
+
+  // Foreign Keys
+  organization_id: uuid('organization_id').references(() => organizations.id).notNull(),
+  matter_id: uuid('matter_id').references(() => matters.id).notNull(),
+  milestone_id: uuid('milestone_id').references(() => matterMilestones.id), // Nullable
+  customer_id: uuid('customer_id').references(() => userDetails.id).notNull(),
+
+  // Financials
+  amount_due: integer('amount_due').notNull(),
+  amount_paid: integer('amount_paid').default(0).notNull(),
+  amount_remaining: integer('amount_remaining').notNull(),
+  currency: varchar('currency', { length: 3 }).default('usd').notNull(),
+  application_fee_amount: integer('application_fee_amount').default(0),
+
+  // Status & Meta
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // 'draft', 'open', 'paid', 'void'
+  escrow_status: varchar('escrow_status', { length: 20 }).default('none'), // 'none', 'held', 'released'
+  invoice_type: varchar('invoice_type', { length: 20 }).notNull(), // 'milestone', 'retainer'
+
+  // Timestamps
+  due_date: timestamp('due_date', { withTimezone: true, mode: 'date' }),
+  paid_at: timestamp('paid_at', { withTimezone: true, mode: 'date' }),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+});
+```
+
+*   **File**: `src/modules/billing/database/schema/transactions.schema.ts` (New)
+```typescript
+export const transactions = pgTable('billing_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  invoice_id: uuid('invoice_id').references(() => invoices.id),
+  stripe_transfer_id: text('stripe_transfer_id').notNull(),
+  amount: integer('amount').notNull(), // in cents
+  destination_account_id: text('destination_account_id').notNull(),
+  type: varchar('type', { length: 20 }).default('payout').notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
+```
 
 **2. Services**
 *   **File**: `src/modules/billing/services/invoice-generator.service.ts`
@@ -198,7 +239,8 @@ This module is the "Financial Engine" connecting Matters (Work) to Stripe (Money
 
 ---
 
-## 6. Security & Compliance Notes
-*   **Funds Flow**: We are using separate Charges and Transfers. This means funds technically reside in the Platform's Stripe Balance during the "Escrow" period.
-*   **Compliance**: Ensure Terms of Service clarify that BLawby acts as a limited payment agent.
-*   **Idempotency**: All `Transfer` calls must use `idempotency_key` based on the `invoice_id` to prevent double-payouts.
+## 6. Business Logic Decisions
+*   **Platform Fee**: 10% (Fixed for MVP).
+*   **Escrow Holding**: **Direct Charge** to Platform. Funds are held in Platform Balance.
+*   **Release Mechanism**: **Client Approval**. Client must explicitly approve work to trigger the `Transfer` to the Practice.
+*   **Retainer Draw**: **Manual-Triggered** or Weekly Batch. (MVP: Manual "Process Draw" button for Practice).
