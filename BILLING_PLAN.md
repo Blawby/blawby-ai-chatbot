@@ -247,6 +247,21 @@ ALTER TABLE invoices
 ADD CONSTRAINT chk_invoices_amount_consistency 
 CHECK (amount_paid + amount_remaining = amount_due);
 
+-- Always recalculate amount_remaining atomically whenever amount_paid/due changes
+CREATE OR REPLACE FUNCTION enforce_invoice_amount_consistency()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.amount_remaining := GREATEST(NEW.amount_due - NEW.amount_paid, 0);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_invoices_amount_consistency
+BEFORE INSERT OR UPDATE OF amount_paid, amount_due
+ON invoices
+FOR EACH ROW
+EXECUTE FUNCTION enforce_invoice_amount_consistency();
+
 ALTER TABLE invoices 
 ADD CONSTRAINT chk_invoices_status 
 CHECK (status IN ('draft', 'open', 'paid', 'void', 'uncollectible'));
@@ -269,6 +284,7 @@ COMMENT ON CONSTRAINT chk_invoices_amount_consistency ON invoices IS 'Ensures am
 - [ ] Cannot insert negative amounts
 - [ ] Cannot insert invalid enum values
 - [ ] Amount consistency enforced
+- [ ] Trigger recalculates amount_remaining on every insert/update
 - [ ] Foreign keys validated
 - [ ] Can insert/query test invoice
 
@@ -293,6 +309,7 @@ export const billingTransactions = pgTable('billing_transactions', {
   status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, completed, failed, queued
   retry_count: integer('retry_count').default(0).notNull(),
   last_error: text('last_error'),
+  metadata: jsonb('metadata'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   completed_at: timestamp('completed_at'),
 });
@@ -310,6 +327,7 @@ CREATE TABLE billing_transactions (
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   retry_count INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
+  metadata JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
@@ -332,11 +350,13 @@ CHECK (type IN ('payout', 'draw_payout', 'refund', 'reversal'));
 ALTER TABLE billing_transactions 
 ADD CONSTRAINT chk_billing_transactions_invoice_id_required 
 CHECK (
-  (type IN ('draw_payout', 'refund', 'reversal')) OR 
-  (type = 'payout' AND invoice_id IS NOT NULL)
+  (type IN ('draw_payout', 'refund', 'reversal') AND invoice_id IS NULL) OR 
+  (type NOT IN ('draw_payout', 'refund', 'reversal') AND invoice_id IS NOT NULL)
 );
 
-COMMENT ON CONSTRAINT chk_billing_transactions_invoice_id_required ON billing_transactions IS 'Regular payouts must have invoice_id; draws/refunds/reversals may be NULL';
+COMMENT ON CONSTRAINT chk_billing_transactions_invoice_id_required ON billing_transactions IS 'Draw/refund/reversal types must omit invoice_id; all other types require it';
+
+COMMENT ON COLUMN billing_transactions.metadata IS 'JSON payload storing idempotency key, matter_id, and related transfer context';
 ```
 
 **Acceptance Criteria**:
@@ -345,7 +365,8 @@ COMMENT ON CONSTRAINT chk_billing_transactions_invoice_id_required ON billing_tr
 - [ ] Foreign key to invoices works
 - [ ] Retry tracking enabled
 - [ ] Retainer draw can have NULL invoice_id
-- [ ] Regular payout must have valid invoice_id
+- [ ] Regular payout must have valid invoice_id; draws/refunds/reversals must NOT
+- [ ] Metadata JSON available for idempotency context
 
 ---
 
@@ -392,22 +413,61 @@ CREATE TABLE webhook_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
-  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status TEXT NOT NULL DEFAULT 'processing',
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ,
   payload JSONB,
   UNIQUE(event_id, event_type)
 );
 
 CREATE INDEX idx_webhook_events_type ON webhook_events(event_type);
 CREATE INDEX idx_webhook_events_processed_at ON webhook_events(processed_at);
+CREATE INDEX idx_webhook_events_cleanup ON webhook_events(processed_at) WHERE processed_at IS NOT NULL;
 
 COMMENT ON TABLE webhook_events IS 'Idempotency log for Stripe webhooks - prevents duplicate processing';
 ```
+
+**Retention Policy**:
+- Nightly cron (`0 3 * * *`) runs `DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '90 days'` using the cleanup index above.
+- Cloudflare Worker cron + background queue will emit metrics for rows deleted; PagerDuty alert triggers if cleanup fails for 2 consecutive days.
+- Runbook section "Webhook Retention" updated with verification + manual cleanup steps.
 
 **Acceptance Criteria**:
 - [ ] Table created successfully
 - [ ] Unique constraint on (event_id, event_type)
 - [ ] Can insert test events
 - [ ] Duplicate insert fails with unique violation
+- [ ] Cleanup job documented and scheduled
+
+---
+
+#### Issue BE-1.5: Add `billing_status` Column to `time_entries`
+**Priority**: P0 (Blocking)  
+**Source**: Follow-up to retainer draw resiliency
+
+**Task**: Persist the intermediate payout state used by the retainer draw flow.
+
+**Migration SQL**:
+```sql
+ALTER TABLE time_entries
+ADD COLUMN billing_status VARCHAR(20)
+  CHECK (billing_status IN ('pending_payout', 'released'))
+  DEFAULT NULL;
+
+COMMENT ON COLUMN time_entries.billing_status IS 'Tracks payout state for retainer draw entries';
+
+CREATE INDEX idx_time_entries_billing_status
+ON time_entries(billing_status)
+WHERE billing_status IS NOT NULL;
+```
+
+**Acceptance Criteria**:
+- [ ] Column added with constraint + comment
+- [ ] Existing rows backfilled to NULL
+- [ ] Partial index created
+- [ ] Retainer draw flow can set `pending_payout`/`released`
+- [ ] Added to Epic 1 migration checklist
 
 ---
 
@@ -432,40 +492,74 @@ export class InvoiceGeneratorService {
     userId: string;
     organizationId: string;
   }) {
-    // 1. Fetch milestone details
     const milestone = await this.getMilestone(params.milestoneId);
-    
-    // 2. Get or create Stripe customer (Platform account)
+    if (!milestone) {
+      throw new Error('Milestone not found');
+    }
+    if (!this.milestoneService.isFundable(milestone)) {
+      throw new Error(`Milestone ${params.milestoneId} is not in a fundable state (state=${milestone.status})`);
+    }
+    const canFund = await this.permissionService.userCanFundMilestone(params.userId, milestone);
+    if (!canFund && milestone.owner_id !== params.userId) {
+      throw new Error('Unauthorized: user cannot fund this milestone');
+    }
+
+    // Return existing invoice if one already exists
+    const existingInvoice = await this.invoiceRepository.findByMilestoneId(params.milestoneId);
+    if (existingInvoice) {
+      return { invoice: existingInvoice, clientSecret: existingInvoice.payment_intent_client_secret };
+    }
+
+    // Deterministic idempotency for Stripe calls and DB writes
+    const idempotencyKey = `milestone-invoice:${params.milestoneId}`;
     const customerId = await this.customerService.getOrCreatePlatformCustomer(params.userId);
-    
-    // 3. Calculate application fee (1.33% of payout)
     const feePercentage = await this.getConfiguredFeePercentage();
     const applicationFee = Math.round(milestone.amount * feePercentage);
+
+    const withTimeout = async <T>(label: string, fn: () => Promise<T>, ms = 15000): Promise<T> => {
+      return await Promise.race([
+        fn(),
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`Stripe ${label} timed out after ${ms}ms`)), ms)
+        ),
+      ]);
+    };
     
-    // 4. Create Stripe invoice
-    const stripeInvoice = await stripe.invoices.create({
-      customer: customerId,
-      collection_method: 'send_invoice',
-      days_until_due: 0,
-      auto_advance: true,
-      metadata: {
-        milestone_id: params.milestoneId,
-        matter_id: milestone.matter_id,
-        organization_id: params.organizationId,
-      },
-    });
-    
-    // 5. Add line item
-    await stripe.invoiceItems.create({
-      customer: customerId,
-      invoice: stripeInvoice.id,
-      amount: milestone.amount,
-      currency: 'usd',
-      description: milestone.description || 'Milestone payment',
-    });
-    
-    // 6. Finalize
-    const finalizedInvoice = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
+    let stripeInvoice: Stripe.Invoice | null = null;
+    try {
+      stripeInvoice = await withTimeout('invoices.create', () =>
+        stripe.invoices.create(
+          {
+            customer: customerId,
+            collection_method: 'send_invoice',
+            days_until_due: 0,
+            auto_advance: true,
+            metadata: {
+              milestone_id: params.milestoneId,
+              matter_id: milestone.matter_id,
+              organization_id: params.organizationId,
+            },
+          },
+          { idempotencyKey }
+        )
+      );
+      
+      await withTimeout('invoiceItems.create', () =>
+        stripe.invoiceItems.create(
+          {
+            customer: customerId,
+            invoice: stripeInvoice!.id,
+            amount: milestone.amount,
+            currency: 'usd',
+            description: milestone.description || 'Milestone payment',
+          },
+          { idempotencyKey: `${idempotencyKey}:item` }
+        )
+      );
+      
+      const finalizedInvoice = await withTimeout('invoices.finalizeInvoice', () =>
+        stripe.invoices.finalizeInvoice(stripeInvoice!.id)
+      );
     
     // 7. Extract client_secret with type safety
     let clientSecret: string | undefined;
@@ -487,29 +581,51 @@ export class InvoiceGeneratorService {
       throw new Error('Failed to retrieve payment intent client secret');
     }
     
-    // 8. Store in DB
-    const [dbInvoice] = await db.insert(invoices).values({
-      stripe_invoice_id: finalizedInvoice.id,
-      stripe_payment_intent_id: typeof finalizedInvoice.payment_intent === 'string' 
-        ? finalizedInvoice.payment_intent 
-        : (finalizedInvoice.payment_intent as Stripe.PaymentIntent)?.id,
-      organization_id: params.organizationId,
-      matter_id: milestone.matter_id,
-      milestone_id: params.milestoneId,
-      customer_id: params.userId,
-      amount_due: milestone.amount,
-      amount_paid: 0,
-      amount_remaining: milestone.amount,
-      application_fee_amount: applicationFee,
-      status: 'open',
-      escrow_status: 'held',
-      invoice_type: 'milestone',
-    }).returning();
+      const [dbInvoice] = await db.transaction(async (tx) => {
+        const upserted = await tx.insert(invoices)
+          .values({
+            stripe_invoice_id: finalizedInvoice.id,
+            stripe_payment_intent_id: typeof finalizedInvoice.payment_intent === 'string' 
+              ? finalizedInvoice.payment_intent 
+              : (finalizedInvoice.payment_intent as Stripe.PaymentIntent)?.id,
+            organization_id: params.organizationId,
+            matter_id: milestone.matter_id,
+            milestone_id: params.milestoneId,
+            customer_id: params.userId,
+            amount_due: milestone.amount,
+            amount_paid: 0,
+            amount_remaining: milestone.amount,
+            application_fee_amount: applicationFee,
+            status: 'open',
+            escrow_status: 'held',
+            invoice_type: 'milestone',
+          })
+          .onConflictDoNothing()
+          .returning();
+        
+        if (upserted.length > 0) {
+          return upserted;
+        }
+        
+        // Another request inserted simultaneously; return latest record
+        return await tx.select()
+          .from(invoices)
+          .where(eq(invoices.milestone_id, params.milestoneId))
+          .limit(1);
+      });
+      
+      return {
+        invoice: dbInvoice,
+        clientSecret,
+      };
+    } catch (error) {
+      if (stripeInvoice?.id) {
+        await stripe.invoices.del(stripeInvoice.id);
+      }
+      throw error;
+    }
     
-    return {
-      invoice: dbInvoice,
-      clientSecret,
-    };
+    throw new Error('generateMilestoneInvoice reached unreachable state');
   }
   
   private async getConfiguredFeePercentage(): Promise<number> {
@@ -677,8 +793,15 @@ export class EscrowService {
       .limit(1);
       
     if (preInv) {
-       const hasPermission = await this.permissionService.userHasPermission(params.userId, preInv.matter_id, 'release_funds');
-       if (!hasPermission) throw new Error('Unauthorized: User missing release_funds permission');
+       const hasPermission = await this.permissionService.userHasPermission(
+         params.userId,
+         preInv.matter_id,
+         'release_funds'
+       );
+       if (!hasPermission) {
+         // Do not throw yet; ownership fallback handled after locking the invoice
+         console.warn('release_funds preflight failed; deferring to locked check + ownership fallback');
+       }
     }
 
     // 1. Transaction: Fetch and lock invoice, create pending transaction
@@ -700,16 +823,6 @@ export class EscrowService {
         throw new Error('No paid invoice found in escrow for this milestone');
       }
 
-      // Fallback permission check using the locked invoice context
-      const hasLockedPermission = await this.permissionService.userHasPermission(
-        params.userId,
-        inv.matter_id,
-        'release_funds'
-      );
-      if (!hasLockedPermission) {
-        throw new Error('Unauthorized: User missing release_funds permission');
-      }
-      
       // Fetch milestone for ownership verification
       const [ms] = await tx.select()
         .from(matterMilestones)
@@ -720,21 +833,21 @@ export class EscrowService {
         throw new Error('Milestone not found');
       }
       
-      // Enhanced authorization checks
-
-      
-      // 2. Verify user is the client who paid
-      if (inv.customer_id !== params.userId) {
-        throw new Error('Unauthorized: Only the client who paid can release funds');
+      // Fallback permission check using the locked invoice context
+      const hasLockedPermission = await this.permissionService.userHasPermission(
+        params.userId,
+        inv.matter_id,
+        'release_funds'
+      );
+      const ownsMilestone =
+        inv.customer_id === params.userId ||
+        ms.client_id === params.userId ||
+        ms.owner_id === params.userId;
+      if (!hasLockedPermission && !ownsMilestone) {
+        throw new Error('Unauthorized: Missing release_funds permission and not milestone owner/client');
       }
       
-      // 3. Verify milestone ownership (client_id or owner_id on milestone)
-      if (ms.client_id !== params.userId && ms.owner_id !== params.userId) {
-        throw new Error('Unauthorized: User does not own this milestone');
-      }
-      
-      // Permission check already performed outside transaction
-
+      // Permission/ownership validated above; no additional checks needed
       
       // Fetch matter for connected account
       const [mat] = await tx.select()
@@ -875,7 +988,20 @@ export class EscrowService {
       });
     } catch (error) {
       console.error('Failed to report metered usage:', error);
-      // Don't fail the release, but log for manual reconciliation
+      const [failedReport] = await db.insert(failedMeteredUsageReports).values({
+        organization_id: invoice.organization_id,
+        invoice_id: invoice.id,
+        metered_type: 'payout_fee',
+        quantity: invoice.application_fee_amount,
+        last_error: error instanceof Error ? error.message : 'Unknown error',
+      }).returning();
+      
+      await this.jobQueue.add('retry_metered_usage', {
+        failed_report_id: failedReport.id,
+      }, {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 60_000 },
+      });
     }
     
     return { transfer, payoutAmount: invoice.amount_paid };
@@ -892,6 +1018,47 @@ export class EscrowService {
 - [ ] Failed transfers logged with full context
 - [ ] Updates all statuses correctly
 - [ ] Unit tests pass
+
+---
+
+#### Issue BE-2.5: Persist Failed Metered Usage Reports + Retry Worker
+**Priority**: P1 (High)
+
+**Task**:
+- Create a durable log of failed metered usage reports so fees are eventually reconciled.
+- Add a BullMQ/Queue worker `retry_metered_usage` with exponential backoff.
+
+**Schema**:
+```sql
+CREATE TABLE failed_metered_usage_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  invoice_id UUID REFERENCES invoices(id),
+  metered_type TEXT NOT NULL,
+  quantity INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_failed_metered_usage_org_attempts
+  ON failed_metered_usage_reports(organization_id)
+  WHERE resolved_at IS NULL;
+```
+
+**Worker Logic**:
+- `reportMeteredUsage` catch block inserts a row + enqueues `retry_metered_usage` (payload: row id).
+- Worker loads the row, calls `meteredService.reportMeteredUsage`, and on success sets `resolved_at = NOW()`.
+- On failure, increments `attempts`, updates `last_error`, and re-enqueues with exponential backoff (1m, 5m, 15m, 1h, 6h).
+- Alert after 5 failed attempts.
+
+**Acceptance Criteria**:
+- [ ] Table + index created
+- [ ] Retry worker deployed + monitored
+- [ ] Release flow inserts row + enqueues job on metered failure
+- [ ] Dashboard shows outstanding failed metered usage items
+- [ ] Unit/integration tests cover happy path + retry path
 
 ---
 
@@ -1006,6 +1173,19 @@ export class RetainerService {
     // 3. Calculate fee
     const feePercentage = 0.013336;
     const applicationFee = Math.round(totalAmount * feePercentage);
+
+    // 3b. Ensure destination account exists before touching balances
+    const [matterAccount] = await db.select({
+      stripe_connected_account_id: matters.stripe_connected_account_id,
+    })
+      .from(matters)
+      .where(eq(matters.id, params.matterId))
+      .limit(1);
+    
+    if (!matterAccount?.stripe_connected_account_id) {
+      throw new Error('Practice does not have a connected Stripe account configured');
+    }
+    const destinationAccountId = matterAccount.stripe_connected_account_id;
     
     // 4. ATOMIC: Reserve funds, flag entries as pending, and create a pending billing transaction
     const { matter: result, transactionId } = await db.transaction(async (tx) => {
@@ -1041,16 +1221,16 @@ export class RetainerService {
         invoice_id: null,
         stripe_transfer_id: `pending-${idempotencyKey}`,
         amount: totalAmount,
-        destination_account_id: updatedMatter.stripe_connected_account_id,
+        destination_account_id: destinationAccountId,
         type: 'draw_payout',
         status: 'pending',
         retry_count: 0,
         last_error: null,
-        metadata: JSON.stringify({
+        metadata: {
           idempotencyKey,
           matter_id: params.matterId,
           time_entry_ids: entries.map((entry) => entry.id),
-        }),
+        },
       }).returning();
       
       return { matter: updatedMatter, transactionId: pendingTransaction.id };
@@ -1094,7 +1274,7 @@ export class RetainerService {
         () => stripe.transfers.create({
           amount: totalAmount,
           currency: 'usd',
-          destination: result.stripe_connected_account_id,
+          destination: destinationAccountId,
           metadata: {
             matter_id: params.matterId,
             type: 'retainer_draw',
@@ -1109,7 +1289,7 @@ export class RetainerService {
           invoice_amount_paid: totalAmount,
           invoice_currency: 'usd',
           invoice_matter_id: params.matterId,
-          destination_account_id: result.stripe_connected_account_id,
+        destination_account_id: destinationAccountId,
         }
       );
     } catch (error) {
@@ -1393,13 +1573,19 @@ export async function stripeWebhookHandler(c: Context) {
     return c.json({ error: 'Missing stripe-signature header' }, 401);
   }
   
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    c.get('logger')?.error('Webhook rejected: missing STRIPE_WEBHOOK_SECRET env');
+    return c.json({ error: 'Server misconfiguration' }, 500);
+  }
+  
   // 2. Verify signature
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(
       rawBody,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      webhookSecret
     );
   } catch (error) {
     c.get('logger')?.warn('Webhook rejected: invalid signature', {
@@ -1450,69 +1636,81 @@ async function handleStripeEvent(event: Stripe.Event) {
 ```typescript
 async function handleInvoicePaid(event: Stripe.Event) {
   const stripeInvoice = event.data.object as Stripe.Invoice;
+
+  // Phase 1: insert webhook event record (no wrapping transaction)
+  const [webhookRow] = await db.insert(webhookEvents)
+    .values({
+      event_id: event.id,
+      event_type: event.type,
+      status: 'processing',
+      payload: event as any,
+    })
+    .onConflictDoNothing()
+    .returning();
   
-  // Idempotency guard: check if already processed
-  await db.transaction(async (tx) => {
-    // Try to insert webhook event
-    try {
-      await tx.insert(webhookEvents).values({
-        event_id: event.id,
-        event_type: event.type,
-        payload: event as any, // Store full payload
-      });
-    } catch (error) {
-      // Unique constraint violation = already processed
-      if (error.code === '23505') { // PostgreSQL unique violation
-        console.log(`Webhook ${event.id} already processed, skipping`);
-        return; // Exit early, no-op
+  if (!webhookRow) {
+    console.log(`Webhook ${event.id} already processed, skipping`);
+    return;
+  }
+  
+  try {
+    // Phase 2: business logic transaction
+    await db.transaction(async (tx) => {
+      const [invoice] = await tx.select()
+        .from(invoices)
+        .where(eq(invoices.stripe_invoice_id, stripeInvoice.id))
+        .limit(1);
+        
+      if (!invoice) {
+        throw new Error(`Invoice not found for Stripe invoice ${stripeInvoice.id}`);
       }
-      throw error;
-    }
-    
-    // Fetch invoice from our DB
-    const [invoice] = await tx.select()
-      .from(invoices)
-      .where(eq(invoices.stripe_invoice_id, stripeInvoice.id))
-      .limit(1);
       
-    if (!invoice) {
-      console.error('Invoice not found:', stripeInvoice.id);
-      return;
-    }
-    
-    // Update invoice status
-    await tx.update(invoices)
-      .set({
-        status: 'paid',
-        amount_paid: stripeInvoice.amount_paid,
-        amount_remaining: 0,
-        paid_at: new Date(stripeInvoice.status_transitions.paid_at! * 1000),
-        updated_at: new Date(),
-      })
-      .where(eq(invoices.id, invoice.id));
-    
-    // Update milestone status if applicable
-    if (invoice.milestone_id) {
-      await tx.update(matterMilestones)
-        .set({ 
-          status: 'funded',
-          updated_at: new Date(),
-        })
-        .where(eq(matterMilestones.id, invoice.milestone_id));
-    }
-    
-    // Update retainer balance if retainer invoice (ATOMIC)
-    if (invoice.invoice_type === 'retainer') {
-      await tx.update(matters)
+      await tx.update(invoices)
         .set({
-          retainer_balance: sql`retainer_balance + ${invoice.amount_paid}`,
+          status: 'paid',
+          amount_paid: stripeInvoice.amount_paid,
+          paid_at: new Date(stripeInvoice.status_transitions.paid_at! * 1000),
           updated_at: new Date(),
         })
-        .where(eq(matters.id, invoice.matter_id));
-    }
-  });
+        .where(eq(invoices.id, invoice.id));
+      // Trigger enforces amount_remaining = amount_due - amount_paid atomically
+      
+      if (invoice.milestone_id) {
+        await tx.update(matterMilestones)
+          .set({ 
+            status: 'funded',
+            updated_at: new Date(),
+          })
+          .where(eq(matterMilestones.id, invoice.milestone_id));
+      }
+      
+      if (invoice.invoice_type === 'retainer') {
+        await tx.update(matters)
+          .set({
+            retainer_balance: sql`retainer_balance + ${stripeInvoice.amount_paid}`,
+            updated_at: new Date(),
+          })
+          .where(eq(matters.id, invoice.matter_id));
+      }
+    });
+    
+    await db.update(webhookEvents)
+      .set({ status: 'processed', processed_at: new Date(), error_message: null })
+      .where(eq(webhookEvents.event_id, event.id));
+  } catch (error) {
+    await db.update(webhookEvents)
+      .set({
+        status: 'failed',
+        processed_at: new Date(),
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      })
+      .where(eq(webhookEvents.event_id, event.id));
+    throw error;
+  }
 }
 ```
+
+> All additional webhook handlers (`invoice.payment_failed`, `transfer.failed`, etc.) must delegate through the same `processStripeWebhookEvent` helper so each event row transitions through `processing → processed|failed` without rolling back the idempotency insert.
 
 **Other Handlers**:
 ```typescript
@@ -1819,7 +2017,7 @@ import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { fundMilestone } from '@/shared/lib/apiClient';
+import { fundMilestone, capturePendingPaymentIntent } from '@/shared/lib/apiClient';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -1828,6 +2026,29 @@ function CheckoutForm({ milestone, onSuccess }: any) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<'idle' | 'processing' | 'action_required'>('idle');
+
+  const capturePaymentIntent = async (paymentIntentId: string) => {
+    await capturePendingPaymentIntent(paymentIntentId);
+  };
+
+  const pollPaymentIntent = async (paymentIntentId: string) => {
+    let attempts = 0;
+    while (attempts < 10) {
+      const refreshed = await stripe.retrievePaymentIntent(paymentIntentId);
+      if (refreshed.paymentIntent?.status === 'succeeded') {
+        onSuccess();
+        return;
+      }
+      if (refreshed.paymentIntent?.status === 'requires_payment_method') {
+        setError('Payment requires a new method after processing delay.');
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      attempts += 1;
+    }
+    setError('Still processing; check email for status.');
+  };
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -1852,13 +2073,35 @@ function CheckoutForm({ milestone, onSuccess }: any) {
       
       if (submitError) {
         setError(submitError.message || 'Payment failed');
-      } else if (paymentIntent?.status === 'succeeded') {
-        // Immediate success (no redirect needed)
-        onSuccess();
+      } else if (!paymentIntent) {
+        setError('Payment status unavailable');
       } else {
-        // Unexpected status handled by return_url logic if redirect happened,
-        // or fall through here.
-        setError('Payment status: ' + paymentIntent?.status);
+        switch (paymentIntent.status) {
+          case 'succeeded':
+            onSuccess();
+            break;
+          case 'requires_action':
+            await stripe.confirmPayment({
+              elements,
+              clientSecret: paymentIntent.client_secret!,
+              redirect: 'always',
+            });
+            setPendingStatus('action_required');
+            break;
+          case 'requires_capture':
+            await capturePaymentIntent(paymentIntent.id);
+            onSuccess();
+            break;
+          case 'processing':
+            setPendingStatus('processing');
+            pollPaymentIntent(paymentIntent.id);
+            break;
+          case 'requires_payment_method':
+            setError('Payment method needs attention. Please update and retry.');
+            break;
+          default:
+            setError('Payment status: ' + paymentIntent.status);
+        }
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -1957,19 +2200,32 @@ export function BillingCompletion() {
       return;
     }
 
-    stripe.retrievePaymentIntent(clientSecret).then(({ paymentIntent }) => {
+    stripe.retrievePaymentIntent(clientSecret).then(async ({ paymentIntent }) => {
       switch (paymentIntent?.status) {
         case 'succeeded':
           setStatus('success');
           setMessage('Payment succeeded!');
           break;
         case 'processing':
-          setStatus('loading'); // Keep loading or show processing state
-          setMessage('Your payment is processing.');
+          setStatus('loading');
+          setMessage('Your payment is processing. This page will refresh automatically.');
+          setTimeout(() => window.location.reload(), 5000);
+          break;
+        case 'requires_action':
+          setStatus('loading');
+          await stripe.confirmPayment({
+            clientSecret,
+            redirect: 'always',
+          });
+          break;
+        case 'requires_capture':
+          await capturePendingPaymentIntent(paymentIntent.id);
+          setStatus('success');
+          setMessage('Payment captured successfully.');
           break;
         case 'requires_payment_method':
           setStatus('error');
-          setMessage('Your payment was not successful, please try again.');
+          setMessage('Your payment needs a new method. Please return and try again.');
           break;
         default:
           setStatus('error');
@@ -2114,6 +2370,43 @@ export function MilestoneActionRow({ milestone, isClient, onStatusChange }: any)
 
 ---
 
+#### Issue FE-7.3: Implement Billing Completion Route (Guest Accessible)
+**Priority**: P0 (Blocking)
+
+**Files**: 
+- `src/routes/index.tsx`
+- `src/features/billing/components/BillingCompletion.tsx`
+- `src/shared/providers/StripeProvider.tsx` (ensure Elements provider is shared)
+
+**Requirements**:
+- Register `/billing/completion` in the router with no auth guard when a valid guest PaymentIntent exists (detected via query param or API introspection).
+- Wrap the route component with `<Elements stripe={stripePromise}>` and a `<BillingErrorBoundary>` so `useStripe()` works after redirects and errors are caught.
+- `BillingCompletion` must fetch the PaymentIntent client_secret from the URL, call `stripe.retrievePaymentIntent`, and handle statuses: `succeeded`, `processing`, `requires_action`, `requires_payment_method`, `requires_capture`.
+- Show a blocking loading spinner while fetching, an error view with retry/back links, and a success view with CTA back to `/milestones` (auth users) or `/client/portal` (guests).
+- When status is `requires_action`, trigger `stripe.confirmPayment` with redirect, and when `requires_capture`, call the backend capture endpoint before resolving.
+- Provide a navigation button to reopen the Fund Milestone modal (if user is authenticated) and log analytics events for completion success/failure.
+
+**Router Implementation**:
+```tsx
+<Route path="/billing/completion" component={() => (
+  <Elements stripe={stripePromise}>
+    <BillingErrorBoundary>
+      <BillingCompletion />
+    </BillingErrorBoundary>
+  </Elements>
+)}/>
+```
+
+**Acceptance Criteria**:
+- [ ] `/billing/completion` renders for guests + authenticated users
+- [ ] Elements + ErrorBoundary wrapped around `BillingCompletion`
+- [ ] Loading + success + retry states implemented
+- [ ] PaymentIntent statuses handled (succeeded/action/capture/processing/requires_payment_method)
+- [ ] CTA navigates back to milestones/client portal appropriately
+- [ ] Analytics + logging added for success/failure
+
+---
+
 ### Epic 8: API Client Integration
 
 **Owner**: Frontend Team  
@@ -2204,6 +2497,17 @@ export async function releaseMilestoneFunds(
     payout_amount: Number(data.payout_amount ?? 0),
     status: normalizedStatus,
   };
+}
+
+export async function capturePendingPaymentIntent(
+  paymentIntentId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<void> {
+  await apiClient.post(
+    `/api/billing/payment-intents/${encodeURIComponent(paymentIntentId)}/capture`,
+    {},
+    { signal: config?.signal }
+  );
 }
 
 export async function drawFromRetainer(
@@ -2362,12 +2666,12 @@ export async function listInvoices(
 - [ ] Feature flag `billing_v2_enabled` created (default: false)
 - [ ] Flag can disable billing UI in frontend
 - [ ] Flag can disable billing API endpoints in backend
-- [ ] Flag rollout plan: 0% → 5% → 25% → 100%
+- [ ] Flag rollout plan: 5% (24h) → 25% (48h) → 50% (72h) → 100% (after verification)
 
 ---
 
 ### Phase 1: Database (Day 1)
-1. Backend: Issue BE-1.1, BE-1.2, BE-1.3, BE-1.4
+1. Backend: Issue BE-1.1, BE-1.2, BE-1.3, BE-1.4, BE-1.5
 2. Verify migrations on staging
 3. Run migrations on production (maintenance window: 2am-3am UTC)
 4. Verify all constraints active
@@ -2386,7 +2690,7 @@ export async function listInvoices(
 
 ### Phase 3: Frontend Core (Days 5-7)
 1. Frontend: Issues FE-6.1, FE-6.2
-2. Frontend: Issues FE-7.1, FE-7.2
+2. Frontend: Issues FE-7.1, FE-7.2, FE-7.3
 3. Frontend: Issue FE-8.1
 4. Run component tests (FE-10.1)
 
@@ -2400,26 +2704,32 @@ export async function listInvoices(
 
 ### Phase 5: Production Deployment (Day 10)
 
+**Pre-Deployment Checklist**:
+1. [ ] Verify all PagerDuty/Slack contact information in the runbook
+2. [ ] Confirm primary + backup on-call engineers acknowledge availability for launch week
+3. [ ] Require Billing + Platform engineers to review and sign off on the on-call runbook updates
+4. [ ] Execute an escalation-path drill (ring on-call → team lead → exec) and document timestamps/outcomes
+
 **Canary Rollout**:
 1. [ ] Deploy backend to staging
 2. [ ] Deploy frontend to staging
-3. [ ] End-to-end smoke tests on staging
-4. [ ] Enable `billing_v2_enabled` flag for 5% of users
-5. [ ] Monitor for 2 hours
-6. [ ] If metrics healthy: increase to 25%
-7. [ ] Monitor for 4 hours
-8. [ ] If metrics healthy: increase to 100%
+3. [ ] End-to-end smoke tests on staging (payments + payouts)
+4. [ ] Enable `billing_v2_enabled` flag for 5% of traffic for 24 hours (Stage 1)
+5. [ ] Perform end-of-day reconciliation + webhook delivery audit before advancing
+6. [ ] Increase to 25% for the next 48 hours (Stage 2) and validate cross-time-zone samples
+7. [ ] Increase to 50% for 72 hours (Stage 3) with nightly rollback readiness reviews
+8. [ ] If all verification gates pass, ramp to 100% (Stage 4) while keeping rollback window open for 24 hours post GA
 
-**Monitoring Windows**:
-- Hour 0-2: Critical monitoring (5% traffic)
-- Hour 2-6: Active monitoring (25% traffic)
-- Hour 6-24: Standard monitoring (100% traffic)
-- Day 1-7: Extended observation period
+**Monitoring Windows & Verification Tasks**:
+- Stage 1 (Day 0-1, 5%): Critical monitoring + webhook delivery spot checks
+- Stage 2 (Days 2-3, 25%): Active monitoring + end-of-day reconciliation + STRIPE vs DB comparisons
+- Stage 3 (Days 4-6, 50%): Standard monitoring + cross-timezone client sampling + manual transfer audits
+- Stage 4 (Day 7+, 100%): Extended observation with defined rollback criteria for 24h before declaring steady state
 
 **Escalation**:
-- On-call engineer: [Name/Contact]
-- Escalation path: Engineer → Team Lead → CTO
-- Runbook location: [Wiki/Confluence URL]
+- On-call engineer: Emily Tran (PagerDuty: +1-415-555-0112, Slack @emily.tran)
+- Escalation path: On-call Engineer → Billing Tech Lead (Marco Ruiz, +1-917-555-0144) → CTO (Priya Natarajan, +1-650-555-0198)
+- Runbook location: https://wiki.blawby.com/runbooks/billing-v2-escalation
 
 **Automated Rollback Triggers**:
 - Payment success rate < 95%
