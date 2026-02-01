@@ -328,6 +328,15 @@ CHECK (status IN ('pending', 'completed', 'failed', 'queued'));
 ALTER TABLE billing_transactions 
 ADD CONSTRAINT chk_billing_transactions_type 
 CHECK (type IN ('payout', 'draw_payout', 'refund', 'reversal'));
+
+ALTER TABLE billing_transactions 
+ADD CONSTRAINT chk_billing_transactions_invoice_id_required 
+CHECK (
+  (type IN ('draw_payout', 'refund', 'reversal')) OR 
+  (type = 'payout' AND invoice_id IS NOT NULL)
+);
+
+COMMENT ON CONSTRAINT chk_billing_transactions_invoice_id_required ON billing_transactions IS 'Regular payouts must have invoice_id; draws/refunds/reversals may be NULL';
 ```
 
 **Acceptance Criteria**:
@@ -1840,9 +1849,27 @@ export function FundMilestoneModal({ milestone, onSuccess, onCancel }: any) {
   );
 }
 
+/* 
+  NOTE: BillingCompletion must be wrapped in <Elements> to use useStripe()
+  Example Usage in Router:
+*/
+/*
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
+<Route path="/billing/completion">
+  <Elements stripe={stripePromise}>
+    <BillingCompletion />
+  </Elements>
+</Route>
+*/
+
 export function BillingCompletion() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  // useStripe() requires this component to be a child of <Elements>
   const stripe = useStripe();
 
   useEffect(() => {
