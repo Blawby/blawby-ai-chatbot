@@ -214,7 +214,7 @@
     },
     "error": {
       "title": "Praktijkgegevens niet beschikbaar",
-      "description": "We konden de praktijknaam en het logo niet laden {{slug}}. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
+      "description": "We konden de praktijknaam en het logo van {{slug}} niet laden. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
       "retry": "Opnieuw proberen"
     },
     "header": {

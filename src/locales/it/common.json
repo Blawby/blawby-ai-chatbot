@@ -199,7 +199,7 @@
         "description": "Condividi alcuni dettagli e ti metteremo in contatto con l'avvocato giusto per la tua situazione.",
         "button": "Richiedi consulenza"
       },
-      "poweredBy": "Powered by"
+      "poweredBy": "Offerto da"
     },
     "navigation": {
       "home": "Home",
@@ -223,7 +223,7 @@
     }
   },
   "businessWelcome": {
-    "title": "Benvenuto nel tuo studio Business!",
+    "title": "Benvenuto nel tuo studio professionale!",
     "subtitle": "La tua organizzazione è pronta a crescere. Ecco gli strumenti a tua disposizione:",
     "features": {
       "intake": {
