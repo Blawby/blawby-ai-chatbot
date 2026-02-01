@@ -290,7 +290,7 @@ export const billingTransactions = pgTable('billing_transactions', {
   amount: integer('amount').notNull(),
   destination_account_id: text('destination_account_id').notNull(),
   type: varchar('type', { length: 20 }).default('payout').notNull(),
-  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, completed, failed, queued
   retry_count: integer('retry_count').default(0).notNull(),
   last_error: text('last_error'),
   created_at: timestamp('created_at').defaultNow().notNull(),
@@ -323,7 +323,7 @@ CHECK (amount >= 0);
 
 ALTER TABLE billing_transactions 
 ADD CONSTRAINT chk_billing_transactions_status 
-CHECK (status IN ('pending', 'completed', 'failed'));
+CHECK (status IN ('pending', 'completed', 'failed', 'queued'));
 
 ALTER TABLE billing_transactions 
 ADD CONSTRAINT chk_billing_transactions_type 
@@ -335,6 +335,8 @@ CHECK (type IN ('payout', 'draw_payout', 'refund', 'reversal'));
 - [ ] Can insert test transaction
 - [ ] Foreign key to invoices works
 - [ ] Retry tracking enabled
+- [ ] Retainer draw can have NULL invoice_id
+- [ ] Regular payout must have valid invoice_id
 
 ---
 
@@ -648,6 +650,28 @@ export class EscrowService {
     milestoneId: string;
     userId: string;
   }) {
+    // Explicit role/permission check (before transaction lock)
+    const hasPermission = await this.permissionService.userHasPermission(params.userId, null, 'release_funds'); // matterId not avail yet, check project scope?
+    // Actually we need the matter ID. 
+    // Optimization: Peek at invoice first or pass matterId in params if possible. 
+    // For now, we'll keep it simple: 
+    // 1. Transaction: Fetch and lock invoice... (Existing logic) 
+    
+    // REVISION: Move permission check outside transaction.
+    // We need to fetch the matter ID first without locking, or pass it in.
+    // Assuming we can't trust params, we do a quick light read first.
+    
+    // 0. Pre-check: Verify permission (light read)
+    const [preInv] = await db.select({ matter_id: invoices.matter_id })
+      .from(invoices)
+      .where(eq(invoices.milestone_id, params.milestoneId))
+      .limit(1);
+      
+    if (preInv) {
+       const hasPermission = await this.permissionService.userHasPermission(params.userId, preInv.matter_id, 'release_funds');
+       if (!hasPermission) throw new Error('Unauthorized: User missing release_funds permission');
+    }
+
     // 1. Transaction: Fetch and lock invoice, create pending transaction
     const { invoice, matter, milestone, transactionId } = await db.transaction(async (tx) => {
       // Fetch invoice with lock
@@ -690,11 +714,8 @@ export class EscrowService {
         throw new Error('Unauthorized: User does not own this milestone');
       }
       
-      // Explicit role/permission check
-      const hasPermission = await this.permissionService.userHasPermission(params.userId, inv.matter_id, 'release_funds');
-      if (!hasPermission) {
-        throw new Error('Unauthorized: User missing release_funds permission');
-      }
+      // Permission check already performed outside transaction
+
       
       // Fetch matter for connected account
       const [mat] = await tx.select()
@@ -754,49 +775,47 @@ export class EscrowService {
         })
         .where(eq(billingTransactions.id, transactionId));
       
-      // Enqueue to background job for automated retry
-      try {
-        await this.jobQueue.add('retry_transfer', {
-          transfer_params: {
-            amount: invoice.amount_paid,
-            currency: invoice.currency,
-            destination: matter.stripe_connected_account_id,
-            metadata: {
-              invoice_id: invoice.id,
-              milestone_id: params.milestoneId,
-              matter_id: invoice.matter_id,
-            }
-          },
-          idempotency_key: `release-${invoice.id}`,
-          context: {
-            invoice_id: invoice.id,
-            error_message: error instanceof Error ? error.message : 'Unknown error'
-          }
-        }, {
-          attempts: 5,
-          backoff: {
-            type: 'exponential',
-            delay: 1000
-          }
-        });
-
-        // Update transaction to 'queued' state
-        await db.update(billingTransactions)
+      // Enqueue to background job for automated retry (Atomic with DB update)
+      await db.transaction(async (tx) => {
+         // Update transaction to 'queued' state
+         await tx.update(billingTransactions)
           .set({ 
             status: 'queued',
             last_error: `Queued for retry: ${error instanceof Error ? error.message : 'Unknown error'}`
           })
           .where(eq(billingTransactions.id, transactionId));
 
-        // Return pending status so API responds gracefully
-        return { 
-          transfer: { id: 'pending-queued', status: 'pending' } as any, // Mock pending transfer
-          payoutAmount: invoice.amount_paid 
-        };
-      } catch (queueError) {
-        // Only surface original error if enqueue fails
-        throw error;
-      }
+         // Enqueue job safely
+         await this.jobQueue.add('retry_transfer', {
+            transfer_params: {
+              amount: invoice.amount_paid,
+              currency: invoice.currency,
+              destination: matter.stripe_connected_account_id,
+              metadata: {
+                invoice_id: invoice.id,
+                milestone_id: params.milestoneId,
+                matter_id: invoice.matter_id,
+              }
+            },
+            idempotency_key: `release-${invoice.id}`,
+            context: {
+              invoice_id: invoice.id,
+              error_message: error instanceof Error ? error.message : 'Unknown error'
+            }
+          }, {
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 1000 }
+          });
+      });
+
+      // Throw typed error for API response
+      throw new TransferQueuedError(invoice.id, invoice.amount_paid);
+
+    } catch (queueError) {
+      if (queueError instanceof TransferQueuedError) throw queueError;
+      // Only surface original error if enqueue/DB-update fails
+      throw error;
+    }
     }
     
     // 3. Transaction: Update to completed state
@@ -1151,6 +1170,15 @@ export async function releaseMilestoneHandler(c: Context) {
     
     if (error instanceof Error && error.message.includes('Unauthorized')) {
       return response.forbidden(c, { message: error.message });
+    }
+    
+    if (error instanceof TransferQueuedError) {
+      return response.ok(c, {
+        transfer_id: 'pending-queued', 
+        payout_amount: error.amount,
+        status: 'pending',
+        message: 'Transfer queued for retry'
+      });
     }
     
     return response.internalServerError(c, { 
@@ -1808,6 +1836,67 @@ export function FundMilestoneModal({ milestone, onSuccess, onCancel }: any) {
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+export function BillingCompletion() {
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('');
+  const stripe = useStripe();
+
+  useEffect(() => {
+    if (!stripe) return;
+
+    const clientSecret = new URLSearchParams(window.location.search).get(
+      'payment_intent_client_secret'
+    );
+
+    if (!clientSecret) {
+      setStatus('error');
+      setMessage('No payment info found.');
+      return;
+    }
+
+    stripe.retrievePaymentIntent(clientSecret).then(({ paymentIntent }) => {
+      switch (paymentIntent?.status) {
+        case 'succeeded':
+          setStatus('success');
+          setMessage('Payment succeeded!');
+          break;
+        case 'processing':
+          setStatus('loading'); // Keep loading or show processing state
+          setMessage('Your payment is processing.');
+          break;
+        case 'requires_payment_method':
+          setStatus('error');
+          setMessage('Your payment was not successful, please try again.');
+          break;
+        default:
+          setStatus('error');
+          setMessage('Something went wrong.');
+          break;
+      }
+    });
+  }, [stripe]);
+
+  return (
+    <div className="p-8 text-center">
+      {status === 'loading' && <p>Verifying payment...</p>}
+      {status === 'success' && (
+        <div className="text-green-600">
+          <h2 className="text-2xl font-bold mb-4">Success</h2>
+          <p>{message}</p>
+          <a href="/milestones" className="text-blue-600 underline mt-4 block">Back to Milestones</a>
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="text-red-600">
+          <h2 className="text-2xl font-bold mb-4">Payment Failed</h2>
+          <p>{message}</p>
+          <a href="/milestones" className="text-blue-600 underline mt-4 block">Back to Milestones</a>
+        </div>
+      )}
     </div>
   );
 }
