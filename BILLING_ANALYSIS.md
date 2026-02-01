@@ -98,18 +98,73 @@ Verify and update `src/features/matters` to integrate billing controls.
 
 ---
 
-## 5. Summary of Workflow (The "Happy Path")
+## 5. Detailed Workflows & Happy Paths
 
-1.  **Contract**: Lawyer creates a Matter with Milestone 1 ($1000).
-2.  **Funding (Client)**:
-    *   Frontend: Client clicks "Fund Milestone 1".
-    *   Backend: Creates Invoice -> Process Payment -> Holds $1000 in Platform.
-    *   State: `Milestone: FUNDED`, `Invoice: PAID`, `Escrow: HELD`.
-3.  **Work (Lawyer)**:
-    *   Lawyer sees "Funded" status and does the work.
-    *   Lawyer marks Milestone 1 as "Completed".
-4.  **Approval (Client)**:
-    *   Client reviews work. Clicks "Approve Release".
-5.  **Release (System)**:
-    *   Backend: Triggers `StripeTransfersService`. Holds 10% platform fee, sends $900 to Practice.
-    *   State: `Milestone: COMPLETED`, `Escrow: RELEASED`.
+### A. Hourly Work (Retainer Model)
+**Process**: The client makes a lump-sum deposit (Retainer). Work draws from this balance.
+1.  **Initial Deposit**:
+    *   Practice sends "Retainer Invoice" ($2000).
+    *   Client pays. Funds are held in **Platform Escrow**.
+    *   System records a "Retainer Balance" for this Client/Matter.
+2.  **Consuming Hours**:
+    *   Attorney logs 2 hours ($500).
+    *   **Auto-Action**: System checks Retainer Balance.
+    *   If sufficient: System deducts $500 from virtual balance AND creates a `Transfer` of $500 (minus fees) to the Attorney's Connect Account.
+3.  **Depletion & Notification**:
+    *   When balance < Threshold (e.g., $500), system prompts Client to "Replenish Retainer".
+
+```mermaid
+graph TD
+    A[Practice Requests Retainer] -->|Invoice Created| B(Client Pays Deposit)
+    B -->|Funded| C[Funds Held in Platform Escrow]
+    C --> D[System Updates 'Retainer Balance']
+    E[Attorney Logs Time] --> F{Check Balance}
+    F -->|Sufficient| G[Deduct Virtual Balance]
+    G --> H[Transfer Funds to Practice]
+    F -->|Insufficient| I[Work Logged as 'Unbilled']
+    I --> J[Notify Client to Replenish]
+```
+
+### B. Fixed Price (Milestone Model)
+**Process**: Pay-per-deliverable. Safety for both sides.
+1.  **Start Phase**:
+    *   Client clicks "Fund Milestone 1".
+    *   Funds move to Escrow.
+2.  **Work**:
+    *   Attorney marks milestone as "Completed".
+3.  **Approval**:
+    *   Client reviews and clicks "Approve".
+    *   Logic: `Release Funds` -> `Stripe Transfer`.
+
+```mermaid
+graph TD
+    A[Client Funds Milestone] -->|Payment Succeeded| B[Funds in Escrow]
+    B --> C[Attorney Notified 'Safe to Start']
+    C --> D[Attorney Completes Work]
+    D --> E[Client Reviews Work]
+    E --> F{Approve?}
+    F -->|Yes| G[Release Funds to Attorney]
+    F -->|No| H[Dispute / Revision Request]
+```
+
+### C. Contingency Model (Settlement)
+**Process**: Attorney takes a % of the total win.
+1.  **Win**: Settlement funds ($100,000) are received (usually offline or via large transfer).
+2.  **Recording**:
+    *   Attorney records "Settlement Received".
+    *   System calculates Contingency Fee (e.g., 33% -> $33,000).
+3.  **Payout**:
+    *   This is often handled **outside** the app (Trust Accounts).
+    *   *If handled in app*: Client pays the full settlement via ACH.
+    *   System splits payment: 33% to Attorney, 67% to Client.
+
+```mermaid
+graph TD
+    A[Case Won / Settlement Reached] --> B[Settlement Amount Recorded]
+    B --> C[System Calcs Contingency Fee %]
+    C --> D{Payment Method}
+    D -->|Offline/Check| E[Manual Record of Distribution]
+    D -->|In-App ACH| F[Split Payment Route]
+    F --> G[X% to Attorney]
+    F --> H[Y% to Client Payout]
+```
