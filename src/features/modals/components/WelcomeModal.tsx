@@ -88,16 +88,12 @@ const WelcomeModal = ({ isOpen, onClose, onComplete, workspace }: WelcomeModalPr
     }
   };
 
-  const title = workspace === 'practice'
-    ? t('welcome.lawyer.title')
-    : isClient 
-      ? t('welcome.client.title')
-      : t('onboarding.welcome.title');
-  const subtitle = workspace === 'practice'
-    ? t('welcome.lawyer.subtitle')
-    : isClient 
-      ? t('welcome.client.subtitle')
-      : t('onboarding.welcome.subtitle');
+  const title = isClient 
+    ? t('welcome.client.title')
+    : t('welcome.lawyer.title');
+  const subtitle = isClient 
+    ? t('welcome.client.subtitle')
+    : t('welcome.lawyer.subtitle');
 
   return (
     <Modal

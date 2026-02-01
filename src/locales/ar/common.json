@@ -207,7 +207,7 @@
     },
     "conversationList": {
       "title": "الرسائل",
-      "loading": "جاري تحميل المحادثات...",
+      "loading": "جارٍ تحميل المحادثات...",
       "empty": "لا توجد محادثات بعد.",
       "previewPlaceholder": "افتح لعرض الرسائل.",
       "sendMessage": "أرسل لنا رسالة"

@@ -206,7 +206,7 @@
         },
         "payments": {
           "title": "Pagos Seguros",
-          "description": "Paga los honorarios de retención y liquidar facturas directamente a través de nuestro portal integrado de Stripe."
+          "description": "Paga los honorarios de retención y liquida facturas directamente a través de nuestro portal integrado de Stripe."
         }
       }
     }
