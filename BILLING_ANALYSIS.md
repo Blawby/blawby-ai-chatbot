@@ -7,10 +7,27 @@
 *   **Platform-as-Merchant**: The Platform collects funds from the Client -> Holds them -> Transfers to Practice upon approval.
 *   **Infrastructure**: specialized `billing` module in `blawby-backend` orchestrating Stripe Invoices and Connect Transfers.
 
-## 2. Technical Implementation Sequences
+## 2. Technical Context & Findings (New)
+
+### A. Backend Architecture (`blawby-backend`)
+*   **Structure**: `src/modules/{module_name}` (e.g., `matters`, `onboarding`).
+*   **ORM**: Drizzle.
+*   **Schema Gap**: The `matters` table (`src/modules/matters/database/schema/matters.schema.ts`) has `billing_type` but **MISSING** `retainer_balance`. We must add this.
+*   **Stripe**: `StripeConnectedAccount` logic is robust (`onboarding` module). We can leverage the existing `stripe` client export.
+
+### B. Legacy Migration (`blawby-app`)
+*   **Invoice Schema**: `invoices` table is clean. We will reproduce it in `billing` module with an added `matter_id` foreign key.
+*   **Logic**: `StripeInvoiceService.php` uses `on_behalf_of` for invoices. We will adopt this to ensure the Practice is the Merchant of Record for tax purposes, even if Platform holds funds temporarily.
+
+### C. Frontend (`blawby-ai-chatbot`)
+*   **API**: `src/shared/lib/apiClient.ts` is robust. We will extend it with a `Billing` namespace.
+*   **Tech**: Preact. Integration with `@stripe/stripe-js` (Payment Element) is required for the "Fund Milestone" modal.
+
+---
+
+## 3. Technical Implementation Sequences
 
 ### A. Sequence: Milestone Escrow Flow (Fixed Price)
-This flow describes the lifecycle of a discrete unit of work (Milestone) being funded, completed, and paid out.
 
 ```mermaid
 sequenceDiagram
@@ -75,7 +92,6 @@ sequenceDiagram
 ```
 
 ### B. Sequence: Hourly Retainer Draw
-This flow describes the continuous loop of replenishing a balance and drawing from it.
 
 ```mermaid
 sequenceDiagram
@@ -127,26 +143,6 @@ sequenceDiagram
 
 ---
 
-## 3. Migration: From Legacy (`blawby-app`)
-*We are extracting established logic to ensure we don't reinvent the wheel.*
-
-### **Logic to Extract & Port**
-1.  **Core Invoice Logic** (`app/Services/StripeInvoiceService.php`)
-    *   *Port to Backend*: `src/modules/billing/services/invoice.service.ts`
-    *   *Source Method*: `createStripeInvoice` -> Adapting to TS/Drizzle.
-    *   *Source Method*: `createLocalInvoice` -> Adapting to write to `invoices` table.
-
-2.  **Transfer Logic** (`app/Services/StripeTransfersService.php`)
-    *   *Port to Backend*: `src/modules/billing/services/payouts.service.ts`
-    *   *Source Method*: `transferInvoiceAmountToConnectedAccount`
-    *   *Role*: This is the `releaseFunds` engine in the Sequence Diagram (Phase 3).
-
-3.  **Database Schema** (`database/migrations/2024_06_27_170448_create_invoice_table.php`)
-    *   *Port to Backend*: `src/modules/billing/database/schema/invoices.schema.ts`
-    *   *Additions*: `matter_id` (uuid), `milestone_id` (uuid), `escrow_status` (enum: pending, held, released).
-
----
-
 ## 4. Backend Implementation Plan (`blawby-backend`)
 
 ### **A. Module Structure: `src/modules/billing`**
@@ -161,12 +157,8 @@ This module is the "Financial Engine" connecting Matters (Work) to Stripe (Money
     *   `amount_platform_fee`: integer (cents)
     *   `status`: enum ('draft', 'open', 'paid', 'void')
     *   `escrow_status`: enum ('none', 'held', 'released')
-*   **File**: `src/modules/billing/database/schema/transactions.schema.ts`
-    *   `id`: uuid
-    *   `invoice_id`: uuid (FK)
-    *   `stripe_transfer_id`: text
-    *   `amount`: integer
-    *   `destination_account_id`: text
+*   **File**: `src/modules/matters/database/schema/matters.schema.ts`
+    *   **ADD**: `retainer_balance` (integer, default 0).
 
 **2. Services**
 *   **File**: `src/modules/billing/services/invoice-generator.service.ts`
