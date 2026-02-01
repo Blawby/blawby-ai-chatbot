@@ -1007,9 +1007,8 @@ export class RetainerService {
     const feePercentage = 0.013336;
     const applicationFee = Math.round(totalAmount * feePercentage);
     
-    // 4. ATOMIC: Check balance and deduct in single transaction
-    const result = await db.transaction(async (tx) => {
-      // Single atomic update that decrements only if sufficient balance
+    // 4. ATOMIC: Reserve funds, flag entries as pending, and create a pending billing transaction
+    const { matter: result, transactionId } = await db.transaction(async (tx) => {
       const [updatedMatter] = await tx.update(matters)
         .set({
           retainer_balance: sql`retainer_balance - ${totalAmount}`,
@@ -1018,7 +1017,7 @@ export class RetainerService {
         .where(
           and(
             eq(matters.id, params.matterId),
-            sql`retainer_balance >= ${totalAmount}` // Atomic check
+            sql`retainer_balance >= ${totalAmount}`
           )
         )
         .returning();
@@ -1027,9 +1026,9 @@ export class RetainerService {
         throw new Error('Insufficient retainer balance');
       }
       
-      // Mark time entries as billed in same transaction
+      // Flag entries as pending payout but keep billed=false until transfer completes
       await tx.update(timeEntries)
-        .set({ billed: true, billed_at: new Date() })
+        .set({ billed: false, billing_status: 'pending_payout', updated_at: new Date() })
         .where(
           and(
             eq(timeEntries.matter_id, params.matterId),
@@ -1037,42 +1036,104 @@ export class RetainerService {
           )
         );
       
-      return updatedMatter;
+      // Create pending billing transaction record tied to this draw
+      const [pendingTransaction] = await tx.insert(billingTransactions).values({
+        invoice_id: null,
+        stripe_transfer_id: `pending-${idempotencyKey}`,
+        amount: totalAmount,
+        destination_account_id: updatedMatter.stripe_connected_account_id,
+        type: 'draw_payout',
+        status: 'pending',
+        retry_count: 0,
+        last_error: null,
+        metadata: JSON.stringify({
+          idempotencyKey,
+          matter_id: params.matterId,
+          time_entry_ids: entries.map((entry) => entry.id),
+        }),
+      }).returning();
+      
+      return { matter: updatedMatter, transactionId: pendingTransaction.id };
     });
     
-    // 5. Transfer to Practice (with retry)
-    const transfer = await retryStripeTransfer(
-      () => stripe.transfers.create({
-        amount: totalAmount,
-        currency: 'usd',
-        destination: result.stripe_connected_account_id,
-        metadata: {
-          matter_id: params.matterId,
-          type: 'retainer_draw',
-          time_entry_count: entries.length,
-        },
-      }, {
-        idempotencyKey,
-      }),
-      idempotencyKey,
-      {
-        invoice_id: `draw-${params.matterId}`,
-        invoice_amount_paid: totalAmount,
-        invoice_currency: 'usd',
-        invoice_matter_id: params.matterId,
-        destination_account_id: result.stripe_connected_account_id,
-      }
-    );
+    // Failure handling mirrors payout retries
+    const handleTransferFailure = async (error: unknown) => {
+      await db.transaction(async (tx) => {
+        await tx.update(billingTransactions)
+          .set({
+            status: 'failed',
+            last_error: error instanceof Error ? error.message : 'Unknown error',
+            stripe_transfer_id: `failed-${idempotencyKey}`,
+          })
+          .where(eq(billingTransactions.id, transactionId));
+        
+        await tx.update(matters)
+          .set({
+            retainer_balance: sql`retainer_balance + ${totalAmount}`,
+            updated_at: new Date(),
+          })
+          .where(eq(matters.id, params.matterId));
+        
+        await tx.update(timeEntries)
+          .set({ billing_status: null })
+          .where(
+            and(
+              eq(timeEntries.matter_id, params.matterId),
+              inArray(timeEntries.id, entries.map((entry) => entry.id))
+            )
+          );
+      });
+      
+      throw error;
+    };
     
-    // 6. Record transaction
-    await db.insert(billingTransactions).values({
-      invoice_id: null, // No invoice for retainer draws
-      stripe_transfer_id: transfer.id,
-      amount: totalAmount,
-      destination_account_id: result.stripe_connected_account_id,
-      type: 'draw_payout',
-      status: 'completed',
-      completed_at: new Date(),
+    // 5. Transfer to Practice (with retry)
+    let transfer: Stripe.Transfer;
+    try {
+      transfer = await retryStripeTransfer(
+        () => stripe.transfers.create({
+          amount: totalAmount,
+          currency: 'usd',
+          destination: result.stripe_connected_account_id,
+          metadata: {
+            matter_id: params.matterId,
+            type: 'retainer_draw',
+            time_entry_count: entries.length,
+          },
+        }, {
+          idempotencyKey,
+        }),
+        idempotencyKey,
+        {
+          invoice_id: `draw-${params.matterId}`,
+          invoice_amount_paid: totalAmount,
+          invoice_currency: 'usd',
+          invoice_matter_id: params.matterId,
+          destination_account_id: result.stripe_connected_account_id,
+        }
+      );
+    } catch (error) {
+      await handleTransferFailure(error);
+    }
+    
+    // 6. Finalize transaction atomically
+    await db.transaction(async (tx) => {
+      await tx.update(billingTransactions)
+        .set({
+          stripe_transfer_id: transfer!.id,
+          status: 'completed',
+          completed_at: new Date(),
+        })
+        .where(eq(billingTransactions.id, transactionId));
+      
+      await tx.update(timeEntries)
+        .set({ billed: true, billed_at: new Date(), billing_status: 'released' })
+        .where(
+          and(
+            eq(timeEntries.matter_id, params.matterId),
+            inArray(timeEntries.id, entries.map((entry) => entry.id))
+          )
+        );
     });
     
     // 7. Report metered usage
