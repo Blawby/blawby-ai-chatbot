@@ -20,7 +20,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         onClose={onClose}
         onComplete={onComplete}
         active={isOpen}
-        className="data-[test=modal]"
+        testId="onboarding-modal"
       />
     </Modal>
   );

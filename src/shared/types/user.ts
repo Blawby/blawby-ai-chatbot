@@ -227,6 +227,7 @@ export interface BetterAuthSessionUser {
   primaryWorkspace?: 'client' | 'practice' | null;
   preferredPracticeId?: string | null;
   practiceCount?: number | null;
+  onboardingComplete?: boolean | null;
   
   // All the additional fields we added
   bio?: string | null;

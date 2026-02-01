@@ -4,8 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData } from '@/shared/ui/form';
-import { Input, DatePicker } from '@/shared/ui/input';
-import { Checkbox } from '@/shared/ui/input';
+import { DatePicker, Checkbox, Input, PasswordInput } from '@/shared/ui/input';
 import { schemas } from '@/shared/ui/validation/schemas';
 
 interface PersonalInfoData extends FormData {
@@ -20,11 +19,12 @@ interface PersonalInfoData extends FormData {
 interface PersonalInfoStepProps {
   data: PersonalInfoData;
   onComplete: (data: PersonalInfoData) => void;
+  isSubmitting?: boolean;
 }
 
-const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) => {
+const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitting = false }: PersonalInfoStepProps) => {
   const { t } = useTranslation('common');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localSubmitting, setLocalSubmitting] = useState(false);
   const mountedRef = useRef<boolean>(true);
 
   useEffect(() => {
@@ -35,9 +35,9 @@ const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) =>
   }, []);
 
   const handleSubmit = async (formData: PersonalInfoData) => {
-    if (isSubmitting) return;
+    if (parentSubmitting || localSubmitting) return;
     
-    setIsSubmitting(true);
+    setLocalSubmitting(true);
     
     try {
       await onComplete(formData);
@@ -45,7 +45,7 @@ const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) =>
       console.error('Error submitting personal info:', error);
     } finally {
       if (mountedRef.current) {
-        setIsSubmitting(false);
+        setLocalSubmitting(false);
       }
     }
   };
@@ -123,50 +123,48 @@ const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) =>
                   </FormItem>
                 )}
               </FormField>
-            </div>
-            {/* Password */}
-            <FormField name="password">
-              {({ value, error, onChange }) => (
-                <FormItem>
-                  <FormLabel>{t('onboarding.step1.password', 'Create a password')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      required
-                      value={(value as string) || ''}
-                      onChange={(value) => onChange(value)}
-                      placeholder={t('onboarding.step1.passwordPlaceholder', 'Enter a secure password')}
-                      error={error?.message}
-                    />
-                  </FormControl>
-                  {error && (
-                    <FormMessage>{error.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
-            </FormField>
 
-            {/* Confirm Password */}
-            <FormField name="confirmPassword">
-              {({ value, error, onChange }) => (
-                <FormItem>
-                  <FormLabel>{t('onboarding.step1.confirmPassword', 'Confirm password')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      required
-                      value={(value as string) || ''}
-                      onChange={(value) => onChange(value)}
-                      placeholder={t('onboarding.step1.confirmPasswordPlaceholder', 'Re-enter your password')}
-                      error={error?.message}
-                    />
-                  </FormControl>
-                  {error && (
-                    <FormMessage>{error.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
-            </FormField>
+              {/* Password */}
+              <FormField name="password">
+                {({ value, error, onChange }) => (
+                  <FormItem>
+                    <FormLabel>{t('onboarding.step1.password', 'Create a password')}</FormLabel>
+                    <FormControl>
+                      <PasswordInput
+                        required
+                        value={(value as string) || ''}
+                        onChange={(value) => onChange(value)}
+                        placeholder={t('onboarding.step1.passwordPlaceholder', 'Enter a secure password')}
+                        error={error?.message}
+                      />
+                    </FormControl>
+                    {error && (
+                      <FormMessage>{error.message}</FormMessage>
+                    )}
+                  </FormItem>
+                )}
+              </FormField>
+              {/* Confirm Password */}
+              <FormField name="confirmPassword">
+                {({ value, error, onChange }) => (
+                  <FormItem>
+                    <FormLabel>{t('onboarding.step1.confirmPassword', 'Confirm password')}</FormLabel>
+                    <FormControl>
+                      <PasswordInput
+                        required
+                        value={(value as string) || ''}
+                        onChange={(value) => onChange(value)}
+                        placeholder={t('onboarding.step1.confirmPasswordPlaceholder', 'Re-enter your password')}
+                        error={error?.message}
+                      />
+                    </FormControl>
+                    {error && (
+                      <FormMessage>{error.message}</FormMessage>
+                    )}
+                  </FormItem>
+                )}
+              </FormField>
+            </div>
 
             {/* Terms Agreement */}
             <FormField name="agreedToTerms">
@@ -200,12 +198,12 @@ const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) =>
             <div className="space-y-3">
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={parentSubmitting || localSubmitting}
                 variant="primary"
                 size="lg"
                 className="w-full"
               >
-                {isSubmitting ? (
+                {(parentSubmitting || localSubmitting) ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   t('onboarding.step1.continue')

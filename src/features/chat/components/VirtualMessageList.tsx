@@ -262,6 +262,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
     }, [messages.length]);
 
+    useEffect(() => {
+        const lastMessage = messages[messages.length - 1];
+        if (!lastMessage?.paymentRequest) return;
+        setEndIndex(messages.length);
+        setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
+        if (listRef.current) {
+            listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
+        }
+    }, [messages]);
+
     useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {

@@ -5,6 +5,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import { updateUser, getClient, getSession } from '@/shared/lib/authClient';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
+import { sanitizeOnboardingPersonalInfo } from '@/shared/types/onboarding';
 import type { OnboardingPreferences, ProductUsage } from '@/shared/types/preferences';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
@@ -82,13 +83,15 @@ interface OnboardingFlowProps {
   onComplete: (data: OnboardingFormData) => void;
   active?: boolean;
   className?: string;
+  testId?: string;
 }
 
 export const OnboardingFlow = ({
   onClose,
   onComplete,
   active = true,
-  className = ''
+  className = '',
+  testId
 }: OnboardingFlowProps) => {
   const { t } = useTranslation('common');
   const { showError, showSuccess } = useToastContext();
@@ -96,16 +99,25 @@ export const OnboardingFlow = ({
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData>(() => createDefaultFormData());
   const hasLoadedRef = useRef(false);
+  const sessionUserId = session?.user?.id;
+  const sessionUserSnapshotRef = useRef<{ id?: string; name?: string }>({});
+  if (sessionUserId && sessionUserSnapshotRef.current.id !== sessionUserId) {
+    sessionUserSnapshotRef.current = {
+      id: sessionUserId,
+      name: session?.user?.name ?? ''
+    };
+  }
+  const sessionUserName = sessionUserSnapshotRef.current.name ?? '';
 
   useEffect(() => {
-    if (active && session?.user && !hasLoadedRef.current) {
+    if (active && sessionUserId && !hasLoadedRef.current) {
       const loadPreferences = async () => {
         try {
           const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
           setOnboardingData((prev) => ({
             personalInfo: {
               ...prev.personalInfo,
-              fullName: session.user?.name || prev.personalInfo.fullName,
+              fullName: sessionUserName || prev.personalInfo.fullName,
               birthday: prefs?.birthday ?? '',
               password: '',
               confirmPassword: '',
@@ -137,7 +149,9 @@ export const OnboardingFlow = ({
     } else if (!active) {
       hasLoadedRef.current = false;
     }
-  }, [active, session?.user]);
+  }, [active, sessionUserId, sessionUserName]);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleStepComplete = async (
     step: OnboardingStep,
@@ -161,11 +175,16 @@ export const OnboardingFlow = ({
   };
 
   const handleComplete = async (data?: OnboardingFormData) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const sourceData = data || onboardingData;
 
     try {
       if (import.meta.env.DEV) {
-        console.debug('[ONBOARDING][SAVE] updating onboarding data');
+        console.debug('[ONBOARDING][SAVE] updating onboarding data', {
+          personalInfo: sanitizeOnboardingPersonalInfo(sourceData.personalInfo),
+          useCase: sourceData.useCase
+        });
       }
 
       const trimmedName = sourceData.personalInfo.fullName.trim();
@@ -218,6 +237,8 @@ export const OnboardingFlow = ({
         t('onboarding.error.title', 'Save failed'),
         t('onboarding.error.message', 'Unable to save your onboarding data. Please try again.')
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -227,6 +248,7 @@ export const OnboardingFlow = ({
         return (
           <PersonalInfoStep
             data={onboardingData.personalInfo}
+            isSubmitting={isSubmitting}
             onComplete={async (data) => await handleStepComplete('personal', { personalInfo: data })}
           />
         );
@@ -234,6 +256,7 @@ export const OnboardingFlow = ({
         return (
           <UseCaseStep
             data={onboardingData.useCase}
+            isSubmitting={isSubmitting}
             onComplete={async (data) => await handleStepComplete('useCase', { useCase: data })}
           />
         );
@@ -242,8 +265,13 @@ export const OnboardingFlow = ({
     }
   };
 
+  const resolvedTestId = testId ?? 'onboarding-flow';
+
   return (
-    <div className={`h-full bg-white dark:bg-dark-bg flex flex-col ${className}`} data-testid="onboarding-flow">
+    <div
+      className={`h-full bg-white dark:bg-dark-bg flex flex-col ${className}`}
+      data-testid={resolvedTestId}
+    >
       {renderStep()}
     </div>
   );

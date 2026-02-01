@@ -517,11 +517,14 @@ export interface UIMessageExtras {
   paymentRequest?: {
     intakeUuid?: string;
     clientSecret?: string;
+    paymentLinkUrl?: string;
     amount?: MinorAmount;
     currency?: string;
     practiceName?: string;
     practiceLogo?: string;
     practiceSlug?: string;
+    practiceId?: string;
+    conversationId?: string;
     returnTo?: string;
   };
   /** @deprecated Prefer deriving loading from aiState. */

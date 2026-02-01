@@ -136,6 +136,8 @@ export interface PracticeDetailsUpdate {
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
+  paymentLinkEnabled?: boolean | null;
+  paymentLinkPrefillAmount?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
@@ -160,6 +162,8 @@ export interface PracticeDetails {
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
+  paymentLinkEnabled?: boolean | null;
+  paymentLinkPrefillAmount?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
@@ -1090,6 +1094,17 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     }
     normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee);
   }
+  if ('paymentLinkEnabled' in payload && payload.paymentLinkEnabled !== undefined) {
+    normalized.payment_link_enabled = payload.paymentLinkEnabled;
+  }
+  if ('paymentLinkPrefillAmount' in payload && payload.paymentLinkPrefillAmount !== undefined) {
+    if (payload.paymentLinkPrefillAmount === null) {
+      normalized.payment_link_prefill_amount = null;
+    } else if (typeof payload.paymentLinkPrefillAmount === 'number') {
+      assertMajorUnits(payload.paymentLinkPrefillAmount, 'practice.paymentLinkPrefillAmount');
+      normalized.payment_link_prefill_amount = toMinorUnitsValue(payload.paymentLinkPrefillAmount);
+    }
+  }
   const paymentUrl = normalizeTextOrUndefined(payload.paymentUrl);
   if (paymentUrl !== undefined) normalized.payment_url = paymentUrl;
   const calendlyUrl = normalizeTextOrUndefined(payload.calendlyUrl);
@@ -1187,6 +1202,10 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     'businessEmail',
     'consultation_fee',
     'consultationFee',
+    'payment_link_enabled',
+    'paymentLinkEnabled',
+    'payment_link_prefill_amount',
+    'paymentLinkPrefillAmount',
     'billing_increment_minutes',
     'billingIncrementMinutes',
     'payment_url',
@@ -1279,6 +1298,24 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
         const value = container.consultation_fee ?? container.consultationFee;
         if (typeof value === 'number') {
           assertMinorUnits(value, 'practice.details.consultationFee');
+          return toMajorUnits(value);
+        }
+        return null;
+      }
+      return undefined;
+    })(),
+    paymentLinkEnabled: (() => {
+      if ('payment_link_enabled' in container || 'paymentLinkEnabled' in container) {
+        const value = container.payment_link_enabled ?? container.paymentLinkEnabled;
+        return typeof value === 'boolean' ? value : null;
+      }
+      return undefined;
+    })(),
+    paymentLinkPrefillAmount: (() => {
+      if ('payment_link_prefill_amount' in container || 'paymentLinkPrefillAmount' in container) {
+        const value = container.payment_link_prefill_amount ?? container.paymentLinkPrefillAmount;
+        if (typeof value === 'number') {
+          assertMinorUnits(value, 'practice.details.paymentLinkPrefillAmount');
           return toMajorUnits(value);
         }
         return null;

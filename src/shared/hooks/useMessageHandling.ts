@@ -4,14 +4,15 @@ import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/
 import { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
-import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
+import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import {
   updateConversationMetadata as patchConversationMetadata,
   fetchMessageReactions,
   addMessageReaction,
-  removeMessageReaction
+  removeMessageReaction,
+  postSystemMessage
 } from '@/shared/lib/conversationApi';
 
 // Global interface for window API base override and debug properties
@@ -117,6 +118,36 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
     message: normalizedMessage,
     initialValues: normalizedInitialValues
   };
+};
+
+const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | undefined => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const record = metadata as Record<string, unknown>;
+  const candidate = record.paymentRequest;
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return undefined;
+  }
+  const data = candidate as Record<string, unknown>;
+  const request: IntakePaymentRequest = {};
+  if (typeof data.intakeUuid === 'string') request.intakeUuid = data.intakeUuid;
+  if (typeof data.clientSecret === 'string') request.clientSecret = data.clientSecret;
+  if (typeof data.paymentLinkUrl === 'string') request.paymentLinkUrl = data.paymentLinkUrl;
+  if (typeof data.amount === 'number') request.amount = data.amount;
+  if (typeof data.currency === 'string') request.currency = data.currency;
+  if (typeof data.practiceName === 'string') request.practiceName = data.practiceName;
+  if (typeof data.practiceLogo === 'string') request.practiceLogo = data.practiceLogo;
+  if (typeof data.practiceSlug === 'string') request.practiceSlug = data.practiceSlug;
+  if (typeof data.practiceId === 'string') request.practiceId = data.practiceId;
+  if (typeof data.conversationId === 'string') request.conversationId = data.conversationId;
+  if (typeof data.returnTo === 'string') request.returnTo = data.returnTo;
+
+  const hasPayload =
+    typeof request.intakeUuid === 'string' ||
+    typeof request.clientSecret === 'string' ||
+    typeof request.paymentLinkUrl === 'string';
+  return hasPayload ? request : undefined;
 };
 
 /**
@@ -410,6 +441,7 @@ export const useMessageHandling = ({
     const isUser = normalizedRole === 'user'
       && Boolean(senderId && currentUserId && senderId === currentUserId);
     const contactForm = parseContactFormMetadata(msg.metadata);
+    const paymentRequest = parsePaymentRequestMetadata(msg.metadata);
 
     return {
       id: msg.id,
@@ -427,6 +459,7 @@ export const useMessageHandling = ({
         url: '', // TODO: Generate file URL from file ID
       })) : undefined,
       contactForm,
+      paymentRequest,
       isUser
     };
   }, [currentUserId]);
@@ -1349,6 +1382,18 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const hasClientSecret = typeof clientSecret === 'string' && clientSecret.trim().length > 0;
       const hasPaymentLink = typeof paymentLinkUrl === 'string' && paymentLinkUrl.trim().length > 0;
 
+      if (import.meta.env.DEV) {
+        console.info('[Intake] Payment message decision', {
+          paymentRequired,
+          hasClientSecret,
+          hasPaymentLink,
+          intakeUuid: paymentDetails?.uuid,
+          paymentLinkUrl,
+          clientSecretPresent: hasClientSecret,
+          paymentLinkPresent: hasPaymentLink
+        });
+      }
+
       if (paymentRequired && (hasClientSecret || hasPaymentLink)) {
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
@@ -1370,37 +1415,68 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             conversationId,
             returnTo
           });
-          setMessages(prev => {
-            if (prev.some((msg) => msg.id === paymentMessageId)) {
-              return prev;
-            }
-            return [
-              ...prev,
-              {
-                id: paymentMessageId,
-                role: 'assistant',
+          const paymentRequestPayload = {
+            intakeUuid: paymentDetails.uuid,
+            clientSecret: hasClientSecret ? clientSecret : undefined,
+            paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
+            amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
+            currency: paymentDetails.currency,
+            practiceName: paymentDetails.organizationName,
+            practiceLogo: paymentDetails.organizationLogo,
+            practiceSlug: resolvedPracticeSlug,
+            practiceId: practiceContextId,
+            conversationId,
+            returnTo
+          };
+
+          let persisted = false;
+          if (conversationId && practiceContextId) {
+            try {
+              const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {
+                clientId: paymentMessageId,
                 content: 'One more step: submit the consultation fee to complete your intake.',
-                timestamp: Date.now(),
-                isUser: false,
-                paymentRequest: {
-                  intakeUuid: paymentDetails.uuid,
-                  clientSecret: hasClientSecret ? clientSecret : undefined,
-                  paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
-                  amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
-                  currency: paymentDetails.currency,
-                  practiceName: paymentDetails.organizationName,
-                  practiceLogo: paymentDetails.organizationLogo,
-                  practiceSlug: resolvedPracticeSlug,
-                  practiceId: practiceContextId,
-                  conversationId,
-                  returnTo
-                },
                 metadata: {
+                  paymentRequest: paymentRequestPayload,
                   paymentUrl
                 }
+              });
+              if (persistedMessage) {
+                applyServerMessages([persistedMessage]);
+                persisted = true;
               }
-            ];
-          });
+            } catch (error) {
+              console.warn('[Intake] Failed to persist payment message', error);
+            }
+          }
+
+          if (!persisted) {
+            setMessages(prev => {
+              if (prev.some((msg) => msg.id === paymentMessageId)) {
+                return prev;
+              }
+              return [
+                ...prev,
+                {
+                  id: paymentMessageId,
+                  role: 'assistant',
+                  content: 'One more step: submit the consultation fee to complete your intake.',
+                  timestamp: Date.now(),
+                  isUser: false,
+                  paymentRequest: paymentRequestPayload,
+                  metadata: {
+                    paymentUrl
+                  }
+                }
+              ];
+            });
+          }
+          if (import.meta.env.DEV) {
+            console.info('[Intake] Payment message enqueued', {
+              paymentMessageId,
+              intakeUuid: paymentDetails.uuid,
+              paymentUrl
+            });
+          }
         }
       } else if (!paymentRequired && paymentDetails?.uuid) {
         void confirmIntakeLead(paymentDetails.uuid);
@@ -1418,6 +1494,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     logDev,
     messages,
     confirmIntakeLead,
+    applyServerMessages,
     sendMessageOverWs,
     updateConversationMetadata
   ]);

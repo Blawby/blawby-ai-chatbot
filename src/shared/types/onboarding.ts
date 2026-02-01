@@ -8,6 +8,12 @@ export interface OnboardingPersonalInfo extends FormData {
   agreedToTerms: boolean;
 }
 
+export const sanitizeOnboardingPersonalInfo = (info: OnboardingPersonalInfo) => ({
+  ...info,
+  password: info.password ? '<redacted>' : '',
+  confirmPassword: info.confirmPassword ? '<redacted>' : ''
+});
+
 export type OnboardingPrimaryUseCase =
   | 'messaging'
   | 'legal_payments'

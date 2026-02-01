@@ -18,6 +18,8 @@ const resolveFallbackPath = (workspace: ReturnType<typeof useWorkspace>['default
 
 const isSafeRedirectPath = (path: string | null | undefined): path is string => {
   if (!path) return false;
+  const normalized = path.toLowerCase();
+  if (normalized.includes('\\') || normalized.includes('%5c')) return false;
   if (!path.startsWith('/')) return false;
   if (path.startsWith('//')) return false;
   try {
@@ -33,9 +35,17 @@ const OnboardingPage = () => {
   const { navigate } = useNavigation();
   const { defaultWorkspace } = useWorkspace();
   const location = useLocation();
-  const rawReturnTo = typeof location.query?.returnTo === 'string'
-    ? decodeURIComponent(location.query.returnTo)
-    : null;
+  let rawReturnTo: string | null = null;
+  if (typeof location.query?.returnTo === 'string') {
+    try {
+      rawReturnTo = decodeURIComponent(location.query.returnTo);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('Invalid returnTo value, ignoring', location.query.returnTo, error);
+      }
+      rawReturnTo = null;
+    }
+  }
   const requestedReturnPath = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : null;
 
   const fallbackPath = useMemo(
@@ -43,23 +53,35 @@ const OnboardingPage = () => {
     [defaultWorkspace, requestedReturnPath]
   );
 
+  const userId = session?.user?.id;
+  const userIsAnonymous = session?.user?.isAnonymous;
+  const userOnboardingComplete = session?.user?.onboardingComplete;
+
   useEffect(() => {
     if (isPending) return;
-    const user = session?.user;
-    if (!user || user.isAnonymous) {
+    if (!userId || userIsAnonymous) {
       navigate('/auth?mode=signup', true);
       return;
     }
-    if (user.onboardingComplete) {
+    if (userOnboardingComplete) {
       navigate(fallbackPath, true);
     }
-  }, [fallbackPath, isPending, navigate, session?.user]);
+  }, [
+    fallbackPath,
+    isPending,
+    navigate,
+    userId,
+    userIsAnonymous,
+    userOnboardingComplete
+  ]);
+
+  const sessionUser = session?.user;
 
   if (isPending) {
     return <LoadingScreen />;
   }
 
-  const user = session?.user;
+  const user = sessionUser;
   if (!user || user.isAnonymous) {
     return <LoadingScreen />;
   }

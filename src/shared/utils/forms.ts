@@ -2,7 +2,8 @@ import {
   getPracticeClientIntakeCreateEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
-import { asMinor, assertMinorUnits, type MinorAmount } from '@/shared/utils/money';
+import { asMinor, assertMinorUnits, toMinorUnitsValue, type MinorAmount } from '@/shared/utils/money';
+import { getPublicPracticeDetails } from '@/shared/lib/apiClient';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -45,7 +46,9 @@ type IntakeSettingsResponse = {
     };
     settings?: {
       paymentLinkEnabled?: boolean;
+      payment_link_enabled?: boolean;
       prefillAmount?: number;
+      prefill_amount?: number;
     };
   };
   error?: string;
@@ -148,9 +151,49 @@ export async function submitContactForm(
     
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
-    const prefillAmount = settings?.data?.settings?.prefillAmount;
-    const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled === true;
-    const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
+    const settingsRecord = settings?.data?.settings;
+    const prefillAmount = typeof settingsRecord?.prefillAmount === 'number'
+      ? settingsRecord.prefillAmount
+      : typeof settingsRecord?.prefill_amount === 'number'
+        ? settingsRecord.prefill_amount
+        : undefined;
+    const paymentLinkEnabled = typeof settingsRecord?.paymentLinkEnabled === 'boolean'
+      ? settingsRecord.paymentLinkEnabled
+      : typeof settingsRecord?.payment_link_enabled === 'boolean'
+        ? settingsRecord.payment_link_enabled
+        : false;
+    if (import.meta.env.DEV) {
+      console.info('[Intake] Settings resolved', {
+        practiceSlug,
+        paymentLinkEnabled,
+        prefillAmount,
+        rawSettings: settingsRecord
+      });
+    }
+    let resolvedPrefillAmount = prefillAmount;
+    if ((resolvedPrefillAmount === undefined || resolvedPrefillAmount <= 0) && paymentLinkEnabled) {
+      try {
+        const practiceDetails = await getPublicPracticeDetails(practiceSlug);
+        const consultationFee = practiceDetails?.details?.consultationFee;
+        const fallbackMinor = toMinorUnitsValue(consultationFee);
+        if (typeof fallbackMinor === 'number' && fallbackMinor > 0) {
+          resolvedPrefillAmount = fallbackMinor;
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[Intake] Failed to load consultation fee from practice details', error);
+        }
+      }
+    }
+
+    if (typeof resolvedPrefillAmount !== 'number' || !Number.isFinite(resolvedPrefillAmount)) {
+      throw new Error('Consultation fee is not configured for this practice.');
+    }
+    if (resolvedPrefillAmount < 50) {
+      throw new Error('Consultation fee must be at least $0.50.');
+    }
+
+    const amount = clampAmount(resolvedPrefillAmount);
     assertMinorUnits(amount, 'intake.create.amount');
 
     if (settings && settings.data?.settings?.paymentLinkEnabled === false) {
