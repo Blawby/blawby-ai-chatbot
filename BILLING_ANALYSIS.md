@@ -3,113 +3,126 @@
 ## 1. Executive Summary
 **Goal**: Enable "Upwork-style" billing where funds are held in Escrow (for Milestones) or billed against a Retainer (for Hourly work) before being released to the Practice.
 
-**Core Funds Flow**:
-1.  **Work Defined**: (Hourly/Milestone/Contingency)
-2.  **Funds Secured**: Client pays Invoice -> Held in Platform Escrow (not straight to lawyer).
-3.  **Work Approved**: Client Approves Work / Hours Logged.
-4.  **Funds Released**: System creates Transfer -> Lawyer's Connect Account.
+**Core Architecture**:
+*   **Platform-as-Merchant**: The Platform collects funds from the Client -> Holds them -> Transfers to Practice upon approval.
+*   **Infrastructure**: specialized `billing` module in `blawby-backend` orchestrating Stripe Invoices and Connect Transfers.
+
+## 2. Technical Implementation Sequences
+
+### A. Sequence: Milestone Escrow Flow (Fixed Price)
+This flow describes the lifecycle of a discrete unit of work (Milestone) being funded, completed, and paid out.
 
 ```mermaid
-graph TD
-    subgraph "Phase 1: Funding (Client Side)"
-    A[Contract / Matter Started] -->|Client Action| B(Fund Milestone / Pay Retainer)
-    B --> C{Payment Success?}
-    C -->|Yes| D[Funds Held in Platform Escrow]
-    C -->|No| B
-    end
+sequenceDiagram
+    participant Client as Client User
+    participant Practice as Practice User
+    participant FE as Frontend (blawby-ai-chatbot)
+    participant API as Backend API (blawby-backend)
+    participant DB as Postgres DB
+    participant Stripe as Stripe API
 
-    subgraph "Phase 2: Work (Attorney Side)"
-    D -->|Signal: Funded| E[Attorney Performs Work]
-    E --> F{Work Type}
-    F -->|Hourly| G[Log Billable Hours]
-    F -->|Milestone| H[Mark Deliverable Complete]
-    end
+    Note over Client, Stripe: Phase 1: Funding (Escrow Deposit)
+    
+    Client->>FE: Click "Fund Milestone" ($1,000)
+    FE->>API: POST /api/billing/invoices
+    Note right of FE: Payload: { matter_id: "...", milestone_id: "...", details: "Phase 1" }
+    
+    API->>Stripe: stripe.customers.create (if new)
+    API->>Stripe: stripe.invoices.createItem({ amount: 100000, currency: "usd" })
+    API->>Stripe: stripe.invoices.create({ collection_method: "send_invoice", days_until_due: 0 })
+    API->>Stripe: stripe.invoices.finalizeInvoice(invoice_id)
+    
+    Stripe-->>API: Returns Invoice Object (status: open, payment_intent: "pi_123")
+    
+    API->>DB: INSERT into "invoices" (status: "open", escrow_status: "held")
+    API->>DB: INSERT into "invoice_line_items"
+    
+    API-->>FE: Return { client_secret: "pi_123_secret", invoice_id: "..." }
+    
+    FE->>Stripe: stripe.confirmPayment(client_secret)
+    Note right of FE: Uses Stripe Payment Element
+    
+    Stripe-->>FE: Payment Succeeded
+    Stripe->>API: Webhook: invoice.paid
+    
+    API->>DB: UPDATE "invoices" SET status = "paid"
+    API->>DB: UPDATE "matter_milestones" SET status = "funded"
+    Note right of API: Funds now sitting in Platform Stripe Balance
 
-    subgraph "Phase 3: Release (System/Client)"
-    G --> I{Check Retainer Balance}
-    I -->|Sufficient| J[Auto-Release Funds]
-    H --> K[Client Reviews Work]
-    K -->|Approved| J
-    J --> L[Transfer to Practice Connect Account]
-    end
+    Note over Client, Stripe: Phase 2: Work & Approval
+    
+    Practice->>FE: Mark Milestone "Completed"
+    FE->>API: PATCH /api/matters/:id/milestones/:id
+    API->>DB: UPDATE "matter_milestones" SET status = "completed"
+    
+    Client->>FE: Review Work -> Click "Approve & Release"
+    FE->>API: POST /api/billing/release-funds
+    Note right of FE: Payload: { milestone_id: "..." }
+
+    Note over Client, Stripe: Phase 3: Payout (Release)
+
+    API->>DB: SELECT * FROM invoices WHERE milestone_id = "..." AND status = "paid"
+    
+    API->>Stripe: stripe.transfers.create({ amount: 90000, destination: "acct_connect_id" })
+    Note right of API: $1,000 Total - 10% Platform Fee = $900 Payout
+    
+    Stripe-->>API: Transfer Object (id: "tr_456")
+    
+    API->>DB: INSERT into "transactions" (type: "payout", amount: 90000)
+    API->>DB: UPDATE "matter_milestones" SET status = "released"
+    
+    API-->>FE: Success (Funds Released)
 ```
 
-**Strategy**:
-1.  **Migrate** robust accounting logic (Invoices, Transfers) from the legacy `blawby-app`.
-2.  **Build** a new `billing` module in `blawby-backend` to handle the "Hold & Release" lifecycle.
-3.  **Implement** a client-facing "Wallet/Invoice" UI in `blawby-ai-chatbot`.
-
----
-
-## 2. Detailed Workflows & Happy Paths
-
-### A. Hourly Work (Retainer Model)
-**Process**: The client makes a lump-sum deposit (Retainer). Work draws from this balance.
-1.  **Initial Deposit**:
-    *   Practice sends "Retainer Invoice" ($2000).
-    *   Client pays. Funds are held in **Platform Escrow**.
-    *   System records a "Retainer Balance" for this Client/Matter.
-2.  **Consuming Hours**:
-    *   Attorney logs 2 hours ($500).
-    *   **Auto-Action**: System checks Retainer Balance.
-    *   If sufficient: System deducts $500 from virtual balance AND creates a `Transfer` of $500 (minus fees) to the Attorney's Connect Account.
-3.  **Depletion & Notification**:
-    *   When balance < Threshold (e.g., $500), system prompts Client to "Replenish Retainer".
+### B. Sequence: Hourly Retainer Draw
+This flow describes the continuous loop of replenishing a balance and drawing from it.
 
 ```mermaid
-graph TD
-    A[Practice Requests Retainer] -->|Invoice Created| B(Client Pays Deposit)
-    B -->|Funded| C[Funds Held in Platform Escrow]
-    C --> D[System Updates 'Retainer Balance']
-    E[Attorney Logs Time] --> F{Check Balance}
-    F -->|Sufficient| G[Deduct Virtual Balance]
-    G --> H[Transfer Funds to Practice]
-    F -->|Insufficient| I[Work Logged as 'Unbilled']
-    I --> J[Notify Client to Replenish]
-```
+sequenceDiagram
+    participant Client
+    participant Practice
+    participant FE as Frontend
+    participant API as Backend API
+    participant DB as Database
+    participant Stripe
 
-### B. Fixed Price (Milestone Model)
-**Process**: Pay-per-deliverable. Safety for both sides.
-1.  **Start Phase**:
-    *   Client clicks "Fund Milestone 1".
-    *   Funds move to Escrow.
-2.  **Work**:
-    *   Attorney marks milestone as "Completed".
-3.  **Approval**:
-    *   Client reviews and clicks "Approve".
-    *   Logic: `Release Funds` -> `Stripe Transfer`.
-
-```mermaid
-graph TD
-    A[Client Funds Milestone] -->|Payment Succeeded| B[Funds in Escrow]
-    B --> C[Attorney Notified 'Safe to Start']
-    C --> D[Attorney Completes Work]
-    D --> E[Client Reviews Work]
-    E --> F{Approve?}
-    F -->|Yes| G[Release Funds to Attorney]
-    F -->|No| H[Dispute / Revision Request]
-```
-
-### C. Contingency Model (Settlement)
-**Process**: Attorney takes a % of the total win.
-1.  **Win**: Settlement funds ($100,000) are received (usually offline or via large transfer).
-2.  **Recording**:
-    *   Attorney records "Settlement Received".
-    *   System calculates Contingency Fee (e.g., 33% -> $33,000).
-3.  **Payout**:
-    *   This is often handled **outside** the app (Trust Accounts).
-    *   *If handled in app*: Client pays the full settlement via ACH.
-    *   System splits payment: 33% to Attorney, 67% to Client.
-
-```mermaid
-graph TD
-    A[Case Won / Settlement Reached] --> B[Settlement Amount Recorded]
-    B --> C[System Calcs Contingency Fee %]
-    C --> D{Payment Method}
-    D -->|Offline/Check| E[Manual Record of Distribution]
-    D -->|In-App ACH| F[Split Payment Route]
-    F --> G[X% to Attorney]
-    F --> H[Y% to Client Payout]
+    Note over Client, Stripe: Phase 1: Retainer Deposit
+    
+    Practice->>FE: Send Retainer Request ($2,000)
+    FE->>API: POST /api/billing/retainers
+    
+    API->>Stripe: create Invoice + Finalize
+    API->>DB: Create Invoice (type: "retainer")
+    
+    Client->>FE: Pay Retainer Invoice
+    FE->>Stripe: Confirm Payment
+    Stripe->>API: Webhook: invoice.paid
+    
+    API->>DB: UPDATE "invoices" SET status = "paid"
+    API->>DB: UPDATE "matters" SET retainer_balance = retainer_balance + 200000
+    
+    Note over Client, Stripe: Phase 2: Billing Hours (The Draw)
+    
+    Practice->>FE: Log 2 Hours ($500)
+    FE->>API: POST /api/matters/:id/time-entries
+    
+    API->>DB: INSERT "time_entries"
+    
+    Practice->>FE: Click "Process Billing" (Weekly/Manual)
+    FE->>API: POST /api/billing/process-draw
+    
+    API->>DB: Check retainer_balance >= 50000?
+    
+    alt Sufficient Funds
+        API->>DB: UPDATE "matters" SET retainer_balance = retainer_balance - 50000
+        API->>Stripe: stripe.transfers.create({ amount: 45000, destination: "acct_..." })
+        Note right of API: 10% Platform Fee deducted
+        API->>DB: Mark time_entries as "billed"
+        API-->>FE: Success
+    else Insufficient Funds
+        API-->>FE: Error "Insufficient Retainer Balance"
+        API->>FE: Trigger "Request Replenishment" flow
+    end
 ```
 
 ---
@@ -119,83 +132,81 @@ graph TD
 
 ### **Logic to Extract & Port**
 1.  **Core Invoice Logic** (`app/Services/StripeInvoiceService.php`)
-    *   *Port to Backend*: The logic for `createStripeInvoice` (creating the Stripe object) and `createLocalInvoice` (saving to DB).
-    *   *Why*: We need formal Invoices, not just simple charges, to support transparency and PDF generation.
+    *   *Port to Backend*: `src/modules/billing/services/invoice.service.ts`
+    *   *Source Method*: `createStripeInvoice` -> Adapting to TS/Drizzle.
+    *   *Source Method*: `createLocalInvoice` -> Adapting to write to `invoices` table.
 
 2.  **Transfer Logic** (`app/Services/StripeTransfersService.php`)
-    *   *Port to Backend*: The `transferInvoiceAmountToConnectedAccount` method.
-    *   *Crucial*: This is the mechanism for **releasing funds** from Escrow (Platform) to the Lawyer (Connect Account).
+    *   *Port to Backend*: `src/modules/billing/services/payouts.service.ts`
+    *   *Source Method*: `transferInvoiceAmountToConnectedAccount`
+    *   *Role*: This is the `releaseFunds` engine in the Sequence Diagram (Phase 3).
 
-3.  **Database Schema** (`database/migrations/*invoice*.php`)
-    *   *Port to Backend*: `invoices` and `invoice_line_items` structure.
-    *   *Adaptation*: Add `matter_id` to link invoices directly to legal implementation.
-
-4.  **Webhook Handlers** (`app/Services/StripePaymentService.php`)
-    *   *Port to Backend*: `handleInvoicePaidByCustomer`, `handleInvoicePaymentFailed`.
+3.  **Database Schema** (`database/migrations/2024_06_27_170448_create_invoice_table.php`)
+    *   *Port to Backend*: `src/modules/billing/database/schema/invoices.schema.ts`
+    *   *Additions*: `matter_id` (uuid), `milestone_id` (uuid), `escrow_status` (enum: pending, held, released).
 
 ---
 
-## 4. Backend Implementation (`blawby-backend`)
-*Location: `/Users/paulchrisluke/Repos 2026/blawby-backend`*
+## 4. Backend Implementation Plan (`blawby-backend`)
 
-### **A. New Module: `billing`**
-Create a new directory: `src/modules/billing`.
+### **A. Module Structure: `src/modules/billing`**
+This module is the "Financial Engine" connecting Matters (Work) to Stripe (Money).
 
-**1. Database Schema (`src/modules/billing/database/schema`)**
-*   **`invoices.schema.ts`**:
-    *   `id`, `stripe_invoice_id`, `amount_due`, `status` (draft, open, paid, void), `customer_id`.
-    *   **New Fields**: `matter_id` (FK), `milestone_id` (FK, nullable), `escrow_status` (held, released).
-*   **`invoice_line_items.schema.ts`**:
-    *   `details`, `amount`, `uom` (hours/fixed).
-*   **`transactions.schema.ts`** (optional but recommended):
-    *   To track the actual movement of funds (`stripe_transfer_id`, `amount`, `destination_account`).
+**1. Database Schema**
+*   **File**: `src/modules/billing/database/schema/invoices.schema.ts`
+    *   `id`: uuid
+    *   `stripe_invoice_id`: text (unique)
+    *   `matter_id`: uuid (FK to matters.id)
+    *   `amount_total`: integer (cents)
+    *   `amount_platform_fee`: integer (cents)
+    *   `status`: enum ('draft', 'open', 'paid', 'void')
+    *   `escrow_status`: enum ('none', 'held', 'released')
+*   **File**: `src/modules/billing/database/schema/transactions.schema.ts`
+    *   `id`: uuid
+    *   `invoice_id`: uuid (FK)
+    *   `stripe_transfer_id`: text
+    *   `amount`: integer
+    *   `destination_account_id`: text
 
-**2. Services (`src/modules/billing/services`)**
-*   **`invoices.service.ts`**:
-    *   `createMilestoneInvoice(milestoneId)`: Generates an invoice for a specific milestone.
-    *   `finalizeInvoice(invoiceId)`: Locks the invoice and sends it to Stripe.
-*   **`escrow.service.ts`** (The "Engine"):
-    *   `holdFunds(invoiceId)`: Verifies payment successful, marks DB as `funds_held`.
-    *   `releaseFunds(invoiceId)`: Triggers Stripe Transfer to Connect Account, marks DB as `funds_released`.
+**2. Services**
+*   **File**: `src/modules/billing/services/invoice-generator.service.ts`
+    *   `generateMilestoneInvoice(milestoneId)`: Creates Stripe Invoice Item + Invoice.
+*   **File**: `src/modules/billing/services/escrow.service.ts`
+    *   `releaseFunds(invoiceId)`:
+        1. Checks `escrow_status` == 'held'
+        2. Calculates payout (Total - Fee)
+        3. Calls `stripe.transfers.create`
+        4. Updates DB to `released`.
 
-**3. API Endpoints (`src/modules/billing/handlers`)**
-*   `POST /api/billing/invoices/preview`: Calculate costs before commit.
-*   `POST /api/billing/invoices`: Create an invoice (e.g., for a retainer deposit).
-*   `POST /api/matters/:id/fund-milestone`: Specific endpoint to create an invoice for a milestone.
-*   `POST /api/matters/:id/release-milestone`: (Lawyer requests, Client approves) -> Triggers release.
-
-**4. Webhooks (`src/modules/webhooks`)**
-*   **`invoice.paid`**:
-    *   Update local invoice status.
-    *   Update `MatterMilestone` status to `funded` (Ready for work).
-    *   **Do NOT** auto-transfer funds yet.
+**3. API Handlers**
+*   `POST /api/billing/milestones/:id/fund`: Triggers Invoice creation.
+    *   *Returns*: `{ client_secret, invoice_id }` for Frontend Stripe Element.
+*   `POST /api/billing/milestones/:id/release`: Triggers Escrow release.
+    *   *Requires*: Active Session User == Client of the Matter.
 
 ---
 
-## 5. Frontend Implementation (`blawby-ai-chatbot`)
-*Location: `/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot`*
+## 5. Frontend Implementation Plan (`blawby-ai-chatbot`)
 
-### **A. Shared Data Layer**
-1.  **Types** (`src/shared/types/billing.ts`):
-    *   Define `Invoice`, `InvoiceLineItem`, `TransactionStatus`.
-2.  **API Client**: Add methods to `apiClient` for fetching/paying invoices.
+### **A. API Integration**
+*   **File**: `src/shared/lib/apiClient.ts`
+    *   Add `billing` namespace methods: `fundMilestone`, `releaseMilestone`, `getInvoices`.
 
-### **B. Feature: Billing (New Feature)**
-Create `src/features/billing` for dedicated billing views.
-1.  **`BillingOverview.tsx`**:
-    *   Client view: Cards on file, Past Invoices, Escrow Balance.
-    *   Practice view: Pending Transfers, Earnings.
+### **B. Components**
+1.  **FundMilestoneModal.tsx** (`src/features/billing/components/`)
+    *   Input: `milestone` object.
+    *   Content: Summarizes cost + Stripe `PaymentElement`.
+    *   Action: Calls `api.billing.fundMilestone`, handles confirmation.
 
-### **C. Feature: Matters (Integration)**
-Verify and update `src/features/matters` to integrate billing controls.
+2.  **MilestoneActionRow.tsx** (`src/features/matters/components/`)
+    *   *State Logic*:
+        *   `status === 'pending_funding'` -> Render **<Button>Fund Escrow</Button>**
+        *   `status === 'funded'` -> Render **<Badge>Funds Secured</Badge>**
+        *   `status === 'completed' && isClient` -> Render **<Button>Approve & Pay</Button>**
 
-1.  **`ClientMatterDashboard.tsx`**:
-    *   **Milestone List**: Add a "Status" column.
-    *   **Action Button**:
-        *   If `pending_funding` -> Show **"Fund Escrow"** button (Trigger Stripe Payment).
-        *   If `work_completed` -> Show **"Approve & Release"** button.
-    *   **Logic**: Hook up "Approve" button to call `POST /api/matters/:id/release-milestone`.
+---
 
-2.  **`PracticeMatterDashboard.tsx`**:
-    *   Visible indicator: "Funds in Escrow" (Safe to work).
-    *   "Request Release" button when dragging a milestone to "Done".
+## 6. Security & Compliance Notes
+*   **Funds Flow**: We are using separate Charges and Transfers. This means funds technically reside in the Platform's Stripe Balance during the "Escrow" period.
+*   **Compliance**: Ensure Terms of Service clarify that BLawby acts as a limited payment agent.
+*   **Idempotency**: All `Transfer` calls must use `idempotency_key` based on the `invoice_id` to prevent double-payouts.
