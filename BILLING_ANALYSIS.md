@@ -1,111 +1,115 @@
-# Deep Analysis: Billing Architecture & Migration Plan
+# Deep Analysis: Billing Architecture & Implementation Plan
 
 ## 1. Executive Summary
-**Current Status**: The new `blawby-backend` has solid scaffolding for **Stripe Connect Custom Accounts** (Onboarding) and simple **Direct Charges** (Intakes). However, it lacks the "Middle Layer" required for an Upwork-style platform: **Invoices**, **Held Funds (Escrow)**, and **Retainer Logic**.
+**Goal**: Enable "Upwork-style" billing where funds are held in Escrow (for Milestones) or billed against a Retainer (for Hourly work) before being released to the Practice.
 
-**Legacy Asset**: The `blawby-app` (Legacy) contains a mature `Invoice` engine (`StripeInvoiceService`) and `Transfer` logic (`StripeTransfersService`) that perfectly models the **Platform-to-Connect** fund flow we need.
-
-**The Solution**: We will migrate the **Data Model** and **Service Logic** from `blawby-app` to `blawby-backend`, adapting it to support "Escrow" (Holding funds before transfer) vs. "Retainer" (Direct billing).
-
----
-
-## 2. Architecture Comparison
-
-### A. Fund Flow Models
-
-| Feature | Legacy (`blawby-app`) | Current (`blawby-backend`) | **Target Goal (Upwork Style)** |
-| :--- | :--- | :--- | :--- |
-| **Charge Model** | **Platform Charge** w/ `on_behalf_of` | **Direct Charge** (Payment Links) | **Hybrid**: Platform Charge (Escrow) & Direct Transfer |
-| **Invoicing** | Robust `invoices` table + Stripe Invoice Sync | None (One-off charges only) | **Full Invoicing** (synced with Matter milestones) |
-| **Payouts** | Manual `StripeTransfersService` | Auto (`transfer_data` in Payment Link) | **Conditional**: Auto for Retainer, Manual Release for Escrow |
-| **Merchant of Record**| Connected Account (mostly) | Connected Account | Connected Account (via `on_behalf_of`) |
-
-### B. Schema Gap Analysis
-
-We have a significant schema gap. We must port these tables from Legacy to Current.
-
-**1. `invoices` Table**
-*   **Legacy**: `id`, `customer_id`, `stripe_invoice_id`, `amount_due`, `amount_paid`, `status`, `application_fee`, `invoice_type` ('team'/'customer').
-*   **New Requirement**: Add `matter_id` (FK) and `milestone_id` (FK optional) to link Financials to Work.
-
-**2. `invoice_line_items` Table**
-*   **Legacy**: `description`, `quantity`, `unit_price`, `line_total`.
-*   **New Requirement**: Add `time_entry_id` or `milestone_id` to link specific work items to the line item.
-
-**3. `paid_invoice_payout_transfers` Table**
-*   **Legacy**: Tracks the `stripe_transfer_id` linked to an Invoice.
-*   **Critical for Escrow**: This is the audit trail proving funds were released to the lawyer.
+**Strategy**:
+1.  **Migrate** robust accounting logic (Invoices, Transfers) from the legacy `blawby-app`.
+2.  **Build** a new `billing` module in `blawby-backend` to handle the "Hold & Release" lifecycle.
+3.  **Implement** a client-facing "Wallet/Invoice" UI in `blawby-ai-chatbot`.
 
 ---
 
-## 3. Migration Plan: "Legacy" to "Current"
+## 2. Migration: From Legacy (`blawby-app`)
+*We are extracting established logic to ensure we don't reinvent the wheel.*
 
-### Step 1: Create `billing` Module
-**Location**: `src/modules/billing`
-This will house the logic currently scattered or missing.
+### **Logic to Extract & Port**
+1.  **Core Invoice Logic** (`app/Services/StripeInvoiceService.php`)
+    *   *Port to Backend*: The logic for `createStripeInvoice` (creating the Stripe object) and `createLocalInvoice` (saving to DB).
+    *   *Why*: We need formal Invoices, not just simple charges, to support transparency and PDF generation.
 
-### Step 2: Port Database Schema
-**Source**: `blawby-app/database/migrations/*_create_invoice_table.php`
-**Destination**: `blawby-backend/src/modules/billing/database/schema/invoices.schema.ts`
-*   Define `invoices` table (Drizzle).
-*   Define `invoice_line_items` table (Drizzle).
-*   Define `invoice_transfers` table (Drizzle).
+2.  **Transfer Logic** (`app/Services/StripeTransfersService.php`)
+    *   *Port to Backend*: The `transferInvoiceAmountToConnectedAccount` method.
+    *   *Crucial*: This is the mechanism for **releasing funds** from Escrow (Platform) to the Lawyer (Connect Account).
 
-### Step 3: Implemenet "Escrow" Service Logic
-**Source**: `blawby-app/app/Services/StripeInvoiceService.php` methods `createStripeInvoice`, `handleInvoicePaidByCustomer`.
+3.  **Database Schema** (`database/migrations/*invoice*.php`)
+    *   *Port to Backend*: `invoices` and `invoice_line_items` structure.
+    *   *Adaptation*: Add `matter_id` to link invoices directly to legal implementation.
 
-**Logic Adaptation**:
-1.  **Milestone Funding (Pre-pay)**:
-    *   User clicks "Fund Milestone".
-    *   Backend creates `Invoice` (Draft).
-    *   Backend calls `StripeInvoiceService.finalizeInvoice`.
-    *   **Crucial Change**: DO NOT auto-transfer. The funds settle in the **Platform Stripe Balance**.
-    *   Update `MatterMilestone` status to `funded`.
-
-2.  **Work Completion**:
-    *   Lawyer marks Milestone as `completed`.
-    *   Client reviews and clicks "Approve".
-
-3.  **Fund Release (The Transfer)**:
-    *   **Source**: `blawby-app/app/Services/StripeTransfersService.php` (`transferInvoiceAmountToConnectedAccount`).
-    *   Backend triggers `stripe.transfers.create({ amount, destination: practice_account_id })`.
-    *   Update `MatterMilestone` status to `paid`.
-
-### Step 4: Implement "Retainer/Hourly" Logic
-**New Logic**: The Legacy app didn't fully implement "Retainer" balances, but the *mechanism* is the same as Escrow, just faster.
-*   **Retainer Deposit**: Create Invoice -> Client Pays -> Hold in Platform.
-*   **Hourly Work**: Lawyer logs time -> "Bill Against Retainer".
-*   **System Action**: Deduct from virtual "Retainer Balance" -> Trigger `Stripe Transfer` to practice.
+4.  **Webhook Handlers** (`app/Services/StripePaymentService.php`)
+    *   *Port to Backend*: `handleInvoicePaidByCustomer`, `handleInvoicePaymentFailed`.
 
 ---
 
-## 4. Specific File Migration Candidates
+## 3. Backend Implementation (`blawby-backend`)
+*Location: `/Users/paulchrisluke/Repos 2026/blawby-backend`*
 
-| Legacy File (Source) | Logic to Extract | Destination (New) |
-| :--- | :--- | :--- |
-| `StripeInvoiceService.php` | `createStripeInvoice` | `modules/billing/services/invoice-generator.service.ts` |
-| `StripeInvoiceService.php` | `handleInvoicePaidByCustomer` | `modules/webhooks/services/invoice-webhooks.service.ts` |
-| `StripeTransfersService.php` | `transferInvoiceAmountToConnectedAccount` | `modules/billing/services/payouts.service.ts` |
-| `Invoice.php` (Model) | Schema Structure | `modules/billing/database/schema/invoices.schema.ts` |
+### **A. New Module: `billing`**
+Create a new directory: `src/modules/billing`.
+
+**1. Database Schema (`src/modules/billing/database/schema`)**
+*   **`invoices.schema.ts`**:
+    *   `id`, `stripe_invoice_id`, `amount_due`, `status` (draft, open, paid, void), `customer_id`.
+    *   **New Fields**: `matter_id` (FK), `milestone_id` (FK, nullable), `escrow_status` (held, released).
+*   **`invoice_line_items.schema.ts`**:
+    *   `details`, `amount`, `uom` (hours/fixed).
+*   **`transactions.schema.ts`** (optional but recommended):
+    *   To track the actual movement of funds (`stripe_transfer_id`, `amount`, `destination_account`).
+
+**2. Services (`src/modules/billing/services`)**
+*   **`invoices.service.ts`**:
+    *   `createMilestoneInvoice(milestoneId)`: Generates an invoice for a specific milestone.
+    *   `finalizeInvoice(invoiceId)`: Locks the invoice and sends it to Stripe.
+*   **`escrow.service.ts`** (The "Engine"):
+    *   `holdFunds(invoiceId)`: Verifies payment successful, marks DB as `funds_held`.
+    *   `releaseFunds(invoiceId)`: Triggers Stripe Transfer to Connect Account, marks DB as `funds_released`.
+
+**3. API Endpoints (`src/modules/billing/handlers`)**
+*   `POST /api/billing/invoices/preview`: Calculate costs before commit.
+*   `POST /api/billing/invoices`: Create an invoice (e.g., for a retainer deposit).
+*   `POST /api/matters/:id/fund-milestone`: Specific endpoint to create an invoice for a milestone.
+*   `POST /api/matters/:id/release-milestone`: (Lawyer requests, Client approves) -> Triggers release.
+
+**4. Webhooks (`src/modules/webhooks`)**
+*   **`invoice.paid`**:
+    *   Update local invoice status.
+    *   Update `MatterMilestone` status to `funded` (Ready for work).
+    *   **Do NOT** auto-transfer funds yet.
 
 ---
 
-## 5. Webhook Requirements
-The current `blawby-backend` only handles `onboarding` and `intakes`. We need to register and handle:
-1.  `invoice.paid`: Mark local invoice as paid. Update Milestone to `funded`.
-2.  `invoice.payment_failed`: Notify user.
-3.  `payment_intent.succeeded`: (Fallback if not using Invoices objects for retainers).
+## 4. Frontend Implementation (`blawby-ai-chatbot`)
+*Location: `/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot`*
 
-## 6. Frontend Implications (`blawby-ai-chatbot`)
-We need to build a **"Billing & Invoices"** tab in the Matter View.
-*   **Client View**: List of Invoices (Paid/unpaid). "Fund Milestone" button.
-*   **Practice View**: "Invoices" list. Status of funds (Escrow vs Released).
-*   **API Needs**: `GET /api/matters/:id/invoices`, `POST /api/invoices/:id/pay`.
+### **A. Shared Data Layer**
+1.  **Types** (`src/shared/types/billing.ts`):
+    *   Define `Invoice`, `InvoiceLineItem`, `TransactionStatus`.
+2.  **API Client**: Add methods to `apiClient` for fetching/paying invoices.
+
+### **B. Feature: Billing (New Feature)**
+Create `src/features/billing` for dedicated billing views.
+1.  **`BillingOverview.tsx`**:
+    *   Client view: Cards on file, Past Invoices, Escrow Balance.
+    *   Practice view: Pending Transfers, Earnings.
+
+### **C. Feature: Matters (Integration)**
+Verify and update `src/features/matters` to integrate billing controls.
+
+1.  **`ClientMatterDashboard.tsx`**:
+    *   **Milestone List**: Add a "Status" column.
+    *   **Action Button**:
+        *   If `pending_funding` -> Show **"Fund Escrow"** button (Trigger Stripe Payment).
+        *   If `work_completed` -> Show **"Approve & Release"** button.
+    *   **Logic**: Hook up "Approve" button to call `POST /api/matters/:id/release-milestone`.
+
+2.  **`PracticeMatterDashboard.tsx`**:
+    *   Visible indicator: "Funds in Escrow" (Safe to work).
+    *   "Request Release" button when dragging a milestone to "Done".
 
 ---
 
-## 7. Immediate Next Steps (Implementation Order)
-1.  **Schema**: Create Drizzle schemas for Invoices in `blawby-backend`.
-2.  **Service**: Port `StripeInvoiceService` logic to TypeScript.
-3.  **Webhook**: Add `invoice.paid` listener.
-4.  **Escrow Hook**: Link `Milestone` "Fund" button to `Invoice` creation.
+## 5. Summary of Workflow (The "Happy Path")
+
+1.  **Contract**: Lawyer creates a Matter with Milestone 1 ($1000).
+2.  **Funding (Client)**:
+    *   Frontend: Client clicks "Fund Milestone 1".
+    *   Backend: Creates Invoice -> Process Payment -> Holds $1000 in Platform.
+    *   State: `Milestone: FUNDED`, `Invoice: PAID`, `Escrow: HELD`.
+3.  **Work (Lawyer)**:
+    *   Lawyer sees "Funded" status and does the work.
+    *   Lawyer marks Milestone 1 as "Completed".
+4.  **Approval (Client)**:
+    *   Client reviews work. Clicks "Approve Release".
+5.  **Release (System)**:
+    *   Backend: Triggers `StripeTransfersService`. Holds 10% platform fee, sends $900 to Practice.
+    *   State: `Milestone: COMPLETED`, `Escrow: RELEASED`.
