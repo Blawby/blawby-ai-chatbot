@@ -12,7 +12,7 @@
 ### Repositories & Responsibilities
 
 | Repository | Tech Stack | Team | Purpose |
-|------------|-----------|------|---------|
+| ------------ | ----------- | ------ | --------- |
 | `blawby-app` | PHP/Laravel | Backend (Legacy) | **SOURCE** - Extract billing logic, deprecate after migration |
 | `blawby-backend` | Node/TypeScript/Drizzle | Backend | **TARGET** - Implement new billing module |
 | `blawby-ai-chatbot` | Preact/TypeScript | Frontend | **UI** - Build payment/approval interfaces |
@@ -21,7 +21,7 @@
 
 **FINAL DECISION** (No alternatives):
 
-```
+```text
 Client Payment Flow (with Pre-Payout Controls):
 1. Client pays $1,000 to Platform
    - Funds held in escrow until cleared
@@ -784,18 +784,19 @@ export class EscrowService {
         })
         .where(eq(billingTransactions.id, transactionId));
       
-      // Enqueue to background job for automated retry (Atomic with DB update)
-      await db.transaction(async (tx) => {
-         // Update transaction to 'queued' state
-         await tx.update(billingTransactions)
-          .set({ 
-            status: 'queued',
-            last_error: `Queued for retry: ${error instanceof Error ? error.message : 'Unknown error'}`
-          })
-          .where(eq(billingTransactions.id, transactionId));
+      try {
+        // Enqueue to background job for automated retry (Atomic with DB update)
+        await db.transaction(async (tx) => {
+          // Update transaction to 'queued' state
+          await tx.update(billingTransactions)
+            .set({ 
+              status: 'queued',
+              last_error: `Queued for retry: ${error instanceof Error ? error.message : 'Unknown error'}`
+            })
+            .where(eq(billingTransactions.id, transactionId));
 
-         // Enqueue job safely
-         await this.jobQueue.add('retry_transfer', {
+          // Enqueue job safely
+          await this.jobQueue.add('retry_transfer', {
             transfer_params: {
               amount: invoice.amount_paid,
               currency: invoice.currency,
@@ -815,16 +816,16 @@ export class EscrowService {
             attempts: 5,
             backoff: { type: 'exponential', delay: 1000 }
           });
-      });
+        });
 
-      // Throw typed error for API response
-      throw new TransferQueuedError(invoice.id, invoice.amount_paid);
-
-    } catch (queueError) {
-      if (queueError instanceof TransferQueuedError) throw queueError;
-      // Only surface original error if enqueue/DB-update fails
-      throw error;
-    }
+        // Throw typed error for API response
+        throw new TransferQueuedError(invoice.id, invoice.amount_paid);
+      } catch (queueError) {
+        if (queueError instanceof TransferQueuedError) {
+          throw queueError;
+        }
+        throw error;
+      }
     }
     
     // 3. Transaction: Update to completed state
@@ -2066,7 +2067,7 @@ export interface FundMilestoneResponse {
 export interface ReleaseFundsResponse {
   transfer_id: string;
   payout_amount: number;
-  status: 'released';
+  status: 'released' | 'pending';
 }
 
 export interface InvoiceListResponse {
@@ -2123,10 +2124,14 @@ export async function releaseMilestoneFunds(
     throw new Error('Invalid response');
   }
   
+  const rawStatus = String(data.status ?? 'released').trim().toLowerCase();
+  const normalizedStatus: ReleaseFundsResponse['status'] =
+    rawStatus === 'pending' ? 'pending' : 'released';
+
   return {
     transfer_id: String(data.transfer_id ?? ''),
     payout_amount: Number(data.payout_amount ?? 0),
-    status: 'released',
+    status: normalizedStatus,
   };
 }
 
@@ -2427,28 +2432,28 @@ export async function listInvoices(
 
 **Critical Scenarios**:
 
-**Scenario 1: Duplicate Transfer Detected**
+#### Scenario 1: Duplicate Transfer Detected
 - Alert: "Duplicate transfer detected for invoice X"
 - Action: Immediately disable billing_v2_enabled flag
 - Investigate: Check billing_transactions table for duplicates
 - Resolve: Refund duplicate transfer via Stripe dashboard
 - Root cause: Review idempotency key generation
 
-**Scenario 2: Webhook Processing Failure**
+#### Scenario 2: Webhook Processing Failure
 - Alert: "Webhook processing time > 2s"
 - Action: Check webhook_events table for backlog
 - Investigate: Identify slow queries or Stripe API issues
 - Resolve: Scale webhook workers if needed
 - Mitigation: Replay failed webhooks manually
 
-**Scenario 3: Payment Failure Spike**
+#### Scenario 3: Payment Failure Spike
 - Alert: "Payment success rate < 95%"
 - Action: Check Stripe status page
 - Investigate: Review error logs for common failure patterns
 - Resolve: If Stripe issue: wait for resolution. If code issue: rollback
 - Communication: Notify users if widespread
 
-**Scenario 4: Negative Balance Detected**
+#### Scenario 4: Negative Balance Detected
 - Alert: "Negative retainer balance detected"
 - Action: Immediately disable retainer draws
 - Investigate: Check for race condition in draw logic
