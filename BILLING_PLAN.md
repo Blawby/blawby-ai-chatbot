@@ -624,8 +624,6 @@ export class InvoiceGeneratorService {
       }
       throw error;
     }
-    
-    throw new Error('generateMilestoneInvoice reached unreachable state');
   }
   
   private async getConfiguredFeePercentage(): Promise<number> {
@@ -759,11 +757,31 @@ function isRetriableStripeError(error: any): boolean {
   
   return false;
 }
+
+```
+
+**Shared Errors**
+```typescript
+// src/shared/errors/billing.ts
+export class TransferQueuedError extends Error {
+  constructor(
+    public readonly invoiceId: string,
+    public readonly amount: number
+  ) {
+    super(`Transfer for invoice ${invoiceId} queued for retry (amount=${amount})`);
+    this.name = 'TransferQueuedError';
+  }
+}
+```
+
+> Import `TransferQueuedError` anywhere it is thrown or caught (e.g., `escrow.service.ts`, API handlers) so runtime references resolve correctly.
 ```
 
 **Main Service**:
 ```typescript
 // src/modules/billing/services/escrow.service.ts
+import { TransferQueuedError } from '@/shared/errors/billing';
+
 export class EscrowService {
   constructor(
     private meteredService: MeteredProductsService,
@@ -1373,6 +1391,8 @@ export class RetainerService {
 
 1. **POST /api/billing/milestones/:id/fund**
 ```typescript
+import { TransferQueuedError } from '@/shared/errors/billing';
+
 export async function fundMilestoneHandler(c: Context) {
   try {
     const milestoneId = c.req.param('id');
@@ -1539,6 +1559,33 @@ export async function listInvoicesHandler(c: Context) {
   }
 }
 ```
+
+5. **POST /api/billing/payment-intents/:id/capture**
+```typescript
+export async function capturePaymentIntentHandler(c: Context) {
+  const paymentIntentId = c.req.param('id');
+  
+  try {
+    const paymentIntent = await stripe.paymentIntents.capture(paymentIntentId);
+    
+    return response.ok(c, {
+      payment_intent_id: paymentIntent.id,
+      status: paymentIntent.status,
+      amount_received: paymentIntent.amount_received,
+    });
+  } catch (error) {
+    c.get('logger')?.error('Error capturing payment intent', {
+      paymentIntentId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    
+    return response.internalServerError(c, {
+      message: 'Failed to capture payment intent',
+    });
+  }
+}
+```
+> Wire this handler in `worker/routes/billing.ts` (e.g., `router.post('/api/billing/payment-intents/:id/capture', capturePaymentIntentHandler);`) so frontend calls to `capturePendingPaymentIntent` resolve correctly.
 
 **Acceptance Criteria**:
 - [ ] All handlers have try-catch error handling
@@ -2104,12 +2151,8 @@ function CheckoutForm({ milestone, onSuccess }: any) {
             onSuccess();
             break;
           case 'requires_action':
-            await stripe.confirmPayment({
-              elements,
-              clientSecret: paymentIntent.client_secret!,
-              redirect: 'always',
-            });
             setPendingStatus('action_required');
+            setError('Additional authentication required. Follow the redirect or check your email for instructions.');
             break;
           case 'requires_capture':
             await capturePaymentIntent(paymentIntent.id);
