@@ -2,7 +2,7 @@
 ## Team-Specific Issue Breakdown
 
 **Document Version**: 3.0 (Production-Ready)  
-**Last Updated**: 2024  
+**Last Updated**: 2026-02-01  
 **Status**: ✅ Ready for Implementation (Security Hardened)
 
 ---
@@ -285,7 +285,7 @@ Create audit log for all transfers to Practice accounts.
 ```typescript
 export const billingTransactions = pgTable('billing_transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  invoice_id: uuid('invoice_id').references(() => invoices.id).notNull(),
+  invoice_id: uuid('invoice_id').references(() => invoices.id), // Nullable for retainer draws
   stripe_transfer_id: text('stripe_transfer_id').unique().notNull(),
   amount: integer('amount').notNull(),
   destination_account_id: text('destination_account_id').notNull(),
@@ -302,7 +302,7 @@ export const billingTransactions = pgTable('billing_transactions', {
 ```sql
 CREATE TABLE billing_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id UUID NOT NULL REFERENCES invoices(id),
+  invoice_id UUID REFERENCES invoices(id),
   stripe_transfer_id TEXT UNIQUE NOT NULL,
   amount INTEGER NOT NULL,
   destination_account_id TEXT NOT NULL,
@@ -678,10 +678,7 @@ export class EscrowService {
       }
       
       // Enhanced authorization checks
-      // 1. Verify milestone belongs to invoice
-      if (inv.milestone_id !== ms.id) {
-        throw new Error('Milestone does not match invoice');
-      }
+
       
       // 2. Verify user is the client who paid
       if (inv.customer_id !== params.userId) {
@@ -783,8 +780,19 @@ export class EscrowService {
           }
         });
 
-        // Abort current flow but treat as "handled" via queue
-        throw new Error('Transfer failed - queued for background retry');
+        // Update transaction to 'queued' state
+        await db.update(billingTransactions)
+          .set({ 
+            status: 'queued',
+            last_error: `Queued for retry: ${error instanceof Error ? error.message : 'Unknown error'}`
+          })
+          .where(eq(billingTransactions.id, transactionId));
+
+        // Return pending status so API responds gracefully
+        return { 
+          transfer: { id: 'pending-queued', status: 'pending' } as any, // Mock pending transfer
+          payoutAmount: invoice.amount_paid 
+        };
       } catch (queueError) {
         // Only surface original error if enqueue fails
         throw error;
@@ -1720,22 +1728,28 @@ function CheckoutForm({ milestone, onSuccess }: any) {
     setError(null);
     
     try {
-      // Confirm payment WITHOUT return_url for modal-friendly flow
+      // Confirm payment with return_url for 3D Secure
+      // Note: A completion page at /billing/completion must be implemented to:
+      // 1. Retrieve payment_intent_client_secret from URL query
+      // 2. Call stripe.retrievePaymentIntent to verify status='succeeded'
+      // 3. Display final success or failure message
       const { error: submitError, paymentIntent } = await stripe.confirmPayment({
         elements,
-        redirect: 'if_required', // Only redirect if absolutely necessary (3D Secure)
+        confirmParams: {
+          return_url: window.location.origin + '/billing/completion',
+        },
+        redirect: 'if_required', 
       });
       
       if (submitError) {
         setError(submitError.message || 'Payment failed');
-      } else if (paymentIntent?.status === 'requires_action') {
-        // 3D Secure or similar - Stripe will handle redirect automatically
-        // User will be redirected and returned to return_url if needed
       } else if (paymentIntent?.status === 'succeeded') {
-        // Payment succeeded without redirect
+        // Immediate success (no redirect needed)
         onSuccess();
       } else {
-        setError('Payment is processing. Please wait.');
+        // Unexpected status handled by return_url logic if redirect happened,
+        // or fall through here.
+        setError('Payment status: ' + paymentIntent?.status);
       }
     } catch (err) {
       setError('An unexpected error occurred');
