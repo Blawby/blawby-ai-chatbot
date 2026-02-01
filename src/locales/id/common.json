@@ -165,16 +165,84 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Selamat datang di Blawby",
-      "subtitle": "Siapkan praktik Anda untuk mulai menerima permintaan klien",
-      "getStarted": "Mulai",
-      "todo": {
-        "createPractice": "Buat profil praktik",
-        "businessDetails": "Atur detail bisnis",
-        "trustAccount": "Hubungkan akun trust",
-        "services": "Tambahkan layanan",
-        "launch": "Luncurkan asisten intake"
+      "title": "Selamat Datang, Bapak/Ibu Pengacara",
+      "subtitle": "Siapkan kantor hukum Anda untuk mulai menerima dan mengelola konsultasi klien.",
+      "getStarted": "Mulai"
+    },
+    "client": {
+      "title": "Selamat Datang di Portal Hukum Anda",
+      "subtitle": "Semua yang Anda butuhkan untuk mengelola situasi hukum Anda dalam satu tempat yang aman.",
+      "tips": {
+        "messaging": {
+          "title": "Kirim Pesan ke Pengacara Anda",
+          "description": "Berkomunikasi langsung dengan tim hukum Anda untuk mengajukan pertanyaan dan berbagi pembaruan secara instan."
+        },
+        "matters": {
+          "title": "Kelola Perkara Anda",
+          "description": "Akses dokumen perkara, lihat tahapan penting, dan pantau perkembangan urusan hukum Anda."
+        },
+        "payments": {
+          "title": "Pembayaran Aman",
+          "description": "Bayar biaya jasa dan lunasi tagihan langsung melalui portal Stripe kami yang terintegrasi."
+        }
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Halo 👋",
+      "helpPrompt": "Ada yang bisa kami bantu?",
+      "recentMessage": "Pesan terbaru",
+      "sendMessage": "Kirim pesan kepada kami",
+      "consultation": {
+        "title": "Perlu berbicara dengan pengacara?",
+        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda.",
+        "button": "Minta Konsultasi"
+      },
+      "poweredBy": "Didukung oleh"
+    },
+    "navigation": {
+      "home": "Beranda",
+      "messages": "Pesan"
+    },
+    "conversationList": {
+      "title": "Pesan",
+      "loading": "Memuat percakapan...",
+      "empty": "Belum ada percakapan.",
+      "previewPlaceholder": "Buka untuk melihat pesan.",
+      "sendMessage": "Kirim pesan kepada kami"
+    },
+    "error": {
+      "title": "Detail praktik tidak tersedia",
+      "description": "Kami tidak dapat memuat nama dan logo praktik {{slug}}. Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
+      "retry": "Coba lagi"
+    },
+    "header": {
+      "activeNow": "Aktif sekarang",
+      "back": "Kembali"
+    }
+  },
+  "businessWelcome": {
+    "title": "Selamat Datang di Kantor Hukum Bisnis Anda!",
+    "subtitle": "Organisasi Anda kini siap untuk berkembang. Berikut adalah alat yang tersedia untuk Anda:",
+    "features": {
+      "intake": {
+        "title": "Penerimaan Klien",
+        "description": "Bagikan tautan publik Anda untuk menerima formulir penerimaan otomatis dan mendapatkan klien baru dengan mudah."
+      },
+      "messaging": {
+        "title": "Pesan Klien",
+        "description": "Kirim pesan kepada klien Anda secara langsung melalui antarmuka kami yang aman agar mereka tetap mendapat informasi tentang perkara mereka."
+      },
+      "matters": {
+        "title": "Manajemen Perkara",
+        "description": "Atur detail perkara, simpan dokumen hukum, dan lacak tahapan penting dari satu ruang kerja."
+      },
+      "billing": {
+        "title": "Penagihan & Keuangan",
+        "description": "Atur rencana penagihan khusus serta kelola pembayaran dan pencairan dana dengan aman melalui Stripe."
+      }
+    },
+    "goToSettings": "Buka Pengaturan Kantor Hukum"
   }
 }

@@ -164,36 +164,85 @@
     }
   },
   "businessWelcome": {
-    "title": "¡Bienvenido a Business!",
-    "subtitle": "Su práctica ha sido actualizada. Esto es lo que puede hacer ahora:",
+    "title": "¡Bienvenido a tu despacho empresarial!",
+    "subtitle": "Tu organización ya está lista para crecer. Estas son las herramientas a tu alcance:",
     "features": {
-      "teamManagement": {
-        "title": "Gestión de Equipo",
-        "description": "Invitar miembros"
+      "intake": {
+        "title": "Captación de Clientes",
+        "description": "Comparte tu enlace público para aceptar formularios de admisión automatizados y captar nuevos clientes potenciales sin esfuerzo."
       },
-      "practiceSettings": {
-        "title": "Configuración de la práctica",
-        "description": "Configurar su práctica"
+      "messaging": {
+        "title": "Mensajería con Clientes",
+        "description": "Envía mensajes a tus clientes directamente a través de nuestra interfaz segura para mantenerlos informados sobre su caso."
       },
-      "apiAccess": {
-        "title": "Acceso API",
-        "description": "Generar tokens"
+      "matters": {
+        "title": "Gestión de Asuntos",
+        "description": "Organiza los detalles del caso, almacena documentos legales y sigue los hitos desde un único espacio de trabajo."
+      },
+      "billing": {
+        "title": "Facturación y Finanzas",
+        "description": "Configura planes de facturación personalizados y gestiona pagos y liquidaciones de forma segura a través de Stripe."
       }
     },
     "goToSettings": "Ir a Configuración de la práctica"
   },
   "welcome": {
     "lawyer": {
-      "title": "Bienvenido a Blawby",
-      "subtitle": "Configura tu despacho para empezar a recibir solicitudes de clientes",
-      "getStarted": "Comenzar",
-      "todo": {
-        "createPractice": "Crear perfil del despacho",
-        "businessDetails": "Configurar datos del negocio",
-        "trustAccount": "Conectar cuenta fiduciaria",
-        "services": "Agregar servicios",
-        "launch": "Lanzar asistente de admisión"
+      "title": "Bienvenido, Abogado",
+      "subtitle": "Configura tu despacho para empezar a recibir y gestionar solicitudes de clientes.",
+      "getStarted": "Comenzar"
+    },
+    "client": {
+      "title": "Bienvenido a tu Portal Legal",
+      "subtitle": "Todo lo que necesitas para gestionar tu situación legal en un solo lugar seguro.",
+      "tips": {
+        "messaging": {
+          "title": "Mensajea a tus Abogados",
+          "description": "Comunícate directamente con tu equipo legal para hacer preguntas y compartir actualizaciones al instante."
+        },
+        "matters": {
+          "title": "Gestiona tu Caso",
+          "description": "Accede a los documentos del caso, mira los hitos y monitorea el progreso de tus asuntos legales."
+        },
+        "payments": {
+          "title": "Pagos Seguros",
+          "description": "Paga los honorarios de retención y liquida facturas directamente a través de nuestro portal integrado de Stripe."
+        }
       }
+    }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hola 👋",
+      "helpPrompt": "¿Cómo podemos ayudar?",
+      "recentMessage": "Mensaje reciente",
+      "sendMessage": "Envíanos un mensaje",
+      "consultation": {
+        "title": "¿Necesitas hablar con un abogado?",
+        "description": "Comparte algunos detalles y te conectaremos con el abogado adecuado para tu situación.",
+        "button": "Solicitar consulta"
+      },
+      "poweredBy": "Desarrollado por"
+    },
+    "navigation": {
+      "home": "Inicio",
+      "messages": "Mensajes"
+    },
+    "conversationList": {
+      "title": "Mensajes",
+      "loading": "Cargando conversaciones...",
+      "empty": "Aún no hay conversaciones.",
+      "previewPlaceholder": "Abrir para ver mensajes.",
+      "sendMessage": "Envíanos un mensaje"
+    },
+    "error": {
+      "title": "Detalles de la práctica no disponibles",
+      "description": "No pudimos cargar el nombre y el logotipo de la práctica {{slug}}. Por favor actualiza o contacta a la práctica para confirmar su configuración pública.",
+      "retry": "Intentar de nuevo"
+    },
+    "header": {
+      "activeNow": "Activo ahora",
+      "back": "Atrás"
     }
   }
 }

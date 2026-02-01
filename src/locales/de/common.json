@@ -164,36 +164,85 @@
     }
   },
   "businessWelcome": {
-    "title": "Willkommen bei Business!",
-    "subtitle": "Ihre Praxis wurde aktualisiert. Hier ist, was Sie jetzt tun können:",
+    "title": "Willkommen in Ihrer Business-Kanzlei!",
+    "subtitle": "Ihre Organisation ist jetzt bereit für Wachstum. Hier sind die Werkzeuge, die Ihnen zur Verfügung stehen:",
     "features": {
-      "teamManagement": {
-        "title": "Team-Management",
-        "description": "Mitglieder einladen"
+      "intake": {
+        "title": "Mandantenaufnahme",
+        "description": "Teilen Sie Ihren öffentlichen Link, um automatisierte Aufnahmeformulare zu akzeptieren und mühelos neue Leads zu gewinnen."
       },
-      "practiceSettings": {
-        "title": "Praxis-Einstellungen",
-        "description": "Ihre Praxis konfigurieren"
+      "messaging": {
+        "title": "Mandanten-Messaging",
+        "description": "Schreiben Sie Ihren Mandanten direkt über unsere sichere Schnittstelle, um sie über ihren Fall auf dem Laufenden zu halten."
       },
-      "apiAccess": {
-        "title": "API-Zugang",
-        "description": "Token generieren"
+      "matters": {
+        "title": "Fallverwaltung",
+        "description": "Organisieren Sie Falldetails, speichern Sie Rechtsdokumente und verfolgen Sie Meilensteine von einem einzigen Arbeitsbereich aus."
+      },
+      "billing": {
+        "title": "Abrechnung & Finanzen",
+        "description": "Richten Sie benutzerdefinierte Abrechnungspläne ein und verwalten Sie Zahlungen und Auszahlungen sicher über Stripe."
       }
     },
     "goToSettings": "Zu den Praxis-Einstellungen"
   },
   "welcome": {
     "lawyer": {
-      "title": "Willkommen bei Blawby",
-      "subtitle": "Richten Sie Ihre Kanzlei ein, um Mandantenanfragen zu erhalten",
-      "getStarted": "Loslegen",
-      "todo": {
-        "createPractice": "Kanzleiprofil erstellen",
-        "businessDetails": "Geschäftsdaten einrichten",
-        "trustAccount": "Treuhandkonto verbinden",
-        "services": "Dienstleistungen hinzufügen",
-        "launch": "Intake-Assistent starten"
+      "title": "Willkommen",
+      "subtitle": "Richten Sie Ihre Kanzlei ein, um Mandantenanfragen zu empfangen und zu verwalten.",
+      "getStarted": "Loslegen"
+    },
+    "client": {
+      "title": "Willkommen in Ihrem Rechtsportal",
+      "subtitle": "Alles, was Sie zur Verwaltung Ihrer rechtlichen Situation benötigen, an einem sicheren Ort.",
+      "tips": {
+        "messaging": {
+          "title": "Nachrichten an Ihre Anwälte",
+          "description": "Kommunizieren Sie direkt mit Ihrem Rechtsteam, um Fragen zu stellen und Updates sofort zu teilen."
+        },
+        "matters": {
+          "title": "Ihren Fall verwalten",
+          "description": "Greifen Sie auf Falldokumente zu, sehen Sie Meilensteine ein und überwachen Sie den Fortschritt Ihrer Rechtsangelegenheiten."
+        },
+        "payments": {
+          "title": "Sichere Zahlungen",
+          "description": "Bezahlen Sie Vorschussgebühren und begleichen Sie Rechnungen direkt über unser integriertes Stripe-Portal."
+        }
       }
+    }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hallo 👋",
+      "helpPrompt": "Wie können wir helfen?",
+      "recentMessage": "Letzte Nachricht",
+      "sendMessage": "Senden Sie uns eine Nachricht",
+      "consultation": {
+        "title": "Müssen Sie mit einem Anwalt sprechen?",
+        "description": "Teilen Sie uns ein paar Details mit und wir verbinden Sie mit dem richtigen Anwalt für Ihre Situation.",
+        "button": "Beratung anfordern"
+      },
+      "poweredBy": "Unterstützt von"
+    },
+    "navigation": {
+      "home": "Startseite",
+      "messages": "Nachrichten"
+    },
+    "conversationList": {
+      "title": "Nachrichten",
+      "loading": "Gespräche werden geladen...",
+      "empty": "Noch keine Gespräche.",
+      "previewPlaceholder": "Öffnen, um Nachrichten anzuzeigen.",
+      "sendMessage": "Senden Sie uns eine Nachricht"
+    },
+    "error": {
+      "title": "Kanzleidetails nicht verfügbar",
+      "description": "Wir konnten den Namen und das Logo der Kanzlei {{slug}} nicht laden. Bitte aktualisieren Sie die Seite oder kontaktieren Sie die Kanzlei, um deren öffentliche Einstellungen zu bestätigen.",
+      "retry": "Erneut versuchen"
+    },
+    "header": {
+      "activeNow": "Jetzt aktiv",
+      "back": "Zurück"
     }
   }
 }

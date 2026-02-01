@@ -164,36 +164,85 @@
     }
   },
   "businessWelcome": {
-    "title": "Chào mừng đến với Business!",
-    "subtitle": "Văn phòng của bạn đã được nâng cấp. Đây là những gì bạn có thể làm bây giờ:",
+    "title": "Chào mừng đến với Văn phòng Kinh doanh của bạn!",
+    "subtitle": "Tổ chức của bạn đã sẵn sàng để mở rộng. Đây là các công cụ trong tầm tay bạn:",
     "features": {
-      "teamManagement": {
-        "title": "Quản lý Nhóm",
-        "description": "Mời thành viên"
+      "intake": {
+        "title": "Tiếp nhận Khách hàng",
+        "description": "Chia sẻ liên kết công khai của bạn để chấp nhận các biểu mẫu tiếp nhận tự động và thu thập khách hàng tiềm năng mới một cách dễ dàng."
       },
-      "practiceSettings": {
-        "title": "Cài đặt văn phòng",
-        "description": "Cấu hình văn phòng của bạn"
+      "messaging": {
+        "title": "Nhắn tin cho Khách hàng",
+        "description": "Nhắn tin trực tiếp cho khách hàng của bạn thông qua giao diện an toàn để cập nhật tình hình vụ việc cho họ."
       },
-      "apiAccess": {
-        "title": "Truy cập API",
-        "description": "Tạo token"
+      "matters": {
+        "title": "Quản lý Vụ việc",
+        "description": "Tổ chức chi tiết vụ việc, lưu trữ tài liệu pháp lý và theo dõi các cột mốc từ một không gian làm việc duy nhất."
+      },
+      "billing": {
+        "title": "Lập hóa đơn & Tài chính",
+        "description": "Thiết lập các kế hoạch lập hóa đơn tùy chỉnh và quản lý thanh toán cũng như chi trả một cách an toàn qua Stripe."
       }
     },
-    "goToSettings": "Đi đến Cài đặt văn phòng"
+    "goToSettings": "Đi đến Cài đặt Văn phòng"
   },
   "welcome": {
     "lawyer": {
-      "title": "Chào mừng đến với Blawby",
-      "subtitle": "Thiết lập văn phòng của bạn để bắt đầu nhận yêu cầu từ khách hàng",
-      "getStarted": "Bắt đầu",
-      "todo": {
-        "createPractice": "Tạo hồ sơ văn phòng",
-        "businessDetails": "Thiết lập thông tin doanh nghiệp",
-        "trustAccount": "Kết nối tài khoản ủy thác",
-        "services": "Thêm dịch vụ",
-        "launch": "Khởi chạy trợ lý tiếp nhận"
+      "title": "Chào mừng, Luật sư",
+      "subtitle": "Thiết lập văn phòng của bạn để bắt đầu nhận và quản lý hồ sơ khách hàng.",
+      "getStarted": "Bắt đầu"
+    },
+    "client": {
+      "title": "Chào mừng bạn đến với Cổng thông tin Pháp lý",
+      "subtitle": "Tất cả những gì bạn cần để quản lý tình huống pháp lý của mình tại một nơi an toàn.",
+      "tips": {
+        "messaging": {
+          "title": "Nhắn tin cho Luật sư của bạn",
+          "description": "Giao tiếp trực tiếp với đội ngũ pháp lý để đặt câu hỏi và chia sẻ cập nhật tức thì."
+        },
+        "matters": {
+          "title": "Quản lý Vụ việc của bạn",
+          "description": "Truy cập tài liệu vụ việc, xem các cột mốc quan trọng và theo dõi tiến độ công việc pháp lý của bạn."
+        },
+        "payments": {
+          "title": "Thanh toán An toàn",
+          "description": "Thanh toán phí tạm ứng và tất toán hóa đơn trực tiếp qua cổng Stripe tích hợp của chúng tôi."
+        }
       }
+    }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Xin chào 👋",
+      "helpPrompt": "Chúng tôi có thể giúp gì cho bạn?",
+      "recentMessage": "Tin nhắn gần đây",
+      "sendMessage": "Gửi tin nhắn cho chúng tôi",
+      "consultation": {
+        "title": "Cần nói chuyện với luật sư?",
+        "description": "Chia sẻ một vài chi tiết và chúng tôi sẽ kết nối bạn với luật sư phù hợp cho trường hợp của bạn.",
+        "button": "Yêu cầu tư vấn"
+      },
+      "poweredBy": "Được cung cấp bởi"
+    },
+    "navigation": {
+      "home": "Trang chủ",
+      "messages": "Tin nhắn"
+    },
+    "conversationList": {
+      "title": "Tin nhắn",
+      "loading": "Đang tải cuộc trò chuyện...",
+      "empty": "Chưa có cuộc trò chuyện nào.",
+      "previewPlaceholder": "Mở để xem tin nhắn.",
+      "sendMessage": "Gửi tin nhắn cho chúng tôi"
+    },
+    "error": {
+      "title": "Không có thông tin văn phòng",
+      "description": "Chúng tôi không thể tải tên và logo của văn phòng {{slug}}. Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
+      "retry": "Thử lại"
+    },
+    "header": {
+      "activeNow": "Đang hoạt động",
+      "back": "Quay lại"
     }
   }
 }

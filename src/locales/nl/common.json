@@ -165,16 +165,84 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welkom bij Blawby",
-      "subtitle": "Stel uw praktijk in om cliëntaanvragen te ontvangen",
-      "getStarted": "Aan de slag",
-      "todo": {
-        "createPractice": "Praktijkprofiel maken",
-        "businessDetails": "Bedrijfsgegevens instellen",
-        "trustAccount": "Derdenrekening koppelen",
-        "services": "Diensten toevoegen",
-        "launch": "Intake-assistent starten"
+      "title": "Welkom, Advocaat",
+      "subtitle": "Stel uw kantoor in om cliëntaanvragen te ontvangen en te beheren.",
+      "getStarted": "Aan de slag"
+    },
+    "client": {
+      "title": "Welkom bij uw Juridisch Portaal",
+      "subtitle": "Alles wat u nodig heeft om uw juridische situatie te beheren op één veilige plek.",
+      "tips": {
+        "messaging": {
+          "title": "Berichten aan uw advocaten",
+          "description": "Communiceer rechtstreeks met uw juridisch team om vragen te stellen en direct updates te delen."
+        },
+        "matters": {
+          "title": "Beheer uw zaak",
+          "description": "Krijg toegang tot zaakdocumenten, bekijk mijlpalen en volg de voortgang van uw juridische dossiers."
+        },
+        "payments": {
+          "title": "Veilige betalingen",
+          "description": "Betaal voorschotten en rekeningen rechtstreeks via ons geïntegreerde Stripe-portaal."
+        }
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hallo daar 👋",
+      "helpPrompt": "Hoe kunnen we helpen?",
+      "recentMessage": "Recent bericht",
+      "sendMessage": "Stuur ons een bericht",
+      "consultation": {
+        "title": "Moet u een advocaat spreken?",
+        "description": "Deel enkele details en we brengen u in contact met de juiste advocaat voor uw situatie.",
+        "button": "Consultatie aanvragen"
+      },
+      "poweredBy": "Mede mogelijk gemaakt door"
+    },
+    "navigation": {
+      "home": "Home",
+      "messages": "Berichten"
+    },
+    "conversationList": {
+      "title": "Berichten",
+      "loading": "Gesprekken laden...",
+      "empty": "Nog geen gesprekken.",
+      "previewPlaceholder": "Openen om berichten te bekijken.",
+      "sendMessage": "Stuur ons een bericht"
+    },
+    "error": {
+      "title": "Praktijkgegevens niet beschikbaar",
+      "description": "We konden de praktijknaam en het logo van {{slug}} niet laden. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
+      "retry": "Opnieuw proberen"
+    },
+    "header": {
+      "activeNow": "Nu actief",
+      "back": "Terug"
+    }
+  },
+  "businessWelcome": {
+    "title": "Welkom bij uw Business-kantoor!",
+    "subtitle": "Uw organisatie is klaar om te groeien. Dit zijn de tools die u tot uw beschikking heeft:",
+    "features": {
+      "intake": {
+        "title": "Cliëntintake",
+        "description": "Deel uw openbare link om geautomatiseerde intakeformulieren te accepteren en moeiteloos nieuwe leads vast te leggen."
+      },
+      "messaging": {
+        "title": "Cliëntberichten",
+        "description": "Stuur uw cliënten rechtstreeks berichten via onze beveiligde interface om hen op de hoogte te houden van hun zaak."
+      },
+      "matters": {
+        "title": "Zaakbeheer",
+        "description": "Organiseer zaakgegevens, sla juridische documenten op en volg mijlpalen vanuit één centrale werkplek."
+      },
+      "billing": {
+        "title": "Facturatie & Financiën",
+        "description": "Stel aangepaste facturatieplannen in en beheer betalingen en uitbetalingen veilig via Stripe."
+      }
+    },
+    "goToSettings": "Ga naar kantoorinstellingen"
   }
 }

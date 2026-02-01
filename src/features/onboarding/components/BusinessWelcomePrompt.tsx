@@ -8,7 +8,12 @@
 import { useNavigation } from '@/shared/utils/navigation';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
-import { UserGroupIcon, BuildingOfficeIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { 
+  ChatBubbleLeftRightIcon, 
+  DocumentTextIcon, 
+  BriefcaseIcon, 
+  CreditCardIcon 
+} from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 
 interface BusinessWelcomePromptProps {
@@ -27,22 +32,32 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
 
   const features = [
     {
-      text: t('businessWelcome.features.teamManagement.description'),
-      icon: <UserGroupIcon className="w-6 h-6" />,
-      title: t('businessWelcome.features.teamManagement.title'),
+      id: 'intake',
+      icon: <DocumentTextIcon className="w-6 h-6" />,
+      title: t('businessWelcome.features.intake.title'),
+      text: t('businessWelcome.features.intake.description'),
       color: { bg: 'bg-blue-500/20', text: 'text-blue-400' }
     },
     {
-      text: t('businessWelcome.features.practiceSettings.description'),
-      icon: <BuildingOfficeIcon className="w-6 h-6" />,
-      title: t('businessWelcome.features.practiceSettings.title'),
+      id: 'messaging',
+      icon: <ChatBubbleLeftRightIcon className="w-6 h-6" />,
+      title: t('businessWelcome.features.messaging.title'),
+      text: t('businessWelcome.features.messaging.description'),
       color: { bg: 'bg-green-500/20', text: 'text-green-400' }
     },
     {
-      text: t('businessWelcome.features.apiAccess.description'),
-      icon: <KeyIcon className="w-6 h-6" />,
-      title: t('businessWelcome.features.apiAccess.title'),
+      id: 'matters',
+      icon: <BriefcaseIcon className="w-6 h-6" />,
+      title: t('businessWelcome.features.matters.title'),
+      text: t('businessWelcome.features.matters.description'),
       color: { bg: 'bg-purple-500/20', text: 'text-purple-400' }
+    },
+    {
+      id: 'billing',
+      icon: <CreditCardIcon className="w-6 h-6" />,
+      title: t('businessWelcome.features.billing.title'),
+      text: t('businessWelcome.features.billing.description'),
+      color: { bg: 'bg-orange-500/20', text: 'text-orange-400' }
     }
   ];
 
@@ -50,23 +65,25 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-8">
         <h2 className="text-2xl font-bold mb-4">{t('businessWelcome.title')}</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-gray-600 dark:text-gray-400 mb-8">
           {t('businessWelcome.subtitle')}
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {features.map((feature, index) => (
-            <div key={index} className="text-center">
-              <div className={`w-12 h-12 rounded-full ${feature.color.bg} flex items-center justify-center mx-auto mb-3`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          {features.map((feature) => (
+            <div key={feature.id} className="flex space-x-4">
+              <div className={`flex-shrink-0 w-12 h-12 rounded-xl ${feature.color.bg} flex items-center justify-center`}>
                 <div className={`h-6 w-6 ${feature.color.text}`}>{feature.icon}</div>
               </div>
-              <h3 className="font-medium mb-1">{feature.title}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{feature.text}</p>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-white">{feature.title}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{feature.text}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        <Button variant="primary" className="w-full" onClick={handleGoToSettings}>
+        <Button variant="primary" className="w-full mt-4" onClick={handleGoToSettings}>
           {t('businessWelcome.goToSettings')}
         </Button>
       </div>
