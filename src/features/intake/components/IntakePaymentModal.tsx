@@ -15,7 +15,7 @@ interface IntakePaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   paymentRequest: IntakePaymentRequest | null;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
 }
 
 export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({

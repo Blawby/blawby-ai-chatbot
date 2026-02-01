@@ -493,6 +493,13 @@ type ConfirmResponse = {
   rawText?: string;
 };
 
+type InviteResponse = {
+  status: number;
+  data?: { success?: boolean; message?: string };
+  url?: string;
+  rawText?: string;
+};
+
 const parseConfirmResponse = async (response: APIResponse): Promise<ConfirmResponse> => {
   const status = response.status();
   const url = response.url();
@@ -553,6 +560,37 @@ const confirmIntakeLead = async (options: {
     });
   }
   return { status: initial.status, data: initial.data };
+};
+
+const triggerIntakeInvitation = async (options: {
+  request: APIRequestContext;
+  context: BrowserContext;
+  baseURL: string;
+  intakeUuid: string;
+  storagePath?: string;
+}): Promise<InviteResponse> => {
+  const path = `/api/practice/client-intakes/${encodeURIComponent(options.intakeUuid)}/invite`;
+  const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+  const response = await options.request.post(path, {
+    headers: cookieHeader
+      ? {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader
+        }
+      : undefined
+  });
+  const status = response.status();
+  const url = response.url();
+  const rawText = await response.text().catch(() => '');
+  let data: { success?: boolean; message?: string } | undefined;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText) as { success?: boolean; message?: string };
+    } catch {
+      data = undefined;
+    }
+  }
+  return { status, data, url, rawText };
 };
 
 const getOrCreateConversation = async (options: {
@@ -753,6 +791,19 @@ test.describe('Lead intake workflow', () => {
     });
 
     expect(decisionMessage.content.toLowerCase()).toContain('accepted');
+
+    const inviteResponse = await triggerIntakeInvitation({
+      request: ownerContext.request,
+      context: ownerContext,
+      baseURL,
+      intakeUuid: intake.uuid,
+      storagePath: AUTH_STATE_PATHS.owner
+    });
+    if (inviteResponse.status !== 200) {
+      throw new Error(
+        `Invite trigger failed: ${inviteResponse.status} ${inviteResponse.url ?? ''} ${inviteResponse.rawText?.slice(0, 300) ?? ''}`
+      );
+    }
   });
 
   test('owner rejects lead for anonymous guest (no payment required)', async ({

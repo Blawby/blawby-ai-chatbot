@@ -16,7 +16,7 @@ interface IntakePaymentFormProps {
   practiceId?: string;
   conversationId?: string;
   returnTo: string;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
   onReturn?: () => void;
 }
 
@@ -285,7 +285,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         if (!isMountedRef.current) return;
         if (confirmed) {
           setStatus('succeeded');
-          onSuccess?.();
+          await onSuccess?.();
           return;
         }
         console.warn('[IntakePayment] Intake confirmation did not succeed after payment intent result', {
@@ -320,7 +320,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         }
         setStatus('succeeded');
         setStatusDetail(wsStatus);
-        onSuccess?.();
+        await onSuccess?.();
         return;
       }
 

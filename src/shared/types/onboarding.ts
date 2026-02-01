@@ -3,6 +3,8 @@ import type { FormData } from '@/shared/ui/form';
 export interface OnboardingPersonalInfo extends FormData {
   fullName: string;
   birthday?: string;
+  password: string;
+  confirmPassword: string;
   agreedToTerms: boolean;
 }
 

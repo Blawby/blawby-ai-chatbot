@@ -11,6 +11,8 @@ import { schemas } from '@/shared/ui/validation/schemas';
 interface PersonalInfoData extends FormData {
   fullName: string;
   birthday?: string;
+  password: string;
+  confirmPassword: string;
   agreedToTerms: boolean;
 }
 
@@ -122,6 +124,49 @@ const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) =>
                 )}
               </FormField>
             </div>
+            {/* Password */}
+            <FormField name="password">
+              {({ value, error, onChange }) => (
+                <FormItem>
+                  <FormLabel>{t('onboarding.step1.password', 'Create a password')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      required
+                      value={(value as string) || ''}
+                      onChange={(value) => onChange(value)}
+                      placeholder={t('onboarding.step1.passwordPlaceholder', 'Enter a secure password')}
+                      error={error?.message}
+                    />
+                  </FormControl>
+                  {error && (
+                    <FormMessage>{error.message}</FormMessage>
+                  )}
+                </FormItem>
+              )}
+            </FormField>
+
+            {/* Confirm Password */}
+            <FormField name="confirmPassword">
+              {({ value, error, onChange }) => (
+                <FormItem>
+                  <FormLabel>{t('onboarding.step1.confirmPassword', 'Confirm password')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      required
+                      value={(value as string) || ''}
+                      onChange={(value) => onChange(value)}
+                      placeholder={t('onboarding.step1.confirmPasswordPlaceholder', 'Re-enter your password')}
+                      error={error?.message}
+                    />
+                  </FormControl>
+                  {error && (
+                    <FormMessage>{error.message}</FormMessage>
+                  )}
+                </FormItem>
+              )}
+            </FormField>
 
             {/* Terms Agreement */}
             <FormField name="agreedToTerms">

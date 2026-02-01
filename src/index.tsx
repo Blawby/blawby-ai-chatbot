@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
+import OnboardingPage from '@/pages/OnboardingPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -172,12 +173,39 @@ function AppShell() {
     };
   }, [backgroundUrl, location.route, wasPush]);
 
+  useEffect(() => {
+    if (sessionPending) return;
+    const user = session?.user;
+    const requiresOnboarding =
+      Boolean(user) && !user?.isAnonymous && user?.onboardingComplete !== true;
+
+    if (requiresOnboarding) {
+      if (!location.path.startsWith('/onboarding')) {
+        const targetUrl = location.url.startsWith('/')
+          ? location.url
+          : `/${location.url.replace(/^\/+/, '')}`;
+        const encodedReturnTo = encodeURIComponent(targetUrl);
+        const onboardingUrl = encodedReturnTo
+          ? `/onboarding?returnTo=${encodedReturnTo}`
+          : '/onboarding';
+        navigate(onboardingUrl, true);
+      }
+      return;
+    }
+
+    if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
+      const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
+      navigate(fallback, true);
+    }
+  }, [defaultWorkspace, location.path, location.url, navigate, session?.user, sessionPending]);
+
   return (
     <ToastProvider>
       <LocationProvider.ctx.Provider value={routerLocation}>
         <Router onRouteChange={handleRouteChange}>
           <Route path="/auth" component={AuthPage} />
           <Route path="/cart" component={CartPage} />
+          <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />

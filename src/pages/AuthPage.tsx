@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import OnboardingModal from '@/features/onboarding/components/OnboardingModal';
-import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { Logo } from '@/shared/ui/Logo';
 import { Button } from '@/shared/ui/Button';
 import { handleError } from '@/shared/utils/errorHandler';
@@ -19,7 +17,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const { t } = useTranslation('auth');
   const { navigate } = useNavigation();
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [conversationContext, setConversationContext] = useState<{ conversationId?: string | null; practiceId?: string | null }>({});
   const isSafeRedirectPath = (path: string | null): path is string =>
@@ -45,7 +42,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMode = urlParams.get('mode');
-    const needsOnboarding = urlParams.get('onboarding') === 'true';
     const conversationId = urlParams.get('conversationId');
     const practiceId = urlParams.get('practiceId');
     const redirect = urlParams.get('redirect');
@@ -65,24 +61,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     }
 
     // Only open onboarding when explicitly requested via URL param
-    if (needsOnboarding) {
-      if (import.meta.env.DEV) {
-        console.debug('[AUTH][ONBOARDING] opening onboarding modal from URL flag', {
-          mode: urlMode ?? null,
-          redirect,
-          practiceId,
-          conversationId
-        });
-      }
-      setShowOnboarding(true);
-      // Strip the param to avoid re-triggering on rebuilds
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('onboarding');
-        window.history.replaceState({}, '', url.toString());
-        // eslint-disable-next-line no-empty
-      } catch {}
-    }
   }, []);
 
   // Helper function to handle redirect with proper onSuccess awaiting
@@ -127,43 +105,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     navigate('/', true);
   };
 
-  const handleOnboardingComplete = async (data: OnboardingFormData) => {
-    // Development-only debug log with redacted sensitive data
-    if (import.meta.env.DEV) {
-      const _redactedData = {
-        personalInfo: {
-          fullName: data.personalInfo.fullName ? '[REDACTED]' : undefined,
-          birthday: data.personalInfo.birthday ? '[REDACTED]' : undefined,
-          agreedToTerms: data.personalInfo.agreedToTerms
-        },
-        useCase: {
-          primaryUseCase: data.useCase.primaryUseCase,
-          additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
-        }
-      };
-      // Onboarding completed with redacted data
-    }
-    
-    // Legacy onboardingCompleted localStorage write removed - server truth is used instead
-
-    // Close onboarding modal and redirect to main app
-    setShowOnboarding(false);
-    await handleRedirect();
-  };
-
-  const handleOnboardingClose = async () => {
-    setShowOnboarding(false);
-    
-    // Redirect to home page if onboarding is closed, waiting for onSuccess if provided
-    await handleRedirect();
-  };
-
   const handleAuthSuccess = async () => {
-    if (authMode === 'signup' || showOnboarding) {
-      setShowOnboarding(true);
-      return;
-    }
-
     await handleRedirect();
   };
 
@@ -206,12 +148,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         />
       </div>
 
-      {/* Onboarding Modal */}
-      <OnboardingModal
-        isOpen={showOnboarding}
-        onClose={handleOnboardingClose}
-        onComplete={handleOnboardingComplete}
-      />
     </div>
   );
 };

@@ -54,6 +54,14 @@ export const loadE2EConfig = (): E2EConfig | null => {
   const clientEmail = normalizeValue(process.env.E2E_CLIENT_EMAIL) ?? normalizeValue(fileConfig?.client?.email);
   const clientPassword = normalizeValue(process.env.E2E_CLIENT_PASSWORD) ?? normalizeValue(fileConfig?.client?.password);
   if (!practiceId || !practiceSlug || !ownerEmail || !ownerPassword || !clientEmail || !clientPassword) {
+    const missing = [];
+    if (!practiceId) missing.push('E2E_PRACTICE_ID / tests/e2e/fixtures/e2e-credentials.json practice.id');
+    if (!practiceSlug) missing.push('E2E_PRACTICE_SLUG / fixtures practice.slug');
+    if (!ownerEmail) missing.push('E2E_OWNER_EMAIL / fixtures owner.email');
+    if (!ownerPassword) missing.push('E2E_OWNER_PASSWORD / fixtures owner.password');
+    if (!clientEmail) missing.push('E2E_CLIENT_EMAIL / fixtures client.email');
+    if (!clientPassword) missing.push('E2E_CLIENT_PASSWORD / fixtures client.password');
+    console.warn(`E2E config missing: ${missing.join(', ')}`);
     return null;
   }
 

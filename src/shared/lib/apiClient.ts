@@ -581,6 +581,21 @@ export async function createPracticeInvitation(
   };
 }
 
+export async function triggerIntakeInvitation(intakeUuid: string): Promise<{ message?: string } | null> {
+  if (!intakeUuid) {
+    throw new Error('intakeUuid is required');
+  }
+  const response = await apiClient.post(
+    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`
+  );
+  const data = unwrapApiData(response.data);
+  if (!isRecord(data)) {
+    return null;
+  }
+  const message = toNullableString(data.message);
+  return message ? { message } : null;
+}
+
 export async function respondToPracticeInvitation(
   invitationId: string,
   action: 'accept' | 'decline'
