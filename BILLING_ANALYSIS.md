@@ -146,7 +146,24 @@ sequenceDiagram
 ## 4. Backend Implementation Plan (`blawby-backend`)
 
 ### **A. Module Structure: `src/modules/billing`**
-This module is the "Financial Engine" connecting Matters (Work) to Stripe (Money).
+This module is the "Financial Engine" connecting Matters (Work) to Stripe (Money). The structure follows the existing `matters` module pattern.
+
+```text
+src/modules/billing/
+├── database/
+│   └── schema/
+│       ├── invoices.schema.ts
+│       └── transactions.schema.ts
+├── services/
+│   ├── invoice-generator.service.ts
+│   └── escrow.service.ts
+├── validations/
+│   └── billing.validation.ts
+├── routes.ts (OpenAPI definition)
+├── handlers.ts (Implementation)
+├── http.ts (Hono App)
+└── index.ts
+```
 
 **1. Database Schema Specifications (Drizzle)**
 
@@ -158,6 +175,15 @@ retainer_balance: integer('retainer_balance').default(0).notNull(), // Stores am
 
 *   **File**: `src/modules/billing/database/schema/invoices.schema.ts` (New)
 ```typescript
+import { pgTable, uuid, text, integer, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { organizations } from '@/schema';
+import { matters } from '@/modules/matters/database/schema/matters.schema';
+import { matterMilestones } from '@/modules/matters/database/schema/matter-milestones.schema'; // Ensure exported
+import { userDetailsSchema } from '@/modules/user-details/database/schema/user-details.schema';
+// Note: Imports may need adjustment based on exact file locations.
+
+const { userDetails } = userDetailsSchema;
+
 export const invoices = pgTable('invoices', {
   id: uuid('id').primaryKey().defaultRandom(),
   stripe_invoice_id: text('stripe_invoice_id').unique().notNull(),
@@ -190,6 +216,9 @@ export const invoices = pgTable('invoices', {
 
 *   **File**: `src/modules/billing/database/schema/transactions.schema.ts` (New)
 ```typescript
+import { pgTable, uuid, text, integer, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { invoices } from './invoices.schema';
+
 export const transactions = pgTable('billing_transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
   invoice_id: uuid('invoice_id').references(() => invoices.id),
@@ -201,15 +230,11 @@ export const transactions = pgTable('billing_transactions', {
 });
 ```
 
-**2. Services**
-*   **File**: `src/modules/billing/services/invoice-generator.service.ts`
-    *   `generateMilestoneInvoice(milestoneId)`: Creates Stripe Invoice Item + Invoice.
-*   **File**: `src/modules/billing/services/escrow.service.ts`
-    *   `releaseFunds(invoiceId)`:
-        1. Checks `escrow_status` == 'held'
-        2. Calculates payout (Total - Fee)
-        3. Calls `stripe.transfers.create`
-        4. Updates DB to `released`.
+**2. Services Strategy**
+*   **Stripe Client**: Use existing `import { stripe } from '@/shared/utils/stripe-client';`.
+*   **Pattern**: Use async/await for all Stripe calls.
+*   **Response Wrapping**: Handlers should return `response.ok(c, { result })` or `response.created(c, { result })` to match existing `responseUtils`.
+*   **Auth**: Use `const user = c.get('user')!;` to get authenticated user in handlers.
 
 **3. API Handlers**
 *   `POST /api/billing/milestones/:id/fund`: Triggers Invoice creation.
