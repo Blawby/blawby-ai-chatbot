@@ -52,7 +52,7 @@ export function createIntakeFormConfig(configKey: keyof typeof INTAKE_FORM_CONFI
 // For dynamic field selection (use sparingly in greenfield)
 export function createCustomIntakeConfig<T extends readonly string[]>(
   fields: T,
-  schema: z.ZodType
+  schema: z.ZodObject<any>
 ) {
   // Validate that all fields are supported
   const supportedFields = ['name', 'email', 'phone', 'address', 'opposingParty', 'description'] as const;
@@ -60,6 +60,14 @@ export function createCustomIntakeConfig<T extends readonly string[]>(
   
   if (unsupportedFields.length > 0) {
     throw new Error(`Unsupported fields: ${unsupportedFields.join(', ')}`);
+  }
+  
+  // Validate that every field in the fields array exists in the schema shape
+  const schemaShape = schema._def.shape || schema.shape;
+  const missingFields = fields.filter(field => !(field in schemaShape));
+  
+  if (missingFields.length > 0) {
+    throw new Error(`Schema missing validators for fields: ${missingFields.join(', ')}. Ensure all fields have corresponding validators in the ZodObject schema.`);
   }
   
   return {

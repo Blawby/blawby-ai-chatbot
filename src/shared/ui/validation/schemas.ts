@@ -172,7 +172,10 @@ export const contactSchemas = {
         'Please enter a valid phone number (at least 10 digits)'
       ),
     // Legacy location field for backward compatibility (optional string)
-    location: z.string().min(2, 'Location must be at least 2 characters').optional(),
+    location: z.string()
+      .min(2, 'Location must be at least 2 characters')
+      .optional()
+      .or(z.literal('')),
     // New structured address field
     address: addressLooseSchema.optional(),
     opposingParty: z.string().optional(),

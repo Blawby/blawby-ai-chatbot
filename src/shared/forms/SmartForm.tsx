@@ -115,7 +115,8 @@ export function SmartForm<T extends z.ZodType>({
     className
   );
 
-  const stableInitialData = useMemo(() => config.initialValues(), [config]);
+  const { initialValues } = config;
+  const stableInitialData = useMemo(() => initialValues(), [initialValues]);
 
   return (
     <Form

@@ -577,12 +577,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           showSkeleton={!messagesReady}
                           contactFormVariant={contactFormVariant}
                           contactFormFormId={contactFormId}
-                          showContactFormSubmit={!showContactFormFooter}
+                          showContactFormSubmit={false} // Never show internal submit button
                         />
                       )}
                     </div>
 
-                    {showContactFormFooter ? (
+                    {contactFormMessage && onContactFormSubmit ? (
                       <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
                         <Button
                           type="submit"
@@ -591,6 +591,30 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           className="w-full"
                           disabled={!onContactFormSubmit}
                           data-testid="contact-form-submit-footer"
+                          onClick={(e) => {
+                            // Try multiple approaches to trigger form submission
+                            const form = document.getElementById(contactFormId) as HTMLFormElement;
+                            if (form) {
+                              // Approach 1: Try requestSubmit (modern)
+                              try {
+                                form.requestSubmit();
+                              } catch (err) {
+                                // Approach 2: Try submit() with preventDefault
+                                try {
+                                  const submitEvent = new Event('submit', { 
+                                    bubbles: true, 
+                                    cancelable: true 
+                                  });
+                                  form.dispatchEvent(submitEvent);
+                                } catch (err2) {
+                                  // Approach 3: Direct form.submit() (bypasses validation)
+                                  form.submit();
+                                }
+                              }
+                            } else {
+                              console.error('[ChatContainer] Form not found with id:', contactFormId);
+                            }
+                          }}
                         >
                           {t('forms.contactForm.submit')}
                         </Button>

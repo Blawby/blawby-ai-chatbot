@@ -25,6 +25,17 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     getTrimmedString(formData.description);
   const opposingParty = getTrimmedString(formData.opposingParty);
 
+  // Handle address field if present
+  const address = formData.address as any;
+  const addressPayload = address ? {
+    line1: address.address,
+    line2: address.apartment,
+    city: address.city,
+    state: address.state,
+    postal_code: address.postalCode,
+    country: address.country
+  } : undefined;
+
   return {
     slug: practiceSlug,
     name,
@@ -32,6 +43,7 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     ...(phone ? { phone } : {}),
     ...(description ? { description } : {}),
     ...(opposingParty ? { opposing_party: opposingParty } : {}),
+    ...(addressPayload ? { address: addressPayload } : {}),
   };
 }
 
@@ -212,13 +224,19 @@ export async function submitContactForm(
         ? { conversation_id: formData.sessionId.trim() }
         : {}),
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
-      ...(description ? { description } : {}),
-      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
+      ...(description ? { description } : { description: '' }), // Always include description
+      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
+      ...(formPayload.address ? { address: formPayload.address } : {}),
+      user_id: formData.sessionId || undefined,
+      on_behalf_of: '' // Always include on_behalf_of
     };
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
+    
+    console.log('[Forms] Sending payload to backend:', JSON.stringify(createPayload, null, 2));
+    
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
       headers,
@@ -247,11 +265,9 @@ export async function submitContactForm(
 
       // Update the loading message with confirmation (if callback provided)
       if (onUpdateMessage) {
-        setTimeout(() => {
-          onUpdateMessage(loadingMessageId, confirmationContent, false);
-        }, 300);
+        onUpdateMessage(loadingMessageId, confirmationContent, false);
       }
-      
+
       const paymentLinkUrl = intakeData?.payment_link_url ?? intakeData?.paymentLinkUrl;
 
       return {
@@ -268,8 +284,14 @@ export async function submitContactForm(
         }
       };
     } else {
+      const errorText = await response.text();
+      console.error('[Forms] Backend error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText
+      });
       const errorData = await response.json().catch(() => ({})) as { error?: string; message?: string };
-      throw new Error(errorData.error || errorData.message || 'Form submission failed');
+      throw new Error(errorData.error || errorData.message || `Backend error: ${response.status} ${response.statusText}`);
     }
   } catch (error) {
     console.error('Error submitting form:', error);

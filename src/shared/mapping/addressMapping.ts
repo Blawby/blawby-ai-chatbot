@@ -1,6 +1,83 @@
 import type { Address } from '../types/ui';
 import type { AddressApi } from '../types/api';
 
+// US state name to code mapping for normalization
+const US_STATE_NAME_TO_CODE: Record<string, string> = {
+  alabama: 'AL',
+  alaska: 'AK',
+  arizona: 'AZ',
+  arkansas: 'AR',
+  california: 'CA',
+  colorado: 'CO',
+  connecticut: 'CT',
+  delaware: 'DE',
+  florida: 'FL',
+  georgia: 'GA',
+  hawaii: 'HI',
+  idaho: 'ID',
+  illinois: 'IL',
+  indiana: 'IN',
+  iowa: 'IA',
+  kansas: 'KS',
+  kentucky: 'KY',
+  louisiana: 'LA',
+  maine: 'ME',
+  maryland: 'MD',
+  massachusetts: 'MA',
+  michigan: 'MI',
+  minnesota: 'MN',
+  mississippi: 'MS',
+  missouri: 'MO',
+  montana: 'MT',
+  nebraska: 'NE',
+  nevada: 'NV',
+  'new hampshire': 'NH',
+  'new jersey': 'NJ',
+  'new mexico': 'NM',
+  'new york': 'NY',
+  'north carolina': 'NC',
+  'north dakota': 'ND',
+  ohio: 'OH',
+  oklahoma: 'OK',
+  oregon: 'OR',
+  pennsylvania: 'PA',
+  'rhode island': 'RI',
+  'south carolina': 'SC',
+  'south dakota': 'SD',
+  tennessee: 'TN',
+  texas: 'TX',
+  utah: 'UT',
+  vermont: 'VT',
+  virginia: 'VA',
+  washington: 'WA',
+  'west virginia': 'WV',
+  wisconsin: 'WI',
+  wyoming: 'WY',
+  'district of columbia': 'DC',
+};
+
+// Convert state name or code to standardized 2-letter code
+function toUSStateCode(input: string): string {
+  const s = input.trim();
+  if (/^[A-Z]{2}$/.test(s)) return s;
+  return US_STATE_NAME_TO_CODE[s.toLowerCase()] ?? s;
+}
+
+// Convert ISO-2 country code to display format (US -> USA, GB -> UK, etc.)
+function countryDisplay(code: string): string {
+  const c = code.toUpperCase();
+  
+  // Common country abbreviations
+  const countryAbbreviations: Record<string, string> = {
+    'US': 'USA',
+    'GB': 'UK', 
+    'AE': 'UAE',
+    'SA': 'KSA', // Kingdom of Saudi Arabia
+  };
+  
+  return countryAbbreviations[c] || c; // Use abbreviation if available, otherwise use ISO-2 code
+}
+
 // Simple hash ID generator for autocomplete suggestions
 function generateHashId(formatted: string, coordinates: number[] | undefined): string {
   const str = `${formatted}|${coordinates?.[0] || ''}|${coordinates?.[1] || ''}`;
@@ -58,23 +135,27 @@ export function fromGeoapifyFeature(feature: any): Address {
     address = firstComma > 0 ? properties.formatted.substring(0, firstComma).trim() : properties.formatted;
   }
 
-  const apartment = properties.unit || properties.subpremise || properties.address_line2 || '';
+  // Fix: Only use explicit unit fields for apartment, never address_line2
+  const apartment = (properties.unit ?? properties.subpremise ?? '').trim() || undefined;
 
   const city = properties.city || properties.town || properties.village || properties.locality || '';
 
-  const state = properties.state || properties.region || '';
+  // Fix: Read state_code first, then normalize to 2-letter code for all countries
+  const rawState = (properties.state_code ?? properties.state ?? properties.region ?? '').trim();
+  const country = (properties.country_code ?? '').toUpperCase();
+  
+  // Always use 2-letter state codes when available, otherwise use trimmed raw state
+  const state = rawState.length === 2 ? rawState.toUpperCase() : rawState;
 
   const postalCode = properties.postcode || '';
 
-  const country = (properties.country_code ?? '').toUpperCase();
-
   return {
     address: address.trim(),
-    apartment: apartment.trim(),
+    apartment,
     city: city.trim(),
     state: state.trim(),
     postalCode: postalCode.trim(),
-    country: country.trim(),
+    country: country, // Store ISO-2 code for validation (US, GB, etc.)
   };
 }
 
@@ -90,7 +171,7 @@ export function fromGeoapifyResponse(feature: any): any {
   const apiPlaceId = properties.place_id; // API uses snake_case
   const id = apiPlaceId || generateHashId(formatted, coordinates);
   
-  const label = properties.formatted || `${address.address}, ${address.city}, ${address.state} ${address.postalCode}`;
+  const label = `${address.address}, ${address.city}, ${address.state} ${address.postalCode}${address.country ? ', ' + countryDisplay(address.country) : ''}`;
   
   const dedupeKey = apiPlaceId || (formatted.toLowerCase().replace(/\s+/g, ' ').trim() || '');
   
@@ -98,7 +179,7 @@ export function fromGeoapifyResponse(feature: any): any {
     id,
     label,
     address,
-    formatted: properties.formatted || label,
+    formatted: label,
     lat: coordinates?.[1],
     lon: coordinates?.[0],
     placeId: apiPlaceId, // Internal type uses camelCase
@@ -116,3 +197,6 @@ export function fromGeoapifyResponse(feature: any): any {
     },
   };
 }
+
+// Export utility functions for use in other components
+export { toUSStateCode, countryDisplay };
