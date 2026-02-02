@@ -12,7 +12,7 @@ import type { Address } from '@/shared/types/address';
 import Modal from '@/shared/components/Modal';
 import { FileInput, Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
-import { PracticeAddressForm } from '@/shared/ui/address/AddressForm';
+import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -970,7 +970,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               disabled={isSettingsSaving}
               placeholder="https://example.com"
             />
-            
+
             <Input
               label="Business Email"
               value={contactDraft.businessEmail || ''}
@@ -979,7 +979,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               type="email"
               placeholder="business@example.com"
             />
-            
+
             <Input
               label="Contact Phone"
               value={contactDraft.phone || ''}
@@ -993,24 +993,20 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           {/* Address Fields */}
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
-            <PracticeAddressForm
-              initialValues={{
-                address: contactDraft.address,
-              }}
+            <AddressExperienceForm
+              initialValues={{ address: contactDraft.address }}
+              fields={['address']}
+              required={[]}
               onValuesChange={(values) => {
-                if (values.address) {
+                if (values.address !== undefined) {
                   setContactDraft(prev => ({
                     ...prev,
-                    address: values.address,
+                    address: values.address as Address,
                   }));
                 }
               }}
-              onSubmit={(formData) => {
-                setContactDraft(prev => ({
-                  ...prev,
-                  address: formData.address,
-                }));
-              }}
+              showSubmitButton={false}
+              variant="plain"
               disabled={isSettingsSaving}
             />
           </div>

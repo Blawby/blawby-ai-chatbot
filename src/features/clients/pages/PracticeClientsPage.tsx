@@ -4,7 +4,7 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
-import { ClientAddressForm } from '@/shared/ui/address/AddressForm';
+import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
@@ -131,6 +131,9 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
   </span>
 );
 
+const CLIENT_FIELDS = ['name', 'email', 'phone', 'status', 'currency', 'address'] as const;
+const CLIENT_REQUIRED = ['name', 'email'] as const;
+
 const ClientForm = ({
   values,
   onChange,
@@ -140,16 +143,17 @@ const ClientForm = ({
   onChange: <K extends keyof ClientFormState>(field: K, value: ClientFormState[K]) => void;
   disabled?: boolean;
 }) => (
-  <ClientAddressForm
+  <AddressExperienceForm
     initialValues={values}
-    onSubmit={(formData) => {
-      // Convert form data back to the expected onChange pattern
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          onChange(key as keyof ClientFormState, value);
-        }
+    fields={[...CLIENT_FIELDS]}
+    required={[...CLIENT_REQUIRED]}
+    onValuesChange={(updates) => {
+      Object.entries(updates).forEach(([key, value]) => {
+        onChange(key as keyof ClientFormState, value as ClientFormState[keyof ClientFormState]);
       });
     }}
+    showSubmitButton={false}
+    variant="plain"
     disabled={disabled}
   />
 );
