@@ -715,6 +715,7 @@ export type CreateUserDetailPayload = {
   status?: UserDetailStatus;
   currency?: string;
   address?: Partial<Address>;
+  event_name?: string;
 };
 
 type UserDetailBasePayload = {
@@ -724,6 +725,7 @@ type UserDetailBasePayload = {
   status?: UserDetailStatus;
   currency?: string;
   address?: Partial<Address>;
+  event_name?: string;
 };
 
 type UpdateUserDetailPayload = UserDetailBasePayload & Record<string, unknown>;
@@ -738,6 +740,9 @@ const normalizeUserDetailAddress = (address?: Partial<Address>): Record<string, 
   if (!address) return undefined;
   const normalized: Record<string, unknown> = {};
   const line1 = normalizeOptionalText(address.address);
+  if (line1 === undefined) {
+    return undefined;
+  }
   if (line1 !== undefined) normalized.line1 = line1;
   const line2 = normalizeOptionalText(address.apartment);
   if (line2 !== undefined) normalized.line2 = line2;
@@ -766,6 +771,8 @@ const normalizeUserDetailPayload = (payload: UserDetailBasePayload): Record<stri
   if (currency !== undefined) normalized.currency = currency;
   const address = normalizeUserDetailAddress(payload.address);
   if (address) normalized.address = address;
+  const eventName = normalizeOptionalText(payload.event_name);
+  if (eventName !== undefined) normalized.event_name = eventName;
   return normalized;
 };
 
@@ -782,6 +789,12 @@ export async function createUserDetail(
   }
 
   const normalizedPayload = normalizeUserDetailPayload(payload);
+  if (import.meta.env.DEV) {
+    console.info('[apiClient] createUserDetail payload', {
+      practiceId,
+      payload: normalizedPayload
+    });
+  }
   const response = await apiClient.post(
     `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
     normalizedPayload

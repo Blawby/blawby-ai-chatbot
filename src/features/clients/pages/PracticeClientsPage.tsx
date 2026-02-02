@@ -646,7 +646,8 @@ export const PracticeClientsPage = () => {
         phone: addClientForm.phone.trim() || undefined,
         status: addClientForm.status,
         currency: addClientForm.currency.trim() || 'usd',
-        address: addClientForm.address
+        address: addClientForm.address,
+        event_name: 'Invite Client'
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client added', 'The client has been added to your practice.');
