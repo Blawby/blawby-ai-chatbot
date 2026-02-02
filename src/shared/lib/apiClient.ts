@@ -788,22 +788,29 @@ export async function createUserDetail(
     throw new Error('Name and email are required');
   }
 
-  const normalizedPayload = normalizeUserDetailPayload(payload);
-  if (import.meta.env.DEV) {
-    console.info('[apiClient] createUserDetail payload', {
-      practiceId,
-      payload: normalizedPayload
+  // Use Better Auth organization invitation instead of direct user-details creation.
+  const { getClient } = await import('@/shared/lib/authClient');
+  const authClient = getClient();
+  const normalizedEmail = payload.email.trim();
+
+  try {
+    if (import.meta.env.DEV) {
+      console.info('[apiClient] inviteMember', {
+        organizationId: practiceId,
+        email: normalizedEmail,
+        role: 'member'
+      });
+    }
+    await authClient.organization.inviteMember({
+      email: normalizedEmail,
+      role: 'member',
+      organizationId: practiceId,
     });
+    return null;
+  } catch (error) {
+    console.error('Failed to invite client:', error);
+    throw error;
   }
-  const response = await apiClient.post(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
-    normalizedPayload
-  );
-  const data = response.data;
-  if (isRecord(data) && isRecord(data.data)) {
-    return data.data as UserDetailRecord;
-  }
-  return null;
 }
 
 export async function updateUserDetail(
@@ -997,6 +1004,27 @@ export async function getPracticeDetails(
   try {
     const response = await apiClient.get(
       `/api/practice/${encodeURIComponent(practiceId)}`,
+      { signal: config?.signal }
+    );
+    return normalizePracticeDetailsResponse(response.data);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function getPracticeDetailsBySlug(
+  slug: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PracticeDetails | null> {
+  if (!slug) {
+    throw new Error('practice slug is required');
+  }
+  try {
+    const response = await apiClient.get(
+      `/api/practice/details/${encodeURIComponent(slug)}`,
       { signal: config?.signal }
     );
     return normalizePracticeDetailsResponse(response.data);
@@ -1203,9 +1231,9 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if (website !== undefined) normalized.website = website;
   const address: Record<string, unknown> = {};
   const addressField = normalizeTextOrUndefined(payload.address);
-  if (addressField !== undefined) address.address = addressField;
+  if (addressField !== undefined) address.line1 = addressField;
   const apartmentField = normalizeTextOrUndefined(payload.apartment);
-  if (apartmentField !== undefined) address.apartment = apartmentField;
+  if (apartmentField !== undefined) address.line2 = apartmentField;
   const city = normalizeTextOrUndefined(payload.city);
   if (city !== undefined) address.city = city;
   const state = normalizeTextOrUndefined(payload.state);
@@ -1417,11 +1445,11 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     services: 'services' in container
       ? (Array.isArray(container.services) ? (container.services as Array<Record<string, unknown>>) : null)
       : undefined,
-    address: getOptionalNullableString(address, ['address']) ?? getOptionalNullableString(container, ['address']),
-    apartment: getOptionalNullableString(address, ['apartment']) ?? getOptionalNullableString(container, ['apartment']),
+    address: getOptionalNullableString(address, ['line1', 'address']) ?? getOptionalNullableString(container, ['address']),
+    apartment: getOptionalNullableString(address, ['line2', 'apartment']) ?? getOptionalNullableString(container, ['apartment']),
     city: getOptionalNullableString(address, ['city']) ?? getOptionalNullableString(container, ['city']),
     state: getOptionalNullableString(address, ['state']) ?? getOptionalNullableString(container, ['state']),
-    postalCode: getOptionalNullableString(address, ['postal_code'])
+    postalCode: getOptionalNullableString(address, ['postal_code', 'postalCode'])
       ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
     primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),

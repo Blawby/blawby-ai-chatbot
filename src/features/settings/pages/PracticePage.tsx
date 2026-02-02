@@ -38,11 +38,6 @@ interface OnboardingDetails {
   businessEmail?: string;
   website?: string;
   address?: Address;
-  apartment?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
   introMessage?: string;
   description?: string;
   isPublic?: boolean;
@@ -51,39 +46,50 @@ interface OnboardingDetails {
 
 const resolveOnboardingData = (practice: Practice | null, details: PracticeDetails | null): OnboardingDetails => {
   if (!practice) return {};
-  const baseFromDetails: OnboardingDetails = details
-    ? {
-        website: details.website ?? undefined,
-        address: details.address || details.apartment || details.city || details.state || details.postalCode || details.country
-          ? {
-              address: details.address || '',
-              apartment: details.apartment || undefined,
-              city: details.city || '',
-              state: details.state || '',
-              postalCode: details.postalCode || '',
-              country: details.country || ''
-            }
-          : undefined,
-        introMessage: details.introMessage ?? undefined,
-        description: details.description ?? undefined,
-        isPublic: details.isPublic ?? undefined,
-        services: details.services ?? undefined,
-        contactPhone: details.businessPhone ?? undefined,
-        businessEmail: details.businessEmail ?? undefined,
+  const buildAddress = (source: {
+    address?: string | null;
+    apartment?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  }): Address | undefined => {
+    const address = source.address?.trim() || '';
+    const apartment = source.apartment?.trim() || undefined;
+    const city = source.city?.trim() || '';
+    const state = source.state?.trim() || '';
+    const postalCode = source.postalCode?.trim() || '';
+    const country = source.country?.trim() || '';
+    const hasAny = Boolean(address || apartment || city || state || postalCode || country);
+    if (!hasAny) return undefined;
+    return {
+      address,
+      apartment,
+      city,
+      state,
+      postalCode,
+      country
+    };
+  };
+  const baseFromDetails: OnboardingDetails = {};
+  if (details) {
+    const setIfDefined = <K extends keyof OnboardingDetails>(key: K, value: OnboardingDetails[K]) => {
+      if (value !== undefined) {
+        baseFromDetails[key] = value;
       }
-    : {};
+    };
+    setIfDefined('website', details.website ?? undefined);
+    setIfDefined('address', buildAddress(details));
+    setIfDefined('introMessage', details.introMessage ?? undefined);
+    setIfDefined('description', details.description ?? undefined);
+    setIfDefined('isPublic', details.isPublic ?? undefined);
+    setIfDefined('services', details.services ?? undefined);
+    setIfDefined('contactPhone', details.businessPhone ?? undefined);
+    setIfDefined('businessEmail', details.businessEmail ?? undefined);
+  }
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
-    address: practice.address || practice.apartment || practice.city || practice.state || practice.postalCode || practice.country
-      ? {
-          address: practice.address || '',
-          apartment: practice.apartment || undefined,
-          city: practice.city || '',
-          state: practice.state || '',
-          postalCode: practice.postalCode || '',
-          country: practice.country || ''
-        }
-      : undefined,
+    address: buildAddress(practice),
     introMessage: practice.introMessage ?? undefined,
     description: practice.description ?? undefined,
     isPublic: practice.isPublic ?? undefined,
@@ -145,7 +151,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     refetch,
   } = usePracticeManagement({ fetchPracticeDetails: true });
   const activePracticeId = currentPractice?.id ?? null;
-  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId);
+  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug);
   
   const { showSuccess, showError, showWarning } = useToastContext();
   const { navigate } = useNavigation();

@@ -416,7 +416,11 @@ export const PracticeClientsPage = () => {
       const offset = (page - 1) * pageSize;
       const response = await listUserDetails(currentPractice.id, { limit: pageSize, offset });
       const nextClients = response.data.map(buildClientRecord);
-      setClients((prev) => (options?.replace ? nextClients : [...prev, ...nextClients]));
+      if (options?.replace) {
+        setClients(nextClients);
+      } else {
+        setClients((prev) => [...prev, ...nextClients]);
+      }
       setClientsHasMore(nextClients.length === pageSize);
       setClientsPage(page);
       if (options?.replace) {
@@ -436,7 +440,11 @@ export const PracticeClientsPage = () => {
       }
       setClientsLoadingMore(false);
     }
-  }, [buildClientRecord, currentPractice?.id, pageSize]);
+  }, [
+    buildClientRecord,
+    currentPractice?.id,
+    pageSize
+  ]);
 
   useEffect(() => {
     void fetchClientsPage(1, { replace: true });
@@ -660,7 +668,15 @@ export const PracticeClientsPage = () => {
     } finally {
       setAddClientSubmitting(false);
     }
-  }, [addClientForm, addClientSubmitting, currentPractice?.id, fetchClientsPage, resetAddClientForm, showError, showSuccess]);
+  }, [
+    addClientForm,
+    addClientSubmitting,
+    currentPractice?.id,
+    fetchClientsPage,
+    resetAddClientForm,
+    showError,
+    showSuccess
+  ]);
 
   const updateCurrentLetter = useCallback(() => {
     const container = listRef.current;
