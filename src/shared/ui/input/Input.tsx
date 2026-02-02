@@ -58,6 +58,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const generatedId = useUniqueId('input');
   const inputId = restProps.id || generatedId;
   
+  // Extract ARIA props from restProps to preserve computed values
+  const {
+    'aria-label': ariaLabel,
+    'aria-describedby': externalAriaDescribedBy,
+    'aria-invalid': externalAriaInvalid,
+    'aria-required': externalAriaRequired,
+    'aria-disabled': externalAriaDisabled,
+    ...inputRestProps
+  } = restProps;
+  
   const displayLabel = labelKey ? t(labelKey) : label;
   const displayDescription = descriptionKey ? t(descriptionKey) : description;
   const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
@@ -67,9 +77,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const descriptionId = displayDescription ? `${inputId}-description` : undefined;
   const errorId = displayError ? `${inputId}-error` : undefined;
   
-  // Compute aria-describedby by joining existing ariaDescribedBy with descriptionId and errorId
+  // Build computed aria-describedby combining external and internal IDs
   const computedAriaDescribedBy = [
-    restProps['aria-describedby'],
+    externalAriaDescribedBy,
     descriptionId,
     errorId
   ].filter(Boolean).join(' ') || undefined;
@@ -130,12 +140,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           required={required}
           className={inputClasses}
           id={inputId}
-          aria-label={restProps['aria-label']}
+          aria-label={ariaLabel}
           aria-describedby={computedAriaDescribedBy}
-          aria-invalid={restProps['aria-invalid'] !== undefined ? restProps['aria-invalid'] : Boolean(error)}
-          aria-required={restProps['aria-required']}
-          aria-disabled={restProps['aria-disabled']}
-          {...restProps}
+          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(error)}
+          aria-required={externalAriaRequired}
+          aria-disabled={externalAriaDisabled}
+          {...inputRestProps}
         />
         
         {icon && iconPosition === 'right' && (

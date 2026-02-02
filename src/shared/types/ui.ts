@@ -16,7 +16,7 @@ export interface AddressSuggestion {
   formatted: string;
   lat?: number;
   lon?: number;
-  place_id?: string;
+  placeId?: string;
   dedupeKey: string;
   properties?: Record<string, any>;
 }

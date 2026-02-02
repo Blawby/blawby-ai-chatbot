@@ -187,45 +187,32 @@ export const AddressForm = ({
     >
       {fields.map((fieldConfig) => (
         <FormItem key={fieldConfig.name}>
-          <FormField name={fieldConfig.name}>
-            {({ value, error, onChange }) => (
-              <div className={cn(error && 'space-y-1')}>
-                {renderField(fieldConfig)}
-                {error && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {error.message}
-                  </p>
-                )}
-              </div>
-            )}
-          </FormField>
+          {renderField(fieldConfig)}
         </FormItem>
       ))}
 
-      {(onCancel || submitText) && (
-        <div className={cn(
-          'flex gap-3 pt-4',
-          layout === 'grid' && 'col-span-full'
-        )}>
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={disabled}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {cancelText}
-            </button>
-          )}
+      <div className={cn(
+        'flex gap-3 pt-4',
+        layout === 'grid' && 'col-span-full'
+      )}>
+        {onCancel && (
           <button
-            type="submit"
+            type="button"
+            onClick={onCancel}
             disabled={disabled}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitText}
+            {cancelText}
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="submit"
+          disabled={disabled}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitText}
+        </button>
+      </div>
     </Form>
   );
 };
@@ -341,32 +328,38 @@ export const IntakeAddressForm = ({
   const fields: AddressFormProps['fields'] = [];
   
   if (validFields.includes('name')) {
-    fields.push({ name: 'name', label: labels['name'] || 'Name', required: validRequired.includes('name'), placeholder: placeholders['name'] || 'Enter your name' });
+    fields.push({ name: 'name', label: labels?.['name'] || 'Name', required: validRequired.includes('name'), placeholder: placeholders?.['name'] || 'Enter your name' });
   }
   
   if (validFields.includes('email')) {
-    fields.push({ name: 'email', label: labels['email'] || 'Email', required: validRequired.includes('email'), type: 'email', placeholder: placeholders['email'] || 'your.email@example.com' });
+    fields.push({ name: 'email', label: labels?.['email'] || 'Email', required: validRequired.includes('email'), type: 'email', placeholder: placeholders?.['email'] || 'your.email@example.com' });
   }
   
   if (validFields.includes('phone')) {
-    fields.push({ name: 'phone', label: labels['phone'] || 'Phone', placeholder: placeholders['phone'] || '+1 (555) 123-4567' });
+    fields.push({ 
+      name: 'phone', 
+      label: labels?.['phone'] || 'Phone', 
+      type: 'phone',
+      required: validRequired.includes('phone'),
+      placeholder: placeholders?.['phone'] || '+1 (555) 123-4567' 
+    });
   }
   
   if (validFields.includes('address')) {
     fields.push({ 
       name: 'address', 
-      label: labels['address'] || 'Address', 
+      label: labels?.['address'] || 'Address', 
       type: 'address',
       required: validRequired.includes('address')
     });
   }
   
   if (validFields.includes('opposingParty')) {
-    fields.push({ name: 'opposingParty', label: labels['opposingParty'] || 'Opposing Party', placeholder: placeholders['opposingParty'] || 'Enter opposing party name' });
+    fields.push({ name: 'opposingParty', label: labels?.['opposingParty'] || 'Opposing Party', placeholder: placeholders?.['opposingParty'] || 'Enter opposing party name' });
   }
   
   if (validFields.includes('description')) {
-    fields.push({ name: 'description', label: labels['description'] || 'Description', placeholder: placeholders['description'] || 'Describe your case' });
+    fields.push({ name: 'description', label: labels?.['description'] || 'Description', placeholder: placeholders?.['description'] || 'Describe your case' });
   }
 
   return (

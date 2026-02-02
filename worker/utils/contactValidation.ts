@@ -3,14 +3,22 @@ import type { Address } from '../types/ui';
 
 /**
  * Address validation schema (loose validation for contact forms)
+ * Aligns with the shared Address type from src/shared/types/ui
  */
-const addressSchema = z.object({
-  address: z.string().optional(),
-  apartment: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  postalCode: z.string().optional(),
-  country: z.string().optional(),
+const addressSchema = z.custom<Address>((data) => {
+  if (!data || typeof data !== 'object') return false;
+  
+  const address = data as Address;
+  
+  // Basic validation - all fields are optional in loose validation
+  if (address.address && typeof address.address !== 'string') return false;
+  if (address.apartment && typeof address.apartment !== 'string') return false;
+  if (address.city && typeof address.city !== 'string') return false;
+  if (address.state && typeof address.state !== 'string') return false;
+  if (address.postalCode && typeof address.postalCode !== 'string') return false;
+  if (address.country && typeof address.country !== 'string') return false;
+  
+  return true;
 }).optional();
 
 /**

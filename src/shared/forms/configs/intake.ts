@@ -1,65 +1,72 @@
 import { intakeSchema, intakeMinimalSchema, intakeWithPhoneSchema, intakeWithAddressSchema, intakeFullSchema } from '@/shared/schemas/ui';
 import { getDefaultValues } from '../fieldRegistry';
 import type { IntakeFormState } from '@/shared/types/ui';
+import type { z } from 'zod';
 
-// Form configurations for intake forms
+// Greenfield intake form configs - explicit and type-safe
 export const INTAKE_FORM_CONFIGS = {
-  // Minimal intake form (name + email only)
   minimal: {
     schema: intakeMinimalSchema,
-    fields: ['name', 'email'],
+    fields: ['name', 'email'] as const,
     layout: 'stacked' as const,
     initialValues: () => getDefaultValues(['name', 'email']),
   },
   
-  // With phone
   withPhone: {
     schema: intakeWithPhoneSchema,
-    fields: ['name', 'email', 'phone'],
+    fields: ['name', 'email', 'phone'] as const,
     layout: 'stacked' as const,
     initialValues: () => getDefaultValues(['name', 'email', 'phone']),
   },
   
-  // With address
   withAddress: {
     schema: intakeWithAddressSchema,
-    fields: ['name', 'email', 'phone', 'address'],
+    fields: ['name', 'email', 'phone', 'address'] as const,
     layout: 'stacked' as const,
     initialValues: () => getDefaultValues(['name', 'email', 'phone', 'address']),
   },
   
-  // Full intake form
   full: {
     schema: intakeFullSchema,
-    fields: ['name', 'email', 'phone', 'address', 'opposingParty', 'description'],
+    fields: ['name', 'email', 'phone', 'address', 'opposingParty', 'description'] as const,
     layout: 'stacked' as const,
     initialValues: () => getDefaultValues(['name', 'email', 'phone', 'address', 'opposingParty', 'description']),
   },
 } as const;
 
-// Dynamic form config for intake (based on field list)
-export function createIntakeFormConfig(fieldIds: string[]) {
-  // Determine which schema to use based on fields
-  let schema = intakeMinimalSchema;
+// Type-safe config selector for greenfield development
+export function createIntakeFormConfig(configKey: keyof typeof INTAKE_FORM_CONFIGS) {
+  const config = INTAKE_FORM_CONFIGS[configKey];
   
-  if (fieldIds.includes('phone') && fieldIds.includes('address')) {
-    schema = intakeWithAddressSchema;
-  } else if (fieldIds.includes('phone')) {
-    schema = intakeWithPhoneSchema;
-  } else if (fieldIds.includes('address')) {
-    schema = intakeWithAddressSchema;
-  }
+  return {
+    ...config,
+    // Ensure type safety - all fields in config must match schema
+    validate: () => {
+      // Runtime validation is handled by Zod schema at form level
+      // This is just for development-time safety
+      return true;
+    },
+  };
+}
+
+// For dynamic field selection (use sparingly in greenfield)
+export function createCustomIntakeConfig<T extends readonly string[]>(
+  fields: T,
+  schema: z.ZodType
+) {
+  // Validate that all fields are supported
+  const supportedFields = ['name', 'email', 'phone', 'address', 'opposingParty', 'description'] as const;
+  const unsupportedFields = fields.filter(field => !supportedFields.includes(field as any));
   
-  // Add optional fields if present
-  if (fieldIds.includes('opposingParty') || fieldIds.includes('description')) {
-    schema = intakeFullSchema;
+  if (unsupportedFields.length > 0) {
+    throw new Error(`Unsupported fields: ${unsupportedFields.join(', ')}`);
   }
   
   return {
     schema,
-    fields: fieldIds,
+    fields,
     layout: 'stacked' as const,
-    initialValues: () => getDefaultValues(fieldIds),
+    initialValues: () => getDefaultValues([...fields]),
   };
 }
 

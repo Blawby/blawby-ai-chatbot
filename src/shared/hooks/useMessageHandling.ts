@@ -16,6 +16,77 @@ import {
   postSystemMessage
 } from '@/shared/lib/conversationApi';
 
+// Greenfield address validation utilities
+function validateAddressObject(addressValue: unknown): Address | null {
+  // Type check
+  if (!addressValue || typeof addressValue !== 'object' || Array.isArray(addressValue)) {
+    return null;
+  }
+
+  const address = addressValue as Record<string, unknown>;
+  const requiredFields = ['address', 'city', 'state', 'postalCode'] as const;
+  
+  // Validate required fields
+  for (const field of requiredFields) {
+    const value = address[field];
+    
+    if (!value || typeof value !== 'string') {
+      return null; // Missing or invalid field type
+    }
+    
+    const trimmedValue = value.trim();
+    if (trimmedValue === '') {
+      return null; // Empty field
+    }
+    
+    // Field-specific validation
+    switch (field) {
+      case 'address':
+        if (trimmedValue.length < 5) {
+          return null; // Address too short
+        }
+        break;
+        
+      case 'city':
+        if (trimmedValue.length < 2) {
+          return null; // City name too short
+        }
+        break;
+        
+      case 'state':
+        // Allow state codes (2-3 chars) or full state names
+        if (trimmedValue.length < 2 || trimmedValue.length > 50) {
+          return null;
+        }
+        break;
+        
+      case 'postalCode':
+        // Enhanced postal code validation for common formats
+        const postalCodePatterns = [
+          /^\d{5}(-\d{4})?$/, // US ZIP
+          /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/, // Canada
+          /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/, // UK
+          /^\d{4}$/, // Basic 4-digit
+        ];
+        
+        const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
+        if (!isValidPostalCode) {
+          return null;
+        }
+        break;
+    }
+  }
+  
+  // Validate optional apartment field
+  if (address.apartment !== undefined) {
+    if (typeof address.apartment !== 'string' || address.apartment.trim().length === 0) {
+      return null; // Invalid apartment field
+    }
+  }
+  
+  return address as unknown as Address;
+}
+
 // Global interface for window API base override and debug properties
 declare global {
   interface Window {
@@ -112,10 +183,11 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
     // Handle address field separately since it's an object
     const addressValue = rawInitialValues['address'];
     if (addressValue !== undefined) {
-      if (typeof addressValue === 'object' && addressValue !== null && !Array.isArray(addressValue)) {
-        normalizedInitialValues.address = addressValue as Address;
+      const validatedAddress = validateAddressObject(addressValue);
+      if (validatedAddress) {
+        normalizedInitialValues.address = validatedAddress;
       } else {
-        return undefined;
+        return undefined; // Invalid address
       }
     }
     if (Object.keys(normalizedInitialValues).length === 0) {

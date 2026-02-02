@@ -1,6 +1,5 @@
-import { ClientSchema, ClientMinimalSchema, ClientWithPhoneSchema, ClientFullSchema } from '@/shared/schemas/client';
+import { ClientMinimalSchema, ClientWithPhoneSchema, ClientFullSchema } from '@/shared/schemas/client';
 import { getDefaultValues } from '../fieldRegistry';
-import type { ClientFormState } from '@/shared/types/domains';
 
 // Form configurations for client forms
 export const CLIENT_FORM_CONFIGS = {

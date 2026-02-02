@@ -995,20 +995,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
             <PracticeAddressForm
               initialValues={{
-                email: contactDraft.businessEmail,
-                phone: contactDraft.phone,
                 address: contactDraft.address,
               }}
               onSubmit={(formData) => {
                 setContactDraft(prev => ({
                   ...prev,
-                  businessEmail: formData.email,
-                  phone: formData.phone,
                   address: formData.address,
                 }));
               }}
               disabled={isSettingsSaving}
-              onCancel={() => setIsContactModalOpen(false)}
             />
           </div>
 

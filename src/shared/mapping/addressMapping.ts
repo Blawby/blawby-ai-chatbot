@@ -39,6 +39,11 @@ export function fromApiAddress(api: AddressApi): Address {
 
 // Geoapify feature to Address conversion (for autocomplete)
 export function fromGeoapifyFeature(feature: any): Address {
+  // Defensive guard against malformed API responses
+  if (!feature || !feature.properties) {
+    throw new Error('Invalid Geoapify feature: feature or properties is missing');
+  }
+  
   const properties = feature.properties;
   
   let address = '';
@@ -82,11 +87,12 @@ export function fromGeoapifyResponse(feature: any): any {
   const formatted = properties.formatted || '';
   const lon = coordinates?.[0] || '';
   const lat = coordinates?.[1] || '';
-  const id = properties.place_id || generateHashId(formatted, coordinates);
+  const apiPlaceId = properties.place_id; // API uses snake_case
+  const id = apiPlaceId || generateHashId(formatted, coordinates);
   
   const label = properties.formatted || `${address.address}, ${address.city}, ${address.state} ${address.postalCode}`;
   
-  const dedupeKey = properties.place_id || (formatted.toLowerCase().replace(/\s+/g, ' ').trim() || '');
+  const dedupeKey = apiPlaceId || (formatted.toLowerCase().replace(/\s+/g, ' ').trim() || '');
   
   return {
     id,
@@ -95,7 +101,7 @@ export function fromGeoapifyResponse(feature: any): any {
     formatted: properties.formatted || label,
     lat: coordinates?.[1],
     lon: coordinates?.[0],
-    place_id: properties.place_id,
+    placeId: apiPlaceId, // Internal type uses camelCase
     dedupeKey,
     properties: {
       result_type: properties.result_type,

@@ -171,10 +171,54 @@ export const contactSchemas = {
         },
         'Please enter a valid phone number (at least 10 digits)'
       ),
+    // Legacy location field for backward compatibility (optional string)
+    location: z.string().min(2, 'Location must be at least 2 characters').optional(),
+    // New structured address field
     address: addressLooseSchema.optional(),
     opposingParty: z.string().optional(),
     description: z.string().optional(),
   }),
+};
+
+// Transformation utilities for backward compatibility
+export const contactFormTransforms = {
+  // Transform legacy location to structured address
+  locationToAddress: (location?: string) => {
+    if (!location || location.trim() === '') return undefined;
+    
+    return {
+      address: location.trim(),
+      apartment: undefined,
+      city: undefined,
+      state: undefined,
+      postalCode: undefined,
+      country: undefined,
+    };
+  },
+  
+  // Extract location from structured address (for legacy systems)
+  addressToLocation: (address?: any) => {
+    if (!address || typeof address !== 'object') return undefined;
+    
+    return address.address || undefined;
+  },
+  
+  // Normalize contact form data to use structured address
+  normalizeContactData: (data: any) => {
+    const normalized = { ...data };
+    
+    // If we have a legacy location but no address, convert it
+    if (normalized.location && !normalized.address) {
+      normalized.address = contactFormTransforms.locationToAddress(normalized.location);
+    }
+    
+    // If we have an address but no location, extract location for compatibility
+    if (normalized.address && !normalized.location) {
+      normalized.location = contactFormTransforms.addressToLocation(normalized.address);
+    }
+    
+    return normalized;
+  },
 };
 
 // Export all schemas

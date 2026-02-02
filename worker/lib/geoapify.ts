@@ -62,9 +62,9 @@ export async function callGeoapifyAutocompleteMultiPass(
   // Helper to dedupe and add suggestions
   const addSuggestions = (newSuggestions: AddressSuggestion[]) => {
     for (const suggestion of newSuggestions) {
-      let dedupeKey = suggestion.dedupeKey || suggestion.place_id;
+      let dedupeKey = suggestion.dedupeKey || suggestion.placeId;
       
-      // Create robust fallback key if both dedupeKey and place_id are missing
+      // Create robust fallback key if both dedupeKey and placeId are missing
       if (!dedupeKey) {
         const addressStr = `${suggestion.address.address || ''},${suggestion.address.city || ''},${suggestion.address.state || ''},${suggestion.address.postalCode || ''},${suggestion.address.country || ''}`;
         const fallbackParts = [

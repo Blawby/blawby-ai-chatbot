@@ -1,28 +1,34 @@
 import { Form, FormField, FormItem } from '@/shared/ui/form';
 import { cn } from '@/shared/utils/cn';
 import { getFieldEntry, applyFieldAdapter, reverseFieldAdapter } from './fieldRegistry';
+import { useMemo } from 'preact/hooks';
 import type { JSX } from 'preact';
+import type { z } from 'zod';
+import type { FormData } from '@/shared/ui/form/Form';
 
-export interface SmartFormProps<T = any> {
+export interface SmartFormConfig<T extends z.ZodType> {
+  schema: T;
+  fields: (keyof z.infer<T>)[];
+  layout: 'grid' | 'stacked';
+  initialValues: () => z.infer<T>;
+}
+
+export interface SmartFormProps<T extends z.ZodType> {
   // Form configuration
-  config: {
-    schema: any; // Zod schema
-    fields: string[];
-    layout: 'grid' | 'stacked';
-    initialValues: () => T;
-  };
+  config: SmartFormConfig<T>;
   
   // Form behavior
-  onSubmit: (data: T) => void | Promise<void>;
+  onSubmit: (data: z.infer<T>) => void | Promise<void>;
   disabled?: boolean;
   submitText?: string;
   cancelText?: string;
   onCancel?: () => void;
+  showActions?: boolean;
   
   // UI customization
-  labels?: Record<string, string>;
-  placeholders?: Record<string, string>;
-  errors?: Record<string, string>;
+  labels?: Partial<Record<keyof z.infer<T>, string>>;
+  placeholders?: Partial<Record<keyof z.infer<T>, string>>;
+  errors?: Partial<Record<keyof z.infer<T>, string>>;
   variant?: 'default' | 'error';
   
   // Styling
@@ -30,13 +36,14 @@ export interface SmartFormProps<T = any> {
   gridSize?: 'sm' | 'md' | 'lg';
 }
 
-export function SmartForm<T = any>({
+export function SmartForm<T extends z.ZodType>({
   config,
   onSubmit,
   disabled = false,
   submitText = 'Save',
   cancelText = 'Cancel',
   onCancel,
+  showActions = true,
   labels = {},
   placeholders = {},
   errors = {},
@@ -44,13 +51,13 @@ export function SmartForm<T = any>({
   className = '',
   gridSize = 'md',
 }: SmartFormProps<T>) {
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: FormData) => {
     // Apply field adapters in reverse direction for submission
-    const adaptedData: any = {};
+    const adaptedData: z.infer<T> = {} as z.infer<T>;
     
     for (const fieldId of config.fields) {
-      const value = formData[fieldId];
-      adaptedData[fieldId] = reverseFieldAdapter(fieldId, value);
+      const fieldKey = fieldId as string;
+      adaptedData[fieldId as keyof z.infer<T>] = reverseFieldAdapter(fieldKey, formData[fieldKey]);
     }
     
     await onSubmit(adaptedData);
@@ -69,7 +76,7 @@ export function SmartForm<T = any>({
           // Build component props
           const componentProps: any = {
             value: adaptedValue,
-            onChange: (newValue: any) => onChange(applyFieldAdapter(fieldId, newValue)),
+            onChange: (newValue: any) => onChange(reverseFieldAdapter(fieldId, newValue)),
             disabled,
             label: labels[fieldId] || fieldEntry.label,
             placeholder: placeholders[fieldId] || fieldEntry.placeholder,
@@ -108,20 +115,22 @@ export function SmartForm<T = any>({
     className
   );
 
+  const stableInitialData = useMemo(() => config.initialValues(), [config]);
+
   return (
     <Form
-      initialData={config.initialValues()}
+      initialData={stableInitialData as FormData}
       onSubmit={handleSubmit}
       schema={config.schema}
       className={containerClasses}
     >
       {config.fields.map((fieldId) => (
-        <FormItem key={fieldId}>
-          {renderField(fieldId)}
+        <FormItem key={String(fieldId)}>
+          {renderField(String(fieldId))}
         </FormItem>
       ))}
 
-      {(onCancel || submitText) && (
+      {showActions && (onCancel || submitText) && (
         <div className={cn(
           'flex gap-3 pt-4',
           config.layout === 'grid' && 'col-span-full'
