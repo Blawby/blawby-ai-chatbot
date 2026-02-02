@@ -235,7 +235,9 @@ export async function submitContactForm(
       'Content-Type': 'application/json'
     };
     
-    console.log('[Forms] Sending payload to backend:', JSON.stringify(createPayload, null, 2));
+    if (import.meta.env.DEV) {
+      console.log('[Forms] Sending payload to backend:', JSON.stringify(createPayload, null, 2));
+    }
     
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
@@ -290,7 +292,15 @@ export async function submitContactForm(
         statusText: response.statusText,
         errorBody: errorText
       });
-      const errorData = await response.json().catch(() => ({})) as { error?: string; message?: string };
+      
+      // Parse error text once to avoid double consumption
+      let errorData: { error?: string; message?: string } = {};
+      try {
+        errorData = JSON.parse(errorText) as { error?: string; message?: string };
+      } catch {
+        // If parsing fails, errorData remains empty object
+      }
+      
       throw new Error(errorData.error || errorData.message || `Backend error: ${response.status} ${response.statusText}`);
     }
   } catch (error) {

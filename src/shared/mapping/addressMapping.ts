@@ -56,11 +56,15 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
   'district of columbia': 'DC',
 };
 
-// Convert state name or code to standardized 2-letter code
-function toUSStateCode(input: string): string {
-  const s = input.trim();
-  if (/^[A-Z]{2}$/.test(s)) return s;
-  return US_STATE_NAME_TO_CODE[s.toLowerCase()] ?? s;
+// Convert US state name to 2-letter code
+export function toUSStateCode(s: string): string {
+  const trimmed = s.trim();
+  // If input is already 2 letters, normalize to uppercase
+  if (trimmed.length === 2) {
+    return trimmed.toUpperCase();
+  }
+  // Otherwise try to map state name to code
+  return US_STATE_NAME_TO_CODE[trimmed.toLowerCase()] || trimmed;
 }
 
 // Convert ISO-2 country code to display format (US -> USA, GB -> UK, etc.)
@@ -199,4 +203,4 @@ export function fromGeoapifyResponse(feature: any): any {
 }
 
 // Export utility functions for use in other components
-export { toUSStateCode, countryDisplay };
+export { countryDisplay };
