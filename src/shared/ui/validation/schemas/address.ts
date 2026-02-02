@@ -6,13 +6,13 @@ import { z } from 'zod';
 import type { Address } from '@/shared/types/address';
 
 // Base address field schemas
-const line1Schema = z.string()
+const addressSchema = z.string()
   .min(1, 'Street address is required')
   .max(100, 'Street address must be 100 characters or less')
   .trim();
 
-const line2Schema = z.string()
-  .max(100, 'Address line 2 must be 100 characters or less')
+const apartmentSchema = z.string()
+  .max(100, 'Apartment must be 100 characters or less')
   .trim()
   .optional();
 
@@ -40,8 +40,8 @@ const countrySchema = z.string()
 
 // Loose validation schema - all fields optional, validates format when present
 export const addressLooseSchema = z.object({
-  line1: line1Schema.optional(),
-  line2: line2Schema,
+  address: addressSchema.optional(),
+  apartment: apartmentSchema,
   city: citySchema.optional(),
   state: stateSchema.optional(),
   postalCode: postalCodeSchema.optional(),
@@ -56,10 +56,10 @@ export const addressLooseSchema = z.object({
   }
 );
 
-// Strict validation schema - all required fields except line2
+// Strict validation schema - all required fields except apartment
 export const addressStrictSchema = z.object({
-  line1: line1Schema,
-  line2: line2Schema,
+  address: addressSchema,
+  apartment: apartmentSchema,
   city: citySchema,
   state: stateSchema,
   postalCode: postalCodeSchema,
@@ -68,8 +68,8 @@ export const addressStrictSchema = z.object({
 
 // Strict schema with country-specific postal code validation
 export const addressStrictWithCountrySchema = z.object({
-  line1: line1Schema,
-  line2: line2Schema,
+  address: addressSchema,
+  apartment: apartmentSchema,
   city: citySchema,
   state: stateSchema,
   postalCode: postalCodeSchema,
@@ -103,8 +103,8 @@ export type AddressStrictWithCountryInput = z.infer<typeof addressStrictWithCoun
 // Helper functions to convert between types
 export function toAddress(input: AddressStrictInput): Address {
   return {
-    line1: input.line1,
-    line2: input.line2,
+    address: input.address,
+    apartment: input.apartment,
     city: input.city,
     state: input.state,
     postalCode: input.postalCode,
@@ -114,8 +114,8 @@ export function toAddress(input: AddressStrictInput): Address {
 
 export function toPartialAddress(input: AddressLooseInput): Partial<Address> {
   return {
-    line1: input.line1,
-    line2: input.line2,
+    address: input.address,
+    apartment: input.apartment,
     city: input.city,
     state: input.state,
     postalCode: input.postalCode,

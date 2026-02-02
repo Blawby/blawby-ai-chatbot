@@ -10,8 +10,8 @@ export type PracticeProfileInput = {
   consultationFee?: MajorAmount | null;
   description?: string | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -97,14 +97,14 @@ export const buildPracticeProfilePayloads = (
     detailsPayload.website = website;
   }
 
-  const addressLine1 = normalizeOptionalText(input.addressLine1);
-  if (addressLine1 !== undefined && shouldInclude(addressLine1, normalizeOptionalText(compareTo.addressLine1))) {
-    detailsPayload.addressLine1 = addressLine1;
+  const addressField = normalizeOptionalText(input.address);
+  if (addressField !== undefined && shouldInclude(addressField, normalizeOptionalText(compareTo.address))) {
+    detailsPayload.address = addressField;
   }
 
-  const addressLine2 = normalizeOptionalText(input.addressLine2);
-  if (addressLine2 !== undefined && shouldInclude(addressLine2, normalizeOptionalText(compareTo.addressLine2))) {
-    detailsPayload.addressLine2 = addressLine2;
+  const apartmentField = normalizeOptionalText(input.apartment);
+  if (apartmentField !== undefined && shouldInclude(apartmentField, normalizeOptionalText(compareTo.apartment))) {
+    detailsPayload.apartment = apartmentField;
   }
 
   const city = normalizeOptionalText(input.city);

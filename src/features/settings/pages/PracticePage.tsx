@@ -19,7 +19,7 @@ import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { StackedAvatars } from '@/shared/ui/profile';
-import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
+import { AddressFields } from '@/shared/ui/address/AddressFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
@@ -36,8 +36,8 @@ interface OnboardingDetails {
   contactPhone?: string;
   businessEmail?: string;
   website?: string;
-  addressLine1?: string;
-  addressLine2?: string;
+  address?: string;
+  apartment?: string;
   city?: string;
   state?: string;
   postalCode?: string;
@@ -53,8 +53,8 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
   const baseFromDetails: OnboardingDetails = details
     ? {
       website: details.website ?? undefined,
-      addressLine1: details.addressLine1 ?? undefined,
-      addressLine2: details.addressLine2 ?? undefined,
+      address: details.address ?? undefined,
+      apartment: details.apartment ?? undefined,
       city: details.city ?? undefined,
       state: details.state ?? undefined,
       postalCode: details.postalCode ?? undefined,
@@ -69,8 +69,8 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
     : {};
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
-    addressLine1: practice.addressLine1 ?? undefined,
-    addressLine2: practice.addressLine2 ?? undefined,
+    address: practice.address ?? undefined,
+    apartment: practice.apartment ?? undefined,
     city: practice.city ?? undefined,
     state: practice.state ?? undefined,
     postalCode: practice.postalCode ?? undefined,
@@ -100,16 +100,16 @@ const isValidHttpUrl = (value: string): boolean => {
 };
 
 const formatAddressSummary = (data: OnboardingDetails) => {
-  const line1 = data.addressLine1?.trim() || '';
-  const line2 = data.addressLine2?.trim() || '';
+  const address = data.address?.trim() || '';
+  const apartment = data.apartment?.trim() || '';
   const city = data.city?.trim() || '';
   const state = data.state?.trim() || '';
   const postal = data.postalCode?.trim() || '';
   const country = data.country?.trim() || '';
 
   const parts: string[] = [];
-  if (line1) parts.push(line1);
-  if (line2) parts.push(line2);
+  if (address) parts.push(address);
+  if (apartment) parts.push(apartment);
   const cityState = [city, state].filter(Boolean).join(', ');
   if (cityState) parts.push(cityState);
   const postalCountry = [postal, country].filter(Boolean).join(' ');
@@ -276,8 +276,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     website: '',
     businessEmail: '',
     phone: '',
-    addressLine1: '',
-    addressLine2: '',
+    address: '',
+    apartment: '',
     city: '',
     state: '',
     postalCode: '',
@@ -456,8 +456,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         businessEmail: updates.businessEmail,
         businessPhone: updates.contactPhone,
         website: updates.website,
-        addressLine1: updates.addressLine1,
-        addressLine2: updates.addressLine2,
+        address: updates.address,
+        apartment: updates.apartment,
         city: updates.city,
         state: updates.state,
         postalCode: updates.postalCode,
@@ -488,8 +488,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       website: websiteValue,
       businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
       phone: phoneValue,
-      addressLine1: onboardingData.addressLine1 || '',
-      addressLine2: onboardingData.addressLine2 || '',
+      address: onboardingData.address || '',
+      apartment: onboardingData.apartment || '',
       city: onboardingData.city || '',
       state: onboardingData.state || '',
       postalCode: onboardingData.postalCode || '',
@@ -504,8 +504,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         website: (contactDraft.website ?? '').trim(),
         businessEmail: (contactDraft.businessEmail ?? '').trim(),
         contactPhone: (contactDraft.phone ?? '').trim(),
-        addressLine1: (contactDraft.addressLine1 ?? '').trim(),
-        addressLine2: (contactDraft.addressLine2 ?? '').trim(),
+        address: (contactDraft.address ?? '').trim(),
+        apartment: (contactDraft.apartment ?? '').trim(),
         city: (contactDraft.city ?? '').trim(),
         state: (contactDraft.state ?? '').trim(),
         postalCode: (contactDraft.postalCode ?? '').trim(),
@@ -967,34 +967,69 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Contact"
       >
         <div className="space-y-4">
-          <PracticeContactFields
-            data={{
-              website: contactDraft.website,
-              businessEmail: contactDraft.businessEmail,
-              contactPhone: contactDraft.phone,
-              addressLine1: contactDraft.addressLine1,
-              addressLine2: contactDraft.addressLine2,
-              city: contactDraft.city,
-              state: contactDraft.state,
-              postalCode: contactDraft.postalCode,
-              country: contactDraft.country
-            }}
-            onChange={(next) => {
-              setContactDraft((prev) => ({
-                ...prev,
-                website: next.website ?? prev.website ?? '',
-                businessEmail: next.businessEmail ?? prev.businessEmail ?? '',
-                phone: next.contactPhone ?? prev.phone ?? '',
-                addressLine1: next.addressLine1 ?? prev.addressLine1 ?? '',
-                addressLine2: next.addressLine2 ?? prev.addressLine2 ?? '',
-                city: next.city ?? prev.city ?? '',
-                state: next.state ?? prev.state ?? '',
-                postalCode: next.postalCode ?? prev.postalCode ?? '',
-                country: next.country ?? prev.country ?? ''
-              }));
-            }}
-            disabled={isSettingsSaving}
-          />
+          {/* Contact Information Fields */}
+          <div className="space-y-4">
+            <Input
+              label="Website"
+              value={contactDraft.website || ''}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
+              disabled={isSettingsSaving}
+              placeholder="https://example.com"
+            />
+            
+            <Input
+              label="Business Email"
+              value={contactDraft.businessEmail || ''}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, businessEmail: value }))}
+              disabled={isSettingsSaving}
+              type="email"
+              placeholder="business@example.com"
+            />
+            
+            <Input
+              label="Contact Phone"
+              value={contactDraft.phone || ''}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
+              disabled={isSettingsSaving}
+              type="tel"
+              placeholder="+1 (555) 123-4567"
+            />
+          </div>
+
+          {/* Address Fields */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
+            <AddressFields
+              value={{
+                address: contactDraft.address || '',
+                apartment: contactDraft.apartment || '',
+                city: contactDraft.city || '',
+                state: contactDraft.state || '',
+                postalCode: contactDraft.postalCode || '',
+                country: contactDraft.country || ''
+              }}
+              onChange={(address) => {
+                setContactDraft(prev => ({
+                  ...prev,
+                  address: address.address,
+                  apartment: address.apartment,
+                  city: address.city,
+                  state: address.state,
+                  postalCode: address.postalCode,
+                  country: address.country,
+                }));
+              }}
+              disabled={isSettingsSaving}
+              required={{
+                address: true,
+                city: true,
+                state: true,
+                postalCode: true,
+                country: true
+              }}
+              size="md"
+            />
+          </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button

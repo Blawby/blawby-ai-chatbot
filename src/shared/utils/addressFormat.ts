@@ -1,10 +1,10 @@
 /**
  * Address formatting utilities
  * 
- * Provides consistent address display formatting for different contexts
+ * Provides various formatting functions for displaying addresses in different
+ * contexts (single line, multi-line, summary, etc.).
  */
-
-import type { Address } from '@/shared/types/address';
+import { Address } from '@/shared/types/address';
 
 /**
  * Format address as a single line string
@@ -12,8 +12,8 @@ import type { Address } from '@/shared/types/address';
 export function formatAddressSingleLine(address: Partial<Address>): string {
   const parts: string[] = [];
   
-  if (address.line1?.trim()) parts.push(address.line1.trim());
-  if (address.line2?.trim()) parts.push(address.line2.trim());
+  if (address.address?.trim()) parts.push(address.address.trim());
+  if (address.apartment?.trim()) parts.push(address.apartment.trim());
   
   const cityStateZip = formatCityStateZip(address);
   if (cityStateZip) parts.push(cityStateZip);
@@ -31,8 +31,8 @@ export function formatAddressSingleLine(address: Partial<Address>): string {
 export function formatAddressMultiLine(address: Partial<Address>): string {
   const lines: string[] = [];
   
-  if (address.line1?.trim()) lines.push(address.line1.trim());
-  if (address.line2?.trim()) lines.push(address.line2.trim());
+  if (address.address?.trim()) lines.push(address.address.trim());
+  if (address.apartment?.trim()) lines.push(address.apartment.trim());
   
   const cityStateZip = formatCityStateZip(address);
   if (cityStateZip) lines.push(cityStateZip);
@@ -90,12 +90,12 @@ export function formatAddressForInput(address: Partial<Address>): string {
 }
 
 /**
- * Get a short address summary (line1, city, state)
+ * Get a short address summary (address line, city, state)
  */
 export function formatAddressSummary(address: Partial<Address>): string {
   const parts: string[] = [];
   
-  if (address.line1?.trim()) parts.push(address.line1.trim());
+  if (address.address?.trim()) parts.push(address.address.trim());
   
   const cityState = [address.city?.trim(), address.state?.trim()]
     .filter(Boolean)
@@ -112,8 +112,8 @@ export function formatAddressSummary(address: Partial<Address>): string {
 export function formatAddressWithCountry(address: Partial<Address>): string {
   const parts: string[] = [];
   
-  if (address.line1?.trim()) parts.push(address.line1.trim());
-  if (address.line2?.trim()) parts.push(address.line2.trim());
+  if (address.address?.trim()) parts.push(address.address.trim());
+  if (address.apartment?.trim()) parts.push(address.apartment.trim());
   
   const cityStateZip = formatCityStateZip(address);
   if (cityStateZip) parts.push(cityStateZip);
@@ -130,8 +130,8 @@ export function formatAddressWithCountry(address: Partial<Address>): string {
  */
 export function isAddressEmpty(address: Partial<Address>): boolean {
   return !(
-    address.line1?.trim() ||
-    address.line2?.trim() ||
+    address.address?.trim() ||
+    address.apartment?.trim() ||
     address.city?.trim() ||
     address.state?.trim() ||
     address.postalCode?.trim() ||

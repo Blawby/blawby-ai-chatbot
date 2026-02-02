@@ -2,7 +2,7 @@
  * Geoapify API integration utilities
  */
 
-import { fromGeoapifyResponse } from '../utils/addressMappers';
+import { fromGeoapifyResponse } from '../../src/shared/utils/addressMappers';
 import type { AddressSuggestion, AutocompleteError } from '../types/address';
 
 export interface GeoapifyAutocompleteOptions {
@@ -10,7 +10,13 @@ export interface GeoapifyAutocompleteOptions {
   limit?: number;
   lang?: string;
   country?: string;
+  type?: string;
   apiKey: string;
+  bias?: {
+    lat: number;
+    lon: number;
+    radius: number;
+  };
 }
 
 export interface GeoapifyResponse {
@@ -39,22 +45,211 @@ export interface GeoapifyResponse {
 }
 
 /**
- * Call Geoapify autocomplete API
+ * Call Geoapify autocomplete API with multi-pass fallback
+ */
+export async function callGeoapifyAutocompleteMultiPass(
+  options: GeoapifyAutocompleteOptions,
+  env?: { DEBUG_GEO?: string }
+): Promise<{ suggestions: AddressSuggestion[] } | AutocompleteError> {
+  const { text, limit = 5, lang = 'en', country, type, apiKey, bias } = options;
+  
+  console.log('[Geoapify MultiPass] Starting multi-pass search for:', text);
+  
+  const allSuggestions: AddressSuggestion[] = [];
+  const seenKeys = new Set<string>();
+  
+  // Helper to dedupe and add suggestions
+  const addSuggestions = (newSuggestions: AddressSuggestion[]) => {
+    for (const suggestion of newSuggestions) {
+      const dedupeKey = suggestion.dedupeKey || suggestion.place_id || '';
+      
+      if (!seenKeys.has(dedupeKey)) {
+        seenKeys.add(dedupeKey);
+        allSuggestions.push(suggestion);
+      }
+    }
+  };
+  
+  // Helper to rank suggestions
+  const rankSuggestions = (suggestions: AddressSuggestion[]) => {
+    const typeOrder = {
+      'building': 1,
+      'amenity': 2, 
+      'street': 3,
+      'postcode': 4,
+      'city': 5,
+      'state': 6,
+      'country': 7,
+      'locality': 8,
+      'other': 9
+    };
+    
+    return suggestions.sort((a, b) => {
+      // Primary: result type bucket order
+      const aType = a.properties?.result_type || 'other';
+      const bType = b.properties?.result_type || 'other';
+      const typeDiff = (typeOrder[aType] || 9) - (typeOrder[bType] || 9);
+      if (typeDiff !== 0) return typeDiff;
+      
+      // Secondary: match type order
+      const matchOrder = {
+        'full_match': 1,
+        'match_by_building': 2,
+        'match_by_street': 3,
+        'match_by_postcode': 4,
+        'match_by_city_or_district': 5,
+        'match_by_country_or_state': 6
+      };
+      const aMatch = a.properties?.match_type || 'other';
+      const bMatch = b.properties?.match_type || 'other';
+      const matchDiff = (matchOrder[aMatch] || 7) - (matchOrder[bMatch] || 7);
+      if (matchDiff !== 0) return matchDiff;
+      
+      // Tertiary: confidence descending
+      const aConfidence = a.properties?.confidence || 0;
+      const bConfidence = b.properties?.confidence || 0;
+      return bConfidence - aConfidence;
+    });
+  };
+  
+  try {
+    // Pass 1: Default (building matches)
+    console.log('[Geoapify MultiPass] Pass 1: Default search');
+    const pass1Result = await callGeoapifyAutocomplete({
+      text,
+      limit: 12, // Explicit upstream limit
+      lang,
+      country,
+      type: undefined, // Default
+      apiKey,
+      bias
+    }, env);
+    
+    if ('code' in pass1Result) {
+      return pass1Result;
+    }
+    
+    addSuggestions(pass1Result.suggestions);
+    console.log('[Geoapify MultiPass] Pass 1 collected:', allSuggestions.length);
+    
+    // If we have enough results, return early
+    if (allSuggestions.length >= limit) {
+      const rankedSuggestions = rankSuggestions(allSuggestions.slice(0, limit));
+      console.log('[Geoapify MultiPass] Early return after Pass 1:', rankedSuggestions.length);
+      return { suggestions: rankedSuggestions };
+    }
+    
+    // Pass 2 & 4: Parallel street and locality suggestions
+    console.log('[Geoapify MultiPass] Pass 2&4: Parallel street + locality');
+    const textForLocality = /^\s*\d+\b/.test(text) ? 
+      text.replace(/^\s*\d+\s+/, '') : text;
+    
+    const [pass2Result, pass4Result] = await Promise.all([
+      callGeoapifyAutocomplete({
+        text,
+        limit: 10, // Explicit upstream limit
+        lang,
+        country,
+        type: 'street',
+        apiKey,
+        bias
+      }, env),
+      callGeoapifyAutocomplete({
+        text: textForLocality,
+        limit: 8, // Explicit upstream limit
+        lang,
+        country,
+        type: 'locality',
+        apiKey,
+        bias
+      }, env)
+    ]);
+    
+    if (!('code' in pass2Result)) {
+      addSuggestions(pass2Result.suggestions);
+      console.log('[Geoapify MultiPass] Pass 2 collected:', allSuggestions.length);
+    }
+    
+    if (!('code' in pass4Result)) {
+      addSuggestions(pass4Result.suggestions);
+      console.log('[Geoapify MultiPass] Pass 4 collected:', allSuggestions.length);
+    }
+    
+    // Pass 3: Remove housenumber, street suggestions (only if still short)
+    if (allSuggestions.length < limit) {
+      const hasHouseNumber = /^\s*\d+\b/.test(text);
+      if (hasHouseNumber) {
+        const textWithoutHouseNumber = text.replace(/^\s*\d+\s+/, '');
+        console.log('[Geoapify MultiPass] Pass 3: Street suggestions without housenumber:', textWithoutHouseNumber);
+        
+        const pass3Result = await callGeoapifyAutocomplete({
+          text: textWithoutHouseNumber,
+          limit: 8, // Explicit upstream limit
+          lang,
+          country,
+          type: 'street',
+          apiKey,
+          bias
+        }, env);
+        
+        if (!('code' in pass3Result)) {
+          addSuggestions(pass3Result.suggestions);
+          console.log('[Geoapify MultiPass] Pass 3 collected:', allSuggestions.length);
+        }
+      }
+    }
+    
+    // Rank and limit results
+    const rankedSuggestions = rankSuggestions(allSuggestions);
+    const finalSuggestions = rankedSuggestions.slice(0, limit);
+    
+    console.log('[Geoapify MultiPass] Final results:', finalSuggestions.length, 'from', allSuggestions.length, 'total');
+    
+    return { suggestions: finalSuggestions };
+    
+  } catch (error) {
+    console.error('[Geoapify MultiPass] Error:', error);
+    return { code: 'UPSTREAM_ERROR' };
+  }
+}
+
+/**
+ * Call Geoapify autocomplete API (single pass)
  */
 export async function callGeoapifyAutocomplete(
-  options: GeoapifyAutocompleteOptions
+  options: GeoapifyAutocompleteOptions,
+  env?: { DEBUG_GEO?: string }
 ): Promise<{ suggestions: AddressSuggestion[] } | AutocompleteError> {
-  const { text, limit = 5, lang = 'en', country, apiKey } = options;
+  const { text, limit = 5, lang = 'en', country, type, apiKey, bias } = options;
   
-  // Build request URL
+  // Build request URL - use explicit upstream limit directly
   const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
   url.searchParams.set('text', text);
-  url.searchParams.set('limit', Math.min(limit, 10).toString());
+  url.searchParams.set('limit', limit.toString()); // Use limit directly, no multiplication
   url.searchParams.set('lang', lang);
   url.searchParams.set('apiKey', apiKey);
   
+  // Add type if specified
+  if (type) {
+    url.searchParams.set('type', type);
+  }
+  
+  // Add bias to return more diverse results
   if (country) {
     url.searchParams.set('filter', `countrycode:${country.toLowerCase()}`);
+  }
+  
+  // Add location bias if available
+  if (bias) {
+    // Geoapify supports circle bias with format: circle:lon,lat,radiusMeters
+    url.searchParams.set('bias', `circle:${bias.lon},${bias.lat},${bias.radius}`);
+    if (env?.DEBUG_GEO === '1') {
+      console.log('[Geoapify] Added location bias:', bias);
+    }
+  }
+  
+  if (env?.DEBUG_GEO === '1') {
+    console.log('[Geoapify] Request URL:', url.toString());
   }
   
   try {
@@ -66,22 +261,43 @@ export async function callGeoapifyAutocomplete(
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
       console.error('[Geoapify] API error:', response.status, response.statusText);
+      console.error('[Geoapify] Error response:', errorText);
+      console.error('[Geoapify] Request URL:', url.toString());
       return { code: 'UPSTREAM_ERROR' };
     }
     
     const data: GeoapifyResponse = await response.json();
+    
+    if (env?.DEBUG_GEO === '1') {
+      console.log('[Geoapify] Raw response:', JSON.stringify(data, null, 2));
+    }
     
     if (!data.features || !Array.isArray(data.features)) {
       console.error('[Geoapify] Invalid response format:', data);
       return { code: 'UPSTREAM_ERROR' };
     }
     
+    if (env?.DEBUG_GEO === '1') {
+      console.log('[Geoapify] Features count:', data.features.length);
+    }
+    
     // Convert Geoapify features to our address suggestions
     const suggestions = data.features
-      .slice(0, limit)
       .map(feature => fromGeoapifyResponse(feature))
-      .filter(suggestion => suggestion.address.line1); // Filter out results without addresses
+      .filter(suggestion => {
+        // More lenient filtering - accept if it has any address-like content
+        const hasAddress = suggestion.address.address || 
+                          suggestion.address.city || 
+                          suggestion.address.state ||
+                          suggestion.address.postalCode;
+        return hasAddress;
+      });
+    
+    if (env?.DEBUG_GEO === '1') {
+      console.log('[Geoapify] Final suggestions:', suggestions.length);
+    }
     
     return { suggestions };
     
@@ -101,14 +317,21 @@ export function validateAutocompleteRequest(
   country: string | null,
   minChars: number = 3
 ): { valid: boolean; error?: AutocompleteError } {
+  console.log('[Validation] Input:', { text, textType: typeof text, textLength: text?.length, minChars });
+  
   // Validate text parameter
   if (!text || typeof text !== 'string') {
+    console.log('[Validation] Failed: text validation');
     return { valid: false, error: { code: 'INVALID_REQUEST' } };
   }
   
-  if (text.length < minChars) {
+  const trimmedText = text.trim();
+  if (trimmedText.length < minChars) {
+    console.log('[Validation] Failed: minChars validation', { trimmedText, trimmedLength: trimmedText.length, minChars });
     return { valid: false, error: { code: 'INVALID_REQUEST' } };
   }
+  
+  console.log('[Validation] Passed: text validation');
   
   // Validate limit parameter
   if (limit !== null) {
@@ -119,8 +342,8 @@ export function validateAutocompleteRequest(
   }
   
   // Validate country parameter (if provided)
-  if (country !== null) {
-    if (typeof country !== 'string' || !/^[A-Z]{2}$/i.test(country)) {
+  if (country !== null && typeof country === 'string' && country.trim()) {
+    if (country.length !== 2) {
       return { valid: false, error: { code: 'INVALID_REQUEST' } };
     }
   }

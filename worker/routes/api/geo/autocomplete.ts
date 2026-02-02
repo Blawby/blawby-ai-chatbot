@@ -4,7 +4,7 @@
  */
 
 import { Env } from '../../../types';
-import { callGeoapifyAutocomplete, validateAutocompleteRequest } from '../../../lib/geoapify';
+import { callGeoapifyAutocompleteMultiPass, validateAutocompleteRequest } from '../../../lib/geoapify';
 import { incrementDailyCounter, incrementRateLimitCounter } from '../../../lib/kvCounters';
 import { withCORS, getCorsConfig } from '../../../middleware/cors';
 import type { AutocompleteResponse, AutocompleteError } from '../../../types/address';
@@ -19,112 +19,139 @@ interface AutocompleteQuery {
 /**
  * Handle autocomplete request with rate limiting and quota controls
  */
-async function handleAutocomplete(request: Request, env: Env): Promise<Response> {
-  // Parse query parameters
-  const url = new URL(request.url);
-  const query: AutocompleteQuery = {
-    text: url.searchParams.get('text') || '',
-    limit: url.searchParams.get('limit') || undefined,
-    lang: url.searchParams.get('lang') || undefined,
-    country: url.searchParams.get('country') || undefined,
-  };
-
-  // Get configuration from environment
-  const dailyLimit = parseInt(env.GEOAPIFY_DAILY_LIMIT || '1000', 10);
-  const rpmPerIp = parseInt(env.GEOAPIFY_RPM_PER_IP || '60', 10);
-  const minChars = parseInt(env.GEOAPIFY_MIN_CHARS || '3', 10);
-
-  // Validate request parameters
-  const validation = validateAutocompleteRequest(
-    query.text,
-    query.limit,
-    query.lang,
-    query.country,
-    minChars
-  );
-
-  if (!validation.valid) {
-    return new Response(JSON.stringify(validation.error), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Get client IP for rate limiting
-  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
-  
-  // Check daily quota
-  const dailyResult = await incrementDailyCounter(env, 'geo:day', dailyLimit);
-  if (dailyResult.exceeded) {
-    const error: AutocompleteError = { code: 'AUTOCOMPLETE_DISABLED' };
-    return new Response(JSON.stringify(error), {
-      status: 429,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-      },
-    });
-  }
-
-  // Check per-minute rate limit
-  const rateLimitResult = await incrementRateLimitCounter(env, `geo:rpm:${clientIp}`, rpmPerIp);
-  if (rateLimitResult.exceeded) {
-    const error: AutocompleteError = { code: 'AUTOCOMPLETE_DISABLED' };
-    return new Response(JSON.stringify(error), {
-      status: 429,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-      },
-    });
-  }
-
-  // Check API key availability
-  if (!env.GEOAPIFY_API_KEY) {
-    console.error('[Autocomplete] GEOAPIFY_API_KEY not configured');
-    const error: AutocompleteError = { code: 'UPSTREAM_ERROR' };
-    return new Response(JSON.stringify(error), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
+export async function handleAutocomplete(request: Request, env: Env) {
   try {
-    // Call Geoapify API
-    const result = await callGeoapifyAutocomplete({
-      text: query.text,
-      limit: query.limit ? parseInt(query.limit, 10) : undefined,
-      lang: query.lang,
-      country: query.country,
-      apiKey: env.GEOAPIFY_API_KEY,
+    const url = new URL(request.url);
+    const query: AutocompleteQuery = {
+      text: url.searchParams.get('text') || '',
+      limit: url.searchParams.get('limit') || '5',
+      lang: url.searchParams.get('lang') || 'en',
+      country: url.searchParams.get('country') || null,
+    };
+
+    // Get Cloudflare geolocation context
+    const cfGeo = request.cf as {
+      country?: string;
+      city?: string;
+      region?: string;
+      postalCode?: string;
+      latitude?: number;
+      longitude?: number;
+      timezone?: string;
+    };
+
+    console.log('[Autocomplete] Cloudflare geolocation:', cfGeo);
+
+    // Use Cloudflare country as default if no country specified
+    if (!query.country && cfGeo.country) {
+      query.country = cfGeo.country;
+      console.log('[Autocomplete] Using Cloudflare country:', cfGeo.country);
+    }
+
+    // Only apply bias when Cloudflare country matches requested country
+    const shouldApplyBias = query.country && cfGeo.country && 
+      query.country.toUpperCase() === cfGeo.country.toUpperCase();
+    
+    console.log('[Autocomplete] Bias context:', {
+      requestedCountry: query.country,
+      cfCountry: cfGeo.country,
+      shouldApplyBias
     });
 
-    if ('code' in result) {
-      // Error response from Geoapify
-      return new Response(JSON.stringify(result), {
-        status: result.code === 'UPSTREAM_ERROR' ? 502 : 400,
+    // Get configuration from environment
+    const minChars = parseInt(env.GEOAPIFY_MIN_CHARS || '3', 10);
+    const dailyLimit = parseInt(env.GEOAPIFY_DAILY_LIMIT || '1000', 10);
+    const rpmPerIp = parseInt(env.GEOAPIFY_RPM_PER_IP || '60', 10);
+
+    console.log('[Autocomplete] Debug:', {
+      text: query.text,
+      textLength: query.text.length,
+      minChars,
+      dailyLimit,
+      rpmPerIp,
+      hasApiKey: !!env.GEOAPIFY_API_KEY,
+      cfCountry: cfGeo.country,
+      cfCity: cfGeo.city,
+      cfRegion: cfGeo.region,
+    });
+
+    const validation = validateAutocompleteRequest(
+      query.text,
+      query.limit,
+      query.lang,
+      query.country,
+      minChars
+    );
+
+    if (!validation.valid) {
+      return new Response(JSON.stringify(validation.error), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Success response
-    const response: AutocompleteResponse = {
-      suggestions: result.suggestions,
-    };
+    // Get client IP for rate limiting
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    
+    // Check daily quota
+    const dailyResult = await incrementDailyCounter(env, 'geo:day', dailyLimit);
+    if (dailyResult.exceeded) {
+      const error: AutocompleteError = { code: 'AUTOCOMPLETE_DISABLED' };
+      return new Response(JSON.stringify(error), {
+        status: 429,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    }
 
+    // Check per-minute rate limit
+    const rpmResult = await incrementRateLimitCounter(env, `geo:rpm:${clientIp}`, rpmPerIp);
+    if (rpmResult.exceeded) {
+      const error: AutocompleteError = { code: 'AUTOCOMPLETE_DISABLED' };
+      return new Response(JSON.stringify(error), {
+        status: 429,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    }
+
+    // Call Geoapify API with multi-pass fallback
+    const result = await callGeoapifyAutocompleteMultiPass({
+      text: query.text,
+      limit: parseInt(query.limit, 10),
+      lang: query.lang,
+      country: query.country,
+      apiKey: env.GEOAPIFY_API_KEY,
+      bias: shouldApplyBias && cfGeo.latitude && cfGeo.longitude ? {
+        lat: cfGeo.latitude,
+        lon: cfGeo.longitude,
+        radius: 50000, // 50km radius
+      } : undefined,
+    }, { DEBUG_GEO: env.DEBUG_GEO });
+
+    if ('code' in result) {
+      return new Response(JSON.stringify(result), {
+        status: result.code === 'AUTOCOMPLETE_DISABLED' ? 429 : 502,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const response: AutocompleteResponse = result;
     return new Response(JSON.stringify(response), {
       status: 200,
-      headers: {
+      headers: { 
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=60', // Cache for 1 minute
-        'Vary': 'Accept-Encoding',
+        'Cache-Control': 's-maxage=60, public', // Edge cache for 60 seconds
       },
     });
 
   } catch (error) {
     console.error('[Autocomplete] Unexpected error:', error);
     const errorResponse: AutocompleteError = { code: 'UPSTREAM_ERROR' };
-    
     return new Response(JSON.stringify(errorResponse), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },

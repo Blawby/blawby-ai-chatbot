@@ -96,7 +96,7 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
       return undefined;
     }
     const rawInitialValues = initialValues as Record<string, unknown>;
-    const allowedKeys = ['name', 'email', 'phone', 'location', 'opposingParty'] as const;
+    const allowedKeys = ['name', 'email', 'phone', 'address', 'opposingParty'] as const;
     normalizedInitialValues = {};
     for (const key of allowedKeys) {
       const value = rawInitialValues[key];
@@ -1300,17 +1300,19 @@ export const useMessageHandling = ({
       name: !!contactData.name,
       email: !!contactData.email,
       phone: !!contactData.phone,
-      location: !!contactData.location,
+      address: !!contactData.address,
       opposingParty: !!contactData.opposingParty,
       description: !!contactData.description
     });
     try {
       // Format contact data as a structured message
+      const addressText = contactData.address 
+        ? `Address: ${contactData.address.address}${contactData.address.apartment ? `, ${contactData.address.apartment}` : ''}, ${contactData.address.city}, ${contactData.address.state} ${contactData.address.postalCode}`
+        : '';
       const contactMessage = `Contact Information:
 Name: ${contactData.name}
 Email: ${contactData.email}
-Phone: ${contactData.phone}
-Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
+Phone: ${contactData.phone}${addressText ? `\n${addressText}` : ''}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
 
       // Debug hook for test environment (development only, PII-safe)
       if (import.meta.env.MODE === 'development' && typeof window !== 'undefined' && window.__DEBUG_CONTACT_FORM__) {
@@ -1319,7 +1321,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
           nameProvided: !!contactData.name,
           emailProvided: !!contactData.email,
           phoneProvided: !!contactData.phone,
-          locationProvided: !!contactData.location,
+          addressProvided: !!contactData.address,
           opposingPartyProvided: !!contactData.opposingParty,
           descriptionProvided: !!contactData.description
         };
@@ -1329,7 +1331,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
 Name: ${contactData.name ? '[PROVIDED]' : '[NOT PROVIDED]'}
 Email: ${contactData.email ? '[PROVIDED]' : '[NOT PROVIDED]'}
 Phone: ${contactData.phone ? '[PROVIDED]' : '[NOT PROVIDED]'}
-Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
+Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
         
         window.__DEBUG_CONTACT_FORM__(sanitizedContactData, redactedContactMessage);
       }

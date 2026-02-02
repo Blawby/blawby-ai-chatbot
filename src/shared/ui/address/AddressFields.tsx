@@ -15,6 +15,22 @@ export interface AddressFieldsProps {
   className?: string;
   showCountry?: boolean;
   countryOptions?: SelectOption[];
+  streetAddressProps?: {
+    value: string;
+    onChange: (value: string) => void;
+    onKeyDown: (event: KeyboardEvent) => void;
+    isLoading: boolean;
+    isOpen: boolean;
+    disabled?: boolean;
+    suggestions: Array<{
+      id: string;
+      label: string;
+      formatted: string;
+    }>;
+    selectedIndex: number;
+    onSuggestionSelect: (suggestion: any) => void;
+    limit?: number;
+  };
 }
 
 // Common country options (ISO-2 codes)
@@ -99,7 +115,10 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   className = '',
   showCountry = true,
   countryOptions = DEFAULT_COUNTRY_OPTIONS,
+  streetAddressProps,
 }, ref) => {
+  // Default address value to prevent null issues
+  const safeValue = value || { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
   const updateField = (field: keyof Address, fieldValue: string) => {
     onChange({
       ...value,
@@ -117,8 +136,8 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   );
 
   const inputClasses = cn(
-    hasError('line1') && 'border-red-300 dark:border-red-600',
-    hasError('line2') && 'border-red-300 dark:border-red-600',
+    hasError('address') && 'border-red-300 dark:border-red-600',
+    hasError('apartment') && 'border-red-300 dark:border-red-600',
     hasError('city') && 'border-red-300 dark:border-red-600',
     hasError('state') && 'border-red-300 dark:border-red-600',
     hasError('postalCode') && 'border-red-300 dark:border-red-600',
@@ -128,43 +147,86 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   return (
     <div ref={ref} className={containerClasses}>
       {/* Address Line 1 */}
-      <Input
-        label="Street Address"
-        value={value.line1 || ''}
-        onChange={(newValue) => updateField('line1', newValue)}
-        disabled={disabled}
-        placeholder="123 Main Street"
-        required={isRequired('line1')}
-        error={getError('line1')}
-        variant={hasError('line1') ? 'error' : variant}
-        size={size}
-        className={inputClasses}
-      />
+      <div className="relative">
+        <Input
+          label="Address"
+          value={streetAddressProps?.value || safeValue.address || ''}
+          onChange={(newValue) => streetAddressProps?.onChange(newValue)}
+          disabled={disabled}
+          placeholder="123 Main Street"
+          required={isRequired('address')}
+          error={getError('address')}
+          variant={hasError('address') ? 'error' : variant}
+          size={size}
+          className={cn(
+            inputClasses,
+            streetAddressProps?.isOpen && 'ring-2 ring-blue-500 border-blue-500'
+          )}
+        />
+        
+        {/* Loading indicator */}
+        {streetAddressProps?.isLoading && (
+          <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-blue-600" />
+          </div>
+        )}
+
+        {/* Autocomplete dropdown */}
+        {streetAddressProps?.isOpen && !streetAddressProps?.disabled && (
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            {streetAddressProps.suggestions.length > 0 ? (
+              <ul className="py-1">
+                {streetAddressProps.suggestions.map((suggestion, index) => (
+                  <li
+                    key={suggestion.id}
+                    className={cn(
+                      'px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700',
+                      index === streetAddressProps.selectedIndex && 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                    )}
+                    onClick={() => streetAddressProps.onSuggestionSelect(suggestion)}
+                  >
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {suggestion.label}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {suggestion.formatted}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                No suggestions found
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Address Line 2 */}
       <Input
-        label="Apartment, suite, etc. (optional)"
-        value={value.line2 || ''}
-        onChange={(newValue) => updateField('line2', newValue)}
+        label=""
+        value={safeValue.apartment || ''}
+        onChange={(newValue) => updateField('apartment', newValue)}
         disabled={disabled}
-        placeholder="Apt 4B"
+        placeholder="Apartment, suite, etc. (optional)"
         required={false}
-        error={getError('line2')}
-        variant={hasError('line2') ? 'error' : variant}
+        error={getError('apartment')}
+        variant={hasError('apartment') ? 'error' : variant}
         size={size}
         className={inputClasses}
       />
 
-      {/* City, State, Postal Code */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* City, State, Postal Code - 3 Column Layout */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* City */}
-        <div className="sm:col-span-1 lg:col-span-1">
+        <div>
           <Input
-            label="City"
-            value={value.city || ''}
+            label=""
+            value={safeValue.city || ''}
             onChange={(newValue) => updateField('city', newValue)}
             disabled={disabled}
-            placeholder="San Francisco"
+            placeholder="City"
             required={isRequired('city')}
             error={getError('city')}
             variant={hasError('city') ? 'error' : variant}
@@ -174,15 +236,15 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         </div>
 
         {/* State */}
-        <div className="sm:col-span-1 lg:col-span-1">
+        <div>
           <div className="relative">
-            {value.country === 'US' ? (
+            {safeValue.country === 'US' ? (
               <Select
-                label={isRequired('state') ? 'State *' : 'State'}
-                value={value.state || ''}
+                label=""
+                value={safeValue.state || ''}
                 onChange={(newValue) => updateField('state', newValue)}
                 disabled={disabled}
-                placeholder="Select state"
+                placeholder="State"
                 options={STATE_OPTIONS}
                 className={cn(
                   inputClasses,
@@ -191,8 +253,8 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
               />
             ) : (
               <Input
-                label={isRequired('state') ? 'State/Province *' : 'State/Province'}
-                value={value.state || ''}
+                label=""
+                value={safeValue.state || ''}
                 onChange={(newValue) => updateField('state', newValue)}
                 disabled={disabled}
                 placeholder="State/Province"
@@ -212,13 +274,13 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         </div>
 
         {/* Postal Code */}
-        <div className="sm:col-span-1 lg:col-span-1">
+        <div>
           <Input
-            label="Postal Code"
-            value={value.postalCode || ''}
+            label=""
+            value={safeValue.postalCode || ''}
             onChange={(newValue) => updateField('postalCode', newValue)}
             disabled={disabled}
-            placeholder={value.country === 'US' ? '94102' : 'Postal code'}
+            placeholder={safeValue?.country === 'US' ? 'ZIP code' : 'Postal code'}
             required={isRequired('postalCode')}
             error={getError('postalCode')}
             variant={hasError('postalCode') ? 'error' : variant}
@@ -226,31 +288,6 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             className={inputClasses}
           />
         </div>
-
-        {/* Country */}
-        {showCountry && (
-          <div className="sm:col-span-2 lg:col-span-1">
-            <div className="relative">
-              <Select
-                label={isRequired('country') ? 'Country *' : 'Country'}
-                value={value.country || 'US'}
-                onChange={(newValue) => updateField('country', newValue)}
-                disabled={disabled}
-                placeholder="Select country"
-                options={countryOptions}
-                className={cn(
-                  inputClasses,
-                  hasError('country') && 'border-red-300 dark:border-red-600'
-                )}
-              />
-              {hasError('country') && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {getError('country')}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Error Summary */}

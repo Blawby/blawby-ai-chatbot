@@ -286,8 +286,8 @@ export function ContactForm({
                   onChange={(address) => onChange(address)}
                   label={t('forms.contactForm.location')}
                   placeholder={t('forms.contactForm.placeholders.location')}
-                  required={validRequired.includes('address') ? { line1: true, city: true, state: true, postalCode: true, country: true } : undefined}
-                  errors={error?.message ? { line1: error.message } : undefined}
+                  required={validRequired.includes('address') ? { address: true, city: true, state: true, postalCode: true, country: true } : undefined}
+                  errors={error?.message ? { address: error.message } : undefined}
                   variant={error ? 'error' : 'default'}
                   validationLevel="loose"
                   enableAutocomplete={true}

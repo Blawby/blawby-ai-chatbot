@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
 import { EmailInput, Input, PhoneInput, Select, type SelectOption } from '@/shared/ui/input';
+import { AddressFields } from '@/shared/ui/address/AddressFields';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
@@ -79,8 +80,8 @@ type ClientFormState = {
   phone: string;
   status: UserDetailStatus;
   currency: string;
-  addressLine1: string;
-  addressLine2: string;
+  address: string;
+  apartment: string;
   city: string;
   state: string;
   postalCode: string;
@@ -205,52 +206,31 @@ const ClientFormFields = ({
       onChange={(value) => onChange('currency', value)}
       disabled={disabled}
     />
-    <div className="sm:col-span-2">
-      <Input
-        label="Address line 1"
-        value={values.addressLine1}
-        onChange={(value) => onChange('addressLine1', value)}
-        placeholder="123 Main St"
+    <div className="sm:col-span-6">
+      <AddressFields
+        value={{
+          address: values.address || '',
+          apartment: values.apartment || '',
+          city: values.city || '',
+          state: values.state || '',
+          postalCode: values.postalCode || '',
+          country: values.country || ''
+        }}
+        onChange={(address) => {
+          onChange('address', address.address);
+          onChange('apartment', address.apartment);
+          onChange('city', address.city);
+          onChange('state', address.state);
+          onChange('postalCode', address.postalCode);
+          onChange('country', address.country);
+        }}
         disabled={disabled}
+        errors={{}}
+        required={{}}
+        size="sm"
+        showCountry={true}
       />
     </div>
-    <div className="sm:col-span-2">
-      <Input
-        label="Address line 2"
-        value={values.addressLine2}
-        onChange={(value) => onChange('addressLine2', value)}
-        placeholder="Suite 400"
-        disabled={disabled}
-      />
-    </div>
-    <Input
-      label="City"
-      value={values.city}
-      onChange={(value) => onChange('city', value)}
-      placeholder="San Francisco"
-      disabled={disabled}
-    />
-    <Input
-      label="State"
-      value={values.state}
-      onChange={(value) => onChange('state', value)}
-      placeholder="CA"
-      disabled={disabled}
-    />
-    <Input
-      label="Postal code"
-      value={values.postalCode}
-      onChange={(value) => onChange('postalCode', value)}
-      placeholder="94103"
-      disabled={disabled}
-    />
-    <Input
-      label="Country"
-      value={values.country}
-      onChange={(value) => onChange('country', value)}
-      placeholder="US"
-      disabled={disabled}
-    />
   </div>
 );
 
@@ -380,19 +360,22 @@ export const PracticeClientsPage = () => {
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
   const [editClientSubmitting, setEditClientSubmitting] = useState(false);
   const [editClientError, setEditClientError] = useState<string | null>(null);
-  const [addClientForm, setAddClientForm] = useState<ClientFormState>({
+
+  const defaultClientFormState: ClientFormState = {
     name: '',
     email: '',
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    addressLine1: '',
-    addressLine2: '',
+    address: '',
+    apartment: '',
     city: '',
     state: '',
     postalCode: '',
-    country: 'US'
-  });
+    country: 'US',
+  };
+
+  const [addClientForm, setAddClientForm] = useState<ClientFormState>(defaultClientFormState);
   const [editClientForm, setEditClientForm] = useState<EditClientFormState>({
     id: '',
     name: '',
@@ -400,8 +383,8 @@ export const PracticeClientsPage = () => {
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    addressLine1: '',
-    addressLine2: '',
+    address: '',
+    apartment: '',
     city: '',
     state: '',
     postalCode: '',
@@ -626,8 +609,8 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      addressLine1: '',
-      addressLine2: '',
+      address: '',
+      apartment: '',
       city: '',
       state: '',
       postalCode: '',
@@ -655,8 +638,8 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      addressLine1: '',
-      addressLine2: '',
+      address: '',
+      apartment: '',
       city: '',
       state: '',
       postalCode: '',
@@ -682,8 +665,8 @@ export const PracticeClientsPage = () => {
         phone: detail?.user?.phone ?? selectedClient.phone ?? '',
         status: detail?.status ?? selectedClient.status,
         currency: detail?.currency ?? 'usd',
-        addressLine1: '',
-        addressLine2: '',
+        address: '',
+        apartment: '',
         city: '',
         state: '',
         postalCode: '',
@@ -709,15 +692,15 @@ export const PracticeClientsPage = () => {
     setEditClientSubmitting(true);
     setEditClientError(null);
     try {
-      const addressLine1 = editClientForm.addressLine1.trim();
-      const addressLine2 = editClientForm.addressLine2.trim();
+      const address = editClientForm.address.trim();
+      const apartment = editClientForm.apartment.trim();
       const city = editClientForm.city.trim();
       const state = editClientForm.state.trim();
       const postalCode = editClientForm.postalCode.trim();
       const country = editClientForm.country.trim();
       const hasAddress =
-        Boolean(addressLine1) ||
-        Boolean(addressLine2) ||
+        Boolean(address) ||
+        Boolean(apartment) ||
         Boolean(city) ||
         Boolean(state) ||
         Boolean(postalCode) ||
@@ -732,8 +715,8 @@ export const PracticeClientsPage = () => {
         event_name: 'Invite Client',
         ...(hasAddress && {
           address: {
-            line1: addressLine1 || undefined,
-            line2: addressLine2 || undefined,
+            address: address || undefined,
+            apartment: apartment || undefined,
             city: city || undefined,
             state: state || undefined,
             postal_code: postalCode || undefined,

@@ -143,7 +143,7 @@ export const useConversationSystemMessages = ({
       {
         systemMessageKey: 'contact_form',
         contactForm: {
-          fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
+          fields: ['name', 'email', 'phone', 'address', 'opposingParty', 'description'],
           required: ['name', 'email'],
           message: undefined
         }

@@ -118,8 +118,8 @@ export interface Practice {
   updatedAt?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -465,8 +465,8 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessOnboardingStatus: onboardingStatus,
     billingIncrementMinutes: getDetailNumber('billingIncrementMinutes', 'billing_increment_minutes') ?? null,
     website: getDetailString('website', 'website'),
-    addressLine1: getDetailString('addressLine1', 'address_line_1'),
-    addressLine2: getDetailString('addressLine2', 'address_line_2'),
+    address: getDetailString('address', 'address_line_1'),
+    apartment: getDetailString('apartment', 'address_line_2'),
     city: getDetailString('city', 'city'),
     state: getDetailString('state', 'state'),
     postalCode: getDetailString('postalCode', 'postal_code'),
@@ -502,8 +502,8 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfDefined('calendlyUrl', details.calendlyUrl as Practice['calendlyUrl'] | undefined);
   setIfDefined('billingIncrementMinutes', details.billingIncrementMinutes as Practice['billingIncrementMinutes'] | undefined);
   setIfNonNull('website', details.website as Practice['website'] | undefined | null);
-  setIfNonNull('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined | null);
-  setIfNonNull('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined | null);
+  setIfNonNull('address', details.address as Practice['address'] | undefined | null);
+  setIfNonNull('apartment', details.apartment as Practice['apartment'] | undefined | null);
   setIfNonNull('city', details.city as Practice['city'] | undefined | null);
   setIfNonNull('state', details.state as Practice['state'] | undefined | null);
   setIfNonNull('postalCode', details.postalCode as Practice['postalCode'] | undefined | null);

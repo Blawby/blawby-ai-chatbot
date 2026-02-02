@@ -26,8 +26,8 @@ type IntakeCreateData = {
   amount?: number;
   currency?: string;
   address?: {
-    line1: string;
-    line2?: string;
+    address: string;
+    apartment?: string;
     city: string;
     state: string;
     postal_code: string;
@@ -144,8 +144,8 @@ const parseIntakeCreateData = (payload: unknown): IntakeCreateData => {
     amount: typeof data?.amount === 'number' ? data.amount : undefined,
     currency: typeof data?.currency === 'string' ? data.currency : undefined,
     address: data?.address && typeof data.address === 'object' ? {
-      line1: typeof (data.address as any).line1 === 'string' ? (data.address as any).line1 : '',
-      line2: typeof (data.address as any).line2 === 'string' ? (data.address as any).line2 : undefined,
+      address: typeof (data.address as any).address === 'string' ? (data.address as any).address : '',
+      apartment: typeof (data.address as any).apartment === 'string' ? (data.address as any).apartment : undefined,
       city: typeof (data.address as any).city === 'string' ? (data.address as any).city : '',
       state: typeof (data.address as any).state === 'string' ? (data.address as any).state : '',
       postal_code: typeof (data.address as any).postal_code === 'string' ? (data.address as any).postal_code : '',
@@ -353,7 +353,7 @@ test.describe('Intake invite flow', () => {
     if (suggestionCount > 0) {
       expect(intakeData.address).toBeTruthy();
       if (intakeData.address) {
-        expect(intakeData.address.line1).toBeTruthy();
+        expect(intakeData.address.address).toBeTruthy();
         expect(intakeData.address.city).toBeTruthy();
         expect(intakeData.address.state).toBeTruthy();
         expect(intakeData.address.postal_code).toBeTruthy();

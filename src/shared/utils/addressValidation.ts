@@ -10,8 +10,8 @@ import type { Address, AddressValidationResult, AddressValidationLevel } from '@
 
 // Validation constants
 const MAX_FIELD_LENGTHS = {
-  line1: 100,
-  line2: 100,
+  address: 100,
+  apartment: 100,
   city: 50,
   state: 50,
   postalCode: 20,
@@ -35,7 +35,7 @@ const ERROR_CODES = {
 // Error messages
 const ERROR_MESSAGES = {
   [ERROR_CODES.REQUIRED]: 'This field is required',
-  [ERROR_CODES.TOO_LONG]: `Must be ${MAX_FIELD_LENGTHS.line1} characters or less`,
+  [ERROR_CODES.TOO_LONG]: `Must be ${MAX_FIELD_LENGTHS.address} characters or less`,
   [ERROR_CODES.INVALID_FORMAT]: 'Invalid format',
   [ERROR_CODES.INVALID_COUNTRY]: 'Must be a valid 2-letter country code',
   [ERROR_CODES.INVALID_POSTAL_CODE]: 'Invalid postal code format',
@@ -139,7 +139,7 @@ export function validateAddressLoose(address: Partial<Address>): AddressValidati
   const errors: AddressValidationResult['errors'] = [];
   
   // Validate all fields (none required for loose validation)
-  const fields: (keyof Address)[] = ['line1', 'line2', 'city', 'state', 'postalCode', 'country'];
+  const fields: (keyof Address)[] = ['address', 'apartment', 'city', 'state', 'postalCode', 'country'];
   
   for (const field of fields) {
     const value = address[field] || '';
@@ -170,8 +170,8 @@ export function validateAddressStrict(address: Partial<Address>): AddressValidat
   const errors: AddressValidationResult['errors'] = [];
   
   // Required fields for strict validation
-  const requiredFields: (keyof Address)[] = ['line1', 'city', 'state', 'postalCode', 'country'];
-  const optionalFields: (keyof Address)[] = ['line2'];
+  const requiredFields: (keyof Address)[] = ['address', 'city', 'state', 'postalCode', 'country'];
+  const optionalFields: (keyof Address)[] = ['apartment'];
   
   // Validate required fields
   for (const field of requiredFields) {
@@ -242,8 +242,8 @@ export function validateAndNormalizeAddress(
 ): { address: Partial<Address>; validation: AddressValidationResult } {
   // First normalize the address
   const normalized = {
-    line1: address.line1?.trim() || '',
-    line2: address.line2?.trim() || undefined,
+    address: address.address?.trim() || '',
+    apartment: address.apartment?.trim() || undefined,
     city: address.city?.trim() || '',
     state: address.state?.trim() || '',
     postalCode: address.postalCode?.trim() || '',

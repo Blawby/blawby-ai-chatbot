@@ -178,6 +178,7 @@ export interface Env {
   GEOAPIFY_DAILY_LIMIT?: string;
   GEOAPIFY_RPM_PER_IP?: string;
   GEOAPIFY_MIN_CHARS?: string;
+  DEBUG_GEO?: string;
 
 }
 

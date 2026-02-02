@@ -86,8 +86,8 @@ export interface Practice {
   updatedAt?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -142,8 +142,8 @@ export interface PracticeDetailsUpdate {
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -168,8 +168,8 @@ export interface PracticeDetails {
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -362,8 +362,8 @@ function normalizePracticePayload(payload: unknown): Practice {
       return null;
     })(),
     website: toNullableString(record.website),
-    addressLine1: toNullableString(record.addressLine1 ?? record.address_line_1),
-    addressLine2: toNullableString(record.addressLine2 ?? record.address_line_2),
+    address: toNullableString(record.address ?? record.address_line_1),
+    apartment: toNullableString(record.apartment ?? record.address_line_2),
     city: toNullableString(record.city),
     state: toNullableString(record.state),
     postalCode: toNullableString(record.postalCode ?? record.postal_code),
@@ -1142,10 +1142,10 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   const website = normalizeTextOrUndefined(payload.website);
   if (website !== undefined) normalized.website = website;
   const address: Record<string, unknown> = {};
-  const addressLine1 = normalizeTextOrUndefined(payload.addressLine1);
-  if (addressLine1 !== undefined) address.line1 = addressLine1;
-  const addressLine2 = normalizeTextOrUndefined(payload.addressLine2);
-  if (addressLine2 !== undefined) address.line2 = addressLine2;
+  const addressField = normalizeTextOrUndefined(payload.address);
+  if (addressField !== undefined) address.address = addressField;
+  const apartmentField = normalizeTextOrUndefined(payload.apartment);
+  if (apartmentField !== undefined) address.apartment = apartmentField;
   const city = normalizeTextOrUndefined(payload.city);
   if (city !== undefined) address.city = city;
   const state = normalizeTextOrUndefined(payload.state);
@@ -1357,10 +1357,8 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     services: 'services' in container
       ? (Array.isArray(container.services) ? (container.services as Array<Record<string, unknown>>) : null)
       : undefined,
-    addressLine1: getOptionalNullableString(address, ['line1', 'line_1', 'address_line_1'])
-      ?? getOptionalNullableString(container, ['addressLine1']),
-    addressLine2: getOptionalNullableString(address, ['line2', 'line_2', 'address_line_2'])
-      ?? getOptionalNullableString(container, ['addressLine2']),
+    address: getOptionalNullableString(address, ['address']) ?? getOptionalNullableString(container, ['address']),
+    apartment: getOptionalNullableString(address, ['apartment']) ?? getOptionalNullableString(container, ['apartment']),
     city: getOptionalNullableString(address, ['city']) ?? getOptionalNullableString(container, ['city']),
     state: getOptionalNullableString(address, ['state']) ?? getOptionalNullableString(container, ['state']),
     postalCode: getOptionalNullableString(address, ['postal_code'])
