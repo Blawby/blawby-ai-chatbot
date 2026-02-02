@@ -317,6 +317,15 @@ test.describe('Intake invite flow', () => {
       const stateField = contactForm.getByLabel(/state/i);
       const postalField = contactForm.getByLabel('Postal Code');
       
+      // Assert that at least one structured address field is visible
+      const hasVisibleField = await Promise.any([
+        cityField.isVisible().then(v => v ? cityField : Promise.reject()),
+        stateField.isVisible().then(v => v ? stateField : Promise.reject()),
+        postalField.isVisible().then(v => v ? postalField : Promise.reject())
+      ]).catch(() => false);
+      
+      expect(hasVisibleField).toBe(true);
+      
       if (await cityField.isVisible()) {
         expect(await cityField.inputValue()).not.toBe('');
       }
