@@ -93,8 +93,8 @@ playwright/.auth/
 # E2E credentials (local only)
 tests/e2e/fixtures/e2e-credentials.json
 
+# Billing plan (sensitive financial/pricing information)
+BILLING_PLAN.md
+
 # Playwright reports
 playwright/reports/
-
-# Documentation files
-BILLING_PLAN.md

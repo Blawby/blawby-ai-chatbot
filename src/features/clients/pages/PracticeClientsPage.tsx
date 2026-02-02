@@ -786,15 +786,7 @@ export const PracticeClientsPage = () => {
         email,
         phone: addClientForm.phone.trim() || undefined,
         status: addClientForm.status,
-        currency: addClientForm.currency.trim() || 'usd',
-        address: {
-          line1: addClientForm.addressLine1.trim() || undefined,
-          line2: addClientForm.addressLine2.trim() || undefined,
-          city: addClientForm.city.trim() || undefined,
-          state: addClientForm.state.trim() || undefined,
-          postal_code: addClientForm.postalCode.trim() || undefined,
-          country: addClientForm.country.trim() || 'US'
-        }
+        currency: addClientForm.currency.trim() || 'usd'
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client added', 'The client has been added to your practice.');

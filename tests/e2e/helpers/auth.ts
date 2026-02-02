@@ -58,9 +58,9 @@ export const waitForSession = async (
       
       // Check if anonymous sign-in has completed (even if userId is null/empty)
       if (lastResult.ok && lastResult.hasSession && rawText.includes('anonymous')) {
-        // Extract userId for anonymous users
+        // Extract userId for anonymous users - reuse the same validation as above
         const anonUserId = data?.user?.id ?? data?.data?.user?.id ?? data?.session?.user?.id ?? data?.data?.session?.user?.id;
-        if (anonUserId) {
+        if (typeof anonUserId === 'string' && anonUserId) {
           return anonUserId;
         }
       }

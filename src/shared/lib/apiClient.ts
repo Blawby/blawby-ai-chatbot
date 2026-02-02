@@ -713,14 +713,6 @@ export type CreateUserDetailPayload = {
   phone?: string;
   status?: UserDetailStatus;
   currency?: string;
-  address?: {
-    line1?: string;
-    line2?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-  };
 };
 
 export async function createUserDetail(
@@ -742,31 +734,13 @@ export async function createUserDetail(
   const normalizedEmail = payload.email.trim();
   
   try {
-    const invitation = await authClient.organization.inviteMember({
+    await authClient.organization.inviteMember({
       email: normalizedEmail,
       role: 'member',
       organizationId: practiceId,
     });
     
-    // Convert invitation response to UserDetailRecord format
-    if (invitation.data) {
-      return {
-        id: invitation.data.id,
-        organization_id: practiceId,
-        user_id: null,
-        user: {
-          id: null,
-          name: payload.name ?? null,
-          email: normalizedEmail,
-          phone: payload.phone ?? null,
-        },
-        address_id: null,
-        status: payload.status ?? 'lead',
-        currency: payload.currency ?? 'usd',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    }
+    // Return null - callers should refresh from server to get the actual record
     return null;
   } catch (error) {
     console.error('Failed to invite client:', error);
