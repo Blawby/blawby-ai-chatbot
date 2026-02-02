@@ -318,6 +318,26 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             className={getInputClasses('postalCode')}
           />
         </div>
+
+        {/* Country */}
+        {showCountry && (
+          <div>
+            <Select
+              label=""
+              value={safeValue.country || ''}
+              onChange={(newValue) => updateField('country', newValue)}
+              disabled={disabled}
+              options={countryOptions}
+              className={getInputClasses('country')}
+              placeholder="Country"
+            />
+            {hasError('country') && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                {getError('country')}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Error Summary */}

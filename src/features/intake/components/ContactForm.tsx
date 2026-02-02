@@ -7,6 +7,7 @@ import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { schemas } from '@/shared/ui/validation/schemas';
 import { toApiAddress } from '@/shared/mapping/addressMapping';
 import { validateAddressLoose } from '@/shared/utils/addressValidation';
@@ -140,8 +141,26 @@ export function ContactForm({
   const validatedProps = validateContactFormProps(fields, required, message);
   const { fields: validFields, required: validRequired, message: validMessage } = validatedProps;
   
+  // Get practice details for default country
+  const { currentPractice } = usePracticeManagement();
+  
   // Always call hooks at the top level
-  const normalizedInitialValues = useMemo(() => normalizeInitialValues(initialValues), [initialValues]);
+  const normalizedInitialValues = useMemo(() => {
+    const baseValues = normalizeInitialValues(initialValues);
+    
+    // Set default country from practice if not already provided
+    if (currentPractice?.country && (!baseValues.address || !baseValues.address.country)) {
+      return {
+        ...baseValues,
+        address: {
+          ...baseValues.address,
+          country: currentPractice.country
+        }
+      };
+    }
+    
+    return baseValues;
+  }, [initialValues, currentPractice?.country]);
 
   const { t } = useTranslation('common');
 
@@ -288,6 +307,8 @@ export function ContactForm({
                   placeholder={t('forms.contactForm.placeholders.location')}
                   required={validRequired.includes('address') ? { address: true, city: true, state: true, postalCode: true, country: true } : undefined}
                   errors={error?.message ? { address: error.message } : undefined}
+                  country={currentPractice?.country || undefined}
+                  showCountry={!currentPractice?.country} // Only show country select if practice country is unknown
                   variant={error ? 'error' : 'default'}
                   validationLevel="loose"
                   enableAutocomplete={true}
