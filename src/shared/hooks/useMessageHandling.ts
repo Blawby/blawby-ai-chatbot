@@ -24,7 +24,7 @@ function validateAddressObject(addressValue: unknown): Address | null {
   }
 
   const address = addressValue as Record<string, unknown>;
-  const requiredFields = ['address', 'city', 'state', 'postalCode'] as const;
+  const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
   
   // Validate required fields
   for (const field of requiredFields) {
@@ -60,7 +60,7 @@ function validateAddressObject(addressValue: unknown): Address | null {
         }
         break;
         
-      case 'postalCode':
+      case 'postalCode': {
         // Enhanced postal code validation for common formats
         const postalCodePatterns = [
           /^\d{5}(-\d{4})?$/, // US ZIP
@@ -72,6 +72,18 @@ function validateAddressObject(addressValue: unknown): Address | null {
         const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
         if (!isValidPostalCode) {
           return null;
+        }
+        break;
+      }
+        
+      case 'country':
+        // Validate country format (ISO 2-letter/3-letter code or reasonable length)
+        if (trimmedValue.length < 2 || trimmedValue.length > 56) {
+          return null; // Country code too short or too long
+        }
+        // Allow letters, spaces, hyphens, and apostrophes for country names
+        if (!/^[A-Za-z\s\-']+$/.test(trimmedValue)) {
+          return null; // Invalid country format
         }
         break;
     }

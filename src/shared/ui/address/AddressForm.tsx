@@ -38,6 +38,7 @@ export interface AddressFormProps {
   // Form data
   initialValues: Partial<AddressFormFields>;
   onSubmit: (values: AddressFormFields) => void | Promise<void>;
+  onValuesChange?: (values: Partial<AddressFormFields>) => void;
   
   // UI configuration
   fields: Array<{
@@ -72,6 +73,7 @@ export interface AddressFormProps {
 export const AddressForm = ({
   initialValues,
   onSubmit,
+  onValuesChange,
   fields,
   disabled = false,
   submitText = 'Save',
@@ -97,13 +99,21 @@ export const AddressForm = ({
     return (
       <FormField name={name}>
         {({ value, error, onChange }) => {
+          // Wrap onChange to also call onValuesChange
+          const handleChange = (newValue: any) => {
+            onChange(newValue);
+            if (onValuesChange) {
+              onValuesChange({ [name]: newValue });
+            }
+          };
+
           switch (type) {
             case 'email':
               return (
                 <EmailInput
                   label={labels[name] || label}
                   value={value as string}
-                  onChange={(newValue) => onChange(newValue)}
+                  onChange={handleChange}
                   placeholder={placeholders[name] || placeholder}
                   required={requiredFields[name] || required}
                   disabled={disabled}
@@ -115,7 +125,7 @@ export const AddressForm = ({
                 <PhoneInput
                   label={labels[name] || label}
                   value={value as string}
-                  onChange={(newValue) => onChange(newValue)}
+                  onChange={handleChange}
                   placeholder={placeholders[name] || placeholder}
                   disabled={disabled}
                 />
@@ -126,7 +136,7 @@ export const AddressForm = ({
                 <Select
                   label={labels[name] || label}
                   value={value as string}
-                  onChange={(newValue) => onChange(newValue)}
+                  onChange={handleChange}
                   placeholder={placeholders[name] || placeholder}
                   options={options || []}
                   disabled={disabled}
@@ -137,7 +147,7 @@ export const AddressForm = ({
               return (
                 <AddressInput
                   value={value as Address || null}
-                  onChange={(address) => onChange(address)}
+                  onChange={handleChange}
                   required={requiredFields[name] ? { 
                     address: true, city: true, state: true, postalCode: true, country: true 
                   } : undefined}
@@ -156,7 +166,7 @@ export const AddressForm = ({
                 <Input
                   label={labels[name] || label}
                   value={value as string}
-                  onChange={(newValue) => onChange(newValue)}
+                  onChange={handleChange}
                   placeholder={placeholders[name] || placeholder}
                   required={requiredFields[name] || required}
                   disabled={disabled}
@@ -183,6 +193,7 @@ export const AddressForm = ({
     <Form
       initialData={initialValues}
       onSubmit={handleSubmit}
+      requiredFields={Object.keys(requiredFields).filter(field => requiredFields[field])}
       className={containerClasses}
     >
       {fields.map((fieldConfig) => (
@@ -265,6 +276,7 @@ export const ClientAddressForm = ({
 export const PracticeAddressForm = ({
   initialValues,
   onSubmit,
+  onValuesChange,
   disabled = false,
   onCancel,
   labels = {},
@@ -275,6 +287,7 @@ export const PracticeAddressForm = ({
 }: {
   initialValues: Partial<AddressFormFields>;
   onSubmit: (values: AddressFormFields) => void | Promise<void>;
+  onValuesChange?: (values: Partial<AddressFormFields>) => void;
   disabled?: boolean;
   onCancel?: () => void;
   labels?: Record<string, string>;
@@ -286,6 +299,7 @@ export const PracticeAddressForm = ({
   <AddressForm
     initialValues={initialValues}
     onSubmit={onSubmit}
+    onValuesChange={onValuesChange}
     onCancel={onCancel}
     disabled={disabled}
     labels={labels}

@@ -21,6 +21,17 @@ interface AutocompleteQuery {
  * Handle autocomplete request with rate limiting and quota controls
  */
 export async function handleAutocomplete(request: Request, env: Env) {
+  // Reject non-GET requests
+  if (request.method !== 'GET') {
+    return new Response('Method Not Allowed', {
+      status: 405,
+      headers: {
+        'Allow': 'GET',
+        'Content-Type': 'text/plain',
+      },
+    });
+  }
+
   try {
     const url = new URL(request.url);
     const query: AutocompleteQuery = {
@@ -135,7 +146,7 @@ export async function handleAutocomplete(request: Request, env: Env) {
       lang: query.lang,
       country: query.country,
       apiKey: env.GEOAPIFY_API_KEY,
-      bias: shouldApplyBias && cfGeo.latitude && cfGeo.longitude ? {
+      bias: shouldApplyBias && cfGeo.latitude != null && cfGeo.longitude != null ? {
         lat: cfGeo.latitude,
         lon: cfGeo.longitude,
         radius: 50000, // 50km radius
@@ -150,12 +161,19 @@ export async function handleAutocomplete(request: Request, env: Env) {
     }
 
     const response: AutocompleteResponse = result;
+    
+    // Set cache headers based on whether bias was applied
+    const cacheControl = shouldApplyBias 
+      ? 'no-store, no-cache, must-revalidate' // Don't cache biased results
+      : 's-maxage=60, public'; // Cache unbiased results for 60 seconds
+    
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 
         'Content-Type': 'application/json',
-        'Cache-Control': 's-maxage=60, public', // Edge cache for 60 seconds
+        'Cache-Control': cacheControl,
         'Vary': 'Accept-Language', // Vary by language for localized results
+        ...(shouldApplyBias && { 'Vary': 'Accept-Language, CF-IPCountry' }), // Also vary by country when biased
       },
     });
 

@@ -68,11 +68,12 @@ export function parseContactData(content: string): ContactData | null {
       const addressText = addressMatch[1].trim();
       contactData.address = {
         address: addressText,
-        apartment: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        country: ''
+        apartment: undefined,
+        city: undefined,
+        state: undefined,
+        postalCode: undefined,
+        country: undefined
+        // Note: This is a partial/incomplete address that requires enrichment
       };
     }
     

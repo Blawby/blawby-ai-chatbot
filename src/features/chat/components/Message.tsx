@@ -98,6 +98,9 @@ interface MessageProps {
 	toolMessage?: string;
 	id?: string;
 	practiceId?: string;
+	intakeStatus?: {
+		step?: string;
+	};
 	// Styling
 	className?: string;
 }
@@ -116,6 +119,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	contactFormVariant,
 	contactFormFormId,
 	showContactFormSubmit,
+	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -276,6 +280,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					contactFormVariant={contactFormVariant}
 					contactFormFormId={contactFormFormId}
 					showContactFormSubmit={showContactFormSubmit}
+					intakeStatus={intakeStatus}
 					documentChecklist={documentChecklist}
 					generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}

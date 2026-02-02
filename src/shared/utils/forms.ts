@@ -27,14 +27,28 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
 
   // Handle address field if present
   const address = formData.address as any;
-  const addressPayload = address ? {
-    line1: address.address,
-    line2: address.apartment,
-    city: address.city,
-    state: address.state,
-    postal_code: address.postalCode,
-    country: address.country
-  } : undefined;
+  let addressPayload: any = undefined;
+  
+  if (address) {
+    // Check if required address fields are present and non-empty
+    const hasRequiredFields = [
+      address.address?.trim(),
+      address.city?.trim(),
+      address.country?.trim(),
+      address.postalCode?.trim()
+    ].every(field => field && field.length > 0);
+    
+    if (hasRequiredFields) {
+      addressPayload = {
+        line1: address.address,
+        line2: address.apartment,
+        city: address.city,
+        state: address.state,
+        postal_code: address.postalCode,
+        country: address.country
+      };
+    }
+  }
 
   return {
     slug: practiceSlug,

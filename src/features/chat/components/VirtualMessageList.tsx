@@ -447,6 +447,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             practiceId={practiceId}
                             assistantRetry={message.assistantRetry}
                             modeSelector={modeSelector}
+                            intakeStatus={_intakeStatus}
                         />
                     );
                 })}

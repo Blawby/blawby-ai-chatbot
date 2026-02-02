@@ -997,6 +997,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               initialValues={{
                 address: contactDraft.address,
               }}
+              onValuesChange={(values) => {
+                if (values.address) {
+                  setContactDraft(prev => ({
+                    ...prev,
+                    address: values.address,
+                  }));
+                }
+              }}
               onSubmit={(formData) => {
                 setContactDraft(prev => ({
                   ...prev,

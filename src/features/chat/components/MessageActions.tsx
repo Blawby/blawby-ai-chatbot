@@ -35,6 +35,9 @@ interface MessageActionsProps {
 	contactFormVariant?: 'card' | 'plain';
 	contactFormFormId?: string;
 	showContactFormSubmit?: boolean;
+	intakeStatus?: {
+		step?: string;
+	};
 	paymentRequest?: IntakePaymentRequest;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
@@ -76,6 +79,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	contactFormVariant,
 	contactFormFormId,
 	showContactFormSubmit,
+	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -127,8 +131,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				/>
 			)}
 			
-			{/* Display contact form */}
-			{contactForm && onContactFormSubmit && (
+			{/* Display contact form only if intake is still in contact_form step */}
+			{contactForm && onContactFormSubmit && intakeStatus?.step === 'contact_form' && (
 				<ContactForm
 					fields={contactForm.fields}
 					required={contactForm.required}

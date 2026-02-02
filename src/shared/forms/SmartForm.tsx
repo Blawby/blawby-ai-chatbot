@@ -76,7 +76,7 @@ export function SmartForm<T extends z.ZodType>({
           // Build component props
           const componentProps: any = {
             value: adaptedValue,
-            onChange: (newValue: any) => onChange(reverseFieldAdapter(fieldId, newValue)),
+            onChange: (newValue: any) => onChange(newValue),
             disabled,
             label: labels[fieldId] || fieldEntry.label,
             placeholder: placeholders[fieldId] || fieldEntry.placeholder,

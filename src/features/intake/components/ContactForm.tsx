@@ -302,7 +302,17 @@ export function ContactForm({
               {({ value, error, onChange }) => (
                 <AddressInput
                   value={value as Address || null}
-                  onChange={(address) => onChange(address)}
+                  onChange={(address) => {
+                    // Merge incoming address with existing value to preserve user-entered fields
+                    const currentAddress: Partial<Address> = (value as Address) || {};
+                    const mergedAddress = address ? {
+                      ...currentAddress,
+                      ...address,
+                      // Preserve apartment if incoming address doesn't have it or it's empty
+                      apartment: address.apartment || currentAddress.apartment,
+                    } : address;
+                    onChange(mergedAddress);
+                  }}
                   label={t('forms.contactForm.location')}
                   placeholder={t('forms.contactForm.placeholders.location')}
                   required={validRequired.includes('address') ? { address: true, city: true, state: true, postalCode: true, country: true } : undefined}

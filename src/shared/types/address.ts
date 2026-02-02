@@ -61,7 +61,7 @@ export interface AutocompleteResponse {
 
 // Autocomplete API error responses
 export interface AutocompleteError {
-  code: 'INVALID_REQUEST' | 'AUTOCOMPLETE_DISABLED' | 'UPSTREAM_ERROR';
+  code: 'INVALID_REQUEST' | 'AUTOCOMPLETE_DISABLED' | 'UPSTREAM_ERROR' | 'RATE_LIMITED';
 }
 
 // Jurisdiction configuration for practices

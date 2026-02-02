@@ -175,9 +175,9 @@ export const AddressInput = ({
   const handleStreetAddressChange = useCallback((text: string) => {
     setAddressSource('manual');
     
-    // Update address field
+    // Update address field using safeValue to prevent undefined issues
     onChange({
-      ...value,
+      ...safeValue,
       address: text,
     });
     
@@ -187,7 +187,7 @@ export const AddressInput = ({
     } else {
       setAutocompleteState(prev => ({ ...prev, suggestions: [], isOpen: false }));
     }
-  }, [value, onChange, enableAutocomplete, minChars, debouncedSearch]);
+  }, [safeValue, enableAutocomplete, minChars, debouncedSearch, onChange]);
 
   // Handle suggestion selection
   const handleSuggestionSelect = useCallback((suggestion: AddressSuggestion) => {
