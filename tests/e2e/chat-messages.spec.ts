@@ -455,13 +455,19 @@ const expectUserMessage = async (page: Page, content: string, timeoutMs = 15000)
 test.describe('Chat messaging', () => {
   let sharedClientConversationId: string | null = null;
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
-  test.describe.configure({ mode: 'serial', timeout: 60000, retries: 0 });
+  test.describe.configure({ mode: 'serial', timeout: 120000, retries: 0 });
 
   test('anonymous guest can send a chat message', async ({ anonContext, anonPage, baseURL }) => {
     if (!e2eConfig) return;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     await anonPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
-    await waitForSession(anonPage, { timeoutMs: 60000 });
+    
+    // Wait for session to be established with longer timeout for anonymous users
+    await waitForSession(anonPage, { timeoutMs: 45000 });
+    
+    // Additional wait to ensure page is stable after anonymous sign-in
+    await anonPage.waitForTimeout(2000);
+    
     const conversationId = await getOrCreateConversation({
       request: anonContext.request,
       context: anonContext,

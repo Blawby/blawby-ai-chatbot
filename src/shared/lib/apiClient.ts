@@ -707,22 +707,45 @@ export async function getUserDetail(
   return null;
 }
 
+export type CreateUserDetailPayload = {
+  name: string;
+  email: string;
+  phone?: string;
+  status?: UserDetailStatus;
+  currency?: string;
+};
+
 export async function createUserDetail(
   practiceId: string,
-  payload: Record<string, unknown>
+  payload: CreateUserDetailPayload
 ): Promise<UserDetailRecord | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.post(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
-    payload
-  );
-  const data = response.data;
-  if (isRecord(data) && isRecord(data.data)) {
-    return data.data as UserDetailRecord;
+  
+  // Use Better Auth organization invitation instead of direct user-details creation
+  const { getClient } = await import('@/shared/lib/authClient');
+  const authClient = getClient();
+  
+  // Validate email before sending invitation
+  if (!payload.email || typeof payload.email !== 'string' || payload.email.trim().length === 0) {
+    throw new Error('Valid email address is required for invitation');
   }
-  return null;
+  const normalizedEmail = payload.email.trim();
+  
+  try {
+    await authClient.organization.inviteMember({
+      email: normalizedEmail,
+      role: 'member',
+      organizationId: practiceId,
+    });
+    
+    // Return null - callers should refresh from server to get the actual record
+    return null;
+  } catch (error) {
+    console.error('Failed to invite client:', error);
+    throw error;
+  }
 }
 
 export async function updateUserDetail(

@@ -54,6 +54,17 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'archived', label: STATUS_LABELS.archived }
 ];
 
+const CURRENCY_OPTIONS: SelectOption[] = [
+  { value: 'usd', label: 'USD - US Dollar' },
+  { value: 'eur', label: 'EUR - Euro' },
+  { value: 'gbp', label: 'GBP - British Pound' },
+  { value: 'cad', label: 'CAD - Canadian Dollar' },
+  { value: 'aud', label: 'AUD - Australian Dollar' },
+  { value: 'jpy', label: 'JPY - Japanese Yen' },
+  { value: 'chf', label: 'CHF - Swiss Franc' },
+  { value: 'cny', label: 'CNY - Chinese Yuan' }
+];
+
 type ClientRecord = {
   id: string;
   name: string;
@@ -68,7 +79,6 @@ type ClientFormState = {
   phone: string;
   status: UserDetailStatus;
   currency: string;
-  eventName: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -188,22 +198,13 @@ const ClientFormFields = ({
       onChange={(value) => onChange('status', value as UserDetailStatus)}
       disabled={disabled}
     />
-    <Input
+    <Select
       label="Currency"
       value={values.currency}
+      options={CURRENCY_OPTIONS}
       onChange={(value) => onChange('currency', value)}
-      placeholder="usd"
       disabled={disabled}
     />
-    <div className="sm:col-span-2">
-      <Input
-        label="Event name"
-        value={values.eventName}
-        onChange={(value) => onChange('eventName', value)}
-        placeholder="Initial consult"
-        disabled={disabled}
-      />
-    </div>
     <div className="sm:col-span-2">
       <Input
         label="Address line 1"
@@ -385,7 +386,6 @@ export const PracticeClientsPage = () => {
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    eventName: '',
     addressLine1: '',
     addressLine2: '',
     city: '',
@@ -400,7 +400,6 @@ export const PracticeClientsPage = () => {
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    eventName: '',
     addressLine1: '',
     addressLine2: '',
     city: '',
@@ -627,7 +626,6 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      eventName: '',
       addressLine1: '',
       addressLine2: '',
       city: '',
@@ -657,7 +655,6 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      eventName: '',
       addressLine1: '',
       addressLine2: '',
       city: '',
@@ -685,7 +682,6 @@ export const PracticeClientsPage = () => {
         phone: detail?.user?.phone ?? selectedClient.phone ?? '',
         status: detail?.status ?? selectedClient.status,
         currency: detail?.currency ?? 'usd',
-        eventName: '',
         addressLine1: '',
         addressLine2: '',
         city: '',
@@ -733,7 +729,7 @@ export const PracticeClientsPage = () => {
         phone: editClientForm.phone.trim() || undefined,
         status: editClientForm.status,
         currency: editClientForm.currency.trim() || 'usd',
-        event_name: editClientForm.eventName.trim() || undefined,
+        event_name: 'Invite Client',
         ...(hasAddress && {
           address: {
             line1: addressLine1 || undefined,
@@ -790,16 +786,7 @@ export const PracticeClientsPage = () => {
         email,
         phone: addClientForm.phone.trim() || undefined,
         status: addClientForm.status,
-        currency: addClientForm.currency.trim() || 'usd',
-        event_name: addClientForm.eventName.trim() || undefined,
-        address: {
-          line1: addClientForm.addressLine1.trim() || undefined,
-          line2: addClientForm.addressLine2.trim() || undefined,
-          city: addClientForm.city.trim() || undefined,
-          state: addClientForm.state.trim() || undefined,
-          postal_code: addClientForm.postalCode.trim() || undefined,
-          country: addClientForm.country.trim() || 'US'
-        }
+        currency: addClientForm.currency.trim() || 'usd'
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client added', 'The client has been added to your practice.');
