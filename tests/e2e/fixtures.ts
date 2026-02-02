@@ -34,7 +34,12 @@ const test = base.extend<E2EFixtures>({
     await context.close();
   },
   anonContext: async ({ browser, baseURL }, use, testInfo) => {
-    const context = await browser.newContext({ storageState: AUTH_STATE_PATHS.anonymous, baseURL });
+    // Anonymous users should start with clean state to allow fresh sign-in
+    const context = await browser.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+      extraHTTPHeaders: { Cookie: '' }
+    });
     const networkLogger = attachNetworkLogger({ context, testInfo, label: 'anonymous', baseURL });
     await use(context);
     await networkLogger?.flush();

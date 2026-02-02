@@ -411,6 +411,8 @@ const createIntake = async (options: {
   email: string;
   description?: string;
   amount?: number;
+  conversationId?: string;
+  phone?: string;
   request?: APIRequestContext;
   context?: BrowserContext;
   baseURL?: string;
@@ -435,6 +437,8 @@ const createIntake = async (options: {
     name: options.name,
     email: options.email,
     description: options.description,
+    conversation_id: options.conversationId || '',
+    phone: options.phone || '',
   };
   const url = `${BACKEND_API_URL}/api/practice/client-intakes/create`;
 
@@ -1000,6 +1004,7 @@ test.describe('Lead intake workflow', () => {
       email: e2eConfig.client.email,
       description: 'E2E payment gated',
       amount: intakeSettings?.prefillAmount,
+      conversationId,
       request: clientContext.request,
       context: clientContext,
       baseURL,

@@ -49,8 +49,20 @@ export const waitForSession = async (
         userId: typeof userId === 'string' ? userId : null,
         body: rawText.slice(0, 300)
       };
+      
+      // For anonymous users, we accept either a valid session with userId OR
+      // a session that indicates anonymous user status
       if (lastResult.ok && lastResult.hasSession && lastResult.userId) {
         return lastResult.userId;
+      }
+      
+      // Check if anonymous sign-in has completed (even if userId is null/empty)
+      if (lastResult.ok && lastResult.hasSession && rawText.includes('anonymous')) {
+        // Extract userId for anonymous users
+        const anonUserId = data?.user?.id ?? data?.data?.user?.id ?? data?.session?.user?.id ?? data?.data?.session?.user?.id;
+        if (anonUserId) {
+          return anonUserId;
+        }
       }
     } catch (error) {
       lastResult = {

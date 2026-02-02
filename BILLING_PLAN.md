@@ -1,4 +1,4 @@
-# Billing System Implementation Plan
+<!-- # Billing System Implementation Plan
 ## Team-Specific Issue Breakdown
 
 **Document Version**: 3.0 (Production-Ready)  
@@ -440,7 +440,7 @@ COMMENT ON TABLE webhook_events IS 'Idempotency log for Stripe webhooks - preven
 - [ ] Duplicate insert fails with unique violation
 - [ ] Cleanup job documented and scheduled
 
----
+--- -->
 
 #### Issue BE-1.5: Add `billing_status` Column to `time_entries`
 **Priority**: P0 (Blocking)  

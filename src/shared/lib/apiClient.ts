@@ -714,15 +714,42 @@ export async function createUserDetail(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.post(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
-    payload
-  );
-  const data = response.data;
-  if (isRecord(data) && isRecord(data.data)) {
-    return data.data as UserDetailRecord;
+  
+  // Use Better Auth organization invitation instead of direct user-details creation
+  const { getClient } = await import('@/shared/lib/authClient');
+  const authClient = getClient();
+  
+  try {
+    const invitation = await authClient.organization.inviteMember({
+      email: payload.email as string,
+      role: 'member', // Clients are members in Better Auth terms
+      organizationId: practiceId,
+    });
+    
+    // Convert invitation response to UserDetailRecord format for compatibility
+    if (invitation.data) {
+      return {
+        id: invitation.data.id || '',
+        organization_id: practiceId,
+        user_id: '', // Will be populated when user accepts invitation
+        user: {
+          id: '',
+          name: payload.name as string || '',
+          email: payload.email as string || '',
+          phone: payload.phone as string || null,
+        },
+        address_id: null,
+        status: 'lead', // Invitation status maps to lead
+        currency: (payload.currency as string) || 'usd',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to invite client:', error);
+    throw error;
   }
-  return null;
 }
 
 export async function updateUserDetail(
