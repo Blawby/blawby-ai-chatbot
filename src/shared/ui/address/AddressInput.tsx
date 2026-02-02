@@ -86,6 +86,15 @@ export const AddressInput = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   // Fetch autocomplete suggestions
   const fetchSuggestions = useCallback(async (text: string) => {
     if (!enableAutocomplete || text.length < minChars || autocompleteState.disabled) {
@@ -107,8 +116,8 @@ export const AddressInput = ({
       // Add country filter to favor specific country (default US)
       if (country) {
         url.searchParams.set('country', country);
-      } else if (safeValue.country) {
-        url.searchParams.set('country', safeValue.country);
+      } else if (value?.country) {
+        url.searchParams.set('country', value.country);
       }
 
       const response = await fetch(url.toString());
@@ -128,8 +137,6 @@ export const AddressInput = ({
       }
 
       const data = await response.json() as { suggestions: AddressSuggestion[] };
-      console.log('[Frontend] Received suggestions:', data.suggestions);
-      console.log('[Frontend] Suggestions count:', data.suggestions?.length);
       setAutocompleteState(prev => {
         const newState = {
           ...prev,
@@ -137,11 +144,9 @@ export const AddressInput = ({
           isLoading: false,
           isOpen: data.suggestions?.length > 0,
         };
-        console.log('[Frontend] New autocomplete state:', newState);
         return newState;
       });
     } catch (error) {
-      console.error('Autocomplete error:', error);
       setAutocompleteState(prev => ({
         ...prev,
         suggestions: [],
@@ -149,7 +154,7 @@ export const AddressInput = ({
         error: 'Failed to fetch suggestions',
       }));
     }
-  }, [enableAutocomplete, minChars, autocompleteUrl, safeValue.country, autocompleteState.disabled]);
+  }, [enableAutocomplete, minChars, autocompleteUrl, autocompleteState.disabled, limit, country, value?.country]);
 
   // Debounced search
   const debouncedSearch = useCallback((text: string) => {

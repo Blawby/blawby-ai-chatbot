@@ -17,7 +17,8 @@ export async function incrementDailyCounter(
   
   // Get current count
   const current = await env.CHAT_SESSIONS.get(counterKey);
-  const count = current ? parseInt(current, 10) : 0;
+  const parsedCount = parseInt(current, 10);
+  const count = Number.isNaN(parsedCount) ? 0 : parsedCount;
   
   // Check if limit would be exceeded
   if (count >= limit) {
@@ -46,7 +47,8 @@ export async function incrementRateLimitCounter(
   
   // Get current count
   const current = await env.CHAT_SESSIONS.get(minuteKey);
-  const count = current ? parseInt(current, 10) : 0;
+  const parsedCount = parseInt(current, 10);
+  const count = Number.isNaN(parsedCount) ? 0 : parsedCount;
   
   // Check if limit would be exceeded
   if (count >= limit) {
@@ -70,5 +72,6 @@ export async function getCounter(
   key: string
 ): Promise<number> {
   const value = await env.CHAT_SESSIONS.get(key);
-  return value ? parseInt(value, 10) : 0;
+  const parsedValue = parseInt(value, 10);
+  return Number.isNaN(parsedValue) ? 0 : parsedValue;
 }

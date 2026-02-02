@@ -206,7 +206,7 @@ const ClientFormFields = ({
       onChange={(value) => onChange('currency', value)}
       disabled={disabled}
     />
-    <div className="sm:col-span-6">
+    <div className="sm:col-span-2">
       <AddressFields
         value={{
           address: values.address || '',

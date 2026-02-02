@@ -294,36 +294,37 @@ test.describe('Intake invite flow', () => {
     await addressInput.fill('123 Main St');
     
     // Wait for autocomplete dropdown to appear
-    const autocompleteDropdown = anonPage.locator('[class*="absolute"]').first();
+    const autocompleteDropdown = anonPage.locator('[data-testid="autocomplete-dropdown"]');
     await expect(autocompleteDropdown).toBeVisible({ timeout: 5000 });
     
     // Check if suggestions are loaded
     const suggestions = anonPage.locator('[role="option"]');
     const suggestionCount = await suggestions.count();
     
-    if (suggestionCount > 0) {
-      // Select first suggestion
-      await suggestions.first().click();
+    // Assert autocomplete availability to catch regressions
+    expect(suggestionCount).toBeGreaterThan(0);
+    
+    // Select first suggestion
+    await suggestions.first().click();
+    
+    // Verify structured fields are populated
+    const toggleButton = anonPage.getByText(/show structured fields/i);
+    if (await toggleButton.isVisible()) {
+      await toggleButton.click();
       
-      // Verify structured fields are populated
-      const toggleButton = anonPage.getByText(/show structured fields/i);
-      if (await toggleButton.isVisible()) {
-        await toggleButton.click();
-        
-        // Check if address fields are filled
-        const cityField = contactForm.getByLabel('City');
-        const stateField = contactForm.getByLabel(/state/i);
-        const postalField = contactForm.getByLabel('Postal Code');
-        
-        if (await cityField.isVisible()) {
-          expect(await cityField.inputValue()).not.toBe('');
-        }
-        if (await stateField.isVisible()) {
-          expect(await stateField.inputValue()).not.toBe('');
-        }
-        if (await postalField.isVisible()) {
-          expect(await postalField.inputValue()).not.toBe('');
-        }
+      // Check if address fields are filled
+      const cityField = contactForm.getByLabel('City');
+      const stateField = contactForm.getByLabel(/state/i);
+      const postalField = contactForm.getByLabel('Postal Code');
+      
+      if (await cityField.isVisible()) {
+        expect(await cityField.inputValue()).not.toBe('');
+      }
+      if (await stateField.isVisible()) {
+        expect(await stateField.inputValue()).not.toBe('');
+      }
+      if (await postalField.isVisible()) {
+        expect(await postalField.inputValue()).not.toBe('');
       }
     }
 
@@ -350,15 +351,13 @@ test.describe('Intake invite flow', () => {
     const intakeData = parseIntakeCreateData(payload);
     
     // Verify address data is included in the response
-    if (suggestionCount > 0) {
-      expect(intakeData.address).toBeTruthy();
-      if (intakeData.address) {
-        expect(intakeData.address.address).toBeTruthy();
-        expect(intakeData.address.city).toBeTruthy();
-        expect(intakeData.address.state).toBeTruthy();
-        expect(intakeData.address.postal_code).toBeTruthy();
-        expect(intakeData.address.country).toBeTruthy();
-      }
+    expect(intakeData.address).toBeTruthy();
+    if (intakeData.address) {
+      expect(intakeData.address.address).toBeTruthy();
+      expect(intakeData.address.city).toBeTruthy();
+      expect(intakeData.address.state).toBeTruthy();
+      expect(intakeData.address.postal_code).toBeTruthy();
+      expect(intakeData.address.country).toBeTruthy();
     }
   });
 });

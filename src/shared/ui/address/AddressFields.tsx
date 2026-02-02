@@ -60,6 +60,7 @@ const STATE_OPTIONS: SelectOption[] = [
   { value: 'CO', label: 'Colorado' },
   { value: 'CT', label: 'Connecticut' },
   { value: 'DE', label: 'Delaware' },
+  { value: 'DC', label: 'District of Columbia' },
   { value: 'FL', label: 'Florida' },
   { value: 'GA', label: 'Georgia' },
   { value: 'HI', label: 'Hawaii' },
@@ -121,7 +122,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   const safeValue = value || { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
   const updateField = (field: keyof Address, fieldValue: string) => {
     onChange({
-      ...value,
+      ...safeValue,
       [field]: fieldValue,
     });
   };
@@ -130,19 +131,15 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   const getError = (field: keyof Address) => errors[field];
   const isRequired = (field: keyof Address) => !!required[field];
 
+  const getInputClasses = (field: keyof Address) => cn(
+    hasError(field) && 'border-red-300 dark:border-red-600'
+  );
+
   const containerClasses = cn(
     'space-y-4',
     className
   );
 
-  const inputClasses = cn(
-    hasError('address') && 'border-red-300 dark:border-red-600',
-    hasError('apartment') && 'border-red-300 dark:border-red-600',
-    hasError('city') && 'border-red-300 dark:border-red-600',
-    hasError('state') && 'border-red-300 dark:border-red-600',
-    hasError('postalCode') && 'border-red-300 dark:border-red-600',
-    hasError('country') && 'border-red-300 dark:border-red-600'
-  );
 
   return (
     <div ref={ref} className={containerClasses}>
@@ -151,7 +148,13 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         <Input
           label="Address"
           value={streetAddressProps?.value || safeValue.address || ''}
-          onChange={(newValue) => streetAddressProps?.onChange(newValue)}
+          onChange={(newValue) => {
+            if (streetAddressProps?.onChange) {
+              streetAddressProps.onChange(newValue);
+            } else {
+              updateField('address', newValue);
+            }
+          }}
           disabled={disabled}
           placeholder="123 Main Street"
           required={isRequired('address')}
@@ -159,7 +162,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
           variant={hasError('address') ? 'error' : variant}
           size={size}
           className={cn(
-            inputClasses,
+            getInputClasses('address'),
             streetAddressProps?.isOpen && 'ring-2 ring-blue-500 border-blue-500'
           )}
         />
@@ -173,7 +176,10 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
 
         {/* Autocomplete dropdown */}
         {streetAddressProps?.isOpen && !streetAddressProps?.disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div 
+            data-testid="autocomplete-dropdown"
+            className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          >
             {streetAddressProps.suggestions.length > 0 ? (
               <ul className="py-1">
                 {streetAddressProps.suggestions.map((suggestion, index) => (
@@ -214,7 +220,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         error={getError('apartment')}
         variant={hasError('apartment') ? 'error' : variant}
         size={size}
-        className={inputClasses}
+        className={getInputClasses('apartment')}
       />
 
       {/* City, State, Postal Code - 3 Column Layout */}
@@ -231,7 +237,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             error={getError('city')}
             variant={hasError('city') ? 'error' : variant}
             size={size}
-            className={inputClasses}
+            className={getInputClasses('city')}
           />
         </div>
 
@@ -239,18 +245,25 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         <div>
           <div className="relative">
             {safeValue.country === 'US' ? (
-              <Select
-                label=""
-                value={safeValue.state || ''}
-                onChange={(newValue) => updateField('state', newValue)}
-                disabled={disabled}
-                placeholder="State"
-                options={STATE_OPTIONS}
-                className={cn(
-                  inputClasses,
-                  hasError('state') && 'border-red-300 dark:border-red-600'
+              <>
+                <Select
+                  label=""
+                  value={safeValue.state || ''}
+                  onChange={(newValue) => updateField('state', newValue)}
+                  disabled={disabled}
+                  placeholder="State"
+                  options={STATE_OPTIONS}
+                  className={cn(
+                    getInputClasses('state'),
+                    hasError('state') && 'border-red-300 dark:border-red-600'
+                  )}
+                />
+                {hasError('state') && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {getError('state')}
+                  </p>
                 )}
-              />
+              </>
             ) : (
               <Input
                 label=""
@@ -262,13 +275,8 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
                 error={getError('state')}
                 variant={hasError('state') ? 'error' : variant}
                 size={size}
-                className={inputClasses}
+                className={getInputClasses('state')}
               />
-            )}
-            {hasError('state') && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                {getError('state')}
-              </p>
             )}
           </div>
         </div>
@@ -285,7 +293,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             error={getError('postalCode')}
             variant={hasError('postalCode') ? 'error' : variant}
             size={size}
-            className={inputClasses}
+            className={getInputClasses('postalCode')}
           />
         </div>
       </div>

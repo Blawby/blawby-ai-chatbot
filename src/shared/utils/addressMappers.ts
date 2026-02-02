@@ -142,7 +142,7 @@ export function fromGeoapifyResponse(feature: GeoapifyFeature): AddressSuggestio
       confidence: properties.confidence,
       rank: properties.rank,
       datasource: properties.datasource,
-      country: properties.country,
+      country: properties.country_code,
       state: properties.state,
       city: properties.city,
       postcode: properties.postcode,

@@ -61,7 +61,22 @@ export async function callGeoapifyAutocompleteMultiPass(
   // Helper to dedupe and add suggestions
   const addSuggestions = (newSuggestions: AddressSuggestion[]) => {
     for (const suggestion of newSuggestions) {
-      const dedupeKey = suggestion.dedupeKey || suggestion.place_id || '';
+      let dedupeKey = suggestion.dedupeKey || suggestion.place_id;
+      
+      // Create robust fallback key if both dedupeKey and place_id are missing
+      if (!dedupeKey) {
+        const addressStr = `${suggestion.address.address || ''},${suggestion.address.city || ''},${suggestion.address.state || ''},${suggestion.address.postalCode || ''},${suggestion.address.country || ''}`;
+        const fallbackParts = [
+          addressStr,
+          suggestion.lat?.toString(),
+          suggestion.lon?.toString(),
+          suggestion.label
+        ].filter(Boolean);
+        
+        dedupeKey = fallbackParts.length > 0 
+          ? fallbackParts.join('|').toLowerCase()
+          : Math.random().toString(36).substr(2, 9); // Last resort random key
+      }
       
       if (!seenKeys.has(dedupeKey)) {
         seenKeys.add(dedupeKey);
@@ -132,11 +147,12 @@ export async function callGeoapifyAutocompleteMultiPass(
     addSuggestions(pass1Result.suggestions);
     console.log('[Geoapify MultiPass] Pass 1 collected:', allSuggestions.length);
     
-    // If we have enough results, return early
+    // If we have enough results, rank them all and slice the best ones
     if (allSuggestions.length >= limit) {
-      const rankedSuggestions = rankSuggestions(allSuggestions.slice(0, limit));
-      console.log('[Geoapify MultiPass] Early return after Pass 1:', rankedSuggestions.length);
-      return { suggestions: rankedSuggestions };
+      const rankedSuggestions = rankSuggestions(allSuggestions);
+      const finalSuggestions = rankedSuggestions.slice(0, limit);
+      console.log('[Geoapify MultiPass] Early return after Pass 1:', finalSuggestions.length);
+      return { suggestions: finalSuggestions };
     }
     
     // Pass 2 & 4: Parallel street and locality suggestions
@@ -216,6 +232,16 @@ export async function callGeoapifyAutocompleteMultiPass(
 /**
  * Call Geoapify autocomplete API (single pass)
  */
+// Helper to sanitize URLs by removing API keys for logging
+function sanitizeUrlForLogging(url: URL): string {
+  const sanitized = new URL(url);
+  // Remove common API key parameters
+  sanitized.searchParams.delete('apiKey');
+  sanitized.searchParams.delete('key');
+  sanitized.searchParams.delete('api_key');
+  return sanitized.toString();
+}
+
 export async function callGeoapifyAutocomplete(
   options: GeoapifyAutocompleteOptions,
   env?: { DEBUG_GEO?: string }
@@ -249,7 +275,7 @@ export async function callGeoapifyAutocomplete(
   }
   
   if (env?.DEBUG_GEO === '1') {
-    console.log('[Geoapify] Request URL:', url.toString());
+    console.log('[Geoapify] Request URL:', sanitizeUrlForLogging(url));
   }
   
   try {
@@ -264,7 +290,7 @@ export async function callGeoapifyAutocomplete(
       const errorText = await response.text();
       console.error('[Geoapify] API error:', response.status, response.statusText);
       console.error('[Geoapify] Error response:', errorText);
-      console.error('[Geoapify] Request URL:', url.toString());
+      console.error('[Geoapify] Request URL:', sanitizeUrlForLogging(url));
       return { code: 'UPSTREAM_ERROR' };
     }
     

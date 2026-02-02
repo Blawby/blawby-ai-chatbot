@@ -26,7 +26,7 @@ export async function handleAutocomplete(request: Request, env: Env) {
       text: url.searchParams.get('text') || '',
       limit: url.searchParams.get('limit') || '5',
       lang: url.searchParams.get('lang') || 'en',
-      country: url.searchParams.get('country') || null,
+      country: url.searchParams.get('country') || undefined,
     };
 
     // Get Cloudflare geolocation context
@@ -93,9 +93,9 @@ export async function handleAutocomplete(request: Request, env: Env) {
     // Get client IP for rate limiting
     const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
     
-    // Check daily quota
-    const dailyResult = await incrementDailyCounter(env, 'geo:day', dailyLimit);
-    if (dailyResult.exceeded) {
+    // Check per-minute rate limit first
+    const rpmResult = await incrementRateLimitCounter(env, `geo:rpm:${clientIp}`, rpmPerIp);
+    if (rpmResult.exceeded) {
       const error: AutocompleteError = { code: 'AUTOCOMPLETE_DISABLED' };
       return new Response(JSON.stringify(error), {
         status: 429,
@@ -106,9 +106,9 @@ export async function handleAutocomplete(request: Request, env: Env) {
       });
     }
 
-    // Check per-minute rate limit
-    const rpmResult = await incrementRateLimitCounter(env, `geo:rpm:${clientIp}`, rpmPerIp);
-    if (rpmResult.exceeded) {
+    // Check daily quota after RPM passes
+    const dailyResult = await incrementDailyCounter(env, 'geo:day', dailyLimit);
+    if (dailyResult.exceeded) {
       const error: AutocompleteError = { code: 'AUTOCOMPLETE_DISABLED' };
       return new Response(JSON.stringify(error), {
         status: 429,

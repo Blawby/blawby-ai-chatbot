@@ -24,8 +24,9 @@ test.describe('Clients', () => {
     if (await addressInput.isVisible()) {
       await addressInput.fill('123 Main St');
       
-      // Wait for autocomplete suggestions
+      // Wait for autocomplete suggestions to appear
       const suggestions = page.locator('[role="option"]');
+      await expect(suggestions.first()).toBeVisible({ timeout: 5000 });
       const suggestionCount = await suggestions.count();
       
       if (suggestionCount > 0) {

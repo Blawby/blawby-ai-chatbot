@@ -61,14 +61,29 @@ export function formatCityStateZip(address: Partial<Address>): string {
     return `${parts[0]}, ${parts[1]} ${parts[2]}`;
   }
   
-  // Format: City State or City PostalCode
+  // Format: City State or City PostalCode or State PostalCode
   if (parts.length === 2) {
-    // If second part looks like a postal code (contains numbers), add space
-    if (/\d/.test(parts[1])) {
+    const hasCity = !!address.city?.trim();
+    const hasState = !!address.state?.trim();
+    const hasPostalCode = !!address.postalCode?.trim();
+    
+    if (hasCity && hasState) {
+      // City, State
+      return `${parts[0]}, ${parts[1]}`;
+    } else if (hasCity && hasPostalCode) {
+      // City PostalCode
       return `${parts[0]} ${parts[1]}`;
+    } else if (hasState && hasPostalCode) {
+      // State PostalCode
+      return `${parts[0]} ${parts[1]}`;
+    } else {
+      // Fallback: if second part looks like a postal code (contains numbers), add space
+      if (/\d/.test(parts[1])) {
+        return `${parts[0]} ${parts[1]}`;
+      }
+      // Otherwise treat as state
+      return `${parts[0]}, ${parts[1]}`;
     }
-    // Otherwise treat as state
-    return `${parts[0]}, ${parts[1]}`;
   }
   
   return parts[0];

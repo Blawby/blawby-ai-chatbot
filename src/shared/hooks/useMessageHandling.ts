@@ -1307,7 +1307,19 @@ export const useMessageHandling = ({
     try {
       // Format contact data as a structured message
       const addressText = contactData.address 
-        ? `Address: ${contactData.address.address}${contactData.address.apartment ? `, ${contactData.address.apartment}` : ''}, ${contactData.address.city}, ${contactData.address.state} ${contactData.address.postalCode}`
+        ? (() => {
+            const parts = [];
+            if (contactData.address.address) parts.push(contactData.address.address);
+            if (contactData.address.apartment) parts.push(contactData.address.apartment);
+            if (contactData.address.city && contactData.address.state && contactData.address.postalCode) {
+              parts.push(`${contactData.address.city}, ${contactData.address.state} ${contactData.address.postalCode}`);
+            } else {
+              if (contactData.address.city) parts.push(contactData.address.city);
+              if (contactData.address.state) parts.push(contactData.address.state);
+              if (contactData.address.postalCode) parts.push(contactData.address.postalCode);
+            }
+            return parts.length > 0 ? `Address: ${parts.join(', ')}` : '';
+          })()
         : '';
       const contactMessage = `Contact Information:
 Name: ${contactData.name}

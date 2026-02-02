@@ -139,6 +139,15 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleHealth(request, env);
     } else if (path === '/') {
       response = await handleRoot(request, env);
+    } else if (path.startsWith('/api/')) {
+      // Return 404 for unmatched API routes
+      response = new Response(JSON.stringify({
+        error: 'API endpoint not found',
+        code: 'NOT_FOUND'
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else {
       response = await handleRoot(request, env);
     }

@@ -48,7 +48,8 @@ function validateField(
   field: keyof Address,
   value: string,
   isRequired: boolean,
-  level: AddressValidationLevel
+  level: AddressValidationLevel,
+  address?: Partial<Address>
 ): { isValid: boolean; error?: { code: string; message: string } } {
   const trimmedValue = value.trim();
   
@@ -83,7 +84,18 @@ function validateField(
   // Field-specific validation
   switch (field) {
     case 'country':
-      if (!ISO2_COUNTRY_REGEX.test(trimmedValue)) {
+      // Strict validation requires exact 2-letter country codes
+      if (level === 'strict' && !ISO2_COUNTRY_REGEX.test(trimmedValue)) {
+        return {
+          isValid: false,
+          error: {
+            code: ERROR_CODES.INVALID_COUNTRY,
+            message: ERROR_MESSAGES[ERROR_CODES.INVALID_COUNTRY],
+          },
+        };
+      }
+      // Loose validation allows more flexible country formats
+      if (level === 'loose' && trimmedValue.length < 2) {
         return {
           isValid: false,
           error: {
@@ -95,7 +107,8 @@ function validateField(
       break;
       
     case 'postalCode':
-      if (!validatePostalCode(trimmedValue, value)) {
+      // Pass country from address for proper postal code validation
+      if (!validatePostalCode(trimmedValue, address?.country || '')) {
         return {
           isValid: false,
           error: {
@@ -116,8 +129,11 @@ function validateField(
 function validatePostalCode(postalCode: string, originalCountry: string): boolean {
   const trimmedPostal = postalCode.trim().toUpperCase();
   
-  // Try to extract country from address context or use US as default
-  const country = originalCountry.trim().toUpperCase() || 'US';
+  // Derive country properly, defaulting to lenient validation if empty
+  const country = originalCountry?.trim().toUpperCase();
+  if (!country) {
+    return GENERAL_POSTAL_CODE_REGEX.test(trimmedPostal);
+  }
   
   switch (country) {
     case 'US':
@@ -143,7 +159,7 @@ export function validateAddressLoose(address: Partial<Address>): AddressValidati
   
   for (const field of fields) {
     const value = address[field] || '';
-    const result = validateField(field, value, false, 'loose');
+    const result = validateField(field, value, false, 'loose', address);
     
     if (!result.isValid && result.error) {
       errors.push({
@@ -163,7 +179,7 @@ export function validateAddressLoose(address: Partial<Address>): AddressValidati
 
 /**
  * Strict address validation for practice/client records
- * - All fields except line2 are required
+ * - All fields except apartment are required
  * - Validates format and length
  */
 export function validateAddressStrict(address: Partial<Address>): AddressValidationResult {
@@ -176,7 +192,7 @@ export function validateAddressStrict(address: Partial<Address>): AddressValidat
   // Validate required fields
   for (const field of requiredFields) {
     const value = address[field] || '';
-    const result = validateField(field, value, true, 'strict');
+    const result = validateField(field, value, true, 'strict', address);
     
     if (!result.isValid && result.error) {
       errors.push({
@@ -190,7 +206,7 @@ export function validateAddressStrict(address: Partial<Address>): AddressValidat
   // Validate optional fields
   for (const field of optionalFields) {
     const value = address[field] || '';
-    const result = validateField(field, value, false, 'strict');
+    const result = validateField(field, value, false, 'strict', address);
     
     if (!result.isValid && result.error) {
       errors.push({

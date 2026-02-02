@@ -131,6 +131,15 @@ export function formatAddressErrors(error: z.ZodIssue[]): Record<string, string>
     const path = err.path.join('.');
     if (path) {
       formattedErrors[path] = err.message;
+    } else {
+      // Handle root-level errors with empty paths
+      const rootKey = '_root';
+      if (formattedErrors[rootKey]) {
+        // Append if multiple root errors exist
+        formattedErrors[rootKey] += '; ' + err.message;
+      } else {
+        formattedErrors[rootKey] = err.message;
+      }
     }
   });
   
