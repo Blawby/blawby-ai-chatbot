@@ -287,7 +287,7 @@ export const Select = ({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute right-0 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
+            "absolute right-0 min-w-48 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >

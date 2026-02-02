@@ -707,9 +707,25 @@ export async function getUserDetail(
   return null;
 }
 
+export type CreateUserDetailPayload = {
+  name: string;
+  email: string;
+  phone?: string;
+  status?: UserDetailStatus;
+  currency?: string;
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  };
+};
+
 export async function createUserDetail(
   practiceId: string,
-  payload: Record<string, unknown>
+  payload: CreateUserDetailPayload
 ): Promise<UserDetailRecord | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -719,28 +735,34 @@ export async function createUserDetail(
   const { getClient } = await import('@/shared/lib/authClient');
   const authClient = getClient();
   
+  // Validate email before sending invitation
+  if (!payload.email || typeof payload.email !== 'string' || payload.email.trim().length === 0) {
+    throw new Error('Valid email address is required for invitation');
+  }
+  const normalizedEmail = payload.email.trim();
+  
   try {
     const invitation = await authClient.organization.inviteMember({
-      email: payload.email as string,
-      role: 'member', // Clients are members in Better Auth terms
+      email: normalizedEmail,
+      role: 'member',
       organizationId: practiceId,
     });
     
-    // Convert invitation response to UserDetailRecord format for compatibility
+    // Convert invitation response to UserDetailRecord format
     if (invitation.data) {
       return {
-        id: invitation.data.id || '',
+        id: invitation.data.id,
         organization_id: practiceId,
-        user_id: '', // Will be populated when user accepts invitation
+        user_id: null,
         user: {
-          id: '',
-          name: payload.name as string || '',
-          email: payload.email as string || '',
-          phone: payload.phone as string || null,
+          id: null,
+          name: payload.name ?? null,
+          email: normalizedEmail,
+          phone: payload.phone ?? null,
         },
         address_id: null,
-        status: 'lead', // Invitation status maps to lead
-        currency: (payload.currency as string) || 'usd',
+        status: payload.status ?? 'lead',
+        currency: payload.currency ?? 'usd',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

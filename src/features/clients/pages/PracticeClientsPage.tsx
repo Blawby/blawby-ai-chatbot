@@ -787,7 +787,6 @@ export const PracticeClientsPage = () => {
         phone: addClientForm.phone.trim() || undefined,
         status: addClientForm.status,
         currency: addClientForm.currency.trim() || 'usd',
-        event_name: 'Invite Client',
         address: {
           line1: addClientForm.addressLine1.trim() || undefined,
           line2: addClientForm.addressLine2.trim() || undefined,

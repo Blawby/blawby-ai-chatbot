@@ -134,7 +134,7 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   if (typeof data.intakeUuid === 'string') request.intakeUuid = data.intakeUuid;
   if (typeof data.clientSecret === 'string') request.clientSecret = data.clientSecret;
   if (typeof data.paymentLinkUrl === 'string') request.paymentLinkUrl = data.paymentLinkUrl;
-  if (typeof data.amount === 'number') request.amount = data.amount;
+  if (typeof data.amount === 'number') request.amount = asMinor(data.amount);
   if (typeof data.currency === 'string') request.currency = data.currency;
   if (typeof data.practiceName === 'string') request.practiceName = data.practiceName;
   if (typeof data.practiceLogo === 'string') request.practiceLogo = data.practiceLogo;
