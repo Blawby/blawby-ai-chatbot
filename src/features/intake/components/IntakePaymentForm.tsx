@@ -228,9 +228,11 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       await onSuccess();
     } catch (callbackError) {
       console.error('[IntakePayment] onSuccess callback failed', callbackError);
-      setCallbackWarning(
-        'Payment succeeded but we could not finish the follow-up steps. Please refresh or check back shortly.'
-      );
+      if (isMountedRef.current) {
+        setCallbackWarning(
+          'Payment succeeded but we could not finish the follow-up steps. Please refresh or check back shortly.'
+        );
+      }
     }
   }, [onSuccess]);
 
@@ -353,9 +355,11 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         setStatus('idle');
       } else {
         console.warn('[IntakePayment] Error after payment success', error);
-        setCallbackWarning(
-          'Payment succeeded but we could not finish the follow-up steps. Please refresh or check back shortly.'
-        );
+        if (isMountedRef.current) {
+          setCallbackWarning(
+            'Payment succeeded but we could not finish the follow-up steps. Please refresh or check back shortly.'
+          );
+        }
       }
     } finally {
       setIsSubmitting(false);

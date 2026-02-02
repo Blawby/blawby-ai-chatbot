@@ -180,7 +180,7 @@ function AppShell() {
       Boolean(user) && !user?.isAnonymous && user?.onboardingComplete !== true;
 
     if (requiresOnboarding) {
-      if (!location.path.startsWith('/onboarding')) {
+      if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
         const targetUrl = location.url.startsWith('/')
           ? location.url
           : `/${location.url.replace(/^\/+/, '')}`;

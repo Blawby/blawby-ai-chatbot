@@ -87,13 +87,14 @@ const triggerIntakeInvitation = async (options: {
 }): Promise<InviteResponse> => {
   const path = `/api/practice/client-intakes/${encodeURIComponent(options.intakeUuid)}/invite`;
   const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  if (cookieHeader) {
+    headers.Cookie = cookieHeader;
+  }
   const response = await options.request.post(path, {
-    headers: cookieHeader
-      ? {
-          'Content-Type': 'application/json',
-          Cookie: cookieHeader
-        }
-      : undefined
+    headers
   });
   const status = response.status();
   const url = response.url();

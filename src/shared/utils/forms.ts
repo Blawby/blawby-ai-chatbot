@@ -186,14 +186,20 @@ export async function submitContactForm(
       }
     }
 
-    if (typeof resolvedPrefillAmount !== 'number' || !Number.isFinite(resolvedPrefillAmount)) {
-      throw new Error('Consultation fee is not configured for this practice.');
-    }
-    if (resolvedPrefillAmount < 50) {
-      throw new Error('Consultation fee must be at least $0.50.');
+    if (paymentLinkEnabled) {
+      if (typeof resolvedPrefillAmount !== 'number' || !Number.isFinite(resolvedPrefillAmount)) {
+        throw new Error('Consultation fee is not configured for this practice.');
+      }
+      if (resolvedPrefillAmount < 50) {
+        throw new Error('Consultation fee must be at least $0.50.');
+      }
     }
 
-    const amount = clampAmount(resolvedPrefillAmount);
+    const amount = clampAmount(
+      typeof resolvedPrefillAmount === 'number' && Number.isFinite(resolvedPrefillAmount)
+        ? resolvedPrefillAmount
+        : 0
+    );
     assertMinorUnits(amount, 'intake.create.amount');
 
     if (settings && settings.data?.settings?.paymentLinkEnabled === false) {
@@ -210,6 +216,9 @@ export async function submitContactForm(
       amount,
       email: formPayload.email,
       name: formPayload.name,
+      ...(typeof formData.sessionId === 'string' && formData.sessionId.trim().length > 0
+        ? { conversation_id: formData.sessionId.trim() }
+        : {}),
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
       ...(descriptionWithLocation ? { description: descriptionWithLocation } : {}),
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
