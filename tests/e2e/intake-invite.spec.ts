@@ -25,6 +25,14 @@ type IntakeCreateData = {
   clientSecret?: string;
   amount?: number;
   currency?: string;
+  address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
 };
 
 const normalizePracticeSlug = (value: string): string => {
@@ -134,7 +142,15 @@ const parseIntakeCreateData = (payload: unknown): IntakeCreateData => {
         ? data.clientSecret
         : undefined,
     amount: typeof data?.amount === 'number' ? data.amount : undefined,
-    currency: typeof data?.currency === 'string' ? data.currency : undefined
+    currency: typeof data?.currency === 'string' ? data.currency : undefined,
+    address: data?.address && typeof data.address === 'object' ? {
+      line1: typeof (data.address as any).line1 === 'string' ? (data.address as any).line1 : '',
+      line2: typeof (data.address as any).line2 === 'string' ? (data.address as any).line2 : undefined,
+      city: typeof (data.address as any).city === 'string' ? (data.address as any).city : '',
+      state: typeof (data.address as any).state === 'string' ? (data.address as any).state : '',
+      postal_code: typeof (data.address as any).postal_code === 'string' ? (data.address as any).postal_code : '',
+      country: typeof (data.address as any).country === 'string' ? (data.address as any).country : '',
+    } : undefined,
   };
 };
 
@@ -235,6 +251,114 @@ test.describe('Intake invite flow', () => {
       throw new Error(
         `Invite trigger failed: ${inviteResponse.status} ${inviteResponse.url ?? ''} ${inviteResponse.rawText?.slice(0, 300) ?? ''}`
       );
+    }
+  });
+
+  test('intake form with address autocomplete', async ({
+    baseURL,
+    anonContext,
+    anonPage,
+    ownerContext
+  }) => {
+    if (!e2eConfig) return;
+
+    const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
+    await anonPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
+    await waitForSession(anonPage, { timeoutMs: 30000 });
+
+    const requestButton = anonPage.getByRole('button', { name: /request consultation/i }).first();
+    await expect(requestButton).toBeVisible();
+    await requestButton.click();
+
+    const contactForm = anonPage.getByTestId('contact-form');
+    await expect(contactForm).toBeVisible();
+
+    const intakeResponsePromise = anonPage.waitForResponse((response) => {
+      return response.url().includes('/api/practice/client-intakes/create')
+        && response.request().method() === 'POST';
+    });
+
+    const intakeUuidSeed = randomUUID();
+    const clientName = `E2E Guest ${intakeUuidSeed.slice(0, 8)}`;
+    const clientEmail = `guest+${intakeUuidSeed.slice(0, 6)}@example.com`;
+
+    await contactForm.getByLabel('Full Name').fill(clientName);
+    await contactForm.getByLabel('Email Address').fill(clientEmail);
+    await contactForm.getByLabel('Phone Number').fill('4155550123');
+
+    // Test address autocomplete functionality
+    const addressInput = contactForm.getByLabel(/address/i);
+    await expect(addressInput).toBeVisible();
+    
+    // Type to trigger autocomplete
+    await addressInput.fill('123 Main St');
+    
+    // Wait for autocomplete dropdown to appear
+    const autocompleteDropdown = anonPage.locator('[class*="absolute"]').first();
+    await expect(autocompleteDropdown).toBeVisible({ timeout: 5000 });
+    
+    // Check if suggestions are loaded
+    const suggestions = anonPage.locator('[role="option"]');
+    const suggestionCount = await suggestions.count();
+    
+    if (suggestionCount > 0) {
+      // Select first suggestion
+      await suggestions.first().click();
+      
+      // Verify structured fields are populated
+      const toggleButton = anonPage.getByText(/show structured fields/i);
+      if (await toggleButton.isVisible()) {
+        await toggleButton.click();
+        
+        // Check if address fields are filled
+        const cityField = contactForm.getByLabel('City');
+        const stateField = contactForm.getByLabel(/state/i);
+        const postalField = contactForm.getByLabel('Postal Code');
+        
+        if (await cityField.isVisible()) {
+          expect(await cityField.inputValue()).not.toBe('');
+        }
+        if (await stateField.isVisible()) {
+          expect(await stateField.inputValue()).not.toBe('');
+        }
+        if (await postalField.isVisible()) {
+          expect(await postalField.inputValue()).not.toBe('');
+        }
+      }
+    }
+
+    await contactForm.getByRole('button', { name: /submit contact information/i }).click();
+
+    const intakeResponse = await intakeResponsePromise;
+    const status = intakeResponse.status();
+    const rawText = await intakeResponse.text().catch(() => '');
+    let payload: Record<string, unknown> | null = null;
+    if (rawText) {
+      try {
+        payload = JSON.parse(rawText) as Record<string, unknown>;
+      } catch {
+        payload = null;
+      }
+    }
+
+    if (!payload) {
+      throw new Error(`Intake create returned non-JSON payload (status ${status}): ${rawText.slice(0, 300)}`);
+    }
+
+    expect(status).toBe(201);
+    
+    const intakeData = parseIntakeCreateData(payload);
+    
+    // Verify address data is included in the response
+    if (suggestionCount > 0) {
+      expect(intakeData.address).toBeTruthy();
+      if (intakeData.address) {
+        expect(intakeData.address.line1).toBeTruthy();
+        expect(intakeData.address.city).toBeTruthy();
+        expect(intakeData.address.state).toBeTruthy();
+        expect(intakeData.address.postal_code).toBeTruthy();
+        expect(intakeData.address.country).toBeTruthy();
+      }
     }
   });
 });

@@ -3,15 +3,18 @@ import { Form, FormField, FormItem, type FormData as FormDataType } from '@/shar
 import { Input } from '@/shared/ui/input/Input';
 import { EmailInput } from '@/shared/ui/input/EmailInput';
 import { PhoneInput } from '@/shared/ui/input/PhoneInput';
-import { LocationInput } from '@/shared/ui/input/LocationInput';
+import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { schemas } from '@/shared/ui/validation/schemas';
+import { toApiAddress } from '@/shared/utils/addressMappers';
+import { validateAddressLoose } from '@/shared/utils/addressValidation';
 import type { JSX } from 'preact';
+import type { Address } from '@/shared/types/address';
 
 // Constants for allowed field names
-export const ALLOWED_FIELDS = ['name', 'email', 'phone', 'location', 'opposingParty', 'description'] as const;
+export const ALLOWED_FIELDS = ['name', 'email', 'phone', 'address', 'opposingParty', 'description'] as const;
 export type AllowedField = typeof ALLOWED_FIELDS[number];
 
 export interface ContactFormProps {
@@ -29,7 +32,7 @@ export interface ContactData {
   name: string;
   email: string;
   phone: string;
-  location: string;
+  address?: Address;
   opposingParty?: string;
   description?: string;
 }
@@ -117,7 +120,7 @@ function normalizeInitialValues(values?: Partial<ContactData>): Partial<ContactD
     name: typeof values?.name === 'string' && values.name.trim() ? values.name.trim() : undefined,
     email: typeof values?.email === 'string' && values.email.trim() ? values.email.trim() : undefined,
     phone: typeof values?.phone === 'string' && values.phone.trim() ? values.phone.trim() : undefined,
-    location: typeof values?.location === 'string' && values.location.trim() ? values.location.trim() : undefined,
+    address: values?.address,
     opposingParty: typeof values?.opposingParty === 'string' && values.opposingParty.trim() ? values.opposingParty.trim() : undefined,
     description: typeof values?.description === 'string' && values.description.trim() ? values.description.trim() : undefined
   };
@@ -160,7 +163,7 @@ export function ContactForm({
     name: normalizedInitialValues.name ?? '',
     email: normalizedInitialValues.email ?? '',
     phone: normalizedInitialValues.phone ?? '',
-    location: normalizedInitialValues.location ?? '',
+    address: normalizedInitialValues.address || null,
     opposingParty: normalizedInitialValues.opposingParty ?? '',
     description: normalizedInitialValues.description ?? ''
   };
@@ -186,7 +189,7 @@ export function ContactForm({
               name: !!formData.name,
               email: !!formData.email,
               phone: !!formData.phone,
-              location: !!formData.location,
+              address: !!formData.address,
               opposingParty: !!formData.opposingParty,
               description: !!formData.description
             });
@@ -196,7 +199,7 @@ export function ContactForm({
             name: (formData.name as string) || '',
             email: (formData.email as string) || '',
             phone: (formData.phone as string) || '',
-            location: (formData.location as string) || '',
+            address: (formData.address as Address) || undefined,
             opposingParty: formData.opposingParty as string | undefined,
             description: formData.description as string | undefined
           };
@@ -274,18 +277,20 @@ export function ContactForm({
           </FormItem>
         )}
 
-        {validFields.includes('location') && (
+        {validFields.includes('address') && (
           <FormItem>
-            <FormField name="location">
+            <FormField name="address">
               {({ value, error, onChange }) => (
-                <LocationInput
-                  value={value as string || ''}
-                  onChange={onChange}
+                <AddressInput
+                  value={value as Address || null}
+                  onChange={(address) => onChange(address)}
                   label={t('forms.contactForm.location')}
                   placeholder={t('forms.contactForm.placeholders.location')}
-                  required={validRequired.includes('location')}
-                  error={error?.message}
+                  required={validRequired.includes('address') ? { line1: true, city: true, state: true, postalCode: true, country: true } : undefined}
+                  errors={error?.message ? { line1: error.message } : undefined}
                   variant={error ? 'error' : 'default'}
+                  validationLevel="loose"
+                  enableAutocomplete={true}
                 />
               )}
             </FormField>

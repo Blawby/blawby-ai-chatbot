@@ -13,6 +13,10 @@ CF_AIG_GATEWAY_NAME=your_gateway_name_here
 OPENAI_TOKEN=your_openai_api_token_here
 ONESIGNAL_APP_ID=your_onesignal_app_id_here
 ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key_here
+GEOAPIFY_API_KEY=your_geoapify_api_key_here
+GEOAPIFY_DAILY_LIMIT=1000
+GEOAPIFY_RPM_PER_IP=60
+GEOAPIFY_MIN_CHARS=3
 
 # Account IDs (SENSITIVE)
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here

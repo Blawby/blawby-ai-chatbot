@@ -21,6 +21,7 @@ import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { handleStatus } from './routes/status.js';
+import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
@@ -117,6 +118,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handlePracticeDetails(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
+    } else if (path.startsWith('/api/geo/autocomplete')) {
+      response = await handleAutocompleteWithCORS(request, env, _ctx);
     } else if (path.startsWith('/api/conversations')) {
       response = await handleConversations(request, env);
     } else if (path.startsWith('/api/ai/intent')) {
@@ -137,8 +140,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     } else if (path === '/') {
       response = await handleRoot(request, env);
     } else {
-      console.log('❌ No route matched');
-      throw HttpErrors.notFound('Endpoint not found');
+      response = await handleRoot(request, env);
     }
 
     return response;

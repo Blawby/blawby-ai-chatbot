@@ -173,6 +173,12 @@ export interface Env {
   ONESIGNAL_REST_API_KEY?: string;
   ONESIGNAL_API_BASE?: string;
 
+  // Geoapify configuration for address autocomplete
+  GEOAPIFY_API_KEY?: string;
+  GEOAPIFY_DAILY_LIMIT?: string;
+  GEOAPIFY_RPM_PER_IP?: string;
+  GEOAPIFY_MIN_CHARS?: string;
+
 }
 
 // HTTP Error class for centralized error handling
