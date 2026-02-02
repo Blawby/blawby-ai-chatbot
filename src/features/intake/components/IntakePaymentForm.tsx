@@ -16,7 +16,7 @@ interface IntakePaymentFormProps {
   practiceId?: string;
   conversationId?: string;
   returnTo: string;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
   onReturn?: () => void;
 }
 
@@ -56,6 +56,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [callbackWarning, setCallbackWarning] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const paymentWaitControllerRef = useRef<AbortController | null>(null);
 
@@ -219,10 +220,27 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     });
   }, [conversationId, intakeUuid]);
 
+  const handlePostPaymentSuccess = useCallback(async () => {
+    setCallbackWarning(null);
+    if (!onSuccess) return;
+
+    try {
+      await onSuccess();
+    } catch (callbackError) {
+      console.error('[IntakePayment] onSuccess callback failed', callbackError);
+      if (isMountedRef.current) {
+        setCallbackWarning(
+          'Payment succeeded but we could not finish the follow-up steps. Please refresh or check back shortly.'
+        );
+      }
+    }
+  }, [onSuccess]);
+
   const handleSubmit = useCallback(async (event: SubmitEvent) => {
     event.preventDefault();
     setErrorMessage(null);
     setStatusDetail(null);
+    let paymentSucceeded = false;
 
     if (!stripe || !elements) {
       setErrorMessage('Payment form is still loading. Please wait a moment.');
@@ -285,7 +303,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         if (!isMountedRef.current) return;
         if (confirmed) {
           setStatus('succeeded');
-          onSuccess?.();
+          paymentSucceeded = true;
+          await handlePostPaymentSuccess();
           return;
         }
         console.warn('[IntakePayment] Intake confirmation did not succeed after payment intent result', {
@@ -302,10 +321,10 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         paymentWaitControllerRef.current = null;
       }
       if (!isMountedRef.current) return;
-      if (wsStatus && isPaidIntakeStatus(wsStatus)) {
-        const confirmed = await confirmIntakeLead();
-        if (!isMountedRef.current) return;
-        if (!confirmed) {
+        if (wsStatus && isPaidIntakeStatus(wsStatus)) {
+          const confirmed = await confirmIntakeLead();
+          if (!isMountedRef.current) return;
+          if (!confirmed) {
           const retryConfirmed = await confirmIntakeLead();
           if (!isMountedRef.current) return;
           if (!retryConfirmed) {
@@ -319,8 +338,9 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           }
         }
         setStatus('succeeded');
+        paymentSucceeded = true;
         setStatusDetail(wsStatus);
-        onSuccess?.();
+        await handlePostPaymentSuccess();
         return;
       }
 
@@ -330,8 +350,17 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         'Payment is still processing. Return to the chat and check status again in a moment.'
       );
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Payment failed. Please try again.');
-      setStatus('idle');
+      if (!paymentSucceeded) {
+        setErrorMessage(error instanceof Error ? error.message : 'Payment failed. Please try again.');
+        setStatus('idle');
+      } else {
+        console.warn('[IntakePayment] Error after payment success', error);
+        if (isMountedRef.current) {
+          setCallbackWarning(
+            'Payment succeeded but we could not finish the follow-up steps. Please refresh or check back shortly.'
+          );
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -340,7 +369,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     elements,
     intakeUuid,
     confirmIntakeLead,
-    onSuccess,
+    handlePostPaymentSuccess,
     TERMINAL_FAILURE_STATUSES,
     waitForPaymentConfirmation
   ]);
@@ -372,6 +401,12 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       {errorMessage && (
         <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-200">
           {errorMessage}
+        </div>
+      )}
+
+      {callbackWarning && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {callbackWarning}
         </div>
       )}
 

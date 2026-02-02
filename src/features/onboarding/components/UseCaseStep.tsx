@@ -22,6 +22,7 @@ interface UseCaseData {
 interface UseCaseStepProps {
   data: UseCaseData;
   onComplete: (data: UseCaseData) => void;
+  isSubmitting?: boolean;
 }
 
 const useCaseOptions = [
@@ -52,7 +53,7 @@ const useCaseOptions = [
   }
 ];
 
-const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
+const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false }: UseCaseStepProps) => {
   const { t } = useTranslation('common');
   const [selectedUseCases, setSelectedUseCases] = useState<UseCaseData['productUsage']>(
     data.productUsage?.length ? data.productUsage : [data.primaryUseCase]
@@ -60,6 +61,7 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
   const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasSelection = selectedUseCases.length > 0;
+  const isFormSubmitting = parentSubmitting || isSubmitting;
 
   const resolvePrimaryUseCase = (values: UseCaseData['productUsage']): UseCaseData['primaryUseCase'] => {
     const order: UseCaseData['primaryUseCase'][] = [
@@ -74,7 +76,7 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
   };
 
   const handleSubmit = async () => {
-    if (!hasSelection) return;
+    if (!hasSelection || isFormSubmitting) return;
     setIsSubmitting(true);
     
     // Simulate API call delay
@@ -194,14 +196,14 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
 
             {/* Action Buttons */}
             <div className="flex flex-col space-y-3">
-              <Button
-                type="submit"
-                disabled={isSubmitting || !hasSelection}
-                variant="primary"
-                size="lg"
-                className="w-full"
-              >
-                {isSubmitting ? (
+            <Button
+              type="submit"
+              disabled={isFormSubmitting || !hasSelection}
+              variant="primary"
+              size="lg"
+              className="w-full"
+            >
+              {isFormSubmitting ? (
                   <div className="flex items-center justify-center space-x-2" aria-live="polite" role="status">
                     <div 
                       className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" 

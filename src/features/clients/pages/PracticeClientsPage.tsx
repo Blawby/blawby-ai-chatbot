@@ -363,7 +363,7 @@ const ClientDetailPanel = ({
 export const PracticeClientsPage = () => {
   const isMobile = useMobileDetection();
   const { currentPractice } = usePracticeManagement();
-  const { showError } = useToastContext();
+  const { showError, showSuccess } = useToastContext();
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [clientsError, setClientsError] = useState<string | null>(null);
@@ -746,15 +746,17 @@ export const PracticeClientsPage = () => {
         })
       });
       await fetchClientsPage(1, { replace: true });
+      showSuccess('Client updated', 'Client details have been saved.');
       resetEditClientForm();
       setIsEditClientOpen(false);
     } catch (error) {
       console.error('[Clients] Failed to update client', error);
       setEditClientError('Failed to update client');
+      showError('Could not update client', 'Please try again.');
     } finally {
       setEditClientSubmitting(false);
     }
-  }, [currentPractice?.id, editClientForm, editClientSubmitting, fetchClientsPage, resetEditClientForm]);
+  }, [currentPractice?.id, editClientForm, editClientSubmitting, fetchClientsPage, resetEditClientForm, showError, showSuccess]);
 
   const handleDeleteClient = useCallback(async () => {
     if (!currentPractice?.id || !selectedClient) return;
@@ -763,12 +765,13 @@ export const PracticeClientsPage = () => {
     try {
       await deleteUserDetail(currentPractice.id, selectedClient.id);
       await fetchClientsPage(1, { replace: true });
+      showSuccess('Client deleted', 'The client has been removed.');
       setIsDrawerOpen(false);
     } catch (error) {
       console.error('[Clients] Failed to delete client', error);
       showError('Could not delete client', 'Please try again.');
     }
-  }, [currentPractice?.id, fetchClientsPage, selectedClient, showError]);
+  }, [currentPractice?.id, fetchClientsPage, selectedClient, showError, showSuccess]);
 
   const handleSubmitAddClient = useCallback(async () => {
     if (!currentPractice?.id) return;
@@ -799,15 +802,17 @@ export const PracticeClientsPage = () => {
         }
       });
       await fetchClientsPage(1, { replace: true });
+      showSuccess('Client added', 'The client has been added to your practice.');
       resetAddClientForm();
       setIsAddClientOpen(false);
     } catch (error) {
       console.error('[Clients] Failed to create client', error);
       setAddClientError('Failed to create client');
+      showError('Could not add client', 'Please try again.');
     } finally {
       setAddClientSubmitting(false);
     }
-  }, [addClientForm, addClientSubmitting, currentPractice?.id, fetchClientsPage, resetAddClientForm]);
+  }, [addClientForm, addClientSubmitting, currentPractice?.id, fetchClientsPage, resetAddClientForm, showError, showSuccess]);
 
   const updateCurrentLetter = useCallback(() => {
     const container = listRef.current;

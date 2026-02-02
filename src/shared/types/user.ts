@@ -19,6 +19,7 @@ export interface ExtendedUser extends BetterAuthUser {
   primaryWorkspace?: 'client' | 'practice' | null;
   preferredPracticeId?: string | null;
   practiceCount?: number | null;
+  onboardingComplete?: boolean | null;
   
   // Contact Info
   phone?: string | null;
@@ -226,6 +227,7 @@ export interface BetterAuthSessionUser {
   primaryWorkspace?: 'client' | 'practice' | null;
   preferredPracticeId?: string | null;
   practiceCount?: number | null;
+  onboardingComplete?: boolean | null;
   
   // All the additional fields we added
   bio?: string | null;
@@ -380,6 +382,12 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     primaryWorkspace,
     preferredPracticeId: rawUser.preferredPracticeId as string | null | undefined,
     practiceCount: typeof rawUser.practiceCount === 'number' ? rawUser.practiceCount : undefined,
+    onboardingComplete:
+      typeof rawUser.onboardingComplete === 'boolean'
+        ? rawUser.onboardingComplete
+        : typeof rawUser.onboarding_complete === 'boolean'
+          ? rawUser.onboarding_complete
+          : undefined,
     
     // Profile fields
     bio: rawUser.bio as string | null | undefined,

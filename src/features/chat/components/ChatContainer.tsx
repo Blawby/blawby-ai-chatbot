@@ -22,6 +22,7 @@ import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -111,7 +112,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   intakeStatus,
   clearInput,
   conversationId,
-  isAnonymousUser,
   canChat = true,
   onSelectMode,
   onStartNewConversation,
@@ -128,7 +128,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobileDetection();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
@@ -331,23 +330,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   // Reset auth prompt dismissal when conversation changes
   useEffect(() => {
-    setHasDismissedAuthPrompt(false);
     setShowAuthPrompt(false);
   }, [conversationId]);
 
-  // Show auth prompt when intake enters pending review for anonymous users
-  useEffect(() => {
-    const shouldShow =
-      isAnonymousUser &&
-      intakeStatus?.step === 'pending_review' &&
-      !hasDismissedAuthPrompt;
-
-    setShowAuthPrompt(Boolean(shouldShow));
-
-    if (!shouldShow && intakeStatus?.step !== 'pending_review') {
-      setHasDismissedAuthPrompt(false);
-    }
-  }, [intakeStatus?.step, isAnonymousUser, hasDismissedAuthPrompt]);
+  // Auth prompt is intentionally disabled for intake flows; invite email handles the next step.
 
   // Clear input when clearInput prop changes (numeric change counter)
   useEffect(() => {
@@ -398,12 +384,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   const handleAuthPromptClose = () => {
-    setHasDismissedAuthPrompt(true);
     setShowAuthPrompt(false);
   };
 
   const handleAuthSuccess = () => {
-    setHasDismissedAuthPrompt(true);
     setShowAuthPrompt(false);
   };
 
@@ -425,19 +409,33 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setIsPaymentModalOpen(false);
   };
 
-  const handlePaymentSuccess = () => {
-    if (!paymentRequest || !onAddMessage) {
+  const handlePaymentSuccess = async () => {
+    if (!paymentRequest) {
       handleClosePayment();
       return;
     }
 
-    onAddMessage({
-      id: `system-payment-confirm-${paymentRequest.intakeUuid ?? Date.now()}`,
-      role: 'assistant',
-      content: `Payment received. ${paymentRequest.practiceName || 'The practice'} will review your intake and follow up here shortly.`,
-      timestamp: Date.now(),
-      isUser: false
-    });
+    let invitationTriggered = false;
+    if (paymentRequest.intakeUuid) {
+      try {
+        await triggerIntakeInvitation(paymentRequest.intakeUuid);
+        invitationTriggered = true;
+      } catch (error) {
+        console.error('[Chat] Failed to trigger intake invitation', error);
+      }
+    }
+
+    if (onAddMessage) {
+      onAddMessage({
+        id: `system-payment-confirm-${paymentRequest.intakeUuid ?? Date.now()}`,
+        role: 'assistant',
+        content: invitationTriggered
+          ? `Payment received! Check your email for a secure invite link to finish creating your account and continue the conversation with ${paymentRequest.practiceName || 'the practice'}.`
+          : `Payment received. ${paymentRequest.practiceName || 'The practice'} will review your intake shortly. If you don't see an invite email soon, reply here and we'll resend it.`,
+        timestamp: Date.now(),
+        isUser: false
+      });
+    }
     handleClosePayment();
   };
 

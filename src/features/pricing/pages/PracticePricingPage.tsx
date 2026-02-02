@@ -158,7 +158,11 @@ export const PracticePricingPage = () => {
 
     setIsSaving(true);
     try {
-      await updatePracticeDetails(currentPractice.id, { consultationFee: nextFee });
+      await updatePracticeDetails(currentPractice.id, {
+        consultationFee: nextFee,
+        paymentLinkEnabled: feeEnabledDraft,
+        paymentLinkPrefillAmount: nextFee
+      });
       showSuccess(
         feeEnabledDraft ? 'Consultation fee enabled' : 'Consultation fee disabled',
         feeEnabledDraft ? 'New intakes will require payment.' : 'New intakes will no longer require payment.'

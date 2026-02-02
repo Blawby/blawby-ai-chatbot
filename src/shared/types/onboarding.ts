@@ -3,8 +3,16 @@ import type { FormData } from '@/shared/ui/form';
 export interface OnboardingPersonalInfo extends FormData {
   fullName: string;
   birthday?: string;
+  password: string;
+  confirmPassword: string;
   agreedToTerms: boolean;
 }
+
+export const sanitizeOnboardingPersonalInfo = (info: OnboardingPersonalInfo) => ({
+  ...info,
+  password: info.password ? '<redacted>' : '',
+  confirmPassword: info.confirmPassword ? '<redacted>' : ''
+});
 
 export type OnboardingPrimaryUseCase =
   | 'messaging'
