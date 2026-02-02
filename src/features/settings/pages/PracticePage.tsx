@@ -8,23 +8,24 @@ import {
 } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
+import type { Address } from '@/shared/types/address';
 import Modal from '@/shared/components/Modal';
 import { FileInput, Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
+import { PracticeAddressForm } from '@/shared/ui/address/AddressForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { StackedAvatars } from '@/shared/ui/profile';
-import { AddressFields } from '@/shared/ui/address/AddressFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
+import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { getFrontendHost } from '@/config/urls';
 import {
   usePracticeMembersSync,
@@ -36,7 +37,7 @@ interface OnboardingDetails {
   contactPhone?: string;
   businessEmail?: string;
   website?: string;
-  address?: string;
+  address?: Address;
   apartment?: string;
   city?: string;
   state?: string;
@@ -52,29 +53,37 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
   if (!practice) return {};
   const baseFromDetails: OnboardingDetails = details
     ? {
-      website: details.website ?? undefined,
-      address: details.address ?? undefined,
-      apartment: details.apartment ?? undefined,
-      city: details.city ?? undefined,
-      state: details.state ?? undefined,
-      postalCode: details.postalCode ?? undefined,
-      country: details.country ?? undefined,
-      introMessage: details.introMessage ?? undefined,
-      description: details.description ?? undefined,
-      isPublic: details.isPublic ?? undefined,
-      services: details.services ?? undefined,
-      contactPhone: details.businessPhone ?? undefined,
-      businessEmail: details.businessEmail ?? undefined
-    }
+        website: details.website ?? undefined,
+        address: details.address || details.apartment || details.city || details.state || details.postalCode || details.country
+          ? {
+              address: details.address || '',
+              apartment: details.apartment || undefined,
+              city: details.city || '',
+              state: details.state || '',
+              postalCode: details.postalCode || '',
+              country: details.country || ''
+            }
+          : undefined,
+        introMessage: details.introMessage ?? undefined,
+        description: details.description ?? undefined,
+        isPublic: details.isPublic ?? undefined,
+        services: details.services ?? undefined,
+        contactPhone: details.businessPhone ?? undefined,
+        businessEmail: details.businessEmail ?? undefined,
+      }
     : {};
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
-    address: practice.address ?? undefined,
-    apartment: practice.apartment ?? undefined,
-    city: practice.city ?? undefined,
-    state: practice.state ?? undefined,
-    postalCode: practice.postalCode ?? undefined,
-    country: practice.country ?? undefined,
+    address: practice.address || practice.apartment || practice.city || practice.state || practice.postalCode || practice.country
+      ? {
+          address: practice.address || '',
+          apartment: practice.apartment || undefined,
+          city: practice.city || '',
+          state: practice.state || '',
+          postalCode: practice.postalCode || '',
+          country: practice.country || ''
+        }
+      : undefined,
     introMessage: practice.introMessage ?? undefined,
     description: practice.description ?? undefined,
     isPublic: practice.isPublic ?? undefined,
@@ -100,12 +109,12 @@ const isValidHttpUrl = (value: string): boolean => {
 };
 
 const formatAddressSummary = (data: OnboardingDetails) => {
-  const address = data.address?.trim() || '';
-  const apartment = data.apartment?.trim() || '';
-  const city = data.city?.trim() || '';
-  const state = data.state?.trim() || '';
-  const postal = data.postalCode?.trim() || '';
-  const country = data.country?.trim() || '';
+  const address = data.address?.address?.trim() || '';
+  const apartment = data.address?.apartment?.trim() || '';
+  const city = data.address?.city?.trim() || '';
+  const state = data.address?.state?.trim() || '';
+  const postal = data.address?.postalCode?.trim() || '';
+  const country = data.address?.country?.trim() || '';
 
   const parts: string[] = [];
   if (address) parts.push(address);
@@ -276,12 +285,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     website: '',
     businessEmail: '',
     phone: '',
-    address: '',
-    apartment: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: ''
+    address: undefined,
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -456,12 +460,12 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         businessEmail: updates.businessEmail,
         businessPhone: updates.contactPhone,
         website: updates.website,
-        address: updates.address,
-        apartment: updates.apartment,
-        city: updates.city,
-        state: updates.state,
-        postalCode: updates.postalCode,
-        country: updates.country,
+        address: updates.address?.address || null,
+        apartment: updates.address?.apartment || null,
+        city: updates.address?.city || null,
+        state: updates.address?.state || null,
+        postalCode: updates.address?.postalCode || null,
+        country: updates.address?.country || null,
         introMessage: updates.introMessage,
         description: updates.description,
         isPublic: updates.isPublic,
@@ -488,12 +492,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       website: websiteValue,
       businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
       phone: phoneValue,
-      address: onboardingData.address || '',
-      apartment: onboardingData.apartment || '',
-      city: onboardingData.city || '',
-      state: onboardingData.state || '',
-      postalCode: onboardingData.postalCode || '',
-      country: onboardingData.country || ''
+      address: onboardingData.address,  // Address object
     });
     setIsContactModalOpen(true);
   };
@@ -504,12 +503,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         website: (contactDraft.website ?? '').trim(),
         businessEmail: (contactDraft.businessEmail ?? '').trim(),
         contactPhone: (contactDraft.phone ?? '').trim(),
-        address: (contactDraft.address ?? '').trim(),
-        apartment: (contactDraft.apartment ?? '').trim(),
-        city: (contactDraft.city ?? '').trim(),
-        state: (contactDraft.state ?? '').trim(),
-        postalCode: (contactDraft.postalCode ?? '').trim(),
-        country: (contactDraft.country ?? '').trim()
+        address: contactDraft.address,
       },
       'Contact details updated.'
     );
@@ -999,35 +993,22 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           {/* Address Fields */}
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
-            <AddressFields
-              value={{
-                address: contactDraft.address || '',
-                apartment: contactDraft.apartment || '',
-                city: contactDraft.city || '',
-                state: contactDraft.state || '',
-                postalCode: contactDraft.postalCode || '',
-                country: contactDraft.country || ''
+            <PracticeAddressForm
+              initialValues={{
+                email: contactDraft.businessEmail,
+                phone: contactDraft.phone,
+                address: contactDraft.address,
               }}
-              onChange={(address) => {
+              onSubmit={(formData) => {
                 setContactDraft(prev => ({
                   ...prev,
-                  address: address.address,
-                  apartment: address.apartment,
-                  city: address.city,
-                  state: address.state,
-                  postalCode: address.postalCode,
-                  country: address.country,
+                  businessEmail: formData.email,
+                  phone: formData.phone,
+                  address: formData.address,
                 }));
               }}
               disabled={isSettingsSaving}
-              required={{
-                address: true,
-                city: true,
-                state: true,
-                postalCode: true,
-                country: true
-              }}
-              size="md"
+              onCancel={() => setIsContactModalOpen(false)}
             />
           </div>
 

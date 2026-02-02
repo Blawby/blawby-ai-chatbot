@@ -27,13 +27,14 @@ export interface ContextCaseDraft {
   name?: string;
   email?: string;
   phone?: string;
-  location?: string;
+  address?: Address;
   opposingParty?: string;
   [key: string]: unknown;
 }
 import { PDFGenerationService } from './PDFGenerationService.js';
 import { NotificationService } from './NotificationService.js';
 import { Logger } from '../utils/logger.js';
+import type { Address } from '../types/ui';
 import type { Env } from '../types.js';
 import type { PracticeOrWorkspace } from '../types.js';
 
@@ -43,7 +44,7 @@ interface MatterSubmissionInput {
   name: string;
   email?: string;
   phone?: string;
-  location?: string;
+  address?: Address;
   opposingParty?: string;
   urgency?: string;
 }
@@ -138,7 +139,7 @@ export class ContactIntakeOrchestrator {
         name: matter.name,
         email: matter.email || (existingContactInfo.email as string | undefined),
         phone: matter.phone || (existingContactInfo.phone as string | undefined),
-        location: matter.location || (existingContactInfo.location as string | undefined)
+        address: matter.address || (existingContactInfo.address as Address | undefined)
       };
       context.conversationPhase = 'completed';
       context.userIntent = 'intake';

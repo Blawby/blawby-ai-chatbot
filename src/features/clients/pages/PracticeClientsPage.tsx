@@ -4,14 +4,14 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
-import { EmailInput, Input, PhoneInput, Select, type SelectOption } from '@/shared/ui/input';
-import { AddressFields } from '@/shared/ui/address/AddressFields';
+import { ClientAddressForm } from '@/shared/ui/address/AddressForm';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import type { Address } from '@/shared/types/address';
 import {
   listUserDetails,
   listUserDetailMemos,
@@ -43,28 +43,10 @@ import {
 
 const STATUS_LABELS: Record<UserDetailStatus, string> = {
   lead: 'Lead',
-  active: 'Client',
+  active: 'Active',
   inactive: 'Inactive',
-  archived: 'Archived'
+  archived: 'Archived',
 };
-
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: 'lead', label: STATUS_LABELS.lead },
-  { value: 'active', label: STATUS_LABELS.active },
-  { value: 'inactive', label: STATUS_LABELS.inactive },
-  { value: 'archived', label: STATUS_LABELS.archived }
-];
-
-const CURRENCY_OPTIONS: SelectOption[] = [
-  { value: 'usd', label: 'USD - US Dollar' },
-  { value: 'eur', label: 'EUR - Euro' },
-  { value: 'gbp', label: 'GBP - British Pound' },
-  { value: 'cad', label: 'CAD - Canadian Dollar' },
-  { value: 'aud', label: 'AUD - Australian Dollar' },
-  { value: 'jpy', label: 'JPY - Japanese Yen' },
-  { value: 'chf', label: 'CHF - Swiss Franc' },
-  { value: 'cny', label: 'CNY - Chinese Yuan' }
-];
 
 type ClientRecord = {
   id: string;
@@ -80,12 +62,7 @@ type ClientFormState = {
   phone: string;
   status: UserDetailStatus;
   currency: string;
-  address: string;
-  apartment: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
+  address?: Address;  // Now uses Address object like intake form!
 };
 
 type EditClientFormState = ClientFormState & { id: string };
@@ -154,7 +131,7 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
   </span>
 );
 
-const ClientFormFields = ({
+const ClientForm = ({
   values,
   onChange,
   disabled = false
@@ -163,75 +140,18 @@ const ClientFormFields = ({
   onChange: <K extends keyof ClientFormState>(field: K, value: ClientFormState[K]) => void;
   disabled?: boolean;
 }) => (
-  <div className="grid gap-4 sm:grid-cols-2">
-    <div className="sm:col-span-2">
-      <Input
-        label="Full name"
-        value={values.name}
-        onChange={(value) => onChange('name', value)}
-        placeholder="Jane Doe"
-        required
-        disabled={disabled}
-      />
-    </div>
-    <EmailInput
-      label="Email"
-      value={values.email}
-      onChange={(value) => onChange('email', value)}
-      placeholder="jane@example.com"
-      required
-      disabled={disabled}
-      showValidation={true}
-    />
-    <PhoneInput
-      label="Phone"
-      value={values.phone}
-      onChange={(value) => onChange('phone', value)}
-      placeholder="(555) 123-4567"
-      disabled={disabled}
-      showCountryCode={true}
-      countryCode="+1"
-    />
-    <Select
-      label="Status"
-      value={values.status}
-      options={STATUS_OPTIONS}
-      onChange={(value) => onChange('status', value as UserDetailStatus)}
-      disabled={disabled}
-    />
-    <Select
-      label="Currency"
-      value={values.currency}
-      options={CURRENCY_OPTIONS}
-      onChange={(value) => onChange('currency', value)}
-      disabled={disabled}
-    />
-    <div className="sm:col-span-2">
-      <AddressFields
-        value={{
-          address: values.address || '',
-          apartment: values.apartment || '',
-          city: values.city || '',
-          state: values.state || '',
-          postalCode: values.postalCode || '',
-          country: values.country || ''
-        }}
-        onChange={(address) => {
-          onChange('address', address.address);
-          onChange('apartment', address.apartment);
-          onChange('city', address.city);
-          onChange('state', address.state);
-          onChange('postalCode', address.postalCode);
-          onChange('country', address.country);
-        }}
-        disabled={disabled}
-        errors={{}}
-        required={{}}
-        size="sm"
-        showCountry={true}
-      />
-    </div>
-  </div>
+  <ClientAddressForm
+    initialValues={values}
+    onSubmit={(formData) => {
+      // Convert form data back to the expected onChange pattern
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          onChange(key as keyof ClientFormState, value);
+        }
+      });
+    }}
+    disabled={disabled}
+  />
 );
 
 const ClientDetailPanel = ({
@@ -367,12 +287,7 @@ export const PracticeClientsPage = () => {
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    address: '',
-    apartment: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'US',
+    address: undefined,  // Now uses Address object like intake form!
   };
 
   const [addClientForm, setAddClientForm] = useState<ClientFormState>(defaultClientFormState);
@@ -383,12 +298,7 @@ export const PracticeClientsPage = () => {
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    address: '',
-    apartment: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: ''
+    address: undefined,  // Now uses Address object like intake form!
   });
 
   const sortedClients = useMemo(
@@ -609,12 +519,7 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      address: '',
-      apartment: '',
-      city: '',
-      state: '',
-      postalCode: '',
-      country: 'US'
+      address: undefined,  // Now uses Address object like intake form!
     });
   }, []);
 
@@ -638,12 +543,7 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      address: '',
-      apartment: '',
-      city: '',
-      state: '',
-      postalCode: '',
-      country: ''
+      address: undefined,  // Now uses Address object like intake form!
     });
   }, []);
 
@@ -665,12 +565,7 @@ export const PracticeClientsPage = () => {
         phone: detail?.user?.phone ?? selectedClient.phone ?? '',
         status: detail?.status ?? selectedClient.status,
         currency: detail?.currency ?? 'usd',
-        address: '',
-        apartment: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        country: ''
+        address: undefined,  // Now uses Address object like intake form!
       });
       setIsEditClientOpen(true);
     } catch (error) {
@@ -692,19 +587,16 @@ export const PracticeClientsPage = () => {
     setEditClientSubmitting(true);
     setEditClientError(null);
     try {
-      const address = editClientForm.address.trim();
-      const apartment = editClientForm.apartment.trim();
-      const city = editClientForm.city.trim();
-      const state = editClientForm.state.trim();
-      const postalCode = editClientForm.postalCode.trim();
-      const country = editClientForm.country.trim();
-      const hasAddress =
-        Boolean(address) ||
-        Boolean(apartment) ||
-        Boolean(city) ||
-        Boolean(state) ||
-        Boolean(postalCode) ||
-        Boolean(country);
+      // Handle address object like intake form
+      const address = editClientForm.address;
+      const hasAddress = address && (
+        Boolean(address.address?.trim()) ||
+        Boolean(address.apartment?.trim()) ||
+        Boolean(address.city?.trim()) ||
+        Boolean(address.state?.trim()) ||
+        Boolean(address.postalCode?.trim()) ||
+        Boolean(address.country?.trim())
+      );
 
       await updateUserDetail(currentPractice.id, editClientForm.id, {
         name,
@@ -715,12 +607,12 @@ export const PracticeClientsPage = () => {
         event_name: 'Invite Client',
         ...(hasAddress && {
           address: {
-            address: address || undefined,
-            apartment: apartment || undefined,
-            city: city || undefined,
-            state: state || undefined,
-            postal_code: postalCode || undefined,
-            country: country || undefined
+            address: address.address?.trim() || undefined,
+            apartment: address.apartment?.trim() || undefined,
+            city: address.city?.trim() || undefined,
+            state: address.state?.trim() || undefined,
+            postalCode: address.postalCode?.trim() || undefined,
+            country: address.country?.trim() || undefined
           }
         })
       });
@@ -873,7 +765,7 @@ export const PracticeClientsPage = () => {
             {addClientError}
           </div>
         )}
-        <ClientFormFields
+        <ClientForm
           values={addClientForm}
           onChange={updateAddClientField}
           disabled={addClientSubmitting}
@@ -903,7 +795,7 @@ export const PracticeClientsPage = () => {
             {editClientError}
           </div>
         )}
-        <ClientFormFields
+        <ClientForm
           values={editClientForm}
           onChange={updateEditClientField}
           disabled={editClientSubmitting}

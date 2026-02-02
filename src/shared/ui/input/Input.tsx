@@ -1,10 +1,10 @@
 import { forwardRef } from 'preact/compat';
-import { ComponentChildren } from 'preact';
+import { ComponentChildren, JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
-export interface InputProps {
+export interface InputProps extends Omit<JSX.IntrinsicElements['input'], 'type' | 'value' | 'onChange' | 'onBlur' | 'size'> {
   type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search' | 'date';
   value?: string;
   onChange?: (value: string) => void;
@@ -30,14 +30,6 @@ export interface InputProps {
   max?: string | number;
   step?: number;
   inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
-  // ARIA props
-  id?: string;
-  'aria-label'?: string;
-  'aria-describedby'?: string;
-  'aria-invalid'?: boolean;
-  'aria-required'?: boolean;
-  'aria-disabled'?: boolean;
-  'data-testid'?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({
@@ -60,17 +52,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   placeholderKey,
   errorKey,
   namespace = 'common',
-  id,
-  'aria-label': ariaLabel,
-  'aria-describedby': ariaDescribedBy,
-  'aria-invalid': ariaInvalid,
-  'aria-required': ariaRequired,
-  'aria-disabled': ariaDisabled,
   ...restProps
 }, ref) => {
   const { t } = useTranslation(namespace);
   const generatedId = useUniqueId('input');
-  const inputId = id || generatedId;
+  const inputId = restProps.id || generatedId;
   
   const displayLabel = labelKey ? t(labelKey) : label;
   const displayDescription = descriptionKey ? t(descriptionKey) : description;
@@ -83,7 +69,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   
   // Compute aria-describedby by joining existing ariaDescribedBy with descriptionId and errorId
   const computedAriaDescribedBy = [
-    ariaDescribedBy,
+    restProps['aria-describedby'],
     descriptionId,
     errorId
   ].filter(Boolean).join(' ') || undefined;
@@ -144,11 +130,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           required={required}
           className={inputClasses}
           id={inputId}
-          aria-label={ariaLabel}
+          aria-label={restProps['aria-label']}
           aria-describedby={computedAriaDescribedBy}
-          aria-invalid={ariaInvalid !== undefined ? ariaInvalid : Boolean(error)}
-          aria-required={ariaRequired}
-          aria-disabled={ariaDisabled}
+          aria-invalid={restProps['aria-invalid'] !== undefined ? restProps['aria-invalid'] : Boolean(error)}
+          aria-required={restProps['aria-required']}
+          aria-disabled={restProps['aria-disabled']}
           {...restProps}
         />
         

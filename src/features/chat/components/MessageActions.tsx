@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { ContactForm, ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
@@ -27,7 +28,7 @@ interface MessageActionsProps {
 			name?: string;
 			email?: string;
 			phone?: string;
-			location?: string;
+			address?: Address;
 			opposingParty?: string;
 		};
 	};

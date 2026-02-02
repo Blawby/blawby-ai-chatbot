@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { addressLooseSchema } from './schemas/address';
 
 // Common validation schemas
 const FileClass = typeof File !== 'undefined' ? File : undefined;
@@ -170,10 +171,7 @@ export const contactSchemas = {
         },
         'Please enter a valid phone number (at least 10 digits)'
       ),
-    location: z.string().optional().refine(
-      (val) => val === undefined || val === '' || val.length >= 2,
-      'Location must be at least 2 characters'
-    ),
+    address: addressLooseSchema.optional(),
     opposingParty: z.string().optional(),
     description: z.string().optional(),
   }),

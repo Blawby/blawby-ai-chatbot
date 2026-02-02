@@ -7,7 +7,8 @@ import { Env } from '../../../types';
 import { callGeoapifyAutocompleteMultiPass, validateAutocompleteRequest } from '../../../lib/geoapify';
 import { incrementDailyCounter, incrementRateLimitCounter } from '../../../lib/kvCounters';
 import { withCORS, getCorsConfig } from '../../../middleware/cors';
-import type { AutocompleteResponse, AutocompleteError } from '../../../types/address';
+import type { AutocompleteResponse, AutocompleteError } from '../../../types/ui';
+import type { Address } from '../../../types/ui';
 
 interface AutocompleteQuery {
   text: string;
@@ -40,40 +41,48 @@ export async function handleAutocomplete(request: Request, env: Env) {
       timezone?: string;
     };
 
-    console.log('[Autocomplete] Cloudflare geolocation:', cfGeo);
+    if (env.DEBUG_GEO === '1') {
+      console.log('[Autocomplete] Cloudflare geolocation:', cfGeo);
+    }
 
     // Use Cloudflare country as default if no country specified
     if (!query.country && cfGeo.country) {
       query.country = cfGeo.country;
-      console.log('[Autocomplete] Using Cloudflare country:', cfGeo.country);
+      if (env.DEBUG_GEO === '1') {
+        console.log('[Autocomplete] Using Cloudflare country:', cfGeo.country);
+      }
     }
 
     // Only apply bias when Cloudflare country matches requested country
     const shouldApplyBias = query.country && cfGeo.country && 
       query.country.toUpperCase() === cfGeo.country.toUpperCase();
     
-    console.log('[Autocomplete] Bias context:', {
-      requestedCountry: query.country,
-      cfCountry: cfGeo.country,
-      shouldApplyBias
-    });
+    if (env.DEBUG_GEO === '1') {
+      console.log('[Autocomplete] Bias context:', {
+        requestedCountry: query.country,
+        cfCountry: cfGeo.country,
+        shouldApplyBias
+      });
+    }
 
     // Get configuration from environment
     const minChars = parseInt(env.GEOAPIFY_MIN_CHARS || '3', 10);
     const dailyLimit = parseInt(env.GEOAPIFY_DAILY_LIMIT || '1000', 10);
     const rpmPerIp = parseInt(env.GEOAPIFY_RPM_PER_IP || '60', 10);
 
-    console.log('[Autocomplete] Debug:', {
-      text: query.text,
-      textLength: query.text.length,
-      minChars,
-      dailyLimit,
-      rpmPerIp,
-      hasApiKey: !!env.GEOAPIFY_API_KEY,
-      cfCountry: cfGeo.country,
-      cfCity: cfGeo.city,
-      cfRegion: cfGeo.region,
-    });
+    if (env.DEBUG_GEO === '1') {
+      console.log('[Autocomplete] Debug:', {
+        text: query.text,
+        textLength: query.text.length,
+        minChars,
+        dailyLimit,
+        rpmPerIp,
+        hasApiKey: !!env.GEOAPIFY_API_KEY,
+        cfCountry: cfGeo.country,
+        cfCity: cfGeo.city,
+        cfRegion: cfGeo.region,
+      });
+    }
 
     const validation = validateAutocompleteRequest(
       query.text,
@@ -146,6 +155,7 @@ export async function handleAutocomplete(request: Request, env: Env) {
       headers: { 
         'Content-Type': 'application/json',
         'Cache-Control': 's-maxage=60, public', // Edge cache for 60 seconds
+        'Vary': 'Accept-Language', // Vary by language for localized results
       },
     });
 

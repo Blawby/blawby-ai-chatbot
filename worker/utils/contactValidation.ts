@@ -1,4 +1,17 @@
 import { z } from 'zod';
+import type { Address } from '../types/ui';
+
+/**
+ * Address validation schema (loose validation for contact forms)
+ */
+const addressSchema = z.object({
+  address: z.string().optional(),
+  apartment: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postalCode: z.string().optional(),
+  country: z.string().optional(),
+}).optional();
 
 /**
  * Contact data validation schema
@@ -12,7 +25,7 @@ export const contactDataSchema = z.object({
     .min(10, 'Phone number must be at least 10 digits')
     .optional()
     .or(z.literal('')),
-  location: z.string().min(2, 'Location must be at least 2 characters').optional().or(z.literal('')),
+  address: addressSchema,
   opposingParty: z.string().optional().or(z.literal('')),
   description: z.string().optional().or(z.literal(''))
 });
@@ -39,8 +52,21 @@ export function parseContactData(content: string): ContactData | null {
     const phoneMatch = line.match(/^Phone:\s*(.+)$/i);
     if (phoneMatch) contactData.phone = phoneMatch[1].trim();
     
-    const locationMatch = line.match(/^Location:\s*(.+)$/i);
-    if (locationMatch) contactData.location = locationMatch[1].trim();
+    // Parse address lines (could be multiline address)
+    const addressMatch = line.match(/^Address:\s*(.+)$/i);
+    if (addressMatch) {
+      // For now, store as simple address string parsing
+      // In a full implementation, this would parse multiline addresses
+      const addressText = addressMatch[1].trim();
+      contactData.address = {
+        address: addressText,
+        apartment: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        country: ''
+      };
+    }
     
     const opposingMatch = line.match(/^Opposing Party:\s*(.+)$/i);
     if (opposingMatch) contactData.opposingParty = opposingMatch[1].trim();

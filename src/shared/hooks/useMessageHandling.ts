@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
+import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
@@ -53,7 +54,7 @@ type ContactFormMetadata = {
     name?: string;
     email?: string;
     phone?: string;
-    location?: string;
+    address?: Address;
     opposingParty?: string;
   };
 };
@@ -96,7 +97,7 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
       return undefined;
     }
     const rawInitialValues = initialValues as Record<string, unknown>;
-    const allowedKeys = ['name', 'email', 'phone', 'address', 'opposingParty'] as const;
+    const allowedKeys = ['name', 'email', 'phone', 'opposingParty'] as const;
     normalizedInitialValues = {};
     for (const key of allowedKeys) {
       const value = rawInitialValues[key];
@@ -107,6 +108,15 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
         return undefined;
       }
       normalizedInitialValues[key] = value;
+    }
+    // Handle address field separately since it's an object
+    const addressValue = rawInitialValues['address'];
+    if (addressValue !== undefined) {
+      if (typeof addressValue === 'object' && addressValue !== null && !Array.isArray(addressValue)) {
+        normalizedInitialValues.address = addressValue as Address;
+      } else {
+        return undefined;
+      }
     }
     if (Object.keys(normalizedInitialValues).length === 0) {
       normalizedInitialValues = undefined;

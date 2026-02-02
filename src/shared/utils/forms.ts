@@ -24,7 +24,6 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     getTrimmedString(formData.matterDescription) ??
     getTrimmedString(formData.description);
   const opposingParty = getTrimmedString(formData.opposingParty);
-  const location = getTrimmedString(formData.location);
 
   return {
     slug: practiceSlug,
@@ -33,7 +32,6 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     ...(phone ? { phone } : {}),
     ...(description ? { description } : {}),
     ...(opposingParty ? { opposing_party: opposingParty } : {}),
-    ...(location ? { location } : {})
   };
 }
 
@@ -93,11 +91,8 @@ const clampAmount = (amount: number): MinorAmount => {
   return asMinor(Math.min(max, Math.max(min, Math.round(amount))));
 };
 
-const formatDescriptionWithLocation = (description?: string, location?: string) => {
-  const parts: string[] = [];
-  if (description) parts.push(description);
-  if (location) parts.push(`Location: ${location}`);
-  return parts.length > 0 ? parts.join('\n') : undefined;
+const formatDescription = (description?: string) => {
+  return description?.trim() || undefined;
 };
 
 async function fetchIntakeSettings(
@@ -206,10 +201,7 @@ export async function submitContactForm(
       console.info('[Intake] Payment link disabled for practice intake');
     }
 
-    const descriptionWithLocation = formatDescriptionWithLocation(
-      formPayload.description as string | undefined,
-      formPayload.location as string | undefined
-    );
+    const description = formatDescription(formPayload.description as string | undefined);
 
     const createPayload = {
       slug: formPayload.slug,
@@ -220,7 +212,7 @@ export async function submitContactForm(
         ? { conversation_id: formData.sessionId.trim() }
         : {}),
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
-      ...(descriptionWithLocation ? { description: descriptionWithLocation } : {}),
+      ...(description ? { description } : {}),
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
     };
 

@@ -2,11 +2,13 @@
  * Centralized utilities for contact information detection and validation
  */
 
+import type { Address } from '../types/ui';
+
 export interface ContactInfoPatterns {
   name: RegExp;
   email: RegExp;
   phone: RegExp;
-  location: RegExp;
+  address: RegExp;
   contactInfoHeader: RegExp;
 }
 
@@ -14,7 +16,7 @@ export interface ContactInfoMatch {
   hasName: boolean;
   hasEmail: boolean;
   hasPhone: boolean;
-  hasLocation: boolean;
+  hasAddress: boolean;
   hasContactInfoHeader: boolean;
   matches: Array<{ pattern: string; matched: boolean }>;
 }
@@ -35,8 +37,8 @@ export const CONTACT_INFO_PATTERNS: ContactInfoPatterns = {
   // Phone patterns - flexible format matching
   phone: /Phone:\s*.+/i,
   
-  // Location patterns - flexible location matching
-  location: /Location:\s*.+/i
+  // Address patterns - flexible address matching
+  address: /Address:\s*.+/i
 };
 
 /**
@@ -50,7 +52,7 @@ export function detectContactInfo(conversationText: string): ContactInfoMatch {
       hasName: false,
       hasEmail: false,
       hasPhone: false,
-      hasLocation: false,
+      hasAddress: false,
       hasContactInfoHeader: false,
       matches: []
     };
@@ -62,14 +64,14 @@ export function detectContactInfo(conversationText: string): ContactInfoMatch {
     { pattern: 'name', matched: patterns.name.test(conversationText) },
     { pattern: 'email', matched: patterns.email.test(conversationText) },
     { pattern: 'phone', matched: patterns.phone.test(conversationText) },
-    { pattern: 'location', matched: patterns.location.test(conversationText) }
+    { pattern: 'address', matched: patterns.address.test(conversationText) }
   ];
 
   return {
     hasName: matches.find(m => m.pattern === 'name')?.matched || false,
     hasEmail: matches.find(m => m.pattern === 'email')?.matched || false,
     hasPhone: matches.find(m => m.pattern === 'phone')?.matched || false,
-    hasLocation: matches.find(m => m.pattern === 'location')?.matched || false,
+    hasAddress: matches.find(m => m.pattern === 'address')?.matched || false,
     hasContactInfoHeader: matches.find(m => m.pattern === 'contactInfoHeader')?.matched || false,
     matches
   };
@@ -87,7 +89,7 @@ export function hasContactInformation(conversationText: string): boolean {
   // OR if we have the contact info header with at least 2 other fields
   const hasCoreInfo = detection.hasName && detection.hasEmail && detection.hasPhone;
   const hasHeaderWithInfo = detection.hasContactInfoHeader && 
-    [detection.hasName, detection.hasEmail, detection.hasPhone, detection.hasLocation]
+    [detection.hasName, detection.hasEmail, detection.hasPhone, detection.hasAddress]
       .filter(Boolean).length >= 2;
   
   return hasCoreInfo || hasHeaderWithInfo;
@@ -105,13 +107,13 @@ export function extractContactInfo(conversationText: string): {
   name?: string;
   email?: string;
   phone?: string;
-  location?: string;
+  address?: Address;
 } {
   if (!conversationText) {
     return {};
   }
 
-  const result: { name?: string; email?: string; phone?: string; location?: string } = {};
+  const result: { name?: string; email?: string; phone?: string; address?: Address } = {};
 
   // Extract name
   const nameMatch = conversationText.match(/Name:\s*(.+?)(?:\n|$)/i);
@@ -131,10 +133,18 @@ export function extractContactInfo(conversationText: string): {
     result.phone = phoneMatch[1].trim();
   }
 
-  // Extract location
-  const locationMatch = conversationText.match(/Location:\s*(.+?)(?:\n|$)/i);
-  if (locationMatch) {
-    result.location = locationMatch[1].trim();
+  // Extract address
+  const addressMatch = conversationText.match(/Address:\s*(.+?)(?:\n|$)/i);
+  if (addressMatch) {
+    const addressText = addressMatch[1].trim();
+    result.address = {
+      address: addressText,
+      apartment: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: ''
+    };
   }
 
   return result;
@@ -187,7 +197,7 @@ export function logContactInfoDetection(
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]')
     .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]')
     .replace(/Name:\s*.+/gi, 'Name: [NAME_REDACTED]')
-    .replace(/Location:\s*.+/gi, 'Location: [LOCATION_REDACTED]')
+    .replace(/Address:\s*.+/gi, 'Address: [ADDRESS_REDACTED]')
     .substring(0, 200);
 
   // Create sanitized detection object without raw PII
@@ -195,7 +205,7 @@ export function logContactInfoDetection(
     hasName: detection.hasName,
     hasEmail: detection.hasEmail,
     hasPhone: detection.hasPhone,
-    hasLocation: detection.hasLocation,
+    hasAddress: detection.hasAddress,
     hasContactInfoHeader: detection.hasContactInfoHeader,
     // Include PII-safe pattern information from matches array
     matchedPatterns: detection.matches

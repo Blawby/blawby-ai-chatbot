@@ -2,8 +2,9 @@
  * Geoapify API integration utilities
  */
 
-import { fromGeoapifyResponse } from '../../src/shared/utils/addressMappers';
-import type { AddressSuggestion, AutocompleteError } from '../types/address';
+import { fromGeoapifyResponse } from '../../src/shared/mapping/addressMapping';
+import type { AddressSuggestion, AutocompleteError } from '../types/ui';
+import type { Address } from '../types/ui';
 
 export interface GeoapifyAutocompleteOptions {
   text: string;

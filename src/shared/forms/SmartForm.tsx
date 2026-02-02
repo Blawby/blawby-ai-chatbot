@@ -1,0 +1,150 @@
+import { Form, FormField, FormItem } from '@/shared/ui/form';
+import { cn } from '@/shared/utils/cn';
+import { getFieldEntry, applyFieldAdapter, reverseFieldAdapter } from './fieldRegistry';
+import type { JSX } from 'preact';
+
+export interface SmartFormProps<T = any> {
+  // Form configuration
+  config: {
+    schema: any; // Zod schema
+    fields: string[];
+    layout: 'grid' | 'stacked';
+    initialValues: () => T;
+  };
+  
+  // Form behavior
+  onSubmit: (data: T) => void | Promise<void>;
+  disabled?: boolean;
+  submitText?: string;
+  cancelText?: string;
+  onCancel?: () => void;
+  
+  // UI customization
+  labels?: Record<string, string>;
+  placeholders?: Record<string, string>;
+  errors?: Record<string, string>;
+  variant?: 'default' | 'error';
+  
+  // Styling
+  className?: string;
+  gridSize?: 'sm' | 'md' | 'lg';
+}
+
+export function SmartForm<T = any>({
+  config,
+  onSubmit,
+  disabled = false,
+  submitText = 'Save',
+  cancelText = 'Cancel',
+  onCancel,
+  labels = {},
+  placeholders = {},
+  errors = {},
+  variant = 'default',
+  className = '',
+  gridSize = 'md',
+}: SmartFormProps<T>) {
+  const handleSubmit = async (formData: any) => {
+    // Apply field adapters in reverse direction for submission
+    const adaptedData: any = {};
+    
+    for (const fieldId of config.fields) {
+      const value = formData[fieldId];
+      adaptedData[fieldId] = reverseFieldAdapter(fieldId, value);
+    }
+    
+    await onSubmit(adaptedData);
+  };
+
+  const renderField = (fieldId: string) => {
+    const fieldEntry = getFieldEntry(fieldId);
+    const Component = fieldEntry.component;
+    
+    return (
+      <FormField name={fieldId}>
+        {({ value, error, onChange }) => {
+          // Apply field adapters for form display
+          const adaptedValue = applyFieldAdapter(fieldId, value);
+          
+          // Build component props
+          const componentProps: any = {
+            value: adaptedValue,
+            onChange: (newValue: any) => onChange(applyFieldAdapter(fieldId, newValue)),
+            disabled,
+            label: labels[fieldId] || fieldEntry.label,
+            placeholder: placeholders[fieldId] || fieldEntry.placeholder,
+            error: errors[fieldId] || error?.message,
+            variant: errors[fieldId] || error ? 'error' : variant,
+          };
+          
+          // Add specific props for different component types
+          if (fieldId === 'address') {
+            componentProps.required = { address: true, city: true, state: true, postalCode: true, country: true };
+            componentProps.validationLevel = 'loose';
+            componentProps.enableAutocomplete = true;
+            componentProps.size = gridSize;
+            componentProps.showCountry = true;
+          }
+          
+          // Add options for select components
+          if (fieldEntry.options) {
+            componentProps.options = fieldEntry.options;
+          }
+          
+          return <Component {...componentProps} />;
+        }}
+      </FormField>
+    );
+  };
+
+  const gridClasses = {
+    sm: 'grid gap-4 sm:grid-cols-1',
+    md: 'grid gap-4 sm:grid-cols-2',
+    lg: 'grid gap-4 sm:grid-cols-3',
+  }[gridSize];
+
+  const containerClasses = cn(
+    config.layout === 'grid' ? gridClasses : 'space-y-4',
+    className
+  );
+
+  return (
+    <Form
+      initialData={config.initialValues()}
+      onSubmit={handleSubmit}
+      schema={config.schema}
+      className={containerClasses}
+    >
+      {config.fields.map((fieldId) => (
+        <FormItem key={fieldId}>
+          {renderField(fieldId)}
+        </FormItem>
+      ))}
+
+      {(onCancel || submitText) && (
+        <div className={cn(
+          'flex gap-3 pt-4',
+          config.layout === 'grid' && 'col-span-full'
+        )}>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={disabled}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {cancelText}
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={disabled}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitText}
+          </button>
+        </div>
+      )}
+    </Form>
+  );
+}

@@ -8,7 +8,7 @@ import { Textarea } from '@/shared/ui/input/Textarea';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { schemas } from '@/shared/ui/validation/schemas';
-import { toApiAddress } from '@/shared/utils/addressMappers';
+import { toApiAddress } from '@/shared/mapping/addressMapping';
 import { validateAddressLoose } from '@/shared/utils/addressValidation';
 import type { JSX } from 'preact';
 import type { Address } from '@/shared/types/address';

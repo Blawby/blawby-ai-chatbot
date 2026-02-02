@@ -3,9 +3,9 @@ import { AddressFields } from './AddressFields';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { validateAddressLoose, validateAddressStrict } from '@/shared/utils/addressValidation';
-import { toApiAddress, fromApiAddress, hasAddressData } from '@/shared/utils/addressMappers';
 import { formatAddressSingleLine } from '@/shared/utils/addressFormat';
 import type { Address, AddressSource, AddressSuggestion } from '@/shared/types/address';
+import { DEFAULT_COUNTRY_OPTIONS } from './AddressFields';
 
 export interface AddressInputProps {
   value: Partial<Address>;
@@ -17,6 +17,8 @@ export interface AddressInputProps {
   variant?: 'default' | 'error' | 'success';
   className?: string;
   description?: string;
+  label?: string;
+  placeholder?: string;
   validationLevel?: 'loose' | 'strict';
   showCountry?: boolean;
   countryOptions?: Array<{ value: string; label: string }>;
@@ -47,6 +49,8 @@ export const AddressInput = ({
   variant = 'default',
   className = '',
   description,
+  label,
+  placeholder,
   validationLevel = 'loose',
   showCountry = true,
   countryOptions,
@@ -266,6 +270,8 @@ export const AddressInput = ({
           variant={variant}
           showCountry={showCountry}
           countryOptions={countryOptions}
+          label={label}
+          placeholder={placeholder}
           streetAddressProps={{
             value: safeValue.address || '',
             onChange: handleStreetAddressChange,

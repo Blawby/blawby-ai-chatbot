@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
 import { MessageBubble } from './MessageBubble';
@@ -43,7 +44,7 @@ interface MessageProps {
 			name?: string;
 			email?: string;
 			phone?: string;
-			location?: string;
+			address?: Address;
 			opposingParty?: string;
 		};
 	};

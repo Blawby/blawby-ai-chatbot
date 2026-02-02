@@ -16,14 +16,8 @@ export interface Address {
 }
 
 // Backend wire type - snake_case, used in API requests/responses
-export interface AddressApi {
-  address: string;
-  apartment?: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-}
+// Import from api.ts to maintain single source of truth
+export type { AddressApi } from './api';
 
 // Address suggestion from autocomplete API
 export interface AddressSuggestion {
