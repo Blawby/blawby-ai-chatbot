@@ -6,6 +6,7 @@ import {
   getConversationLinkEndpoint
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
+import type { Address } from '@/shared/types/address';
 import { getWorkerApiUrl } from '@/config/urls';
 import {
   toMajorUnits,
@@ -713,6 +714,59 @@ export type CreateUserDetailPayload = {
   phone?: string;
   status?: UserDetailStatus;
   currency?: string;
+  address?: Partial<Address>;
+};
+
+type UserDetailBasePayload = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  status?: UserDetailStatus;
+  currency?: string;
+  address?: Partial<Address>;
+};
+
+type UpdateUserDetailPayload = UserDetailBasePayload & Record<string, unknown>;
+
+const normalizeOptionalText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const normalizeUserDetailAddress = (address?: Partial<Address>): Record<string, unknown> | undefined => {
+  if (!address) return undefined;
+  const normalized: Record<string, unknown> = {};
+  const line1 = normalizeOptionalText(address.address);
+  if (line1 !== undefined) normalized.line1 = line1;
+  const line2 = normalizeOptionalText(address.apartment);
+  if (line2 !== undefined) normalized.line2 = line2;
+  const city = normalizeOptionalText(address.city);
+  if (city !== undefined) normalized.city = city;
+  const state = normalizeOptionalText(address.state);
+  if (state !== undefined) normalized.state = state;
+  const postalCode = normalizeOptionalText(address.postalCode);
+  if (postalCode !== undefined) normalized.postal_code = postalCode;
+  const country = normalizeOptionalText(address.country);
+  if (country !== undefined) normalized.country = country.toUpperCase();
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+};
+
+const normalizeUserDetailPayload = (payload: UserDetailBasePayload): Record<string, unknown> => {
+  const normalized: Record<string, unknown> = {};
+  const name = normalizeOptionalText(payload.name);
+  if (name !== undefined) normalized.name = name;
+  const email = normalizeOptionalText(payload.email);
+  if (email !== undefined) normalized.email = email;
+  const phone = normalizeOptionalText(payload.phone);
+  if (phone !== undefined) normalized.phone = phone;
+  if (payload.status !== undefined) normalized.status = payload.status;
+  const currency = normalizeOptionalText(payload.currency);
+  if (currency !== undefined) normalized.currency = currency;
+  const address = normalizeUserDetailAddress(payload.address);
+  if (address) normalized.address = address;
+  return normalized;
 };
 
 export async function createUserDetail(
@@ -722,43 +776,36 @@ export async function createUserDetail(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  
-  // Use Better Auth organization invitation instead of direct user-details creation
-  const { getClient } = await import('@/shared/lib/authClient');
-  const authClient = getClient();
-  
-  // Validate email before sending invitation
-  if (!payload.email || typeof payload.email !== 'string' || payload.email.trim().length === 0) {
-    throw new Error('Valid email address is required for invitation');
+
+  if (!payload.name || !payload.email) {
+    throw new Error('Name and email are required');
   }
-  const normalizedEmail = payload.email.trim();
-  
-  try {
-    await authClient.organization.inviteMember({
-      email: normalizedEmail,
-      role: 'member',
-      organizationId: practiceId,
-    });
-    
-    // Return null - callers should refresh from server to get the actual record
-    return null;
-  } catch (error) {
-    console.error('Failed to invite client:', error);
-    throw error;
+
+  const normalizedPayload = normalizeUserDetailPayload(payload);
+  const response = await apiClient.post(
+    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
+    normalizedPayload
+  );
+  const data = response.data;
+  if (isRecord(data) && isRecord(data.data)) {
+    return data.data as UserDetailRecord;
   }
+  return null;
 }
 
 export async function updateUserDetail(
   practiceId: string,
   userDetailId: string,
-  payload: Record<string, unknown>
+  payload: UpdateUserDetailPayload
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
   }
+  const { address, name, email, phone, status, currency, ...rest } = payload;
+  const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency });
   const response = await apiClient.put(
     `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`,
-    payload
+    { ...rest, ...normalized }
   );
   const data = response.data;
   if (isRecord(data) && isRecord(data.data)) {

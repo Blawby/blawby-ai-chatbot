@@ -591,17 +591,6 @@ export const PracticeClientsPage = () => {
     setEditClientSubmitting(true);
     setEditClientError(null);
     try {
-      // Handle address object like intake form
-      const address = editClientForm.address;
-      const hasAddress = address && (
-        Boolean(address.address?.trim()) ||
-        Boolean(address.apartment?.trim()) ||
-        Boolean(address.city?.trim()) ||
-        Boolean(address.state?.trim()) ||
-        Boolean(address.postalCode?.trim()) ||
-        Boolean(address.country?.trim())
-      );
-
       await updateUserDetail(currentPractice.id, editClientForm.id, {
         name,
         email,
@@ -609,16 +598,7 @@ export const PracticeClientsPage = () => {
         status: editClientForm.status,
         currency: editClientForm.currency.trim() || 'usd',
         event_name: 'Invite Client',
-        ...(hasAddress && {
-          address: {
-            address: address.address?.trim() || undefined,
-            apartment: address.apartment?.trim() || undefined,
-            city: address.city?.trim() || undefined,
-            state: address.state?.trim() || undefined,
-            postalCode: address.postalCode?.trim() || undefined,
-            country: address.country?.trim() || undefined
-          }
-        })
+        address: editClientForm.address
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client updated', 'Client details have been saved.');
@@ -665,7 +645,8 @@ export const PracticeClientsPage = () => {
         email,
         phone: addClientForm.phone.trim() || undefined,
         status: addClientForm.status,
-        currency: addClientForm.currency.trim() || 'usd'
+        currency: addClientForm.currency.trim() || 'usd',
+        address: addClientForm.address
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client added', 'The client has been added to your practice.');
