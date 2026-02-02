@@ -95,3 +95,6 @@ tests/e2e/fixtures/e2e-credentials.json
 
 # Playwright reports
 playwright/reports/
+
+# Documentation files
+BILLING_PLAN.md
