@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - staging
   workflow_dispatch:
 
 jobs:
@@ -13,6 +14,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve deploy env
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "DEPLOY_ENV=production" >> "$GITHUB_ENV"
+          else
+            echo "DEPLOY_ENV=staging" >> "$GITHUB_ENV"
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -63,7 +72,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: '.'
-          command: deploy --env production --config worker/wrangler.toml
+          command: deploy --env ${{ env.DEPLOY_ENV }} --config worker/wrangler.toml
 
       - name: Check wrangler logs
         if: always()
@@ -88,6 +97,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve build env
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "DEPLOY_ENV=production" >> "$GITHUB_ENV"
+            echo "PAGES_PROJECT=blawby-ai-chatbot-frontend" >> "$GITHUB_ENV"
+            {
+              echo "VITE_BACKEND_API_URL<<EOF"
+              echo "$VITE_BACKEND_API_URL_PROD"
+              echo "EOF"
+              echo "VITE_APP_BASE_URL<<EOF"
+              echo "$VITE_APP_BASE_URL_PROD"
+              echo "EOF"
+              echo "VITE_WORKER_API_URL<<EOF"
+              echo "$VITE_WORKER_API_URL_PROD"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+          else
+            echo "DEPLOY_ENV=staging" >> "$GITHUB_ENV"
+            echo "PAGES_PROJECT=blawby-ai-chatbot-frontend-staging" >> "$GITHUB_ENV"
+            {
+              echo "VITE_BACKEND_API_URL<<EOF"
+              echo "$VITE_BACKEND_API_URL_STG"
+              echo "EOF"
+              echo "VITE_APP_BASE_URL<<EOF"
+              echo "$VITE_APP_BASE_URL_STG"
+              echo "EOF"
+              echo "VITE_WORKER_API_URL<<EOF"
+              echo "$VITE_WORKER_API_URL_STG"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+          fi
+        env:
+          VITE_BACKEND_API_URL_PROD: ${{ secrets.VITE_BACKEND_API_URL }}
+          VITE_APP_BASE_URL_PROD: ${{ secrets.VITE_APP_BASE_URL }}
+          VITE_WORKER_API_URL_PROD: ${{ secrets.VITE_WORKER_API_URL }}
+          VITE_BACKEND_API_URL_STG: ${{ secrets.VITE_BACKEND_API_URL_STAGING }}
+          VITE_APP_BASE_URL_STG: ${{ secrets.VITE_APP_BASE_URL_STAGING }}
+          VITE_WORKER_API_URL_STG: ${{ secrets.VITE_WORKER_API_URL_STAGING }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -111,17 +159,9 @@ jobs:
             echo "VITE_WORKER_API_URL is required for SSR/build contexts." >&2
             exit 1
           fi
-        env:
-          VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
-          VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
-          VITE_WORKER_API_URL: ${{ secrets.VITE_WORKER_API_URL }}
 
       - name: Build
         run: npm run build
-        env:
-          VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
-          VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
-          VITE_WORKER_API_URL: ${{ secrets.VITE_WORKER_API_URL }}
 
       - name: Debug - list build output
         run: |
@@ -136,4 +176,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=blawby-ai-chatbot-frontend
+          command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }}

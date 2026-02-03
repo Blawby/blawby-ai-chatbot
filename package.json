@@ -5,6 +5,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "d1:bootstrap": "node scripts/d1-bootstrap.mjs",
     "dev": "vite",
     "dev:worker": "wrangler dev --port 8787 --config worker/wrangler.toml --env dev",
     "dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && npm run dev:worker",
