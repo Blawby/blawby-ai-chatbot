@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
@@ -12,6 +12,7 @@ type AuthMode = 'signin' | 'signup';
 interface AuthFormProps {
   mode?: AuthMode;
   defaultMode?: AuthMode;
+  initialEmail?: string;
   onSuccess?: (user: unknown) => void | Promise<void>;
   onError?: (error: string) => void;
   onModeChange?: (mode: AuthMode) => void;
@@ -23,6 +24,7 @@ interface AuthFormProps {
 const AuthForm = ({
   mode,
   defaultMode = 'signin',
+  initialEmail,
   onSuccess,
   onError,
   onModeChange,
@@ -36,13 +38,20 @@ const AuthForm = ({
   const isControlled = typeof mode !== 'undefined';
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    email: initialEmail ?? '',
     password: '',
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (typeof initialEmail !== 'string') return;
+    setFormData((prev) => (
+      prev.email === initialEmail ? prev : { ...prev, email: initialEmail }
+    ));
+  }, [initialEmail]);
 
   const notifySuccess = useCallback(async (user: unknown) => {
     if (!onSuccess) return;

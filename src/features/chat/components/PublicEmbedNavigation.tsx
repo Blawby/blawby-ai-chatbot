@@ -1,10 +1,12 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ClipboardDocumentListIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 
 interface PublicEmbedNavigationProps {
-  activeTab: 'home' | 'messages' | 'matters' | 'profile';
-  onSelectTab: (tab: 'home' | 'messages' | 'matters' | 'profile') => void;
+  activeTab: 'home' | 'messages' | 'matters' | 'settings';
+  onSelectTab: (tab: 'home' | 'messages' | 'matters' | 'settings') => void;
   showClientTabs?: boolean;
 }
 
@@ -14,8 +16,13 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   showClientTabs = false
 }) => {
   const { t } = useTranslation();
+  const { session } = useSessionContext();
   const isHome = activeTab === 'home';
   const isMessages = activeTab === 'messages';
+  const profileName = session?.user?.name?.trim() ?? '';
+  const profileEmail = session?.user?.email?.trim() ?? '';
+  const profileLabel = profileName || profileEmail || t('embed.navigation.settings');
+  const profileImage = session?.user?.image ?? null;
 
   const baseClasses = 'flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold transition';
   const activeClasses = 'bg-accent-100 text-accent-700 shadow-sm dark:bg-accent-900/30 dark:text-accent-300';
@@ -60,12 +67,21 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
         {showClientTabs && (
           <button
             type="button"
-            className={`${baseClasses} ${activeTab === 'profile' ? activeClasses : inactiveClasses}`}
-            onClick={() => onSelectTab('profile')}
-            aria-current={activeTab === 'profile' ? 'page' : undefined}
+            className={`${baseClasses} ${activeTab === 'settings' ? activeClasses : inactiveClasses}`}
+            onClick={() => onSelectTab('settings')}
+            aria-current={activeTab === 'settings' ? 'page' : undefined}
           >
-            <UserCircleIcon className="h-5 w-5" aria-hidden="true" />
-            <span>{t('embed.navigation.profile')}</span>
+            {profileImage || profileName || profileEmail ? (
+              <Avatar
+                src={profileImage}
+                name={profileLabel}
+                size="sm"
+                className="ring-1 ring-white/20"
+              />
+            ) : (
+              <UserCircleIcon className="h-5 w-5" aria-hidden="true" />
+            )}
+            <span className="max-w-[96px] truncate">{profileLabel}</span>
           </button>
         )}
       </div>

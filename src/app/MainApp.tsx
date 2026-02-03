@@ -92,7 +92,7 @@ export function MainApp({
   activeRoute: RouteKey;
   routeConversationId?: string;
   publicPracticeSlug?: string;
-  publicEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'profile';
+  publicEmbedView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);

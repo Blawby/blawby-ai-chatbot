@@ -23,6 +23,7 @@ import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { AppGuard } from '@/app/AppGuard';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import DevMockEmbedPage from '@/pages/DevMockEmbedPage';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -187,13 +188,13 @@ function AppShell() {
           <Route path="/cart" component={CartPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />
+          {import.meta.env.DEV && <Route path="/dev/mock-embed-public-and-client" component={DevMockEmbedPage} />}
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
           <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
           <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
           <Route path="/embed/:practiceSlug/matters" component={PublicPracticeRoute} embedView="matters" />
-          <Route path="/embed/:practiceSlug/profile" component={PublicPracticeRoute} embedView="profile" />
           <Route path="/practice" component={PracticeBaseRoute} />
           <Route path="/practice/home" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" />
           <Route path="/practice/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
@@ -229,24 +230,8 @@ function AppShell() {
 function SettingsRoute() {
   const location = useLocation();
   const { preferredWorkspace } = useWorkspace();
-  const { activeOrganizationId } = useSessionContext();
-  const { navigate } = useNavigation();
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
   const isClientWorkspace = preferredWorkspace === 'client';
-  const practiceById = (id: string | null) => practices.find((practice) => practice.id === id) ?? null;
-  const resolvedPractice =
-    practiceById(activeOrganizationId) ??
-    currentPractice ??
-    practices[0] ??
-    null;
-  const resolvedSlug = resolvedPractice?.slug ?? null;
-
-  useEffect(() => {
-    if (!isClientWorkspace) return;
-    if (practicesLoading) return;
-    if (!resolvedSlug) return;
-    navigate(`/embed/${encodeURIComponent(resolvedSlug)}/profile`, true);
-  }, [isClientWorkspace, navigate, practicesLoading, resolvedSlug]);
+  usePracticeManagement();
 
   if (isClientWorkspace) {
     return <LoadingScreen />;
@@ -479,7 +464,7 @@ function PublicPracticeRoute({
 }: {
   practiceSlug?: string;
   conversationId?: string;
-  embedView?: 'home' | 'list' | 'conversation' | 'matters' | 'profile';
+  embedView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -611,7 +596,7 @@ function PublicPracticeRoute({
     navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
     return <LoadingScreen />;
   }
-  if (!isAuthenticatedClient && (embedView === 'matters' || embedView === 'profile') && slug) {
+  if (!isAuthenticatedClient && embedView === 'matters' && slug) {
     navigate(`/embed/${encodeURIComponent(slug)}`, true);
     return <LoadingScreen />;
   }
