@@ -56,7 +56,6 @@ export interface AddressExperienceFormProps {
   addressOptions?: {
     country?: string;
     showCountry?: boolean;
-    validationLevel?: 'loose' | 'strict';
     enableAutocomplete?: boolean;
     autocompleteUrl?: string;
     minChars?: number;
@@ -369,7 +368,6 @@ export const AddressExperienceForm = ({
                           : undefined}
                         errors={error?.message ? { address: error.message } : undefined}
                         variant={error ? 'error' : 'default'}
-                        validationLevel={addressOptions.validationLevel || 'loose'}
                         enableAutocomplete={addressOptions.enableAutocomplete ?? true}
                         autocompleteUrl={addressOptions.autocompleteUrl}
                         minChars={addressOptions.minChars}
