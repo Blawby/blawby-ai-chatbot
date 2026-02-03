@@ -137,11 +137,12 @@ export async function callGeoapifyAutocompleteMultiPass(
   try {
     // Pass 1: Default (building matches)
     debug('[Geoapify MultiPass] Pass 1: Default search');
+    const trimmedCountry = country?.trim();
     const pass1Result = await callGeoapifyAutocomplete({
       text,
       limit: 12, // Explicit upstream limit
       lang,
-      country,
+      country: trimmedCountry,
       type: undefined, // Default
       apiKey,
       bias
@@ -172,7 +173,7 @@ export async function callGeoapifyAutocompleteMultiPass(
         text,
         limit: 10, // Explicit upstream limit
         lang,
-        country,
+        country: trimmedCountry,
         type: 'street',
         apiKey,
         bias
@@ -181,7 +182,7 @@ export async function callGeoapifyAutocompleteMultiPass(
         text: textForLocality,
         limit: 8, // Explicit upstream limit
         lang,
-        country,
+        country: trimmedCountry,
         type: 'locality',
         apiKey,
         bias
@@ -209,7 +210,7 @@ export async function callGeoapifyAutocompleteMultiPass(
           text: textWithoutHouseNumber,
           limit: 8, // Explicit upstream limit
           lang,
-          country,
+          country: trimmedCountry,
           type: 'street',
           apiKey,
           bias
@@ -274,8 +275,9 @@ export async function callGeoapifyAutocomplete(
   }
   
   // Add bias to return more diverse results
-  if (country) {
-    url.searchParams.set('filter', `countrycode:${country.toLowerCase()}`);
+  const trimmedCountry = country?.trim();
+  if (trimmedCountry) {
+    url.searchParams.set('filter', `countrycode:${trimmedCountry.toLowerCase()}`);
   }
   
   // Add location bias if available
