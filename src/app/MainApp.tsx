@@ -16,7 +16,6 @@ import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import {
   BanknotesIcon,
@@ -93,7 +92,7 @@ export function MainApp({
   activeRoute: RouteKey;
   routeConversationId?: string;
   publicPracticeSlug?: string;
-  publicEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'profile';
+  publicEmbedView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -106,7 +105,6 @@ export function MainApp({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const postAuthLinkHandledRef = useRef(false);
   const conversationRestoreAttemptedRef = useRef(false);
   const isPublicWorkspace = workspace === 'public';
   const resolvedPublicPracticeSlug = useMemo(() => {
@@ -240,52 +238,6 @@ export function MainApp({
     setConversationMode(null);
   }, [conversationId, normalizedRouteConversationId]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (postAuthLinkHandledRef.current) return;
-
-    const url = new URL(window.location.href);
-    const conversationIdParam = url.searchParams.get('conversationId');
-    const practiceIdParam = url.searchParams.get('practiceId');
-    if (!conversationIdParam || !practiceIdParam) return;
-
-    postAuthLinkHandledRef.current = true;
-    const postAuthRedirectKey = 'post-auth-redirect';
-    const postAuthRedirect = sessionStorage.getItem(postAuthRedirectKey);
-    const isSafeRedirect = (path: string) => {
-      try {
-        const parsed = new URL(path, window.location.origin);
-        return parsed.origin === window.location.origin;
-      } catch {
-        return path.startsWith('/') && !path.match(/^\/[\\/]/);
-      }
-    };
-
-    const cleanupUrl = () => {
-      url.searchParams.delete('conversationId');
-      url.searchParams.delete('practiceId');
-      const cleaned = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState({}, '', cleaned);
-    };
-
-    (async () => {
-      try {
-        await linkConversationToUser(conversationIdParam, practiceIdParam);
-      } catch (error) {
-        console.error('[MainApp] Failed to link conversation from auth redirect', error);
-      }
-
-      if (postAuthRedirect) {
-        sessionStorage.removeItem(postAuthRedirectKey);
-        if (isSafeRedirect(postAuthRedirect)) {
-          navigate(postAuthRedirect);
-          return;
-        }
-      }
-
-      cleanupUrl();
-    })();
-  }, [navigate]);
 
   useEffect(() => {
     if (isPublicWorkspace) return;

@@ -11,7 +11,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 
-type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'profile';
+type EmbedView = 'home' | 'list' | 'conversation' | 'matters';
 
 interface PublicEmbedLayoutProps {
   view: EmbedView;
@@ -53,9 +53,9 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   ), [practiceSlug]);
   const conversationsPath = `${embedBasePath}/conversations`;
 
-  // Redirect if unauthorized to view matters or profile
+  // Redirect if unauthorized to view matters
   useEffect(() => {
-    if (!showClientTabs && (view === 'matters' || view === 'profile')) {
+    if (!showClientTabs && view === 'matters') {
       navigate(embedBasePath, true);
     }
   }, [showClientTabs, view, embedBasePath, navigate]);
@@ -236,37 +236,13 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
             </div>
           </div>
         );
-      case 'profile':
-        return (
-          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
-            <div className="px-6 py-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile</h2>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Update your contact details and preferences.
-              </p>
-            </div>
-            <div className="mx-6 mb-6 rounded-2xl border border-light-border bg-light-card-bg p-5 shadow-[0_16px_32px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
-              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Account settings</div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Manage your profile, notifications, and security settings.
-              </div>
-              <button
-                type="button"
-                className="mt-4 w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm hover:bg-accent-600"
-                onClick={() => navigate('/settings')}
-              >
-                Open settings
-              </button>
-            </div>
-          </div>
-        );
       case 'conversation':
       default:
         return chatView;
     }
   };
 
-  const showBottomNav = showClientTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'profile';
+  const showBottomNav = showClientTabs || view === 'home' || view === 'list' || view === 'matters';
   const activeTab = view === 'list' || view === 'conversation'
     ? 'messages'
     : view;
@@ -302,8 +278,8 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
                   navigate(`${embedBasePath}/matters`);
                   return;
                 }
-                if (tab === 'profile') {
-                  navigate(`${embedBasePath}/profile`);
+                if (tab === 'settings') {
+                  navigate('/settings');
                   return;
                 }
                 navigate(embedBasePath);

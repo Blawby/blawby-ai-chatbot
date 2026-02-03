@@ -416,8 +416,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         onClose={handleAuthPromptClose}
         practiceName={practiceConfig?.name}
         onSuccess={handleAuthSuccess}
-        conversationId={conversationId ?? undefined}
-        practiceId={practiceId}
       />
 
       <IntakePaymentModal

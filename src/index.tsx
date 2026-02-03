@@ -13,17 +13,17 @@ import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { CartPage } from '@/features/cart/pages/CartPage';
-import { usePracticeConfig, type UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { getSettingsReturnPath, getWorkspaceDashboardPath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { AppGuard } from '@/app/AppGuard';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import DevMockEmbedPage from '@/pages/DevMockEmbedPage';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -33,25 +33,8 @@ const LoadingScreen = () => (
   </div>
 );
 
-const CLIENT_WORKSPACE_CONFIG: UIPracticeConfig = {
-  name: 'Client Workspace',
-  description: 'Your personal workspace for managing conversations.',
-  availableServices: [],
-  serviceQuestions: {},
-  domain: '',
-  brandColor: '#111827',
-  accentColor: '#2563eb',
-  introMessage: '',
-  profileImage: null,
-  voice: {
-    enabled: false,
-    provider: 'cloudflare'
-  }
-};
-
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
 type PracticeRouteKey = 'home' | 'payments' | 'payouts' | 'pricing' | 'clients' | 'leads' | 'matters' | 'conversations';
-type ClientRouteKey = 'conversations' | 'payments' | 'matters';
 
 const resolvePracticeRouteKeyFromPath = (path: string): PracticeRouteKey => {
   if (path.startsWith('/practice/payments')) return 'payments';
@@ -64,11 +47,7 @@ const resolvePracticeRouteKeyFromPath = (path: string): PracticeRouteKey => {
   return 'home';
 };
 
-const resolveClientRouteKeyFromPath = (path: string): ClientRouteKey => {
-  if (path.startsWith('/client/payments')) return 'payments';
-  if (path.startsWith('/client/matters')) return 'matters';
-  return 'conversations';
-};
+// Client routes removed (embed is the client portal)
 
 // Main App component with routing
 export function App() {
@@ -209,13 +188,13 @@ function AppShell() {
           <Route path="/cart" component={CartPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />
+          {import.meta.env.DEV && <Route path="/dev/mock-embed-public-and-client" component={DevMockEmbedPage} />}
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
           <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
           <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
           <Route path="/embed/:practiceSlug/matters" component={PublicPracticeRoute} embedView="matters" />
-          <Route path="/embed/:practiceSlug/profile" component={PublicPracticeRoute} embedView="profile" />
           <Route path="/practice" component={PracticeBaseRoute} />
           <Route path="/practice/home" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" />
           <Route path="/practice/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
@@ -250,24 +229,52 @@ function AppShell() {
 
 function SettingsRoute() {
   const location = useLocation();
-  const { defaultWorkspace, canAccessPractice, preferredWorkspace } = useWorkspace();
-  const resolved = preferredWorkspace ?? defaultWorkspace;
+  const { preferredWorkspace } = useWorkspace();
+  const { activeOrganizationId } = useSessionContext();
+  const { navigate } = useNavigation();
+  const isClientWorkspace = preferredWorkspace === 'client';
+  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const practiceById = (id: string | null) => practices.find((practice) => practice.id === id) ?? null;
+  const resolvedPractice =
+    practiceById(activeOrganizationId) ??
+    currentPractice ??
+    practices[0] ??
+    null;
+  const resolvedSlug = resolvedPractice?.slug ?? null;
 
-  if (resolved === 'practice' && canAccessPractice) {
+  useEffect(() => {
+    if (!isClientWorkspace) return;
+    if (practicesLoading) return;
+    if (!resolvedSlug) {
+      navigate('/auth', true);
+      return;
+    }
+    navigate(`/embed/${encodeURIComponent(resolvedSlug)}`, true);
+  }, [isClientWorkspace, navigate, practicesLoading, resolvedSlug]);
+
+  if (isClientWorkspace) {
+    if (practicesLoading) {
+      return <LoadingScreen />;
+    }
     return (
-      <PracticeAppRoute
-        settingsMode={true}
-        settingsOverlayOpen={true}
-        activeRoute={resolvePracticeRouteKeyFromPath(location.path)}
-      />
+      <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+        <div>Settings are available in your client portal.</div>
+        <button
+          type="button"
+          className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-accent-600"
+          onClick={() => navigate('/auth', true)}
+        >
+          Go to sign in
+        </button>
+      </div>
     );
   }
 
   return (
-    <ClientAppRoute
+    <PracticeAppRoute
       settingsMode={true}
       settingsOverlayOpen={true}
-      activeRoute={resolveClientRouteKeyFromPath(location.path)}
+      activeRoute={resolvePracticeRouteKeyFromPath(location.path)}
     />
   );
 }
@@ -353,79 +360,6 @@ function RootRoute() {
   return <LoadingScreen />;
 }
 
-function ClientAppRoute({
-  settingsMode = false,
-  settingsOverlayOpen = false,
-  activeRoute = 'conversations',
-  conversationId
-}: {
-  settingsMode?: boolean;
-  settingsOverlayOpen?: boolean;
-  activeRoute?: ClientRouteKey;
-  conversationId?: string;
-}) {
-  const { session, isPending } = useSessionContext();
-  const { navigate } = useNavigation();
-  const linkingHandledRef = useRef(false);
-
-  useEffect(() => {
-    if (settingsMode || isPending) return;
-    if (!session?.user) {
-      navigate('/auth', true);
-      return;
-    }
-  }, [isPending, navigate, session?.user, settingsMode]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (isPending || !session?.user) return;
-    if (linkingHandledRef.current) return;
-
-    const url = new URL(window.location.href);
-    const conversationId = url.searchParams.get('conversationId');
-    const practiceId = url.searchParams.get('practiceId');
-    if (!conversationId || !practiceId) {
-      return;
-    }
-
-    linkingHandledRef.current = true;
-
-    (async () => {
-      try {
-        await linkConversationToUser(conversationId, practiceId);
-      } catch (error) {
-        console.error('[Client] Failed to link conversation after auth redirect', error);
-      } finally {
-        url.searchParams.delete('conversationId');
-        url.searchParams.delete('practiceId');
-        const cleaned = `${url.pathname}${url.search}${url.hash}`;
-        window.history.replaceState({}, '', cleaned);
-      }
-    })();
-  }, [isPending, session?.user]);
-
-  if (isPending) {
-    return <LoadingScreen />;
-  }
-
-  if (!session?.user) {
-    return <AuthPage />;
-  }
-
-  return (
-    <MainApp
-      practiceId=""
-      practiceConfig={CLIENT_WORKSPACE_CONFIG}
-      practiceNotFound={false}
-      handleRetryPracticeConfig={() => {}}
-      isPracticeView={false}
-      workspace="client"
-      settingsOverlayOpen={settingsOverlayOpen}
-      activeRoute={activeRoute}
-      routeConversationId={conversationId}
-    />
-  );
-}
 
 function PracticeAppRoute({
   settingsMode = false,
@@ -563,7 +497,7 @@ function PublicPracticeRoute({
 }: {
   practiceSlug?: string;
   conversationId?: string;
-  embedView?: 'home' | 'list' | 'conversation' | 'matters' | 'profile';
+  embedView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -695,7 +629,7 @@ function PublicPracticeRoute({
     navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
     return <LoadingScreen />;
   }
-  if (!isAuthenticatedClient && (embedView === 'matters' || embedView === 'profile') && slug) {
+  if (!isAuthenticatedClient && embedView === 'matters' && slug) {
     navigate(`/embed/${encodeURIComponent(slug)}`, true);
     return <LoadingScreen />;
   }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'preact/hooks';
+import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
@@ -6,25 +6,16 @@ import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
-import { createPracticeInvitation, linkConversationToUser } from '@/shared/lib/apiClient';
-import { storePendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
-import type { Role } from '@/shared/hooks/usePracticeManagement';
-import { useNavigation } from '@/shared/utils/navigation';
 
 type AuthMode = 'signin' | 'signup';
 
 interface AuthFormProps {
   mode?: AuthMode;
   defaultMode?: AuthMode;
+  initialEmail?: string;
   onSuccess?: (user: unknown) => void | Promise<void>;
   onError?: (error: string) => void;
   onModeChange?: (mode: AuthMode) => void;
-  conversationContext?: {
-    conversationId?: string | null;
-    practiceId?: string | null;
-  };
-  autoInviteOnAuth?: boolean;
-  inviteRole?: Role;
   showHeader?: boolean;
   showGoogleSignIn?: boolean;
   className?: string;
@@ -33,150 +24,34 @@ interface AuthFormProps {
 const AuthForm = ({
   mode,
   defaultMode = 'signin',
+  initialEmail,
   onSuccess,
   onError,
   onModeChange,
-  conversationContext,
-  autoInviteOnAuth = false,
-  inviteRole = 'member',
   showHeader = true,
   showGoogleSignIn = true,
   className = ''
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
-  const { navigate } = useNavigation();
   const [internalMode, setInternalMode] = useState<AuthMode>(mode ?? defaultMode);
   const resolvedMode = mode ?? internalMode;
   const isControlled = typeof mode !== 'undefined';
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    email: initialEmail ?? '',
     password: '',
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [linkingError, setLinkingError] = useState('');
-  const linkingInProgress = useRef(false);
-  const linkedConversationKeyRef = useRef<string | null>(null);
-  const linkingPromiseRef = useRef<{ key: string; promise: Promise<boolean> } | null>(null);
-  const postAuthRedirectKey = 'post-auth-redirect';
 
-  const storePostAuthRedirect = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const currentUrl = new URL(window.location.href);
-      const redirectParam = currentUrl.searchParams.get('redirect');
-      let safeRedirect: string | null = null;
-
-      if (redirectParam) {
-        const decodedRedirect = decodeURIComponent(redirectParam);
-        try {
-          const redirectUrl = new URL(decodedRedirect, window.location.origin);
-          if (redirectUrl.origin === window.location.origin) {
-            safeRedirect = `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
-          }
-        } catch {
-          safeRedirect = null;
-        }
-      }
-
-      const fallbackPath = currentUrl.pathname + currentUrl.search + currentUrl.hash;
-      const shouldAvoidAuthPage = currentUrl.pathname.startsWith('/auth');
-      const redirectTarget = safeRedirect ?? (shouldAvoidAuthPage ? '/' : fallbackPath);
-      sessionStorage.setItem(postAuthRedirectKey, redirectTarget);
-    } catch {
-      // Ignore sessionStorage failures and proceed with auth flow
-    }
-  }, []);
-
-  const defaultPostAuthPath = useCallback(() => {
-    if (conversationContext?.conversationId && conversationContext?.practiceId) {
-      return `/client/conversations/${encodeURIComponent(conversationContext.conversationId)}?practiceId=${encodeURIComponent(conversationContext.practiceId)}`;
-    }
-    return '/';
-  }, [conversationContext?.conversationId, conversationContext?.practiceId]);
-
-  const navigateToStoredRedirect = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const storedRedirect = sessionStorage.getItem(postAuthRedirectKey);
-      const target = storedRedirect || defaultPostAuthPath();
-      sessionStorage.removeItem(postAuthRedirectKey);
-      const isClientDashboardTarget = target.startsWith('/client');
-      const shouldRouteToRoot =
-        isClientDashboardTarget &&
-        !(conversationContext?.conversationId && conversationContext?.practiceId);
-      navigate(shouldRouteToRoot ? '/' : target);
-    } catch {
-      // Ignore sessionStorage failures
-    }
-  }, [conversationContext?.conversationId, conversationContext?.practiceId, defaultPostAuthPath, navigate]);
-
-  const linkConversationIfNeeded = useCallback(async () => {
-    const conversationId = conversationContext?.conversationId;
-    const practiceId = conversationContext?.practiceId;
-    if (!conversationId || !practiceId) {
-      return true;
-    }
-    const linkKey = `${conversationId}:${practiceId}`;
-    if (linkedConversationKeyRef.current === linkKey) {
-      return true;
-    }
-    if (linkingInProgress.current && linkingPromiseRef.current?.key === linkKey) {
-      return linkingPromiseRef.current.promise;
-    }
-
-    linkingInProgress.current = true;
-    const promise = (async () => {
-      try {
-        await linkConversationToUser(conversationId, practiceId);
-        linkedConversationKeyRef.current = linkKey;
-        setLinkingError('');
-        return true;
-      } catch (err) {
-        console.error('Failed to link conversation to user:', err);
-        const fallbackMessage = 'We could not automatically save your conversation. You can continue after signing in.';
-        const messageText = err instanceof Error ? err.message || fallbackMessage : fallbackMessage;
-        setLinkingError(messageText);
-        if (onError) {
-          onError(messageText);
-        }
-        return false;
-      } finally {
-        linkingInProgress.current = false;
-        if (linkingPromiseRef.current?.key === linkKey) {
-          linkingPromiseRef.current = null;
-        }
-      }
-    })();
-    linkingPromiseRef.current = { key: linkKey, promise };
-    return promise;
-  }, [conversationContext?.conversationId, conversationContext?.practiceId, onError]);
-
-  const createPracticeInviteIfNeeded = useCallback(async (email: string | null | undefined) => {
-    if (!autoInviteOnAuth) {
-      return;
-    }
-    const practiceId = conversationContext?.practiceId;
-    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
-    if (!practiceId || !normalizedEmail) {
-      return;
-    }
-
-    try {
-      const result = await createPracticeInvitation(practiceId, {
-        email: normalizedEmail,
-        role: inviteRole
-      });
-      if (result?.inviteUrl) {
-        storePendingPracticeInviteLink(result.inviteUrl);
-      }
-    } catch (error) {
-      console.warn('[AuthForm] Failed to create practice invitation', error);
-    }
-  }, [autoInviteOnAuth, conversationContext?.practiceId, inviteRole]);
+  useEffect(() => {
+    if (typeof initialEmail !== 'string') return;
+    setFormData((prev) => (
+      prev.email === initialEmail ? prev : { ...prev, email: initialEmail }
+    ));
+  }, [initialEmail]);
 
   const notifySuccess = useCallback(async (user: unknown) => {
     if (!onSuccess) return;
@@ -196,8 +71,6 @@ const AuthForm = ({
     setLoading(true);
     setError('');
     setMessage('');
-    setLinkingError('');
-    storePostAuthRedirect();
 
     try {
       if (resolvedMode === 'signup') {
@@ -231,10 +104,7 @@ const AuthForm = ({
         }
 
         setMessage(t('messages.accountCreated'));
-        await linkConversationIfNeeded();
-        await createPracticeInviteIfNeeded(result.data?.user?.email ?? formData.email);
         await notifySuccess(result.data?.user ?? null);
-        navigateToStoredRedirect();
       } else {
         const client = getClient();
         const result = await client.signIn.email({
@@ -261,10 +131,7 @@ const AuthForm = ({
         }
 
         setMessage(t('messages.signedIn'));
-        await linkConversationIfNeeded();
-        await createPracticeInviteIfNeeded(result.data?.user?.email ?? formData.email);
         await notifySuccess(result.data?.user ?? null);
-        navigateToStoredRedirect();
       }
     } catch (err) {
       console.error('Auth error:', err);
@@ -289,15 +156,23 @@ const AuthForm = ({
     setLoading(true);
     setError('');
     setMessage('');
-    setLinkingError('');
 
     try {
       const client = getClient();
-      storePostAuthRedirect();
-
-      // callbackURL tells Better Auth where to redirect after OAuth completes
-      // Better Auth will set the session cookie on redirect.
-      const callbackURL = defaultPostAuthPath();
+      const currentUrl = new URL(window.location.href);
+      const redirectParam = currentUrl.searchParams.get('redirect');
+      let callbackURL = window.location.origin;
+      if (redirectParam) {
+        const decodedRedirect = decodeURIComponent(redirectParam);
+        try {
+          const redirectUrl = new URL(decodedRedirect, window.location.origin);
+          if (redirectUrl.origin === window.location.origin) {
+            callbackURL = redirectUrl.href;
+          }
+        } catch {
+          callbackURL = window.location.origin;
+        }
+      }
       const result = await client.signIn.social({
         provider: 'google',
         callbackURL,
@@ -341,7 +216,6 @@ const AuthForm = ({
     }
     setError('');
     setMessage('');
-    setLinkingError('');
     setFormData({ name: '', email: '', password: '', confirmPassword: '' });
   };
 
@@ -497,12 +371,6 @@ const AuthForm = ({
           {error && (
             <div className="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          {linkingError && !error && (
-            <div className="mt-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
-              <p className="text-sm text-amber-700 dark:text-amber-300">{linkingError}</p>
             </div>
           )}
 

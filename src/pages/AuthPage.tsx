@@ -18,7 +18,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const { navigate } = useNavigation();
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
-  const [conversationContext, setConversationContext] = useState<{ conversationId?: string | null; practiceId?: string | null }>({});
+  const [initialEmail, setInitialEmail] = useState<string>('');
   const isSafeRedirectPath = (path: string | null): path is string =>
     Boolean(path && path.startsWith('/') && !path.startsWith('//'));
   const getSafeRedirectPath = (decodedRedirect: string): string | null => {
@@ -42,22 +42,28 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMode = urlParams.get('mode');
-    const conversationId = urlParams.get('conversationId');
-    const practiceId = urlParams.get('practiceId');
     const redirect = urlParams.get('redirect');
+    const emailParam = urlParams.get('email');
 
     if (urlMode === 'signin' || urlMode === 'signup') {
       setAuthMode(urlMode);
-    }
-
-    if (conversationId && practiceId) {
-      setConversationContext({ conversationId, practiceId });
     }
 
     if (redirect) {
       const decodedRedirect = decodeURIComponent(redirect);
       const safeRedirect = getSafeRedirectPath(decodedRedirect);
       setRedirectPath(safeRedirect ?? '/');
+    }
+
+    if (emailParam) {
+      try {
+        const decodedEmail = decodeURIComponent(emailParam);
+        if (decodedEmail.includes('@')) {
+          setInitialEmail(decodedEmail);
+        }
+      } catch {
+        // ignore invalid email param
+      }
     }
 
     // Only open onboarding when explicitly requested via URL param
@@ -83,14 +89,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     }
 
     const delay = redirectDelay;
-    const postAuthRedirectKey = 'post-auth-redirect';
-    const storedRedirect = sessionStorage.getItem(postAuthRedirectKey);
-    if (storedRedirect) {
-      sessionStorage.removeItem(postAuthRedirectKey);
-    }
-    const destination = isSafeRedirectPath(storedRedirect)
-      ? storedRedirect
-      : (redirectPath && redirectPath.startsWith('/') ? redirectPath : '/');
+    const destination = (redirectPath && isSafeRedirectPath(redirectPath)) ? redirectPath : '/';
 
     if (delay > 0) {
       setTimeout(() => {
@@ -141,9 +140,9 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         <AuthForm
           mode={authMode}
           defaultMode={authMode}
+          initialEmail={initialEmail}
           onModeChange={(newMode) => setAuthMode(newMode)}
           onSuccess={handleAuthSuccess}
-          conversationContext={conversationContext}
           showHeader={false}
         />
       </div>
