@@ -26,6 +26,7 @@ import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { getFrontendHost } from '@/config/urls';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
   usePracticeMembersSync,
   usePracticeSyncParamRefetch,
@@ -182,7 +183,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }, [practice, currentUserEmail, members, session?.user?.id]);
 
   const roleFromMembers = currentMember?.role ?? null;
-  const currentUserRole = activeMemberRole ?? roleFromMembers ?? 'member';
+  const currentUserRole = normalizePracticeRole(activeMemberRole) ?? roleFromMembers ?? 'member';
   const isOwner = currentUserRole === 'owner';
   const servicesList = useMemo(() => {
     const source = practiceDetails?.services ?? practice?.services;

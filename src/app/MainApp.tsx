@@ -42,6 +42,7 @@ import type { ConversationMetadata, ConversationMode } from '@/shared/types/conv
 import { logConversationEvent } from '@/shared/lib/conversationApi';
 import { LeadsPage } from '@/features/leads/pages/LeadsPage';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { PracticeHomePage } from '@/features/home/pages/PracticeHomePage';
 import { PracticePaymentsPage } from '@/features/payments/pages/PracticePaymentsPage';
 import { PracticePayoutsPage } from '@/features/payouts/pages/PracticePayoutsPage';
@@ -770,7 +771,7 @@ export function MainApp({
     window.localStorage.setItem(conversationCacheKey, conversationId);
   }, [conversationCacheKey, conversationId]);
 
-  const currentUserRole = activeMemberRole ?? 'member';
+  const currentUserRole = normalizePracticeRole(activeMemberRole) ?? 'member';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 
 
