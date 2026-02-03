@@ -158,7 +158,7 @@ const AuthForm = ({
         try {
           const redirectUrl = new URL(decodedRedirect, window.location.origin);
           if (redirectUrl.origin === window.location.origin) {
-            callbackURL = `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
+            callbackURL = redirectUrl.href;
           }
         } catch {
           callbackURL = window.location.origin;
