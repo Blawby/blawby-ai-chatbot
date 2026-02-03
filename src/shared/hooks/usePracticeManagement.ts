@@ -930,7 +930,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const rawInvitations = await listPracticeInvitations();
 
       // Define valid role and status values
-      const validRoles: Role[] = ['owner', 'admin', 'member'];
+      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
       const validStatuses: Array<'pending' | 'accepted' | 'declined'> = ['pending', 'accepted', 'declined'];
 
       const validatedInvitations = rawInvitations
@@ -1192,7 +1192,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const promise = (async () => {
       const data = await listPracticeMembers(practiceId);
       // Validate and normalize members manually
-    const validRoles: Role[] = ['owner', 'admin', 'member'];
+    const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
 
       return (Array.isArray(data) ? data : [])
         .map(m => {

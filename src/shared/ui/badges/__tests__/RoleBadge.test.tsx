@@ -14,17 +14,41 @@ describe('RoleBadge', () => {
   it('should render admin role with correct styling', () => {
     render(<RoleBadge roleType="admin" />);
     
-    const badge = screen.getByText('Lawyer');
+    const badge = screen.getByText('Admin');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveClass('bg-primary-500', 'text-white');
+  });
+
+  it('should render attorney role with correct styling', () => {
+    render(<RoleBadge roleType="attorney" />);
+    
+    const badge = screen.getByText('Attorney');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveClass('bg-blue-500', 'text-white');
+  });
+
+  it('should render paralegal role with correct styling', () => {
+    render(<RoleBadge roleType="paralegal" />);
+    
+    const badge = screen.getByText('Paralegal');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveClass('bg-indigo-500', 'text-white');
   });
 
   it('should render member role with correct styling', () => {
     render(<RoleBadge roleType="member" />);
     
-    const badge = screen.getByText('Client');
+    const badge = screen.getByText('Member');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveClass('bg-emerald-500', 'text-white');
+  });
+
+  it('should render client role with correct styling', () => {
+    render(<RoleBadge roleType="client" />);
+    
+    const badge = screen.getByText('Client');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveClass('bg-gray-500', 'text-white');
   });
 
   it('should apply custom className when provided', () => {
@@ -35,12 +59,19 @@ describe('RoleBadge', () => {
   });
 
   it('should have consistent base classes for all roles', () => {
-    const roles = ['owner', 'admin', 'member'] as const;
+    const roles = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'] as const;
     
     roles.forEach(role => {
       const { unmount } = render(<RoleBadge roleType={role} />);
-      const label = role === 'admin' ? 'Lawyer' : role === 'member' ? 'Client' : 'Owner';
-      const badge = screen.getByText(label);
+      const labels: Record<typeof role, string> = {
+        owner: 'Owner',
+        admin: 'Admin',
+        attorney: 'Attorney',
+        paralegal: 'Paralegal',
+        member: 'Member',
+        client: 'Client'
+      };
+      const badge = screen.getByText(labels[role]);
       
       expect(badge).toHaveClass(
         'px-2',

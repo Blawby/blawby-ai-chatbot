@@ -5,7 +5,10 @@ import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
 const ROLE_STYLES = {
   owner: 'bg-accent-500 text-gray-900',
   admin: 'bg-primary-500 text-white',
-  member: 'bg-emerald-500 text-white'
+  attorney: 'bg-blue-500 text-white',
+  paralegal: 'bg-indigo-500 text-white',
+  member: 'bg-emerald-500 text-white',
+  client: 'bg-gray-500 text-white'
 };
 
 interface RoleBadgeProps {

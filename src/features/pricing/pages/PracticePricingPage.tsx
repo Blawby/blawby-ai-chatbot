@@ -28,6 +28,7 @@ import {
 import Modal from '@/shared/components/Modal';
 import Message from '@/features/chat/components/Message';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 
 const DEFAULT_PREVIEW_FEE = 150;
 
@@ -59,7 +60,8 @@ export const PracticePricingPage = () => {
   const checkoutPreviewRef = useRef<HTMLDivElement | null>(null);
 
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
-  const canEdit = activeMemberRole === 'owner' || activeMemberRole === 'admin';
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const canEdit = normalizedRole === 'owner' || normalizedRole === 'admin';
   const isReadOnly = !activeMemberRoleLoading && !canEdit;
 
   const pathSegments = location.path.split('/').filter(Boolean);
