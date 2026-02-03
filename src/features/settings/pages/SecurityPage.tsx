@@ -80,6 +80,7 @@ export const SecurityPage = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
+  const showMfa = false;
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -357,17 +358,20 @@ export const SecurityPage = ({
           </SettingSection>
 
           <SectionDivider />
+          {showMfa && (
+            <>
+              {/* Multi-factor authentication Section */}
+              <SettingToggle
+                label={t('settings:security.mfa.title')}
+                description={t('settings:security.mfa.description')}
+                value={settings.twoFactorEnabled}
+                onChange={(value) => handleToggleChange('twoFactorEnabled', value)}
+                id="mfa-toggle"
+              />
 
-          {/* Multi-factor authentication Section */}
-          <SettingToggle
-            label={t('settings:security.mfa.title')}
-            description={t('settings:security.mfa.description')}
-            value={settings.twoFactorEnabled}
-            onChange={(value) => handleToggleChange('twoFactorEnabled', value)}
-            id="mfa-toggle"
-          />
-
-          <SectionDivider />
+              <SectionDivider />
+            </>
+          )}
 
           {/* Trusted Devices Section */}
           <SettingRow
@@ -416,49 +420,53 @@ export const SecurityPage = ({
         </div>
       </div>
 
-      {/* MFA Disable Confirmation Modal */}
-      <Modal
-        isOpen={showDisableMFAConfirm}
-        onClose={handleCancelDisableMFA}
-        title={t('settings:security.mfa.disable.modalTitle')}
-        showCloseButton={true}
-        type="modal"
-      >
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
+      {showMfa && (
+        <>
+          {/* MFA Disable Confirmation Modal */}
+          <Modal
+            isOpen={showDisableMFAConfirm}
+            onClose={handleCancelDisableMFA}
+            title={t('settings:security.mfa.disable.modalTitle')}
+            showCloseButton={true}
+            type="modal"
+          >
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    {t('settings:security.mfa.disable.heading')}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t('settings:security.mfa.disable.description')}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 justify-end pt-4">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCancelDisableMFA}
+                  className="min-w-[80px]"
+                >
+                  {t('settings:security.mfa.disable.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleConfirmDisableMFA}
+                  className="bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700 focus:ring-orange-500 min-w-[80px]"
+                >
+                  {t('settings:security.mfa.disable.confirm')}
+                </Button>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                {t('settings:security.mfa.disable.heading')}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t('settings:security.mfa.disable.description')}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancelDisableMFA}
-              className="min-w-[80px]"
-            >
-              {t('settings:security.mfa.disable.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleConfirmDisableMFA}
-              className="bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700 focus:ring-orange-500 min-w-[80px]"
-            >
-              {t('settings:security.mfa.disable.confirm')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+          </Modal>
+        </>
+      )}
     </div>
   );
 };

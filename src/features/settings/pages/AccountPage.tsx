@@ -24,6 +24,7 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
+import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import type { AccountPreferences } from '@/shared/types/preferences';
 import { FormLabel } from '@/shared/ui/form';
 
@@ -51,6 +52,9 @@ export const AccountPage = ({
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [domainInput, setDomainInput] = useState('');
@@ -150,9 +154,45 @@ export const AccountPage = ({
   const isOwner = activeMemberRole === 'owner';
   const canManageBilling = isOwner;
 
-  // Subscription deletion guard for personal account deletion (compute after isOwner)
-  const subStatus = (currentPractice?.subscriptionStatus ?? 'none').toLowerCase();
-  const deletionBlockedBySubscription = !(subStatus === 'canceled' || subStatus === 'none');
+  const resolveSubscriptionEnd = (value: string | null | undefined): Date | null => {
+    if (!value) return null;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return new Date(numeric * 1000);
+    }
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  const subscriptionStatus = (currentSubscription?.status ?? '').toLowerCase();
+  const subscriptionEnd = resolveSubscriptionEnd(currentSubscription?.currentPeriodEnd);
+  const hasActiveSubscription = Boolean(
+    currentSubscription?.id &&
+    subscriptionStatus &&
+    subscriptionStatus !== 'canceled'
+  );
+  const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
+  const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
+  const deletionBlockedBySubscriptionCheck = isOwner && Boolean(subscriptionError);
+  const isDeleteBlocked = deletionBlockedBySubscription || deletionBlockedBySubscriptionCheck;
+  const deletionBlockedMessage = (() => {
+    if (subscriptionLoading) {
+      return 'Checking subscription status...';
+    }
+    if (deletionBlockedBySubscriptionCheck) {
+      return 'Unable to verify your subscription status. Please try again.';
+    }
+    if (!deletionBlockedBySubscription) {
+      return '';
+    }
+    if (currentSubscription?.cancelAtPeriodEnd && subscriptionEnd) {
+      return `Subscription will end on ${formatDate(subscriptionEnd)}. You can delete your account after it ends.`;
+    }
+    if (subscriptionEnd) {
+      return `Subscription is active until ${formatDate(subscriptionEnd)}. Cancel it before deleting your account.`;
+    }
+    return 'Subscription must be canceled before deleting your account.';
+  })();
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -180,6 +220,36 @@ export const AccountPage = ({
         });
     }
   }, [currentPractice?.id, refetch, showSuccess]);
+
+  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
+    setSubscriptionLoading(true);
+    setSubscriptionError(null);
+
+    try {
+      const subscription = await getCurrentSubscription({ signal });
+      setCurrentSubscription(subscription);
+    } catch (fetchError) {
+      console.warn('[Account] Failed to load current subscription', fetchError);
+      setSubscriptionError('Unable to verify subscription status.');
+      setCurrentSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setCurrentSubscription(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    void refreshSubscription(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [refreshSubscription, session?.user]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
@@ -209,11 +279,27 @@ export const AccountPage = ({
   const selectedDomain = links?.selectedDomain && links.selectedDomain !== 'Select a domain'
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
+  const showLinksSection = false;
+  const showFeedbackToggle = false;
 
 
   
 
   const handleDeleteAccount = () => {
+    if (subscriptionLoading) {
+      showError('Checking subscription', 'Please wait while we verify your subscription status.');
+      return;
+    }
+    if (isDeleteBlocked) {
+      const endLabel = subscriptionEnd ? `Access ends on ${formatDate(subscriptionEnd)}.` : undefined;
+      const message = deletionBlockedBySubscriptionCheck
+        ? 'We could not verify your subscription status. Please try again.'
+        : (currentSubscription?.cancelAtPeriodEnd
+          ? `Your subscription is scheduled to cancel. ${endLabel ?? ''} You can delete your account after it ends.`
+          : `Your subscription is still active. ${endLabel ?? ''} Please cancel it before deleting your account.`);
+      showError('Account deletion unavailable', message.trim());
+      return;
+    }
     setShowDeleteConfirm(true);
     setDeleteVerificationSent(false);
     setPasswordRequiredOverride(null);
@@ -673,19 +759,31 @@ export const AccountPage = ({
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
           >
-            {deletionBlockedBySubscription ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => currentPractice && openBillingPortal({
-                  practiceId: currentPractice.id,
-                  returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
-                })}
-                disabled={!currentPractice}
-                data-testid="account-delete-action"
-              >
-                {t('settings:account.plan.manage')}
-              </Button>
+            {isDeleteBlocked ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => currentPractice && openBillingPortal({
+                    practiceId: currentPractice.id,
+                    returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                  })}
+                  disabled={!currentPractice || !isOwner || !canManageBilling}
+                  data-testid="account-delete-action"
+                >
+                  {t('settings:account.plan.manage')}
+                </Button>
+                {deletionBlockedBySubscriptionCheck && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void refreshSubscription()}
+                    disabled={subscriptionLoading}
+                  >
+                    {t('settings:account.retry')}
+                  </Button>
+                )}
+              </div>
             ) : (
               <Button
                 variant="primary"
@@ -698,83 +796,93 @@ export const AccountPage = ({
               </Button>
             )}
           </SettingRow>
+          {isDeleteBlocked && deletionBlockedMessage && (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {deletionBlockedMessage}
+            </div>
+          )}
 
           <SectionDivider />
 
-          {/* Links Section */}
-          <SettingSection title={t('settings:account.links.title')}>
-            {/* Domain Selector */}
-            <SettingRow
-              label={t('settings:account.links.domainLabel')}
-              labelNode={
-                <div className="flex items-center gap-3">
-                  <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                  <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
-                </div>
-              }
-            >
-              <Select
-                value={selectedDomain}
-                options={[
-                  { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                  ...customDomainOptions,
-                  { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
-                ]}
-                onChange={handleDomainChange}
-                placeholder={t('settings:account.links.selectOption')}
-              />
-            </SettingRow>
+          {showLinksSection && (
+            <>
+              {/* Links Section */}
+              <SettingSection title={t('settings:account.links.title')}>
+                {/* Domain Selector */}
+                <SettingRow
+                  label={t('settings:account.links.domainLabel')}
+                  labelNode={
+                    <div className="flex items-center gap-3">
+                      <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
+                    </div>
+                  }
+                >
+                  <Select
+                    value={selectedDomain}
+                    options={[
+                      { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
+                      ...customDomainOptions,
+                      { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
+                    ]}
+                    onChange={handleDomainChange}
+                    placeholder={t('settings:account.links.selectOption')}
+                    className="border-0 bg-transparent px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-accent-500"
+                  />
+                </SettingRow>
 
-            {/* LinkedIn */}
-            <SettingRow
-              label="LinkedIn"
-              labelNode={
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">in</span>
-                  </div>
-                  <FormLabel>LinkedIn</FormLabel>
-                </div>
-              }
-            >
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleAddLinkedIn}
-                icon={<PlusIcon className="w-4 h-4" />}
-                iconPosition="right"
-              >
-                {t('settings:account.links.addButton')}
-              </Button>
-            </SettingRow>
+                {/* LinkedIn */}
+                <SettingRow
+                  label="LinkedIn"
+                  labelNode={
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">in</span>
+                      </div>
+                      <FormLabel>LinkedIn</FormLabel>
+                    </div>
+                  }
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAddLinkedIn}
+                    icon={<PlusIcon className="w-4 h-4" />}
+                    iconPosition="right"
+                  >
+                    {t('settings:account.links.addButton')}
+                  </Button>
+                </SettingRow>
 
-            {/* GitHub */}
-            <SettingRow
-              label="GitHub"
-              labelNode={
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4">
-                    <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  </div>
-                  <FormLabel>GitHub</FormLabel>
-                </div>
-              }
-            >
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleAddGitHub}
-                icon={<PlusIcon className="w-4 h-4" />}
-                iconPosition="right"
-              >
-                {t('settings:account.links.addButton')}
-              </Button>
-            </SettingRow>
-          </SettingSection>
+                {/* GitHub */}
+                <SettingRow
+                  label="GitHub"
+                  labelNode={
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4">
+                        <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
+                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                      </div>
+                      <FormLabel>GitHub</FormLabel>
+                    </div>
+                  }
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAddGitHub}
+                    icon={<PlusIcon className="w-4 h-4" />}
+                    iconPosition="right"
+                  >
+                    {t('settings:account.links.addButton')}
+                  </Button>
+                </SettingRow>
+              </SettingSection>
 
-          <SectionDivider />
+              <SectionDivider />
+            </>
+          )}
 
           {/* Email Section */}
           <EmailSettingsSection
@@ -783,6 +891,7 @@ export const AccountPage = ({
             onFeedbackChange={handleFeedbackEmailsChange}
             title={t('settings:account.email.title')}
             feedbackLabel={t('settings:account.email.receiveFeedback')}
+            showFeedbackToggle={showFeedbackToggle}
           />
 
           <SectionDivider />
