@@ -6,6 +6,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getClient } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { signOut } from '@/shared/utils/auth';
 
 type InvitationDetails = {
   id: string;
@@ -24,7 +25,7 @@ type InviteFetchState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'ready'; invitation: InvitationDetails; invitationId: string }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; invitationId: string | null };
 
 const LoadingScreen = ({ message = 'Loading…' }: { message?: string }) => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -71,6 +72,7 @@ export const AcceptInvitationPage = () => {
   const { showError, showSuccess } = useToastContext();
   const [inviteState, setInviteState] = useState<InviteFetchState>({ status: 'idle' });
   const [accepting, setAccepting] = useState(false);
+  const [recipientMismatch, setRecipientMismatch] = useState(false);
 
   const invitationId = useMemo(() => {
     const raw = location.query?.invitationId;
@@ -86,7 +88,8 @@ export const AcceptInvitationPage = () => {
 
   const fetchInvitation = useCallback(async () => {
     if (!invitationId) {
-      setInviteState({ status: 'error', message: 'Invitation ID is missing.' });
+      setInviteState({ status: 'error', message: 'Invitation ID is missing.', invitationId: null });
+      setRecipientMismatch(false);
       return;
     }
 
@@ -106,21 +109,33 @@ export const AcceptInvitationPage = () => {
 
       const invitation = normalizeInviteResponse(payload);
       if (!invitation) {
-        setInviteState({ status: 'error', message: 'Invitation could not be loaded.' });
+        setInviteState({ status: 'error', message: 'Invitation could not be loaded.', invitationId });
+        setRecipientMismatch(false);
         return;
       }
 
       setInviteState({ status: 'ready', invitation, invitationId });
+      setRecipientMismatch(false);
     } catch (error) {
       console.error('[AcceptInvitation] Failed to fetch invitation', error);
-      setInviteState({ status: 'error', message: 'Unable to load invitation. Please try again.' });
+      const message = error instanceof Error ? error.message : 'Unable to load invitation. Please try again.';
+      const normalized = message.toLowerCase();
+      const isRecipientError = normalized.includes('recipient') || normalized.includes('you are not the recipient');
+      setRecipientMismatch(isRecipientError);
+      setInviteState({ status: 'error', message, invitationId });
     }
   }, [invitationId]);
 
-  const inviteStateId = inviteState.status === 'ready' ? inviteState.invitationId : null;
+  const inviteStateId =
+    inviteState.status === 'ready' || inviteState.status === 'error'
+      ? inviteState.invitationId
+      : null;
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (!invitationId) return;
+    if (inviteState.status === 'error') return;
     if (inviteState.status === 'ready' && inviteStateId === invitationId) return;
+    if (inviteState.status === 'error' && inviteStateId === invitationId) return;
     if (inviteState.status === 'loading') return;
     void fetchInvitation();
   }, [fetchInvitation, inviteState.status, inviteStateId, invitationId, isAuthenticated]);
@@ -130,11 +145,22 @@ export const AcceptInvitationPage = () => {
     navigate(`/auth?mode=signin&redirect=${redirect}`, true);
   }, [navigate, redirectTarget]);
 
+  const handleSwitchAccount = useCallback(async (mode: 'signin' | 'signup') => {
+    try {
+      await signOut({ skipReload: true });
+    } catch (error) {
+      console.warn('[AcceptInvitation] Failed to sign out before switching account', error);
+    }
+    const redirect = encodeURIComponent(redirectTarget);
+    navigate(`/auth?mode=${mode}&redirect=${redirect}`, true);
+  }, [navigate, redirectTarget]);
+
   const handleAccept = useCallback(async () => {
     if (inviteState.status !== 'ready') return;
     const { invitation } = inviteState;
     if (!invitation.organizationSlug) {
-      setInviteState({ status: 'error', message: 'Invitation is missing the organization slug.' });
+      setInviteState({ status: 'error', message: 'Invitation is missing the organization slug.', invitationId });
+      setRecipientMismatch(false);
       return;
     }
 
@@ -164,11 +190,14 @@ export const AcceptInvitationPage = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to accept invitation.';
       showError('Invitation error', message);
-      setInviteState({ status: 'error', message });
+      const normalized = message.toLowerCase();
+      const isRecipientError = normalized.includes('recipient') || normalized.includes('you are not the recipient');
+      setRecipientMismatch(isRecipientError);
+      setInviteState({ status: 'error', message, invitationId });
     } finally {
       setAccepting(false);
     }
-  }, [inviteState, navigate, showError, showSuccess]);
+  }, [inviteState, invitationId, navigate, showError, showSuccess]);
 
   if (isPending) {
     return <LoadingScreen />;
@@ -233,9 +262,20 @@ export const AcceptInvitationPage = () => {
             <Button variant="secondary" onClick={fetchInvitation}>
               Try again
             </Button>
-            <Button variant="ghost" onClick={() => navigate('/auth', true)}>
-              Back to sign in
-            </Button>
+            {recipientMismatch ? (
+              <>
+                <Button variant="primary" onClick={() => handleSwitchAccount('signin')}>
+                  Sign in with invited email
+                </Button>
+                <Button variant="ghost" onClick={() => handleSwitchAccount('signup')}>
+                  Create an account
+                </Button>
+              </>
+            ) : (
+              <Button variant="ghost" onClick={() => navigate('/auth', true)}>
+                Back to sign in
+              </Button>
+            )}
           </div>
         </div>
       </div>
