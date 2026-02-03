@@ -324,7 +324,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   <p className="max-w-[300px]">
                     {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
                       ? practiceConfig.introMessage.trim()
-                      : 'Ask us anything, or share your feedback.'}
+                      : t('chat.publicIntro')}
                   </p>
                 </div>
               ) : (

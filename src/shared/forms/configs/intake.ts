@@ -53,7 +53,7 @@ type SupportedField = 'name' | 'email' | 'phone' | 'address' | 'opposingParty' |
 
 export function createCustomIntakeConfig<T extends readonly SupportedField[]>(
   fields: T,
-  schema: z.ZodObject<Record<SupportedField, z.ZodTypeAny>>
+  schema: z.ZodObject<Partial<Record<SupportedField, z.ZodTypeAny>>>
 ) {
   // Validate that all fields are supported
   const supportedFields: SupportedField[] = ['name', 'email', 'phone', 'address', 'opposingParty', 'description'];

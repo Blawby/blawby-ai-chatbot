@@ -27,8 +27,7 @@ interface PublicEmbedLayoutProps {
 const filterPublicMessages = (messages: ChatMessageUI[]) => {
   const base = messages.filter(
     (message) =>
-      message.metadata?.systemMessageKey !== 'ask_question_help' &&
-      message.metadata?.systemMessageKey !== 'intro'
+      message.metadata?.systemMessageKey !== 'ask_question_help'
   );
   const hasNonSystemMessages = base.some((message) => message.role !== 'system');
   return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
@@ -163,10 +162,14 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   }, [practiceLogo, practiceName, publicConversationPreviews, publicConversations, publicMessages]);
 
   const handleStartConversation = async (mode: ConversationMode) => {
-    const conversationId = await onStartNewConversation(mode);
-    if (conversationId) {
-      navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
-      return;
+    try {
+      const conversationId = await onStartNewConversation(mode);
+      if (conversationId) {
+        navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
+        return;
+      }
+    } catch (error) {
+      console.error('[PublicEmbedLayout] Failed to start conversation:', error);
     }
     navigate(conversationsPath);
   };

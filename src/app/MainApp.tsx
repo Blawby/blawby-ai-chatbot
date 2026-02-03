@@ -917,8 +917,7 @@ export function MainApp({
   const publicFilteredMessages = useMemo(() => {
     if (!isPublicWorkspace) return [];
     const base = messages.filter((message) =>
-      message.metadata?.systemMessageKey !== 'ask_question_help' &&
-      message.metadata?.systemMessageKey !== 'intro'
+      message.metadata?.systemMessageKey !== 'ask_question_help'
     );
     const hasNonSystemMessages = base.some((message) => message.role !== 'system');
     return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;

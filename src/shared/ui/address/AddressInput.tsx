@@ -226,18 +226,7 @@ export const AddressInput = ({
     onChange(address);
   }, [onChange]);
 
-  // Validate address
-  const validateAddress = useCallback(() => {
-    const validation = validationLevel === 'strict'
-      ? validateAddressStrict(value)
-      : validateAddressLoose(value);
 
-    return validation;
-  }, [value, validationLevel]);
-
-  useEffect(() => {
-    void validateAddress();
-  }, [validateAddress]);
 
 
   return (
