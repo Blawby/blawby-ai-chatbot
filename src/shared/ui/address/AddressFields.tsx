@@ -156,7 +156,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         <Input
           label={label}
           placeholder={placeholder}
-          value={streetAddressProps?.value || safeValue.address || ''}
+          value={streetAddressProps?.value ?? safeValue.address ?? ''}
           onChange={(newValue) => {
             if (streetAddressProps?.onChange) {
               streetAddressProps.onChange(newValue);
@@ -234,7 +234,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
       {/* Address Line 2 */}
       <Input
         label=""
-        value={safeValue.apartment || ''}
+        value={safeValue.apartment ?? ''}
         onChange={(newValue) => updateField('apartment', newValue)}
         disabled={disabled}
         placeholder="Apartment, suite, etc. (optional)"
@@ -251,7 +251,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         <div>
           <Input
             label=""
-            value={safeValue.city || ''}
+            value={safeValue.city ?? ''}
             onChange={(newValue) => updateField('city', newValue)}
             disabled={disabled}
             placeholder="City"
@@ -270,7 +270,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
               <>
                 <Select
                   label=""
-                  value={safeValue.state || ''}
+                  value={safeValue.state ?? ''}
                   onChange={(newValue) => updateField('state', newValue)}
                   disabled={disabled}
                   placeholder="State"
@@ -289,7 +289,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             ) : (
               <Input
                 label=""
-                value={safeValue.state || ''}
+                value={safeValue.state ?? ''}
                 onChange={(newValue) => updateField('state', newValue)}
                 disabled={disabled}
                 placeholder="State/Province"
@@ -307,7 +307,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         <div>
           <Input
             label=""
-            value={safeValue.postalCode || ''}
+            value={safeValue.postalCode ?? ''}
             onChange={(newValue) => updateField('postalCode', newValue)}
             disabled={disabled}
             placeholder={safeValue?.country === 'US' ? 'ZIP code' : 'Postal code'}
@@ -324,7 +324,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
           <div>
             <Select
               label=""
-              value={safeValue.country || ''}
+              value={safeValue.country ?? ''}
               onChange={(newValue) => updateField('country', newValue)}
               disabled={disabled}
               options={countryOptions}
