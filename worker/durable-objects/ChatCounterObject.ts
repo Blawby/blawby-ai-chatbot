@@ -17,9 +17,12 @@ export class ChatCounterObject {
     // Atomically increment and check limit
     if (url.pathname === '/increment') {
       const limitParam = url.searchParams.get('limit');
-      const limit = limitParam ? parseInt(limitParam, 10) : Infinity;
+      const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : Number.NaN;
+      const limit = Number.isFinite(parsedLimit) ? parsedLimit : Infinity;
+      
       const ttlParam = url.searchParams.get('ttl');
-      const ttl = ttlParam ? parseInt(ttlParam, 10) : 0;
+      const parsedTtl = ttlParam ? Number.parseInt(ttlParam, 10) : Number.NaN;
+      const ttl = Number.isFinite(parsedTtl) ? parsedTtl : 0;
 
       return await this.state.storage.transaction(async (tx) => {
         let count = await tx.get<number>('count') || 0;

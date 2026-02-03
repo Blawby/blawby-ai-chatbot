@@ -54,9 +54,13 @@ export async function callGeoapifyAutocompleteMultiPass(
 ): Promise<{ suggestions: AddressSuggestion[] } | AutocompleteError> {
   const { text, limit = 5, lang = 'en', country, type, apiKey, bias } = options;
   
-  if (env?.DEBUG_GEO === '1') {
-    console.log('[Geoapify MultiPass] Starting multi-pass search for length:', text.length);
-  }
+  const debug = (...args: any[]) => {
+    if (env?.DEBUG_GEO === '1') {
+      console.log(...args);
+    }
+  };
+
+  debug('[Geoapify MultiPass] Starting multi-pass search for length:', text.length);
   
   const allSuggestions: AddressSuggestion[] = [];
   const seenKeys = new Set<string>();
@@ -132,7 +136,7 @@ export async function callGeoapifyAutocompleteMultiPass(
   
   try {
     // Pass 1: Default (building matches)
-    console.log('[Geoapify MultiPass] Pass 1: Default search');
+    debug('[Geoapify MultiPass] Pass 1: Default search');
     const pass1Result = await callGeoapifyAutocomplete({
       text,
       limit: 12, // Explicit upstream limit
@@ -148,18 +152,18 @@ export async function callGeoapifyAutocompleteMultiPass(
     }
     
     addSuggestions(pass1Result.suggestions);
-    console.log('[Geoapify MultiPass] Pass 1 collected:', allSuggestions.length);
+    debug('[Geoapify MultiPass] Pass 1 collected:', allSuggestions.length);
     
     // If we have enough results, rank them all and slice the best ones
     if (allSuggestions.length >= limit) {
       const rankedSuggestions = rankSuggestions(allSuggestions);
       const finalSuggestions = rankedSuggestions.slice(0, limit);
-      console.log('[Geoapify MultiPass] Early return after Pass 1:', finalSuggestions.length);
+      debug('[Geoapify MultiPass] Early return after Pass 1:', finalSuggestions.length);
       return { suggestions: finalSuggestions };
     }
     
     // Pass 2 & 4: Parallel street and locality suggestions
-    console.log('[Geoapify MultiPass] Pass 2&4: Parallel street + locality');
+    debug('[Geoapify MultiPass] Pass 2&4: Parallel street + locality');
     const textForLocality = /^\s*\d+\b/.test(text) ? 
       text.replace(/^\s*\d+\s+/, '') : text;
     
@@ -186,12 +190,12 @@ export async function callGeoapifyAutocompleteMultiPass(
     
     if (!('code' in pass2Result)) {
       addSuggestions(pass2Result.suggestions);
-      console.log('[Geoapify MultiPass] Pass 2 collected:', allSuggestions.length);
+      debug('[Geoapify MultiPass] Pass 2 collected:', allSuggestions.length);
     }
     
     if (!('code' in pass4Result)) {
       addSuggestions(pass4Result.suggestions);
-      console.log('[Geoapify MultiPass] Pass 4 collected:', allSuggestions.length);
+      debug('[Geoapify MultiPass] Pass 4 collected:', allSuggestions.length);
     }
     
     // Pass 3: Remove housenumber, street suggestions (only if still short)
@@ -199,7 +203,7 @@ export async function callGeoapifyAutocompleteMultiPass(
       const hasHouseNumber = /^\s*\d+\b/.test(text);
       if (hasHouseNumber) {
         const textWithoutHouseNumber = text.replace(/^\s*\d+\s+/, '');
-        console.log('[Geoapify MultiPass] Pass 3: Street suggestions without housenumber:', textWithoutHouseNumber);
+        debug('[Geoapify MultiPass] Pass 3: Street suggestions without housenumber (masked)');
         
         const pass3Result = await callGeoapifyAutocomplete({
           text: textWithoutHouseNumber,
@@ -213,7 +217,7 @@ export async function callGeoapifyAutocompleteMultiPass(
         
         if (!('code' in pass3Result)) {
           addSuggestions(pass3Result.suggestions);
-          console.log('[Geoapify MultiPass] Pass 3 collected:', allSuggestions.length);
+          debug('[Geoapify MultiPass] Pass 3 collected:', allSuggestions.length);
         }
       }
     }
@@ -222,7 +226,7 @@ export async function callGeoapifyAutocompleteMultiPass(
     const rankedSuggestions = rankSuggestions(allSuggestions);
     const finalSuggestions = rankedSuggestions.slice(0, limit);
     
-    console.log('[Geoapify MultiPass] Final results:', finalSuggestions.length, 'from', allSuggestions.length, 'total');
+    debug('[Geoapify MultiPass] Final results:', finalSuggestions.length, 'from', allSuggestions.length, 'total');
     
     return { suggestions: finalSuggestions };
     

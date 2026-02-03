@@ -173,7 +173,7 @@ const COUNTRIES: Record<string, string> = {
  */
 export function getCountryName(iso2Code: string): string {
   if (typeof iso2Code !== 'string' || !iso2Code) {
-    return iso2Code || '';
+    return '';
   }
   
   return COUNTRIES[iso2Code.toUpperCase()] || iso2Code;

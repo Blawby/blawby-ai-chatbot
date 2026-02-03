@@ -50,6 +50,10 @@ const normalizeFields = (fields?: string[]): AddressExperienceField[] => {
 };
 
 const normalizeRequired = (fields: AddressExperienceField[], required?: string[]) => {
+  if (Array.isArray(required) && required.length === 0) {
+    return [];
+  }
+  
   const uniqueRequired = Array.isArray(required) ? [...new Set(required)] : [];
   const filtered = uniqueRequired.filter((field): field is AddressExperienceField =>
     fields.includes(field as AddressExperienceField)
