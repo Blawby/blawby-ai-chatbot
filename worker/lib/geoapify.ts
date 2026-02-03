@@ -4,7 +4,6 @@
 
 import { fromGeoapifyResponse } from '../../src/shared/mapping/addressMapping';
 import type { AddressSuggestion, AutocompleteError } from '../types/ui';
-import type { Address } from '../types/ui';
 
 export interface GeoapifyAutocompleteOptions {
   text: string;
@@ -52,9 +51,9 @@ export async function callGeoapifyAutocompleteMultiPass(
   options: GeoapifyAutocompleteOptions,
   env?: { DEBUG_GEO?: string }
 ): Promise<{ suggestions: AddressSuggestion[] } | AutocompleteError> {
-  const { text, limit = 5, lang = 'en', country, type, apiKey, bias } = options;
+  const { text, limit = 5, lang = 'en', country, apiKey, bias } = options;
   
-  const debug = (...args: any[]) => {
+  const debug = (...args: unknown[]) => {
     if (env?.DEBUG_GEO === '1') {
       console.log(...args);
     }

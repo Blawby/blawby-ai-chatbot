@@ -1,6 +1,5 @@
-import { intakeSchema, intakeMinimalSchema, intakeWithPhoneSchema, intakeWithAddressSchema, intakeFullSchema } from '@/shared/schemas/ui';
+import { intakeMinimalSchema, intakeWithPhoneSchema, intakeWithAddressSchema, intakeFullSchema } from '@/shared/schemas/ui';
 import { getDefaultValues } from '../fieldRegistry';
-import type { IntakeFormState } from '@/shared/types/ui';
 import type { z } from 'zod';
 
 // Greenfield intake form configs - explicit and type-safe
@@ -50,13 +49,15 @@ export function createIntakeFormConfig(configKey: keyof typeof INTAKE_FORM_CONFI
 }
 
 // For dynamic field selection (use sparingly in greenfield)
-export function createCustomIntakeConfig<T extends readonly string[]>(
+type SupportedField = 'name' | 'email' | 'phone' | 'address' | 'opposingParty' | 'description';
+
+export function createCustomIntakeConfig<T extends readonly SupportedField[]>(
   fields: T,
-  schema: z.ZodObject<any>
+  schema: z.ZodObject<Record<SupportedField, z.ZodTypeAny>>
 ) {
   // Validate that all fields are supported
-  const supportedFields = ['name', 'email', 'phone', 'address', 'opposingParty', 'description'] as const;
-  const unsupportedFields = fields.filter(field => !supportedFields.includes(field as any));
+  const supportedFields: SupportedField[] = ['name', 'email', 'phone', 'address', 'opposingParty', 'description'];
+  const unsupportedFields = fields.filter((field) => !supportedFields.includes(field));
   
   if (unsupportedFields.length > 0) {
     throw new Error(`Unsupported fields: ${unsupportedFields.join(', ')}`);
@@ -64,7 +65,7 @@ export function createCustomIntakeConfig<T extends readonly string[]>(
   
   // Validate that every field in the fields array exists in the schema shape
   const schemaShape = schema.shape;
-  const missingFields = fields.filter(field => !(field in schemaShape));
+  const missingFields = fields.filter((field) => !Object.prototype.hasOwnProperty.call(schemaShape, field));
   
   if (missingFields.length > 0) {
     throw new Error(`Fields not found in schema: ${missingFields.join(', ')}`);

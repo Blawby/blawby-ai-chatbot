@@ -1,8 +1,7 @@
 import { Form, FormField, FormItem } from '@/shared/ui/form';
 import { cn } from '@/shared/utils/cn';
 import { getFieldEntry, applyFieldAdapter, reverseFieldAdapter } from './fieldRegistry';
-import { useMemo, useState } from 'preact/hooks';
-import type { JSX } from 'preact';
+import { useState } from 'preact/hooks';
 import type { z } from 'zod';
 import type { FormData } from '@/shared/ui/form/Form';
 
@@ -57,7 +56,10 @@ export function SmartForm<T extends z.ZodType>({
     
     for (const fieldId of config.fields) {
       const fieldKey = fieldId as string;
-      adaptedData[fieldId as keyof z.infer<T>] = reverseFieldAdapter(fieldKey, formData[fieldKey]);
+      adaptedData[fieldId as keyof z.infer<T>] = reverseFieldAdapter(
+        fieldKey,
+        formData[fieldKey]
+      ) as z.infer<T>[keyof z.infer<T>];
     }
     
     await onSubmit(adaptedData);
@@ -74,9 +76,9 @@ export function SmartForm<T extends z.ZodType>({
           const adaptedValue = applyFieldAdapter(fieldId, value);
           
           // Build component props
-          const componentProps: any = {
+          const componentProps: Record<string, unknown> = {
             value: adaptedValue,
-            onChange: (newValue: any) => onChange(newValue),
+            onChange: (newValue: unknown) => onChange(newValue),
             disabled,
             label: labels[fieldId] || fieldEntry.label,
             placeholder: placeholders[fieldId] || fieldEntry.placeholder,

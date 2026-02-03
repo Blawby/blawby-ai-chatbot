@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { addressLooseSchema } from '@/shared/ui/validation/schemas/address';
-import type { IntakePayload } from '../types/domains';
 
 // Base intake schema
 export const IntakeSchema = z.object({

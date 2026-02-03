@@ -18,7 +18,7 @@ export interface AddressSuggestion {
   lon?: number;
   placeId?: string;
   dedupeKey: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
 }
 
 // Domain UI types

@@ -50,7 +50,7 @@ export interface AddressSuggestion {
     state?: string;
     city?: string;
     postcode?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

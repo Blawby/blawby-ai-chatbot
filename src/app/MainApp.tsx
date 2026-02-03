@@ -5,6 +5,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import AppLayout from './AppLayout';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
+import PublicEmbedLayout from '@/features/chat/components/PublicEmbedLayout';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
@@ -53,6 +54,8 @@ import { ClientPaymentsPage } from '@/features/payments/pages/ClientPaymentsPage
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import type { SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
+import PublicConversationHeader from '@/features/chat/components/PublicConversationHeader';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 type RouteKey =
   | 'home'
@@ -76,7 +79,8 @@ export function MainApp({
   chatContent,
   activeRoute,
   routeConversationId,
-  publicPracticeSlug
+  publicPracticeSlug,
+  publicEmbedView
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
@@ -89,6 +93,7 @@ export function MainApp({
   activeRoute: RouteKey;
   routeConversationId?: string;
   publicPracticeSlug?: string;
+  publicEmbedView?: 'home' | 'list' | 'conversation';
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -539,23 +544,25 @@ export function MainApp({
     practiceId
   ]);
 
-  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode) => {
+  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode): Promise<string | null> => {
     try {
       if (isSelectingRef.current) {
-        return;
+        return null;
       }
       isSelectingRef.current = true;
       if (!practiceId) {
-        return;
+        return null;
       }
       const newConversationId = await createConversation();
       if (!newConversationId) {
-        return;
+        return null;
       }
       await applyConversationMode(nextMode, newConversationId, 'home_cta');
+      return newConversationId;
     } catch (error) {
       setConversationMode(null);
       console.warn('[MainApp] Failed to start new conversation', error);
+      return null;
     } finally {
       isSelectingRef.current = false;
     }
@@ -907,6 +914,52 @@ export function MainApp({
     ?? currentPractice?.description
     ?? practiceConfig?.description
     ?? '';
+  const publicFilteredMessages = useMemo(() => {
+    if (!isPublicWorkspace) return [];
+    const base = messages.filter((message) =>
+      message.metadata?.systemMessageKey !== 'ask_question_help' &&
+      message.metadata?.systemMessageKey !== 'intro'
+    );
+    const hasNonSystemMessages = base.some((message) => message.role !== 'system');
+    return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
+  }, [isPublicWorkspace, messages]);
+  const publicPresenceStatus = typeof isSocketReady === 'boolean'
+    ? (isSocketReady ? 'active' : 'inactive')
+    : undefined;
+  const publicActiveTimeLabel = useMemo(() => {
+    if (!isPublicWorkspace) return '';
+    if (publicPresenceStatus === 'active') {
+      return 'Active';
+    }
+    const lastTimestamp = [...publicFilteredMessages]
+      .reverse()
+      .find((message) => typeof message.timestamp === 'number')?.timestamp;
+    if (!lastTimestamp) {
+      return 'Inactive';
+    }
+    const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
+    return relative ? `Active ${relative}` : 'Inactive';
+  }, [isPublicWorkspace, publicFilteredMessages, publicPresenceStatus]);
+  const publicHeaderContent = useMemo(() => {
+    if (!isPublicWorkspace || !publicConversationsBasePath) return undefined;
+    return (
+      <PublicConversationHeader
+        practiceName={resolvedPracticeName}
+        practiceLogo={resolvedPracticeLogo}
+        activeLabel={publicActiveTimeLabel}
+        presenceStatus={publicPresenceStatus}
+        onBack={() => navigate(publicConversationsBasePath)}
+      />
+    );
+  }, [
+    isPublicWorkspace,
+    navigate,
+    publicActiveTimeLabel,
+    publicConversationsBasePath,
+    publicPresenceStatus,
+    resolvedPracticeLogo,
+    resolvedPracticeName
+  ]);
 
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
@@ -916,16 +969,6 @@ export function MainApp({
       navigate(`${resolvedConversationsBasePath}/${encodeURIComponent(id)}`);
     }
   }, [navigate, resolvedConversationsBasePath]);
-
-  const handlePublicSelectConversation = useCallback((id: string) => {
-    setConversationId(id);
-    setConversationMode(null);
-  }, []);
-
-  const handlePublicBack = useCallback(() => {
-    if (!resolvedPublicPracticeSlug) return;
-    navigate(`/embed/${encodeURIComponent(resolvedPublicPracticeSlug)}`, true);
-  }, [navigate, resolvedPublicPracticeSlug]);
 
   const chatPanel = chatContent ?? (
     <div className="relative h-full flex flex-col">
@@ -955,15 +998,14 @@ export function MainApp({
               onContactFormSubmit={handleContactFormSubmit}
               onAddMessage={addMessage}
               onSelectMode={handleModeSelection}
-              onStartNewConversation={handleStartNewConversation}
-              onSelectConversation={workspace === 'public' ? handlePublicSelectConversation : undefined}
               onToggleReaction={toggleMessageReaction}
               onRequestReactions={requestMessageReactions}
-              conversationMode={conversationMode}
               composerDisabled={isComposerDisabled}
               isPublicWorkspace={workspace === 'public'}
               messagesReady={messagesReady}
-              onNavigateHome={workspace === 'public' ? handlePublicBack : undefined}
+              headerContent={workspace === 'public' ? publicHeaderContent : undefined}
+              heightClassName={workspace === 'public' ? 'h-full' : undefined}
+              useFrame={workspace !== 'public'}
               practiceConfig={{
                 name: resolvedPracticeName,
                 profileImage: resolvedPracticeLogo,
@@ -1057,9 +1099,22 @@ export function MainApp({
     }
   })();
 
+  const publicEmbedContent = workspace === 'public' ? (
+    <PublicEmbedLayout
+      view={publicEmbedView ?? 'conversation'}
+      practiceId={practiceId}
+      practiceSlug={resolvedPublicPracticeSlug}
+      practiceName={resolvedPracticeName}
+      practiceLogo={resolvedPracticeLogo}
+      messages={messages}
+      onStartNewConversation={handleStartNewConversation}
+      chatView={chatPanel}
+    />
+  ) : null;
+
   const mainContent = workspace === 'practice'
     ? practiceContent
-    : (workspace === 'client' ? clientContent : chatPanel);
+    : (workspace === 'client' ? clientContent : publicEmbedContent ?? chatPanel);
   const shouldShowRightSidebar = workspace === 'practice' && routeKey === 'conversations';
 
   // Render the main app

@@ -5,7 +5,7 @@ import { Select, type SelectOption } from '@/shared/ui/input/Select';
 import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import type { Address } from '@/shared/types/ui';
-import type { JSX, FunctionalComponent } from 'preact';
+import type { FunctionalComponent } from 'preact';
 
 // Status options for client forms
 const STATUS_OPTIONS: SelectOption[] = [
@@ -24,10 +24,10 @@ const CURRENCY_OPTIONS: SelectOption[] = [
 ];
 
 // Component factory types
-export type ComponentFactory = FunctionalComponent<any>;
+export type ComponentFactory = FunctionalComponent<Record<string, unknown>>;
 export type FieldAdapter = {
-  toFormValue?: (value: any) => any;
-  fromFormValue?: (value: any) => any;
+  toFormValue?: (value: unknown) => unknown;
+  fromFormValue?: (value: unknown) => unknown;
 };
 
 // Field registry entry
@@ -35,7 +35,7 @@ export interface FieldRegistryEntry {
   component: ComponentFactory;
   label: string;
   placeholder?: string;
-  defaultValue?: any;
+  defaultValue?: unknown;
   adapter?: FieldAdapter;
   ui?: {
     gridSpan?: number;
@@ -44,11 +44,14 @@ export interface FieldRegistryEntry {
   options?: SelectOption[];
 }
 
+const asComponentFactory = <P,>(component: FunctionalComponent<P>): ComponentFactory =>
+  component as unknown as ComponentFactory;
+
 // Field registry - single source of truth for all form fields
 export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   // Basic text fields
   name: {
-    component: Input,
+    component: asComponentFactory(Input),
     label: 'Name',
     placeholder: 'Enter name',
     defaultValue: '',
@@ -56,7 +59,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   opposingParty: {
-    component: Input,
+    component: asComponentFactory(Input),
     label: 'Opposing Party',
     placeholder: 'Enter opposing party name',
     defaultValue: '',
@@ -64,7 +67,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   description: {
-    component: Textarea,
+    component: asComponentFactory(Textarea),
     label: 'Description',
     placeholder: 'Describe your case',
     defaultValue: '',
@@ -73,7 +76,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   
   // Contact fields
   email: {
-    component: EmailInput,
+    component: asComponentFactory(EmailInput),
     label: 'Email',
     placeholder: 'your.email@example.com',
     defaultValue: '',
@@ -81,7 +84,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   businessEmail: {
-    component: EmailInput,
+    component: asComponentFactory(EmailInput),
     label: 'Business Email',
     placeholder: 'business@example.com',
     defaultValue: '',
@@ -89,7 +92,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   phone: {
-    component: PhoneInput,
+    component: asComponentFactory(PhoneInput),
     label: 'Phone',
     placeholder: '+1 (555) 123-4567',
     defaultValue: '',
@@ -97,7 +100,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   contactPhone: {
-    component: PhoneInput,
+    component: asComponentFactory(PhoneInput),
     label: 'Contact Phone',
     placeholder: '+1 (555) 123-4567',
     defaultValue: '',
@@ -106,7 +109,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   
   // Client-specific fields
   status: {
-    component: Select,
+    component: asComponentFactory(Select),
     label: 'Status',
     placeholder: 'Select status',
     defaultValue: 'lead',
@@ -115,7 +118,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   currency: {
-    component: Select,
+    component: asComponentFactory(Select),
     label: 'Currency',
     placeholder: 'Select currency',
     defaultValue: 'usd',
@@ -125,7 +128,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   
   // Address field (special case)
   address: {
-    component: AddressInput,
+    component: asComponentFactory(AddressInput),
     label: 'Address',
     placeholder: 'Enter address',
     defaultValue: undefined,
@@ -147,8 +150,8 @@ export function getFieldEntry(fieldId: string): FieldRegistryEntry {
 }
 
 // Helper to get default values for a set of fields
-export function getDefaultValues(fieldIds: string[]): Record<string, any> {
-  const defaults: Record<string, any> = {};
+export function getDefaultValues(fieldIds: string[]): Record<string, unknown> {
+  const defaults: Record<string, unknown> = {};
   
   for (const fieldId of fieldIds) {
     const entry = getFieldEntry(fieldId);
@@ -159,7 +162,7 @@ export function getDefaultValues(fieldIds: string[]): Record<string, any> {
 }
 
 // Helper to apply field adapters
-export function applyFieldAdapter(fieldId: string, value: any): any {
+export function applyFieldAdapter(fieldId: string, value: unknown): unknown {
   const entry = getFieldEntry(fieldId);
   
   if (entry.adapter?.toFormValue) {
@@ -170,7 +173,7 @@ export function applyFieldAdapter(fieldId: string, value: any): any {
 }
 
 // Helper to reverse field adapters (for form submission)
-export function reverseFieldAdapter(fieldId: string, value: any): any {
+export function reverseFieldAdapter(fieldId: string, value: unknown): unknown {
   const entry = getFieldEntry(fieldId);
   
   if (entry.adapter?.fromFormValue) {

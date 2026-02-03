@@ -1,4 +1,5 @@
 import type { Address } from '../types/ui';
+import type { AddressSuggestion } from '../types/address';
 import type { AddressApi } from '../types/api';
 
 // US state name to code mapping for normalization
@@ -119,7 +120,55 @@ export function fromApiAddress(api: AddressApi): Address {
 }
 
 // Geoapify feature to Address conversion (for autocomplete)
-export function fromGeoapifyFeature(feature: any): Address {
+type GeoapifyRank = {
+  importance?: number;
+  confidence?: number;
+  confidence_street_level?: number;
+  confidence_building_level?: number;
+  match_type?: string;
+};
+
+type GeoapifyDatasource = {
+  sourcename?: string;
+  attribution?: string;
+  license?: string;
+  url?: string;
+};
+
+type GeoapifyProperties = {
+  address_line1?: string;
+  housenumber?: string;
+  street?: string;
+  name?: string;
+  formatted?: string;
+  unit?: string;
+  subpremise?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  locality?: string;
+  state_code?: string;
+  state?: string;
+  region?: string;
+  country_code?: string;
+  postcode?: string;
+  place_id?: string;
+  result_type?: string;
+  match_type?: string;
+  confidence?: number;
+  rank?: GeoapifyRank;
+  datasource?: GeoapifyDatasource;
+  country?: string;
+};
+
+type GeoapifyFeature = {
+  properties?: GeoapifyProperties;
+  geometry?: {
+    coordinates?: [number, number] | number[];
+  };
+};
+
+export function fromGeoapifyFeature(feature: GeoapifyFeature): Address {
   // Defensive guard against malformed API responses
   if (!feature || !feature.properties) {
     throw new Error('Invalid Geoapify feature: feature or properties is missing');
@@ -159,23 +208,21 @@ export function fromGeoapifyFeature(feature: any): Address {
     city: city.trim(),
     state: state.trim(),
     postalCode: postalCode.trim(),
-    country: country, // Store ISO-2 code for validation (US, GB, etc.)
+    country, // Store ISO-2 code for validation (US, GB, etc.)
   };
 }
 
 // Geoapify response to AddressSuggestion conversion
-export function fromGeoapifyResponse(feature: any): any {
+export function fromGeoapifyResponse(feature: GeoapifyFeature): AddressSuggestion {
   const address = fromGeoapifyFeature(feature);
-  const properties = feature.properties;
+  const properties = feature.properties ?? {};
   const coordinates = feature.geometry?.coordinates;
   
   const formatted = properties.formatted || '';
-  const lon = coordinates?.[0] || '';
-  const lat = coordinates?.[1] || '';
   const apiPlaceId = properties.place_id; // API uses snake_case
   const id = apiPlaceId || generateHashId(formatted, coordinates);
   
-  const label = `${address.address}, ${address.city}, ${address.state} ${address.postalCode}${address.country ? ', ' + countryDisplay(address.country) : ''}`;
+  const label = `${address.address}, ${address.city}, ${address.state} ${address.postalCode}${address.country ? `, ${countryDisplay(address.country)}` : ''}`;
   
   const dedupeKey = apiPlaceId || (formatted.toLowerCase().replace(/\s+/g, ' ').trim() || '');
   
@@ -184,8 +231,8 @@ export function fromGeoapifyResponse(feature: any): any {
     label,
     address,
     formatted: label,
-    lat: coordinates?.[1],
-    lon: coordinates?.[0],
+    lat: typeof coordinates?.[1] === 'number' ? coordinates[1] : undefined,
+    lon: typeof coordinates?.[0] === 'number' ? coordinates[0] : undefined,
     placeId: apiPlaceId, // Internal type uses camelCase
     dedupeKey,
     properties: {

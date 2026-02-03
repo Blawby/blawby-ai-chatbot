@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { Address, IntakeForm, ClientForm, PracticeForm } from '../types/ui';
 
 // Address schema (canonical UI type)
 export const addressSchema = z.object({

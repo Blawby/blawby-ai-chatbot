@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
@@ -13,29 +14,19 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
-import PublicEmbedHome from './PublicEmbedHome';
-import PublicEmbedNavigation from './PublicEmbedNavigation';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import PublicConversationHeader from './PublicConversationHeader';
-import PublicConversationList from './PublicConversationList';
-import { useConversations } from '@/shared/hooks/useConversations';
-import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 
-interface ChatContainerProps {
+export interface ChatContainerProps {
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
   onSendMessage: (message: string, attachments: FileAttachment[], replyToMessageId?: string | null) => void;
   onContactFormSubmit?: (data: ContactData) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
-  onStartNewConversation?: (mode: ConversationMode) => void | Promise<void>;
-  onNavigateHome?: () => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
-  conversationMode?: ConversationMode | null;
   composerDisabled?: boolean;
   isPublicWorkspace?: boolean;
   practiceConfig?: {
@@ -48,9 +39,10 @@ interface ChatContainerProps {
   };
   showPracticeHeader?: boolean;
   heightClassName?: string;
+  headerContent?: ComponentChildren;
+  useFrame?: boolean;
   onOpenSidebar?: () => void;
   practiceId?: string;
-  onSelectConversation?: (conversationId: string) => void;
 
   // File handling props
   previewFiles: FileAttachment[];
@@ -91,9 +83,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   practiceConfig,
   showPracticeHeader = true,
   heightClassName,
+  headerContent,
+  useFrame = true,
   onOpenSidebar,
   practiceId,
-  onSelectConversation,
   onToggleReaction,
   onRequestReactions,
   previewFiles,
@@ -114,9 +107,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   conversationId,
   canChat = true,
   onSelectMode,
-  onStartNewConversation,
-  onNavigateHome,
-  conversationMode,
   composerDisabled,
   hasMoreMessages,
   isLoadingMoreMessages,
@@ -131,8 +121,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
-  const [publicActiveTab, setPublicActiveTab] = useState<'home' | 'messages' | null>(null);
-  const [publicChatOpen, setPublicChatOpen] = useState(false);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help'
@@ -142,168 +130,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = hasNonSystemMessages
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
-  const hasUserMessages = filteredMessages.some((message) => message.isUser);
   const contactFormMessage = filteredMessages.find((message) => Boolean(message.contactForm));
   const contactFormId = useMemo(() => (
     conversationId ? `contact-form-${conversationId}` : 'contact-form'
   ), [conversationId]);
   const contactFormVariant = isPublicWorkspace ? 'plain' : 'card';
-  const presenceStatus = typeof isSocketReady === 'boolean'
-    ? (isSocketReady ? 'active' : 'inactive')
-    : undefined;
-  const showContactFormFooter = Boolean(
-    isPublicWorkspace
-    && contactFormMessage
-    && intakeStatus?.step === 'contact_form'
-    && onContactFormSubmit
-  );
-  const publicIntroText = useMemo(() => {
-    const intro = typeof practiceConfig?.introMessage === 'string'
-      ? practiceConfig.introMessage.trim()
-      : '';
-    return intro || 'Ask us anything, or share your feedback.';
-  }, [practiceConfig?.introMessage]);
-  const {
-    conversations: publicConversations,
-    isLoading: isPublicConversationsLoading,
-    refresh: refreshPublicConversations
-  } = useConversations({
-    practiceId,
-    scope: 'practice',
-    list: isPublicWorkspace,
-    enabled: isPublicWorkspace && Boolean(practiceId)
-  });
-  const [publicConversationPreviews, setPublicConversationPreviews] = useState<Record<string, {
-    content: string;
-    role: string;
-    createdAt: string;
-  }>>({});
-  const fetchedPreviewIds = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!isPublicWorkspace || publicConversations.length === 0 || !practiceId) {
-      return;
-    }
-    let isMounted = true;
-    const loadPreviews = async () => {
-      const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      const toFetch = publicConversations.slice(0, 10).filter(
-        (conversation) => !fetchedPreviewIds.current.has(conversation.id)
-      );
-      await Promise.all(toFetch.map(async (conversation) => {
-        const message = await fetchLatestConversationMessage(
-          conversation.id,
-          practiceId
-        ).catch(() => null);
-        if (message?.content) {
-          fetchedPreviewIds.current.add(conversation.id);
-          updates[conversation.id] = {
-            content: message.content,
-            role: message.role,
-            createdAt: message.created_at
-          };
-        }
-      }));
-      if (isMounted && Object.keys(updates).length > 0) {
-        setPublicConversationPreviews((prev) => ({ ...prev, ...updates }));
-      }
-    };
-    void loadPreviews();
-    return () => {
-      isMounted = false;
-    };
-  }, [isPublicWorkspace, practiceConfig?.slug, practiceId, publicConversations]);
-
-  const recentMessage = useMemo(() => {
-    if (!isPublicWorkspace) {
-      return null;
-    }
-    const fallbackPracticeName = typeof practiceConfig?.name === 'string'
-      ? practiceConfig.name.trim()
-      : '';
-    const practiceAvatar = practiceConfig?.profileImage ?? null;
-    if (publicConversations.length > 0) {
-      const sorted = [...publicConversations].sort((a, b) => {
-        const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
-        const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
-        return bTime - aTime;
-      });
-      const top = sorted.find((conversation) => {
-        const preview = publicConversationPreviews[conversation.id];
-        return typeof preview?.content === 'string' && preview.content.trim().length > 0;
-      });
-      if (top) {
-        const preview = publicConversationPreviews[top.id];
-        const previewText = typeof preview?.content === 'string' ? preview.content.trim() : '';
-        const clipped = previewText
-          ? (previewText.length > 90 ? `${previewText.slice(0, 90)}…` : previewText)
-          : 'Open to view messages.';
-        const title = typeof top.user_info?.title === 'string' ? top.user_info?.title.trim() : '';
-        const timestampLabel = preview?.createdAt
-          ? formatRelativeTime(preview.createdAt)
-          : (top.last_message_at ? formatRelativeTime(top.last_message_at) : '');
-        return {
-          preview: clipped,
-          timestampLabel,
-          senderLabel: title || fallbackPracticeName,
-          avatarSrc: practiceAvatar,
-          conversationId: top.id
-        };
-      }
-    }
-    if (filteredMessages.length === 0) {
-      return null;
-    }
-    const candidate = [...filteredMessages]
-      .reverse()
-      .find((message) => message.role !== 'system' && typeof message.content === 'string' && message.content.trim().length > 0);
-    if (!candidate) {
-      return null;
-    }
-    const trimmedContent = candidate.content.trim();
-    const preview = trimmedContent.length > 90
-      ? `${trimmedContent.slice(0, 90)}…`
-      : trimmedContent;
-    const timestampLabel = candidate.timestamp
-      ? formatRelativeTime(new Date(candidate.timestamp).toISOString())
-      : '';
-    const resolvedTitle = typeof conversationTitle === 'string' ? conversationTitle.trim() : '';
-    const senderLabel = resolvedTitle || fallbackPracticeName;
-    const avatarSrc = practiceAvatar;
-    return {
-      preview,
-      timestampLabel,
-      senderLabel,
-      avatarSrc,
-      conversationId: conversationId ?? null
-    };
-  }, [
-    conversationTitle,
-    conversationId,
-    filteredMessages,
-    isPublicWorkspace,
-    practiceConfig?.name,
-    practiceConfig?.profileImage,
-    publicConversationPreviews,
-    publicConversations
-  ]);
-  const activeTimeLabel = useMemo(() => {
-    if (!isPublicWorkspace) return '';
-    if (presenceStatus === 'active') {
-      return 'Active';
-    }
-    const lastTimestamp = [...filteredMessages]
-      .reverse()
-      .find((message) => typeof message.timestamp === 'number')?.timestamp;
-    if (!lastTimestamp) {
-      return 'Inactive';
-    }
-    const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
-    return relative ? `Active ${relative}` : 'Inactive';
-  }, [filteredMessages, isPublicWorkspace, presenceStatus]);
-  const defaultPublicTab = (conversationMode || hasUserMessages) ? 'messages' : 'home';
-  const activePublicTab = publicActiveTab ?? defaultPublicTab;
-  const showPublicHome = isPublicWorkspace && activePublicTab === 'home';
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -442,10 +273,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
     if (!onSelectMode) return;
     onSelectMode(mode, source);
-    if (isPublicWorkspace) {
-      setPublicActiveTab('messages');
-      setPublicChatOpen(true);
-    }
   };
 
   const handleAskQuestion = () => {
@@ -456,31 +283,18 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
   };
 
-  const handleStartNewConversation = () => {
-    if (onStartNewConversation) {
-      void Promise.resolve(onStartNewConversation('ASK_QUESTION'))
-        .finally(() => {
-          if (isPublicWorkspace) {
-            setPublicActiveTab('messages');
-            setPublicChatOpen(true);
-          }
-        });
-      return;
-    }
-    handleAskQuestion();
-  };
-
-  const handleSelectPublicConversation = (conversationId: string) => {
-    onSelectConversation?.(conversationId);
-    setPublicActiveTab('messages');
-    setPublicChatOpen(true);
-  };
-
-  const containerClassName = `flex flex-col ${heightClassName ?? 'h-screen md:h-screen'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;
-  const mainClassName = `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-white dark:bg-dark-bg'}`;
-  const frameClassName = isPublicWorkspace
-    ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden'
-    : 'flex flex-col flex-1 min-h-0 w-full';
+  const shouldFrame = useFrame !== false;
+  const containerClassName = isPublicWorkspace && !shouldFrame
+    ? 'flex flex-col h-full w-full m-0 p-0 relative overflow-hidden'
+    : `flex flex-col ${heightClassName ?? 'h-screen md:h-screen'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;
+  const mainClassName = isPublicWorkspace && !shouldFrame
+    ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
+    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-white dark:bg-dark-bg'}`;
+  const frameClassName = !shouldFrame
+    ? 'flex flex-col flex-1 min-h-0 w-full'
+    : (isPublicWorkspace
+      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden'
+      : 'flex flex-col flex-1 min-h-0 w-full');
 
   const handleReply = (target: ReplyTarget) => {
     setReplyTarget(target);
@@ -499,156 +313,98 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       <main className={mainClassName}>
         {canChat ? (
           <div className={frameClassName}>
-            {showPublicHome ? (
-              <PublicEmbedHome
-                practiceName={practiceConfig?.name}
-                practiceLogo={practiceConfig?.profileImage ?? null}
-                onSendMessage={(onStartNewConversation || onSelectMode) ? handleStartNewConversation : undefined}
-                onRequestConsultation={onSelectMode ? handleRequestConsultation : undefined}
-                recentMessage={recentMessage}
-                onOpenRecentMessage={() => {
-                  if (recentMessage?.conversationId) {
-                    handleSelectPublicConversation(recentMessage.conversationId);
-                    return;
-                  }
-                  setPublicActiveTab('messages');
-                  setPublicChatOpen(false);
-                }}
-              />
+            {headerContent ? (
+              <div className="shrink-0">
+                {headerContent}
+              </div>
+            ) : null}
+            <div className="flex flex-1 min-h-0 flex-col">
+              {isPublicWorkspace && filteredMessages.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-start px-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <p className="max-w-[300px]">
+                    {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
+                      ? practiceConfig.introMessage.trim()
+                      : 'Ask us anything, or share your feedback.'}
+                  </p>
+                </div>
+              ) : (
+                <VirtualMessageList
+                  messages={messagesReady ? filteredMessages : []}
+                  conversationTitle={conversationTitle}
+                  practiceConfig={practiceConfig}
+                  showPracticeHeader={showPracticeHeader && !isPublicWorkspace}
+                  isPublicWorkspace={isPublicWorkspace}
+                  onOpenSidebar={onOpenSidebar}
+                  onContactFormSubmit={onContactFormSubmit}
+                  onOpenPayment={handleOpenPayment}
+                  practiceId={practiceId}
+                  onReply={handleReply}
+                  onToggleReaction={onToggleReaction}
+                  onRequestReactions={onRequestReactions}
+                  intakeStatus={intakeStatus}
+                  modeSelectorActions={onSelectMode ? {
+                    onAskQuestion: handleAskQuestion,
+                    onRequestConsultation: handleRequestConsultation
+                  } : undefined}
+                  hasMoreMessages={hasMoreMessages}
+                  isLoadingMoreMessages={isLoadingMoreMessages}
+                  onLoadMoreMessages={onLoadMoreMessages}
+                  showSkeleton={!messagesReady}
+                  contactFormVariant={contactFormVariant}
+                  contactFormFormId={contactFormId}
+                  showContactFormSubmit={false} // Never show internal submit button
+                />
+              )}
+            </div>
+
+            {contactFormMessage && onContactFormSubmit ? (
+              <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
+                <Button
+                  type="submit"
+                  form={contactFormId}
+                  variant="primary"
+                  className="w-full"
+                  disabled={!onContactFormSubmit}
+                  data-testid="contact-form-submit-footer"
+                  onClick={() => {
+                    // Rely on native button type="submit" and form attribute.
+                    // If any fallback is needed, it would go here, but preferred
+                    // is native behavior. We'll add a log for debugging.
+                    if (import.meta.env.DEV) {
+                      const form = document.getElementById(contactFormId);
+                      if (!form) {
+                        console.error('[ChatContainer] Form not found with id:', contactFormId);
+                      }
+                    }
+                  }}
+                >
+                  {t('forms.contactForm.submit')}
+                </Button>
+              </div>
             ) : (
-              <>
-                {isPublicWorkspace && activePublicTab === 'messages' && !publicChatOpen ? (
-                  <PublicConversationList
-                    conversations={publicConversations}
-                    previews={publicConversationPreviews}
-                    practiceName={practiceConfig?.name}
-                    practiceLogo={practiceConfig?.profileImage ?? null}
-                    isLoading={isPublicConversationsLoading}
-                    onClose={() => {
-                      onNavigateHome?.();
-                      setPublicActiveTab('home');
-                      setPublicChatOpen(false);
-                    }}
-                    onSelectConversation={handleSelectPublicConversation}
-                    onSendMessage={handleStartNewConversation}
-                  />
-                ) : (
-                  <>
-                    {isPublicWorkspace && (
-                      <PublicConversationHeader
-                        practiceName={practiceConfig?.name}
-                        practiceLogo={practiceConfig?.profileImage ?? null}
-                        activeLabel={activeTimeLabel}
-                        presenceStatus={presenceStatus}
-                        onBack={() => {
-                          onNavigateHome?.();
-                          setPublicActiveTab('home');
-                          setPublicChatOpen(false);
-                        }}
-                      />
-                    )}
-                    <div className="flex flex-1 min-h-0 flex-col">
-                      {isPublicWorkspace && filteredMessages.length === 0 ? (
-                        <div className="flex flex-1 flex-col items-center justify-start px-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                          <p className="max-w-[300px]">{publicIntroText}</p>
-                        </div>
-                      ) : (
-                        <VirtualMessageList
-                          messages={messagesReady ? filteredMessages : []}
-                          conversationTitle={conversationTitle}
-                          practiceConfig={practiceConfig}
-                          showPracticeHeader={showPracticeHeader && !isPublicWorkspace}
-                          isPublicWorkspace={isPublicWorkspace}
-                          onOpenSidebar={onOpenSidebar}
-                          onContactFormSubmit={onContactFormSubmit}
-                          onOpenPayment={handleOpenPayment}
-                          practiceId={practiceId}
-                          onReply={handleReply}
-                          onToggleReaction={onToggleReaction}
-                          onRequestReactions={onRequestReactions}
-                          intakeStatus={intakeStatus}
-                          modeSelectorActions={onSelectMode ? {
-                            onAskQuestion: handleAskQuestion,
-                            onRequestConsultation: handleRequestConsultation
-                          } : undefined}
-                          hasMoreMessages={hasMoreMessages}
-                          isLoadingMoreMessages={isLoadingMoreMessages}
-                          onLoadMoreMessages={onLoadMoreMessages}
-                          showSkeleton={!messagesReady}
-                          contactFormVariant={contactFormVariant}
-                          contactFormFormId={contactFormId}
-                          showContactFormSubmit={false} // Never show internal submit button
-                        />
-                      )}
-                    </div>
-
-                    {contactFormMessage && onContactFormSubmit ? (
-                      <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
-                        <Button
-                          type="submit"
-                          form={contactFormId}
-                          variant="primary"
-                          className="w-full"
-                          disabled={!onContactFormSubmit}
-                          data-testid="contact-form-submit-footer"
-                          onClick={() => {
-                            // Rely on native button type="submit" and form attribute.
-                            // If any fallback is needed, it would go here, but preferred
-                            // is native behavior. We'll add a log for debugging.
-                            if (import.meta.env.DEV) {
-                              const form = document.getElementById(contactFormId);
-                              if (!form) {
-                                console.error('[ChatContainer] Form not found with id:', contactFormId);
-                              }
-                            }
-                          }}
-                        >
-                          {t('forms.contactForm.submit')}
-                        </Button>
-                      </div>
-                    ) : (
-                      <MessageComposer
-                        inputValue={inputValue}
-                        setInputValue={setInputValue}
-                        previewFiles={previewFiles}
-                        uploadingFiles={uploadingFiles}
-                        removePreviewFile={removePreviewFile}
-                        handleFileSelect={handleFileSelect}
-                        handleCameraCapture={handleCameraCapture}
-                        cancelUpload={cancelUpload}
-                        isRecording={isRecording}
-                        handleMediaCapture={handleMediaCapture}
-                        setIsRecording={setIsRecording}
-                        onSubmit={handleSubmit}
-                        onKeyDown={handleKeyDown}
-                        textareaRef={textareaRef}
-                        isReadyToUpload={isReadyToUpload}
-                        isSessionReady={isSessionReady}
-                        isSocketReady={isSocketReady}
-                        intakeStatus={intakeStatus}
-                        disabled={composerDisabled}
-                        showStatusMessage={!isPublicWorkspace}
-                        replyTo={replyTarget}
-                        onCancelReply={handleCancelReply}
-                      />
-                    )}
-                  </>
-                )}
-              </>
-            )}
-
-            {isPublicWorkspace && (showPublicHome || (activePublicTab === 'messages' && !publicChatOpen)) && (
-              <PublicEmbedNavigation
-                activeTab={activePublicTab}
-                onSelectTab={(tab) => {
-                  setPublicActiveTab(tab);
-                  if (tab === 'messages') {
-                    setPublicChatOpen(false);
-                    void refreshPublicConversations();
-                  } else {
-                    setPublicChatOpen(false);
-                  }
-                }}
+              <MessageComposer
+                inputValue={inputValue}
+                setInputValue={setInputValue}
+                previewFiles={previewFiles}
+                uploadingFiles={uploadingFiles}
+                removePreviewFile={removePreviewFile}
+                handleFileSelect={handleFileSelect}
+                handleCameraCapture={handleCameraCapture}
+                cancelUpload={cancelUpload}
+                isRecording={isRecording}
+                handleMediaCapture={handleMediaCapture}
+                setIsRecording={setIsRecording}
+                onSubmit={handleSubmit}
+                onKeyDown={handleKeyDown}
+                textareaRef={textareaRef}
+                isReadyToUpload={isReadyToUpload}
+                isSessionReady={isSessionReady}
+                isSocketReady={isSocketReady}
+                intakeStatus={intakeStatus}
+                disabled={composerDisabled}
+                showStatusMessage={!isPublicWorkspace}
+                replyTo={replyTarget}
+                onCancelReply={handleCancelReply}
               />
             )}
           </div>

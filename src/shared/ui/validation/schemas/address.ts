@@ -136,7 +136,7 @@ export function formatAddressErrors(error: z.ZodIssue[]): Record<string, string>
       const rootKey = '_root';
       if (formattedErrors[rootKey]) {
         // Append if multiple root errors exist
-        formattedErrors[rootKey] += '; ' + err.message;
+        formattedErrors[rootKey] = `${formattedErrors[rootKey]}; ${err.message}`;
       } else {
         formattedErrors[rootKey] = err.message;
       }
