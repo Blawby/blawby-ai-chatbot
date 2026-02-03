@@ -118,6 +118,7 @@ export const AcceptInvitationPage = () => {
   const [publicInviteState, setPublicInviteState] = useState<PublicInviteState>({ status: 'idle' });
   const [accepting, setAccepting] = useState(false);
   const [recipientMismatch, setRecipientMismatch] = useState(false);
+  const [invitedEmailFallback, setInvitedEmailFallback] = useState<string>('');
 
   const invitationId = useMemo(() => {
     const raw = location.query?.invitationId;
@@ -138,8 +139,11 @@ export const AcceptInvitationPage = () => {
     if (publicInviteState.status === 'ready') {
       return publicInviteState.invitation.email;
     }
+    if (invitedEmailFallback) {
+      return invitedEmailFallback;
+    }
     return '';
-  }, [inviteState, publicInviteState]);
+  }, [inviteState, invitedEmailFallback, publicInviteState]);
 
   const fetchInvitation = useCallback(async () => {
     if (!invitationId) {
@@ -247,6 +251,18 @@ export const AcceptInvitationPage = () => {
     if (publicInviteState.status === 'loading') return;
     void fetchPublicInvitation();
   }, [fetchPublicInvitation, invitationId, isAuthenticated, publicInviteId, publicInviteState.status]);
+
+  useEffect(() => {
+    if (!recipientMismatch) return;
+    if (!invitationId) return;
+    if (publicInviteState.status === 'ready') {
+      setInvitedEmailFallback(publicInviteState.invitation.email);
+      return;
+    }
+    if (publicInviteState.status === 'loading') return;
+    if (publicInviteState.status === 'error' && publicInviteId === invitationId) return;
+    void fetchPublicInvitation();
+  }, [fetchPublicInvitation, invitationId, publicInviteId, publicInviteState, recipientMismatch]);
 
   const buildAuthUrl = useCallback((mode: 'signin' | 'signup') => {
     const redirect = encodeURIComponent(redirectTarget);

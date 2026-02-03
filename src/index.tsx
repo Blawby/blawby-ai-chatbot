@@ -230,11 +230,34 @@ function AppShell() {
 function SettingsRoute() {
   const location = useLocation();
   const { preferredWorkspace } = useWorkspace();
+  const { activeOrganizationId } = useSessionContext();
+  const { navigate } = useNavigation();
   const isClientWorkspace = preferredWorkspace === 'client';
-  usePracticeManagement();
+  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const practiceById = (id: string | null) => practices.find((practice) => practice.id === id) ?? null;
+  const resolvedPractice =
+    practiceById(activeOrganizationId) ??
+    currentPractice ??
+    practices[0] ??
+    null;
+  const resolvedSlug = resolvedPractice?.slug ?? null;
+
+  useEffect(() => {
+    if (!isClientWorkspace) return;
+    if (practicesLoading) return;
+    if (!resolvedSlug) return;
+    navigate(`/embed/${encodeURIComponent(resolvedSlug)}`, true);
+  }, [isClientWorkspace, navigate, practicesLoading, resolvedSlug]);
 
   if (isClientWorkspace) {
-    return <LoadingScreen />;
+    if (practicesLoading) {
+      return <LoadingScreen />;
+    }
+    return (
+      <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Settings are available in your client portal.
+      </div>
+    );
   }
 
   return (
