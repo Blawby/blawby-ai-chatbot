@@ -1,11 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { AddressFields } from './AddressFields';
-import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { validateAddressLoose, validateAddressStrict } from '@/shared/utils/addressValidation';
-import { formatAddressSingleLine } from '@/shared/utils/addressFormat';
-import type { Address, AddressSource, AddressSuggestion } from '@/shared/types/address';
-import { DEFAULT_COUNTRY_OPTIONS } from './AddressFields';
+import type { Address, AddressSuggestion } from '@/shared/types/address';
 
 export interface AddressInputProps {
   value: Partial<Address>;
@@ -70,10 +67,10 @@ export const AddressInput = ({
     disabled: false,
   });
 
-  const [addressSource, setAddressSource] = useState<AddressSource>('manual');
-  
   // Default address value to prevent null issues
-  const safeValue = value || { address: '', apartment: '', city: '', state: '', postalCode: '', country: 'US' };
+  const safeValue = useMemo(() => (
+    value || { address: '', apartment: '', city: '', state: '', postalCode: '', country: 'US' }
+  ), [value]);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
@@ -150,7 +147,7 @@ export const AddressInput = ({
         };
         return newState;
       });
-    } catch (error) {
+    } catch (_error) {
       setAutocompleteState(prev => ({
         ...prev,
         suggestions: [],
@@ -173,8 +170,6 @@ export const AddressInput = ({
 
   // Handle street address input change
   const handleStreetAddressChange = useCallback((text: string) => {
-    setAddressSource('manual');
-    
     // Update address field using safeValue to prevent undefined issues
     onChange({
       ...safeValue,
@@ -191,7 +186,6 @@ export const AddressInput = ({
 
   // Handle suggestion selection
   const handleSuggestionSelect = useCallback((suggestion: AddressSuggestion) => {
-    setAddressSource('autocomplete');
     onChange(suggestion.address);
     setAutocompleteState(prev => ({ ...prev, isOpen: false, selectedIndex: -1 }));
   }, [onChange]);
@@ -229,18 +223,11 @@ export const AddressInput = ({
 
   // Handle address field changes (for non-street fields)
   const handleAddressChange = useCallback((address: Partial<Address>) => {
-    setAddressSource('manual');
     onChange(address);
   }, [onChange]);
 
-  // Validate address
-  const validateAddress = useCallback(() => {
-    const validation = validationLevel === 'strict' 
-      ? validateAddressStrict(value)
-      : validateAddressLoose(value);
-    
-    return validation;
-  }, [value, validationLevel]);
+
+
 
   return (
     <div className={cn('relative', className)} ref={dropdownRef}>
@@ -282,7 +269,7 @@ export const AddressInput = ({
             suggestions: autocompleteState.suggestions,
             selectedIndex: autocompleteState.selectedIndex,
             onSuggestionSelect: handleSuggestionSelect,
-            limit: limit,
+            limit,
           }}
         />
       </div>

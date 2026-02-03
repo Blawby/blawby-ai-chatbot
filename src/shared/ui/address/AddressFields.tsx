@@ -31,7 +31,7 @@ export interface AddressFieldsProps {
       formatted: string;
     }>;
     selectedIndex: number;
-    onSuggestionSelect: (suggestion: any) => void;
+    onSuggestionSelect: (suggestion: { id: string; label: string; formatted: string }) => void;
     limit?: number;
   };
 }
@@ -207,18 +207,28 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
                 {streetAddressProps.suggestions.map((suggestion, index) => (
                   <li
                     key={suggestion.id}
-                    role="option"
-                    id={`address-suggestion-${suggestion.id}`}
-                    aria-selected={index === streetAddressProps.selectedIndex}
-                    className={cn(
-                      'px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700',
-                      index === streetAddressProps.selectedIndex && 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                    )}
-                    onClick={() => streetAddressProps.onSuggestionSelect(suggestion)}
                   >
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {suggestion.formatted}
-                    </div>
+                    <button
+                      type="button"
+                      role="option"
+                      id={`address-suggestion-${suggestion.id}`}
+                      aria-selected={index === streetAddressProps.selectedIndex}
+                      className={cn(
+                        'w-full text-left px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700',
+                        index === streetAddressProps.selectedIndex && 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                      )}
+                      onClick={() => streetAddressProps.onSuggestionSelect(suggestion)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          streetAddressProps.onSuggestionSelect(suggestion);
+                        }
+                      }}
+                    >
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {suggestion.formatted}
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>

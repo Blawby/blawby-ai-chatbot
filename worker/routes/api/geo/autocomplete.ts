@@ -8,7 +8,6 @@ import { callGeoapifyAutocompleteMultiPass, validateAutocompleteRequest } from '
 import { incrementDailyCounter, incrementRateLimitCounter } from '../../../lib/kvCounters';
 import { withCORS, getCorsConfig } from '../../../middleware/cors';
 import type { AutocompleteResponse, AutocompleteError } from '../../../types/ui';
-import type { Address } from '../../../types/ui';
 
 interface AutocompleteQuery {
   text: string;

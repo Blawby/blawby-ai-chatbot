@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { AddressApi } from '../types/api';
 
 // Address API schema (backend wire format)
 export const addressApiSchema = z.object({

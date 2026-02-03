@@ -16,6 +16,7 @@ const mockEnv: Env = {
   DB: {} as Env['DB'],
   CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
   NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
+  CHAT_COUNTER: {} as Env['CHAT_COUNTER'],
   CHAT_ROOM: {} as Env['CHAT_ROOM'],
   MATTER_PROGRESS: {} as Env['MATTER_PROGRESS'],
   ONESIGNAL_APP_ID: 'test-app',

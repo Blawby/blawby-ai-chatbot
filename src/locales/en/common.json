@@ -244,5 +244,8 @@
       "activeNow": "Active now",
       "back": "Back"
     }
+  },
+  "chat": {
+    "publicIntro": "Ask us anything, or share your feedback."
   }
 }

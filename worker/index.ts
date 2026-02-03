@@ -23,7 +23,7 @@ import { handleAiIntent } from './routes/aiIntent.js';
 import { handleStatus } from './routes/status.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
-import { handleError, HttpErrors } from './errorHandler';
+import { handleError } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 import { handleNotificationQueue } from './queues/notificationProcessor.js';

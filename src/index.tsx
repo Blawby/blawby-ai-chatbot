@@ -209,8 +209,9 @@ function AppShell() {
           <Route path="/intake/pay" component={IntakePaymentPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
-          <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} />
-          <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} />
+          <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
+          <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
+          <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
           <Route path="/practice" component={PracticeBaseRoute} />
           <Route path="/practice/home" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" />
           <Route path="/practice/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
@@ -565,7 +566,15 @@ function PracticeAppRoute({
   );
 }
 
-function PublicPracticeRoute({ practiceSlug, conversationId }: { practiceSlug?: string; conversationId?: string }) {
+function PublicPracticeRoute({
+  practiceSlug,
+  conversationId,
+  embedView = 'home'
+}: {
+  practiceSlug?: string;
+  conversationId?: string;
+  embedView?: 'home' | 'list' | 'conversation';
+}) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();
   const handlePracticeError = useCallback((error: string) => {
@@ -705,6 +714,7 @@ function PublicPracticeRoute({ practiceSlug, conversationId }: { practiceSlug?: 
         activeRoute="conversations"
         publicPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
+        publicEmbedView={embedView}
       />
     </>
   );

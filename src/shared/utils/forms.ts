@@ -26,8 +26,22 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
   const opposingParty = getTrimmedString(formData.opposingParty);
 
   // Handle address field if present
-  const address = formData.address as any;
-  let addressPayload: any = undefined;
+  const address = formData.address as {
+    address?: string;
+    apartment?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  } | undefined;
+  let addressPayload: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state?: string;
+    postal_code: string;
+    country: string;
+  } | undefined = undefined;
   
   if (address) {
     const trimmedAddress = {

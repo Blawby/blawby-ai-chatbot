@@ -139,21 +139,22 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
     
     if (contentType.includes('application/json')) {
       try {
-        const json = await response.clone().json() as any;
-        const safeData: Record<string, any> = {};
+        const json = await response.clone().json() as unknown;
+        const safeData: Record<string, unknown> = {};
         
         // Allowlist safe fields
         const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
         
         // Helper to extract safe fields from error object or root
-        const extractSafe = (source: any) => {
+        const extractSafe = (source: unknown) => {
           if (!source || typeof source !== 'object') return;
           for (const key of allowlist) {
-            if (source[key] !== undefined) {
-              if (typeof source[key] === 'object' && key === 'error') {
-                extractSafe(source[key]);
+            const sourceRecord = source as Record<string, unknown>;
+            if (sourceRecord[key] !== undefined) {
+              if (typeof sourceRecord[key] === 'object' && key === 'error') {
+                extractSafe(sourceRecord[key]);
               } else {
-                safeData[key] = source[key];
+                safeData[key] = sourceRecord[key];
               }
             }
           }
@@ -248,18 +249,19 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     
     if (contentType.includes('application/json')) {
       try {
-        const json = await response.clone().json() as any;
-        const safeData: Record<string, any> = {};
+        const json = await response.clone().json() as unknown;
+        const safeData: Record<string, unknown> = {};
         const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
         
-        const extractSafe = (source: any) => {
+        const extractSafe = (source: unknown) => {
           if (!source || typeof source !== 'object') return;
           for (const key of allowlist) {
-            if (source[key] !== undefined) {
-              if (typeof source[key] === 'object' && key === 'error') {
-                extractSafe(source[key]);
+            const sourceRecord = source as Record<string, unknown>;
+            if (sourceRecord[key] !== undefined) {
+              if (typeof sourceRecord[key] === 'object' && key === 'error') {
+                extractSafe(sourceRecord[key]);
               } else {
-                safeData[key] = source[key];
+                safeData[key] = sourceRecord[key];
               }
             }
           }

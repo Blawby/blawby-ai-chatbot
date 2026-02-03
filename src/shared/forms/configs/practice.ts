@@ -1,6 +1,5 @@
-import { PracticeSchema, PracticeMinimalSchema, PracticeWithPhoneSchema, PracticeFullSchema } from '@/shared/schemas/practice';
+import { PracticeMinimalSchema, PracticeWithPhoneSchema, PracticeFullSchema } from '@/shared/schemas/practice';
 import { getDefaultValues } from '../fieldRegistry';
-import type { PracticeFormState } from '@/shared/types/domains';
 
 // Form configurations for practice forms
 export const PRACTICE_FORM_CONFIGS = {
