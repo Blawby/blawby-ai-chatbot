@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { ContactForm, ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
@@ -27,13 +28,16 @@ interface MessageActionsProps {
 			name?: string;
 			email?: string;
 			phone?: string;
-			location?: string;
+			address?: Address;
 			opposingParty?: string;
 		};
 	};
 	contactFormVariant?: 'card' | 'plain';
 	contactFormFormId?: string;
 	showContactFormSubmit?: boolean;
+	intakeStatus?: {
+		step?: string;
+	};
 	paymentRequest?: IntakePaymentRequest;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
@@ -75,6 +79,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	contactFormVariant,
 	contactFormFormId,
 	showContactFormSubmit,
+	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -126,8 +131,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				/>
 			)}
 			
-			{/* Display contact form */}
-			{contactForm && onContactFormSubmit && (
+			{/* Display contact form only if intake is still in contact_form step */}
+			{contactForm && onContactFormSubmit && (!intakeStatus || intakeStatus.step === 'contact_form') && (
 				<ContactForm
 					fields={contactForm.fields}
 					required={contactForm.required}

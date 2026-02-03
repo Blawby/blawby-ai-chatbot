@@ -4,13 +4,14 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
-import { EmailInput, Input, PhoneInput, Select, type SelectOption } from '@/shared/ui/input';
+import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import type { Address } from '@/shared/types/address';
 import {
   listUserDetails,
   listUserDetailMemos,
@@ -42,28 +43,10 @@ import {
 
 const STATUS_LABELS: Record<UserDetailStatus, string> = {
   lead: 'Lead',
-  active: 'Client',
+  active: 'Active',
   inactive: 'Inactive',
-  archived: 'Archived'
+  archived: 'Archived',
 };
-
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: 'lead', label: STATUS_LABELS.lead },
-  { value: 'active', label: STATUS_LABELS.active },
-  { value: 'inactive', label: STATUS_LABELS.inactive },
-  { value: 'archived', label: STATUS_LABELS.archived }
-];
-
-const CURRENCY_OPTIONS: SelectOption[] = [
-  { value: 'usd', label: 'USD - US Dollar' },
-  { value: 'eur', label: 'EUR - Euro' },
-  { value: 'gbp', label: 'GBP - British Pound' },
-  { value: 'cad', label: 'CAD - Canadian Dollar' },
-  { value: 'aud', label: 'AUD - Australian Dollar' },
-  { value: 'jpy', label: 'JPY - Japanese Yen' },
-  { value: 'chf', label: 'CHF - Swiss Franc' },
-  { value: 'cny', label: 'CNY - Chinese Yuan' }
-];
 
 type ClientRecord = {
   id: string;
@@ -79,12 +62,7 @@ type ClientFormState = {
   phone: string;
   status: UserDetailStatus;
   currency: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
+  address?: Address;  // Now uses Address object like intake form!
 };
 
 type EditClientFormState = ClientFormState & { id: string };
@@ -153,7 +131,10 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
   </span>
 );
 
-const ClientFormFields = ({
+const CLIENT_FIELDS = ['name', 'email', 'phone', 'status', 'currency', 'address'] as const;
+const CLIENT_REQUIRED = ['name', 'email'] as const;
+
+const ClientForm = ({
   values,
   onChange,
   disabled = false
@@ -162,96 +143,19 @@ const ClientFormFields = ({
   onChange: <K extends keyof ClientFormState>(field: K, value: ClientFormState[K]) => void;
   disabled?: boolean;
 }) => (
-  <div className="grid gap-4 sm:grid-cols-2">
-    <div className="sm:col-span-2">
-      <Input
-        label="Full name"
-        value={values.name}
-        onChange={(value) => onChange('name', value)}
-        placeholder="Jane Doe"
-        required
-        disabled={disabled}
-      />
-    </div>
-    <EmailInput
-      label="Email"
-      value={values.email}
-      onChange={(value) => onChange('email', value)}
-      placeholder="jane@example.com"
-      required
-      disabled={disabled}
-      showValidation={true}
-    />
-    <PhoneInput
-      label="Phone"
-      value={values.phone}
-      onChange={(value) => onChange('phone', value)}
-      placeholder="(555) 123-4567"
-      disabled={disabled}
-      showCountryCode={true}
-      countryCode="+1"
-    />
-    <Select
-      label="Status"
-      value={values.status}
-      options={STATUS_OPTIONS}
-      onChange={(value) => onChange('status', value as UserDetailStatus)}
-      disabled={disabled}
-    />
-    <Select
-      label="Currency"
-      value={values.currency}
-      options={CURRENCY_OPTIONS}
-      onChange={(value) => onChange('currency', value)}
-      disabled={disabled}
-    />
-    <div className="sm:col-span-2">
-      <Input
-        label="Address line 1"
-        value={values.addressLine1}
-        onChange={(value) => onChange('addressLine1', value)}
-        placeholder="123 Main St"
-        disabled={disabled}
-      />
-    </div>
-    <div className="sm:col-span-2">
-      <Input
-        label="Address line 2"
-        value={values.addressLine2}
-        onChange={(value) => onChange('addressLine2', value)}
-        placeholder="Suite 400"
-        disabled={disabled}
-      />
-    </div>
-    <Input
-      label="City"
-      value={values.city}
-      onChange={(value) => onChange('city', value)}
-      placeholder="San Francisco"
-      disabled={disabled}
-    />
-    <Input
-      label="State"
-      value={values.state}
-      onChange={(value) => onChange('state', value)}
-      placeholder="CA"
-      disabled={disabled}
-    />
-    <Input
-      label="Postal code"
-      value={values.postalCode}
-      onChange={(value) => onChange('postalCode', value)}
-      placeholder="94103"
-      disabled={disabled}
-    />
-    <Input
-      label="Country"
-      value={values.country}
-      onChange={(value) => onChange('country', value)}
-      placeholder="US"
-      disabled={disabled}
-    />
-  </div>
+  <AddressExperienceForm
+    initialValues={values}
+    fields={[...CLIENT_FIELDS]}
+    required={[...CLIENT_REQUIRED]}
+    onValuesChange={(updates) => {
+      Object.entries(updates).forEach(([key, value]) => {
+        onChange(key as keyof ClientFormState, value as ClientFormState[keyof ClientFormState]);
+      });
+    }}
+    showSubmitButton={false}
+    variant="plain"
+    disabled={disabled}
+  />
 );
 
 const ClientDetailPanel = ({
@@ -380,19 +284,17 @@ export const PracticeClientsPage = () => {
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
   const [editClientSubmitting, setEditClientSubmitting] = useState(false);
   const [editClientError, setEditClientError] = useState<string | null>(null);
-  const [addClientForm, setAddClientForm] = useState<ClientFormState>({
+
+  const defaultClientFormState: ClientFormState = {
     name: '',
     email: '',
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'US'
-  });
+    address: undefined,  // Now uses Address object like intake form!
+  };
+
+  const [addClientForm, setAddClientForm] = useState<ClientFormState>(defaultClientFormState);
   const [editClientForm, setEditClientForm] = useState<EditClientFormState>({
     id: '',
     name: '',
@@ -400,12 +302,7 @@ export const PracticeClientsPage = () => {
     phone: '',
     status: 'lead' as UserDetailStatus,
     currency: 'usd',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: ''
+    address: undefined,  // Now uses Address object like intake form!
   });
 
   const sortedClients = useMemo(
@@ -519,7 +416,11 @@ export const PracticeClientsPage = () => {
       const offset = (page - 1) * pageSize;
       const response = await listUserDetails(currentPractice.id, { limit: pageSize, offset });
       const nextClients = response.data.map(buildClientRecord);
-      setClients((prev) => (options?.replace ? nextClients : [...prev, ...nextClients]));
+      if (options?.replace) {
+        setClients(nextClients);
+      } else {
+        setClients((prev) => [...prev, ...nextClients]);
+      }
       setClientsHasMore(nextClients.length === pageSize);
       setClientsPage(page);
       if (options?.replace) {
@@ -539,7 +440,11 @@ export const PracticeClientsPage = () => {
       }
       setClientsLoadingMore(false);
     }
-  }, [buildClientRecord, currentPractice?.id, pageSize]);
+  }, [
+    buildClientRecord,
+    currentPractice?.id,
+    pageSize
+  ]);
 
   useEffect(() => {
     void fetchClientsPage(1, { replace: true });
@@ -626,12 +531,7 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      addressLine1: '',
-      addressLine2: '',
-      city: '',
-      state: '',
-      postalCode: '',
-      country: 'US'
+      address: undefined,  // Now uses Address object like intake form!
     });
   }, []);
 
@@ -655,12 +555,7 @@ export const PracticeClientsPage = () => {
       phone: '',
       status: 'lead',
       currency: 'usd',
-      addressLine1: '',
-      addressLine2: '',
-      city: '',
-      state: '',
-      postalCode: '',
-      country: ''
+      address: undefined,  // Now uses Address object like intake form!
     });
   }, []);
 
@@ -682,12 +577,7 @@ export const PracticeClientsPage = () => {
         phone: detail?.user?.phone ?? selectedClient.phone ?? '',
         status: detail?.status ?? selectedClient.status,
         currency: detail?.currency ?? 'usd',
-        addressLine1: '',
-        addressLine2: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        country: ''
+        address: undefined,  // Now uses Address object like intake form!
       });
       setIsEditClientOpen(true);
     } catch (error) {
@@ -709,20 +599,6 @@ export const PracticeClientsPage = () => {
     setEditClientSubmitting(true);
     setEditClientError(null);
     try {
-      const addressLine1 = editClientForm.addressLine1.trim();
-      const addressLine2 = editClientForm.addressLine2.trim();
-      const city = editClientForm.city.trim();
-      const state = editClientForm.state.trim();
-      const postalCode = editClientForm.postalCode.trim();
-      const country = editClientForm.country.trim();
-      const hasAddress =
-        Boolean(addressLine1) ||
-        Boolean(addressLine2) ||
-        Boolean(city) ||
-        Boolean(state) ||
-        Boolean(postalCode) ||
-        Boolean(country);
-
       await updateUserDetail(currentPractice.id, editClientForm.id, {
         name,
         email,
@@ -730,16 +606,7 @@ export const PracticeClientsPage = () => {
         status: editClientForm.status,
         currency: editClientForm.currency.trim() || 'usd',
         event_name: 'Invite Client',
-        ...(hasAddress && {
-          address: {
-            line1: addressLine1 || undefined,
-            line2: addressLine2 || undefined,
-            city: city || undefined,
-            state: state || undefined,
-            postal_code: postalCode || undefined,
-            country: country || undefined
-          }
-        })
+        address: editClientForm.address
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client updated', 'Client details have been saved.');
@@ -786,7 +653,9 @@ export const PracticeClientsPage = () => {
         email,
         phone: addClientForm.phone.trim() || undefined,
         status: addClientForm.status,
-        currency: addClientForm.currency.trim() || 'usd'
+        currency: addClientForm.currency.trim() || 'usd',
+        address: addClientForm.address,
+        event_name: 'Invite Client'
       });
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client added', 'The client has been added to your practice.');
@@ -799,7 +668,15 @@ export const PracticeClientsPage = () => {
     } finally {
       setAddClientSubmitting(false);
     }
-  }, [addClientForm, addClientSubmitting, currentPractice?.id, fetchClientsPage, resetAddClientForm, showError, showSuccess]);
+  }, [
+    addClientForm,
+    addClientSubmitting,
+    currentPractice?.id,
+    fetchClientsPage,
+    resetAddClientForm,
+    showError,
+    showSuccess
+  ]);
 
   const updateCurrentLetter = useCallback(() => {
     const container = listRef.current;
@@ -890,7 +767,7 @@ export const PracticeClientsPage = () => {
             {addClientError}
           </div>
         )}
-        <ClientFormFields
+        <ClientForm
           values={addClientForm}
           onChange={updateAddClientField}
           disabled={addClientSubmitting}
@@ -920,7 +797,7 @@ export const PracticeClientsPage = () => {
             {editClientError}
           </div>
         )}
-        <ClientFormFields
+        <ClientForm
           values={editClientForm}
           onChange={updateEditClientField}
           disabled={editClientSubmitting}

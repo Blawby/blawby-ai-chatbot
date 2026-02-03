@@ -577,12 +577,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           showSkeleton={!messagesReady}
                           contactFormVariant={contactFormVariant}
                           contactFormFormId={contactFormId}
-                          showContactFormSubmit={!showContactFormFooter}
+                          showContactFormSubmit={false} // Never show internal submit button
                         />
                       )}
                     </div>
 
-                    {showContactFormFooter ? (
+                    {contactFormMessage && onContactFormSubmit ? (
                       <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
                         <Button
                           type="submit"
@@ -591,6 +591,17 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           className="w-full"
                           disabled={!onContactFormSubmit}
                           data-testid="contact-form-submit-footer"
+                          onClick={() => {
+                            // Rely on native button type="submit" and form attribute.
+                            // If any fallback is needed, it would go here, but preferred
+                            // is native behavior. We'll add a log for debugging.
+                            if (import.meta.env.DEV) {
+                              const form = document.getElementById(contactFormId);
+                              if (!form) {
+                                console.error('[ChatContainer] Form not found with id:', contactFormId);
+                              }
+                            }
+                          }}
                         >
                           {t('forms.contactForm.submit')}
                         </Button>

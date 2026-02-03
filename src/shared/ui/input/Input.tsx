@@ -1,10 +1,10 @@
 import { forwardRef } from 'preact/compat';
-import { ComponentChildren } from 'preact';
+import { ComponentChildren, JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
-export interface InputProps {
+export interface InputProps extends Omit<JSX.IntrinsicElements['input'], 'type' | 'value' | 'onChange' | 'onBlur' | 'size'> {
   type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search' | 'date';
   value?: string;
   onChange?: (value: string) => void;
@@ -30,14 +30,6 @@ export interface InputProps {
   max?: string | number;
   step?: number;
   inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
-  // ARIA props
-  id?: string;
-  'aria-label'?: string;
-  'aria-describedby'?: string;
-  'aria-invalid'?: boolean;
-  'aria-required'?: boolean;
-  'aria-disabled'?: boolean;
-  'data-testid'?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({
@@ -60,17 +52,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   placeholderKey,
   errorKey,
   namespace = 'common',
-  id,
-  'aria-label': ariaLabel,
-  'aria-describedby': ariaDescribedBy,
-  'aria-invalid': ariaInvalid,
-  'aria-required': ariaRequired,
-  'aria-disabled': ariaDisabled,
   ...restProps
 }, ref) => {
   const { t } = useTranslation(namespace);
   const generatedId = useUniqueId('input');
-  const inputId = id || generatedId;
+  const inputId = restProps.id || generatedId;
+  
+  // Extract ARIA props from restProps to preserve computed values
+  const {
+    'aria-label': ariaLabel,
+    'aria-describedby': externalAriaDescribedBy,
+    'aria-invalid': externalAriaInvalid,
+    'aria-required': externalAriaRequired,
+    'aria-disabled': externalAriaDisabled,
+    ...inputRestProps
+  } = restProps;
   
   const displayLabel = labelKey ? t(labelKey) : label;
   const displayDescription = descriptionKey ? t(descriptionKey) : description;
@@ -81,9 +77,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const descriptionId = displayDescription ? `${inputId}-description` : undefined;
   const errorId = displayError ? `${inputId}-error` : undefined;
   
-  // Compute aria-describedby by joining existing ariaDescribedBy with descriptionId and errorId
+  // Build computed aria-describedby combining external and internal IDs
   const computedAriaDescribedBy = [
-    ariaDescribedBy,
+    externalAriaDescribedBy,
     descriptionId,
     errorId
   ].filter(Boolean).join(' ') || undefined;
@@ -146,10 +142,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           id={inputId}
           aria-label={ariaLabel}
           aria-describedby={computedAriaDescribedBy}
-          aria-invalid={ariaInvalid !== undefined ? ariaInvalid : Boolean(error)}
-          aria-required={ariaRequired}
-          aria-disabled={ariaDisabled}
-          {...restProps}
+          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(error)}
+          aria-required={externalAriaRequired}
+          aria-disabled={externalAriaDisabled}
+          {...inputRestProps}
         />
         
         {icon && iconPosition === 'right' && (

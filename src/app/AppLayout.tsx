@@ -56,8 +56,8 @@ interface AppLayoutProps {
     businessEmail?: string | null;
     businessPhone?: string | null;
     website?: string | null;
-    addressLine1?: string | null;
-    addressLine2?: string | null;
+    address?: string | null;
+    apartment?: string | null;
     city?: string | null;
     state?: string | null;
     postalCode?: string | null;

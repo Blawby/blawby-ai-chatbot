@@ -8,23 +8,24 @@ import {
 } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
+import type { Address } from '@/shared/types/address';
 import Modal from '@/shared/components/Modal';
 import { FileInput, Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
+import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { StackedAvatars } from '@/shared/ui/profile';
-import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
+import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { getFrontendHost } from '@/config/urls';
 import {
   usePracticeMembersSync,
@@ -36,12 +37,7 @@ interface OnboardingDetails {
   contactPhone?: string;
   businessEmail?: string;
   website?: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
+  address?: Address;
   introMessage?: string;
   description?: string;
   isPublic?: boolean;
@@ -50,31 +46,50 @@ interface OnboardingDetails {
 
 const resolveOnboardingData = (practice: Practice | null, details: PracticeDetails | null): OnboardingDetails => {
   if (!practice) return {};
-  const baseFromDetails: OnboardingDetails = details
-    ? {
-      website: details.website ?? undefined,
-      addressLine1: details.addressLine1 ?? undefined,
-      addressLine2: details.addressLine2 ?? undefined,
-      city: details.city ?? undefined,
-      state: details.state ?? undefined,
-      postalCode: details.postalCode ?? undefined,
-      country: details.country ?? undefined,
-      introMessage: details.introMessage ?? undefined,
-      description: details.description ?? undefined,
-      isPublic: details.isPublic ?? undefined,
-      services: details.services ?? undefined,
-      contactPhone: details.businessPhone ?? undefined,
-      businessEmail: details.businessEmail ?? undefined
-    }
-    : {};
+  const buildAddress = (source: {
+    address?: string | null;
+    apartment?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  }): Address | undefined => {
+    const address = source.address?.trim() || '';
+    const apartment = source.apartment?.trim() || undefined;
+    const city = source.city?.trim() || '';
+    const state = source.state?.trim() || '';
+    const postalCode = source.postalCode?.trim() || '';
+    const country = source.country?.trim() || '';
+    const hasAny = Boolean(address || apartment || city || state || postalCode || country);
+    if (!hasAny) return undefined;
+    return {
+      address,
+      apartment,
+      city,
+      state,
+      postalCode,
+      country
+    };
+  };
+  const baseFromDetails: OnboardingDetails = {};
+  if (details) {
+    const setIfDefined = <K extends keyof OnboardingDetails>(key: K, value: OnboardingDetails[K]) => {
+      if (value !== undefined) {
+        baseFromDetails[key] = value;
+      }
+    };
+    setIfDefined('website', details.website ?? undefined);
+    setIfDefined('address', buildAddress(details));
+    setIfDefined('introMessage', details.introMessage ?? undefined);
+    setIfDefined('description', details.description ?? undefined);
+    setIfDefined('isPublic', details.isPublic ?? undefined);
+    setIfDefined('services', details.services ?? undefined);
+    setIfDefined('contactPhone', details.businessPhone ?? undefined);
+    setIfDefined('businessEmail', details.businessEmail ?? undefined);
+  }
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
-    addressLine1: practice.addressLine1 ?? undefined,
-    addressLine2: practice.addressLine2 ?? undefined,
-    city: practice.city ?? undefined,
-    state: practice.state ?? undefined,
-    postalCode: practice.postalCode ?? undefined,
-    country: practice.country ?? undefined,
+    address: buildAddress(practice),
     introMessage: practice.introMessage ?? undefined,
     description: practice.description ?? undefined,
     isPublic: practice.isPublic ?? undefined,
@@ -100,16 +115,16 @@ const isValidHttpUrl = (value: string): boolean => {
 };
 
 const formatAddressSummary = (data: OnboardingDetails) => {
-  const line1 = data.addressLine1?.trim() || '';
-  const line2 = data.addressLine2?.trim() || '';
-  const city = data.city?.trim() || '';
-  const state = data.state?.trim() || '';
-  const postal = data.postalCode?.trim() || '';
-  const country = data.country?.trim() || '';
+  const address = data.address?.address?.trim() || '';
+  const apartment = data.address?.apartment?.trim() || '';
+  const city = data.address?.city?.trim() || '';
+  const state = data.address?.state?.trim() || '';
+  const postal = data.address?.postalCode?.trim() || '';
+  const country = data.address?.country?.trim() || '';
 
   const parts: string[] = [];
-  if (line1) parts.push(line1);
-  if (line2) parts.push(line2);
+  if (address) parts.push(address);
+  if (apartment) parts.push(apartment);
   const cityState = [city, state].filter(Boolean).join(', ');
   if (cityState) parts.push(cityState);
   const postalCountry = [postal, country].filter(Boolean).join(' ');
@@ -136,7 +151,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     refetch,
   } = usePracticeManagement({ fetchPracticeDetails: true });
   const activePracticeId = currentPractice?.id ?? null;
-  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId);
+  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug);
   
   const { showSuccess, showError, showWarning } = useToastContext();
   const { navigate } = useNavigation();
@@ -276,12 +291,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     website: '',
     businessEmail: '',
     phone: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: ''
+    address: undefined,
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -456,12 +466,12 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         businessEmail: updates.businessEmail,
         businessPhone: updates.contactPhone,
         website: updates.website,
-        addressLine1: updates.addressLine1,
-        addressLine2: updates.addressLine2,
-        city: updates.city,
-        state: updates.state,
-        postalCode: updates.postalCode,
-        country: updates.country,
+        address: updates.address?.address || null,
+        apartment: updates.address?.apartment || null,
+        city: updates.address?.city || null,
+        state: updates.address?.state || null,
+        postalCode: updates.address?.postalCode || null,
+        country: updates.address?.country || null,
         introMessage: updates.introMessage,
         description: updates.description,
         isPublic: updates.isPublic,
@@ -488,12 +498,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       website: websiteValue,
       businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
       phone: phoneValue,
-      addressLine1: onboardingData.addressLine1 || '',
-      addressLine2: onboardingData.addressLine2 || '',
-      city: onboardingData.city || '',
-      state: onboardingData.state || '',
-      postalCode: onboardingData.postalCode || '',
-      country: onboardingData.country || ''
+      address: onboardingData.address,  // Address object
     });
     setIsContactModalOpen(true);
   };
@@ -504,12 +509,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         website: (contactDraft.website ?? '').trim(),
         businessEmail: (contactDraft.businessEmail ?? '').trim(),
         contactPhone: (contactDraft.phone ?? '').trim(),
-        addressLine1: (contactDraft.addressLine1 ?? '').trim(),
-        addressLine2: (contactDraft.addressLine2 ?? '').trim(),
-        city: (contactDraft.city ?? '').trim(),
-        state: (contactDraft.state ?? '').trim(),
-        postalCode: (contactDraft.postalCode ?? '').trim(),
-        country: (contactDraft.country ?? '').trim()
+        address: contactDraft.address,
       },
       'Contact details updated.'
     );
@@ -967,34 +967,55 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Contact"
       >
         <div className="space-y-4">
-          <PracticeContactFields
-            data={{
-              website: contactDraft.website,
-              businessEmail: contactDraft.businessEmail,
-              contactPhone: contactDraft.phone,
-              addressLine1: contactDraft.addressLine1,
-              addressLine2: contactDraft.addressLine2,
-              city: contactDraft.city,
-              state: contactDraft.state,
-              postalCode: contactDraft.postalCode,
-              country: contactDraft.country
-            }}
-            onChange={(next) => {
-              setContactDraft((prev) => ({
-                ...prev,
-                website: next.website ?? prev.website ?? '',
-                businessEmail: next.businessEmail ?? prev.businessEmail ?? '',
-                phone: next.contactPhone ?? prev.phone ?? '',
-                addressLine1: next.addressLine1 ?? prev.addressLine1 ?? '',
-                addressLine2: next.addressLine2 ?? prev.addressLine2 ?? '',
-                city: next.city ?? prev.city ?? '',
-                state: next.state ?? prev.state ?? '',
-                postalCode: next.postalCode ?? prev.postalCode ?? '',
-                country: next.country ?? prev.country ?? ''
-              }));
-            }}
-            disabled={isSettingsSaving}
-          />
+          {/* Contact Information Fields */}
+          <div className="space-y-4">
+            <Input
+              label="Website"
+              value={contactDraft.website || ''}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
+              disabled={isSettingsSaving}
+              placeholder="https://example.com"
+            />
+
+            <Input
+              label="Business Email"
+              value={contactDraft.businessEmail || ''}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, businessEmail: value }))}
+              disabled={isSettingsSaving}
+              type="email"
+              placeholder="business@example.com"
+            />
+
+            <Input
+              label="Contact Phone"
+              value={contactDraft.phone || ''}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
+              disabled={isSettingsSaving}
+              type="tel"
+              placeholder="+1 (555) 123-4567"
+            />
+          </div>
+
+          {/* Address Fields */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
+            <AddressExperienceForm
+              initialValues={{ address: contactDraft.address }}
+              fields={['address']}
+              required={[]}
+              onValuesChange={(values) => {
+                if (values.address !== undefined) {
+                  setContactDraft(prev => ({
+                    ...prev,
+                    address: values.address as Address,
+                  }));
+                }
+              }}
+              showSubmitButton={false}
+              variant="plain"
+              disabled={isSettingsSaving}
+            />
+          </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button

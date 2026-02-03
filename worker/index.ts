@@ -21,6 +21,7 @@ import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { handleStatus } from './routes/status.js';
+import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
@@ -117,6 +118,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handlePracticeDetails(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
+    } else if (path.startsWith('/api/geo/autocomplete')) {
+      response = await handleAutocompleteWithCORS(request, env, _ctx);
     } else if (path.startsWith('/api/conversations')) {
       response = await handleConversations(request, env);
     } else if (path.startsWith('/api/ai/intent')) {
@@ -136,9 +139,17 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleHealth(request, env);
     } else if (path === '/') {
       response = await handleRoot(request, env);
+    } else if (path.startsWith('/api/')) {
+      // Return 404 for unmatched API routes
+      response = new Response(JSON.stringify({
+        error: 'API endpoint not found',
+        errorCode: 'NOT_FOUND'
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else {
-      console.log('❌ No route matched');
-      throw HttpErrors.notFound('Endpoint not found');
+      response = await handleRoot(request, env);
     }
 
     return response;
@@ -176,4 +187,5 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 
 // Export Durable Object classes
 export { ChatRoom } from './durable-objects/ChatRoom';
+export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';

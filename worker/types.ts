@@ -127,6 +127,7 @@ export interface Env {
   NOTIFICATION_EVENTS: Queue<NotificationQueueMessage>;
   CHAT_ROOM: DurableObjectNamespace;
   MATTER_PROGRESS: DurableObjectNamespace;
+  CHAT_COUNTER: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -172,6 +173,13 @@ export interface Env {
   ONESIGNAL_APP_ID?: string;
   ONESIGNAL_REST_API_KEY?: string;
   ONESIGNAL_API_BASE?: string;
+
+  // Geoapify configuration for address autocomplete
+  GEOAPIFY_API_KEY?: string;
+  GEOAPIFY_DAILY_LIMIT?: string;
+  GEOAPIFY_RPM_PER_IP?: string;
+  GEOAPIFY_MIN_CHARS?: string;
+  DEBUG_GEO?: string;
 
 }
 

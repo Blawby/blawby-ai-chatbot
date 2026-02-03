@@ -24,7 +24,39 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     getTrimmedString(formData.matterDescription) ??
     getTrimmedString(formData.description);
   const opposingParty = getTrimmedString(formData.opposingParty);
-  const location = getTrimmedString(formData.location);
+
+  // Handle address field if present
+  const address = formData.address as any;
+  let addressPayload: any = undefined;
+  
+  if (address) {
+    const trimmedAddress = {
+      address: address.address?.trim(),
+      apartment: address.apartment?.trim(),
+      city: address.city?.trim(),
+      state: address.state?.trim(),
+      postalCode: address.postalCode?.trim(),
+      country: address.country?.trim()
+    };
+
+    const hasRequiredFields = [
+      trimmedAddress.address,
+      trimmedAddress.city,
+      trimmedAddress.country,
+      trimmedAddress.postalCode
+    ].every(field => field && field.length > 0);
+    
+    if (hasRequiredFields) {
+      addressPayload = {
+        line1: trimmedAddress.address,
+        line2: trimmedAddress.apartment,
+        city: trimmedAddress.city,
+        state: trimmedAddress.state,
+        postal_code: trimmedAddress.postalCode,
+        country: trimmedAddress.country
+      };
+    }
+  }
 
   return {
     slug: practiceSlug,
@@ -33,7 +65,7 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     ...(phone ? { phone } : {}),
     ...(description ? { description } : {}),
     ...(opposingParty ? { opposing_party: opposingParty } : {}),
-    ...(location ? { location } : {})
+    ...(addressPayload ? { address: addressPayload } : {}),
   };
 }
 
@@ -93,11 +125,8 @@ const clampAmount = (amount: number): MinorAmount => {
   return asMinor(Math.min(max, Math.max(min, Math.round(amount))));
 };
 
-const formatDescriptionWithLocation = (description?: string, location?: string) => {
-  const parts: string[] = [];
-  if (description) parts.push(description);
-  if (location) parts.push(`Location: ${location}`);
-  return parts.length > 0 ? parts.join('\n') : undefined;
+const formatDescription = (description?: string) => {
+  return description?.trim() || undefined;
 };
 
 async function fetchIntakeSettings(
@@ -206,10 +235,7 @@ export async function submitContactForm(
       console.info('[Intake] Payment link disabled for practice intake');
     }
 
-    const descriptionWithLocation = formatDescriptionWithLocation(
-      formPayload.description as string | undefined,
-      formPayload.location as string | undefined
-    );
+    const description = formatDescription(formPayload.description as string | undefined);
 
     const createPayload = {
       slug: formPayload.slug,
@@ -220,13 +246,21 @@ export async function submitContactForm(
         ? { conversation_id: formData.sessionId.trim() }
         : {}),
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
-      ...(descriptionWithLocation ? { description: descriptionWithLocation } : {}),
-      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
+      ...(description ? { description } : { description: '' }), // Always include description
+      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
+      ...(formPayload.address ? { address: formPayload.address } : {}),
+      user_id: formData.sessionId || undefined,
+      on_behalf_of: '' // Always include on_behalf_of
     };
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
+    
+    if (import.meta.env.DEV) {
+      console.log('[Forms] Sending payload to backend:', JSON.stringify(createPayload, null, 2));
+    }
+    
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
       headers,
@@ -255,11 +289,9 @@ export async function submitContactForm(
 
       // Update the loading message with confirmation (if callback provided)
       if (onUpdateMessage) {
-        setTimeout(() => {
-          onUpdateMessage(loadingMessageId, confirmationContent, false);
-        }, 300);
+        onUpdateMessage(loadingMessageId, confirmationContent, false);
       }
-      
+
       const paymentLinkUrl = intakeData?.payment_link_url ?? intakeData?.paymentLinkUrl;
 
       return {
@@ -276,8 +308,22 @@ export async function submitContactForm(
         }
       };
     } else {
-      const errorData = await response.json().catch(() => ({})) as { error?: string; message?: string };
-      throw new Error(errorData.error || errorData.message || 'Form submission failed');
+      const errorText = await response.text();
+      console.error('[Forms] Backend error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText
+      });
+      
+      // Parse error text once to avoid double consumption
+      let errorData: { error?: string; message?: string } = {};
+      try {
+        errorData = JSON.parse(errorText) as { error?: string; message?: string };
+      } catch {
+        // If parsing fails, errorData remains empty object
+      }
+      
+      throw new Error(errorData.error || errorData.message || `Backend error: ${response.status} ${response.statusText}`);
     }
   } catch (error) {
     console.error('Error submitting form:', error);

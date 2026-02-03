@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
+import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
@@ -14,6 +15,89 @@ import {
   removeMessageReaction,
   postSystemMessage
 } from '@/shared/lib/conversationApi';
+
+// Greenfield address validation utilities
+function validateAddressObject(addressValue: unknown): Address | null {
+  // Type check
+  if (!addressValue || typeof addressValue !== 'object' || Array.isArray(addressValue)) {
+    return null;
+  }
+
+  const address = addressValue as Record<string, unknown>;
+  const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
+  
+  // Validate required fields
+  for (const field of requiredFields) {
+    const value = address[field];
+    
+    if (!value || typeof value !== 'string') {
+      return null; // Missing or invalid field type
+    }
+    
+    const trimmedValue = value.trim();
+    if (trimmedValue === '') {
+      return null; // Empty field
+    }
+    
+    // Field-specific validation
+    switch (field) {
+      case 'address':
+        if (trimmedValue.length < 5) {
+          return null; // Address too short
+        }
+        break;
+        
+      case 'city':
+        if (trimmedValue.length < 2) {
+          return null; // City name too short
+        }
+        break;
+        
+      case 'state':
+        // Allow state codes (2-3 chars) or full state names
+        if (trimmedValue.length < 2 || trimmedValue.length > 50) {
+          return null;
+        }
+        break;
+        
+      case 'postalCode': {
+        // Enhanced postal code validation for common formats
+        const postalCodePatterns = [
+          /^\d{5}(-\d{4})?$/, // US ZIP
+          /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/, // Canada
+          /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/, // UK
+          /^\d{4}$/, // Basic 4-digit
+        ];
+        
+        const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
+        if (!isValidPostalCode) {
+          return null;
+        }
+        break;
+      }
+        
+      case 'country':
+        // Validate country format (ISO 2-letter/3-letter code or reasonable length)
+        if (trimmedValue.length < 2 || trimmedValue.length > 56) {
+          return null; // Country code too short or too long
+        }
+        // Allow letters, spaces, hyphens, and apostrophes for country names
+        if (!/^[A-Za-z\s\-']+$/.test(trimmedValue)) {
+          return null; // Invalid country format
+        }
+        break;
+    }
+  }
+  
+  // Validate optional apartment field
+  if (address.apartment !== undefined) {
+    if (typeof address.apartment !== 'string') {
+      return null; // Invalid apartment field type
+    }
+  }
+  
+  return address as unknown as Address;
+}
 
 // Global interface for window API base override and debug properties
 declare global {
@@ -53,7 +137,7 @@ type ContactFormMetadata = {
     name?: string;
     email?: string;
     phone?: string;
-    location?: string;
+    address?: Address;
     opposingParty?: string;
   };
 };
@@ -96,7 +180,7 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
       return undefined;
     }
     const rawInitialValues = initialValues as Record<string, unknown>;
-    const allowedKeys = ['name', 'email', 'phone', 'location', 'opposingParty'] as const;
+    const allowedKeys = ['name', 'email', 'phone', 'opposingParty'] as const;
     normalizedInitialValues = {};
     for (const key of allowedKeys) {
       const value = rawInitialValues[key];
@@ -107,6 +191,16 @@ const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | unde
         return undefined;
       }
       normalizedInitialValues[key] = value;
+    }
+    // Handle address field separately since it's an object
+    const addressValue = rawInitialValues['address'];
+    if (addressValue !== undefined) {
+      const validatedAddress = validateAddressObject(addressValue);
+      if (validatedAddress) {
+        normalizedInitialValues.address = validatedAddress;
+      } else {
+        return undefined; // Invalid address
+      }
     }
     if (Object.keys(normalizedInitialValues).length === 0) {
       normalizedInitialValues = undefined;
@@ -1300,17 +1394,31 @@ export const useMessageHandling = ({
       name: !!contactData.name,
       email: !!contactData.email,
       phone: !!contactData.phone,
-      location: !!contactData.location,
+      address: !!contactData.address,
       opposingParty: !!contactData.opposingParty,
       description: !!contactData.description
     });
     try {
       // Format contact data as a structured message
+      const addressText = contactData.address 
+        ? (() => {
+            const parts = [];
+            if (contactData.address.address) parts.push(contactData.address.address);
+            if (contactData.address.apartment) parts.push(contactData.address.apartment);
+            if (contactData.address.city && contactData.address.state && contactData.address.postalCode) {
+              parts.push(`${contactData.address.city}, ${contactData.address.state} ${contactData.address.postalCode}`);
+            } else {
+              if (contactData.address.city) parts.push(contactData.address.city);
+              if (contactData.address.state) parts.push(contactData.address.state);
+              if (contactData.address.postalCode) parts.push(contactData.address.postalCode);
+            }
+            return parts.length > 0 ? `Address: ${parts.join(', ')}` : '';
+          })()
+        : '';
       const contactMessage = `Contact Information:
 Name: ${contactData.name}
 Email: ${contactData.email}
-Phone: ${contactData.phone}
-Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
+Phone: ${contactData.phone}${addressText ? `\n${addressText}` : ''}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
 
       // Debug hook for test environment (development only, PII-safe)
       if (import.meta.env.MODE === 'development' && typeof window !== 'undefined' && window.__DEBUG_CONTACT_FORM__) {
@@ -1319,7 +1427,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
           nameProvided: !!contactData.name,
           emailProvided: !!contactData.email,
           phoneProvided: !!contactData.phone,
-          locationProvided: !!contactData.location,
+          addressProvided: !!contactData.address,
           opposingPartyProvided: !!contactData.opposingParty,
           descriptionProvided: !!contactData.description
         };
@@ -1329,7 +1437,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
 Name: ${contactData.name ? '[PROVIDED]' : '[NOT PROVIDED]'}
 Email: ${contactData.email ? '[PROVIDED]' : '[NOT PROVIDED]'}
 Phone: ${contactData.phone ? '[PROVIDED]' : '[NOT PROVIDED]'}
-Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
+Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
         
         window.__DEBUG_CONTACT_FORM__(sanitizedContactData, redactedContactMessage);
       }

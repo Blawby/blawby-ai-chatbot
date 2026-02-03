@@ -6,6 +6,7 @@ import {
   getConversationLinkEndpoint
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
+import type { Address } from '@/shared/types/address';
 import { getWorkerApiUrl } from '@/config/urls';
 import {
   toMajorUnits,
@@ -86,8 +87,8 @@ export interface Practice {
   updatedAt?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -142,8 +143,8 @@ export interface PracticeDetailsUpdate {
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -159,6 +160,7 @@ export interface PracticeDetailsUpdate {
 export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
 
 export interface PracticeDetails {
+  id?: string;
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
@@ -168,8 +170,8 @@ export interface PracticeDetails {
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -362,8 +364,8 @@ function normalizePracticePayload(payload: unknown): Practice {
       return null;
     })(),
     website: toNullableString(record.website),
-    addressLine1: toNullableString(record.addressLine1 ?? record.address_line_1),
-    addressLine2: toNullableString(record.addressLine2 ?? record.address_line_2),
+    address: toNullableString(record.address ?? record.address_line_1),
+    apartment: toNullableString(record.apartment ?? record.address_line_2),
     city: toNullableString(record.city),
     state: toNullableString(record.state),
     postalCode: toNullableString(record.postalCode ?? record.postal_code),
@@ -713,6 +715,69 @@ export type CreateUserDetailPayload = {
   phone?: string;
   status?: UserDetailStatus;
   currency?: string;
+  address?: Partial<Address>;
+  event_name?: string;
+};
+
+type UserDetailBasePayload = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  status?: UserDetailStatus;
+  currency?: string;
+  address?: Partial<Address>;
+  event_name?: string;
+};
+
+type UpdateUserDetailPayload = UserDetailBasePayload & Record<string, unknown>;
+
+const normalizeOptionalText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const normalizeUserDetailAddress = (address?: Partial<Address>): Record<string, unknown> | undefined => {
+  if (!address) return undefined;
+  const normalized: Record<string, unknown> = {};
+  
+  const line1 = normalizeOptionalText(address.address);
+  if (line1 !== undefined) normalized.line1 = line1;
+  
+  const line2 = normalizeOptionalText(address.apartment);
+  if (line2 !== undefined) normalized.line2 = line2;
+  
+  const city = normalizeOptionalText(address.city);
+  if (city !== undefined) normalized.city = city;
+  
+  const state = normalizeOptionalText(address.state);
+  if (state !== undefined) normalized.state = state;
+  
+  const postalCode = normalizeOptionalText(address.postalCode);
+  if (postalCode !== undefined) normalized.postal_code = postalCode;
+  
+  const country = normalizeOptionalText(address.country);
+  if (country !== undefined) normalized.country = country.toUpperCase();
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+};
+
+const normalizeUserDetailPayload = (payload: UserDetailBasePayload): Record<string, unknown> => {
+  const normalized: Record<string, unknown> = {};
+  const name = normalizeOptionalText(payload.name);
+  if (name !== undefined) normalized.name = name;
+  const email = normalizeOptionalText(payload.email);
+  if (email !== undefined) normalized.email = email;
+  const phone = normalizeOptionalText(payload.phone);
+  if (phone !== undefined) normalized.phone = phone;
+  if (payload.status !== undefined) normalized.status = payload.status;
+  const currency = normalizeOptionalText(payload.currency);
+  if (currency !== undefined) normalized.currency = currency;
+  const address = normalizeUserDetailAddress(payload.address);
+  if (address) normalized.address = address;
+  const eventName = normalizeOptionalText(payload.event_name);
+  if (eventName !== undefined) normalized.event_name = eventName;
+  return normalized;
 };
 
 export async function createUserDetail(
@@ -722,25 +787,31 @@ export async function createUserDetail(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  
-  // Use Better Auth organization invitation instead of direct user-details creation
+
+  const normalizedEmail = payload.email?.trim() || '';
+  const normalizedName = payload.name?.trim() || '';
+
+  if (!normalizedName || !normalizedEmail) {
+    throw new Error('Name and email are required');
+  }
+
+  // Use Better Auth organization invitation instead of direct user-details creation.
   const { getClient } = await import('@/shared/lib/authClient');
   const authClient = getClient();
-  
-  // Validate email before sending invitation
-  if (!payload.email || typeof payload.email !== 'string' || payload.email.trim().length === 0) {
-    throw new Error('Valid email address is required for invitation');
-  }
-  const normalizedEmail = payload.email.trim();
-  
+
   try {
+    if (import.meta.env.DEV) {
+      console.info('[apiClient] inviteMember', {
+        organizationId: practiceId,
+        email: normalizedEmail,
+        role: 'member'
+      });
+    }
     await authClient.organization.inviteMember({
       email: normalizedEmail,
       role: 'member',
       organizationId: practiceId,
     });
-    
-    // Return null - callers should refresh from server to get the actual record
     return null;
   } catch (error) {
     console.error('Failed to invite client:', error);
@@ -751,14 +822,16 @@ export async function createUserDetail(
 export async function updateUserDetail(
   practiceId: string,
   userDetailId: string,
-  payload: Record<string, unknown>
+  payload: UpdateUserDetailPayload
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
   }
+  const { address, name, email, phone, status, currency, event_name, ...rest } = payload;
+  const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
   const response = await apiClient.put(
     `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`,
-    payload
+    { ...rest, ...normalized }
   );
   const data = response.data;
   if (isRecord(data) && isRecord(data.data)) {
@@ -937,6 +1010,31 @@ export async function getPracticeDetails(
   try {
     const response = await apiClient.get(
       `/api/practice/${encodeURIComponent(practiceId)}`,
+      { signal: config?.signal }
+    );
+    return normalizePracticeDetailsResponse(response.data);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function getPracticeDetailsBySlug(
+  slug: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PracticeDetails | null> {
+  if (!slug) {
+    throw new Error('practice slug is required');
+  }
+  const normalizedSlug = slug.trim();
+  if (!normalizedSlug) {
+    throw new Error('practice slug is required');
+  }
+  try {
+    const response = await apiClient.get(
+      `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
       { signal: config?.signal }
     );
     return normalizePracticeDetailsResponse(response.data);
@@ -1142,10 +1240,10 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   const website = normalizeTextOrUndefined(payload.website);
   if (website !== undefined) normalized.website = website;
   const address: Record<string, unknown> = {};
-  const addressLine1 = normalizeTextOrUndefined(payload.addressLine1);
-  if (addressLine1 !== undefined) address.line1 = addressLine1;
-  const addressLine2 = normalizeTextOrUndefined(payload.addressLine2);
-  if (addressLine2 !== undefined) address.line2 = addressLine2;
+  const addressField = normalizeTextOrUndefined(payload.address);
+  if (addressField !== undefined) address.line1 = addressField;
+  const apartmentField = normalizeTextOrUndefined(payload.apartment);
+  if (apartmentField !== undefined) address.line2 = apartmentField;
   const city = normalizeTextOrUndefined(payload.city);
   if (city !== undefined) address.city = city;
   const state = normalizeTextOrUndefined(payload.state);
@@ -1314,6 +1412,7 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
   };
 
   return {
+    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']),
     businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
     businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
     consultationFee: (() => {
@@ -1357,13 +1456,11 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     services: 'services' in container
       ? (Array.isArray(container.services) ? (container.services as Array<Record<string, unknown>>) : null)
       : undefined,
-    addressLine1: getOptionalNullableString(address, ['line1', 'line_1', 'address_line_1'])
-      ?? getOptionalNullableString(container, ['addressLine1']),
-    addressLine2: getOptionalNullableString(address, ['line2', 'line_2', 'address_line_2'])
-      ?? getOptionalNullableString(container, ['addressLine2']),
+    address: getOptionalNullableString(address, ['line1', 'address']) ?? getOptionalNullableString(container, ['address']),
+    apartment: getOptionalNullableString(address, ['line2', 'apartment']) ?? getOptionalNullableString(container, ['apartment']),
     city: getOptionalNullableString(address, ['city']) ?? getOptionalNullableString(container, ['city']),
     state: getOptionalNullableString(address, ['state']) ?? getOptionalNullableString(container, ['state']),
-    postalCode: getOptionalNullableString(address, ['postal_code'])
+    postalCode: getOptionalNullableString(address, ['postal_code', 'postalCode'])
       ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
     primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import { atom } from 'nanostores';
 import { useStore } from '@nanostores/preact';
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
@@ -12,6 +12,7 @@ import {
   type PracticeDetailsUpdate,
   type PracticeDetails,
   getPracticeDetails,
+  getPracticeDetailsBySlug,
   getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
@@ -118,8 +119,8 @@ export interface Practice {
   updatedAt?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  address?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -465,8 +466,8 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessOnboardingStatus: onboardingStatus,
     billingIncrementMinutes: getDetailNumber('billingIncrementMinutes', 'billing_increment_minutes') ?? null,
     website: getDetailString('website', 'website'),
-    addressLine1: getDetailString('addressLine1', 'address_line_1'),
-    addressLine2: getDetailString('addressLine2', 'address_line_2'),
+    address: getDetailString('address', 'address_line_1'),
+    apartment: getDetailString('apartment', 'address_line_2'),
     city: getDetailString('city', 'city'),
     state: getDetailString('state', 'state'),
     postalCode: getDetailString('postalCode', 'postal_code'),
@@ -478,6 +479,18 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     services
   };
 }
+
+const fetchPracticeDetailsFor = async (
+  practice: Practice,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PracticeDetails | null> => {
+  const slug = practice.slug?.trim();
+  if (slug) {
+    const bySlug = await getPracticeDetailsBySlug(slug, config);
+    if (bySlug) return bySlug;
+  }
+  return getPracticeDetails(practice.id, config);
+};
 
 function mergePracticeDetails(practice: Practice, details: PracticeDetails | null): Practice {
   if (!details) {
@@ -502,8 +515,8 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfDefined('calendlyUrl', details.calendlyUrl as Practice['calendlyUrl'] | undefined);
   setIfDefined('billingIncrementMinutes', details.billingIncrementMinutes as Practice['billingIncrementMinutes'] | undefined);
   setIfNonNull('website', details.website as Practice['website'] | undefined | null);
-  setIfNonNull('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined | null);
-  setIfNonNull('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined | null);
+  setIfNonNull('address', details.address as Practice['address'] | undefined | null);
+  setIfNonNull('apartment', details.apartment as Practice['apartment'] | undefined | null);
   setIfNonNull('city', details.city as Practice['city'] | undefined | null);
   setIfNonNull('state', details.state as Practice['state'] | undefined | null);
   setIfNonNull('postalCode', details.postalCode as Practice['postalCode'] | undefined | null);
@@ -734,7 +747,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
         let details: PracticeDetails | null = null;
         try {
-          details = await getPracticeDetails(snapshot.currentPractice.id, { signal: controller.signal });
+          details = await fetchPracticeDetailsFor(snapshot.currentPractice, { signal: controller.signal });
           setPracticeDetailsEntry(snapshot.currentPractice.id, details);
         } catch (detailsError) {
           console.warn('Failed to fetch practice details:', detailsError);
@@ -824,7 +837,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         if (currentPracticeNext) {
           if (fetchPracticeDetails) {
             try {
-              details = await getPracticeDetails(currentPracticeNext.id, { signal: controller.signal });
+              details = await fetchPracticeDetailsFor(currentPracticeNext, { signal: controller.signal });
               setPracticeDetailsEntry(currentPracticeNext.id, details);
             } catch (detailsError) {
               console.warn('Failed to fetch practice details:', detailsError);
@@ -907,10 +920,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchInvitations = useCallback(async () => {
     if (!session?.user?.id || isAnonymous) return;
 
-    // Skip on staging due to backend routing bug (shadowed endpoint)
-    // The endpoint /api/practice/invitations is shadowed by /api/practice/:uuid
     if (getBackendApiUrl().includes('staging')) {
-      console.debug('Skipping fetchInvitations on staging due to known backend routing bug');
+      console.debug('Skipping fetchInvitations on staging because invitations are not available');
       return;
     }
 

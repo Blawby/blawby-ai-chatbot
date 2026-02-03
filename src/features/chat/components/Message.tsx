@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
 import { MessageBubble } from './MessageBubble';
@@ -43,7 +44,7 @@ interface MessageProps {
 			name?: string;
 			email?: string;
 			phone?: string;
-			location?: string;
+			address?: Address;
 			opposingParty?: string;
 		};
 	};
@@ -97,6 +98,9 @@ interface MessageProps {
 	toolMessage?: string;
 	id?: string;
 	practiceId?: string;
+	intakeStatus?: {
+		step?: string;
+	};
 	// Styling
 	className?: string;
 }
@@ -115,6 +119,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	contactFormVariant,
 	contactFormFormId,
 	showContactFormSubmit,
+	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -275,6 +280,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					contactFormVariant={contactFormVariant}
 					contactFormFormId={contactFormFormId}
 					showContactFormSubmit={showContactFormSubmit}
+					intakeStatus={intakeStatus}
 					documentChecklist={documentChecklist}
 					generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}

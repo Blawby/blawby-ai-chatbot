@@ -19,6 +19,29 @@ test.describe('Clients', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Phone').fill('4155550101');
 
+    // Test address fields in client creation
+    const addressInput = page.getByLabel(/address/i);
+    if (await addressInput.isVisible()) {
+      await addressInput.fill('123 Main St');
+      
+      // Try to wait for autocomplete suggestions but don't fail if they don't appear
+      const suggestions = page.locator('[role="option"]');
+      
+      // Non-fatal wait for suggestions to possibly appear
+      await page.waitForTimeout(2000);
+      const suggestionCount = await suggestions.count();
+      
+      if (suggestionCount > 0) {
+        await suggestions.first().click();
+        
+        // Show structured fields - only if toggle button exists and suggestions were found
+        const toggleButton = page.getByText(/show structured fields/i);
+        if (await toggleButton.isVisible()) {
+          await toggleButton.click();
+        }
+      }
+    }
+
     const createResponsePromise = page.waitForResponse((response) => {
       return response.url().includes('/api/user-details/practice/') && response.request().method() === 'POST';
     });
@@ -77,6 +100,23 @@ test.describe('Clients', () => {
     const updatedEmail = `e2e-client-updated-${suffix}@example.com`;
     await page.getByLabel('Full name').fill(updatedName);
     await page.getByLabel('Email').fill(updatedEmail);
+
+    // Test address editing
+    const editAddressInput = page.getByLabel(/address/i);
+    if (await editAddressInput.isVisible()) {
+      await editAddressInput.fill('456 Oak Ave');
+      
+      // Try to wait for autocomplete and select suggestion
+      const editSuggestions = page.locator('[role="option"]');
+      
+      // Non-fatal wait for suggestions to possibly appear
+      await page.waitForTimeout(2000);
+      const editSuggestionCount = await editSuggestions.count();
+      
+      if (editSuggestionCount > 0) {
+        await editSuggestions.first().click();
+      }
+    }
     const clientUpdateResponsePromise = page.waitForResponse((response) => {
       return response.url().includes('/api/user-details/practice/') && response.request().method() === 'PUT';
     });
