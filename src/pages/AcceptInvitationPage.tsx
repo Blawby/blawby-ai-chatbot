@@ -58,6 +58,12 @@ const normalizeInviteResponse = (payload: unknown): InvitationDetails | null => 
   return invitation;
 };
 
+const isValidDate = (d: unknown): d is string | number | Date => {
+  if (!d) return false;
+  const date = new Date(d as string | number | Date);
+  return !isNaN(date.getTime());
+};
+
 export const AcceptInvitationPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
@@ -266,7 +272,7 @@ export const AcceptInvitationPage = () => {
           </div>
           {invitation.expiresAt && (
             <div>
-              <span className="font-medium text-gray-900 dark:text-white">Expires:</span> {new Date(invitation.expiresAt).toLocaleString()}
+              <span className="font-medium text-gray-900 dark:text-white">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
             </div>
           )}
         </div>
