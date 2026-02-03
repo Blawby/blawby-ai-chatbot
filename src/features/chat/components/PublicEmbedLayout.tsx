@@ -11,7 +11,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 
-type EmbedView = 'home' | 'list' | 'conversation';
+type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'profile';
 
 interface PublicEmbedLayoutProps {
   view: EmbedView;
@@ -20,6 +20,7 @@ interface PublicEmbedLayoutProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   messages: ChatMessageUI[];
+  showClientTabs?: boolean;
   onStartNewConversation: (mode: ConversationMode) => Promise<string | null>;
   chatView: ComponentChildren;
 }
@@ -40,6 +41,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   practiceName,
   practiceLogo,
   messages,
+  showClientTabs = false,
   onStartNewConversation,
   chatView
 }) => {
@@ -50,6 +52,13 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
     practiceSlug ? `/embed/${encodeURIComponent(practiceSlug)}` : '/embed'
   ), [practiceSlug]);
   const conversationsPath = `${embedBasePath}/conversations`;
+
+  // Redirect if unauthorized to view matters or profile
+  useEffect(() => {
+    if (!showClientTabs && (view === 'matters' || view === 'profile')) {
+      navigate(embedBasePath, true);
+    }
+  }, [showClientTabs, view, embedBasePath, navigate]);
 
   const {
     conversations: publicConversations,
@@ -210,14 +219,57 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
             onSendMessage={() => handleStartConversation('ASK_QUESTION')}
           />
         );
+      case 'matters':
+        return (
+          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Matters</h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Your active matters will appear here once a practice connects them to your account.
+              </p>
+            </div>
+            <div className="mx-6 mb-6 rounded-2xl border border-light-border bg-light-card-bg p-5 shadow-[0_16px_32px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
+              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">No matters yet</div>
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Start a conversation to open a new matter with the practice.
+              </div>
+            </div>
+          </div>
+        );
+      case 'profile':
+        return (
+          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile</h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Update your contact details and preferences.
+              </p>
+            </div>
+            <div className="mx-6 mb-6 rounded-2xl border border-light-border bg-light-card-bg p-5 shadow-[0_16px_32px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
+              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Account settings</div>
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Manage your profile, notifications, and security settings.
+              </div>
+              <button
+                type="button"
+                className="mt-4 w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm hover:bg-accent-600"
+                onClick={() => navigate('/settings')}
+              >
+                Open settings
+              </button>
+            </div>
+          </div>
+        );
       case 'conversation':
       default:
         return chatView;
     }
   };
 
-  const showBottomNav = view === 'home' || view === 'list';
-  const activeTab = view === 'list' ? 'messages' : 'home';
+  const showBottomNav = showClientTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'profile';
+  const activeTab = view === 'list' || view === 'conversation'
+    ? 'messages'
+    : view;
   const shouldFrame = view !== 'conversation';
   const containerClassName = 'flex flex-col h-screen w-full m-0 p-0 relative overflow-hidden bg-light-bg dark:bg-dark-bg';
   const mainClassName = 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative items-center px-3 py-4';
@@ -239,10 +291,19 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
           {showBottomNav && (
             <PublicEmbedNavigation
               activeTab={activeTab}
+              showClientTabs={showClientTabs}
               onSelectTab={(tab) => {
                 if (tab === 'messages') {
                   void refreshPublicConversations();
                   navigate(conversationsPath);
+                  return;
+                }
+                if (tab === 'matters') {
+                  navigate(`${embedBasePath}/matters`);
+                  return;
+                }
+                if (tab === 'profile') {
+                  navigate(`${embedBasePath}/profile`);
                   return;
                 }
                 navigate(embedBasePath);

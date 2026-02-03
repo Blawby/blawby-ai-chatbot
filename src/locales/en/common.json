@@ -226,7 +226,9 @@
     },
     "navigation": {
       "home": "Home",
-      "messages": "Messages"
+      "messages": "Messages",
+      "matters": "Matters",
+      "profile": "Profile"
     },
     "conversationList": {
       "title": "Messages",

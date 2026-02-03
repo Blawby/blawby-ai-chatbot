@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { AddressFields } from './AddressFields';
 import { cn } from '@/shared/utils/cn';
-import { validateAddressLoose, validateAddressStrict } from '@/shared/utils/addressValidation';
 import type { Address, AddressSuggestion } from '@/shared/types/address';
 
 export interface AddressInputProps {
@@ -16,7 +15,6 @@ export interface AddressInputProps {
   description?: string;
   label?: string;
   placeholder?: string;
-  validationLevel?: 'loose' | 'strict';
   showCountry?: boolean;
   countryOptions?: Array<{ value: string; label: string }>;
   minChars?: number;
@@ -48,7 +46,6 @@ export const AddressInput = ({
   description,
   label,
   placeholder,
-  validationLevel = 'loose',
   showCountry = true,
   countryOptions,
   minChars = 3,
