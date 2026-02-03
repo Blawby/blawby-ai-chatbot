@@ -58,6 +58,12 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- D1 migrations table (bootstrap marker)
+CREATE TABLE IF NOT EXISTS d1_migrations (
+  name TEXT PRIMARY KEY,
+  applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Conversation participants table
 CREATE TABLE IF NOT EXISTS conversation_participants (
   conversation_id TEXT NOT NULL,

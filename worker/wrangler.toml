@@ -157,6 +157,7 @@ LOG_LEVEL = "warn"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://ai-staging.blawby.com"
+VITE_WORKER_API_URL = "https://ai-staging.blawby.com"
 BACKEND_API_URL = "https://staging-api.blawby.com"
 CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
