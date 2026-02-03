@@ -143,7 +143,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       // Return 404 for unmatched API routes
       response = new Response(JSON.stringify({
         error: 'API endpoint not found',
-        code: 'NOT_FOUND'
+        errorCode: 'NOT_FOUND'
       }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
@@ -187,4 +187,5 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 
 // Export Durable Object classes
 export { ChatRoom } from './durable-objects/ChatRoom';
+export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';

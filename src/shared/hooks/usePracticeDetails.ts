@@ -26,7 +26,11 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     }
     if (practiceSlug && practiceSlug.trim().length > 0) {
       const details = await getPracticeDetailsBySlug(practiceSlug.trim());
-      setPracticeDetailsEntry(practiceId, details);
+      if (details) {
+        // Use authoritative ID from response if available, otherwise fallback to provided practiceId
+        const canonicalId = details.id || practiceId;
+        setPracticeDetailsEntry(canonicalId, details);
+      }
       return details;
     }
     if (isLikelyUuid(practiceId)) {

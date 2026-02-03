@@ -591,28 +591,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           className="w-full"
                           disabled={!onContactFormSubmit}
                           data-testid="contact-form-submit-footer"
-                          onClick={(e) => {
-                            // Try multiple approaches to trigger form submission
-                            const form = document.getElementById(contactFormId) as HTMLFormElement;
-                            if (form) {
-                              // Approach 1: Try requestSubmit (modern)
-                              try {
-                                form.requestSubmit();
-                              } catch (err) {
-                                // Approach 2: Try submit() with preventDefault
-                                try {
-                                  const submitEvent = new Event('submit', { 
-                                    bubbles: true, 
-                                    cancelable: true 
-                                  });
-                                  form.dispatchEvent(submitEvent);
-                                } catch (err2) {
-                                  // Approach 3: Direct form.submit() (bypasses validation)
-                                  form.submit();
-                                }
+                          onClick={() => {
+                            // Rely on native button type="submit" and form attribute.
+                            // If any fallback is needed, it would go here, but preferred
+                            // is native behavior. We'll add a log for debugging.
+                            if (import.meta.env.DEV) {
+                              const form = document.getElementById(contactFormId);
+                              if (!form) {
+                                console.error('[ChatContainer] Form not found with id:', contactFormId);
                               }
-                            } else {
-                              console.error('[ChatContainer] Form not found with id:', contactFormId);
                             }
                           }}
                         >

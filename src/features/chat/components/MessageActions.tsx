@@ -132,7 +132,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			
 			{/* Display contact form only if intake is still in contact_form step */}
-			{contactForm && onContactFormSubmit && intakeStatus?.step === 'contact_form' && (
+			{contactForm && onContactFormSubmit && (!intakeStatus || intakeStatus.step === 'contact_form') && (
 				<ContactForm
 					fields={contactForm.fields}
 					required={contactForm.required}

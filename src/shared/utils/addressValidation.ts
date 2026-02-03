@@ -20,7 +20,7 @@ const MAX_FIELD_LENGTHS = {
 
 const ISO2_COUNTRY_REGEX = /^[A-Z]{2}$/;
 const US_POSTAL_CODE_REGEX = /^\d{5}(-\d{4})?$/;
-const CA_POSTAL_CODE_REGEX = /^[A-Z]\d[A-Z] \d[A-Z]\d$/;
+const CA_POSTAL_CODE_REGEX = /^[A-Z]\d[A-Z]\s?\d[A-Z]\d$/i;
 const GENERAL_POSTAL_CODE_REGEX = /^[\w\s-]{3,20}$/;
 
 // Error codes

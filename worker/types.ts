@@ -127,6 +127,7 @@ export interface Env {
   NOTIFICATION_EVENTS: Queue<NotificationQueueMessage>;
   CHAT_ROOM: DurableObjectNamespace;
   MATTER_PROGRESS: DurableObjectNamespace;
+  CHAT_COUNTER: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;

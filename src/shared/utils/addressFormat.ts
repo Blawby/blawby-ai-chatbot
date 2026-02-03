@@ -77,12 +77,8 @@ export function formatCityStateZip(address: Partial<Address>): string {
       // State PostalCode
       return `${parts[0]} ${parts[1]}`;
     } else {
-      // Fallback: if second part looks like a postal code (contains numbers), add space
-      if (/\d/.test(parts[1])) {
-        return `${parts[0]} ${parts[1]}`;
-      }
-      // Otherwise treat as state
-      return `${parts[0]}, ${parts[1]}`;
+      // This state is unreachable given parts.length === 2 and the only 3 fields contributing to parts.
+      throw new Error(`Unexpected address parts state: parts=${JSON.stringify(parts)}, hasCity=${hasCity}, hasState=${hasState}, hasPostalCode=${hasPostalCode}`);
     }
   }
   
@@ -154,29 +150,33 @@ export function isAddressEmpty(address: Partial<Address>): boolean {
   );
 }
 
+const COUNTRIES: Record<string, string> = {
+  US: 'United States',
+  CA: 'Canada',
+  GB: 'United Kingdom',
+  AU: 'Australia',
+  DE: 'Germany',
+  FR: 'France',
+  IT: 'Italy',
+  ES: 'Spain',
+  JP: 'Japan',
+  KR: 'South Korea',
+  CN: 'China',
+  IN: 'India',
+  BR: 'Brazil',
+  MX: 'Mexico',
+  // Add more as needed
+};
+
 /**
  * Get country name from ISO-2 code
  */
 export function getCountryName(iso2Code: string): string {
-  const countries: Record<string, string> = {
-    US: 'United States',
-    CA: 'Canada',
-    GB: 'United Kingdom',
-    AU: 'Australia',
-    DE: 'Germany',
-    FR: 'France',
-    IT: 'Italy',
-    ES: 'Spain',
-    JP: 'Japan',
-    KR: 'South Korea',
-    CN: 'China',
-    IN: 'India',
-    BR: 'Brazil',
-    MX: 'Mexico',
-    // Add more as needed
-  };
+  if (typeof iso2Code !== 'string' || !iso2Code) {
+    return iso2Code || '';
+  }
   
-  return countries[iso2Code.toUpperCase()] || iso2Code;
+  return COUNTRIES[iso2Code.toUpperCase()] || iso2Code;
 }
 
 /**

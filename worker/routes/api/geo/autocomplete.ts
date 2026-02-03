@@ -100,7 +100,8 @@ export async function handleAutocomplete(request: Request, env: Env) {
       query.limit,
       query.lang,
       query.country,
-      minChars
+      minChars,
+      { DEBUG_GEO: env.DEBUG_GEO }
     );
 
     if (!validation.valid) {
@@ -111,7 +112,13 @@ export async function handleAutocomplete(request: Request, env: Env) {
     }
 
     // Get client IP for rate limiting
-    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const clientIp = request.headers.get('CF-Connecting-IP');
+    if (!clientIp) {
+      return new Response(JSON.stringify({ error: 'Missing client IP', errorCode: 'MISSING_CLIENT_IP' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     
     // Check per-minute rate limit first
     const rpmResult = await incrementRateLimitCounter(env, `geo:rpm:${clientIp}`, rpmPerIp);

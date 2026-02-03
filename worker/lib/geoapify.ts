@@ -54,7 +54,9 @@ export async function callGeoapifyAutocompleteMultiPass(
 ): Promise<{ suggestions: AddressSuggestion[] } | AutocompleteError> {
   const { text, limit = 5, lang = 'en', country, type, apiKey, bias } = options;
   
-  console.log('[Geoapify MultiPass] Starting multi-pass search for:', text);
+  if (env?.DEBUG_GEO === '1') {
+    console.log('[Geoapify MultiPass] Starting multi-pass search for length:', text.length);
+  }
   
   const allSuggestions: AddressSuggestion[] = [];
   const seenKeys = new Set<string>();
@@ -342,23 +344,32 @@ export function validateAutocompleteRequest(
   limit: string | null,
   lang: string | null,
   country: string | null,
-  minChars: number = 3
+  minChars: number = 3,
+  env?: { DEBUG_GEO?: string }
 ): { valid: boolean; error?: AutocompleteError } {
-  console.log('[Validation] Input:', { text, textType: typeof text, textLength: text?.length, minChars });
+  const isDebug = env?.DEBUG_GEO === '1';
+  if (isDebug) {
+    console.log('[Validation] Input:', { textLength: text?.length, textType: typeof text, minChars });
+  }
   
   // Validate text parameter
   if (!text || typeof text !== 'string') {
-    console.log('[Validation] Failed: text validation');
+    if (isDebug) console.log('[Validation] Failed: text validation');
     return { valid: false, error: { code: 'INVALID_REQUEST' } };
   }
   
   const trimmedText = text.trim();
   if (trimmedText.length < minChars) {
-    console.log('[Validation] Failed: minChars validation', { trimmedText, trimmedLength: trimmedText.length, minChars });
+    if (isDebug) {
+      console.log('[Validation] Failed: minChars validation', { 
+        trimmedLength: trimmedText.length, 
+        minChars 
+      });
+    }
     return { valid: false, error: { code: 'INVALID_REQUEST' } };
   }
   
-  console.log('[Validation] Passed: text validation');
+  if (isDebug) console.log('[Validation] Passed: text validation');
   
   // Validate limit parameter
   if (limit !== null) {

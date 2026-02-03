@@ -6,6 +6,7 @@ import { Env } from '../types';
 
 /**
  * Increment a daily counter and check if limit is exceeded
+ * Uses Durable Object for atomic operations
  */
 export async function incrementDailyCounter(
   env: Env,
@@ -15,20 +16,26 @@ export async function incrementDailyCounter(
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const counterKey = `${key}:${today}`;
   
-  // Get current count
+  if (env.CHAT_COUNTER) {
+    const id = env.CHAT_COUNTER.idFromName(counterKey);
+    const stub = env.CHAT_COUNTER.get(id);
+    // Use 24h TTL (86400 seconds)
+    const response = await stub.fetch(`https://counter.internal/increment?limit=${limit}&ttl=86400`);
+    return await response.json();
+  }
+  
+  // Fallback to non-atomic KV if DO not configured (not recommended for production)
   const current = await env.CHAT_SESSIONS.get(counterKey);
-  const parsedCount = parseInt(current, 10);
+  const parsedCount = parseInt(current || '0', 10);
   const count = Number.isNaN(parsedCount) ? 0 : parsedCount;
   
-  // Check if limit would be exceeded
   if (count >= limit) {
     return { exceeded: true, current: count };
   }
   
-  // Increment counter
   const newCount = count + 1;
   await env.CHAT_SESSIONS.put(counterKey, newCount.toString(), {
-    expirationTtl: 86400, // 24 hours
+    expirationTtl: 86400,
   });
   
   return { exceeded: false, current: newCount };
@@ -36,6 +43,7 @@ export async function incrementDailyCounter(
 
 /**
  * Increment a per-minute rate limit counter and check if limit is exceeded
+ * Uses Durable Object for atomic operations
  */
 export async function incrementRateLimitCounter(
   env: Env,
@@ -45,20 +53,26 @@ export async function incrementRateLimitCounter(
   const now = new Date();
   const minuteKey = `${key}:${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
   
-  // Get current count
+  if (env.CHAT_COUNTER) {
+    const id = env.CHAT_COUNTER.idFromName(minuteKey);
+    const stub = env.CHAT_COUNTER.get(id);
+    // Use 2 min TTL (120 seconds) to cover the current minute
+    const response = await stub.fetch(`https://counter.internal/increment?limit=${limit}&ttl=120`);
+    return await response.json();
+  }
+
+  // Fallback to non-atomic KV if DO not configured
   const current = await env.CHAT_SESSIONS.get(minuteKey);
-  const parsedCount = parseInt(current, 10);
+  const parsedCount = parseInt(current || '0', 10);
   const count = Number.isNaN(parsedCount) ? 0 : parsedCount;
   
-  // Check if limit would be exceeded
   if (count >= limit) {
     return { exceeded: true, current: count };
   }
   
-  // Increment counter
   const newCount = count + 1;
   await env.CHAT_SESSIONS.put(minuteKey, newCount.toString(), {
-    expirationTtl: 120, // 2 minutes to ensure it covers the current minute
+    expirationTtl: 120,
   });
   
   return { exceeded: false, current: newCount };
@@ -71,7 +85,15 @@ export async function getCounter(
   env: Env,
   key: string
 ): Promise<number> {
+  if (env.CHAT_COUNTER) {
+    const id = env.CHAT_COUNTER.idFromName(key);
+    const stub = env.CHAT_COUNTER.get(id);
+    const response = await stub.fetch(`https://counter.internal/get`);
+    const data = await response.json() as { current: number };
+    return data.current || 0;
+  }
+
   const value = await env.CHAT_SESSIONS.get(key);
-  const parsedValue = parseInt(value, 10);
+  const parsedValue = parseInt(value || '0', 10);
   return Number.isNaN(parsedValue) ? 0 : parsedValue;
 }

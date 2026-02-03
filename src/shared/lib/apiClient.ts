@@ -160,6 +160,7 @@ export interface PracticeDetailsUpdate {
 export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
 
 export interface PracticeDetails {
+  id?: string;
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
@@ -821,8 +822,8 @@ export async function updateUserDetail(
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
   }
-  const { address, name, email, phone, status, currency, ...rest } = payload;
-  const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency });
+  const { address, name, email, phone, status, currency, event_name, ...rest } = payload;
+  const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
   const response = await apiClient.put(
     `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`,
     { ...rest, ...normalized }
@@ -1402,6 +1403,7 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
   };
 
   return {
+    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']),
     businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
     businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
     consultationFee: (() => {

@@ -50,14 +50,19 @@ const normalizeFields = (fields?: string[]): AddressExperienceField[] => {
 };
 
 const normalizeRequired = (fields: AddressExperienceField[], required?: string[]) => {
-  if (!Array.isArray(required) || required.length === 0) {
-    return ['name', 'email'] as AddressExperienceField[];
-  }
-  const uniqueRequired = [...new Set(required)];
+  const uniqueRequired = Array.isArray(required) ? [...new Set(required)] : [];
   const filtered = uniqueRequired.filter((field): field is AddressExperienceField =>
     fields.includes(field as AddressExperienceField)
   );
-  return filtered.length > 0 ? filtered : (['name', 'email'] as AddressExperienceField[]);
+  
+  if (filtered.length > 0) {
+    return filtered;
+  }
+
+  const safeDefault = fields.filter(f => (['name', 'email'] as string[]).includes(f));
+  return safeDefault.length > 0 
+    ? safeDefault 
+    : fields.slice(0, Math.min(2, fields.length));
 };
 
 export function ContactForm({
@@ -79,6 +84,19 @@ export function ContactForm({
     [normalizedFields, required]
   );
 
+  const handleAddressSubmit = async (data: AddressExperienceData) => {
+    // Transform AddressExperienceData to ContactData
+    const contact: ContactData = {
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      address: data.address,
+      opposingParty: data.opposingParty,
+      description: data.description,
+    };
+    await onSubmit(contact);
+  };
+
   const labels = {
     name: t('forms.labels.name'),
     email: t('forms.labels.email'),
@@ -99,7 +117,7 @@ export function ContactForm({
 
   return (
     <AddressExperienceForm
-      onSubmit={onSubmit as (data: AddressExperienceData) => void | Promise<void>}
+      onSubmit={handleAddressSubmit}
       fields={normalizedFields}
       required={normalizedRequired}
       message={message}

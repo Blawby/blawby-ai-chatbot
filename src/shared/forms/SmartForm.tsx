@@ -1,7 +1,7 @@
 import { Form, FormField, FormItem } from '@/shared/ui/form';
 import { cn } from '@/shared/utils/cn';
 import { getFieldEntry, applyFieldAdapter, reverseFieldAdapter } from './fieldRegistry';
-import { useMemo } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import type { z } from 'zod';
 import type { FormData } from '@/shared/ui/form/Form';
@@ -115,8 +115,8 @@ export function SmartForm<T extends z.ZodType>({
     className
   );
 
-  const { initialValues } = config;
-  const stableInitialData = useMemo(() => initialValues(), [initialValues]);
+  // Compute initial data only once to avoid re-computation when config is recreated
+  const [stableInitialData] = useState(() => config.initialValues());
 
   return (
     <Form

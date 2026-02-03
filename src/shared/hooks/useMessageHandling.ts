@@ -91,8 +91,8 @@ function validateAddressObject(addressValue: unknown): Address | null {
   
   // Validate optional apartment field
   if (address.apartment !== undefined) {
-    if (typeof address.apartment !== 'string' || address.apartment.trim().length === 0) {
-      return null; // Invalid apartment field
+    if (typeof address.apartment !== 'string') {
+      return null; // Invalid apartment field type
     }
   }
   

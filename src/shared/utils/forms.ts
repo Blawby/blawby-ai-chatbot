@@ -30,22 +30,30 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
   let addressPayload: any = undefined;
   
   if (address) {
-    // Check if required address fields are present and non-empty
+    const trimmedAddress = {
+      address: address.address?.trim(),
+      apartment: address.apartment?.trim(),
+      city: address.city?.trim(),
+      state: address.state?.trim(),
+      postalCode: address.postalCode?.trim(),
+      country: address.country?.trim()
+    };
+
     const hasRequiredFields = [
-      address.address?.trim(),
-      address.city?.trim(),
-      address.country?.trim(),
-      address.postalCode?.trim()
+      trimmedAddress.address,
+      trimmedAddress.city,
+      trimmedAddress.country,
+      trimmedAddress.postalCode
     ].every(field => field && field.length > 0);
     
     if (hasRequiredFields) {
       addressPayload = {
-        line1: address.address,
-        line2: address.apartment,
-        city: address.city,
-        state: address.state,
-        postal_code: address.postalCode,
-        country: address.country
+        line1: trimmedAddress.address,
+        line2: trimmedAddress.apartment,
+        city: trimmedAddress.city,
+        state: trimmedAddress.state,
+        postal_code: trimmedAddress.postalCode,
+        country: trimmedAddress.country
       };
     }
   }

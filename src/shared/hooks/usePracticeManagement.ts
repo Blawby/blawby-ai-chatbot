@@ -989,7 +989,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
       setInvitations([]);
     }
-  }, [currentPractice?.id, isAnonymous, session]);
+  }, [isAnonymous, session]);
 
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {
