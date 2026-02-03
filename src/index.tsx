@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
+import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
@@ -204,6 +205,7 @@ function AppShell() {
       <LocationProvider.ctx.Provider value={routerLocation}>
         <Router onRouteChange={handleRouteChange}>
           <Route path="/auth" component={AuthPage} />
+          <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
           <Route path="/cart" component={CartPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />

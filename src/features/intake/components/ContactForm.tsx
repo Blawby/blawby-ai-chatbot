@@ -135,7 +135,6 @@ export function ContactForm({
       addressOptions={{
         country: currentPractice?.country || undefined,
         showCountry: !currentPractice?.country,
-        validationLevel: 'loose',
         enableAutocomplete: true,
       }}
     />
