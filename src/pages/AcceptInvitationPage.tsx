@@ -117,12 +117,13 @@ export const AcceptInvitationPage = () => {
     }
   }, [invitationId]);
 
+  const inviteStateId = inviteState.status === 'ready' ? inviteState.invitationId : null;
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (inviteState.status === 'ready' && inviteState.invitationId === invitationId) return;
+    if (inviteState.status === 'ready' && inviteStateId === invitationId) return;
     if (inviteState.status === 'loading') return;
     void fetchInvitation();
-  }, [fetchInvitation, inviteState.invitationId, inviteState.status, invitationId, isAuthenticated]);
+  }, [fetchInvitation, inviteState.status, inviteStateId, invitationId, isAuthenticated]);
 
   const handleSignIn = useCallback(() => {
     const redirect = encodeURIComponent(redirectTarget);

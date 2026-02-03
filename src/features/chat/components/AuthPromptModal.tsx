@@ -9,17 +9,13 @@ interface AuthPromptModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   practiceName?: string | null;
-  conversationId?: string | null;
-  practiceId?: string | null;
 }
 
 const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  practiceName,
-  conversationId,
-  practiceId
+  practiceName
 }) => {
   const { t } = useTranslation('auth');
   const [currentMode, setCurrentMode] = useState<'signin' | 'signup'>('signup');
@@ -58,8 +54,6 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
             }
             onClose();
           }}
-          conversationContext={{ conversationId: conversationId ?? undefined, practiceId: practiceId ?? undefined }}
-          inviteRole="member"
           showHeader={false}
         />
 
