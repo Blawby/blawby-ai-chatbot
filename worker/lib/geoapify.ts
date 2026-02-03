@@ -94,7 +94,7 @@ export async function callGeoapifyAutocompleteMultiPass(
   
   // Helper to rank suggestions
   const rankSuggestions = (suggestions: AddressSuggestion[]) => {
-    const typeOrder = {
+    const typeOrder: Record<string, number> = {
       'building': 1,
       'amenity': 2, 
       'street': 3,
@@ -114,7 +114,7 @@ export async function callGeoapifyAutocompleteMultiPass(
       if (typeDiff !== 0) return typeDiff;
       
       // Secondary: match type order
-      const matchOrder = {
+      const matchOrder: Record<string, number> = {
         'full_match': 1,
         'match_by_building': 2,
         'match_by_street': 3,
@@ -319,7 +319,10 @@ export async function callGeoapifyAutocomplete(
     }
     
     if (!data.features || !Array.isArray(data.features)) {
-      console.error('[Geoapify] Invalid response format:', data);
+      console.error('[Geoapify] Invalid response format');
+      if (env?.DEBUG_GEO === '1') {
+        console.error('[Geoapify] Full response:', data);
+      }
       return { code: 'UPSTREAM_ERROR' };
     }
     
