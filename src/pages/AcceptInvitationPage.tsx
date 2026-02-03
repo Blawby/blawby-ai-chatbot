@@ -23,7 +23,7 @@ type InvitationDetails = {
 type InviteFetchState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'ready'; invitation: InvitationDetails }
+  | { status: 'ready'; invitation: InvitationDetails; invitationId: string }
   | { status: 'error'; message: string };
 
 const LoadingScreen = ({ message = 'Loading…' }: { message?: string }) => (
@@ -110,7 +110,7 @@ export const AcceptInvitationPage = () => {
         return;
       }
 
-      setInviteState({ status: 'ready', invitation });
+      setInviteState({ status: 'ready', invitation, invitationId });
     } catch (error) {
       console.error('[AcceptInvitation] Failed to fetch invitation', error);
       setInviteState({ status: 'error', message: 'Unable to load invitation. Please try again.' });
@@ -119,10 +119,10 @@ export const AcceptInvitationPage = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (inviteState.status === 'ready') return;
+    if (inviteState.status === 'ready' && inviteState.invitationId === invitationId) return;
     if (inviteState.status === 'loading') return;
     void fetchInvitation();
-  }, [fetchInvitation, inviteState.status, isAuthenticated]);
+  }, [fetchInvitation, inviteState.invitationId, inviteState.status, invitationId, isAuthenticated]);
 
   const handleSignIn = useCallback(() => {
     const redirect = encodeURIComponent(redirectTarget);
@@ -243,8 +243,8 @@ export const AcceptInvitationPage = () => {
 
   const { invitation } = inviteState;
   const roleLabel = Array.isArray(invitation.role)
-    ? invitation.role.join(', ')
-    : invitation.role || 'member';
+    ? (invitation.role.length > 0 ? invitation.role.join(', ') : 'client')
+    : invitation.role || 'client';
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
