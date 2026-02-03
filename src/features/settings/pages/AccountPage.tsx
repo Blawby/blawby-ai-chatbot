@@ -780,7 +780,7 @@ export const AccountPage = ({
                     onClick={() => void refreshSubscription()}
                     disabled={subscriptionLoading}
                   >
-                    Retry
+                    {t('settings:account.retry')}
                   </Button>
                 )}
               </div>

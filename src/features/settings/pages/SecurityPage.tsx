@@ -357,10 +357,9 @@ export const SecurityPage = ({
             />
           </SettingSection>
 
+          <SectionDivider />
           {showMfa && (
             <>
-              <SectionDivider />
-
               {/* Multi-factor authentication Section */}
               <SettingToggle
                 label={t('settings:security.mfa.title')}
