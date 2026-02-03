@@ -24,6 +24,7 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
+import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import type { AccountPreferences } from '@/shared/types/preferences';
 import { FormLabel } from '@/shared/ui/form';
 
@@ -51,6 +52,9 @@ export const AccountPage = ({
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [domainInput, setDomainInput] = useState('');
@@ -150,9 +154,45 @@ export const AccountPage = ({
   const isOwner = activeMemberRole === 'owner';
   const canManageBilling = isOwner;
 
-  // Subscription deletion guard for personal account deletion (compute after isOwner)
-  const subStatus = (currentPractice?.subscriptionStatus ?? 'none').toLowerCase();
-  const deletionBlockedBySubscription = !(subStatus === 'canceled' || subStatus === 'none');
+  const resolveSubscriptionEnd = (value: string | null | undefined): Date | null => {
+    if (!value) return null;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return new Date(numeric * 1000);
+    }
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  const subscriptionStatus = (currentSubscription?.status ?? '').toLowerCase();
+  const subscriptionEnd = resolveSubscriptionEnd(currentSubscription?.currentPeriodEnd);
+  const hasActiveSubscription = Boolean(
+    currentSubscription?.id &&
+    subscriptionStatus &&
+    subscriptionStatus !== 'canceled'
+  );
+  const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
+  const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
+  const deletionBlockedBySubscriptionCheck = isOwner && Boolean(subscriptionError);
+  const isDeleteBlocked = deletionBlockedBySubscription || deletionBlockedBySubscriptionCheck;
+  const deletionBlockedMessage = (() => {
+    if (subscriptionLoading) {
+      return 'Checking subscription status...';
+    }
+    if (deletionBlockedBySubscriptionCheck) {
+      return 'Unable to verify your subscription status. Please try again.';
+    }
+    if (!deletionBlockedBySubscription) {
+      return '';
+    }
+    if (currentSubscription?.cancelAtPeriodEnd && subscriptionEnd) {
+      return `Subscription will end on ${formatDate(subscriptionEnd)}. You can delete your account after it ends.`;
+    }
+    if (subscriptionEnd) {
+      return `Subscription is active until ${formatDate(subscriptionEnd)}. Cancel it before deleting your account.`;
+    }
+    return 'Subscription must be canceled before deleting your account.';
+  })();
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -180,6 +220,36 @@ export const AccountPage = ({
         });
     }
   }, [currentPractice?.id, refetch, showSuccess]);
+
+  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
+    setSubscriptionLoading(true);
+    setSubscriptionError(null);
+
+    try {
+      const subscription = await getCurrentSubscription({ signal });
+      setCurrentSubscription(subscription);
+    } catch (fetchError) {
+      console.warn('[Account] Failed to load current subscription', fetchError);
+      setSubscriptionError('Unable to verify subscription status.');
+      setCurrentSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setCurrentSubscription(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    void refreshSubscription(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [refreshSubscription, session?.user]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
@@ -216,6 +286,20 @@ export const AccountPage = ({
   
 
   const handleDeleteAccount = () => {
+    if (subscriptionLoading) {
+      showError('Checking subscription', 'Please wait while we verify your subscription status.');
+      return;
+    }
+    if (isDeleteBlocked) {
+      const endLabel = subscriptionEnd ? `Access ends on ${formatDate(subscriptionEnd)}.` : undefined;
+      const message = deletionBlockedBySubscriptionCheck
+        ? 'We could not verify your subscription status. Please try again.'
+        : (currentSubscription?.cancelAtPeriodEnd
+          ? `Your subscription is scheduled to cancel. ${endLabel ?? ''} You can delete your account after it ends.`
+          : `Your subscription is still active. ${endLabel ?? ''} Please cancel it before deleting your account.`);
+      showError('Account deletion unavailable', message.trim());
+      return;
+    }
     setShowDeleteConfirm(true);
     setDeleteVerificationSent(false);
     setPasswordRequiredOverride(null);
@@ -675,19 +759,31 @@ export const AccountPage = ({
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
           >
-            {deletionBlockedBySubscription ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => currentPractice && openBillingPortal({
-                  practiceId: currentPractice.id,
-                  returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
-                })}
-                disabled={!currentPractice}
-                data-testid="account-delete-action"
-              >
-                {t('settings:account.plan.manage')}
-              </Button>
+            {isDeleteBlocked ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => currentPractice && openBillingPortal({
+                    practiceId: currentPractice.id,
+                    returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                  })}
+                  disabled={!currentPractice || !isOwner || !canManageBilling}
+                  data-testid="account-delete-action"
+                >
+                  {t('settings:account.plan.manage')}
+                </Button>
+                {deletionBlockedBySubscriptionCheck && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void refreshSubscription()}
+                    disabled={subscriptionLoading}
+                  >
+                    Retry
+                  </Button>
+                )}
+              </div>
             ) : (
               <Button
                 variant="primary"
@@ -700,6 +796,11 @@ export const AccountPage = ({
               </Button>
             )}
           </SettingRow>
+          {isDeleteBlocked && deletionBlockedMessage && (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {deletionBlockedMessage}
+            </div>
+          )}
 
           <SectionDivider />
 
