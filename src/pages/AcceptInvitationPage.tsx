@@ -133,7 +133,6 @@ export const AcceptInvitationPage = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (!invitationId) return;
-    if (inviteState.status === 'error') return;
     if (inviteState.status === 'ready' && inviteStateId === invitationId) return;
     if (inviteState.status === 'error' && inviteStateId === invitationId) return;
     if (inviteState.status === 'loading') return;
