@@ -329,12 +329,16 @@ test.describe('Intake invite flow', () => {
         const cityField = contactForm.getByLabel('City');
         const stateField = contactForm.getByLabel(/state/i);
         const postalField = contactForm.getByLabel('Postal Code');
-        const countryField = contactForm.getByLabel('Country');
-        
+
         await cityField.fill('San Francisco');
         await stateField.fill('CA');
         await postalField.fill('94102');
-        await countryField.fill('US');
+        
+        // Use custom Select pattern for Country
+        const countryButton = contactForm.getByRole('button', { name: /country/i });
+        await countryButton.click();
+        const countryOption = contactForm.getByRole('option', { name: 'United States' });
+        await countryOption.click();
       }
     }
 

@@ -134,19 +134,52 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
   const response = await fetch(targetUrl.toString(), init);
 
   if (!response.ok) {
-    let responseSnippet: string | undefined;
-    try {
-      responseSnippet = await response.clone().text();
-    } catch (error) {
-      responseSnippet = error instanceof Error ? error.message : String(error);
+    let responseSnippet = 'response body withheld';
+    const contentType = response.headers.get('Content-Type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        const json = await response.clone().json() as any;
+        const safeData: Record<string, any> = {};
+        
+        // Allowlist safe fields
+        const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
+        
+        // Helper to extract safe fields from error object or root
+        const extractSafe = (source: any) => {
+          if (!source || typeof source !== 'object') return;
+          for (const key of allowlist) {
+            if (source[key] !== undefined) {
+              if (typeof source[key] === 'object' && key === 'error') {
+                extractSafe(source[key]);
+              } else {
+                safeData[key] = source[key];
+              }
+            }
+          }
+        };
+        
+        extractSafe(json);
+        
+        // Ensure sensitive fields are never included even if they were in allowlist somehow
+        const blacklist = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
+        for (const key of blacklist) {
+          delete safeData[key];
+        }
+        
+        responseSnippet = JSON.stringify(safeData);
+      } catch {
+        // Fallback to "withheld" if parsing fails
+      }
     }
+
     console.error(`[Auth Proxy Error] ${method} ${url.pathname}`, {
       status: response.status,
       statusText: response.statusText,
       hasRequestBody: Boolean(init.body),
-      contentType: headers.get('Content-Type'),
+      contentType,
       hasAuthorization: Boolean(headers.get('Authorization')),
-      responseSnippet: responseSnippet ? responseSnippet.slice(0, 500) : undefined
+      responseSnippet: responseSnippet.slice(0, 500)
     });
   }
 
@@ -210,19 +243,46 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
 
   // Log errors for debugging
   if (!response.ok) {
-    let responseSnippet: string | undefined;
-    try {
-      responseSnippet = await response.clone().text();
-    } catch (error) {
-      responseSnippet = error instanceof Error ? error.message : String(error);
+    let responseSnippet = 'response body withheld';
+    const contentType = response.headers.get('Content-Type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        const json = await response.clone().json() as any;
+        const safeData: Record<string, any> = {};
+        const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
+        
+        const extractSafe = (source: any) => {
+          if (!source || typeof source !== 'object') return;
+          for (const key of allowlist) {
+            if (source[key] !== undefined) {
+              if (typeof source[key] === 'object' && key === 'error') {
+                extractSafe(source[key]);
+              } else {
+                safeData[key] = source[key];
+              }
+            }
+          }
+        };
+        
+        extractSafe(json);
+        const blacklist = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
+        for (const key of blacklist) {
+          delete safeData[key];
+        }
+        responseSnippet = JSON.stringify(safeData);
+      } catch {
+        // ignore parsing failures
+      }
     }
+
     console.error(`[Backend Proxy Error] ${method} ${url.pathname}`, {
       status: response.status,
       statusText: response.statusText,
       hasRequestBody: Boolean(init.body),
-      contentType: headers.get('Content-Type'),
+      contentType,
       hasAuthorization: Boolean(headers.get('Authorization')),
-      responseSnippet: responseSnippet ? responseSnippet.slice(0, 500) : undefined
+      responseSnippet: responseSnippet.slice(0, 500)
     });
   }
   

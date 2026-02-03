@@ -12,9 +12,9 @@ import type { Address } from '../../../types/ui';
 
 interface AutocompleteQuery {
   text: string;
-  limit?: string;
-  lang?: string;
-  country?: string;
+  limit: string | null;
+  lang: string | null;
+  country: string | null;
 }
 
 /**
@@ -38,7 +38,7 @@ export async function handleAutocomplete(request: Request, env: Env) {
       text: url.searchParams.get('text') || '',
       limit: url.searchParams.get('limit') || '5',
       lang: url.searchParams.get('lang') || 'en',
-      country: url.searchParams.get('country') || undefined,
+      country: url.searchParams.get('country') || null,
     };
 
     // Get Cloudflare geolocation context
@@ -142,9 +142,9 @@ export async function handleAutocomplete(request: Request, env: Env) {
     // Call Geoapify API with multi-pass fallback
     const result = await callGeoapifyAutocompleteMultiPass({
       text: query.text,
-      limit: parseInt(query.limit, 10),
-      lang: query.lang,
-      country: query.country,
+      limit: query.limit ? parseInt(query.limit, 10) : 5,
+      lang: query.lang || 'en',
+      country: query.country || null,
       apiKey: env.GEOAPIFY_API_KEY,
       bias: shouldApplyBias && cfGeo.latitude != null && cfGeo.longitude != null ? {
         lat: cfGeo.latitude,

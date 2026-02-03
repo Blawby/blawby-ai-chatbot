@@ -240,7 +240,7 @@ export const AddressExperienceForm = ({
     phone: normalizedInitialValues.phone ?? '',
     status: normalizedInitialValues.status ?? '',
     currency: normalizedInitialValues.currency ?? '',
-    address: normalizedInitialValues.address || null,
+    address: normalizedInitialValues.address,
     opposingParty: normalizedInitialValues.opposingParty ?? '',
     description: normalizedInitialValues.description ?? '',
   };
@@ -358,7 +358,7 @@ export const AddressExperienceForm = ({
                           const merged = incoming ? {
                             ...currentAddress,
                             ...incoming,
-                            apartment: incoming.apartment || currentAddress.apartment,
+                            apartment: incoming.apartment ?? currentAddress.apartment,
                           } : incoming;
                           handleChange(merged);
                         }}
