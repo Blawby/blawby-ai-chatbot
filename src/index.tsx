@@ -245,7 +245,10 @@ function SettingsRoute() {
   useEffect(() => {
     if (!isClientWorkspace) return;
     if (practicesLoading) return;
-    if (!resolvedSlug) return;
+    if (!resolvedSlug) {
+      navigate('/auth', true);
+      return;
+    }
     navigate(`/embed/${encodeURIComponent(resolvedSlug)}`, true);
   }, [isClientWorkspace, navigate, practicesLoading, resolvedSlug]);
 
@@ -254,8 +257,15 @@ function SettingsRoute() {
       return <LoadingScreen />;
     }
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-        Settings are available in your client portal.
+      <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+        <div>Settings are available in your client portal.</div>
+        <button
+          type="button"
+          className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-accent-600"
+          onClick={() => navigate('/auth', true)}
+        >
+          Go to sign in
+        </button>
       </div>
     );
   }
