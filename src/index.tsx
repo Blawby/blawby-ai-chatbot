@@ -18,11 +18,11 @@ import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { getSettingsReturnPath, getWorkspaceDashboardPath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import ClientHomePage from '@/pages/ClientHomePage';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { AppGuard } from '@/app/AppGuard';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -212,6 +212,8 @@ function AppShell() {
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
           <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
           <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
+          <Route path="/embed/:practiceSlug/matters" component={PublicPracticeRoute} embedView="matters" />
+          <Route path="/embed/:practiceSlug/profile" component={PublicPracticeRoute} embedView="profile" />
           <Route path="/practice" component={PracticeBaseRoute} />
           <Route path="/practice/home" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" />
           <Route path="/practice/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
@@ -228,13 +230,6 @@ function AppShell() {
           <Route path="/practice/leads/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" />
           <Route path="/practice/matters" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
           <Route path="/practice/matters/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
-          <Route path="/client" component={ClientBaseRoute} />
-          <Route path="/client/conversations" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
-          <Route path="/client/conversations/:conversationId" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
-          <Route path="/client/payments" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
-          <Route path="/client/payments/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
-          <Route path="/client/matters" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
-          <Route path="/client/matters/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
           <Route default component={RootRoute} />
         </Router>
       </LocationProvider.ctx.Provider>
@@ -283,13 +278,6 @@ function PracticeBaseRoute() {
   return <LoadingScreen />;
 }
 
-function ClientBaseRoute() {
-  const { navigate } = useNavigation();
-  useEffect(() => {
-    navigate('/client/conversations', true);
-  }, [navigate]);
-  return <LoadingScreen />;
-}
 
 function RootRoute() {
   const { session, isPending, activeOrganizationId } = useSessionContext();
@@ -541,12 +529,12 @@ function PracticeAppRoute({
   }
 
   if (!hasPracticeCandidate) {
-    return <ClientHomePage />;
+    return <LoadingScreen />;
   }
 
   if (!practiceId) {
     if (practiceNotFound || autoActivationState === 'failed') {
-      return <ClientHomePage />;
+      return <LoadingScreen />;
     }
     return <LoadingScreen />;
   }
@@ -573,10 +561,11 @@ function PublicPracticeRoute({
 }: {
   practiceSlug?: string;
   conversationId?: string;
-  embedView?: 'home' | 'list' | 'conversation';
+  embedView?: 'home' | 'list' | 'conversation' | 'matters' | 'profile';
 }) {
   const location = useLocation();
-  const { session, isPending: sessionIsPending } = useSessionContext();
+  const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
+  const { navigate } = useNavigation();
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
@@ -691,6 +680,17 @@ function PublicPracticeRoute({
   }
 
   if (!resolvedPracticeId) {
+    return <LoadingScreen />;
+  }
+
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
+  if (isAuthenticatedClient && embedView === 'home' && slug) {
+    navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
+    return <LoadingScreen />;
+  }
+  if (!isAuthenticatedClient && (embedView === 'matters' || embedView === 'profile') && slug) {
+    navigate(`/embed/${encodeURIComponent(slug)}`, true);
     return <LoadingScreen />;
   }
 

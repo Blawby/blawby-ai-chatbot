@@ -93,7 +93,7 @@ export function MainApp({
   activeRoute: RouteKey;
   routeConversationId?: string;
   publicPracticeSlug?: string;
-  publicEmbedView?: 'home' | 'list' | 'conversation';
+  publicEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'profile';
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -301,6 +301,12 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
+  const isAuthenticatedClient = Boolean(
+    workspace === 'public' &&
+    session?.user &&
+    !session.user.isAnonymous &&
+    normalizePracticeRole(activeMemberRole) === 'client'
+  );
   const conversationCacheKey = useMemo(() => {
     if (isPublicWorkspace) {
       return null;
@@ -1106,6 +1112,7 @@ export function MainApp({
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
+      showClientTabs={isAuthenticatedClient}
       onStartNewConversation={handleStartNewConversation}
       chatView={chatPanel}
     />
