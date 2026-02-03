@@ -15,7 +15,6 @@ export interface AddressInputProps {
   description?: string;
   label?: string;
   placeholder?: string;
-  validationLevel?: 'loose' | 'strict';
   showCountry?: boolean;
   countryOptions?: Array<{ value: string; label: string }>;
   minChars?: number;
@@ -47,7 +46,6 @@ export const AddressInput = ({
   description,
   label,
   placeholder,
-  validationLevel: _validationLevel = 'loose',
   showCountry = true,
   countryOptions,
   minChars = 3,

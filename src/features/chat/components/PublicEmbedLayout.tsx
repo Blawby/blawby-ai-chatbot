@@ -53,6 +53,13 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   ), [practiceSlug]);
   const conversationsPath = `${embedBasePath}/conversations`;
 
+  // Redirect if unauthorized to view matters or profile
+  useEffect(() => {
+    if (!showClientTabs && (view === 'matters' || view === 'profile')) {
+      navigate(embedBasePath, true);
+    }
+  }, [showClientTabs, view, embedBasePath, navigate]);
+
   const {
     conversations: publicConversations,
     isLoading: isPublicConversationsLoading,
@@ -259,7 +266,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
     }
   };
 
-  const showBottomNav = showClientTabs || view === 'home' || view === 'list';
+  const showBottomNav = showClientTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'profile';
   const activeTab = view === 'list' || view === 'conversation'
     ? 'messages'
     : view;

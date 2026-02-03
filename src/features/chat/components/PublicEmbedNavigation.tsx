@@ -54,7 +54,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
             aria-current={activeTab === 'matters' ? 'page' : undefined}
           >
             <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />
-            <span>Matters</span>
+            <span>{t('embed.navigation.matters')}</span>
           </button>
         )}
         {showClientTabs && (
@@ -65,7 +65,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
             aria-current={activeTab === 'profile' ? 'page' : undefined}
           >
             <UserCircleIcon className="h-5 w-5" aria-hidden="true" />
-            <span>Profile</span>
+            <span>{t('embed.navigation.profile')}</span>
           </button>
         )}
       </div>

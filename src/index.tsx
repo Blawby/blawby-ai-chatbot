@@ -683,6 +683,10 @@ function PublicPracticeRoute({
     return <LoadingScreen />;
   }
 
+  if (sessionIsPending) {
+    return <LoadingScreen />;
+  }
+
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
   if (isAuthenticatedClient && embedView === 'home' && slug) {
