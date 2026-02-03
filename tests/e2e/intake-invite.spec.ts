@@ -303,7 +303,7 @@ test.describe('Intake invite flow', () => {
       await expect(autocompleteDropdown).toBeVisible({ timeout: 3000 });
       
       // Check if suggestions are loaded
-      const suggestions = anonPage.locator('[role="option"]');
+      const suggestions = autocompleteDropdown.locator('[role="option"]');
       const suggestionCount = await suggestions.count();
       
       // If suggestions are available, select one; otherwise continue with manual input
@@ -324,22 +324,31 @@ test.describe('Intake invite flow', () => {
       const toggleButton = anonPage.getByText(/show structured fields/i);
       if (await toggleButton.isVisible()) {
         await toggleButton.click();
-        
-        // Fill structured address fields manually
-        const cityField = contactForm.getByLabel('City');
-        const stateField = contactForm.getByLabel(/state/i);
-        const postalField = contactForm.getByLabel('Postal Code');
-
-        await cityField.fill('San Francisco');
-        await stateField.fill('CA');
-        await postalField.fill('94102');
-        
-        // Use custom Select pattern for Country
-        const countryButton = contactForm.getByRole('button', { name: /country/i });
-        await countryButton.click();
-        const countryOption = contactForm.getByRole('option', { name: 'United States' });
-        await countryOption.click();
       }
+      
+      // Fill structured address fields manually
+      const cityField = contactForm.getByLabel('City');
+      const stateField = contactForm.getByLabel(/state/i);
+      const postalField = contactForm.getByLabel('Postal Code');
+
+      // Wait for fields to be visible before filling
+      await expect(cityField).toBeVisible();
+      await cityField.fill('San Francisco');
+      
+      await expect(stateField).toBeVisible();
+      await stateField.fill('CA');
+      
+      await expect(postalField).toBeVisible();
+      await postalField.fill('94102');
+      
+      // Use custom Select pattern for Country
+      const countryButton = contactForm.getByRole('button', { name: /country/i });
+      await expect(countryButton).toBeVisible();
+      await countryButton.click();
+      
+      const countryOption = contactForm.getByRole('option', { name: 'USA' });
+      await expect(countryOption).toBeVisible();
+      await countryOption.click();
     }
 
     await contactForm.getByRole('button', { name: /submit contact information/i }).click();

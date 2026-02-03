@@ -740,19 +740,22 @@ const normalizeOptionalText = (value: unknown): string | undefined => {
 const normalizeUserDetailAddress = (address?: Partial<Address>): Record<string, unknown> | undefined => {
   if (!address) return undefined;
   const normalized: Record<string, unknown> = {};
+  
   const line1 = normalizeOptionalText(address.address);
-  if (line1 === undefined) {
-    return undefined;
-  }
   if (line1 !== undefined) normalized.line1 = line1;
+  
   const line2 = normalizeOptionalText(address.apartment);
   if (line2 !== undefined) normalized.line2 = line2;
+  
   const city = normalizeOptionalText(address.city);
   if (city !== undefined) normalized.city = city;
+  
   const state = normalizeOptionalText(address.state);
   if (state !== undefined) normalized.state = state;
+  
   const postalCode = normalizeOptionalText(address.postalCode);
   if (postalCode !== undefined) normalized.postal_code = postalCode;
+  
   const country = normalizeOptionalText(address.country);
   if (country !== undefined) normalized.country = country.toUpperCase();
 
@@ -785,14 +788,16 @@ export async function createUserDetail(
     throw new Error('practiceId is required');
   }
 
-  if (!payload.name || !payload.email) {
+  const normalizedEmail = payload.email?.trim() || '';
+  const normalizedName = payload.name?.trim() || '';
+
+  if (!normalizedName || !normalizedEmail) {
     throw new Error('Name and email are required');
   }
 
   // Use Better Auth organization invitation instead of direct user-details creation.
   const { getClient } = await import('@/shared/lib/authClient');
   const authClient = getClient();
-  const normalizedEmail = payload.email.trim();
 
   try {
     if (import.meta.env.DEV) {

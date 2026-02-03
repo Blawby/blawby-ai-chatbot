@@ -7,5 +7,5 @@ export interface AutocompleteResponse {
 }
 
 export interface AutocompleteError {
-  code: 'AUTOCOMPLETE_DISABLED' | 'UPSTREAM_ERROR' | 'INVALID_REQUEST' | 'RATE_LIMITED' | 'SERVICE_UNAVAILABLE';
+  code: 'AUTOCOMPLETE_DISABLED' | 'UPSTREAM_ERROR' | 'INVALID_REQUEST' | 'RATE_LIMITED' | 'SERVICE_UNAVAILABLE' | 'MISSING_CLIENT_IP';
 }

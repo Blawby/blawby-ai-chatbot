@@ -38,7 +38,7 @@ export async function handleAutocomplete(request: Request, env: Env) {
       text: url.searchParams.get('text') || '',
       limit: url.searchParams.get('limit') || '5',
       lang: url.searchParams.get('lang') || 'en',
-      country: url.searchParams.get('country') || null,
+      country: url.searchParams.get('country')?.trim() || null,
     };
 
     // Get Cloudflare geolocation context
@@ -129,7 +129,10 @@ export async function handleAutocomplete(request: Request, env: Env) {
     // Get client IP for rate limiting
     const clientIp = request.headers.get('CF-Connecting-IP');
     if (!clientIp) {
-      return new Response(JSON.stringify({ error: 'Missing client IP', errorCode: 'MISSING_CLIENT_IP' }), {
+      const error: AutocompleteError = { 
+        code: 'MISSING_CLIENT_IP', 
+      };
+      return new Response(JSON.stringify(error), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });

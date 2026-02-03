@@ -83,7 +83,7 @@ function validateField(
   
   // Field-specific validation
   switch (field) {
-    case 'country':
+    case 'country': {
       // Strict validation requires exact 2-letter country codes
       const normalizedCountry = trimmedValue.toUpperCase();
       if (level === 'strict' && !ISO2_COUNTRY_REGEX.test(normalizedCountry)) {
@@ -106,6 +106,7 @@ function validateField(
         };
       }
       break;
+    }
       
     case 'postalCode':
       // Pass country from address for proper postal code validation

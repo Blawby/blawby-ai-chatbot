@@ -250,6 +250,8 @@ function sanitizeUrlForLogging(url: URL): string {
   if (sanitized.searchParams.has('text')) {
     sanitized.searchParams.set('text', '[REDACTED]');
   }
+  // Remove location bias (contains coordinates)
+  sanitized.searchParams.delete('bias');
   return sanitized.toString();
 }
 
@@ -301,7 +303,9 @@ export async function callGeoapifyAutocomplete(
       const errorText = await response.text();
       const sanitizedUrl = sanitizeUrlForLogging(url);
       console.error('[Geoapify] API error:', response.status, response.statusText);
-      console.error('[Geoapify] Error response:', errorText);
+      if (env?.DEBUG_GEO === '1') {
+        console.error('[Geoapify] Error response:', errorText);
+      }
       console.error('[Geoapify] Request URL:', sanitizedUrl);
       return { code: 'UPSTREAM_ERROR' };
     }
@@ -390,7 +394,8 @@ export function validateAutocompleteRequest(
   
   // Validate country parameter (if provided)
   if (country !== null && typeof country === 'string' && country.trim()) {
-    if (country.length !== 2) {
+    const trimmedCountry = country.trim();
+    if (trimmedCountry.length !== 2) {
       return { valid: false, error: { code: 'INVALID_REQUEST' } };
     }
   }

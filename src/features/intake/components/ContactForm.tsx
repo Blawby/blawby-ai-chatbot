@@ -63,7 +63,7 @@ const normalizeRequired = (fields: AddressExperienceField[], required?: string[]
     return filtered;
   }
 
-  const safeDefault = fields.filter(f => (['name', 'email'] as string[]).includes(f));
+  const safeDefault = fields.filter(f => (['name', 'email', 'phone', 'address'] as string[]).includes(f));
   return safeDefault.length > 0 
     ? safeDefault 
     : fields.slice(0, Math.min(2, fields.length));

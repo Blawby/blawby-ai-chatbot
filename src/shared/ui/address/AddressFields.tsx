@@ -38,20 +38,20 @@ export interface AddressFieldsProps {
 
 // Common country options (ISO-2 codes)
 export const DEFAULT_COUNTRY_OPTIONS: SelectOption[] = [
-  { value: 'US', label: 'United States' },
-  { value: 'CA', label: 'Canada' },
-  { value: 'GB', label: 'United Kingdom' },
-  { value: 'AU', label: 'Australia' },
-  { value: 'DE', label: 'Germany' },
-  { value: 'FR', label: 'France' },
-  { value: 'IT', label: 'Italy' },
-  { value: 'ES', label: 'Spain' },
-  { value: 'JP', label: 'Japan' },
-  { value: 'KR', label: 'South Korea' },
-  { value: 'CN', label: 'China' },
-  { value: 'IN', label: 'India' },
-  { value: 'BR', label: 'Brazil' },
-  { value: 'MX', label: 'Mexico' },
+  { value: 'US', label: 'USA' },
+  { value: 'CA', label: 'CAN' },
+  { value: 'GB', label: 'GBR' },
+  { value: 'AU', label: 'AUS' },
+  { value: 'DE', label: 'DEU' },
+  { value: 'FR', label: 'FRA' },
+  { value: 'IT', label: 'ITA' },
+  { value: 'ES', label: 'ESP' },
+  { value: 'JP', label: 'JPN' },
+  { value: 'KR', label: 'KOR' },
+  { value: 'CN', label: 'CHN' },
+  { value: 'IN', label: 'IND' },
+  { value: 'BR', label: 'BRA' },
+  { value: 'MX', label: 'MEX' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
 const STATE_OPTIONS: SelectOption[] = [
