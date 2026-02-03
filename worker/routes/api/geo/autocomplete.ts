@@ -77,9 +77,23 @@ export async function handleAutocomplete(request: Request, env: Env) {
     }
 
     // Get configuration from environment
-    const minChars = parseInt(env.GEOAPIFY_MIN_CHARS || '3', 10);
-    const dailyLimit = parseInt(env.GEOAPIFY_DAILY_LIMIT || '1000', 10);
-    const rpmPerIp = parseInt(env.GEOAPIFY_RPM_PER_IP || '60', 10);
+    const rawMinChars = parseInt(env.GEOAPIFY_MIN_CHARS || '3', 10);
+    const minChars = Number.isFinite(rawMinChars) ? rawMinChars : 3;
+    
+    const rawDailyLimit = parseInt(env.GEOAPIFY_DAILY_LIMIT || '1000', 10);
+    const dailyLimit = Number.isFinite(rawDailyLimit) ? rawDailyLimit : 1000;
+    
+    const rawRpmPerIp = parseInt(env.GEOAPIFY_RPM_PER_IP || '60', 10);
+    const rpmPerIp = Number.isFinite(rawRpmPerIp) ? rawRpmPerIp : 60;
+
+    // Check if API key is present
+    if (!env.GEOAPIFY_API_KEY) {
+      console.error('[Autocomplete] Geoapify API key is missing');
+      return new Response(JSON.stringify({ error: 'Auto-complete service temporarily unavailable', errorCode: 'SERVICE_UNAVAILABLE' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     if (env.DEBUG_GEO === '1') {
       console.log('[Autocomplete] Debug:', {

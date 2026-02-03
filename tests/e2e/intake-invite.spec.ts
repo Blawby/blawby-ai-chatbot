@@ -287,7 +287,7 @@ test.describe('Intake invite flow', () => {
     await contactForm.getByLabel('Phone Number').fill('4155550123');
 
     // Test address autocomplete functionality
-    const addressInput = contactForm.getByLabel(/address/i);
+    const addressInput = contactForm.getByLabel(/^Address$/i);
     await expect(addressInput).toBeVisible();
     
     // Type to trigger autocomplete

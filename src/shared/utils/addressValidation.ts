@@ -85,7 +85,8 @@ function validateField(
   switch (field) {
     case 'country':
       // Strict validation requires exact 2-letter country codes
-      if (level === 'strict' && !ISO2_COUNTRY_REGEX.test(trimmedValue)) {
+      const normalizedCountry = trimmedValue.toUpperCase();
+      if (level === 'strict' && !ISO2_COUNTRY_REGEX.test(normalizedCountry)) {
         return {
           isValid: false,
           error: {

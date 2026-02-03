@@ -246,6 +246,10 @@ function sanitizeUrlForLogging(url: URL): string {
   sanitized.searchParams.delete('apiKey');
   sanitized.searchParams.delete('key');
   sanitized.searchParams.delete('api_key');
+  // Redact PII in text parameter
+  if (sanitized.searchParams.has('text')) {
+    sanitized.searchParams.set('text', '[REDACTED]');
+  }
   return sanitized.toString();
 }
 
@@ -295,9 +299,10 @@ export async function callGeoapifyAutocomplete(
     
     if (!response.ok) {
       const errorText = await response.text();
+      const sanitizedUrl = sanitizeUrlForLogging(url);
       console.error('[Geoapify] API error:', response.status, response.statusText);
       console.error('[Geoapify] Error response:', errorText);
-      console.error('[Geoapify] Request URL:', sanitizeUrlForLogging(url));
+      console.error('[Geoapify] Request URL:', sanitizedUrl);
       return { code: 'UPSTREAM_ERROR' };
     }
     

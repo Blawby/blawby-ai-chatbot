@@ -1023,9 +1023,13 @@ export async function getPracticeDetailsBySlug(
   if (!slug) {
     throw new Error('practice slug is required');
   }
+  const normalizedSlug = slug.trim();
+  if (!normalizedSlug) {
+    throw new Error('practice slug is required');
+  }
   try {
     const response = await apiClient.get(
-      `/api/practice/details/${encodeURIComponent(slug)}`,
+      `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
       { signal: config?.signal }
     );
     return normalizePracticeDetailsResponse(response.data);
