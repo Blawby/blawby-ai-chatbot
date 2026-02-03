@@ -89,7 +89,8 @@ export async function handleAutocomplete(request: Request, env: Env) {
     // Check if API key is present
     if (!env.GEOAPIFY_API_KEY) {
       console.error('[Autocomplete] Geoapify API key is missing');
-      return new Response(JSON.stringify({ error: 'Auto-complete service temporarily unavailable', errorCode: 'SERVICE_UNAVAILABLE' }), {
+      const error: AutocompleteError = { code: 'SERVICE_UNAVAILABLE' };
+      return new Response(JSON.stringify(error), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
