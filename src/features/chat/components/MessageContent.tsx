@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { ChatText } from './ChatText';
 import ChatMarkdown from './ChatMarkdown';
 
 interface MessageContentProps {
@@ -35,8 +36,8 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
 	}
 
 	return (
-		<div className={`text-sm leading-5 min-h-4 ${className}`}>
-			<ChatMarkdown text={content} isStreaming={isStreaming} variant={variant} size={size} />
+		<div className={`min-h-4 ${className}`}>
+			<ChatText text={content} isStreaming={isStreaming} variant={variant} size={size} />
 		</div>
 	);
 };

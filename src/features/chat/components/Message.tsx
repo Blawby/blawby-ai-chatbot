@@ -13,6 +13,7 @@ import { MessageActions } from './MessageActions';
 import type { ReplyTarget } from '@/features/chat/types';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { chatTypography } from '@/features/chat/styles/chatTypography';
 
 interface MessageProps {
 	content: string;
@@ -246,12 +247,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{showHeader && (
 					<div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-left">
 						{(authorName || messageAvatar?.name) && (
-							<span className="min-w-0 truncate text-sm font-semibold text-gray-100 leading-none">
+							<span className={`min-w-0 truncate leading-none ${chatTypography.headerName}`}>
 								{authorName || messageAvatar?.name}
 							</span>
 						)}
 						{formattedTime && (
-							<span className="flex-shrink-0 text-xs font-normal text-gray-500">
+							<span className={`flex-shrink-0 ${chatTypography.headerTime}`}>
 								{formattedTime}
 							</span>
 						)}
@@ -266,7 +267,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						isUser={isUser}
 						variant={variant}
 						size="sm"
-						className={`${contentClassName} text-gray-600 dark:text-gray-300`}
+						className={contentClassName}
 					/>
 				)}
 				
