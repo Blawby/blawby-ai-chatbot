@@ -32,7 +32,7 @@ export interface AddressExperienceData extends Record<string, unknown> {
   phone?: string;
   status?: string;
   currency?: string;
-  address?: Address;
+  address?: Partial<Address>;
   opposingParty?: string;
   description?: string;
 }
@@ -122,6 +122,17 @@ const normalizeRequiredList = (
 const trimOrUndefined = (value?: string) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const normalizeAddressInitialValue = (value: unknown): Partial<Address> | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    return { address: value } as Partial<Address>;
+  }
+  if (typeof value === 'object') {
+    return value as Partial<Address>;
+  }
+  return undefined;
 };
 
 const normalizeAddressInput = (value: unknown) => {
@@ -228,7 +239,7 @@ export const AddressExperienceForm = ({
     phone: trimOrUndefined(initialValues?.phone),
     status: trimOrUndefined(initialValues?.status),
     currency: trimOrUndefined(initialValues?.currency),
-    address: initialValues?.address,
+    address: normalizeAddressInitialValue(initialValues?.address),
     opposingParty: trimOrUndefined(initialValues?.opposingParty),
     description: trimOrUndefined(initialValues?.description),
   }), [initialValues]);

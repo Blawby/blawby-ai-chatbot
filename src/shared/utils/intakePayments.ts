@@ -59,6 +59,20 @@ export const isValidStripePaymentLink = (url: string): boolean => {
   }
 };
 
+export const isValidStripeCheckoutSessionUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return STRIPE_PAYMENT_HOSTS.some((host) =>
+      host.startsWith('.')
+        ? parsed.hostname.endsWith(host)
+        : parsed.hostname === host
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const buildIntakePaymentUrl = (
   request: IntakePaymentRequest,
   options?: { includeClientSecret?: boolean }

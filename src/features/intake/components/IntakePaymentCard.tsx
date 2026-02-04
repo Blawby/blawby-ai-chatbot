@@ -6,6 +6,7 @@ import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 import {
   buildIntakePaymentUrl,
   isValidStripePaymentLink,
+  isValidStripeCheckoutSessionUrl,
   type IntakePaymentRequest
 } from '@/shared/utils/intakePayments';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -59,7 +60,10 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       return;
     }
     if (hasCheckoutSession && typeof window !== 'undefined' && paymentRequest.checkoutSessionUrl) {
-      window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
+      if (isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl)) {
+        window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
+        return;
+      }
       return;
     }
     if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {

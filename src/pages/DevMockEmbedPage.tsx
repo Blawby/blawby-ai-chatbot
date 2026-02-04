@@ -173,7 +173,7 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
             name: 'Paul Luke',
             email: 'paulluke+paulchrisluke@gmail.com',
             phone: '(615) 444-9999',
-            location: '908 Islander Way, Alexander Beach, WA 98221',
+            address: '908 Islander Way, Alexander Beach, WA 98221',
             opposingParty: 'Alex Beach Properties'
           }
         }
@@ -200,7 +200,7 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
         onContactFormSubmit={async () => {
           setShowIntakeForm(false);
           setShowPaymentRequest(true);
-          setIsPaymentOpen(false);
+          setIsPaymentOpen(true);
         }}
         isPublicWorkspace={true}
         practiceConfig={{

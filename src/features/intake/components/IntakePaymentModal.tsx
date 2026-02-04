@@ -4,7 +4,7 @@ import Modal from '@/shared/components/Modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, type StripeElementsOptionsClientSecret } from '@stripe/stripe-js';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
-import { isValidStripePaymentLink } from '@/shared/utils/intakePayments';
+import { isValidStripePaymentLink, isValidStripeCheckoutSessionUrl } from '@/shared/utils/intakePayments';
 import { IntakePaymentForm } from '@/features/intake/components/IntakePaymentForm';
 import { Button } from '@/shared/ui/Button';
 
@@ -28,7 +28,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   const paymentLinkUrl = paymentRequest?.paymentLinkUrl;
   const checkoutSessionUrl = paymentRequest?.checkoutSessionUrl;
   const isValidPaymentLink = paymentLinkUrl ? isValidStripePaymentLink(paymentLinkUrl) : false;
-  const isValidCheckoutSession = checkoutSessionUrl ? isValidStripePaymentLink(checkoutSessionUrl) : false;
+  const isValidCheckoutSession = checkoutSessionUrl ? isValidStripeCheckoutSessionUrl(checkoutSessionUrl) : false;
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
@@ -78,9 +78,20 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
         </Elements>
       ) : isValidCheckoutSession ? (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
-          <div className="flex h-64 items-center justify-center rounded-xl bg-gray-100 text-sm text-gray-500 dark:bg-dark-card-bg dark:text-gray-300">
-            Embedded Stripe Checkout
-          </div>
+          <p className="mb-4 text-gray-600 dark:text-gray-300">
+            One more step: click below to complete your payment on Stripe's secure checkout page.
+          </p>
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={() => {
+              if (typeof window !== 'undefined' && checkoutSessionUrl) {
+                window.open(checkoutSessionUrl, '_blank', 'noopener');
+              }
+            }}
+          >
+            Complete payment
+          </Button>
         </div>
       ) : isValidPaymentLink ? (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
