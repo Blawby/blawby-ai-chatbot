@@ -129,9 +129,19 @@ const normalizeAddressInitialValue = (value: unknown): Partial<Address> | undefi
   if (typeof value === 'string') {
     return { address: value } as Partial<Address>;
   }
-  if (typeof value === 'object') {
-    return value as Partial<Address>;
+  
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    // Lightweight shape check: verify it has at least one common address property
+    // and that 'address' if present is a string.
+    const hasKnownKey = 'address' in obj || 'city' in obj || 'state' in obj || 'postalCode' in obj || 'country' in obj;
+    const isAddressValid = !('address' in obj) || typeof obj.address === 'string';
+
+    if (hasKnownKey && isAddressValid) {
+      return obj as Partial<Address>;
+    }
   }
+  
   return undefined;
 };
 

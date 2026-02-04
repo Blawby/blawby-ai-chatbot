@@ -10,6 +10,7 @@ import {
   type IntakePaymentRequest
 } from '@/shared/utils/intakePayments';
 import { useNavigation } from '@/shared/utils/navigation';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 
 interface IntakePaymentCardProps {
   paymentRequest: IntakePaymentRequest;
@@ -25,6 +26,7 @@ const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: 
 
 export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ paymentRequest, onOpenPayment }) => {
   const { navigate } = useNavigation();
+  const { showError } = useToastContext();
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const formattedAmount = useMemo(
     () => resolveDisplayAmount(paymentRequest.amount, paymentRequest.currency, locale),
@@ -64,7 +66,9 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
         return;
       }
-      return;
+      console.warn('[IntakePayment] Invalid Stripe checkout session URL:', paymentRequest.checkoutSessionUrl);
+      showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
+      // Fall through to allow fallback to paymentLinkUrl or other handlers
     }
     if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
       return;
