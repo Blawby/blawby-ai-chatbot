@@ -194,6 +194,7 @@ export function getCorsConfig(env: Env): CorsOptions {
     // In production, restrict to specific domains
     const allowedDomains = [
       'https://ai.blawby.com',
+      'https://ai-staging.blawby.com',
       'https://blawby.com',
       'https://www.blawby.com'
     ];
