@@ -306,7 +306,7 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
                   return;
                 }
                 if (tab === 'settings') {
-                  navigate('/settings', true);
+                  navigate('/settings');
                   return;
                 }
                 setView('home');
