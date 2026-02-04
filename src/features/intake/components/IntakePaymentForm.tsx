@@ -5,19 +5,15 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
 import { getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
-import { useNavigation } from '@/shared/utils/navigation';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 
 interface IntakePaymentFormProps {
-  practiceName: string;
   amount?: MinorAmount;
   currency?: string;
   intakeUuid?: string;
   practiceId?: string;
   conversationId?: string;
-  returnTo: string;
   onSuccess?: () => void | Promise<void>;
-  onReturn?: () => void;
 }
 
 const formatIntakeAmount = (amount?: number, currency?: string, locale?: string) => {
@@ -38,23 +34,18 @@ const formatIntakeAmount = (amount?: number, currency?: string, locale?: string)
 };
 
 export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
-  practiceName,
   amount,
   currency,
   intakeUuid,
   practiceId,
   conversationId,
-  returnTo,
-  onSuccess,
-  onReturn
+  onSuccess
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { navigate } = useNavigation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
-  const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [callbackWarning, setCallbackWarning] = useState<string | null>(null);
   const isMountedRef = useRef(true);
@@ -239,7 +230,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const handleSubmit = useCallback(async (event: SubmitEvent) => {
     event.preventDefault();
     setErrorMessage(null);
-    setStatusDetail(null);
     let paymentSucceeded = false;
 
     if (!stripe || !elements) {
@@ -273,9 +263,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
 
       const paymentIntentStatus = result.paymentIntent?.status ?? null;
-      if (paymentIntentStatus) {
-        setStatusDetail(paymentIntentStatus);
-      }
 
       if (paymentIntentStatus === 'requires_action') {
         setPaymentSubmitted(false);
@@ -330,7 +317,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           if (!retryConfirmed) {
             setPaymentSubmitted(false);
             setStatus('failed');
-            setStatusDetail(wsStatus);
             setErrorMessage(
               'Payment was received, but we could not confirm your intake. Please refresh or contact support.'
             );
@@ -339,7 +325,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         }
         setStatus('succeeded');
         paymentSucceeded = true;
-        setStatusDetail(wsStatus);
         await handlePostPaymentSuccess();
         return;
       }
@@ -382,20 +367,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         </div>
       )}
       <div className="rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-white">Consultation fee</div>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {practiceName} requires payment before confirming your intake.
-            </p>
-          </div>
-          {formattedAmount && (
-            <div className="text-lg font-semibold text-gray-900 dark:text-white">{formattedAmount}</div>
-          )}
-        </div>
-        <div className="mt-4">
-          <PaymentElement options={{ layout: 'tabs' }} />
-        </div>
+        <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
       {errorMessage && (
@@ -410,64 +382,16 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         </div>
       )}
 
-      {status === 'succeeded' ? (
-        <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
-          Payment received. You can return to the conversation for next steps.
-        </div>
-      ) : null}
-
-      {status === 'processing' && statusDetail ? (
-        <div className="rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-700 dark:text-blue-200">
-          Payment status: {statusDetail}.
-        </div>
-      ) : null}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-        <Button
-          variant="secondary"
-          type="button"
-          onClick={() => {
-            if (onReturn) {
-              onReturn();
-              return;
-            }
-            if (typeof window !== 'undefined') {
-              const candidate = returnTo || '/';
-              const safe =
-                candidate.startsWith('/') &&
-                !candidate.startsWith('//') &&
-                !candidate.includes('://');
-              if (safe) {
-                navigate(candidate, true);
-                return;
-              }
-              try {
-                const url = new URL(candidate, window.location.origin);
-                if (url.origin === window.location.origin) {
-                  navigate(url.pathname + url.search + url.hash, true);
-                  return;
-                }
-                window.location.href = url.toString();
-                return;
-              } catch {
-                // Fall through to default.
-              }
-              navigate('/', true);
-            }
-          }}
-        >
-          Return to chat
-        </Button>
-        {status !== 'succeeded' && (
+      {status !== 'succeeded' && (
         <Button
           variant="primary"
           type="submit"
           disabled={isSubmitting || paymentSubmitted || !stripe || !elements}
+          className="w-full"
         >
-          {isSubmitting ? 'Processing payment…' : 'Pay now'}
+          {isSubmitting ? 'Processing payment…' : (formattedAmount ? `Pay ${formattedAmount}` : 'Pay now')}
         </Button>
-        )}
-      </div>
+      )}
     </form>
   );
 };

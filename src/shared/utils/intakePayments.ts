@@ -5,6 +5,8 @@ export type IntakePaymentRequest = {
   intakeUuid?: string;
   clientSecret?: string;
   paymentLinkUrl?: string;
+  checkoutSessionUrl?: string;
+  checkoutSessionId?: string;
   amount?: MinorAmount;
   currency?: string;
   practiceName?: string;
@@ -96,6 +98,12 @@ export const buildIntakePaymentUrl = (
 
   const paymentLinkUrl = getQueryValue(request.paymentLinkUrl);
   if (paymentLinkUrl) params.set('payment_link_url', paymentLinkUrl);
+
+  const checkoutSessionUrl = getQueryValue(request.checkoutSessionUrl);
+  if (checkoutSessionUrl) params.set('checkout_session_url', checkoutSessionUrl);
+
+  const checkoutSessionId = getQueryValue(request.checkoutSessionId);
+  if (checkoutSessionId) params.set('checkout_session_id', checkoutSessionId);
 
   const returnTo = sanitizeReturnTo(request.returnTo);
   if (returnTo) params.set('return_to', returnTo);

@@ -23,9 +23,7 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 		detailed: 'px-4 py-3'
 	};
 
-	const userClasses = isUser
-		? 'mr-0 ml-0 text-light-text dark:text-dark-text w-full'
-		: 'mr-0 ml-0 w-full';
+	const userClasses = 'mr-0 ml-0 w-full';
 
 	const mediaOnlyClasses = hasOnlyMedia ? 'p-0 m-0 bg-transparent' : '';
 

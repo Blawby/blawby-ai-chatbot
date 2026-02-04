@@ -26,7 +26,9 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
 }) => {
   const clientSecret = paymentRequest?.clientSecret;
   const paymentLinkUrl = paymentRequest?.paymentLinkUrl;
+  const checkoutSessionUrl = paymentRequest?.checkoutSessionUrl;
   const isValidPaymentLink = paymentLinkUrl ? isValidStripePaymentLink(paymentLinkUrl) : false;
+  const isValidCheckoutSession = checkoutSessionUrl ? isValidStripePaymentLink(checkoutSessionUrl) : false;
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
@@ -50,8 +52,6 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
     return null;
   }
 
-  const returnTo = paymentRequest?.returnTo || '/';
-
   const canUseElements = Boolean(clientSecret && elementsOptions && STRIPE_PUBLIC_KEY && stripePromise);
 
   return (
@@ -68,20 +68,22 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       ) : canUseElements ? (
         <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
-            practiceName={paymentRequest.practiceName || 'The practice'}
             amount={paymentRequest.amount}
             currency={paymentRequest.currency}
             intakeUuid={paymentRequest.intakeUuid}
             practiceId={paymentRequest.practiceId}
             conversationId={paymentRequest.conversationId}
-            returnTo={returnTo}
             onSuccess={onSuccess}
-            onReturn={onClose}
           />
         </Elements>
+      ) : isValidCheckoutSession ? (
+        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+          <div className="flex h-64 items-center justify-center rounded-xl bg-gray-100 text-sm text-gray-500 dark:bg-dark-card-bg dark:text-gray-300">
+            Embedded Stripe Checkout
+          </div>
+        </div>
       ) : isValidPaymentLink ? (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
-          <p className="mb-3">Continue to Stripe to complete your consultation fee.</p>
           <Button
             variant="primary"
             onClick={() => {

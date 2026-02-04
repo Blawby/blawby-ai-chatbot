@@ -51,7 +51,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
 
   return (
     <div className="flex h-full flex-col bg-light-bg dark:bg-dark-bg">
-      <div className="relative flex items-center justify-center border-b border-light-border px-4 py-3 dark:border-dark-border">
+      <div className="relative flex min-h-[56px] items-center justify-center border-b border-light-border px-4 py-3 dark:border-dark-border">
         <button
           type="button"
           onClick={onClose}

@@ -9,6 +9,8 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { ChatMessageUI } from '../../worker/types';
 import type { Conversation } from '@/shared/types/conversation';
 import { useNavigation } from '@/shared/utils/navigation';
+import { IntakePaymentModal } from '@/features/intake/components/IntakePaymentModal';
+import { asMinor } from '@/shared/utils/money';
 
 type MockView = 'home' | 'list' | 'conversation' | 'matters';
 
@@ -109,6 +111,9 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
   const { navigate } = useNavigation();
   const [view, setView] = useState<MockView>('home');
   const [activeConversationId, setActiveConversationId] = useState<string>(mockConversations[0].id);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [showIntakeForm, setShowIntakeForm] = useState(false);
+  const [showPaymentRequest, setShowPaymentRequest] = useState(false);
 
   const recentMessage = useMemo(() => {
     const preview = mockPreviews[mockConversations[0].id];
@@ -126,8 +131,22 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
 
   const handleSelectConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
+    setShowIntakeForm(false);
+    setShowPaymentRequest(false);
     setView('conversation');
   };
+
+  const mockPaymentRequest = useMemo(() => ({
+    intakeUuid: 'mock-intake-001',
+    checkoutSessionUrl: 'https://checkout.stripe.com/pay/cs_test_mock',
+    amount: asMinor(7500),
+    currency: 'usd',
+    practiceName: mockPractice.name,
+    practiceLogo: mockPractice.logo,
+    practiceSlug: mockPractice.slug,
+    practiceId: mockPractice.id,
+    conversationId: activeConversationId
+  }), [activeConversationId]);
 
   const chatHeader = (
     <PublicConversationHeader
@@ -137,11 +156,52 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
     />
   );
 
+  const mockChatMessages = useMemo(() => {
+    const base = [...mockMessages];
+    if (showIntakeForm) {
+      base.push({
+        id: 'message-contact-form',
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        isUser: false,
+        contactForm: {
+          fields: ['name', 'email', 'phone', 'address', 'opposingParty', 'description'],
+          required: ['name', 'email'],
+          message: 'Tell us a bit about your situation.',
+          initialValues: {
+            name: 'Paul Luke',
+            email: 'paulluke+paulchrisluke@gmail.com',
+            phone: '(615) 444-9999',
+            location: '908 Islander Way, Alexander Beach, WA 98221',
+            opposingParty: 'Alex Beach Properties'
+          }
+        }
+      });
+    }
+    if (showPaymentRequest) {
+      base.push({
+        id: 'message-payment-request',
+        role: 'assistant',
+        content: 'One more step: submit the consultation fee to complete your intake.',
+        timestamp: Date.now(),
+        isUser: false,
+        paymentRequest: mockPaymentRequest
+      });
+    }
+    return base;
+  }, [showIntakeForm, showPaymentRequest, mockPaymentRequest]);
+
   const chatView = (
     <div className="flex flex-1 min-h-0 flex-col">
       <ChatContainer
-        messages={mockMessages}
+        messages={mockChatMessages}
         onSendMessage={noop}
+        onContactFormSubmit={async () => {
+          setShowIntakeForm(false);
+          setShowPaymentRequest(true);
+          setIsPaymentOpen(false);
+        }}
         isPublicWorkspace={true}
         practiceConfig={{
           name: mockPractice.name,
@@ -181,7 +241,11 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
             practiceName={mockPractice.name}
             practiceLogo={mockPractice.logo}
             onSendMessage={() => setView('conversation')}
-            onRequestConsultation={() => setView('conversation')}
+            onRequestConsultation={() => {
+              setView('conversation');
+              setShowIntakeForm(true);
+              setShowPaymentRequest(false);
+            }}
             recentMessage={recentMessage}
             onOpenRecentMessage={() => handleSelectConversation(mockConversations[0].id)}
           />
@@ -237,20 +301,25 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
                   setView('list');
                   return;
                 }
-              if (tab === 'matters') {
-                setView('matters');
-                return;
-              }
-              if (tab === 'settings') {
-                navigate('/settings', true);
-                return;
-              }
+                if (tab === 'matters') {
+                  setView('matters');
+                  return;
+                }
+                if (tab === 'settings') {
+                  navigate('/settings', true);
+                  return;
+                }
                 setView('home');
               }}
             />
           )}
         </div>
       </div>
+      <IntakePaymentModal
+        isOpen={isPaymentOpen}
+        onClose={() => setIsPaymentOpen(false)}
+        paymentRequest={isPaymentOpen ? mockPaymentRequest : null}
+      />
     </section>
   );
 };

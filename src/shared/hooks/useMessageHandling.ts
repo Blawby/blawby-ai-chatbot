@@ -228,6 +228,8 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   if (typeof data.intakeUuid === 'string') request.intakeUuid = data.intakeUuid;
   if (typeof data.clientSecret === 'string') request.clientSecret = data.clientSecret;
   if (typeof data.paymentLinkUrl === 'string') request.paymentLinkUrl = data.paymentLinkUrl;
+  if (typeof data.checkoutSessionUrl === 'string') request.checkoutSessionUrl = data.checkoutSessionUrl;
+  if (typeof data.checkoutSessionId === 'string') request.checkoutSessionId = data.checkoutSessionId;
   if (typeof data.amount === 'number') request.amount = asMinor(data.amount);
   if (typeof data.currency === 'string') request.currency = data.currency;
   if (typeof data.practiceName === 'string') request.practiceName = data.practiceName;
@@ -240,7 +242,8 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   const hasPayload =
     typeof request.intakeUuid === 'string' ||
     typeof request.clientSecret === 'string' ||
-    typeof request.paymentLinkUrl === 'string';
+    typeof request.paymentLinkUrl === 'string' ||
+    typeof request.checkoutSessionUrl === 'string';
   return hasPayload ? request : undefined;
 };
 
@@ -1488,22 +1491,27 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
       const clientSecret = paymentDetails?.clientSecret;
       const paymentLinkUrl = paymentDetails?.paymentLinkUrl;
+      const checkoutSessionUrl = paymentDetails?.checkoutSessionUrl;
+      const checkoutSessionId = paymentDetails?.checkoutSessionId;
       const hasClientSecret = typeof clientSecret === 'string' && clientSecret.trim().length > 0;
       const hasPaymentLink = typeof paymentLinkUrl === 'string' && paymentLinkUrl.trim().length > 0;
+      const hasCheckoutSession = typeof checkoutSessionUrl === 'string' && checkoutSessionUrl.trim().length > 0;
 
       if (import.meta.env.DEV) {
         console.info('[Intake] Payment message decision', {
           paymentRequired,
           hasClientSecret,
           hasPaymentLink,
+          hasCheckoutSession,
           intakeUuid: paymentDetails?.uuid,
           paymentLinkUrl,
+          checkoutSessionUrl,
           clientSecretPresent: hasClientSecret,
           paymentLinkPresent: hasPaymentLink
         });
       }
 
-      if (paymentRequired && (hasClientSecret || hasPaymentLink)) {
+      if (paymentRequired && (hasClientSecret || hasCheckoutSession || hasPaymentLink)) {
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
@@ -1515,6 +1523,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             intakeUuid: paymentDetails.uuid,
             clientSecret: hasClientSecret ? clientSecret : undefined,
             paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
+            checkoutSessionUrl: hasCheckoutSession ? checkoutSessionUrl : undefined,
+            checkoutSessionId: checkoutSessionId ?? undefined,
             amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,
@@ -1528,6 +1538,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             intakeUuid: paymentDetails.uuid,
             clientSecret: hasClientSecret ? clientSecret : undefined,
             paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
+            checkoutSessionUrl: hasCheckoutSession ? checkoutSessionUrl : undefined,
+            checkoutSessionId: checkoutSessionId ?? undefined,
             amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,

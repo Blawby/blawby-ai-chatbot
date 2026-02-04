@@ -35,9 +35,8 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
 	}
 
 	return (
-		<div className={`text-base leading-6 min-h-4 ${className}`}>
+		<div className={`text-sm leading-5 min-h-4 ${className}`}>
 			<ChatMarkdown text={content} isStreaming={isStreaming} variant={variant} size={size} />
 		</div>
 	);
 };
-
