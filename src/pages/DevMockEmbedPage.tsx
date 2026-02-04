@@ -133,6 +133,7 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
     setActiveConversationId(conversationId);
     setShowIntakeForm(false);
     setShowPaymentRequest(false);
+    setIsPaymentOpen(false);
     setView('conversation');
   };
 
@@ -240,11 +241,15 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
           <PublicEmbedHome
             practiceName={mockPractice.name}
             practiceLogo={mockPractice.logo}
-            onSendMessage={() => setView('conversation')}
+            onSendMessage={() => {
+              setView('conversation');
+              setIsPaymentOpen(false);
+            }}
             onRequestConsultation={() => {
               setView('conversation');
               setShowIntakeForm(true);
               setShowPaymentRequest(false);
+              setIsPaymentOpen(false);
             }}
             recentMessage={recentMessage}
             onOpenRecentMessage={() => handleSelectConversation(mockConversations[0].id)}
