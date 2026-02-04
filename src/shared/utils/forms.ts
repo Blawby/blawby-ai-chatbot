@@ -1,5 +1,6 @@
 import {
   getPracticeClientIntakeCreateEndpoint,
+  getPracticeClientIntakeCheckoutSessionEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
 import { asMinor, assertMinorUnits, toMinorUnitsValue, type MinorAmount } from '@/shared/utils/money';
@@ -118,11 +119,22 @@ type IntakeCreateResponse = {
   error?: string;
 };
 
+type CheckoutSessionResponse = {
+  success?: boolean;
+  data?: {
+    url?: string;
+    session_id?: string;
+  };
+  error?: string;
+};
+
 export type IntakeSubmissionResult = IntakeCreateResponse & {
   intake?: {
     uuid?: string;
     clientSecret?: string;
     paymentLinkUrl?: string;
+    checkoutSessionUrl?: string;
+    checkoutSessionId?: string;
     amount?: MinorAmount;
     currency?: string;
     paymentLinkEnabled: boolean;
@@ -141,6 +153,38 @@ const clampAmount = (amount: number): MinorAmount => {
 
 const formatDescription = (description?: string) => {
   return description?.trim() || undefined;
+};
+
+const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string } | null> => {
+  try {
+    const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      if (import.meta.env.DEV) {
+        const errorBody = await response.text();
+        console.warn('[Intake] Checkout session creation failed', {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody
+        });
+      }
+      return null;
+    }
+    const result = await response.json() as CheckoutSessionResponse;
+    if (!result.success || !result.data?.url) {
+      if (import.meta.env.DEV) {
+        console.warn('[Intake] Checkout session response missing url', result);
+      }
+      return null;
+    }
+    return { url: result.data.url, sessionId: result.data.session_id };
+  } catch (error) {
+    console.warn('[Intake] Checkout session request failed', error);
+    return null;
+  }
 };
 
 async function fetchIntakeSettings(
@@ -250,6 +294,9 @@ export async function submitContactForm(
     }
 
     const description = formatDescription(formPayload.description as string | undefined);
+    const resolvedUserId = typeof formData.userId === 'string' && formData.userId.trim().length > 0
+      ? formData.userId.trim()
+      : null;
 
     const createPayload = {
       slug: formPayload.slug,
@@ -263,7 +310,7 @@ export async function submitContactForm(
       ...(description ? { description } : { description: '' }), // Always include description
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
       ...(formPayload.address ? { address: formPayload.address } : {}),
-      user_id: formData.sessionId || undefined,
+      user_id: resolvedUserId,
       on_behalf_of: '' // Always include on_behalf_of
     };
 
@@ -307,6 +354,13 @@ export async function submitContactForm(
       }
 
       const paymentLinkUrl = intakeData?.payment_link_url ?? intakeData?.paymentLinkUrl;
+      let checkoutSessionUrl: string | undefined;
+      let checkoutSessionId: string | undefined;
+      if (paymentLinkEnabled && intakeData?.uuid) {
+        const checkoutSession = await createCheckoutSession(intakeData.uuid);
+        checkoutSessionUrl = checkoutSession?.url;
+        checkoutSessionId = checkoutSession?.sessionId;
+      }
 
       return {
         ...result,
@@ -314,6 +368,8 @@ export async function submitContactForm(
           uuid: intakeData?.uuid,
           clientSecret: intakeData?.client_secret,
           paymentLinkUrl,
+          checkoutSessionUrl,
+          checkoutSessionId,
           amount: typeof intakeData?.amount === 'number' ? intakeData?.amount : amount,
           currency: intakeData?.currency ?? 'usd',
           paymentLinkEnabled,

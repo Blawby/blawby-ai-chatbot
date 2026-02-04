@@ -32,7 +32,7 @@ export interface AddressExperienceData extends Record<string, unknown> {
   phone?: string;
   status?: string;
   currency?: string;
-  address?: Address;
+  address?: Partial<Address>;
   opposingParty?: string;
   description?: string;
 }
@@ -122,6 +122,27 @@ const normalizeRequiredList = (
 const trimOrUndefined = (value?: string) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const normalizeAddressInitialValue = (value: unknown): Partial<Address> | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    return { address: value } as Partial<Address>;
+  }
+  
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    // Lightweight shape check: verify it has at least one common address property
+    // and that 'address' if present is a string.
+    const hasKnownKey = 'address' in obj || 'city' in obj || 'state' in obj || 'postalCode' in obj || 'country' in obj;
+    const isAddressValid = !('address' in obj) || typeof obj.address === 'string';
+
+    if (hasKnownKey && isAddressValid) {
+      return obj as Partial<Address>;
+    }
+  }
+  
+  return undefined;
 };
 
 const normalizeAddressInput = (value: unknown) => {
@@ -228,7 +249,7 @@ export const AddressExperienceForm = ({
     phone: trimOrUndefined(initialValues?.phone),
     status: trimOrUndefined(initialValues?.status),
     currency: trimOrUndefined(initialValues?.currency),
-    address: initialValues?.address,
+    address: normalizeAddressInitialValue(initialValues?.address),
     opposingParty: trimOrUndefined(initialValues?.opposingParty),
     description: trimOrUndefined(initialValues?.description),
   }), [initialValues]);

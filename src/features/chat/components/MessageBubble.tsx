@@ -23,17 +23,16 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 		detailed: 'px-4 py-3'
 	};
 
-	const userClasses = isUser
-		? 'mr-0 ml-0 text-light-text dark:text-dark-text w-full'
-		: 'mr-0 ml-0 w-full';
+	const messageLayoutClasses = 'mr-0 ml-0 w-full';
 
 	const mediaOnlyClasses = hasOnlyMedia ? 'p-0 m-0 bg-transparent' : '';
 
 	const classes = [
 		baseClasses,
 		variantClasses[variant],
-		userClasses,
+		messageLayoutClasses,
 		mediaOnlyClasses,
+		isUser ? 'text-light-text dark:text-dark-text' : '', // Restore text color for user messages
 		className
 	].filter(Boolean).join(' ');
 

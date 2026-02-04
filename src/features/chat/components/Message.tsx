@@ -12,6 +12,8 @@ import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
 import type { ReplyTarget } from '@/features/chat/types';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { chatTypography } from '@/features/chat/styles/chatTypography';
 
 interface MessageProps {
 	content: string;
@@ -44,7 +46,7 @@ interface MessageProps {
 			name?: string;
 			email?: string;
 			phone?: string;
-			address?: Address;
+			address?: Partial<Address>;
 			opposingParty?: string;
 		};
 	};
@@ -156,7 +158,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	const showHeader = !isContactFormMessage && Boolean(authorName || timestamp);
 	const contentClassName = showHeader ? 'mt-1' : '';
 	const formattedTime = timestamp
-		? new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+		? formatRelativeTime(new Date(timestamp).toISOString())
 		: null;
 
 	// Avatar size based on message size
@@ -243,13 +245,17 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					</button>
 				)}
 				{showHeader && (
-					<div className="mt-1 flex items-baseline gap-2 justify-start text-left">
+					<div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-left">
 						{(authorName || messageAvatar?.name) && (
-							<span className="text-base font-semibold text-gray-100 leading-none">
+							<span className={`min-w-0 truncate leading-none ${chatTypography.headerName}`}>
 								{authorName || messageAvatar?.name}
 							</span>
 						)}
-						{formattedTime && <span className="text-xs font-normal text-gray-500">{formattedTime}</span>}
+						{formattedTime && (
+							<span className={`flex-shrink-0 ${chatTypography.headerTime}`}>
+								{formattedTime}
+							</span>
+						)}
 					</div>
 				)}
 
@@ -260,7 +266,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						isStreaming={isStreaming}
 						isUser={isUser}
 						variant={variant}
-						size={size}
+						size="sm"
 						className={contentClassName}
 					/>
 				)}

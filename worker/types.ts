@@ -518,8 +518,9 @@ export interface UIMessageExtras {
       name?: string;
       email?: string;
       phone?: string;
-      location?: string;
+      address?: string; // Or Address object if shared
       opposingParty?: string;
+      description?: string;
     };
   };
   paymentRequest?: {
