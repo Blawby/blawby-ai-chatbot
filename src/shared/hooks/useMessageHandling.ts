@@ -1456,7 +1456,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const intakeResult = await submitContactForm(
         {
           ...contactData,
-          sessionId: conversationId
+          sessionId: conversationId,
+          userId: currentUserId
         },
         resolvedPracticeSlug
       );
@@ -1604,7 +1605,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     confirmIntakeLead,
     applyServerMessages,
     sendMessageOverWs,
-    updateConversationMetadata
+    updateConversationMetadata,
+    currentUserId
   ]);
 
   // Add message to the list

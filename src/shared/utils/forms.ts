@@ -250,6 +250,9 @@ export async function submitContactForm(
     }
 
     const description = formatDescription(formPayload.description as string | undefined);
+    const resolvedUserId = typeof formData.userId === 'string' && formData.userId.trim().length > 0
+      ? formData.userId.trim()
+      : null;
 
     const createPayload = {
       slug: formPayload.slug,
@@ -263,7 +266,7 @@ export async function submitContactForm(
       ...(description ? { description } : { description: '' }), // Always include description
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
       ...(formPayload.address ? { address: formPayload.address } : {}),
-      user_id: formData.sessionId || undefined,
+      user_id: resolvedUserId,
       on_behalf_of: '' // Always include on_behalf_of
     };
 
