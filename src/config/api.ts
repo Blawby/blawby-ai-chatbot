@@ -40,6 +40,10 @@ export const getPracticeClientIntakeStatusEndpoint = (uuid: string) => {
   return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(uuid)}/status`;
 };
 
+export const getPracticeClientIntakeCheckoutSessionEndpoint = (uuid: string) => {
+  return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(uuid)}/checkout-session`;
+};
+
 // Practice workspace endpoints (chatbot data) - still local
 export const getPracticesEndpoint = () => {
   const config = getApiConfig();

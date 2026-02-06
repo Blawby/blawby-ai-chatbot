@@ -11,6 +11,7 @@ export { handlePracticeDetails } from './practiceDetails';
 export { handleAiChat } from './aiChat';
 export { handleAiIntent } from './aiIntent';
 export { handleParalegal } from './paralegal';
+export { handleMatters } from './matters';
 
 export { handleFiles } from './files';
 export { handleAnalyze } from './analyze';

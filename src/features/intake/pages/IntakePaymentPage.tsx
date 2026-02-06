@@ -15,6 +15,21 @@ import { asMinor } from '@/shared/utils/money';
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
 
+const STATUS_LABELS: Record<string, string> = {
+  succeeded: 'Paid',
+  processing: 'Processing',
+  requires_payment_method: 'Payment needed',
+  default: 'Pending',
+  paid: 'Paid',
+  open: 'Open',
+  complete: 'Complete',
+  expired: 'Expired',
+  canceled: 'Canceled',
+  failed: 'Failed',
+  draft: 'Draft',
+  unable_to_fetch: 'Status unavailable'
+};
+
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
@@ -24,16 +39,13 @@ export const IntakePaymentPage: FunctionComponent = () => {
   const location = useLocation();
   const clientSecret = resolveQueryValue(location.query?.client_secret ?? location.query?.clientSecret);
   const paymentLinkUrl = resolveQueryValue(location.query?.payment_link_url ?? location.query?.paymentLinkUrl);
+  const checkoutSessionUrl = resolveQueryValue(location.query?.checkout_session_url ?? location.query?.checkoutSessionUrl);
   const amountRaw = resolveQueryValue(location.query?.amount);
   const currency = resolveQueryValue(location.query?.currency);
   const practiceName = resolveQueryValue(location.query?.practice) || 'the practice';
   const practiceId = resolveQueryValue(location.query?.practiceId);
   const conversationId = resolveQueryValue(location.query?.conversationId);
   const intakeUuid = resolveQueryValue(location.query?.uuid);
-  const rawReturnTo = resolveQueryValue(location.query?.return_to) || '/';
-  const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
-    ? rawReturnTo
-    : '/';
 
   const amount = amountRaw ? Number(amountRaw) : undefined;
   const [status, setStatus] = useState<string | null>(null);
@@ -74,6 +86,49 @@ export const IntakePaymentPage: FunctionComponent = () => {
       }
     };
   }, [clientSecret]);
+
+  if (checkoutSessionUrl && isValidStripePaymentLink(checkoutSessionUrl) && !clientSecret) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
+        <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Complete your intake</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            Continue to Stripe Checkout to complete your consultation fee for {practiceName}.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.open(checkoutSessionUrl, '_blank', 'noopener');
+                }
+              }}
+            >
+              Open secure payment
+            </Button>
+            {intakeUuid && (
+              <Button
+                variant="secondary"
+                onClick={handleCheckStatus}
+                disabled={isChecking}
+              >
+                {isChecking ? 'Checking status...' : 'Check payment status'}
+              </Button>
+            )}
+          </div>
+          {status && (
+            <div className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+              isPaidIntakeStatus(status)
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200'
+                : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200'
+            }`}>
+              Payment status: {status}.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (paymentLinkUrl && isValidStripePaymentLink(paymentLinkUrl) && !clientSecret) {
     return (
@@ -149,13 +204,11 @@ export const IntakePaymentPage: FunctionComponent = () => {
         </div>
         <Elements stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
-            practiceName={practiceName}
             amount={Number.isFinite(amount) ? asMinor(amount) : undefined}
             currency={currency}
             intakeUuid={intakeUuid}
             practiceId={practiceId}
             conversationId={conversationId}
-            returnTo={returnTo}
           />
         </Elements>
       </div>

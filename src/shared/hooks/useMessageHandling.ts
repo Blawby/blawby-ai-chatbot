@@ -18,85 +18,70 @@ import {
 
 // Greenfield address validation utilities
 function validateAddressObject(addressValue: unknown): Address | null {
-  // Type check
-  if (!addressValue || typeof addressValue !== 'object' || Array.isArray(addressValue)) {
+  // Normalize input to a processing object
+  let obj: Record<string, unknown>;
+  if (typeof addressValue === 'string') {
+    // If it's a string, we treat it as the primary address line.
+    // However, it will fail the required fields check below unless it's a full object.
+    obj = { address: addressValue };
+  } else if (addressValue && typeof addressValue === 'object' && !Array.isArray(addressValue)) {
+    obj = addressValue as Record<string, unknown>;
+  } else {
     return null;
   }
 
-  const address = addressValue as Record<string, unknown>;
+  // Map various field names to the Address interface with defensive type checks
+  // Candidates include backend (line1) and frontend (address, street, streetAddress) variants
+  const rawStreet = obj.line1 || obj.streetAddress || obj.street || obj.address;
+  const streetPart = typeof rawStreet === 'string' ? rawStreet : undefined;
+  
+  const rawApartment = obj.line2 || obj.apartment;
+  const apartmentPart = typeof rawApartment === 'string' ? rawApartment : undefined;
+  
+  const rawPostal = obj.postal_code || obj.postalCode;
+  const postalPart = typeof rawPostal === 'string' ? rawPostal : undefined;
+  
+  const normalized: Partial<Address> = {
+    address: streetPart?.trim() || '',
+    apartment: apartmentPart?.trim() || undefined,
+    city: typeof obj.city === 'string' ? obj.city.trim() : '',
+    state: typeof obj.state === 'string' ? obj.state.trim() : '',
+    postalCode: postalPart?.trim() || '',
+    country: typeof obj.country === 'string' ? obj.country.trim() : '',
+  };
+
   const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
   
-  // Validate required fields
+  // Validate normalized fields against presence and minimal length
+  // This ensures string-only inputs (which lack city/state/etc) return null
   for (const field of requiredFields) {
-    const value = address[field];
+    const value = normalized[field];
     
-    if (!value || typeof value !== 'string') {
-      return null; // Missing or invalid field type
+    if (typeof value !== 'string') {
+      return null;
     }
     
     const trimmedValue = value.trim();
     if (trimmedValue === '') {
-      return null; // Empty field
+      return null; // Missing required field
     }
     
-    // Field-specific validation
-    switch (field) {
-      case 'address':
-        if (trimmedValue.length < 5) {
-          return null; // Address too short
-        }
-        break;
-        
-      case 'city':
-        if (trimmedValue.length < 2) {
-          return null; // City name too short
-        }
-        break;
-        
-      case 'state':
-        // Allow state codes (2-3 chars) or full state names
-        if (trimmedValue.length < 2 || trimmedValue.length > 50) {
-          return null;
-        }
-        break;
-        
-      case 'postalCode': {
-        // Enhanced postal code validation for common formats
-        const postalCodePatterns = [
-          /^\d{5}(-\d{4})?$/, // US ZIP
-          /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/, // Canada
-          /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/, // UK
-          /^\d{4}$/, // Basic 4-digit
-        ];
-        
-        const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
-        if (!isValidPostalCode) {
-          return null;
-        }
-        break;
+    // Basic length validation (at least 2 chars for codes/names, 2 for address)
+    if (trimmedValue.length < 2) {
+      return null;
+    }
+
+    // Simplified field-specific validation (relying on backend for complex patterns)
+    if (field === 'postalCode') {
+      // Very basic check: just digits or letters, no specific country-dependent patterns here
+      // to avoid over-validating and rejecting international formats the backend might accept.
+      if (!/^[A-Za-z0-9\s-]{3,12}$/.test(trimmedValue)) {
+        return null;
       }
-        
-      case 'country':
-        // Validate country format (ISO 2-letter/3-letter code or reasonable length)
-        if (trimmedValue.length < 2 || trimmedValue.length > 56) {
-          return null; // Country code too short or too long
-        }
-        // Allow letters, spaces, hyphens, and apostrophes for country names
-        if (!/^[A-Za-z\s\-']+$/.test(trimmedValue)) {
-          return null; // Invalid country format
-        }
-        break;
     }
   }
   
-  // Validate optional apartment field
-  if (address.apartment !== undefined) {
-    if (typeof address.apartment !== 'string') {
-      return null; // Invalid apartment field type
-    }
-  }
-  
-  return address as unknown as Address;
+  return normalized as Address;
 }
 
 // Global interface for window API base override and debug properties
@@ -228,6 +213,8 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   if (typeof data.intakeUuid === 'string') request.intakeUuid = data.intakeUuid;
   if (typeof data.clientSecret === 'string') request.clientSecret = data.clientSecret;
   if (typeof data.paymentLinkUrl === 'string') request.paymentLinkUrl = data.paymentLinkUrl;
+  if (typeof data.checkoutSessionUrl === 'string') request.checkoutSessionUrl = data.checkoutSessionUrl;
+  if (typeof data.checkoutSessionId === 'string') request.checkoutSessionId = data.checkoutSessionId;
   if (typeof data.amount === 'number') request.amount = asMinor(data.amount);
   if (typeof data.currency === 'string') request.currency = data.currency;
   if (typeof data.practiceName === 'string') request.practiceName = data.practiceName;
@@ -240,7 +227,8 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   const hasPayload =
     typeof request.intakeUuid === 'string' ||
     typeof request.clientSecret === 'string' ||
-    typeof request.paymentLinkUrl === 'string';
+    typeof request.paymentLinkUrl === 'string' ||
+    typeof request.checkoutSessionUrl === 'string';
   return hasPayload ? request : undefined;
 };
 
@@ -1456,7 +1444,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const intakeResult = await submitContactForm(
         {
           ...contactData,
-          sessionId: conversationId
+          sessionId: conversationId,
+          userId: currentUserId
         },
         resolvedPracticeSlug
       );
@@ -1487,22 +1476,27 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
       const clientSecret = paymentDetails?.clientSecret;
       const paymentLinkUrl = paymentDetails?.paymentLinkUrl;
+      const checkoutSessionUrl = paymentDetails?.checkoutSessionUrl;
+      const checkoutSessionId = paymentDetails?.checkoutSessionId;
       const hasClientSecret = typeof clientSecret === 'string' && clientSecret.trim().length > 0;
       const hasPaymentLink = typeof paymentLinkUrl === 'string' && paymentLinkUrl.trim().length > 0;
+      const hasCheckoutSession = typeof checkoutSessionUrl === 'string' && checkoutSessionUrl.trim().length > 0;
 
       if (import.meta.env.DEV) {
         console.info('[Intake] Payment message decision', {
           paymentRequired,
           hasClientSecret,
           hasPaymentLink,
+          hasCheckoutSession,
           intakeUuid: paymentDetails?.uuid,
           paymentLinkUrl,
+          checkoutSessionUrl,
           clientSecretPresent: hasClientSecret,
           paymentLinkPresent: hasPaymentLink
         });
       }
 
-      if (paymentRequired && (hasClientSecret || hasPaymentLink)) {
+      if (paymentRequired && (hasClientSecret || hasCheckoutSession || hasPaymentLink)) {
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
@@ -1514,6 +1508,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             intakeUuid: paymentDetails.uuid,
             clientSecret: hasClientSecret ? clientSecret : undefined,
             paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
+            checkoutSessionUrl: hasCheckoutSession ? checkoutSessionUrl : undefined,
+            checkoutSessionId: checkoutSessionId ?? undefined,
             amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,
@@ -1527,6 +1523,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             intakeUuid: paymentDetails.uuid,
             clientSecret: hasClientSecret ? clientSecret : undefined,
             paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
+            checkoutSessionUrl: hasCheckoutSession ? checkoutSessionUrl : undefined,
+            checkoutSessionId: checkoutSessionId ?? undefined,
             amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,
@@ -1604,7 +1602,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     confirmIntakeLead,
     applyServerMessages,
     sendMessageOverWs,
-    updateConversationMetadata
+    updateConversationMetadata,
+    currentUserId
   ]);
 
   // Add message to the list

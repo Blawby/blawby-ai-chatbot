@@ -34,7 +34,7 @@ export interface ContactData {
   name?: string;
   email?: string;
   phone?: string;
-  address?: Address;
+  address?: Partial<Address>;
   opposingParty?: string;
   description?: string;
 }

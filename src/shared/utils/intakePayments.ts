@@ -5,6 +5,8 @@ export type IntakePaymentRequest = {
   intakeUuid?: string;
   clientSecret?: string;
   paymentLinkUrl?: string;
+  checkoutSessionUrl?: string;
+  checkoutSessionId?: string;
   amount?: MinorAmount;
   currency?: string;
   practiceName?: string;
@@ -57,6 +59,20 @@ export const isValidStripePaymentLink = (url: string): boolean => {
   }
 };
 
+export const isValidStripeCheckoutSessionUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return STRIPE_PAYMENT_HOSTS.some((host) =>
+      host.startsWith('.')
+        ? parsed.hostname.endsWith(host)
+        : parsed.hostname === host
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const buildIntakePaymentUrl = (
   request: IntakePaymentRequest,
   options?: { includeClientSecret?: boolean }
@@ -96,6 +112,12 @@ export const buildIntakePaymentUrl = (
 
   const paymentLinkUrl = getQueryValue(request.paymentLinkUrl);
   if (paymentLinkUrl) params.set('payment_link_url', paymentLinkUrl);
+
+  const checkoutSessionUrl = getQueryValue(request.checkoutSessionUrl);
+  if (checkoutSessionUrl) params.set('checkout_session_url', checkoutSessionUrl);
+
+  const checkoutSessionId = getQueryValue(request.checkoutSessionId);
+  if (checkoutSessionId) params.set('checkout_session_id', checkoutSessionId);
 
   const returnTo = sanitizeReturnTo(request.returnTo);
   if (returnTo) params.set('return_to', returnTo);

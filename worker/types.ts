@@ -128,6 +128,7 @@ export interface Env {
   CHAT_ROOM: DurableObjectNamespace;
   MATTER_PROGRESS: DurableObjectNamespace;
   CHAT_COUNTER: DurableObjectNamespace;
+  MATTER_DIFFS: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -518,8 +519,9 @@ export interface UIMessageExtras {
       name?: string;
       email?: string;
       phone?: string;
-      location?: string;
+      address?: string | { line1?: string; line2?: string; street?: string; streetAddress?: string; city?: string; state?: string; postalCode?: string; postal_code?: string; country?: string };
       opposingParty?: string;
+      description?: string;
     };
   };
   paymentRequest?: {

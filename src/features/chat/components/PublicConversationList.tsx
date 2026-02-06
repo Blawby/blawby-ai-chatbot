@@ -5,6 +5,8 @@ import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
+import { chatTypography } from '@/features/chat/styles/chatTypography';
+import { ChatText } from '@/features/chat/components/ChatText';
 
 interface ConversationPreview {
   content: string;
@@ -51,7 +53,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
 
   return (
     <div className="flex h-full flex-col bg-light-bg dark:bg-dark-bg">
-      <div className="relative flex items-center justify-center border-b border-light-border px-4 py-3 dark:border-dark-border">
+      <div className="relative flex min-h-[56px] items-center justify-center border-b border-light-border px-4 py-3 dark:border-dark-border">
         <button
           type="button"
           onClick={onClose}
@@ -76,9 +78,12 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
               const timeLabel = preview?.createdAt
                 ? formatRelativeTime(preview.createdAt)
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
-              const previewText = preview?.content
+              const rawPreview = preview?.content
                 ? preview.content
                 : t('embed.conversationList.previewPlaceholder');
+              const previewText = rawPreview.length > 90
+                ? `${rawPreview.slice(0, 90)}…`
+                : rawPreview;
 
               return (
                 <button
@@ -95,15 +100,15 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      <span className={`truncate ${chatTypography.previewName}`}>
                         {title}
                       </span>
                       {timeLabel && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</span>
+                        <span className={chatTypography.headerTime}>{timeLabel}</span>
                       )}
                     </div>
-                    <div className="mt-1 truncate text-sm text-gray-600 dark:text-gray-300">
-                      {previewText}
+                    <div className="mt-1 truncate">
+                      <ChatText text={previewText} className="truncate" />
                     </div>
                   </div>
                 </button>
