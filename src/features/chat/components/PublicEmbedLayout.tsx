@@ -67,29 +67,24 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   }, [workspace, practiceSlug]);
   const conversationsPath = `${embedBasePath}/conversations`;
 
+  const isPracticeOnly = useMemo(() => ['clients'].includes(view), [view]);
+  const isSharedGuarded = useMemo(() => ['matters'].includes(view), [view]);
+  const allowed = useMemo(() => {
+    if (isPracticeOnly) return showPracticeTabs;
+    if (isSharedGuarded) return showClientTabs || showPracticeTabs;
+    return true;
+  }, [isPracticeOnly, isSharedGuarded, showClientTabs, showPracticeTabs]);
+
   // Redirect if unauthorized to view specific pages
   useEffect(() => {
-    const practiceOnlyViews: EmbedView[] = ['clients'];
-    const sharedGuardedViews: EmbedView[] = ['matters'];
-
-    const isPracticeOnly = practiceOnlyViews.includes(view);
-    const isSharedGuarded = sharedGuardedViews.includes(view);
-
-    // Allowed if:
-    // 1. It's a practice-only page and the user has practice tabs enabled
-    // 2. It's a shared page (matters) and the user has either client or practice tabs enabled
-    // 3. It's a public page (home, list, conversation)
-    const allowed = isPracticeOnly
-      ? showPracticeTabs
-      : isSharedGuarded
-        ? (showClientTabs || showPracticeTabs)
-        : true;
-
     if (!allowed) {
-      // This redirects to the workspace root: /client/:slug, /practice/:slug, or /embed/:slug
       navigate(embedBasePath, true);
     }
-  }, [showClientTabs, showPracticeTabs, view, embedBasePath, navigate]);
+  }, [allowed, embedBasePath, navigate]);
+
+  if (!allowed) {
+    return null;
+  }
 
   const {
     conversations: publicConversations,

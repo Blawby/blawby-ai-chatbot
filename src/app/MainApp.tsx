@@ -979,8 +979,8 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         <PracticeMattersPage
-          basePath={(practiceSlug ?? resolvedPracticeSlug)
-            ? `/practice/${encodeURIComponent(practiceSlug ?? resolvedPracticeSlug ?? '')}/matters`
+          basePath={(practiceSlug || resolvedPracticeSlug)
+            ? `/practice/${encodeURIComponent(practiceSlug || resolvedPracticeSlug || '')}/matters`
             : '/practice/matters'}
         />
       }

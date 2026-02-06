@@ -600,6 +600,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     [selectedMatterDetail?.clientName, selectedMatterDetail?.practiceArea, selectedMatterDetail?.title]
   );
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const [activeTab, setActiveTab] = useState<MatterTabId>('all');
   const [sortOption, setSortOption] = useState<SortOption>('updated');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -869,8 +877,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
         if (!cancelled) {
           setClientOptions(allClients);
-          // Detect truncation if we broke loop prematurely or if total exceeds a sane safety limit
-          setIsClientListTruncated(false);
+          // Detect truncation if we broke loop prematurely or if total exceeds the amount we fetched
+          const isTruncated = iterations >= MAX_PAGES;
+          setIsClientListTruncated(isTruncated);
         }
       } catch (error) {
         if (!cancelled) {
@@ -1465,18 +1474,46 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
   }, [activePracticeId, basePath, location, refreshMatters]);
 
-  const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Matter ID is required to update.');
+  const refreshSelectedMatter = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    try {
+      const activities = await getMatterActivity(activePracticeId, selectedMatterId);
+      const nextItems = (activities ?? [])
+        .filter((item) => !String(item.action ?? '').startsWith('note_'))
+        .slice()
+        .sort((a, b) => {
+          const aTime = new Date(a.created_at ?? 0).getTime();
+          const bTime = new Date(b.created_at ?? 0).getTime();
+          return aTime - bTime;
+        })
+        .map(toActivityTimelineItem);
+      
+      if (isMounted.current) {
+        setActivityItems(nextItems);
+      }
+    } catch (error) {
+      console.warn('[PracticeMattersPage] Failed to refresh activity', error);
     }
 
-    const payload: Record<string, unknown> = {
+    try {
+      const refreshed = await getMatter(activePracticeId, selectedMatterId);
+      if (refreshed && isMounted.current) {
+        setSelectedMatterDetail(
+          toMatterDetail(refreshed, { clientNameById, serviceNameById })
+        );
+      }
+    } catch (error) {
+      console.warn('[PracticeMattersPage] Failed to refresh matter detail', error);
+    }
+  }, [activePracticeId, selectedMatterId, clientNameById, serviceNameById, toActivityTimelineItem]);
+
+  const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
+    if (!activePracticeId || !selectedMatterId) return;
+
+    const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
+      description: values.description?.trim() || null,
       client_id: values.clientId && isUuid(values.clientId) ? values.clientId : null,
-      description: values.description || null,
-      billing_type: values.billingType,
-      total_fixed_price: values.totalFixedPrice ?? undefined,
-      contingency_percentage: values.contingencyPercent ?? undefined,
       practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : null,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
@@ -1487,38 +1524,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));
     refreshMatters();
-    try {
-      const activities = await getMatterActivity(activePracticeId, selectedMatterId);
-      const nextItems = activities
-        .filter((item) => !String(item.action ?? '').startsWith('note_'))
-        .slice()
-        .sort((a, b) => {
-          const aTime = new Date(a.created_at ?? 0).getTime();
-          const bTime = new Date(b.created_at ?? 0).getTime();
-          return aTime - bTime;
-        })
-        .map(toActivityTimelineItem);
-      setActivityItems(nextItems);
-    } catch (error) {
-      console.warn('[PracticeMattersPage] Failed to refresh activity after update', error);
-    }
-    try {
-      const refreshed = await getMatter(activePracticeId, selectedMatterId);
-      if (refreshed) {
-        setSelectedMatterDetail(
-          toMatterDetail(refreshed, { clientNameById, serviceNameById })
-        );
-      }
-    } catch (error) {
-      console.warn('[PracticeMattersPage] Failed to refresh matter detail after update', error);
-    }
+    await refreshSelectedMatter();
   }, [
     activePracticeId,
-    clientNameById,
     refreshMatters,
     selectedMatterId,
-    serviceNameById,
-    toActivityTimelineItem
+    refreshSelectedMatter
   ]);
 
   const matterEntries = useMemo(() => {

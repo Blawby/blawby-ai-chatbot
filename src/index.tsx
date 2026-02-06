@@ -458,16 +458,21 @@ function PracticeAppRoute({
     ? (resolvedPracticeIdFromConfig || resolvedPracticeId)
     : resolvedPracticeId;
 
+  const slugActivationRef = useRef<string | null>(null);
   useEffect(() => {
     if (!hasPracticeSlug) return;
     const targetPracticeId = resolvedSlugPracticeId ?? resolvedPracticeIdFromConfig;
     if (!targetPracticeId) return;
     if (activeOrganizationId === targetPracticeId) return;
+    if (slugActivationRef.current === targetPracticeId) return;
+    slugActivationRef.current = targetPracticeId;
+
     const client = getClient();
     client.organization
       .setActive({ organizationId: targetPracticeId })
       .catch((error) => {
         console.warn('[Workspace] Failed to set active organization for practice slug', error);
+        slugActivationRef.current = null;
       });
   }, [activeOrganizationId, hasPracticeSlug, resolvedPracticeIdFromConfig, resolvedSlugPracticeId]);
 

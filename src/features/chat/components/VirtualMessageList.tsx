@@ -195,10 +195,15 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             }
             setLeadActionState((prev) => ({ ...prev, [leadId]: action }));
             try {
+                let result: MatterTransitionResult;
                 if (action === 'accept') {
-                    await leadReviewActions.acceptMatter(leadReviewActions.practiceId, leadId);
+                    result = await leadReviewActions.acceptMatter(leadReviewActions.practiceId, leadId);
                 } else {
-                    await leadReviewActions.rejectMatter(leadReviewActions.practiceId, leadId);
+                    result = await leadReviewActions.rejectMatter(leadReviewActions.practiceId, leadId);
+                }
+
+                if (result.error || result.success === false) {
+                    throw new Error(result.error || 'The action could not be completed at this time.');
                 }
 
                 const practiceName = leadReviewActions.practiceName || 'The practice';

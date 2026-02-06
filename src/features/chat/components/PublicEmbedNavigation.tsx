@@ -76,7 +76,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
             aria-current={activeTab === 'clients' ? 'page' : undefined}
           >
             <UsersIcon className="h-5 w-5" aria-hidden="true" />
-            <span>Clients</span>
+            <span>{t('embed.navigation.clients')}</span>
           </button>
         )}
         {(showClientTabs || showPracticeTabs) && (

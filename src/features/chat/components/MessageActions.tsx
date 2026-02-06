@@ -137,7 +137,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								onClick={leadReview.onAccept}
 								disabled={leadReview.isSubmitting}
 							>
-								Accept Lead
+								{t('leadReview.accept')}
 							</Button>
 							<Button
 								variant="secondary"
@@ -145,12 +145,12 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								onClick={leadReview.onReject}
 								disabled={leadReview.isSubmitting}
 							>
-								Decline
+								{t('leadReview.decline')}
 							</Button>
 						</div>
 					) : (
 						<div className="text-xs text-gray-500 dark:text-gray-400">
-							You don&apos;t have permission to review leads.
+							{t('leadReview.noPermission')}
 						</div>
 					)}
 				</div>

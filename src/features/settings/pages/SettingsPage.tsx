@@ -155,7 +155,7 @@ export const SettingsPage = ({
       return t('settings:practice.team');
     }
     if (currentPage === 'practice' && practiceSubPage === 'pricing') {
-      return 'Pricing & Fees';
+      return t('settings.pricing.title');
     }
     if (currentPage === 'account' && accountSubPage === 'payouts') {
       return t('settings:account.payouts.title');

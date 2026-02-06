@@ -274,8 +274,8 @@ export const PracticePricingPage = () => {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Billing increment</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {effectiveBillingIncrement} minute per increment.
+                <p className="mt-1 text-sm text-gray-500">
+                  Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
                 </p>
               </div>
               <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit}>

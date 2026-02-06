@@ -1,10 +1,15 @@
 import { FunctionComponent } from 'preact';
-import { useMemo } from 'preact/hooks';
+import { useMemo, useEffect, useState } from 'preact/hooks';
 import Modal from '@/shared/components/Modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, type StripeElementsOptionsClientSecret } from '@stripe/stripe-js';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
-import { isValidStripePaymentLink, isValidStripeCheckoutSessionUrl } from '@/shared/utils/intakePayments';
+import {
+  isValidStripePaymentLink,
+  isValidStripeCheckoutSessionUrl,
+  fetchIntakePaymentStatus,
+  isPaidIntakeStatus
+} from '@/shared/utils/intakePayments';
 import { IntakePaymentForm } from '@/features/intake/components/IntakePaymentForm';
 import { Button } from '@/shared/ui/Button';
 
@@ -24,11 +29,37 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   paymentRequest,
   onSuccess
 }) => {
+  const [isVerifying, setIsVerifying] = useState(false);
   const clientSecret = paymentRequest?.clientSecret;
   const paymentLinkUrl = paymentRequest?.paymentLinkUrl;
   const checkoutSessionUrl = paymentRequest?.checkoutSessionUrl;
   const isValidPaymentLink = paymentLinkUrl ? isValidStripePaymentLink(paymentLinkUrl) : false;
   const isValidCheckoutSession = checkoutSessionUrl ? isValidStripeCheckoutSessionUrl(checkoutSessionUrl) : false;
+
+  useEffect(() => {
+    if (!isOpen || !paymentRequest?.intakeUuid || isVerifying) return;
+
+    const handleFocus = async () => {
+      if (isVerifying) return;
+      setIsVerifying(true);
+      try {
+        const status = await fetchIntakePaymentStatus(paymentRequest.intakeUuid);
+        if (isPaidIntakeStatus(status)) {
+          if (onSuccess) {
+            await Promise.resolve(onSuccess());
+          }
+          onClose();
+        }
+      } catch (err) {
+        console.warn('[IntakePaymentModal] Focus-triggered status check failed', err);
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose, isVerifying]);
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
@@ -58,15 +89,11 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Consultation fee"
+      title="Complete Payment"
       type="drawer"
     >
-      {!paymentRequest ? (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-          Loading payment details…
-        </div>
-      ) : canUseElements ? (
-        <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
+      {canUseElements ? (
+        <Elements stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
             amount={paymentRequest.amount}
             currency={paymentRequest.currency}
@@ -90,13 +117,14 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
               }
             }}
           >
-            Complete payment
+            {isVerifying ? 'Verifying...' : 'Complete payment'}
           </Button>
         </div>
       ) : isValidPaymentLink ? (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
           <Button
             variant="primary"
+            className="w-full"
             onClick={() => {
               if (typeof window !== 'undefined') {
                 window.open(paymentLinkUrl, '_blank', 'noopener');

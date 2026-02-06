@@ -80,6 +80,8 @@ export interface MatterTransitionResult {
     userId: string;
     acceptedAt: string | null;
   } | null;
+  success?: boolean;
+  error?: string;
 }
 
 // Practice interface - matches apiClient.ts but kept here for backward compatibility
@@ -586,7 +588,9 @@ function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
       }
       return record.updatedAt;
     })(),
-    acceptedBy
+    acceptedBy,
+    success: typeof record.success === 'boolean' ? record.success : undefined,
+    error: typeof record.error === 'string' ? record.error : undefined
   };
 }
 

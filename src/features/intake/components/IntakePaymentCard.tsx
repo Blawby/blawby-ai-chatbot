@@ -66,7 +66,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
         return;
       }
-      console.warn('[IntakePayment] Invalid Stripe checkout session URL:', paymentRequest.checkoutSessionUrl);
+      console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
       showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
       // Fall through to allow fallback to paymentLinkUrl or other handlers
     }
