@@ -64,7 +64,7 @@ export function MainApp({
   workspace,
   settingsOverlayOpen,
   chatContent,
-  activeRoute,
+  activeRoute: _activeRoute,
   routeConversationId,
   publicPracticeSlug,
   publicEmbedView,
@@ -150,25 +150,6 @@ export function MainApp({
     conversationRestoreAttemptedRef.current = false;
   }, [conversationResetKey]);
 
-  const basePath = useMemo(() => {
-    if (workspace === 'practice') {
-      return resolvedPracticeSlug ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}` : '/practice';
-    }
-    if (workspace === 'client') {
-      return resolvedClientPracticeSlug ? `/client/${encodeURIComponent(resolvedClientPracticeSlug)}` : '/client';
-    }
-    return null;
-  }, [workspace, resolvedPracticeSlug, resolvedClientPracticeSlug]);
-  const conversationsBasePath = useMemo(() => {
-    if (!basePath) return null;
-    return `${basePath}/conversations`;
-  }, [basePath]);
-  const resolvedConversationsBasePath = useMemo(
-    () => conversationsBasePath ?? publicConversationsBasePath,
-    [conversationsBasePath, publicConversationsBasePath]
-  );
-  const routeKey = activeRoute;
-
   const navItems: SidebarNavItem[] = [];
 
   const normalizedRouteConversationId = useMemo(() => {
@@ -184,24 +165,7 @@ export function MainApp({
     }
   }, [routeConversationId]);
 
-  useEffect(() => {
-    if (!normalizedRouteConversationId) return;
-    if (normalizedRouteConversationId === conversationId) return;
-    setConversationId(normalizedRouteConversationId);
-    setConversationMode(null);
-  }, [conversationId, normalizedRouteConversationId]);
-
-
-  useEffect(() => {
-    if (isPublicWorkspace) return;
-    if (!resolvedConversationsBasePath) return;
-    if (routeKey !== 'conversations' && routeKey !== 'messages') return;
-    if (!normalizedRouteConversationId) return;
-    if (!conversationId) return;
-    if (normalizedRouteConversationId === conversationId) return;
-    const targetPath = `${resolvedConversationsBasePath}/${encodeURIComponent(conversationId)}`;
-    navigate(targetPath, true);
-  }, [isPublicWorkspace, normalizedRouteConversationId, resolvedConversationsBasePath, conversationId, routeKey, navigate]);
+  const activeConversationId = normalizedRouteConversationId ?? conversationId;
 
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
@@ -283,7 +247,7 @@ export function MainApp({
   const realMessageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
     practiceSlug: practiceConfig.slug ?? undefined,
-    conversationId: conversationId ?? undefined,
+    conversationId: activeConversationId ?? undefined,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError
@@ -364,7 +328,7 @@ export function MainApp({
     if (!cached) {
       return null;
     }
-    if (conversationId === cached) {
+    if (activeConversationId === cached) {
       return cached;
     }
 
@@ -389,7 +353,7 @@ export function MainApp({
     }
   }, [
     conversationCacheKey,
-    conversationId,
+    activeConversationId,
     practiceId,
     session?.user
   ]);
@@ -425,15 +389,15 @@ export function MainApp({
       }
       isSelectingRef.current = true;
 
-      let activeConversationId = conversationId;
-      if (!activeConversationId && !isCreatingConversation) {
-        activeConversationId = await createConversation();
+      let currentConversationId = activeConversationId;
+      if (!currentConversationId && !isCreatingConversation) {
+        currentConversationId = await createConversation();
       }
-      if (!activeConversationId || !practiceId) {
+      if (!currentConversationId || !practiceId) {
         return;
       }
 
-      await applyConversationMode(nextMode, activeConversationId, source);
+      await applyConversationMode(nextMode, currentConversationId, source);
     } catch (error) {
       setConversationMode(null);
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
@@ -442,7 +406,7 @@ export function MainApp({
     }
   }, [
     applyConversationMode,
-    conversationId,
+    activeConversationId,
     createConversation,
     isCreatingConversation,
     practiceId
@@ -477,7 +441,7 @@ export function MainApp({
     attachments: FileAttachment[] = [],
     replyToMessageId?: string | null
   ) => {
-    if (!conversationId) {
+    if (!activeConversationId) {
       showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
       if (!isCreatingConversation) {
         void createConversation();
@@ -486,7 +450,7 @@ export function MainApp({
     }
 
     await realMessageHandling.sendMessage(message, attachments, replyToMessageId ?? null);
-  }, [conversationId, isCreatingConversation, createConversation, realMessageHandling]);
+  }, [activeConversationId, isCreatingConversation, createConversation, realMessageHandling]);
   const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
 
   const {
@@ -501,7 +465,7 @@ export function MainApp({
     cancelUpload,
     isReadyToUpload
   } = useFileUploadWithContext({
-    conversationId: conversationId ?? undefined,
+    conversationId: activeConversationId ?? undefined,
     onError: (error) => {
       // Handle file upload error
 
@@ -609,19 +573,19 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const shouldRequireModeSelection = workspace === 'public';
-  const isConversationReady = Boolean(conversationId && !isCreatingConversation);
+  const isConversationReady = Boolean(activeConversationId && !isCreatingConversation);
   const isAuthReady = Boolean(session?.user) && !sessionIsPending;
   const isSessionReady = isConversationReady && isAuthReady;
   const isSocketReady = isConversationReady && isAuthReady ? realMessageHandling.isSocketReady : false;
   const isComposerDisabled = (shouldRequireModeSelection && !conversationMode) || isConsultFlowActive;
-  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
+  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
   useEffect(() => {
     if (isPublicWorkspace) return;
     if (!isAuthReady) return;
     if (!practiceId) return;
-    if (conversationId) return;
+    if (activeConversationId) return;
     if (isCreatingConversation) return;
     if (conversationRestoreAttemptedRef.current) return;
     conversationRestoreAttemptedRef.current = true;
@@ -637,7 +601,7 @@ export function MainApp({
       }
     })();
   }, [
-    conversationId,
+    activeConversationId,
     isAuthReady,
     isCreatingConversation,
     isPublicWorkspace,
@@ -678,16 +642,16 @@ export function MainApp({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!conversationCacheKey || !conversationId) return;
-    window.localStorage.setItem(conversationCacheKey, conversationId);
-  }, [conversationCacheKey, conversationId]);
+    if (!conversationCacheKey || !activeConversationId) return;
+    window.localStorage.setItem(conversationCacheKey, activeConversationId);
+  }, [conversationCacheKey, activeConversationId]);
 
   const currentUserRole = normalizePracticeRole(activeMemberRole) ?? 'member';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 
 
   useConversationSystemMessages({
-    conversationId,
+    conversationId: activeConversationId,
     practiceId: effectivePracticeId,
     practiceConfig,
     messagesReady,
@@ -858,7 +822,7 @@ export function MainApp({
   ]);
 
   // Handle navigation to chats - removed since bottom nav is disabled
-  const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
+  const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
   const chatPanel = chatContent ?? (
     <div className="relative h-full flex flex-col">
@@ -923,7 +887,7 @@ export function MainApp({
               isSessionReady={isSessionReady}
               isSocketReady={isSocketReady}
               intakeStatus={intakeStatus}
-              conversationId={conversationId}
+              conversationId={activeConversationId}
               isAnonymousUser={isAnonymousUser}
               canChat={canChat}
               hasMoreMessages={hasMoreMessages}
@@ -955,17 +919,17 @@ export function MainApp({
   const resolvedClientEmbedView = useMemo<EmbedView | null>(() => {
     if (workspace !== 'client') return null;
     if (!clientEmbedView) return 'home';
-    if (clientEmbedView === 'conversation' && !conversationId) {
+    if (clientEmbedView === 'conversation' && !activeConversationId) {
       return 'list';
     }
     return clientEmbedView;
-  }, [clientEmbedView, conversationId, workspace]);
+  }, [activeConversationId, clientEmbedView, workspace]);
 
   const clientEmbedContent = workspace === 'client' ? (
     <PublicEmbedLayout
       view={resolvedClientEmbedView ?? 'home'}
       practiceId={practiceId}
-      practiceSlug={resolvedClientPracticeSlug}
+      practiceSlug={clientPracticeSlug ?? resolvedClientPracticeSlug}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
@@ -980,17 +944,17 @@ export function MainApp({
   const resolvedPracticeEmbedView = useMemo<EmbedView | null>(() => {
     if (workspace !== 'practice') return null;
     if (!practiceEmbedView) return 'home';
-    if (practiceEmbedView === 'conversation' && !conversationId) {
+    if (practiceEmbedView === 'conversation' && !activeConversationId) {
       return 'list';
     }
     return practiceEmbedView;
-  }, [conversationId, practiceEmbedView, workspace]);
+  }, [activeConversationId, practiceEmbedView, workspace]);
 
   const practiceEmbedContent = workspace === 'practice' ? (
     <PublicEmbedLayout
       view={resolvedPracticeEmbedView ?? 'home'}
       practiceId={practiceId}
-      practiceSlug={resolvedPracticeSlug ?? null}
+      practiceSlug={practiceSlug ?? resolvedPracticeSlug ?? null}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
@@ -1000,8 +964,8 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         <PracticeMattersPage
-          basePath={resolvedPracticeSlug
-            ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}/matters`
+          basePath={(practiceSlug ?? resolvedPracticeSlug)
+            ? `/practice/${encodeURIComponent(practiceSlug ?? resolvedPracticeSlug ?? '')}/matters`
             : '/practice/matters'}
         />
       }
@@ -1009,7 +973,7 @@ export function MainApp({
       leadsView={(
         <LeadsPage
           practiceId={currentPractice?.id ?? practiceId ?? null}
-          practiceSlug={resolvedPracticeSlug ?? null}
+          practiceSlug={practiceSlug ?? resolvedPracticeSlug ?? null}
           canReviewLeads={canReviewLeads}
           acceptMatter={acceptMatter}
           rejectMatter={rejectMatter}

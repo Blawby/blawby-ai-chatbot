@@ -15,7 +15,7 @@ import { asMinor } from '@/shared/utils/money';
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
 
-const STATUS_LABELS: Record<string, string> = {
+const _STATUS_LABELS: Record<string, string> = {
   succeeded: 'Paid',
   processing: 'Processing',
   requires_payment_method: 'Payment needed',

@@ -68,7 +68,7 @@ export const PracticePricingPage = () => {
 
   const detailSlug = useMemo(() => {
     const normalizedBasePath = pricingBasePath.endsWith('/') ? pricingBasePath.slice(0, -1) : pricingBasePath;
-    if (location.path.startsWith(normalizedBasePath + '/')) {
+    if (location.path.startsWith(`${normalizedBasePath}/`)) {
       const remainder = location.path.slice(normalizedBasePath.length + 1);
       return remainder.split('/')[0] || undefined;
     }

@@ -34,6 +34,13 @@ const LoadingScreen = () => (
   </div>
 );
 
+const NotFoundRoute = () => (
+  <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+    <div>Not found</div>
+    <div>Open a practice or client link with a slug.</div>
+  </div>
+);
+
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
 type PracticeRouteKey = 'home' | 'messages' | 'pricing' | 'leads' | 'matters' | 'clients';
 
@@ -195,12 +202,12 @@ function AppShell() {
           <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
           <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
           <Route path="/embed/:practiceSlug/matters" component={PublicPracticeRoute} embedView="matters" />
-          <Route path="/client" component={ClientBaseRoute} />
+          <Route path="/client" component={NotFoundRoute} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} embedView="home" />
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} embedView="list" />
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} embedView="conversation" />
           <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} embedView="matters" />
-          <Route path="/practice" component={PracticeBaseRoute} />
+          <Route path="/practice" component={NotFoundRoute} />
           <Route path="/practice/:practiceSlug" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" practiceEmbedView="home" />
           <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="list" />
           <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="conversation" />
@@ -557,52 +564,6 @@ function PracticeAppRoute({
   );
 }
 
-function PracticeBaseRoute() {
-  const { session, isPending } = useSessionContext();
-  const { navigate } = useNavigation();
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
-  const resolvedPractice = currentPractice ?? practices[0] ?? null;
-  const resolvedSlug = resolvedPractice?.slug ?? null;
-
-  useEffect(() => {
-    if (isPending || practicesLoading) return;
-    if (!session?.user) {
-      navigate('/auth', true);
-      return;
-    }
-    if (!resolvedSlug) {
-      navigate('/auth', true);
-      return;
-    }
-    navigate(`/practice/${encodeURIComponent(resolvedSlug)}`, true);
-  }, [isPending, navigate, practicesLoading, resolvedSlug, session?.user]);
-
-  return <LoadingScreen />;
-}
-
-function ClientBaseRoute() {
-  const { session, isPending } = useSessionContext();
-  const { navigate } = useNavigation();
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
-  const resolvedPractice = currentPractice ?? practices[0] ?? null;
-  const resolvedSlug = resolvedPractice?.slug ?? null;
-
-  useEffect(() => {
-    if (isPending || practicesLoading) return;
-    if (!session?.user) {
-      navigate('/auth', true);
-      return;
-    }
-    if (!resolvedSlug) {
-      navigate('/auth', true);
-      return;
-    }
-    navigate(`/client/${encodeURIComponent(resolvedSlug)}`, true);
-  }, [isPending, navigate, practicesLoading, resolvedSlug, session?.user]);
-
-  return <LoadingScreen />;
-}
-
 function ClientPracticeRoute({
   practiceSlug,
   conversationId,
@@ -666,13 +627,6 @@ function ClientPracticeRoute({
   }
 
   if (!resolvedPracticeId) {
-    return <LoadingScreen />;
-  }
-
-  if (isAuthenticatedClient && embedView === 'home' && slug) {
-    return <LoadingScreen />;
-  }
-  if (!isAuthenticatedClient && embedView === 'matters' && slug) {
     return <LoadingScreen />;
   }
 
