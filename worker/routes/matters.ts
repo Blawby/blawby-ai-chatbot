@@ -269,7 +269,7 @@ const fetchActivityList = async (
   return extractActivityArray(payload);
 };
 
-export async function handleMatters(request: Request, env: Env): Promise<Response> {
+export async function handleMatters(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/api/matters')) {
     throw HttpErrors.notFound('Matters route not found');
@@ -316,61 +316,69 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
       const fields = buildMatterUpdateFields(before, afterMatter);
       console.log('[MatterDiff] computed fields', { matterId, fields });
       if (fields.length > 0 && env.MATTER_DIFFS) {
-        let candidate: { item: BackendMatterActivity; delta: number } | undefined;
-        const delays = [100, 300, 700];
-        const now = Date.now();
+        const backgroundTask = async () => {
+          let candidate: { item: BackendMatterActivity; delta: number } | undefined;
+          const delays = [100, 300, 700];
 
-        for (let i = 0; i <= delays.length; i++) {
-          const activities = await fetchActivityList(env, request, practiceId, matterId);
-          const candidates = activities
-            .filter((item) => item.action === 'matter_updated')
-            .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
-            .map((item) => ({
-              item,
-              createdAt: new Date(item.created_at ?? 0).getTime()
-            }))
-            .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
-            .map((record) => ({
-              ...record,
-              delta: Math.abs(record.createdAt - now)
-            }))
-            .sort((a, b) => a.delta - b.delta);
+          for (let i = 0; i <= delays.length; i++) {
+            const now = Date.now();
+            const activities = await fetchActivityList(env, request, practiceId, matterId);
+            const candidates = activities
+              .filter((item) => item.action === 'matter_updated')
+              .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
+              .map((item) => ({
+                item,
+                createdAt: new Date(item.created_at ?? 0).getTime()
+              }))
+              .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
+              .map((record) => ({
+                ...record,
+                delta: Math.abs(record.createdAt - now)
+              }))
+              .sort((a, b) => a.delta - b.delta);
 
-          candidate = candidates[0];
-          if (candidate?.item?.id) break;
+            candidate = candidates[0];
+            if (candidate?.item?.id) break;
 
-          if (i < delays.length) {
-            console.log(`[MatterDiff] matching activity not found, retrying in ${delays[i]}ms (attempt ${i + 1})`);
-            await new Promise((resolve) => setTimeout(resolve, delays[i]));
+            if (i < delays.length) {
+              console.log(`[MatterDiff] matching activity not found, retrying in ${delays[i]}ms (attempt ${i + 1})`);
+              await new Promise((resolve) => setTimeout(resolve, delays[i]));
+            }
           }
-        }
 
-        if (candidate?.item?.id) {
-          console.log('[MatterDiff] storing diff', {
-            activityId: candidate.item.id,
-            matterId,
-            fields
-          });
-          try {
-            const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
-            await stub.fetch('https://matter-diffs/internal/diffs', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                entries: [{
-                  activityId: candidate.item.id,
-                  matterId,
-                  fields,
-                  userId: authContext?.user?.id ?? null,
-                  createdAt: candidate.item.created_at ?? null
-                }]
-              })
+          if (candidate?.item?.id) {
+            console.log('[MatterDiff] storing diff', {
+              activityId: candidate.item.id,
+              matterId,
+              fields
             });
-          } catch (error) {
-            console.warn('[MatterDiff] Failed to store diff', error);
+            try {
+              const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
+              await stub.fetch('https://matter-diffs/internal/diffs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  entries: [{
+                    activityId: candidate.item.id,
+                    matterId,
+                    fields,
+                    userId: authContext?.user?.id ?? null,
+                    createdAt: candidate.item.created_at ?? null
+                  }]
+                })
+              });
+            } catch (error) {
+              console.warn('[MatterDiff] Failed to store diff', error);
+            }
+          } else {
+            console.warn('[MatterDiff] Could not associate diff: no matching activity found after retries', { matterId, fields });
           }
+        };
+
+        if (ctx?.waitUntil) {
+          ctx.waitUntil(backgroundTask());
         } else {
-          console.warn('[MatterDiff] Could not associate diff: no matching activity found after retries', { matterId, fields });
+          void backgroundTask();
         }
       }
     }

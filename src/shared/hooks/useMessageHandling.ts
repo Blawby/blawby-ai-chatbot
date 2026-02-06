@@ -27,12 +27,27 @@ function validateAddressObject(addressValue: unknown): Address | null {
     return null;
   }
 
-  const address = addressValue as Record<string, unknown>;
+  const obj = addressValue as Record<string, unknown>;
+  
+  // Map various field names to the Address interface
+  const streetPart = (obj.line1 || obj.streetAddress || obj.street || obj.address) as string | undefined;
+  const apartmentPart = (obj.line2 || obj.apartment) as string | undefined;
+  const postalPart = (obj.postal_code || obj.postalCode) as string | undefined;
+  
+  const normalized: Partial<Address> = {
+    address: streetPart?.trim() || '',
+    apartment: apartmentPart?.trim() || undefined,
+    city: (obj.city as string)?.trim() || '',
+    state: (obj.state as string)?.trim() || '',
+    postalCode: postalPart?.trim() || '',
+    country: (obj.country as string)?.trim() || '',
+  };
+
   const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
   
-  // Validate required fields
+  // Validate normalized fields
   for (const field of requiredFields) {
-    const value = address[field];
+    const value = normalized[field];
     
     if (!value || typeof value !== 'string') {
       return null; // Missing or invalid field type
@@ -46,31 +61,29 @@ function validateAddressObject(addressValue: unknown): Address | null {
     // Field-specific validation
     switch (field) {
       case 'address':
-        if (trimmedValue.length < 5) {
-          return null; // Address too short
+        if (trimmedValue.length < 2) { // Relaxed from 5 to 2 to allow short street names/numbers
+          return null;
         }
         break;
         
       case 'city':
         if (trimmedValue.length < 2) {
-          return null; // City name too short
+          return null;
         }
         break;
         
       case 'state':
-        // Allow state codes (2-3 chars) or full state names
         if (trimmedValue.length < 2 || trimmedValue.length > 50) {
           return null;
         }
         break;
         
       case 'postalCode': {
-        // Enhanced postal code validation for common formats
         const postalCodePatterns = [
+          /^\d{4,10}$/, // Basic digits (4 to 10)
           /^\d{5}(-\d{4})?$/, // US ZIP
           /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/, // Canada
           /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/, // UK
-          /^\d{4}$/, // Basic 4-digit
         ];
         
         const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
@@ -81,26 +94,14 @@ function validateAddressObject(addressValue: unknown): Address | null {
       }
         
       case 'country':
-        // Validate country format (ISO 2-letter/3-letter code or reasonable length)
         if (trimmedValue.length < 2 || trimmedValue.length > 56) {
-          return null; // Country code too short or too long
-        }
-        // Allow letters, spaces, hyphens, and apostrophes for country names
-        if (!/^[A-Za-z\s\-']+$/.test(trimmedValue)) {
-          return null; // Invalid country format
+          return null;
         }
         break;
     }
   }
   
-  // Validate optional apartment field
-  if (address.apartment !== undefined) {
-    if (typeof address.apartment !== 'string') {
-      return null; // Invalid apartment field type
-    }
-  }
-  
-  return address as unknown as Address;
+  return normalized as Address;
 }
 
 // Global interface for window API base override and debug properties

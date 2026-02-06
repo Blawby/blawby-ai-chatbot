@@ -133,12 +133,27 @@ const normalizeAddressInitialValue = (value: unknown): Partial<Address> | undefi
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
     // Lightweight shape check: verify it has at least one common address property
-    // and that 'address' if present is a string.
-    const hasKnownKey = 'address' in obj || 'city' in obj || 'state' in obj || 'postalCode' in obj || 'country' in obj;
-    const isAddressValid = !('address' in obj) || typeof obj.address === 'string';
+    const hasKnownKey = 
+      'address' in obj || 
+      'street' in obj || 
+      'streetAddress' in obj || 
+      'line1' in obj || 
+      'city' in obj || 
+      'state' in obj || 
+      'postalCode' in obj || 
+      'postal_code' in obj || 
+      'country' in obj;
 
-    if (hasKnownKey && isAddressValid) {
-      return obj as Partial<Address>;
+    if (hasKnownKey) {
+      // Map variants to canonical Address interface
+      return {
+        address: (obj.line1 || obj.streetAddress || obj.street || obj.address || '') as string,
+        apartment: (obj.line2 || obj.apartment) as string | undefined,
+        city: (obj.city || '') as string,
+        state: (obj.state || '') as string,
+        postalCode: (obj.postalCode || obj.postal_code || '') as string,
+        country: (obj.country || '') as string,
+      };
     }
   }
   

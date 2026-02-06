@@ -80,7 +80,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     if (path.startsWith('/api/intakes')) {
       response = await handleIntakes(request, env);
     } else if (path.startsWith('/api/matters')) {
-      response = await handleMatters(request, env);
+      response = await handleMatters(request, env, _ctx);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
     } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {

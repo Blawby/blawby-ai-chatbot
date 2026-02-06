@@ -519,7 +519,7 @@ export interface UIMessageExtras {
       name?: string;
       email?: string;
       phone?: string;
-      address?: string | { address?: string; city?: string; state?: string; postalCode?: string; country?: string };
+      address?: string | { line1?: string; line2?: string; street?: string; streetAddress?: string; city?: string; state?: string; postalCode?: string; postal_code?: string; country?: string };
       opposingParty?: string;
       description?: string;
     };
