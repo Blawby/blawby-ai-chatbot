@@ -140,7 +140,7 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
   const mockPaymentRequest = useMemo(() => ({
     intakeUuid: 'mock-intake-001',
     checkoutSessionUrl: 'https://checkout.stripe.com/pay/cs_test_mock',
-    amount: 7500 as any, // 7500 cents = $75.00
+    amount: asMinor(7500), // 7500 cents = $75.00
     currency: 'usd',
     practiceName: mockPractice.name,
     practiceLogo: mockPractice.logo,

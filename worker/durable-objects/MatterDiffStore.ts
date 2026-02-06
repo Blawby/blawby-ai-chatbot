@@ -58,14 +58,19 @@ export class MatterDiffStore {
           ? entry.fields.filter((field) => typeof field === 'string' && field.trim().length > 0)
           : [];
         if (fields.length === 0) continue;
+        const rawCreatedAt = entry.createdAt;
+        let normalizedCreatedAt: string | null = null;
+        if (typeof rawCreatedAt === 'string') {
+          normalizedCreatedAt = rawCreatedAt;
+        } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
+          normalizedCreatedAt = new Date(rawCreatedAt).toISOString();
+        }
         updates.set(`diff:${activityId}`, {
           activityId,
           matterId,
           fields,
           userId: typeof entry.userId === 'string' ? entry.userId : null,
-          createdAt: (typeof entry.createdAt === 'string' || typeof entry.createdAt === 'number') 
-            ? (typeof entry.createdAt === 'number' ? new Date(entry.createdAt).toISOString() : entry.createdAt) 
-            : null
+          createdAt: normalizedCreatedAt
         });
       }
 
