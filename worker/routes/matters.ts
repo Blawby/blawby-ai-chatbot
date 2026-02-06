@@ -37,16 +37,39 @@ const resolveRequestHost = (request: Request): string => {
   return new URL(request.url).host;
 };
 
-const normalizeCookieDomain = (value: string, requestHost: string): string => {
+const normalizeCookieDomain = (value: string, requestHost: string, env?: Env): string => {
   const cookieName = value.split('=')[0]?.trim().toLowerCase() ?? '';
   if (cookieName.startsWith('__host-')) {
     return value.replace(DOMAIN_PATTERN, '');
   }
-  const hostParts = requestHost.split(':')[0].split('.');
+
+  // Use configured DOMAIN if available
+  if (env?.DOMAIN) {
+    const domainValue = env.DOMAIN.startsWith('.') ? env.DOMAIN : `.${env.DOMAIN}`;
+    if (DOMAIN_PATTERN.test(value)) {
+      return value.replace(DOMAIN_PATTERN, `; Domain=${domainValue}`);
+    }
+    return value;
+  }
+
+  const host = requestHost.split(':')[0];
+  const hostParts = host.split('.');
   if (hostParts.length < 2) {
     return value.replace(DOMAIN_PATTERN, '');
   }
-  const baseDomain = hostParts.slice(-2).join('.');
+
+  // Basic public-suffix awareness for multi-part TLDs (e.g., .co.uk, .com.au)
+  // If the last part is 2 chars and the second to last is a short common part, take 3 parts.
+  let baseDomain = hostParts.slice(-2).join('.');
+  if (hostParts.length >= 3) {
+    const tld = hostParts[hostParts.length - 1];
+    const sld = hostParts[hostParts.length - 2];
+    const commonPublicParts = new Set(['com', 'co', 'net', 'org', 'edu', 'gov']);
+    if (tld.length === 2 && commonPublicParts.has(sld)) {
+      baseDomain = hostParts.slice(-3).join('.');
+    }
+  }
+
   const domainValue = `.${baseDomain}`;
   if (DOMAIN_PATTERN.test(value)) {
     return value.replace(DOMAIN_PATTERN, `; Domain=${domainValue}`);
@@ -54,20 +77,20 @@ const normalizeCookieDomain = (value: string, requestHost: string): string => {
   return value;
 };
 
-const buildProxyHeaders = (response: Response, requestHost: string): Headers => {
+const buildProxyHeaders = (response: Response, requestHost: string, env?: Env): Headers => {
   const proxyHeaders = new Headers(response.headers);
   proxyHeaders.delete('Set-Cookie');
   const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] };
   if (typeof headersWithSetCookie.getSetCookie === 'function') {
     const cookies = headersWithSetCookie.getSetCookie();
     for (const cookie of cookies) {
-      proxyHeaders.append('Set-Cookie', normalizeCookieDomain(cookie, requestHost));
+      proxyHeaders.append('Set-Cookie', normalizeCookieDomain(cookie, requestHost, env));
     }
     return proxyHeaders;
   }
   const setCookie = response.headers.get('Set-Cookie');
   if (setCookie) {
-    proxyHeaders.set('Set-Cookie', normalizeCookieDomain(setCookie, requestHost));
+    proxyHeaders.set('Set-Cookie', normalizeCookieDomain(setCookie, requestHost, env));
   }
   return proxyHeaders;
 };
@@ -217,15 +240,14 @@ const buildMatterUpdateFields = (before: BackendMatter, after: BackendMatter): s
 
 const fetchBackend = async (
   env: Env,
-  request: Request,
+  headers: Headers,
   targetPath: string,
-  init?: globalThis.RequestInit
+  init?: { method?: string; body?: BodyInit | null }
 ): Promise<Response> => {
   const backendUrl = resolveBackendUrl(env);
   const url = new URL(targetPath, backendUrl);
-  const headers = new Headers(request.headers);
   const response = await fetch(url.toString(), {
-    method: init?.method ?? request.method,
+    method: init?.method ?? 'GET',
     headers,
     redirect: 'manual',
     body: init?.body
@@ -235,12 +257,12 @@ const fetchBackend = async (
 
 const fetchMatterSnapshot = async (
   env: Env,
-  request: Request,
+  headers: Headers,
   practiceId: string,
   matterId: string
 ): Promise<BackendMatter | null> => {
   const params = new URLSearchParams({ matter_uuid: matterId });
-  const response = await fetchBackend(env, request, `/api/matters/${practiceId}?${params.toString()}`, {
+  const response = await fetchBackend(env, headers, `/api/matters/${practiceId}?${params.toString()}`, {
     method: 'GET'
   });
   if (!response.ok) {
@@ -252,13 +274,13 @@ const fetchMatterSnapshot = async (
 
 const fetchActivityList = async (
   env: Env,
-  request: Request,
+  headers: Headers,
   practiceId: string,
   matterId: string
 ): Promise<BackendMatterActivity[]> => {
   const response = await fetchBackend(
     env,
-    request,
+    headers,
     `/api/matters/${practiceId}/matters/${matterId}/activity`,
     { method: 'GET' }
   );
@@ -283,12 +305,13 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     const [, practiceId, matterId] = updateMatch;
     const requestHost = resolveRequestHost(request);
     const authContext = await optionalAuth(request, env);
-    const before = await fetchMatterSnapshot(env, request, practiceId, matterId);
+    const headers = new Headers(request.headers);
+    const before = await fetchMatterSnapshot(env, headers, practiceId, matterId);
     const requestBody = await request.arrayBuffer();
 
     const updateResponse = await fetchBackend(
       env,
-      request,
+      headers,
       url.pathname + url.search,
       {
         method: request.method,
@@ -296,7 +319,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       }
     );
 
-    const proxyHeaders = buildProxyHeaders(updateResponse, requestHost);
+    const proxyHeaders = buildProxyHeaders(updateResponse, requestHost, env);
     const updateBuffer = await updateResponse.arrayBuffer();
     let afterMatter: BackendMatter | null = null;
     if (updateBuffer.byteLength > 0) {
@@ -309,20 +332,20 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       }
     }
     if (!afterMatter) {
-      afterMatter = await fetchMatterSnapshot(env, request, practiceId, matterId);
+      afterMatter = await fetchMatterSnapshot(env, headers, practiceId, matterId);
     }
 
     if (before && afterMatter) {
       const fields = buildMatterUpdateFields(before, afterMatter);
       console.log('[MatterDiff] computed fields', { matterId, fields });
       if (fields.length > 0 && env.MATTER_DIFFS) {
-        const backgroundTask = async () => {
+        const backgroundTask = async (taskHeaders: Headers) => {
           let candidate: { item: BackendMatterActivity; delta: number } | undefined;
           const delays = [100, 300, 700];
 
           for (let i = 0; i <= delays.length; i++) {
             const now = Date.now();
-            const activities = await fetchActivityList(env, request, practiceId, matterId);
+            const activities = await fetchActivityList(env, taskHeaders, practiceId, matterId);
             const candidates = activities
               .filter((item) => item.action === 'matter_updated')
               .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
@@ -376,9 +399,9 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         };
 
         if (ctx?.waitUntil) {
-          ctx.waitUntil(backgroundTask());
+          ctx.waitUntil(backgroundTask(headers));
         } else {
-          void backgroundTask();
+          await backgroundTask(headers);
         }
       }
     }
@@ -397,10 +420,11 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     }
     const [, _practiceId, matterId] = activityMatch;
     const requestHost = resolveRequestHost(request);
-    const backendResponse = await fetchBackend(env, request, url.pathname + url.search, {
+    const headers = new Headers(request.headers);
+    const backendResponse = await fetchBackend(env, headers, url.pathname + url.search, {
       method: 'GET'
     });
-    const proxyHeaders = buildProxyHeaders(backendResponse, requestHost);
+    const proxyHeaders = buildProxyHeaders(backendResponse, requestHost, env);
     
     // Attempt to parse JSON; if it fails, fallback to passing through the raw response
     let payload: unknown;

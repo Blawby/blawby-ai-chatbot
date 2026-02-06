@@ -62,8 +62,10 @@ export class MatterDiffStore {
           activityId,
           matterId,
           fields,
-          userId: entry.userId ?? null,
-          createdAt: entry.createdAt ?? null
+          userId: typeof entry.userId === 'string' ? entry.userId : null,
+          createdAt: (typeof entry.createdAt === 'string' || typeof entry.createdAt === 'number') 
+            ? (typeof entry.createdAt === 'number' ? new Date(entry.createdAt).toISOString() : entry.createdAt) 
+            : null
         });
       }
 

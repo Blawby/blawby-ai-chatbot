@@ -839,7 +839,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       let hasMore = true;
 
       try {
-        while (hasMore && !cancelled) {
+        const MAX_PAGES = 100;
+        let iterations = 0;
+        while (hasMore && !cancelled && iterations < MAX_PAGES) {
+          iterations++;
           const response = await listUserDetails(activePracticeId, { limit, offset });
           if (cancelled) break;
 
@@ -1099,7 +1102,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, resolveTimelinePerson]);
+  }, [activePracticeId, selectedMatterId]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {

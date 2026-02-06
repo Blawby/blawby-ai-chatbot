@@ -310,7 +310,7 @@ export const AddressExperienceForm = ({
             phone: trimOrUndefined(formData.phone as string),
             status: trimOrUndefined(formData.status as string),
             currency: trimOrUndefined(formData.currency as string),
-            address: normalizeAddressInput(formData.address) as Address | undefined,
+            address: normalizeAddressInput(formData.address) as Partial<Address> | undefined,
             opposingParty: trimOrUndefined(formData.opposingParty as string),
             description: trimOrUndefined(formData.description as string),
           };

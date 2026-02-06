@@ -209,9 +209,7 @@ export function MainApp({
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
-  useEffect(() => {
-    if (workspace !== 'public') return;
-  }, [workspace]);
+
   const practiceDetailsId = workspace === 'public'
     ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
     : practiceId;

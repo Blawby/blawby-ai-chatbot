@@ -69,7 +69,10 @@ export const Combobox = ({
         (onChange as (v: string[]) => void)([val]);
       }
     } else {
-      if (!Array.isArray(val)) {
+      if (Array.isArray(val)) {
+        console.warn('[Combobox] Received array value in single-select mode, using first element', val);
+        (onChange as (v: string) => void)(val[0] ?? '');
+      } else {
         (onChange as (v: string) => void)(val);
       }
     }
