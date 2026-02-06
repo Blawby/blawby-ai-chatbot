@@ -176,7 +176,9 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
         // Production logging
         console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
       }
-      throw new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`);
+      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`);
+      (error as any)._logged = true;
+      throw error;
     }
     const result = await response.json() as CheckoutSessionResponse;
     if (!result.success || !result.data?.url) {
@@ -185,10 +187,15 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
       } else {
         console.error('[Intake] Checkout session response missing url', JSON.stringify(result));
       }
-      throw new Error(result.error || 'Checkout session response missing URL');
+      const error = new Error(result.error || 'Checkout session response missing URL');
+      (error as any)._logged = true;
+      throw error;
     }
     return { url: result.data.url, sessionId: result.data.session_id };
   } catch (error) {
+    if ((error as any)._logged) {
+      throw error;
+    }
     if (import.meta.env.DEV) {
       console.warn('[Intake] Checkout session request failed', error);
     } else {
