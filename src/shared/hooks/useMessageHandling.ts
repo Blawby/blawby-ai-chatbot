@@ -18,24 +18,20 @@ import {
 
 // Greenfield address validation utilities
 function validateAddressObject(addressValue: unknown): Address | null {
+  // Normalize input to a processing object
+  let obj: Record<string, unknown>;
   if (typeof addressValue === 'string') {
-    return { 
-      address: addressValue,
-      city: '',
-      state: '',
-      postalCode: '',
-      country: ''
-    };
-  }
-
-  // Type check
-  if (!addressValue || typeof addressValue !== 'object' || Array.isArray(addressValue)) {
+    // If it's a string, we treat it as the primary address line.
+    // However, it will fail the required fields check below unless it's a full object.
+    obj = { address: addressValue };
+  } else if (addressValue && typeof addressValue === 'object' && !Array.isArray(addressValue)) {
+    obj = addressValue as Record<string, unknown>;
+  } else {
     return null;
   }
 
-  const obj = addressValue as Record<string, unknown>;
-  
   // Map various field names to the Address interface with defensive type checks
+  // Candidates include backend (line1) and frontend (address, street, streetAddress) variants
   const rawStreet = obj.line1 || obj.streetAddress || obj.street || obj.address;
   const streetPart = typeof rawStreet === 'string' ? rawStreet : undefined;
   
@@ -56,7 +52,8 @@ function validateAddressObject(addressValue: unknown): Address | null {
 
   const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
   
-  // Validate normalized fields
+  // Validate normalized fields against presence and minimal length
+  // This ensures string-only inputs (which lack city/state/etc) return null
   for (const field of requiredFields) {
     const value = normalized[field];
     
@@ -66,49 +63,21 @@ function validateAddressObject(addressValue: unknown): Address | null {
     
     const trimmedValue = value.trim();
     if (trimmedValue === '') {
-      return null; // Empty field
+      return null; // Missing required field
     }
     
-    // Field-specific validation
-    switch (field) {
-      case 'address':
-        if (trimmedValue.length < 2) {
-          return null;
-        }
-        break;
-        
-      case 'city':
-        if (trimmedValue.length < 2) {
-          return null;
-        }
-        break;
-        
-      case 'state':
-        if (trimmedValue.length < 2 || trimmedValue.length > 50) {
-          return null;
-        }
-        break;
-        
-      case 'postalCode': {
-        const postalCodePatterns = [
-          /^\d{4,10}$/,
-          /^\d{5}(-\d{4})?$/,
-          /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/,
-          /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/,
-        ];
-        
-        const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
-        if (!isValidPostalCode) {
-          return null;
-        }
-        break;
+    // Basic length validation (at least 2 chars for codes/names, 2 for address)
+    if (trimmedValue.length < 2) {
+      return null;
+    }
+
+    // Simplified field-specific validation (relying on backend for complex patterns)
+    if (field === 'postalCode') {
+      // Very basic check: just digits or letters, no specific country-dependent patterns here
+      // to avoid over-validating and rejecting international formats the backend might accept.
+      if (!/^[A-Za-z0-9\s-]{3,12}$/.test(trimmedValue)) {
+        return null;
       }
-        
-      case 'country':
-        if (trimmedValue.length < 2 || trimmedValue.length > 56) {
-          return null;
-        }
-        break;
     }
   }
   
