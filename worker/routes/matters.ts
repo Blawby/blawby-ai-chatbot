@@ -153,7 +153,15 @@ const areEquivalentValues = (left: unknown, right: unknown): boolean => {
   if (leftType !== rightType) return false;
   if (left && right && leftType === 'object') {
     try {
-      return JSON.stringify(left) === JSON.stringify(right);
+      // Stable stringify by sorting keys
+      const stableStringify = (obj: unknown): string => {
+        if (typeof obj !== 'object' || obj === null) return JSON.stringify(obj);
+        if (Array.isArray(obj)) return JSON.stringify(obj.map(item => JSON.parse(stableStringify(item))));
+        const sortedKeys = Object.keys(obj as Record<string, unknown>).sort();
+        const parts = sortedKeys.map(key => `"${key}":${stableStringify((obj as Record<string, unknown>)[key])}`);
+        return `{${parts.join(',')}}`;
+      };
+      return stableStringify(left) === stableStringify(right);
     } catch {
       return false;
     }
@@ -274,9 +282,7 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
     const requestHost = resolveRequestHost(request);
     const authContext = await optionalAuth(request, env);
     const before = await fetchMatterSnapshot(env, request, practiceId, matterId);
-    const requestBody = request.method.toUpperCase() === 'GET'
-      ? undefined
-      : await request.arrayBuffer();
+    const requestBody = await request.arrayBuffer();
 
     const updateResponse = await fetchBackend(
       env,
@@ -331,20 +337,24 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
             matterId,
             fields
           });
-          const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
-          await stub.fetch('https://matter-diffs/internal/diffs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              entries: [{
-                activityId: candidate.item.id,
-                matterId,
-                fields,
-                userId: authContext?.user?.id ?? null,
-                createdAt: candidate.item.created_at ?? null
-              }]
-            })
-          });
+          try {
+            const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
+            await stub.fetch('https://matter-diffs/internal/diffs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                entries: [{
+                  activityId: candidate.item.id,
+                  matterId,
+                  fields,
+                  userId: authContext?.user?.id ?? null,
+                  createdAt: candidate.item.created_at ?? null
+                }]
+              })
+            });
+          } catch (error) {
+            console.warn('[MatterDiff] Failed to store diff', error);
+          }
         }
       }
     }
@@ -367,7 +377,20 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
       method: 'GET'
     });
     const proxyHeaders = buildProxyHeaders(backendResponse, requestHost);
-    const payload = await backendResponse.json().catch(() => null);
+    
+    // Attempt to parse JSON; if it fails, fallback to passing through the raw response
+    let payload: unknown;
+    try {
+      payload = await backendResponse.clone().json();
+    } catch {
+      // JSON parsing failed, return original body as simple pass-through
+      return new Response(await backendResponse.clone().text(), {
+        status: backendResponse.status,
+        statusText: backendResponse.statusText,
+        headers: proxyHeaders
+      });
+    }
+
     const activities = extractActivityArray(payload);
     const activityIds = activities
       .map((item) => item.id)
@@ -375,15 +398,20 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
 
     let diffs: Record<string, { fields: string[] }> = {};
     if (activityIds.length > 0 && env.MATTER_DIFFS) {
-      const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
-      const response = await stub.fetch('https://matter-diffs/internal/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activityIds })
-      });
-      const json = await response.json().catch(() => null) as { diffs?: Record<string, { fields: string[] }> } | null;
-      diffs = json?.diffs ?? {};
-      console.log('[MatterDiff] lookup', { matterId, activityIds, diffs });
+      try {
+        const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
+        const response = await stub.fetch('https://matter-diffs/internal/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activityIds })
+        });
+        const json = await response.json().catch(() => null) as { diffs?: Record<string, { fields: string[] }> } | null;
+        diffs = json?.diffs ?? {};
+        console.log('[MatterDiff] lookup', { matterId, activityIds, diffs });
+      } catch (error) {
+        console.error('[MatterDiff] lookup failed', { matterId, error });
+        diffs = {};
+      }
     }
 
     const enriched = enrichActivityPayload(payload, diffs);

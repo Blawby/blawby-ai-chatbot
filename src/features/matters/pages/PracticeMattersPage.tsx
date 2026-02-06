@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
-import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
+import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
@@ -1718,8 +1718,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Client</p>
                     {headerMeta.clientNames.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {headerMeta.clientNames.map((name) => (
-                          <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                        {headerMeta.clientNames.map((name, i) => (
+                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
                             <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
                             <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
                           </div>
@@ -1733,8 +1733,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Assigned</p>
                     {headerMeta.assigneeNames.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {headerMeta.assigneeNames.map((name) => (
-                          <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                        {headerMeta.assigneeNames.map((name, i) => (
+                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
                             <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
                             <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
                           </div>

@@ -80,10 +80,16 @@ export const Combobox = ({
   const hasValue = valueList.length > 0;
 
   const toggleValue = (optionValue: string) => {
-    const next = valueList.includes(optionValue)
-      ? valueList.filter((item) => item !== optionValue)
-      : [...valueList, optionValue];
-    onChange(next);
+    if (isMultiple) {
+      const next = valueList.includes(optionValue)
+        ? valueList.filter((item) => item !== optionValue)
+        : [...valueList, optionValue];
+      // Explicitly cast or invoke as array
+      (onChange as (val: string[]) => void)(next);
+    } else {
+       // Should typically not call toggleValue if not multiple, or it behaves like select
+       (onChange as (val: string) => void)(optionValue);
+    }
     setQuery('');
     setIsOpen(true);
   };
@@ -118,7 +124,7 @@ export const Combobox = ({
             aria-activedescendant={
               resolvedFocusedIndex >= 0 ? `${inputId}-option-${resolvedFocusedIndex}` : undefined
             }
-            value={isOpen && query ? query : resolvedDisplayValue}
+            value={isOpen ? query : resolvedDisplayValue}
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
               setQuery(nextValue);
@@ -225,9 +231,9 @@ export const Combobox = ({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 if (isMultiple) {
-                  onChange([]);
+                  (onChange as (val: string[]) => void)([]);
                 } else {
-                  onChange('');
+                  (onChange as (val: string) => void)('');
                 }
                 setQuery('');
                 setIsOpen(false);

@@ -90,7 +90,7 @@ export class MatterDiffStore {
       const keys = activityIds.map((id) => `diff:${id}`);
       const stored = await this.state.storage.get<DiffEntry>(keys);
       const diffs: Record<string, DiffEntry> = {};
-      for (const [key, value] of Object.entries(stored)) {
+      for (const [key, value] of stored) {
         if (!value) continue;
         const activityId = key.replace(/^diff:/, '');
         diffs[activityId] = value;
