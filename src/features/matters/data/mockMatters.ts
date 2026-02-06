@@ -9,6 +9,7 @@ export type MatterSummary = {
   practiceArea?: string | null;
   status: MattersSidebarStatus;
   updatedAt: string;
+  createdAt: string;
 };
 
 export type MatterMilestone = {
@@ -178,7 +179,8 @@ export const mockMatters: MatterSummary[] = [
     clientName: 'Avery Chen',
     practiceArea: 'Business Formation',
     status: 'open',
-    updatedAt: hoursAgo(4)
+    updatedAt: hoursAgo(4),
+    createdAt: hoursAgo(24)
   },
   {
     id: 'matter-estate',

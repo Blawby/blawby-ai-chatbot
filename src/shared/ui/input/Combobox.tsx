@@ -59,6 +59,21 @@ export const Combobox = ({
     [label]
   );
   const listboxId = `${inputId}-listbox`;
+  
+  const emitChange = (val: string | string[]) => {
+    if (isMultiple) {
+      if (Array.isArray(val)) {
+        (onChange as (v: string[]) => void)(val);
+      } else {
+        // Fallback or defensive wrap for unexpected single value in multiple mode?
+        (onChange as (v: string[]) => void)([val]);
+      }
+    } else {
+      if (!Array.isArray(val)) {
+        (onChange as (v: string) => void)(val);
+      }
+    }
+  };
 
   const normalize = (input: string) => input.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -84,11 +99,9 @@ export const Combobox = ({
       const next = valueList.includes(optionValue)
         ? valueList.filter((item) => item !== optionValue)
         : [...valueList, optionValue];
-      // Explicitly cast or invoke as array
-      (onChange as (val: string[]) => void)(next);
+      emitChange(next);
     } else {
-       // Should typically not call toggleValue if not multiple, or it behaves like select
-       (onChange as (val: string) => void)(optionValue);
+       emitChange(optionValue);
     }
     setQuery('');
     setIsOpen(true);
@@ -150,7 +163,7 @@ export const Combobox = ({
             onBlur={() => {
               setIsOpen(false);
               if (!isMultiple && query !== resolvedDisplayValue) {
-                onChange(query);
+                emitChange(query);
               }
             }}
             onKeyDown={(event) => {
@@ -199,7 +212,7 @@ export const Combobox = ({
                       toggleValue(option.value);
                       setFocusedIndex(0);
                     } else {
-                      onChange(option.value);
+                      emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
                       setIsOpen(false);
                     }
@@ -225,9 +238,9 @@ export const Combobox = ({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 if (isMultiple) {
-                  (onChange as (val: string[]) => void)([]);
+                  emitChange([]);
                 } else {
-                  (onChange as (val: string) => void)('');
+                  emitChange('');
                 }
                 setQuery('');
                 setIsOpen(false);
@@ -272,7 +285,7 @@ export const Combobox = ({
                     if (isMultiple) {
                       toggleValue(option.value);
                     } else {
-                      onChange(option.value);
+                      emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
                       setIsOpen(false);
                     }

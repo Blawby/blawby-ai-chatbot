@@ -148,7 +148,7 @@ const mapStatusToBackend = (status: MattersSidebarStatus): 'draft' | 'active' =>
 
 const prunePayload = (payload: Record<string, unknown>) =>
   Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== null && value !== undefined)
+    Object.entries(payload).filter(([, value]) => value !== undefined)
   );
 
 const extractAssigneeIds = (matter: BackendMatter): string[] => {
@@ -215,7 +215,8 @@ const toMatterSummary = (
       ? resolvePracticeServiceLabel(matter.practice_service_id, serviceName)
       : null,
     status: normalizeMatterStatus(matter.status),
-    updatedAt
+    updatedAt,
+    createdAt: matter.created_at || matter.updated_at || new Date().toISOString()
   };
 };
 
@@ -589,6 +590,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [milestonesError, setMilestonesError] = useState<string | null>(null);
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
+  const [isClientListTruncated, setIsClientListTruncated] = useState(false);
   const matterContext = useMemo(
     () => ({
       title: selectedMatterDetail?.title ?? null,
@@ -830,18 +832,54 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     let cancelled = false;
 
-    listUserDetails(activePracticeId, { limit: 100, offset: 0 })
-      .then((response) => {
-        if (cancelled) return;
-        const options = response.data.map(buildClientOption);
-        setClientOptions(options);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error('[PracticeMattersPage] Failed to load clients', error);
-        setClientOptions([]);
-        showError('Failed to load clients', 'Please try again.');
-      });
+    const fetchAllClients = async () => {
+      let offset = 0;
+      const limit = 100;
+      let allClients: MatterOption[] = [];
+      let hasMore = true;
+
+      try {
+        while (hasMore && !cancelled) {
+          const response = await listUserDetails(activePracticeId, { limit, offset });
+          if (cancelled) break;
+
+          const options = response.data.map(buildClientOption);
+          allClients = [...allClients, ...options];
+
+          // Determine if we should fetch more
+          // Basic logic: if we received exactly 'limit', there might be more.
+          // Better logic: use response.total if the backend provides it.
+          // If response.count exists, use it.
+          const count = response.data.length;
+          const total = response.total ?? 0;
+
+          if (total > 0) {
+            hasMore = allClients.length < total;
+          } else {
+            hasMore = count === limit;
+          }
+
+          if (hasMore) {
+            offset += limit;
+          }
+        }
+
+        if (!cancelled) {
+          setClientOptions(allClients);
+          // Detect truncation if we broke loop prematurely or if total exceeds a sane safety limit
+          setIsClientListTruncated(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('[PracticeMattersPage] Failed to load clients', error);
+          setClientOptions(allClients); // Show what we have
+          setIsClientListTruncated(true);
+          showError('Failed to load full client list', 'Some clients may be missing.');
+        }
+      }
+    };
+
+    void fetchAllClients();
 
     return () => {
       cancelled = true;
@@ -1441,7 +1479,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
       status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined
+      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : []
     };
 
     await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));
@@ -1578,7 +1616,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     const billingLabel = selectedMatterDetail.billingType
       ? selectedMatterDetail.billingType.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase())
       : 'Not specified';
-    const createdLabel = formatLongDate(resolvedSelectedMatter.updatedAt);
+    const createdLabel = formatLongDate(resolvedSelectedMatter.createdAt);
 
     return {
       description: selectedMatterDetail.description || '',
@@ -1876,6 +1914,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             )}
           </section>
         </div>
+        
+        {isClientListTruncated && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            <strong>Warning:</strong> The client list is incomplete. Some names or options may be missing.
+          </div>
+        )}
 
         {isEditOpen && selectedMatterDetail && (
           <MatterEditModal

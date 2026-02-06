@@ -19,7 +19,13 @@ import {
 // Greenfield address validation utilities
 function validateAddressObject(addressValue: unknown): Address | null {
   if (typeof addressValue === 'string') {
-    return { address: addressValue } as unknown as Address;
+    return { 
+      address: addressValue,
+      city: '',
+      state: '',
+      postalCode: '',
+      country: ''
+    };
   }
 
   // Type check
@@ -29,18 +35,23 @@ function validateAddressObject(addressValue: unknown): Address | null {
 
   const obj = addressValue as Record<string, unknown>;
   
-  // Map various field names to the Address interface
-  const streetPart = (obj.line1 || obj.streetAddress || obj.street || obj.address) as string | undefined;
-  const apartmentPart = (obj.line2 || obj.apartment) as string | undefined;
-  const postalPart = (obj.postal_code || obj.postalCode) as string | undefined;
+  // Map various field names to the Address interface with defensive type checks
+  const rawStreet = obj.line1 || obj.streetAddress || obj.street || obj.address;
+  const streetPart = typeof rawStreet === 'string' ? rawStreet : undefined;
+  
+  const rawApartment = obj.line2 || obj.apartment;
+  const apartmentPart = typeof rawApartment === 'string' ? rawApartment : undefined;
+  
+  const rawPostal = obj.postal_code || obj.postalCode;
+  const postalPart = typeof rawPostal === 'string' ? rawPostal : undefined;
   
   const normalized: Partial<Address> = {
     address: streetPart?.trim() || '',
     apartment: apartmentPart?.trim() || undefined,
-    city: (obj.city as string)?.trim() || '',
-    state: (obj.state as string)?.trim() || '',
+    city: typeof obj.city === 'string' ? obj.city.trim() : '',
+    state: typeof obj.state === 'string' ? obj.state.trim() : '',
     postalCode: postalPart?.trim() || '',
-    country: (obj.country as string)?.trim() || '',
+    country: typeof obj.country === 'string' ? obj.country.trim() : '',
   };
 
   const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
@@ -49,8 +60,8 @@ function validateAddressObject(addressValue: unknown): Address | null {
   for (const field of requiredFields) {
     const value = normalized[field];
     
-    if (!value || typeof value !== 'string') {
-      return null; // Missing or invalid field type
+    if (typeof value !== 'string') {
+      return null;
     }
     
     const trimmedValue = value.trim();
@@ -61,7 +72,7 @@ function validateAddressObject(addressValue: unknown): Address | null {
     // Field-specific validation
     switch (field) {
       case 'address':
-        if (trimmedValue.length < 2) { // Relaxed from 5 to 2 to allow short street names/numbers
+        if (trimmedValue.length < 2) {
           return null;
         }
         break;
@@ -80,10 +91,10 @@ function validateAddressObject(addressValue: unknown): Address | null {
         
       case 'postalCode': {
         const postalCodePatterns = [
-          /^\d{4,10}$/, // Basic digits (4 to 10)
-          /^\d{5}(-\d{4})?$/, // US ZIP
-          /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/, // Canada
-          /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/, // UK
+          /^\d{4,10}$/,
+          /^\d{5}(-\d{4})?$/,
+          /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/,
+          /^[A-Za-z]{1,2}\d[A-Za-z\d]? \d[A-Za-z]{2}$/,
         ];
         
         const isValidPostalCode = postalCodePatterns.some(pattern => pattern.test(trimmedValue));
