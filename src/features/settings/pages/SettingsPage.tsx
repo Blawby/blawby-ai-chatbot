@@ -155,7 +155,7 @@ export const SettingsPage = ({
       return t('settings:practice.team');
     }
     if (currentPage === 'practice' && practiceSubPage === 'pricing') {
-      return t('settings.pricing.title');
+      return t('settings:practice.pricingTitle');
     }
     if (currentPage === 'account' && accountSubPage === 'payouts') {
       return t('settings:account.payouts.title');
@@ -272,7 +272,7 @@ export const SettingsPage = ({
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
               <button
                 onClick={() => {
-                  if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team')) {
+                  if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team' || practiceSubPage === 'pricing')) {
                     navigate('/settings/practice');
                     return;
                   }

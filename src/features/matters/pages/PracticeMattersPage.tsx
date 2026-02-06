@@ -616,6 +616,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
   const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
+  const refreshRequestIdRef = useRef(0);
 
   const refreshMatters = useCallback(() => {
     setMattersRefreshKey((prev) => prev + 1);
@@ -846,6 +847,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       let allClients: MatterOption[] = [];
       let hasMore = true;
 
+      let lastTotal = 0;
       try {
         const MAX_PAGES = 100;
         let iterations = 0;
@@ -858,14 +860,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           allClients = [...allClients, ...options];
 
           // Determine if we should fetch more
-          // Basic logic: if we received exactly 'limit', there might be more.
-          // Better logic: use response.total if the backend provides it.
-          // If response.count exists, use it.
           const count = response.data.length;
-          const total = response.total ?? 0;
+          lastTotal = response.total ?? 0;
 
-          if (total > 0) {
-            hasMore = allClients.length < total;
+          if (lastTotal > 0) {
+            hasMore = allClients.length < lastTotal;
           } else {
             hasMore = count === limit;
           }
@@ -878,7 +877,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         if (!cancelled) {
           setClientOptions(allClients);
           // Detect truncation if we broke loop prematurely or if total exceeds the amount we fetched
-          const isTruncated = iterations >= MAX_PAGES;
+          const isTruncated = iterations >= MAX_PAGES || (lastTotal > allClients.length);
           setIsClientListTruncated(isTruncated);
         }
       } catch (error) {
@@ -1476,8 +1475,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
   const refreshSelectedMatter = useCallback(async () => {
     if (!activePracticeId || !selectedMatterId) return;
+    const requestId = ++refreshRequestIdRef.current;
+    
     try {
       const activities = await getMatterActivity(activePracticeId, selectedMatterId);
+      if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
+      
       const nextItems = (activities ?? [])
         .filter((item) => !String(item.action ?? '').startsWith('note_'))
         .slice()
@@ -1488,16 +1491,16 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         })
         .map(toActivityTimelineItem);
       
-      if (isMounted.current) {
-        setActivityItems(nextItems);
-      }
+      setActivityItems(nextItems);
     } catch (error) {
       console.warn('[PracticeMattersPage] Failed to refresh activity', error);
     }
 
     try {
       const refreshed = await getMatter(activePracticeId, selectedMatterId);
-      if (refreshed && isMounted.current) {
+      if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
+
+      if (refreshed) {
         setSelectedMatterDetail(
           toMatterDetail(refreshed, { clientNameById, serviceNameById })
         );

@@ -382,6 +382,27 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         </div>
       )}
 
+      {status === 'succeeded' && (
+        <div className="rounded-xl border border-green-200 dark:border-green-900/60 bg-green-50 dark:bg-green-950/40 p-6 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="rounded-full bg-green-100 dark:bg-green-900/40 p-3">
+              <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-1">
+            Payment successful
+          </h3>
+          <p className="text-green-700 dark:text-green-300">
+            Thank you for your payment of {formattedAmount}.
+          </p>
+          <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-900/40 text-xs text-green-600 dark:text-green-400">
+            Payment processed successfully. You can return to your consultation.
+          </div>
+        </div>
+      )}
+
       {status !== 'succeeded' && (
         <Button
           variant="primary"

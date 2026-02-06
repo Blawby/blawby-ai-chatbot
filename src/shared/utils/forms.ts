@@ -157,7 +157,7 @@ const formatDescription = (description?: string) => {
 
 type LoggedError = Error & { _logged?: boolean };
 
-const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string } | null> => {
+const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string }> => {
   try {
     const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
       method: 'POST',
@@ -382,7 +382,9 @@ export async function submitContactForm(
           checkoutSessionUrl = checkoutSession?.url;
           checkoutSessionId = checkoutSession?.sessionId;
         } catch (error) {
-          console.warn('[Intake] Optional checkout session creation failed', error);
+          if (!(error as LoggedError)._logged) {
+            console.warn('[Intake] Optional checkout session creation failed', error);
+          }
           // If paymentLinkEnabled is true, we might want to alert the user or fallback to paymentLinkUrl
           if (!paymentLinkUrl) {
              throw error; // Rethrow if we have no fallback

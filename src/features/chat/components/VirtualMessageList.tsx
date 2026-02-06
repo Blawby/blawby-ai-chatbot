@@ -211,18 +211,23 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     ? `${practiceName} has joined the conversation.`
                     : `${practiceName} was unable to take your request at this time.`;
 
-                await postSystemMessage(
-                    leadReviewActions.conversationId,
-                    leadReviewActions.practiceId,
-                    {
-                        clientId: action === 'accept' ? 'system-lead-accepted' : 'system-lead-declined',
-                        content,
-                        metadata: {
-                            systemMessageKey: action === 'accept' ? 'lead_accepted' : 'lead_declined',
-                            leadId
+                try {
+                    await postSystemMessage(
+                        leadReviewActions.conversationId,
+                        leadReviewActions.practiceId,
+                        {
+                            clientId: action === 'accept' ? 'system-lead-accepted' : 'system-lead-declined',
+                            content,
+                            metadata: {
+                                systemMessageKey: action === 'accept' ? 'lead_accepted' : 'lead_declined',
+                                leadId
+                            }
                         }
-                    }
-                );
+                    );
+                } catch (msgErr) {
+                    console.error('[VirtualMessageList] Failed to post system message', msgErr);
+                    // Continue - transition succeeded, just log the message failure
+                }
 
                 showSuccess(
                     action === 'accept' ? 'Lead accepted' : 'Lead declined',

@@ -90,7 +90,10 @@ const buildProxyHeaders = (response: Response, requestHost: string, env?: Env): 
   }
   const setCookie = response.headers.get('Set-Cookie');
   if (setCookie) {
-    proxyHeaders.set('Set-Cookie', normalizeCookieDomain(setCookie, requestHost, env));
+    // Note: response.headers.get('Set-Cookie') in many environments only returns the first cookie.
+    // If headers.raw() or headers.getSetCookie() (available above) are not supported,
+    // subsequent cookies may be lost. append() is used here to stay as standard as possible.
+    proxyHeaders.append('Set-Cookie', normalizeCookieDomain(setCookie, requestHost, env));
   }
   return proxyHeaders;
 };

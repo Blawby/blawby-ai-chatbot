@@ -44,7 +44,10 @@ export const Combobox = ({
   disabled
 }: ComboboxProps) => {
   const isMultiple = multiple === true;
-  const valueList = Array.isArray(value) ? value : (value != null ? [value] : []);
+  const valueList = useMemo(() => {
+    const raw = Array.isArray(value) ? value : (value != null ? [value] : []);
+    return raw.filter((v) => v != null && v !== '');
+  }, [value]);
   const selectedOptions = options.filter((option) => valueList.includes(option.value));
   const selectedOption = selectedOptions[0];
   // If no option found, treat 'value' as the raw input to display

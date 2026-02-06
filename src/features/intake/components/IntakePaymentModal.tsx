@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useMemo, useEffect, useState } from 'preact/hooks';
+import { useMemo, useEffect, useState, useRef } from 'preact/hooks';
 import Modal from '@/shared/components/Modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, type StripeElementsOptionsClientSecret } from '@stripe/stripe-js';
@@ -36,11 +36,13 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   const isValidPaymentLink = paymentLinkUrl ? isValidStripePaymentLink(paymentLinkUrl) : false;
   const isValidCheckoutSession = checkoutSessionUrl ? isValidStripeCheckoutSessionUrl(checkoutSessionUrl) : false;
 
+  const isVerifyingRef = useRef(false);
   useEffect(() => {
-    if (!isOpen || !paymentRequest?.intakeUuid || isVerifying) return;
+    if (!isOpen || !paymentRequest?.intakeUuid) return;
 
     const handleFocus = async () => {
-      if (isVerifying) return;
+      if (isVerifyingRef.current) return;
+      isVerifyingRef.current = true;
       setIsVerifying(true);
       try {
         const status = await fetchIntakePaymentStatus(paymentRequest.intakeUuid);
@@ -53,13 +55,14 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       } catch (err) {
         console.warn('[IntakePaymentModal] Focus-triggered status check failed', err);
       } finally {
+        isVerifyingRef.current = false;
         setIsVerifying(false);
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose, isVerifying]);
+  }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose]);
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
