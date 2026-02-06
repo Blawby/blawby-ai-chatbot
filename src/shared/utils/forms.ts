@@ -163,29 +163,45 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
       credentials: 'include'
     });
     if (!response.ok) {
+      const errorBody = await response.text();
+      const errorLog = {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody,
+        intakeUuid
+      };
       if (import.meta.env.DEV) {
-        const errorBody = await response.text();
-        console.warn('[Intake] Checkout session creation failed', {
-          status: response.status,
-          statusText: response.statusText,
-          errorBody
-        });
+        console.warn('[Intake] Checkout session creation failed', errorLog);
+      } else {
+        // Production logging
+        console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
       }
-      return null;
+      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`);
+      (error as any)._logged = true;
+      throw error;
     }
     const result = await response.json() as CheckoutSessionResponse;
     if (!result.success || !result.data?.url) {
       if (import.meta.env.DEV) {
         console.warn('[Intake] Checkout session response missing url', result);
+      } else {
+        console.error('[Intake] Checkout session response missing url', JSON.stringify(result));
       }
-      return null;
+      const error = new Error(result.error || 'Checkout session response missing URL');
+      (error as any)._logged = true;
+      throw error;
     }
     return { url: result.data.url, sessionId: result.data.session_id };
   } catch (error) {
+    if ((error as any)._logged) {
+      throw error;
+    }
     if (import.meta.env.DEV) {
       console.warn('[Intake] Checkout session request failed', error);
+    } else {
+      console.error('[Intake] Checkout session request failed', error instanceof Error ? error.message : String(error));
     }
-    return null;
+    throw error;
   }
 };
 
@@ -359,9 +375,17 @@ export async function submitContactForm(
       let checkoutSessionUrl: string | undefined;
       let checkoutSessionId: string | undefined;
       if (paymentLinkEnabled && intakeData?.uuid) {
-        const checkoutSession = await createCheckoutSession(intakeData.uuid);
-        checkoutSessionUrl = checkoutSession?.url;
-        checkoutSessionId = checkoutSession?.sessionId;
+        try {
+          const checkoutSession = await createCheckoutSession(intakeData.uuid);
+          checkoutSessionUrl = checkoutSession?.url;
+          checkoutSessionId = checkoutSession?.sessionId;
+        } catch (error) {
+          console.warn('[Intake] Optional checkout session creation failed', error);
+          // If paymentLinkEnabled is true, we might want to alert the user or fallback to paymentLinkUrl
+          if (!paymentLinkUrl) {
+             throw error; // Rethrow if we have no fallback
+          }
+        }
       }
 
       return {

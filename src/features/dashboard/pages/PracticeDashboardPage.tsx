@@ -62,7 +62,17 @@ export const PracticeDashboardPage = () => {
                 {isLoading ? 'Loading updates...' : 'Jump back into the latest client threads.'}
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => navigate('/practice/conversations')}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (!currentPractice?.slug) {
+                  navigate('/practice');
+                  return;
+                }
+                navigate(`/practice/${encodeURIComponent(currentPractice.slug)}/conversations`);
+              }}
+            >
               View all chats
             </Button>
           </div>

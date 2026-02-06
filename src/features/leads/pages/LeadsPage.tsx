@@ -4,6 +4,7 @@ import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagemen
 
 interface LeadsPageProps {
   practiceId: string | null;
+  practiceSlug?: string | null;
   canReviewLeads: boolean;
   acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
   rejectMatter: (practiceId: string, matterId: string, reason?: string) => Promise<MatterTransitionResult>;
@@ -13,6 +14,7 @@ interface LeadsPageProps {
 
 export const LeadsPage = ({
   practiceId,
+  practiceSlug,
   canReviewLeads,
   acceptMatter,
   rejectMatter,
@@ -33,6 +35,7 @@ export const LeadsPage = ({
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-5">
           <LeadReviewQueue
             practiceId={practiceId}
+            practiceSlug={practiceSlug}
             canReviewLeads={canReviewLeads}
             acceptMatter={acceptMatter}
             rejectMatter={rejectMatter}

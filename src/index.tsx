@@ -9,6 +9,7 @@ import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getClient, updateUser } from '@/shared/lib/authClient';
+import { getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -33,21 +34,27 @@ const LoadingScreen = () => (
   </div>
 );
 
+const NotFoundRoute = () => (
+  <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+    <div>Not found</div>
+    <div>Open a practice or client link with a slug.</div>
+  </div>
+);
+
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
-type PracticeRouteKey = 'home' | 'payments' | 'payouts' | 'pricing' | 'clients' | 'leads' | 'matters' | 'conversations';
+type PracticeRouteKey = 'home' | 'messages' | 'pricing' | 'leads' | 'matters' | 'clients';
 
 const resolvePracticeRouteKeyFromPath = (path: string): PracticeRouteKey => {
-  if (path.startsWith('/practice/payments')) return 'payments';
-  if (path.startsWith('/practice/payouts')) return 'payouts';
-  if (path.startsWith('/practice/pricing')) return 'pricing';
-  if (path.startsWith('/practice/clients')) return 'clients';
-  if (path.startsWith('/practice/leads')) return 'leads';
-  if (path.startsWith('/practice/matters')) return 'matters';
-  if (path.startsWith('/practice/conversations')) return 'conversations';
+  const segments = path.split('/').filter(Boolean);
+  if (segments.includes('pricing')) return 'pricing';
+  if (segments.includes('clients')) return 'clients';
+  if (segments.includes('leads')) return 'leads';
+  if (segments.includes('matters')) return 'matters';
+  if (segments.includes('conversations')) return 'messages';
   return 'home';
 };
 
-// Client routes removed (embed is the client portal)
+// Client routes align with public embed structure
 
 // Main App component with routing
 export function App() {
@@ -132,11 +139,11 @@ function AppShell() {
 
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
-    const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
+    const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
     navigate(returnPath ?? fallback, true);
   }, [defaultWorkspace, navigate]);
 
-  const fallbackSettingsBackground = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
+  const fallbackSettingsBackground = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
   const backgroundUrl = isSettingsOpen
     ? (lastNonSettingsUrlRef.current ?? fallbackSettingsBackground)
     : location.url;
@@ -174,7 +181,7 @@ function AppShell() {
     }
 
     if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
-      const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
+      const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
       navigate(fallback, true);
     }
   }, [defaultWorkspace, location.path, location.url, navigate, session?.user, sessionPending]);
@@ -195,22 +202,23 @@ function AppShell() {
           <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
           <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
           <Route path="/embed/:practiceSlug/matters" component={PublicPracticeRoute} embedView="matters" />
-          <Route path="/practice" component={PracticeBaseRoute} />
-          <Route path="/practice/home" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" />
-          <Route path="/practice/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
-          <Route path="/practice/conversations/:conversationId" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
-          <Route path="/practice/payments" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
-          <Route path="/practice/payments/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
-          <Route path="/practice/payouts" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payouts" />
-          <Route path="/practice/payouts/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payouts" />
-          <Route path="/practice/pricing" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" />
-          <Route path="/practice/pricing/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" />
-          <Route path="/practice/clients" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" />
-          <Route path="/practice/clients/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" />
-          <Route path="/practice/leads" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" />
-          <Route path="/practice/leads/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" />
-          <Route path="/practice/matters" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
-          <Route path="/practice/matters/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
+          <Route path="/client" component={NotFoundRoute} />
+          <Route path="/client/:practiceSlug" component={ClientPracticeRoute} embedView="home" />
+          <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} embedView="list" />
+          <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} embedView="conversation" />
+          <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} embedView="matters" />
+          <Route path="/practice" component={NotFoundRoute} />
+          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" practiceEmbedView="home" />
+          <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="list" />
+          <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="conversation" />
+          <Route path="/practice/:practiceSlug/pricing" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" practiceEmbedView="pricing" />
+          <Route path="/practice/:practiceSlug/pricing/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" practiceEmbedView="pricing" />
+          <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" practiceEmbedView="clients" />
+          <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" practiceEmbedView="clients" />
+          <Route path="/practice/:practiceSlug/leads" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" practiceEmbedView="leads" />
+          <Route path="/practice/:practiceSlug/leads/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" practiceEmbedView="leads" />
+          <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" practiceEmbedView="matters" />
+          <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" practiceEmbedView="matters" />
           <Route default component={RootRoute} />
         </Router>
       </LocationProvider.ctx.Provider>
@@ -249,7 +257,7 @@ function SettingsRoute() {
       navigate('/auth', true);
       return;
     }
-    navigate(`/embed/${encodeURIComponent(resolvedSlug)}`, true);
+    navigate(`/client/${encodeURIComponent(resolvedSlug)}`, true);
   }, [isClientWorkspace, navigate, practicesLoading, resolvedSlug]);
 
   if (isClientWorkspace) {
@@ -278,15 +286,6 @@ function SettingsRoute() {
     />
   );
 }
-
-function PracticeBaseRoute() {
-  const { navigate } = useNavigation();
-  useEffect(() => {
-    navigate('/practice/home', true);
-  }, [navigate]);
-  return <LoadingScreen />;
-}
-
 
 function RootRoute() {
   const { session, isPending, activeOrganizationId } = useSessionContext();
@@ -344,7 +343,7 @@ function RootRoute() {
     }
 
     if (isMountedRef.current) {
-      const destination = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
+      const destination = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
       navigate(destination, true);
     }
   }, [
@@ -365,12 +364,16 @@ function PracticeAppRoute({
   settingsMode = false,
   settingsOverlayOpen = false,
   activeRoute = 'home',
-  conversationId
+  conversationId,
+  practiceEmbedView = 'home',
+  practiceSlug
 }: {
   settingsMode?: boolean;
   settingsOverlayOpen?: boolean;
   activeRoute?: PracticeRouteKey;
   conversationId?: string;
+  practiceEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'leads' | 'pricing' | 'clients';
+  practiceSlug?: string;
 }) {
   const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
@@ -378,9 +381,14 @@ function PracticeAppRoute({
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
   const [autoActivationState, setAutoActivationState] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
   const autoActivationKeyRef = useRef<string | null>(null);
+  const [resolvedSlugPracticeId, setResolvedSlugPracticeId] = useState<string | null>(null);
+  const [slugLookupStatus, setSlugLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [slugLookupRetry, setSlugLookupRetry] = useState(0);
   const autoActivationCandidateId = practices[0]?.id ?? currentPractice?.id ?? '';
+  const normalizedPracticeSlug = (practiceSlug ?? '').trim();
+  const hasPracticeSlug = normalizedPracticeSlug.length > 0;
   const resolvedPracticeId = activeOrganizationId ?? '';
-  const hasPracticeCandidate = Boolean(resolvedPracticeId || autoActivationCandidateId);
+  const hasPracticeCandidate = Boolean(hasPracticeSlug || resolvedPracticeId || autoActivationCandidateId);
   const practiceRefreshKey = useMemo(() => {
     if (!currentPractice) return null;
     return [
@@ -397,13 +405,50 @@ function PracticeAppRoute({
     console.error('Practice config error:', error);
   }, []);
 
+  const handleRetrySlugLookup = useCallback(() => {
+    setSlugLookupStatus('idle');
+    setSlugLookupRetry((prev) => prev + 1);
+  }, []);
+
   const canAutoActivatePractice = Boolean(
+    !hasPracticeSlug &&
     !practicesLoading &&
     session?.user &&
     autoActivationCandidateId &&
     !activeOrganizationId
   );
   const shouldDelayPracticeConfig = canAutoActivatePractice && autoActivationState !== 'done' && autoActivationState !== 'failed';
+
+  useEffect(() => {
+    if (!hasPracticeSlug) {
+      setResolvedSlugPracticeId(null);
+      setSlugLookupStatus('idle');
+      return;
+    }
+    let isMounted = true;
+    setSlugLookupStatus('loading');
+    getPublicPracticeDetails(normalizedPracticeSlug)
+      .then((details) => {
+        if (!isMounted) return;
+        const practiceId = details?.practiceId ?? null;
+        if (!practiceId) {
+          setResolvedSlugPracticeId(null);
+          setSlugLookupStatus('error');
+          return;
+        }
+        setResolvedSlugPracticeId(practiceId);
+        setSlugLookupStatus('done');
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.warn('[PracticeSlug] Failed to resolve practice slug', error);
+        setResolvedSlugPracticeId(null);
+        setSlugLookupStatus('error');
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [hasPracticeSlug, normalizedPracticeSlug, slugLookupRetry]);
 
   const {
     practiceConfig,
@@ -412,12 +457,30 @@ function PracticeAppRoute({
     isLoading: _isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
-    practiceId: shouldDelayPracticeConfig ? '' : resolvedPracticeId,
+    practiceId: shouldDelayPracticeConfig
+      ? ''
+      : (hasPracticeSlug ? (resolvedSlugPracticeId ?? '') : resolvedPracticeId),
     allowUnauthenticated: false,
     refreshKey: practiceRefreshKey
   });
 
-  const practiceId = resolvedPracticeId;
+  const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
+  const practiceId = hasPracticeSlug
+    ? (resolvedPracticeIdFromConfig || resolvedPracticeId)
+    : resolvedPracticeId;
+
+  useEffect(() => {
+    if (!hasPracticeSlug) return;
+    const targetPracticeId = resolvedSlugPracticeId ?? resolvedPracticeIdFromConfig;
+    if (!targetPracticeId) return;
+    if (activeOrganizationId === targetPracticeId) return;
+    const client = getClient();
+    client.organization
+      .setActive({ organizationId: targetPracticeId })
+      .catch((error) => {
+        console.warn('[Workspace] Failed to set active organization for practice slug', error);
+      });
+  }, [activeOrganizationId, hasPracticeSlug, resolvedPracticeIdFromConfig, resolvedSlugPracticeId]);
 
   useEffect(() => {
     if (!canAutoActivatePractice) return;
@@ -442,7 +505,7 @@ function PracticeAppRoute({
     if (!session?.user) return;
     if (shouldDelayPracticeConfig) return;
     if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
-      navigate('/client/conversations', true);
+      navigate('/client', true);
     }
   }, [
     canAccessPractice,
@@ -456,12 +519,21 @@ function PracticeAppRoute({
     shouldDelayPracticeConfig
   ]);
 
-  if (isPending || practicesLoading || shouldDelayPracticeConfig) {
+  if (isPending || practicesLoading || shouldDelayPracticeConfig || (hasPracticeSlug && slugLookupStatus === 'loading')) {
     return <LoadingScreen />;
   }
 
   if (!session?.user) {
     return <AuthPage />;
+  }
+
+  if (hasPracticeSlug && slugLookupStatus === 'error') {
+    return (
+      <PracticeNotFound
+        practiceId={normalizedPracticeSlug}
+        onRetry={handleRetrySlugLookup}
+      />
+    );
   }
 
   if (!hasPracticeCandidate) {
@@ -486,7 +558,101 @@ function PracticeAppRoute({
       settingsOverlayOpen={settingsOverlayOpen}
       activeRoute={activeRoute}
       routeConversationId={conversationId}
+      practiceEmbedView={practiceEmbedView}
+      practiceSlug={normalizedPracticeSlug || undefined}
     />
+  );
+}
+
+function ClientPracticeRoute({
+  practiceSlug,
+  conversationId,
+  embedView = 'home'
+}: {
+  practiceSlug?: string;
+  conversationId?: string;
+  embedView?: 'home' | 'list' | 'conversation' | 'matters';
+}) {
+  const location = useLocation();
+  const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
+  const { navigate } = useNavigation();
+  const handlePracticeError = useCallback((error: string) => {
+    console.error('Practice config error:', error);
+  }, []);
+
+  const slug = (practiceSlug ?? '').trim();
+
+  const {
+    practiceConfig,
+    practiceNotFound,
+    handleRetryPracticeConfig,
+    isLoading
+  } = usePracticeConfig({
+    onError: handlePracticeError,
+    practiceId: slug,
+    allowUnauthenticated: true
+  });
+  const resolvedPracticeId = useMemo(
+    () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : ''),
+    [practiceConfig.id]
+  );
+
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
+
+  useEffect(() => {
+    if (!slug || sessionIsPending) return;
+    if (isAuthenticatedClient && embedView === 'home') {
+      navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
+    } else if (!isAuthenticatedClient && embedView === 'matters') {
+      navigate(`/client/${encodeURIComponent(slug)}`, true);
+    }
+  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending]);
+
+  if (isLoading || sessionIsPending) {
+    return <LoadingScreen />;
+  }
+
+  if (!session?.user) {
+    return <AuthPage />;
+  }
+
+  if (practiceNotFound) {
+    return (
+      <PracticeNotFound
+        practiceId={slug || resolvedPracticeId}
+        onRetry={handleRetryPracticeConfig}
+      />
+    );
+  }
+
+  if (!resolvedPracticeId) {
+    return <LoadingScreen />;
+  }
+
+  const currentUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}${location.url}`
+    : undefined;
+
+  return (
+    <>
+      <SEOHead
+        practiceConfig={practiceConfig}
+        currentUrl={currentUrl}
+      />
+      <MainApp
+        practiceId={resolvedPracticeId}
+        practiceConfig={practiceConfig}
+        practiceNotFound={practiceNotFound}
+        handleRetryPracticeConfig={handleRetryPracticeConfig}
+        isPracticeView={true}
+        workspace="client"
+        activeRoute={embedView === 'conversation' || embedView === 'list' ? 'messages' : embedView === 'matters' ? 'matters' : 'home'}
+        clientPracticeSlug={slug || undefined}
+        routeConversationId={conversationId}
+        clientEmbedView={embedView}
+      />
+    </>
   );
 }
 
@@ -602,6 +768,18 @@ function PublicPracticeRoute({
     }
   }, [session?.user, sessionIsPending]);
 
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
+
+  useEffect(() => {
+    if (!slug || sessionIsPending) return;
+    if (isAuthenticatedClient && embedView === 'home') {
+      navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
+    } else if (!isAuthenticatedClient && embedView === 'matters') {
+      navigate(`/embed/${encodeURIComponent(slug)}`, true);
+    }
+  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending]);
+
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -623,14 +801,10 @@ function PublicPracticeRoute({
     return <LoadingScreen />;
   }
 
-  const normalizedRole = normalizePracticeRole(activeMemberRole);
-  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
   if (isAuthenticatedClient && embedView === 'home' && slug) {
-    navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
     return <LoadingScreen />;
   }
   if (!isAuthenticatedClient && embedView === 'matters' && slug) {
-    navigate(`/embed/${encodeURIComponent(slug)}`, true);
     return <LoadingScreen />;
   }
 

@@ -69,7 +69,10 @@ export const Combobox = ({
         (onChange as (v: string[]) => void)([val]);
       }
     } else {
-      if (!Array.isArray(val)) {
+      if (Array.isArray(val)) {
+        console.warn('[Combobox] Received array value in single-select mode, using first element', val);
+        (onChange as (v: string) => void)(val[0] ?? '');
+      } else {
         (onChange as (v: string) => void)(val);
       }
     }
@@ -260,6 +263,7 @@ export const Combobox = ({
           <div
             id={listboxId}
             role="listbox"
+            tabIndex={-1}
             className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
             onMouseDown={(event) => {
               if (isMultiple) {

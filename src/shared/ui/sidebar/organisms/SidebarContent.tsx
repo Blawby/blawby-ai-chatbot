@@ -32,7 +32,6 @@ interface SidebarContentProps {
   };
   navItems: SidebarNavItem[];
   onClose?: () => void;
-  conversationContent?: ComponentChildren;
   currentPractice?: {
     id: string;
     subscriptionTier?: SubscriptionTier;
@@ -45,7 +44,6 @@ export const SidebarContent = ({
   practiceConfig,
   navItems,
   onClose,
-  conversationContent,
   currentPractice,
   isCollapsed,
   onToggleCollapse
@@ -80,12 +78,6 @@ export const SidebarContent = ({
             ))}
           </NavigationList>
         </div>
-
-        {!isCollapsed && conversationContent && (
-          <div className="mt-auto flex-1 overflow-y-auto border-t border-gray-200 dark:border-dark-border px-1 pb-2">
-            {conversationContent}
-          </div>
-        )}
       </div>
 
       {/* User Profile Section */}

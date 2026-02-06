@@ -63,7 +63,7 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
           onClick={() => onSelect?.(matter)}
           className={cn(
             sharedClassName,
-            'w-full h-auto rounded-none bg-transparent'
+            'h-auto rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 dark:focus-visible:ring-primary-400'
           )}
           aria-label={`Select matter ${matter.title} for ${matter.clientName} (${matter.status})`}
         >

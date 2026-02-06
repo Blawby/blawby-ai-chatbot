@@ -22,8 +22,8 @@ export function getWorkspaceBasePath(workspace: WorkspaceType): string | null {
 }
 
 export function getWorkspaceDashboardPath(workspace: WorkspaceType): string | null {
-  if (workspace === 'practice') return '/practice/home';
-  if (workspace === 'client') return '/client/conversations';
+  if (workspace === 'practice') return '/practice';
+  if (workspace === 'client') return '/client';
   return null;
 }
 

@@ -206,7 +206,7 @@ export const usePaymentUpgrade = () => {
       params.set('practiceId', practiceId);
     }
     const query = params.toString();
-    return `/practice/home${query ? `?${query}` : ''}`;
+    return `/practice${query ? `?${query}` : ''}`;
   }, []);
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {

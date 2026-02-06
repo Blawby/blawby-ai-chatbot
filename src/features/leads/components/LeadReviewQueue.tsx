@@ -40,6 +40,7 @@ export interface LeadSummary {
 
 interface LeadReviewQueueProps {
   practiceId: string | null;
+  practiceSlug?: string | null;
   canReviewLeads: boolean;
   acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
   rejectMatter: (practiceId: string, matterId: string, reason?: string) => Promise<MatterTransitionResult>;
@@ -52,6 +53,7 @@ interface LeadReviewQueueProps {
 
 export const LeadReviewQueue = ({
   practiceId,
+  practiceSlug,
   canReviewLeads,
   acceptMatter,
   rejectMatter,
@@ -275,8 +277,12 @@ export const LeadReviewQueue = ({
       onOpenConversation(conversationId);
       return;
     }
-    navigate(`/practice/conversations/${encodeURIComponent(conversationId)}`);
-  }, [navigate, onOpenConversation]);
+    if (practiceSlug) {
+      navigate(`/practice/${encodeURIComponent(practiceSlug)}/conversations/${encodeURIComponent(conversationId)}`);
+      return;
+    }
+    navigate('/practice');
+  }, [navigate, onOpenConversation, practiceSlug]);
 
   return (
     <div className={className}>
