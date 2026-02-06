@@ -375,6 +375,7 @@ function PracticeAppRoute({
   const autoActivationKeyRef = useRef<string | null>(null);
   const [resolvedSlugPracticeId, setResolvedSlugPracticeId] = useState<string | null>(null);
   const [slugLookupStatus, setSlugLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [slugLookupRetry, setSlugLookupRetry] = useState(0);
   const autoActivationCandidateId = practices[0]?.id ?? currentPractice?.id ?? '';
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
   const hasPracticeSlug = normalizedPracticeSlug.length > 0;
@@ -394,6 +395,11 @@ function PracticeAppRoute({
 
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
+  }, []);
+
+  const handleRetrySlugLookup = useCallback(() => {
+    setSlugLookupStatus('idle');
+    setSlugLookupRetry((prev) => prev + 1);
   }, []);
 
   const canAutoActivatePractice = Boolean(
@@ -434,7 +440,7 @@ function PracticeAppRoute({
     return () => {
       isMounted = false;
     };
-  }, [hasPracticeSlug, normalizedPracticeSlug]);
+  }, [hasPracticeSlug, normalizedPracticeSlug, slugLookupRetry]);
 
   const {
     practiceConfig,
@@ -517,7 +523,7 @@ function PracticeAppRoute({
     return (
       <PracticeNotFound
         practiceId={normalizedPracticeSlug}
-        onRetry={handleRetryPracticeConfig}
+        onRetry={handleRetrySlugLookup}
       />
     );
   }
