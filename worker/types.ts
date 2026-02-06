@@ -128,6 +128,7 @@ export interface Env {
   CHAT_ROOM: DurableObjectNamespace;
   MATTER_PROGRESS: DurableObjectNamespace;
   CHAT_COUNTER: DurableObjectNamespace;
+  MATTER_DIFFS: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;

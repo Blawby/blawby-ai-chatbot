@@ -21,8 +21,9 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     if (!practiceId) {
       return null;
     }
-    if (hasCachedDetails) {
-      return detailsMap[practiceId] ?? null;
+    const cached = hasCachedDetails ? detailsMap[practiceId] : undefined;
+    if (cached && cached.services !== undefined) {
+      return cached;
     }
     if (practiceSlug && practiceSlug.trim().length > 0) {
       const details = await getPracticeDetailsBySlug(practiceSlug.trim());

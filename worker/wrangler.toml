@@ -50,6 +50,14 @@ class_name = "MatterProgressRoom"
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
 
+[[durable_objects.bindings]]
+name = "MATTER_DIFFS"
+class_name = "MatterDiffStore"
+
+[[migrations]]
+tag = "v6"
+new_classes = ["MatterDiffStore"]
+
 
 [env.dev]
 name = "blawby-ai-chatbot-dev"
@@ -90,6 +98,14 @@ new_classes = ["ChatRoom"]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
 
+[[env.dev.durable_objects.bindings]]
+name = "MATTER_DIFFS"
+class_name = "MatterDiffStore"
+
+[[env.dev.migrations]]
+tag = "v6"
+new_classes = ["MatterDiffStore"]
+
 [env.dev.vars]
 NODE_ENV = "development"
 LOG_LEVEL = "debug"
@@ -100,7 +116,7 @@ CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
 AI_PROVIDER = "cloudflare_gateway"
 BACKEND_API_URL = "https://staging-api.blawby.com"
-ALLOWED_WS_ORIGINS = "https://local.blawby.com"
+ALLOWED_WS_ORIGINS = "https://local.blawby.com,http://local.blawby.com,http://localhost:5137,https://localhost:5137"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
 ENABLE_PUSH_NOTIFICATIONS = true
@@ -150,6 +166,14 @@ new_classes = ["ChatRoom"]
 [[env.staging.migrations]]
 tag = "v5"
 new_classes = ["MatterProgressRoom"]
+
+[[env.staging.durable_objects.bindings]]
+name = "MATTER_DIFFS"
+class_name = "MatterDiffStore"
+
+[[env.staging.migrations]]
+tag = "v6"
+new_classes = ["MatterDiffStore"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -240,6 +264,14 @@ RATE_LIMIT_BURST_SIZE = "10"
 [[env.production.routes]]
 pattern = "ai.blawby.com/api/*"
 zone_name = "blawby.com"
+
+[[env.production.durable_objects.bindings]]
+name = "MATTER_DIFFS"
+class_name = "MatterDiffStore"
+
+[[env.production.migrations]]
+tag = "v6"
+new_classes = ["MatterDiffStore"]
 
 [observability]
 [observability.logs]

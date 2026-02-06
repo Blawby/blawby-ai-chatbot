@@ -17,7 +17,6 @@ import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import {
   type MatterDetail,
   type MatterExpense,
-  type MatterNote,
   type MatterOption,
   type MatterSummary,
   type TimeEntry
@@ -32,7 +31,6 @@ import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/comp
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
-import { MatterNotesPanel } from '@/features/matters/components/notes/MatterNotesPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { Avatar } from '@/shared/ui/profile';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -59,7 +57,6 @@ import {
   createMatterTimeEntry,
   deleteMatterExpense,
   deleteMatterMilestone,
-  deleteMatterNote,
   deleteMatterTimeEntry,
   getMatterTimeEntryStats,
   listMatterExpenses,
@@ -69,9 +66,9 @@ import {
   reorderMatterMilestones,
   updateMatterExpense,
   updateMatterMilestone,
-  updateMatterNote,
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
+import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
   lead: 0,
@@ -119,6 +116,9 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'messages', label: 'Messages' }
 ];
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
 type PracticeMattersPageProps = {
   basePath?: string;
 };
@@ -134,11 +134,15 @@ const formatLongDate = (value?: string | null) => {
   });
 };
 
-const resolveClientLabel = (clientId?: string | null) =>
-  clientId ? `Client ${clientId.slice(0, 8)}` : 'Unassigned client';
+const resolveClientLabel = (clientId?: string | null, fallback?: string) => {
+  if (fallback) return fallback;
+  return clientId ? `Client ${clientId.slice(0, 8)}` : 'Unassigned client';
+};
 
-const resolvePracticeServiceLabel = (serviceId?: string | null) =>
-  serviceId ? `Service ${serviceId.slice(0, 8)}` : 'Not specified';
+const resolvePracticeServiceLabel = (serviceId?: string | null, fallback?: string) => {
+  if (fallback) return fallback;
+  return serviceId ? `Service ${serviceId.slice(0, 8)}` : 'Not specified';
+};
 
 const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => {
   const normalized = status?.toLowerCase().replace(/\s+/g, '_');
@@ -156,10 +160,13 @@ const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => 
   return 'open';
 };
 
-const mapStatusToBackend = (
-  status: MattersSidebarStatus
-): 'draft' | 'open' | 'in_progress' | 'completed' | 'archived' =>
-  status === 'lead' ? 'draft' : status;
+const mapStatusToBackend = (status: MattersSidebarStatus): 'draft' | 'active' =>
+  status === 'lead' ? 'draft' : 'active';
+
+const prunePayload = (payload: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== null && value !== undefined)
+  );
 
 const extractAssigneeIds = (matter: BackendMatter): string[] => {
   if (Array.isArray(matter.assignee_ids)) {
@@ -203,20 +210,40 @@ const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['
   });
 };
 
-const toMatterSummary = (matter: BackendMatter): MatterSummary => {
+const toMatterSummary = (
+  matter: BackendMatter,
+  options?: {
+    clientNameById?: Map<string, string>;
+    serviceNameById?: Map<string, string>;
+  }
+): MatterSummary => {
   const updatedAt = matter.updated_at || matter.created_at || new Date().toISOString();
+  const clientName = matter.client_id
+    ? options?.clientNameById?.get(matter.client_id)
+    : undefined;
+  const serviceName = matter.practice_service_id
+    ? options?.serviceNameById?.get(matter.practice_service_id)
+    : undefined;
   return {
     id: matter.id,
     title: matter.title || 'Untitled matter',
-    clientName: resolveClientLabel(matter.client_id),
-    practiceArea: matter.practice_service_id ? resolvePracticeServiceLabel(matter.practice_service_id) : null,
+    clientName: resolveClientLabel(matter.client_id, clientName),
+    practiceArea: matter.practice_service_id
+      ? resolvePracticeServiceLabel(matter.practice_service_id, serviceName)
+      : null,
     status: normalizeMatterStatus(matter.status),
     updatedAt
   };
 };
 
-const toMatterDetail = (matter: BackendMatter): MatterDetail => ({
-  ...toMatterSummary(matter),
+const toMatterDetail = (
+  matter: BackendMatter,
+  options?: {
+    clientNameById?: Map<string, string>;
+    serviceNameById?: Map<string, string>;
+  }
+): MatterDetail => ({
+  ...toMatterSummary(matter, options),
   clientId: matter.client_id || '',
   practiceAreaId: matter.practice_service_id || '',
   assigneeIds: extractAssigneeIds(matter),
@@ -239,45 +266,239 @@ const toMatterDetail = (matter: BackendMatter): MatterDetail => ({
   notes: []
 });
 
-const resolveActivityType = (activity: BackendMatterActivity): TimelineItem['type'] => {
-  const content = `${activity.action ?? ''} ${activity.description ?? ''}`.toLowerCase();
-  if (content.includes('create')) return 'created';
-  if (content.includes('comment')) return 'commented';
-  if (content.includes('pay')) return 'paid';
-  if (content.includes('view')) return 'viewed';
-  if (content.includes('send')) return 'sent';
-  return 'edited';
+const activityActionMap: Record<string, { type: TimelineItem['type']; label: string }> = {
+  matter_created: { type: 'created', label: 'created the matter.' },
+  matter_updated: { type: 'edited', label: 'updated matter details.' },
+  matter_deleted: { type: 'edited', label: 'deleted the matter.' },
+  matter_status_changed: { type: 'edited', label: 'updated the status.' },
+  note_added: { type: 'commented', label: 'added a note.' },
+  note_updated: { type: 'commented', label: 'updated a note.' },
+  note_deleted: { type: 'commented', label: 'deleted a note.' },
+  time_entry_added: { type: 'edited', label: 'added a time entry.' },
+  time_entry_updated: { type: 'edited', label: 'updated a time entry.' },
+  time_entry_deleted: { type: 'edited', label: 'deleted a time entry.' },
+  expense_added: { type: 'edited', label: 'added an expense.' },
+  expense_updated: { type: 'edited', label: 'updated an expense.' },
+  expense_deleted: { type: 'edited', label: 'deleted an expense.' },
+  milestone_created: { type: 'edited', label: 'added a milestone.' },
+  milestone_updated: { type: 'edited', label: 'updated a milestone.' },
+  milestone_deleted: { type: 'edited', label: 'deleted a milestone.' },
+  milestone_completed: { type: 'edited', label: 'completed a milestone.' },
+  assignee_added: { type: 'edited', label: 'assigned a team member.' },
+  assignee_removed: { type: 'edited', label: 'removed an assignee.' }
 };
 
-const toActivityTimelineItem = (activity: BackendMatterActivity): TimelineItem => {
-  const createdAt = activity.created_at ?? new Date().toISOString();
-  const userLabel = activity.user_id ? `User ${activity.user_id.slice(0, 6)}` : 'System';
-  const type = resolveActivityType(activity);
-  const date = formatRelativeTime(createdAt);
-  return {
-    id: activity.id,
-    type,
-    person: { name: userLabel },
-    date: date || 'Just now',
-    dateTime: createdAt,
-    comment: type === 'commented' ? activity.description ?? undefined : undefined,
-    action: type !== 'commented' ? activity.action ?? activity.description ?? undefined : undefined
-  };
+const humanizeAction = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  return value
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 };
 
-const toNote = (note: BackendMatterNote): MatterNote => {
-  const createdAt = note.created_at ?? new Date().toISOString();
-  const updatedAt = note.updated_at ?? undefined;
-  const userLabel = note.user_id ? `User ${note.user_id.slice(0, 6)}` : 'System';
-  return {
-    id: note.id,
-    author: {
-      name: userLabel
-    },
-    content: note.content ?? '',
-    createdAt,
-    updatedAt
+const FIELD_LABELS: Record<string, string> = {
+  title: 'title',
+  description: 'description',
+  client_id: 'client',
+  practice_service_id: 'practice area',
+  billing_type: 'billing type',
+  admin_hourly_rate: 'admin rate',
+  attorney_hourly_rate: 'attorney rate',
+  status: 'status',
+  payment_frequency: 'payment schedule',
+  total_fixed_price: 'fixed fee',
+  contingency_percentage: 'contingency percentage',
+  settlement_amount: 'settlement amount',
+  assignee_ids: 'team members',
+  assignees: 'team members'
+};
+
+const normalizeFieldLabel = (field: string): string => {
+  const trimmed = field.trim();
+  if (!trimmed) return '';
+  return FIELD_LABELS[trimmed] ?? trimmed.replace(/_/g, ' ');
+};
+
+const isEmailLike = (value: string): boolean => value.includes('@');
+
+const isDifferentValue = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return false;
+  const leftType = typeof left;
+  const rightType = typeof right;
+  if (leftType !== rightType) return true;
+  if (left && right && (leftType === 'object' || leftType === 'function')) {
+    try {
+      return JSON.stringify(left) !== JSON.stringify(right);
+    } catch {
+      return true;
+    }
+  }
+  return true;
+};
+
+const extractChangedFields = (metadata: Record<string, unknown>): string[] => {
+  const detailed: string[] = [];
+  const pushIfChanged = (field: string, fromValue: unknown, toValue: unknown) => {
+    if (!field) return;
+    if (isDifferentValue(fromValue, toValue)) {
+      detailed.push(field);
+    }
   };
+
+  const changes = metadata.changes;
+  if (Array.isArray(changes)) {
+    changes.forEach((item) => {
+      if (item && typeof item === 'object') {
+        const field = (item as { field?: unknown; key?: unknown; name?: unknown }).field
+          ?? (item as { key?: unknown }).key
+          ?? (item as { name?: unknown }).name;
+        const fromValue = (item as { from?: unknown; old?: unknown; previous?: unknown }).from
+          ?? (item as { old?: unknown }).old
+          ?? (item as { previous?: unknown }).previous;
+        const toValue = (item as { to?: unknown; new?: unknown; current?: unknown }).to
+          ?? (item as { new?: unknown }).new
+          ?? (item as { current?: unknown }).current;
+        if (typeof field === 'string') {
+          if (fromValue !== undefined || toValue !== undefined) {
+            pushIfChanged(field, fromValue, toValue);
+          } else {
+            detailed.push(field);
+          }
+        }
+      } else if (typeof item === 'string') {
+        detailed.push(item);
+      }
+    });
+  } else if (changes && typeof changes === 'object') {
+    Object.entries(changes).forEach(([field, payload]) => {
+      if (payload && typeof payload === 'object') {
+        const fromValue = (payload as { from?: unknown; old?: unknown; previous?: unknown }).from
+          ?? (payload as { old?: unknown }).old
+          ?? (payload as { previous?: unknown }).previous;
+        const toValue = (payload as { to?: unknown; new?: unknown; current?: unknown }).to
+          ?? (payload as { new?: unknown }).new
+          ?? (payload as { current?: unknown }).current;
+        if (fromValue !== undefined || toValue !== undefined) {
+          pushIfChanged(field, fromValue, toValue);
+        } else {
+          detailed.push(field);
+        }
+      } else {
+        detailed.push(field);
+      }
+    });
+  }
+
+  const diff = metadata.diff;
+  if (diff && typeof diff === 'object' && !Array.isArray(diff)) {
+    Object.entries(diff).forEach(([field, payload]) => {
+      if (payload && typeof payload === 'object') {
+        const fromValue = (payload as { from?: unknown; old?: unknown; previous?: unknown }).from
+          ?? (payload as { old?: unknown }).old
+          ?? (payload as { previous?: unknown }).previous;
+        const toValue = (payload as { to?: unknown; new?: unknown; current?: unknown }).to
+          ?? (payload as { new?: unknown }).new
+          ?? (payload as { current?: unknown }).current;
+        if (fromValue !== undefined || toValue !== undefined) {
+          pushIfChanged(field, fromValue, toValue);
+        } else {
+          detailed.push(field);
+        }
+      } else {
+        detailed.push(field);
+      }
+    });
+  }
+
+  if (detailed.length === 0) {
+    const candidates = [
+      metadata.changed_fields,
+      metadata.changedFields,
+      metadata.updated_fields,
+      metadata.updatedFields,
+      metadata.fields
+    ];
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        candidate.forEach((item) => {
+          if (typeof item === 'string') detailed.push(item);
+          if (item && typeof item === 'object') {
+            const field = (item as { field?: unknown; key?: unknown; name?: unknown }).field
+              ?? (item as { key?: unknown }).key
+              ?? (item as { name?: unknown }).name;
+            if (typeof field === 'string') detailed.push(field);
+          }
+        });
+      }
+    }
+  }
+
+  const normalized = detailed
+    .map(normalizeFieldLabel)
+    .filter((value) => value && value.length > 0);
+  return Array.from(new Set(normalized));
+};
+
+const formatFieldList = (fields: string[]): string | null => {
+  if (fields.length === 0) return null;
+  if (fields.length === 1) return fields[0];
+  if (fields.length === 2) return `${fields[0]} and ${fields[1]}`;
+  return `${fields.slice(0, -1).join(', ')}, and ${fields[fields.length - 1]}`;
+};
+
+const resolveStatusLabel = (value: string): string => value.replace(/_/g, ' ');
+
+const buildMatterCreatedLabel = (context: {
+  title?: string | null;
+  clientName?: string | null;
+  practiceArea?: string | null;
+}): string => {
+  const title = context.title?.trim();
+  const clientName = context.clientName?.trim();
+  const practiceArea = context.practiceArea?.trim();
+  if (title) {
+    const clientSuffix = clientName ? ` for ${clientName}` : '';
+    const practiceSuffix = practiceArea ? ` (${practiceArea})` : '';
+    return `created matter “${title}”${clientSuffix}${practiceSuffix}.`;
+  }
+  if (clientName || practiceArea) {
+    const clientSuffix = clientName ? ` for ${clientName}` : '';
+    const practiceSuffix = practiceArea ? ` (${practiceArea})` : '';
+    return `created a matter${clientSuffix}${practiceSuffix}.`;
+  }
+  return 'created the matter.';
+};
+
+const resolveStatusChangeLabel = (metadata: Record<string, unknown>): string | null => {
+  const candidate = metadata.status ?? metadata.new_status ?? metadata.to_status ?? metadata.to;
+  if (typeof candidate === 'string' && candidate.trim()) {
+    return `updated the status to ${resolveStatusLabel(candidate)}.`;
+  }
+  return null;
+};
+
+const formatDuration = (seconds?: number | null): string | null => {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) {
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  }
+  if (hours > 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+};
+
+const stripActorPrefix = (description: string, actorName: string): string => {
+  const trimmed = description.trim();
+  if (!actorName) return trimmed;
+  const prefix = `${actorName} `;
+  if (trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return trimmed.slice(prefix.length).trim();
+  }
+  return trimmed;
 };
 
 const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => ({
@@ -344,7 +565,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const selectedMatterId = firstSegment && firstSegment !== 'activity'
     ? decodeURIComponent(firstSegment)
     : null;
-  const { activePracticeId } = useSessionContext();
+  const { activePracticeId, session } = useSessionContext();
   const { showError } = useToastContext();
   const { getMembers, fetchMembers } = usePracticeManagement({
     autoFetchPractices: false,
@@ -366,15 +587,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [mattersLoadingMore, setMattersLoadingMore] = useState(false);
   const pageSize = 50;
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const practiceDetailsRequestedRef = useRef<string | null>(null);
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
+  const [noteItems, setNoteItems] = useState<TimelineItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [notes, setNotes] = useState<MatterNote[]>([]);
-  const [notesLoading, setNotesLoading] = useState(false);
-  const [notesError, setNotesError] = useState<string | null>(null);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [timeEntriesLoading, setTimeEntriesLoading] = useState(false);
   const [timeEntriesError, setTimeEntriesError] = useState<string | null>(null);
@@ -385,6 +605,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [milestones, setMilestones] = useState<MatterDetail['milestones']>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [milestonesError, setMilestonesError] = useState<string | null>(null);
+  const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
+  const matterContext = useMemo(
+    () => ({
+      title: selectedMatterDetail?.title ?? null,
+      clientName: selectedMatterDetail?.clientName ?? null,
+      practiceArea: selectedMatterDetail?.practiceArea ?? null
+    }),
+    [selectedMatterDetail?.clientName, selectedMatterDetail?.practiceArea, selectedMatterDetail?.title]
+  );
 
   const [activeTab, setActiveTab] = useState<MatterTabId>('all');
   const [sortOption, setSortOption] = useState<SortOption>('updated');
@@ -426,17 +655,33 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
   };
 
-  const clientOptions = useMemo<MatterOption[]>(() => {
-    // TODO: Replace with clients API when available.
-    return [];
+  const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => {
+    const name =
+      detail.user?.name?.trim() ||
+      detail.user?.email?.trim() ||
+      detail.user?.phone?.trim() ||
+      'Unknown Client';
+    return {
+      id: detail.id,
+      name,
+      email: detail.user?.email ?? undefined,
+      role: 'client'
+    };
   }, []);
+  const clientNameById = useMemo(
+    () => new Map(clientOptions.map((client) => [client.id, client.name])),
+    [clientOptions]
+  );
   const practiceAreaOptions = useMemo<MatterOption[]>(() => {
     const services = practiceDetails?.services;
     if (!Array.isArray(services)) return [];
     return services
-      .filter((service): service is { id: string; name: string; key?: string } =>
-        !!service && typeof service === 'object' && typeof service.id === 'string' && typeof service.name === 'string'
-      )
+      .filter((service): service is { id: string; name: string; key?: string } => {
+        if (!service || typeof service !== 'object') return false;
+        if (typeof service.id !== 'string' || !isUuid(service.id)) return false;
+        if (typeof service.name !== 'string' || !service.name.trim()) return false;
+        return true;
+      })
       .map((service) => ({
         id: service.id,
         name: service.name,
@@ -446,21 +691,148 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const assigneeOptions = useMemo<MatterOption[]>(() => {
     if (!activePracticeId) return [];
     const members = getMembers(activePracticeId);
-    return members.map((member) => ({
-      id: member.userId,
-      name: member.name ?? member.email,
-      email: member.email,
-      role: member.role
-    }));
+    return members
+      .filter((member) => member.role !== 'member' && member.role !== 'client')
+      .map((member) => ({
+        id: member.userId,
+        name: member.name ?? member.email,
+        email: member.email,
+        image: member.image ?? undefined,
+        role: member.role
+      }));
   }, [activePracticeId, getMembers]);
 
   const assigneeNameById = useMemo(() => {
     return new Map(assigneeOptions.map((assignee) => [assignee.id, assignee.name]));
   }, [assigneeOptions]);
 
+  const membersById = useMemo(() => {
+    if (!activePracticeId) return new Map<string, { name: string; email?: string | null; image?: string | null }>();
+    const members = getMembers(activePracticeId);
+    return new Map(
+      members.map((member) => [
+        member.userId,
+        { name: member.name ?? '', email: member.email ?? null, image: member.image }
+      ])
+    );
+  }, [activePracticeId, getMembers]);
+
   const serviceNameById = useMemo(() => {
     return new Map(practiceAreaOptions.map((service) => [service.id, service.name]));
   }, [practiceAreaOptions]);
+
+  const resolveTimelinePerson = useCallback(
+    (userId?: string | null): TimelinePerson => {
+      if (!userId) return { name: 'System' };
+      const member = membersById.get(userId);
+      if (member) {
+        const fallbackEmail = member.email ?? '';
+        const sessionName = session?.user?.id === userId ? session?.user?.name?.trim() : '';
+        const preferredName = member.name?.trim() || sessionName || fallbackEmail;
+        const name = preferredName && !isEmailLike(preferredName)
+          ? preferredName
+          : sessionName && !isEmailLike(sessionName)
+            ? sessionName
+            : fallbackEmail || preferredName;
+        return { name: name || `User ${userId.slice(0, 6)}`, imageUrl: member.image ?? null };
+      }
+      const sessionName = session?.user?.id === userId ? session?.user?.name?.trim() : '';
+      if (sessionName && !isEmailLike(sessionName)) {
+        return { name: sessionName, imageUrl: session?.user?.image ?? null };
+      }
+      return { name: `User ${userId.slice(0, 6)}` };
+    },
+    [membersById, session?.user?.id, session?.user?.image, session?.user?.name]
+  );
+
+  const toActivityTimelineItem = useCallback(
+    (activity: BackendMatterActivity): TimelineItem => {
+      const createdAt = activity.created_at ?? new Date().toISOString();
+      const actionKey = activity.action ?? '';
+      const mapped = activityActionMap[actionKey];
+      const type = mapped?.type ?? 'edited';
+      const date = formatRelativeTime(createdAt);
+      const description = activity.description ?? undefined;
+      const person = resolveTimelinePerson(activity.user_id);
+      const metadata = activity.metadata ?? {};
+      const timeEntryDuration = formatDuration(
+        typeof (metadata as Record<string, unknown>).duration === 'number'
+          ? (metadata as Record<string, unknown>).duration as number
+          : null
+      );
+      const timeEntryDescription = typeof (metadata as Record<string, unknown>).description === 'string'
+        ? (metadata as Record<string, unknown>).description as string
+        : undefined;
+      const cleanedDescription = description ? stripActorPrefix(description, person.name) : undefined;
+      const action = (() => {
+        if (type === 'commented') return undefined;
+        if (actionKey === 'matter_created') {
+          return buildMatterCreatedLabel(matterContext);
+        }
+        if (actionKey === 'matter_updated') {
+          const fields = extractChangedFields(metadata as Record<string, unknown>);
+          const formatted = formatFieldList(fields);
+          if (formatted) return `updated ${formatted}.`;
+          return cleanedDescription ?? 'updated matter details.';
+        }
+        if (actionKey === 'matter_status_changed') {
+          return resolveStatusChangeLabel(metadata as Record<string, unknown>) ?? 'updated the status.';
+        }
+        if (actionKey.startsWith('time_entry_')) {
+          if (actionKey === 'time_entry_deleted') {
+            return cleanedDescription ?? 'deleted a time entry.';
+          }
+          if (timeEntryDuration) {
+            const verb = actionKey === 'time_entry_updated' ? 'updated' : 'logged';
+            return timeEntryDescription
+              ? `${verb} ${timeEntryDuration} for ${timeEntryDescription}.`
+              : `${verb} ${timeEntryDuration}.`;
+          }
+          return cleanedDescription ?? 'logged time entry.';
+        }
+        if (actionKey.startsWith('milestone_')) {
+          if (cleanedDescription) {
+            return cleanedDescription;
+          }
+          return actionKey === 'milestone_completed'
+            ? 'completed a milestone.'
+            : actionKey === 'milestone_deleted'
+              ? 'deleted a milestone.'
+              : actionKey === 'milestone_updated'
+                ? 'updated a milestone.'
+                : 'added a milestone.';
+        }
+        return mapped?.label ?? cleanedDescription ?? humanizeAction(actionKey);
+      })();
+      return {
+        id: activity.id,
+        type,
+        person,
+        date: date || 'Just now',
+        dateTime: createdAt,
+        comment: type === 'commented' ? description : undefined,
+        action
+      };
+    },
+    [matterContext, resolveTimelinePerson]
+  );
+
+  const toNoteTimelineItem = useCallback(
+    (note: BackendMatterNote): TimelineItem => {
+      const createdAt = note.created_at ?? new Date().toISOString();
+      const person = resolveTimelinePerson(note.user_id);
+      const date = formatRelativeTime(createdAt);
+      return {
+        id: `note-${note.id}`,
+        type: 'commented',
+        person,
+        date: date || 'Just now',
+        dateTime: createdAt,
+        comment: note.content ?? ''
+      };
+    },
+    [resolveTimelinePerson]
+  );
 
   useEffect(() => {
     if (!activePracticeId) return;
@@ -468,7 +840,39 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   }, [activePracticeId, fetchMembers]);
 
   useEffect(() => {
-    if (!activePracticeId || hasPracticeDetails) return;
+    if (!activePracticeId) {
+      setClientOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    listUserDetails(activePracticeId, { limit: 100, offset: 0 })
+      .then((response) => {
+        if (cancelled) return;
+        const options = response.data.map(buildClientOption);
+        setClientOptions(options);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('[PracticeMattersPage] Failed to load clients', error);
+        setClientOptions([]);
+        showError('Failed to load clients', 'Please try again.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePracticeId, buildClientOption, showError]);
+
+  useEffect(() => {
+    if (!activePracticeId) return;
+    if (practiceDetailsRequestedRef.current === activePracticeId) return;
+    if (practiceDetails && hasPracticeDetails) {
+      practiceDetailsRequestedRef.current = activePracticeId;
+      return;
+    }
+    practiceDetailsRequestedRef.current = activePracticeId;
     setServicesLoading(true);
     fetchPracticeDetails()
       .catch((error) => {
@@ -477,7 +881,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       .finally(() => {
         setServicesLoading(false);
       });
-  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails]);
+  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails, practiceDetails]);
 
   useEffect(() => {
     if (!activePracticeId) {
@@ -564,7 +968,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     getMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((matter) => {
-        setSelectedMatterDetail(matter ? toMatterDetail(matter) : null);
+        setSelectedMatterDetail(
+          matter ? toMatterDetail(matter, { clientNameById, serviceNameById }) : null
+        );
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -576,7 +982,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, clientNameById, selectedMatterId, serviceNameById]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
@@ -590,7 +996,16 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((items) => {
-        setActivityItems(items.map(toActivityTimelineItem));
+        const nextItems = items
+          .filter((item) => !String(item.action ?? '').startsWith('note_'))
+          .slice()
+          .sort((a, b) => {
+            const aTime = new Date(a.created_at ?? 0).getTime();
+            const bTime = new Date(b.created_at ?? 0).getTime();
+            return aTime - bTime;
+          })
+          .map(toActivityTimelineItem);
+        setActivityItems(nextItems);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -602,35 +1017,35 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, toActivityTimelineItem]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
-      setNotes([]);
-      setNotesError(null);
-      setNotesLoading(false);
+      setNoteItems([]);
       return;
     }
 
     const controller = new AbortController();
-    setNotesLoading(true);
-    setNotesError(null);
-
     listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((items) => {
-        setNotes(items.map(toNote));
+        const nextNotes = items
+          .slice()
+          .sort((a, b) => {
+            const aTime = new Date(a.created_at ?? 0).getTime();
+            const bTime = new Date(b.created_at ?? 0).getTime();
+            return aTime - bTime;
+          })
+          .map(toNoteTimelineItem);
+        setNoteItems(nextNotes);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        const message = error instanceof Error ? error.message : 'Failed to load notes';
-        setNotesError(message);
-      })
-      .finally(() => {
-        setNotesLoading(false);
+        console.warn('[PracticeMattersPage] Failed to load notes for timeline', error);
+        setNoteItems([]);
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, toNoteTimelineItem]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
@@ -663,7 +1078,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, resolveTimelinePerson]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
@@ -860,63 +1275,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
     const created = await createMatterNote(activePracticeId, selectedMatterId, values.content);
     if (created) {
-      setNotes((prev) => [toNote(created), ...prev]);
-    } else {
-      const updated = await listMatterNotes(activePracticeId, selectedMatterId);
-      setNotes(updated.map(toNote));
+      const newItem = toNoteTimelineItem(created);
+      setNoteItems((prev) => [...prev, newItem]);
     }
-  }, [activePracticeId, selectedMatterId]);
-
-  const handleUpdateNote = useCallback(async (note: MatterNote, values: { content: string }) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    try {
-      const updated = await updateMatterNote(activePracticeId, selectedMatterId, note.id, values.content);
-      if (updated) {
-        setNotes((prev) => prev.map((item) => (item.id === note.id ? toNote(updated) : item)));
-        setNotesError(null);
-        return;
-      }
-      const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
-      setNotes(refreshed.map(toNote));
-      setNotesError(null);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to update note', error);
-      showError('Could not update note', 'Please try again.');
-      setNotesError('Unable to update note.');
-      try {
-        const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
-        setNotes(refreshed.map(toNote));
-      } catch (refreshError) {
-        console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
-      }
-      throw error;
-    }
-  }, [activePracticeId, selectedMatterId, showError]);
-
-  const handleDeleteNote = useCallback(async (note: MatterNote) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    try {
-      await deleteMatterNote(activePracticeId, selectedMatterId, note.id);
-      setNotes((prev) => prev.filter((item) => item.id !== note.id));
-      setNotesError(null);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to delete note', error);
-      showError('Could not delete note', 'Please try again.');
-      setNotesError('Unable to delete note.');
-      try {
-        const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
-        setNotes(refreshed.map(toNote));
-        setNotesError(null);
-      } catch (refreshError) {
-        console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
-      }
-      throw error;
-    }
-  }, [activePracticeId, selectedMatterId, showError]);
+  }, [activePracticeId, selectedMatterId, toNoteTimelineItem]);
 
   const handleCreateExpense = useCallback(async (values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
     if (!activePracticeId || !selectedMatterId) {
@@ -1051,23 +1413,19 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       throw new Error('Practice ID is required to create a matter.');
     }
 
-    const isUuid = (value: string) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : null,
-      description: values.description || null,
+      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : undefined,
+      description: values.description || undefined,
       billing_type: values.billingType,
-      total_fixed_price: values.totalFixedPrice ?? null,
-      contingency_percentage: values.contingencyPercent ?? null,
-      settlement_amount: null,
-      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : null,
-      admin_hourly_rate: values.adminHourlyRate ?? null,
-      attorney_hourly_rate: values.attorneyHourlyRate ?? null,
-      payment_frequency: values.paymentFrequency ?? null,
+      total_fixed_price: values.totalFixedPrice ?? undefined,
+      contingency_percentage: values.contingencyPercent ?? undefined,
+      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : undefined,
+      admin_hourly_rate: values.adminHourlyRate ?? undefined,
+      attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
+      payment_frequency: values.paymentFrequency ?? undefined,
       status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds,
+      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined,
       milestones: values.milestones.map((milestone, index) => ({
         description: milestone.description,
         amount: milestone.amount ?? 0,
@@ -1076,7 +1434,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       }))
     };
 
-    const created = await createMatter(activePracticeId, payload);
+    const created = await createMatter(activePracticeId, prunePayload(payload));
     refreshMatters();
     if (created?.id) {
       location.route(`${basePath}/${encodeURIComponent(created.id)}`);
@@ -1090,39 +1448,62 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId || null,
-      description: values.description || null,
+      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : undefined,
+      description: values.description || undefined,
       billing_type: values.billingType,
-      total_fixed_price: values.totalFixedPrice ?? null,
-      contingency_percentage: values.contingencyPercent ?? null,
-      settlement_amount: null,
-      practice_service_id: values.practiceAreaId || null,
-      admin_hourly_rate: values.adminHourlyRate ?? null,
-      attorney_hourly_rate: values.attorneyHourlyRate ?? null,
-      payment_frequency: values.paymentFrequency ?? null,
+      total_fixed_price: values.totalFixedPrice ?? undefined,
+      contingency_percentage: values.contingencyPercent ?? undefined,
+      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : undefined,
+      admin_hourly_rate: values.adminHourlyRate ?? undefined,
+      attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
+      payment_frequency: values.paymentFrequency ?? undefined,
       status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds
+      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined
     };
 
-    await updateMatter(activePracticeId, selectedMatterId, payload);
+    await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));
     refreshMatters();
-  }, [activePracticeId, selectedMatterId, refreshMatters]);
+    try {
+      const activities = await getMatterActivity(activePracticeId, selectedMatterId);
+      const nextItems = activities
+        .filter((item) => !String(item.action ?? '').startsWith('note_'))
+        .slice()
+        .sort((a, b) => {
+          const aTime = new Date(a.created_at ?? 0).getTime();
+          const bTime = new Date(b.created_at ?? 0).getTime();
+          return aTime - bTime;
+        })
+        .map(toActivityTimelineItem);
+      setActivityItems(nextItems);
+    } catch (error) {
+      console.warn('[PracticeMattersPage] Failed to refresh activity after update', error);
+    }
+    const refreshed = await getMatter(activePracticeId, selectedMatterId);
+    if (refreshed) {
+      setSelectedMatterDetail(
+        toMatterDetail(refreshed, { clientNameById, serviceNameById })
+      );
+    }
+  }, [
+    activePracticeId,
+    clientNameById,
+    refreshMatters,
+    selectedMatterId,
+    serviceNameById,
+    toActivityTimelineItem
+  ]);
 
   const matterEntries = useMemo(() => {
     return matters.map((matter) => {
-      const summary = toMatterSummary(matter);
-      const serviceName = matter.practice_service_id
-        ? serviceNameById.get(matter.practice_service_id) ?? summary.practiceArea
-        : summary.practiceArea;
+      const summary = toMatterSummary(matter, { clientNameById, serviceNameById });
       return {
         summary: {
-          ...summary,
-          practiceArea: serviceName ?? summary.practiceArea
+          ...summary
         },
         assigneeIds: extractAssigneeIds(matter)
       };
     });
-  }, [matters, serviceNameById]);
+  }, [clientNameById, matters, serviceNameById]);
 
   const matterSummaries = useMemo(() => matterEntries.map((entry) => entry.summary), [matterEntries]);
 
@@ -1181,10 +1562,18 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     selectedMatterId ? matterSummaries.find((matter) => matter.id === selectedMatterId) ?? null : null
   ), [matterSummaries, selectedMatterId]);
   const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
+  const timelineItems = useMemo(() => {
+    const combined = [...activityItems, ...noteItems];
+    return combined.sort((a, b) => {
+      const aTime = new Date(a.dateTime ?? 0).getTime();
+      const bTime = new Date(b.dateTime ?? 0).getTime();
+      return aTime - bTime;
+    });
+  }, [activityItems, noteItems]);
 
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
-  const overviewDetails = useMemo(() => {
-    if (!selectedMatterDetail || !resolvedSelectedMatter) return [];
+  const headerMeta = useMemo(() => {
+    if (!selectedMatterDetail || !resolvedSelectedMatter) return null;
 
     const resolveOptionLabel = (options: MatterOption[], id: string, fallback: string) =>
       options.find((option) => option.id === id)?.name ?? fallback;
@@ -1202,62 +1591,19 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       .map((id) => resolveOptionLabel(assigneeOptions, id, `User ${id.slice(0, 6)}`))
       .filter(Boolean);
 
-    const practiceAreaLabel = selectedMatterDetail.practiceArea
-      ?? resolveOptionLabel(
-        practiceAreaOptions,
-        selectedMatterDetail.practiceAreaId,
-        servicesLoading ? 'Loading services...' : resolvePracticeServiceLabel(selectedMatterDetail.practiceAreaId)
-      );
     const billingLabel = selectedMatterDetail.billingType
       ? selectedMatterDetail.billingType.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase())
       : 'Not specified';
-    const statusLabel = resolvedSelectedMatter.status.replace(/_/g, ' ');
     const createdLabel = formatLongDate(resolvedSelectedMatter.updatedAt);
 
-    return [
-      { label: 'Description', value: selectedMatterDetail.description || 'No description provided' },
-      { label: 'Practice Area', value: practiceAreaLabel },
-      { label: 'Billing Type', value: billingLabel },
-      {
-        label: 'Client',
-        value: clientNames.length > 0 ? clientNames.join(', ') : 'No client assigned',
-        render: () => (
-          clientNames.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {clientNames.map((name) => (
-                <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
-                  <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
-                  <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No client assigned</p>
-          )
-        )
-      },
-      {
-        label: 'Assigned',
-        value: assigneeNames.length > 0 ? assigneeNames.join(', ') : 'No assignee',
-        render: () => (
-          assigneeNames.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {assigneeNames.map((name) => (
-                <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
-                  <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
-                  <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No assignee</p>
-          )
-        )
-      },
-      { label: 'Status', value: statusLabel },
-      { label: 'Created', value: createdLabel }
-    ];
-  }, [assigneeOptions, clientOptions, practiceAreaOptions, resolvedSelectedMatter, selectedMatterDetail, servicesLoading]);
+    return {
+      description: selectedMatterDetail.description || '',
+      billingLabel,
+      createdLabel,
+      clientNames,
+      assigneeNames
+    };
+  }, [assigneeOptions, clientOptions, resolvedSelectedMatter, selectedMatterDetail]);
 
   if (selectedMatterId) {
     if (detailLoading && !resolvedSelectedMatter) {
@@ -1362,6 +1708,53 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 </Button>
               </div>
             </div>
+            {headerMeta && (
+              <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-dark-card-bg/80 p-4">
+                <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
+                  {headerMeta.description ? headerMeta.description : 'No description provided.'}
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Client</p>
+                    {headerMeta.clientNames.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {headerMeta.clientNames.map((name) => (
+                          <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                            <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No client assigned</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Assigned</p>
+                    {headerMeta.assigneeNames.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {headerMeta.assigneeNames.map((name) => (
+                          <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                            <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No assignee</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Billing</p>
+                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">{headerMeta.billingLabel}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Created</p>
+                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">{headerMeta.createdLabel}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-b border-gray-200 dark:border-white/10">
@@ -1401,34 +1794,25 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           <section>
             {detailTab === 'overview' ? (
               <div className="px-0 space-y-6">
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-6">
-                    <div className="space-y-5">
-                      {overviewDetails.map((detail) => (
-                        <div key={detail.label}>
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{detail.label}</h3>
-                          {detail.label === 'Status' ? (
-                            <p className="mt-2">
-                              <MatterStatusPill status={resolvedSelectedMatter.status} />
-                            </p>
-                          ) : detail.render ? (
-                            detail.render()
-                          ) : (
-                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{detail.value}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent activity</h3>
-                    <div className="mt-4 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
-                      {activityLoading && activityItems.length === 0 ? (
-                        <LoadingState message="Loading activity..." />
-                      ) : (
-                        <ActivityTimeline items={activityItems} showComposer composerDisabled />
-                      )}
-                    </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent activity</h3>
+                  <div className="mt-4 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
+                    {activityLoading && activityItems.length === 0 ? (
+                      <LoadingState message="Loading activity..." />
+                    ) : (
+                      <ActivityTimeline
+                        items={timelineItems}
+                        showComposer
+                        composerDisabled={activityLoading || !selectedMatterDetail}
+                        composerLabel="Comment"
+                        composerPlaceholder="Add your comment..."
+                        composerPerson={{
+                          name: session?.user?.name ?? session?.user?.email ?? 'You',
+                          imageUrl: session?.user?.image ?? null
+                        }}
+                        onComposerSubmit={(value) => handleCreateNote({ content: value })}
+                      />
+                    )}
                   </div>
                 </div>
                 {selectedMatterDetail && (
@@ -1445,18 +1829,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     allowReorder
                   />
                 )}
-                {selectedMatterDetail && (
-                  <MatterNotesPanel
-                    key={`notes-${selectedMatterDetail.id}`}
-                    matter={selectedMatterDetail}
-                    notes={notes}
-                    loading={notesLoading}
-                    error={notesError}
-                    onCreateNote={handleCreateNote}
-                    onUpdateNote={handleUpdateNote}
-                    onDeleteNote={handleDeleteNote}
-                  />
-                )}
+                {/* Notes are handled via the activity timeline composer */}
               </div>
             ) : detailTab === 'time' && selectedMatterDetail ? (
               <div className="px-0 space-y-6">

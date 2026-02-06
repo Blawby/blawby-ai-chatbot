@@ -5,19 +5,29 @@ import { cn } from '@/shared/utils/cn';
 
 export type ComboboxOption = { value: string; label: string; meta?: string };
 
-export interface ComboboxProps {
+type ComboboxPropsBase = {
   label: string;
   placeholder: string;
-  value: string;
   options: ComboboxOption[];
-  leading: ComponentChildren | ((selectedOption?: ComboboxOption) => ComponentChildren);
-  onChange: (value: string) => void;
+  leading: ComponentChildren | ((selectedOption?: ComboboxOption, selectedOptions?: ComboboxOption[]) => ComponentChildren);
   className?: string;
   displayValue?: (option?: ComboboxOption) => string;
   optionLeading?: (option: ComboboxOption) => ComponentChildren;
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
   disabled?: boolean;
-}
+};
+
+export type ComboboxProps =
+  | (ComboboxPropsBase & {
+      multiple?: false;
+      value: string;
+      onChange: (value: string) => void;
+    })
+  | (ComboboxPropsBase & {
+      multiple: true;
+      value: string[];
+      onChange: (value: string[]) => void;
+    });
 
 export const Combobox = ({
   label,
@@ -26,15 +36,21 @@ export const Combobox = ({
   options,
   leading,
   onChange,
+  multiple,
   className,
   displayValue,
   optionLeading,
   optionMeta,
   disabled
 }: ComboboxProps) => {
-  const selectedOption = options.find((option) => option.value === value);
+  const isMultiple = multiple === true;
+  const valueList = Array.isArray(value) ? value : (value ? [value] : []);
+  const selectedOptions = options.filter((option) => valueList.includes(option.value));
+  const selectedOption = selectedOptions[0];
   // If no option found, treat 'value' as the raw input to display
-  const resolvedDisplayValue = displayValue?.(selectedOption) ?? selectedOption?.label ?? value;
+  const resolvedDisplayValue = selectedOptions.length > 0
+    ? selectedOptions.map((option) => option.label).join(', ')
+    : (typeof value === 'string' ? value : '');
   const [query, setQuery] = useState(resolvedDisplayValue);
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -60,7 +76,17 @@ export const Combobox = ({
     focusedIndex >= 0 && focusedIndex < filteredOptions.length ? focusedIndex : -1;
 
   const showOptions = isOpen && filteredOptions.length > 0 && !disabled;
-  const resolvedLeading = typeof leading === 'function' ? leading(selectedOption) : leading;
+  const resolvedLeading = typeof leading === 'function' ? leading(selectedOption, selectedOptions) : leading;
+  const hasValue = valueList.length > 0;
+
+  const toggleValue = (optionValue: string) => {
+    const next = valueList.includes(optionValue)
+      ? valueList.filter((item) => item !== optionValue)
+      : [...valueList, optionValue];
+    onChange(next);
+    setQuery('');
+    setIsOpen(true);
+  };
 
   useEffect(() => {
     // Only reset query from external value if not typing (not open)
@@ -92,21 +118,22 @@ export const Combobox = ({
             aria-activedescendant={
               resolvedFocusedIndex >= 0 ? `${inputId}-option-${resolvedFocusedIndex}` : undefined
             }
-            value={query}
+            value={isOpen && query ? query : resolvedDisplayValue}
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
-              
-              // Only trigger explicit onChange if the input strictly matches an option?
-              // No, we want to allow custom input (e.g. searching or raw UUID).
-              // However, typically Combobox only commits on selection or blur.
-              // But to support "Free Text", we should probably commit on Blur or explicit Enter?
-              // The user might be typing "Jo..." looking for "John". If we fire onChange("Jo..."), parent state updates.
-              // If parent state updates 'value' to "Jo...", then 'selectedOption' is undefined, 'resolvedDisplay' is "Jo...".
-              // This seems fine for a "Creatable" or "Free" combobox.
-              onChange(nextValue);
-
               setQuery(nextValue);
               setIsOpen(true);
+
+              if (!isMultiple) {
+                // Only trigger explicit onChange if the input strictly matches an option?
+                // No, we want to allow custom input (e.g. searching or raw UUID).
+                // However, typically Combobox only commits on selection or blur.
+                // But to support "Free Text", we should probably commit on Blur or explicit Enter?
+                // The user might be typing "Jo..." looking for "John". If we fire onChange("Jo..."), parent state updates.
+                // If parent state updates 'value' to "Jo...", then 'selectedOption' is undefined, 'resolvedDisplay' is "Jo...".
+                // This seems fine for a "Creatable" or "Free" combobox.
+                onChange(nextValue);
+              }
               
               const normalizedQuery = normalize(nextValue);
               const nextFilteredOptions = normalizedQuery
@@ -118,7 +145,12 @@ export const Combobox = ({
               setFocusedIndex(nextFilteredOptions.length > 0 ? 0 : -1);
             }}
             onFocus={() => {
-                if (!disabled) setIsOpen(true);
+                if (!disabled) {
+                  if (query === resolvedDisplayValue) {
+                    setQuery('');
+                  }
+                  setIsOpen(true);
+                }
             }}
             onBlur={() => setIsOpen(false)}
             onKeyDown={(event) => {
@@ -163,9 +195,14 @@ export const Combobox = ({
                   event.preventDefault();
                   const option = filteredOptions[resolvedFocusedIndex];
                   if (option) {
-                    onChange(option.value);
-                    setQuery(displayValue?.(option) ?? option.label);
-                    setIsOpen(false);
+                    if (isMultiple) {
+                      toggleValue(option.value);
+                      setFocusedIndex(0);
+                    } else {
+                      onChange(option.value);
+                      setQuery(displayValue?.(option) ?? option.label);
+                      setIsOpen(false);
+                    }
                   } else {
                     // No option selected from list, keep custom value
                     setIsOpen(false);
@@ -181,13 +218,17 @@ export const Combobox = ({
             placeholder={placeholder}
             className="w-full rounded-md border border-gray-300 dark:border-white/10 bg-white dark:bg-dark-input-bg py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-white/5 dark:disabled:text-gray-500"
           />
-          {value ? (
+          {hasValue ? (
             <button
               type="button"
               className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                onChange('');
+                if (isMultiple) {
+                  onChange([]);
+                } else {
+                  onChange('');
+                }
                 setQuery('');
                 setIsOpen(false);
               }}
@@ -206,10 +247,16 @@ export const Combobox = ({
           <div
             id={listboxId}
             role="listbox"
-            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+            tabIndex={0}
+            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+            onMouseDown={(event) => {
+              if (isMultiple) {
+                event.preventDefault();
+              }
+            }}
           >
             {filteredOptions.map((option, index) => {
-              const isSelected = option.value === value;
+              const isSelected = valueList.includes(option.value);
               const isFocused = index === resolvedFocusedIndex;
               const optionLead = optionLeading?.(option);
               const optionMetaContent = optionMeta?.(option) ?? option.meta;
@@ -222,9 +269,13 @@ export const Combobox = ({
                   aria-selected={isSelected}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
-                    onChange(option.value);
-                    setQuery(displayValue?.(option) ?? option.label);
-                    setIsOpen(false);
+                    if (isMultiple) {
+                      toggleValue(option.value);
+                    } else {
+                      onChange(option.value);
+                      setQuery(displayValue?.(option) ?? option.label);
+                      setIsOpen(false);
+                    }
                   }}
                   className={cn(
                     'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',

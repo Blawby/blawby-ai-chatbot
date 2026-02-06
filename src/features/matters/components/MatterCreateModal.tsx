@@ -6,8 +6,8 @@ import { Textarea } from '@/shared/ui/input/Textarea';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { FileInput } from '@/shared/ui/input/FileInput';
 import { Combobox } from '@/shared/ui/input/Combobox';
-import { MultiSelect } from '@/shared/ui/input/MultiSelect';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
+import { Avatar } from '@/shared/ui/profile';
 import type { MatterOption } from '@/features/matters/data/mockMatters';
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import type { ComponentChildren } from 'preact';
@@ -189,7 +189,15 @@ const MatterFormModalInner = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const clientOptions = useMemo(
-    () => clients.map((client) => ({ value: client.id, label: client.name })),
+    () => clients.map((client) => ({
+      value: client.id,
+      label: client.name,
+      meta: client.email
+    })),
+    [clients]
+  );
+  const clientById = useMemo(
+    () => new Map(clients.map((client) => [client.id, client])),
     [clients]
   );
   const practiceAreaOptions = useMemo(
@@ -204,6 +212,19 @@ const MatterFormModalInner = ({
         meta: assignee.role
       })),
     [assignees]
+  );
+  const assigneeById = useMemo(
+    () => new Map(assignees.map((assignee) => [assignee.id, assignee])),
+    [assignees]
+  );
+
+  const renderUserAvatar = (name?: string, image?: string | null, size: 'xs' | 'sm' = 'xs') => (
+    <Avatar
+      name={name?.trim() || 'User'}
+      src={image ?? null}
+      size={size}
+      className="bg-gray-100 dark:bg-white/10"
+    />
   );
 
   const [isMilestoneFormVisible, setIsMilestoneFormVisible] = useState(false);
@@ -306,8 +327,10 @@ const MatterFormModalInner = ({
           }
           setIsSubmitting(true);
           try {
-            const parsedAssignees = parseAssigneeInput(assigneeInput);
-            await onSubmit({ ...formState, assigneeIds: parsedAssignees });
+            const resolvedAssignees = isAssigneeOptionsEmpty
+              ? parseAssigneeInput(assigneeInput)
+              : formState.assigneeIds;
+            await onSubmit({ ...formState, assigneeIds: resolvedAssignees });
             setIsSubmitting(false);
             onClose();
           } catch (error) {
@@ -340,7 +363,24 @@ const MatterFormModalInner = ({
           placeholder="Select customer"
           value={formState.clientId}
           options={clientOptions}
-          leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+          leading={(selectedOption) => {
+            if (selectedOption) {
+              const client = clientById.get(selectedOption.value);
+              if (client) {
+                return renderUserAvatar(client.name, client.image, 'sm');
+              }
+            }
+            return buildLeadingIcon(<UserIcon className="h-4 w-4" />);
+          }}
+          optionLeading={(option) => {
+            const client = clientById.get(option.value);
+            if (!client) return null;
+            return renderUserAvatar(client.name, client.image, 'sm');
+          }}
+          optionMeta={(option) => {
+            const client = clientById.get(option.value);
+            return client?.email || option.meta;
+          }}
           onChange={(value) => updateForm('clientId', value)}
         />
 
@@ -410,11 +450,28 @@ const MatterFormModalInner = ({
               onBlur={() => applyAssigneeInput(assigneeInput)}
             />
           ) : (
-            <MultiSelect
+            <Combobox
               label="Select Assignees"
               placeholder="Select Assignees"
               value={formState.assigneeIds}
               options={assigneeOptions}
+              multiple
+              leading={(selectedOption, selectedOptions) => {
+                const first = selectedOptions?.[0] ?? selectedOption;
+                if (first) {
+                  const assignee = assigneeById.get(first.value);
+                  if (assignee) {
+                    return renderUserAvatar(assignee.name, assignee.image, 'sm');
+                  }
+                }
+                return buildLeadingIcon(<UserIcon className="h-4 w-4" />);
+              }}
+              optionLeading={(option) => {
+                const assignee = assigneeById.get(option.value);
+                if (!assignee) return null;
+                return renderUserAvatar(assignee.name, assignee.image, 'sm');
+              }}
+              optionMeta={(option) => option.meta}
               onChange={(value) => updateForm('assigneeIds', value)}
             />
           )}

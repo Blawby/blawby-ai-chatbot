@@ -2,7 +2,6 @@ import type { MatterSummary } from '@/features/matters/data/mockMatters';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/shared/utils/cn';
 import { Avatar } from '@/shared/ui/profile';
-import { Button } from '@/shared/ui/Button';
 import { MatterStatusDot } from './MatterStatusDot';
 import { MatterStatusPill } from './MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -59,14 +58,17 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
   return (
     <li>
       {isInteractive ? (
-        <Button
-          variant="ghost"
+        <button
+          type="button"
           onClick={() => onSelect?.(matter)}
-          className={cn(sharedClassName, 'w-full h-auto')}
+          className={cn(
+            sharedClassName,
+            'w-full h-auto rounded-none bg-transparent'
+          )}
           aria-label={`Select matter ${matter.title} for ${matter.clientName} (${matter.status})`}
         >
           {content}
-        </Button>
+        </button>
       ) : (
         <div className={sharedClassName}>
           {content}
