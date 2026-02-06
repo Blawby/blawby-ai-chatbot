@@ -100,9 +100,16 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <span className={`truncate ${chatTypography.previewName}`}>
-                        {title}
-                      </span>
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span className={`truncate ${chatTypography.previewName}`}>
+                          {title}
+                        </span>
+                        {conversation.lead?.isLead && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
+                            Lead
+                          </span>
+                        )}
+                      </div>
                       {timeLabel && (
                         <span className={chatTypography.headerTime}>{timeLabel}</span>
                       )}

@@ -155,6 +155,8 @@ const formatDescription = (description?: string) => {
   return description?.trim() || undefined;
 };
 
+type LoggedError = Error & { _logged?: boolean };
+
 const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string } | null> => {
   try {
     const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
@@ -176,8 +178,8 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
         // Production logging
         console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
       }
-      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`);
-      (error as any)._logged = true;
+      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`) as LoggedError;
+      error._logged = true;
       throw error;
     }
     const result = await response.json() as CheckoutSessionResponse;
@@ -187,13 +189,13 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
       } else {
         console.error('[Intake] Checkout session response missing url', JSON.stringify(result));
       }
-      const error = new Error(result.error || 'Checkout session response missing URL');
-      (error as any)._logged = true;
+      const error = new Error(result.error || 'Checkout session response missing URL') as LoggedError;
+      error._logged = true;
       throw error;
     }
     return { url: result.data.url, sessionId: result.data.session_id };
   } catch (error) {
-    if ((error as any)._logged) {
+    if ((error as LoggedError)._logged) {
       throw error;
     }
     if (import.meta.env.DEV) {

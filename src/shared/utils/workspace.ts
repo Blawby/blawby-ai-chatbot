@@ -21,11 +21,16 @@ export function getWorkspaceBasePath(workspace: WorkspaceType): string | null {
   return null;
 }
 
-export function getWorkspaceDashboardPath(workspace: WorkspaceType): string | null {
-  if (workspace === 'practice') return '/practice';
-  if (workspace === 'client') return '/client';
-  return null;
+export function getWorkspaceHomePath(
+  workspace: WorkspaceType,
+  slug?: string | null,
+  fallback = '/'
+): string {
+  if (workspace === 'practice' && slug) return `/practice/${encodeURIComponent(slug)}`;
+  if (workspace === 'client' && slug) return `/client/${encodeURIComponent(slug)}`;
+  return fallback;
 }
+
 
 export function getSettingsReturnPath(): string | null {
   if (typeof window === 'undefined') return null;

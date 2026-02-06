@@ -735,6 +735,38 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
+              {/* Pricing Row */}
+              <div className="py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Pricing &amp; Fees</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Configure consultation fees and billing increments.
+                    </p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigateTo('/settings/practice/pricing')}
+                      className="hidden sm:inline-flex"
+                    >
+                      Manage
+                    </Button>
+                    <Button
+                      variant="icon"
+                      size="icon"
+                      onClick={() => navigateTo('/settings/practice/pricing')}
+                      className="sm:hidden"
+                      aria-label="Manage pricing"
+                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
               {/* Team Row */}
               <div className="py-3">
                 <div className="flex items-start justify-between">

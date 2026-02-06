@@ -30,6 +30,13 @@ export interface Conversation {
   closed_at?: string | null; // Timestamp when conversation was closed
   created_at: string;
   updated_at: string;
+  lead?: {
+    isLead: boolean;
+    leadId?: string;
+    matterId?: string;
+    leadSource?: string | null;
+    createdAt?: string | null;
+  };
 }
 
 export interface ConversationMessage {

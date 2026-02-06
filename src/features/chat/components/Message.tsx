@@ -83,6 +83,12 @@ interface MessageProps {
 		status?: 'error' | 'retrying';
 		onRetry?: () => void;
 	};
+	leadReview?: {
+		canReview: boolean;
+		isSubmitting?: boolean;
+		onAccept: () => void;
+		onReject: () => void;
+	};
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
@@ -131,6 +137,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenPayment,
 	modeSelector,
 	assistantRetry,
+	leadReview,
 	replyPreview,
 	reactions = [],
 	onReplyPreviewClick,
@@ -294,6 +301,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					onContactFormSubmit={onContactFormSubmit}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
+					leadReview={leadReview}
 				/>
 				
 				{/* Attachments */}

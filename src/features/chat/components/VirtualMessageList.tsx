@@ -9,6 +9,9 @@ import { ChatMessageUI } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import { postSystemMessage } from '@/shared/lib/conversationApi';
+import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 import type { ReplyTarget } from '@/features/chat/types';
 
 interface VirtualMessageListProps {
@@ -40,6 +43,15 @@ interface VirtualMessageListProps {
         onAskQuestion: () => void;
         onRequestConsultation: () => void;
     };
+    leadReviewActions?: {
+        practiceId: string;
+        practiceName: string;
+        conversationId: string;
+        canReviewLeads: boolean;
+        acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
+        rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
+        onLeadStatusChange?: () => void;
+    };
     hasMoreMessages?: boolean;
     isLoadingMoreMessages?: boolean;
     onLoadMoreMessages?: () => void | Promise<void>;
@@ -68,12 +80,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onRequestReactions,
     intakeStatus: _intakeStatus,
     modeSelectorActions,
+    leadReviewActions,
     hasMoreMessages,
     isLoadingMoreMessages,
     onLoadMoreMessages,
     showSkeleton = false
 }) => {
     const { session, activeMemberRole } = useSessionContext();
+    const { showError, showSuccess } = useToastContext();
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
@@ -102,6 +116,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         name: 'Blawby'
     };
     const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
+    const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -149,6 +164,86 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             };
         }
         return undefined;
+    };
+
+    const resolveLeadReview = (message: ChatMessageUI) => {
+        if (!leadReviewActions || !isPracticeViewer) {
+            return undefined;
+        }
+        const metadata = message.metadata;
+        if (!metadata || typeof metadata !== 'object') {
+            return undefined;
+        }
+        const systemKey = (metadata as Record<string, unknown>).systemMessageKey;
+        if (systemKey !== 'intake_summary') {
+            return undefined;
+        }
+        const leadId = typeof (metadata as Record<string, unknown>).leadId === 'string'
+            ? (metadata as Record<string, unknown>).leadId as string
+            : (typeof (metadata as Record<string, unknown>).matterId === 'string'
+                ? (metadata as Record<string, unknown>).matterId as string
+                : null);
+        if (!leadId || !leadReviewActions.practiceId || !leadReviewActions.conversationId) {
+            return undefined;
+        }
+
+        const isSubmitting = Boolean(leadActionState[leadId]);
+
+        const runLeadAction = async (action: 'accept' | 'reject') => {
+            if (!leadReviewActions.canReviewLeads || isSubmitting) {
+                return;
+            }
+            setLeadActionState((prev) => ({ ...prev, [leadId]: action }));
+            try {
+                if (action === 'accept') {
+                    await leadReviewActions.acceptMatter(leadReviewActions.practiceId, leadId);
+                } else {
+                    await leadReviewActions.rejectMatter(leadReviewActions.practiceId, leadId);
+                }
+
+                const practiceName = leadReviewActions.practiceName || 'The practice';
+                const content = action === 'accept'
+                    ? `${practiceName} has joined the conversation.`
+                    : `${practiceName} was unable to take your request at this time.`;
+
+                await postSystemMessage(
+                    leadReviewActions.conversationId,
+                    leadReviewActions.practiceId,
+                    {
+                        clientId: action === 'accept' ? 'system-lead-accepted' : 'system-lead-declined',
+                        content,
+                        metadata: {
+                            systemMessageKey: action === 'accept' ? 'lead_accepted' : 'lead_declined',
+                            leadId
+                        }
+                    }
+                );
+
+                showSuccess(
+                    action === 'accept' ? 'Lead accepted' : 'Lead declined',
+                    action === 'accept'
+                        ? 'The client has been notified.'
+                        : 'The client has been notified.'
+                );
+                leadReviewActions.onLeadStatusChange?.();
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Failed to update lead';
+                showError('Action failed', message);
+            } finally {
+                setLeadActionState((prev) => {
+                    const next = { ...prev };
+                    delete next[leadId];
+                    return next;
+                });
+            }
+        };
+
+        return {
+            canReview: leadReviewActions.canReviewLeads,
+            isSubmitting,
+            onAccept: () => void runLeadAction('accept'),
+            onReject: () => void runLeadAction('reject')
+        };
     };
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
@@ -403,6 +498,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const canReply = Boolean(onReply && message.id);
 
                     const modeSelector = resolveModeSelector(message);
+                    const leadReview = resolveLeadReview(message);
 
                     return (
                         <Message
@@ -447,6 +543,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             practiceId={practiceId}
                             assistantRetry={message.assistantRetry}
                             modeSelector={modeSelector}
+                            leadReview={leadReview}
                             intakeStatus={_intakeStatus}
                         />
                     );

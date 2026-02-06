@@ -17,6 +17,7 @@ import type { ReplyTarget } from '@/features/chat/types';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
+import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -68,6 +69,15 @@ export interface ChatContainerProps {
   isLoadingMoreMessages?: boolean;
   onLoadMoreMessages?: () => void | Promise<void>;
   messagesReady?: boolean;
+  leadReviewActions?: {
+    practiceId: string;
+    practiceName: string;
+    conversationId: string;
+    canReviewLeads: boolean;
+    acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
+    rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
+    onLeadStatusChange?: () => void;
+  };
 
   // Input control prop
   clearInput?: number;
@@ -111,7 +121,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   hasMoreMessages,
   isLoadingMoreMessages,
   onLoadMoreMessages,
-  messagesReady = true
+  messagesReady = true,
+  leadReviewActions
 }) => {
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
@@ -346,6 +357,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     onAskQuestion: handleAskQuestion,
                     onRequestConsultation: handleRequestConsultation
                   } : undefined}
+                  leadReviewActions={leadReviewActions}
                   hasMoreMessages={hasMoreMessages}
                   isLoadingMoreMessages={isLoadingMoreMessages}
                   onLoadMoreMessages={onLoadMoreMessages}

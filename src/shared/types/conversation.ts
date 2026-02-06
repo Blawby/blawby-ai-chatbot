@@ -67,6 +67,13 @@ export interface Conversation {
   closed_at?: string | null; // ISO timestamp when conversation was closed
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
+  lead?: {
+    isLead: boolean;
+    leadId?: string;
+    matterId?: string;
+    leadSource?: string | null;
+    createdAt?: string | null;
+  };
 }
 
 /**

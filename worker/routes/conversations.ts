@@ -2,7 +2,7 @@ import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
-import { ConversationService } from '../services/ConversationService.js';
+import { ConversationService, type Conversation } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
@@ -13,7 +13,9 @@ const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
   'system-ask-question-help',
   'system-contact-form',
-  'system-submission-confirm'
+  'system-submission-confirm',
+  'system-lead-accepted',
+  'system-lead-declined'
 ]);
 
 const isValidContactFormMetadata = (metadata: Record<string, unknown> | null | undefined): boolean => {
@@ -57,6 +59,51 @@ function createJsonResponse(data: unknown, headers?: Record<string, string>): Re
     headers: { 'Content-Type': 'application/json', ...(headers ?? {}) }
   });
 }
+
+const annotateLeadConversations = async (
+  env: Env,
+  practiceId: string,
+  conversations: Conversation[]
+): Promise<Conversation[]> => {
+  const matterIds = conversations
+    .map((conversation) => conversation.matter_id)
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+  if (matterIds.length === 0) {
+    return conversations;
+  }
+
+  const placeholders = matterIds.map(() => '?').join(', ');
+  const query = `
+    SELECT id, status, lead_source as leadSource, created_at as createdAt
+      FROM matters
+     WHERE practice_id = ?
+       AND id IN (${placeholders})
+  `;
+  const results = await env.DB.prepare(query)
+    .bind(practiceId, ...matterIds)
+    .all<{ id: string; status: string; leadSource?: string | null; createdAt?: string | null }>();
+
+  const leadMap = new Map(results.results?.map((row) => [row.id, row]) ?? []);
+
+  return conversations.map((conversation) => {
+    const matterId = conversation.matter_id ?? null;
+    const record = matterId ? leadMap.get(matterId) : null;
+    if (!record || record.status !== 'lead') {
+      return conversation;
+    }
+    return {
+      ...conversation,
+      lead: {
+        isLead: true,
+        leadId: record.id,
+        matterId: record.id,
+        leadSource: record.leadSource ?? null,
+        createdAt: record.createdAt ?? null
+      }
+    };
+  });
+};
 
 export async function handleConversations(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -439,7 +486,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         sortOrder
       });
 
-      return createJsonResponse({ conversations });
+      const conversationsWithLead = await annotateLeadConversations(env, practiceId, conversations);
+
+      return createJsonResponse({ conversations: conversationsWithLead });
     }
     
     // Signed-in client: Return list of their conversations with this practice

@@ -30,10 +30,8 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent } from '@/shared/lib/conversationApi';
-import { LeadsPage } from '@/features/leads/pages/LeadsPage';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { PracticePricingPage } from '@/features/pricing/pages/PracticePricingPage';
 import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
 import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
@@ -45,14 +43,12 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 type RouteKey =
   | 'home'
   | 'messages'
-  | 'pricing'
-  | 'leads'
   | 'matters'
   | 'clients'
   | 'payments'
   | 'conversations';
 
-type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'leads' | 'pricing' | 'clients';
+type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -646,6 +642,26 @@ export function MainApp({
 
   const currentUserRole = normalizePracticeRole(activeMemberRole) ?? 'member';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
+  const leadReviewActions = useMemo(() => {
+    if (workspace !== 'practice') return undefined;
+    if (!practiceId || !activeConversationId) return undefined;
+    return {
+      practiceId,
+      practiceName: resolvedPracticeName,
+      conversationId: activeConversationId,
+      canReviewLeads,
+      acceptMatter,
+      rejectMatter
+    };
+  }, [
+    workspace,
+    practiceId,
+    activeConversationId,
+    resolvedPracticeName,
+    canReviewLeads,
+    acceptMatter,
+    rejectMatter
+  ]);
 
 
   useConversationSystemMessages({
@@ -854,6 +870,7 @@ export function MainApp({
               onRequestReactions={requestMessageReactions}
               composerDisabled={isComposerDisabled}
               isPublicWorkspace={workspace === 'public'}
+              leadReviewActions={leadReviewActions}
               messagesReady={messagesReady}
               headerContent={workspace === 'public' ? publicHeaderContent : undefined}
               heightClassName={workspace === 'public' ? 'h-full' : undefined}
@@ -968,16 +985,6 @@ export function MainApp({
         />
       }
       clientsView={<PracticeClientsPage />}
-      leadsView={(
-        <LeadsPage
-          practiceId={currentPractice?.id ?? practiceId ?? null}
-          practiceSlug={practiceSlug ?? resolvedPracticeSlug ?? null}
-          canReviewLeads={canReviewLeads}
-          acceptMatter={acceptMatter}
-          rejectMatter={rejectMatter}
-        />
-      )}
-      pricingView={<PracticePricingPage />}
     />
   ) : null;
 

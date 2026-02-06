@@ -69,6 +69,12 @@ interface MessageActionsProps {
 		status?: 'error' | 'retrying';
 		onRetry?: () => void;
 	};
+	leadReview?: {
+		canReview: boolean;
+		isSubmitting?: boolean;
+		onAccept: () => void;
+		onReject: () => void;
+	};
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	className?: string;
 }
@@ -87,6 +93,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	onContactFormSubmit,
 	modeSelector,
 	assistantRetry,
+	leadReview,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
@@ -117,6 +124,34 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
 							{t('chat.requestConsultation')}
 						</Button>
+					)}
+				</div>
+			)}
+			{leadReview && (
+				<div className="mt-3">
+					{leadReview.canReview ? (
+						<div className="flex flex-col gap-2 sm:flex-row">
+							<Button
+								variant="primary"
+								size="sm"
+								onClick={leadReview.onAccept}
+								disabled={leadReview.isSubmitting}
+							>
+								Accept Lead
+							</Button>
+							<Button
+								variant="secondary"
+								size="sm"
+								onClick={leadReview.onReject}
+								disabled={leadReview.isSubmitting}
+							>
+								Decline
+							</Button>
+						</div>
+					) : (
+						<div className="text-xs text-gray-500 dark:text-gray-400">
+							You don&apos;t have permission to review leads.
+						</div>
 					)}
 				</div>
 			)}

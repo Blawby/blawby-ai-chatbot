@@ -287,7 +287,11 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
         content: createSystemMessage({ practiceName, paymentRequired }),
         role: 'system',
         metadata: {
+          systemMessageKey: 'intake_summary',
           intakeUuid,
+          leadId: matterId,
+          matterId,
+          leadStatus: 'lead',
           paymentStatus: status ?? null,
           paymentRequired
         },
@@ -335,7 +339,9 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
             entityId: matterId,
             title: paymentRequired ? 'Consultation fee received' : 'New intake submitted',
             body: `${clientName} submitted an intake for ${matterType}.`,
-            link: '/practice/leads',
+            link: resolvedPracticeSlug
+              ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}/conversations`
+              : '/practice',
             metadata: {
               matterId,
               conversationId,

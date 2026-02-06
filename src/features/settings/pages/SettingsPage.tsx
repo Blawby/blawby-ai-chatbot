@@ -9,6 +9,7 @@ import { HelpPage } from './HelpPage';
 import { PracticePage } from './PracticePage';
 import { PracticeServicesPage } from './PracticeServicesPage';
 import { PracticeTeamPage } from './PracticeTeamPage';
+import { PracticePricingPage } from './PracticePricingPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
 import { SidebarNavigation, SidebarNavigationItem } from '@/shared/ui/SidebarNavigation';
@@ -153,6 +154,9 @@ export const SettingsPage = ({
     if (currentPage === 'practice' && practiceSubPage === 'team') {
       return t('settings:practice.team');
     }
+    if (currentPage === 'practice' && practiceSubPage === 'pricing') {
+      return 'Pricing & Fees';
+    }
     if (currentPage === 'account' && accountSubPage === 'payouts') {
       return t('settings:account.payouts.title');
     }
@@ -182,6 +186,9 @@ export const SettingsPage = ({
         }
         if (practiceSubPage === 'team') {
           return <PracticeTeamPage />;
+        }
+        if (practiceSubPage === 'pricing') {
+          return <PracticePricingPage />;
         }
         return <PracticePage className="h-full" />;
       case 'apps': {

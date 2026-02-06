@@ -18,7 +18,7 @@ import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { getSettingsReturnPath, getWorkspaceDashboardPath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
+import { getSettingsReturnPath, getWorkspaceHomePath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { AppGuard } from '@/app/AppGuard';
@@ -42,17 +42,7 @@ const NotFoundRoute = () => (
 );
 
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
-type PracticeRouteKey = 'home' | 'messages' | 'pricing' | 'leads' | 'matters' | 'clients';
-
-const resolvePracticeRouteKeyFromPath = (path: string): PracticeRouteKey => {
-  const segments = path.split('/').filter(Boolean);
-  if (segments.includes('pricing')) return 'pricing';
-  if (segments.includes('clients')) return 'clients';
-  if (segments.includes('leads')) return 'leads';
-  if (segments.includes('matters')) return 'matters';
-  if (segments.includes('conversations')) return 'messages';
-  return 'home';
-};
+type PracticeRouteKey = 'home' | 'messages' | 'matters' | 'clients';
 
 // Client routes align with public embed structure
 
@@ -76,6 +66,7 @@ function AppShell() {
   const isMobileHoisted = useMobileDetection();
   const { session, isPending: sessionPending, activeOrganizationId } = useSessionContext();
   const { defaultWorkspace, canAccessPractice, isPracticeLoading } = useWorkspace();
+  const { currentPractice, practices } = usePracticeManagement();
   const lastWorkspaceRef = useRef<'client' | 'practice' | null>(null);
   const lastActivePracticeRef = useRef<string | null>(null);
   const lastNonSettingsUrlRef = useRef<string | null>(null);
@@ -137,13 +128,14 @@ function AppShell() {
     }
   }, [activeOrganizationId, canAccessPractice, isPracticeLoading, session?.user, sessionPending]);
 
+  const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
-    const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
+    const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
     navigate(returnPath ?? fallback, true);
-  }, [defaultWorkspace, navigate]);
+  }, [defaultWorkspace, fallbackSlug, navigate]);
 
-  const fallbackSettingsBackground = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
+  const fallbackSettingsBackground = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
   const backgroundUrl = isSettingsOpen
     ? (lastNonSettingsUrlRef.current ?? fallbackSettingsBackground)
     : location.url;
@@ -181,10 +173,10 @@ function AppShell() {
     }
 
     if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
-      const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
+      const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
       navigate(fallback, true);
     }
-  }, [defaultWorkspace, location.path, location.url, navigate, session?.user, sessionPending]);
+  }, [defaultWorkspace, fallbackSlug, location.path, location.url, navigate, session?.user, sessionPending]);
 
   return (
     <ToastProvider>
@@ -211,12 +203,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" practiceEmbedView="home" />
           <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="list" />
           <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="conversation" />
-          <Route path="/practice/:practiceSlug/pricing" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" practiceEmbedView="pricing" />
-          <Route path="/practice/:practiceSlug/pricing/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" practiceEmbedView="pricing" />
           <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" practiceEmbedView="clients" />
           <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" practiceEmbedView="clients" />
-          <Route path="/practice/:practiceSlug/leads" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" practiceEmbedView="leads" />
-          <Route path="/practice/:practiceSlug/leads/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" practiceEmbedView="leads" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" practiceEmbedView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" practiceEmbedView="matters" />
           <Route default component={RootRoute} />
@@ -236,7 +224,6 @@ function AppShell() {
 }
 
 function SettingsRoute() {
-  const location = useLocation();
   const { preferredWorkspace } = useWorkspace();
   const { activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
@@ -282,7 +269,7 @@ function SettingsRoute() {
     <PracticeAppRoute
       settingsMode={true}
       settingsOverlayOpen={true}
-      activeRoute={resolvePracticeRouteKeyFromPath(location.path)}
+      activeRoute="home"
     />
   );
 }
@@ -295,6 +282,7 @@ function RootRoute() {
     isPracticeLoading
   } = useWorkspace();
   const { navigate } = useNavigation();
+  const { currentPractice, practices } = usePracticeManagement();
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -343,7 +331,8 @@ function RootRoute() {
     }
 
     if (isMountedRef.current) {
-      const destination = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client';
+      const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+      const destination = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
       navigate(destination, true);
     }
   }, [
@@ -353,7 +342,9 @@ function RootRoute() {
     isPending,
     navigate,
     activeOrganizationId,
-    session?.user
+    session?.user,
+    currentPractice,
+    practices
   ]);
 
   return <LoadingScreen />;
@@ -372,7 +363,7 @@ function PracticeAppRoute({
   settingsOverlayOpen?: boolean;
   activeRoute?: PracticeRouteKey;
   conversationId?: string;
-  practiceEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'leads' | 'pricing' | 'clients';
+  practiceEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
   practiceSlug?: string;
 }) {
   const { session, isPending, activeOrganizationId } = useSessionContext();
