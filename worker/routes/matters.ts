@@ -156,9 +156,11 @@ const areEquivalentValues = (left: unknown, right: unknown): boolean => {
       // Stable stringify by sorting keys
       const stableStringify = (obj: unknown): string => {
         if (typeof obj !== 'object' || obj === null) return JSON.stringify(obj);
-        if (Array.isArray(obj)) return JSON.stringify(obj.map(item => JSON.parse(stableStringify(item))));
+        if (Array.isArray(obj)) {
+          return '[' + obj.map(item => stableStringify(item)).join(',') + ']';
+        }
         const sortedKeys = Object.keys(obj as Record<string, unknown>).sort();
-        const parts = sortedKeys.map(key => `"${key}":${stableStringify((obj as Record<string, unknown>)[key])}`);
+        const parts = sortedKeys.map(key => `${JSON.stringify(key)}:${stableStringify((obj as Record<string, unknown>)[key])}`);
         return `{${parts.join(',')}}`;
       };
       return stableStringify(left) === stableStringify(right);
