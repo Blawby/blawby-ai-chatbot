@@ -24,7 +24,6 @@ import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { AppGuard } from '@/app/AppGuard';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import DevMockEmbedPage from '@/pages/DevMockEmbedPage';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -187,7 +186,6 @@ function AppShell() {
           <Route path="/cart" component={CartPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />
-          {import.meta.env.DEV && <Route path="/dev/mock-embed-public-and-client" component={DevMockEmbedPage} />}
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
