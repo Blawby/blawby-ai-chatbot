@@ -71,9 +71,26 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   }, [workspace, practiceSlug]);
   const conversationsPath = `${embedBasePath}/conversations`;
 
-  // Redirect if unauthorized to view matters/leads/pricing
+  // Redirect if unauthorized to view specific pages
   useEffect(() => {
-    if (!showClientTabs && !showPracticeTabs && (view === 'matters' || view === 'leads' || view === 'pricing' || view === 'clients')) {
+    const practiceOnlyViews: EmbedView[] = ['leads', 'pricing', 'clients'];
+    const sharedGuardedViews: EmbedView[] = ['matters'];
+
+    const isPracticeOnly = practiceOnlyViews.includes(view);
+    const isSharedGuarded = sharedGuardedViews.includes(view);
+
+    // Allowed if:
+    // 1. It's a practice-only page and the user has practice tabs enabled
+    // 2. It's a shared page (matters) and the user has either client or practice tabs enabled
+    // 3. It's a public page (home, list, conversation)
+    const allowed = isPracticeOnly
+      ? showPracticeTabs
+      : isSharedGuarded
+        ? (showClientTabs || showPracticeTabs)
+        : true;
+
+    if (!allowed) {
+      // This redirects to the workspace root: /client/:slug, /practice/:slug, or /embed/:slug
       navigate(embedBasePath, true);
     }
   }, [showClientTabs, showPracticeTabs, view, embedBasePath, navigate]);

@@ -97,7 +97,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     debounceMs: 0
   });
   const isMobile = useMobileDetection();
-  const practiceSlug = currentPractice?.slug ?? practiceConfig.slug ?? practiceId;
+  const practiceSlug = currentPractice?.slug ?? practiceConfig.slug ?? null;
   const practiceDescription = practiceDetails?.description ?? currentPractice?.description ?? practiceConfig.description ?? null;
 
   const practiceBanner = useMemo(() => {

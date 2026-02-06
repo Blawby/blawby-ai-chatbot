@@ -38,11 +38,12 @@ type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
 type PracticeRouteKey = 'home' | 'messages' | 'pricing' | 'leads' | 'matters' | 'clients';
 
 const resolvePracticeRouteKeyFromPath = (path: string): PracticeRouteKey => {
-  if (path.includes('/pricing')) return 'pricing';
-  if (path.includes('/clients')) return 'clients';
-  if (path.includes('/leads')) return 'leads';
-  if (path.includes('/matters')) return 'matters';
-  if (path.includes('/conversations')) return 'messages';
+  const segments = path.split('/').filter(Boolean);
+  if (segments.includes('pricing')) return 'pricing';
+  if (segments.includes('clients')) return 'clients';
+  if (segments.includes('leads')) return 'leads';
+  if (segments.includes('matters')) return 'matters';
+  if (segments.includes('conversations')) return 'messages';
   return 'home';
 };
 
@@ -635,6 +636,18 @@ function ClientPracticeRoute({
     [practiceConfig.id]
   );
 
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
+
+  useEffect(() => {
+    if (!slug) return;
+    if (isAuthenticatedClient && embedView === 'home') {
+      navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
+    } else if (!isAuthenticatedClient && embedView === 'matters') {
+      navigate(`/client/${encodeURIComponent(slug)}`, true);
+    }
+  }, [isAuthenticatedClient, embedView, slug, navigate]);
+
   if (isLoading || sessionIsPending) {
     return <LoadingScreen />;
   }
@@ -656,14 +669,10 @@ function ClientPracticeRoute({
     return <LoadingScreen />;
   }
 
-  const normalizedRole = normalizePracticeRole(activeMemberRole);
-  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
   if (isAuthenticatedClient && embedView === 'home' && slug) {
-    navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
     return <LoadingScreen />;
   }
   if (!isAuthenticatedClient && embedView === 'matters' && slug) {
-    navigate(`/client/${encodeURIComponent(slug)}`, true);
     return <LoadingScreen />;
   }
 
@@ -805,6 +814,18 @@ function PublicPracticeRoute({
     }
   }, [session?.user, sessionIsPending]);
 
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
+
+  useEffect(() => {
+    if (!slug) return;
+    if (isAuthenticatedClient && embedView === 'home') {
+      navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
+    } else if (!isAuthenticatedClient && embedView === 'matters') {
+      navigate(`/embed/${encodeURIComponent(slug)}`, true);
+    }
+  }, [isAuthenticatedClient, embedView, slug, navigate]);
+
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -826,14 +847,10 @@ function PublicPracticeRoute({
     return <LoadingScreen />;
   }
 
-  const normalizedRole = normalizePracticeRole(activeMemberRole);
-  const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
   if (isAuthenticatedClient && embedView === 'home' && slug) {
-    navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
     return <LoadingScreen />;
   }
   if (!isAuthenticatedClient && embedView === 'matters' && slug) {
-    navigate(`/embed/${encodeURIComponent(slug)}`, true);
     return <LoadingScreen />;
   }
 

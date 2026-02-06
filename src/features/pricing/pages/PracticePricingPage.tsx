@@ -66,11 +66,15 @@ export const PracticePricingPage = () => {
   const practiceSlug = currentPractice?.slug ?? null;
   const pricingBasePath = practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}/pricing` : '/practice/pricing';
 
-  const pathSegments = location.path.split('/').filter(Boolean);
-  const pricingIndex = pathSegments[0] === 'practice'
-    ? (pathSegments[1] === 'pricing' ? 1 : (pathSegments[2] === 'pricing' ? 2 : -1))
-    : -1;
-  const detailSlug = pricingIndex >= 0 ? pathSegments[pricingIndex + 1] : undefined;
+  const detailSlug = useMemo(() => {
+    const normalizedBasePath = pricingBasePath.endsWith('/') ? pricingBasePath.slice(0, -1) : pricingBasePath;
+    if (location.path.startsWith(normalizedBasePath + '/')) {
+      const remainder = location.path.slice(normalizedBasePath.length + 1);
+      return remainder.split('/')[0] || undefined;
+    }
+    return undefined;
+  }, [location.path, pricingBasePath]);
+
   const isConsultationDetail = detailSlug === 'consultation-fee';
   const isBillingDetail = detailSlug === 'billing-increment';
 

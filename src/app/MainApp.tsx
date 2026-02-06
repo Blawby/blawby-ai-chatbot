@@ -102,11 +102,35 @@ export function MainApp({
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const conversationRestoreAttemptedRef = useRef(false);
+
+  // Data & Hooks (Moved up)
+  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
+  const {
+    currentPractice,
+    acceptMatter,
+    rejectMatter,
+    updateMatterStatus
+  } = usePracticeManagement({
+    autoFetchPractices: workspace !== 'public',
+    fetchInvitations: workspace !== 'public'
+  });
+
   const isPublicWorkspace = workspace === 'public';
+  const resolvedPracticeLogo = isPublicWorkspace
+    ? (practiceConfig.profileImage ?? null)
+    : (currentPractice?.logo ?? practiceConfig?.profileImage ?? null);
+  const resolvedPracticeName = isPublicWorkspace
+    ? (practiceConfig.name ?? '')
+    : (currentPractice?.name ?? practiceConfig.name ?? '');
+  const resolvedPracticeSlug = practiceSlug
+    ?? currentPractice?.slug
+    ?? practiceConfig?.slug
+    ?? undefined;
+
   const resolvedPublicPracticeSlug = useMemo(() => {
     if (!isPublicWorkspace) return null;
-    return publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null;
-  }, [isPublicWorkspace, practiceConfig.slug, practiceId, publicPracticeSlug]);
+    return publicPracticeSlug ?? practiceConfig.slug ?? null;
+  }, [isPublicWorkspace, practiceConfig.slug, publicPracticeSlug]);
   const resolvedClientPracticeSlug = useMemo(() => {
     if (workspace !== 'client') return null;
     return clientPracticeSlug ?? practiceConfig.slug ?? null;
@@ -127,10 +151,14 @@ export function MainApp({
   }, [conversationResetKey]);
 
   const basePath = useMemo(() => {
-    if (workspace === 'practice') return '/practice';
-    if (workspace === 'client') return '/client';
+    if (workspace === 'practice') {
+      return resolvedPracticeSlug ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}` : '/practice';
+    }
+    if (workspace === 'client') {
+      return resolvedClientPracticeSlug ? `/client/${encodeURIComponent(resolvedClientPracticeSlug)}` : '/client';
+    }
     return null;
-  }, [workspace]);
+  }, [workspace, resolvedPracticeSlug, resolvedClientPracticeSlug]);
   const conversationsBasePath = useMemo(() => {
     if (!basePath) return null;
     return `${basePath}/conversations`;
@@ -175,8 +203,6 @@ export function MainApp({
     navigate(targetPath, true);
   }, [isPublicWorkspace, normalizedRouteConversationId, resolvedConversationsBasePath, conversationId, routeKey, navigate]);
 
-  // Use session from Better Auth
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
   const isAuthenticatedClient = Boolean(
@@ -219,15 +245,9 @@ export function MainApp({
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
-  const {
-    currentPractice,
-    acceptMatter,
-    rejectMatter,
-    updateMatterStatus
-  } = usePracticeManagement({
-    autoFetchPractices: workspace !== 'public',
-    fetchInvitations: workspace !== 'public'
-  });
+  useEffect(() => {
+    if (workspace !== 'public') return;
+  }, [workspace]);
   const practiceDetailsId = workspace === 'public'
     ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
     : practiceId;
@@ -787,16 +807,6 @@ export function MainApp({
     }
   };
 
-  const resolvedPracticeLogo = isPublicWorkspace
-    ? (practiceConfig.profileImage ?? null)
-    : (currentPractice?.logo ?? practiceConfig?.profileImage ?? null);
-  const resolvedPracticeName = isPublicWorkspace
-    ? (practiceConfig.name ?? '')
-    : (currentPractice?.name ?? practiceConfig.name ?? '');
-  const resolvedPracticeSlug = practiceSlug
-    ?? currentPractice?.slug
-    ?? practiceConfig?.slug
-    ?? practiceId;
   const resolvedPracticeDescription = practiceDetails?.description
     ?? currentPractice?.description
     ?? practiceConfig?.description
@@ -1032,7 +1042,7 @@ export function MainApp({
           name: resolvedPracticeName,
           profileImage: resolvedPracticeLogo,
           description: resolvedPracticeDescription,
-          slug: resolvedPracticeSlug
+          slug: resolvedPracticeSlug ?? undefined
         }}
         currentPractice={currentPractice}
         practiceDetails={practiceDetails}
