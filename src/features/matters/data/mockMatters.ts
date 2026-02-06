@@ -178,7 +178,7 @@ export const mockMatters: MatterSummary[] = [
     title: 'Redwood Labs LLC formation',
     clientName: 'Avery Chen',
     practiceArea: 'Business Formation',
-    status: 'open',
+    status: 'active',
     updatedAt: hoursAgo(4),
     createdAt: hoursAgo(24)
   },
@@ -187,88 +187,99 @@ export const mockMatters: MatterSummary[] = [
     title: 'Estate plan refresh',
     clientName: 'Luna Martinez',
     practiceArea: 'Estate Planning',
-    status: 'in_progress',
-    updatedAt: daysAgo(1, 6)
+    status: 'active',
+    updatedAt: daysAgo(1, 6),
+    createdAt: daysAgo(2)
   },
   {
     id: 'matter-ip-trademark',
     title: 'Trademark filing for Modern Field',
     clientName: 'Miles Okafor',
     practiceArea: 'Intellectual Property',
-    status: 'lead',
-    updatedAt: daysAgo(2, 3)
+    status: 'active',
+    updatedAt: daysAgo(2, 3),
+    createdAt: daysAgo(3)
   },
   {
     id: 'matter-lease',
     title: 'Commercial lease negotiation',
     clientName: 'Priya Desai',
     practiceArea: 'Real Estate',
-    status: 'completed',
-    updatedAt: daysAgo(3, 8)
+    status: 'active',
+    updatedAt: daysAgo(3, 8),
+    createdAt: daysAgo(4)
   },
   {
     id: 'matter-policy',
     title: 'Employee handbook update',
     clientName: 'Sawyer Brooks',
     practiceArea: 'Employment Law',
-    status: 'open',
-    updatedAt: daysAgo(1, 12)
+    status: 'active',
+    updatedAt: daysAgo(1, 12),
+    createdAt: daysAgo(10)
   },
   {
     id: 'matter-incorporation',
     title: 'Nonprofit incorporation',
     clientName: 'Talia Nguyen',
     practiceArea: 'Business Formation',
-    status: 'in_progress',
-    updatedAt: daysAgo(5)
+    status: 'active',
+    updatedAt: daysAgo(5),
+    createdAt: daysAgo(15)
   },
   {
     id: 'matter-immigration',
     title: 'O-1 petition preparation',
     clientName: 'Zane Howard',
     practiceArea: 'Immigration',
-    status: 'open',
-    updatedAt: daysAgo(6, 4)
+    status: 'active',
+    updatedAt: daysAgo(6, 4),
+    createdAt: daysAgo(20)
   },
   {
     id: 'matter-family',
     title: 'Postnuptial agreement review',
     clientName: 'Priya Desai',
     practiceArea: 'Family Law',
-    status: 'lead',
-    updatedAt: daysAgo(4, 2)
+    status: 'active',
+    updatedAt: daysAgo(4, 2),
+    createdAt: daysAgo(8)
   },
   {
     id: 'matter-compliance',
     title: 'Privacy policy compliance audit',
     clientName: 'Avery Chen',
     practiceArea: 'Business Formation',
-    status: 'archived',
-    updatedAt: daysAgo(12)
+    status: 'active',
+    updatedAt: daysAgo(12),
+    createdAt: daysAgo(30)
   },
   {
     id: 'matter-investor',
     title: 'SAFE review for seed round',
     clientName: 'Luna Martinez',
     practiceArea: 'Business Formation',
-    status: 'in_progress',
-    updatedAt: daysAgo(7, 10)
+    status: 'active',
+    updatedAt: daysAgo(7, 10),
+    createdAt: daysAgo(14)
   },
   {
     id: 'matter-contract',
     title: 'Vendor contract cleanup',
     clientName: 'Sawyer Brooks',
     practiceArea: 'Employment Law',
-    status: 'completed',
-    updatedAt: daysAgo(9, 1)
+    status: 'active',
+    updatedAt: daysAgo(9, 1),
+    createdAt: daysAgo(12)
   },
   {
     id: 'matter-property',
     title: 'Residential purchase closing',
     clientName: 'Miles Okafor',
     practiceArea: 'Real Estate',
-    status: 'archived',
-    updatedAt: daysAgo(18)
+    status: 'active',
+    updatedAt: daysAgo(18),
+    createdAt: daysAgo(45)
   }
 ];
 

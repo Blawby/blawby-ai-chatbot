@@ -1469,12 +1469,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : undefined,
-      description: values.description || undefined,
+      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : null,
+      description: values.description || null,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? undefined,
       contingency_percentage: values.contingencyPercent ?? undefined,
-      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : undefined,
+      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : null,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
@@ -1730,6 +1730,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 </Button>
               </div>
             </div>
+
+            {isClientListTruncated && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                <strong>Warning:</strong> The client list is incomplete. Some names or options may be missing.
+              </div>
+            )}
+
             {headerMeta && (
               <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-dark-card-bg/80 p-4">
                 <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
@@ -1915,12 +1922,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           </section>
         </div>
         
-        {isClientListTruncated && (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-            <strong>Warning:</strong> The client list is incomplete. Some names or options may be missing.
-          </div>
-        )}
-
         {isEditOpen && selectedMatterDetail && (
           <MatterEditModal
             key={modalKey}
@@ -1984,6 +1985,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             </div>
           )}
         />
+
+        {isClientListTruncated && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            <strong>Warning:</strong> The client list is incomplete. Some names or options may be missing.
+          </div>
+        )}
+
 
         <Tabs
           items={tabs}
