@@ -71,11 +71,8 @@ import {
 import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
-  lead: 0,
-  open: 1,
-  in_progress: 2,
-  completed: 3,
-  archived: 4
+  active: 0,
+  draft: 1
 };
 
 type MatterTabId = 'all' | MattersSidebarStatus;
@@ -94,20 +91,14 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 const buildTabs = (counts: Record<MattersSidebarStatus, number>): TabItem[] => [
   { id: 'all', label: 'All', count: Object.values(counts).reduce((sum, value) => sum + value, 0) },
-  { id: 'lead', label: 'Leads', count: counts.lead },
-  { id: 'open', label: 'Open', count: counts.open },
-  { id: 'in_progress', label: 'In Progress', count: counts.in_progress },
-  { id: 'completed', label: 'Completed', count: counts.completed },
-  { id: 'archived', label: 'Archived', count: counts.archived }
+  { id: 'active', label: 'Active', count: counts.active },
+  { id: 'draft', label: 'Drafts', count: counts.draft }
 ];
 
 const TAB_HEADINGS: Record<MatterTabId, string> = {
   all: 'All',
-  lead: 'Lead',
-  open: 'Open',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-  archived: 'Archived'
+  active: 'Active',
+  draft: 'Draft'
 };
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
@@ -146,22 +137,14 @@ const resolvePracticeServiceLabel = (serviceId?: string | null, fallback?: strin
 
 const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => {
   const normalized = status?.toLowerCase().replace(/\s+/g, '_');
-  if (normalized === 'draft') return 'lead';
-  if (normalized === 'active') return 'open';
-  if (
-    normalized === 'lead' ||
-    normalized === 'open' ||
-    normalized === 'in_progress' ||
-    normalized === 'completed' ||
-    normalized === 'archived'
-  ) {
-    return normalized;
-  }
-  return 'open';
+  if (normalized === 'draft') return 'draft';
+  if (normalized === 'active') return 'active';
+  // Fallback for any legacy legacy statuses if they persist
+  if (normalized === 'lead') return 'draft';
+  return 'active';
 };
 
-const mapStatusToBackend = (status: MattersSidebarStatus): 'draft' | 'active' =>
-  status === 'lead' ? 'draft' : 'active';
+const mapStatusToBackend = (status: MattersSidebarStatus): 'draft' | 'active' => status;
 
 const prunePayload = (payload: Record<string, unknown>) =>
   Object.fromEntries(
@@ -1478,11 +1461,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     } catch (error) {
       console.warn('[PracticeMattersPage] Failed to refresh activity after update', error);
     }
-    const refreshed = await getMatter(activePracticeId, selectedMatterId);
-    if (refreshed) {
-      setSelectedMatterDetail(
-        toMatterDetail(refreshed, { clientNameById, serviceNameById })
-      );
+    try {
+      const refreshed = await getMatter(activePracticeId, selectedMatterId);
+      if (refreshed) {
+        setSelectedMatterDetail(
+          toMatterDetail(refreshed, { clientNameById, serviceNameById })
+        );
+      }
+    } catch (error) {
+      console.warn('[PracticeMattersPage] Failed to refresh matter detail after update', error);
     }
   }, [
     activePracticeId,
@@ -1514,11 +1501,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         return acc;
       },
       {
-        lead: 0,
-        open: 0,
-        in_progress: 0,
-        completed: 0,
-        archived: 0
+        draft: 0,
+        active: 0
       }
     );
   }, [matterSummaries]);

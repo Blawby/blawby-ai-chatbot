@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 
-export type MattersSidebarStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
+export type MattersSidebarStatus = 'draft' | 'active';
 
 export interface MattersSidebarItem {
   id: string;
@@ -57,7 +57,7 @@ const defaultLogger: Logger = {
   }
 };
 
-const VALID_STATUSES: MattersSidebarStatus[] = ['lead', 'open', 'in_progress', 'completed', 'archived'];
+const VALID_STATUSES: MattersSidebarStatus[] = ['draft', 'active'];
 
 export function normalizeMattersResponse(
   payload: FetchResponsePayload,
@@ -140,7 +140,7 @@ export function normalizeMattersResponse(
           value: item.status,
           allowedValues: VALID_STATUSES
         });
-        normalizedStatus = 'lead';
+        normalizedStatus = 'active';
       }
     } else if (item.status !== undefined && item.status !== null) {
       logger.warn('Invalid status type', {
@@ -210,7 +210,7 @@ export function normalizeMattersResponse(
 export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMattersSidebarResult {
   const {
     practiceId,
-    initialStatus = 'lead',
+    initialStatus = 'active',
     pageSize = 25,
     autoFetch = true,
     searchDelayMs = 300

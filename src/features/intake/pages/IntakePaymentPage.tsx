@@ -15,6 +15,21 @@ import { asMinor } from '@/shared/utils/money';
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
 
+const STATUS_LABELS: Record<string, string> = {
+  succeeded: 'Paid',
+  processing: 'Processing',
+  requires_payment_method: 'Payment needed',
+  default: 'Pending',
+  paid: 'Paid',
+  open: 'Open',
+  complete: 'Complete',
+  expired: 'Expired',
+  canceled: 'Canceled',
+  failed: 'Failed',
+  draft: 'Draft',
+  unable_to_fetch: 'Status unavailable'
+};
+
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;

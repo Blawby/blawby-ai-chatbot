@@ -129,17 +129,6 @@ export const Combobox = ({
               const nextValue = (event.target as HTMLInputElement).value;
               setQuery(nextValue);
               setIsOpen(true);
-
-              if (!isMultiple) {
-                // Only trigger explicit onChange if the input strictly matches an option?
-                // No, we want to allow custom input (e.g. searching or raw UUID).
-                // However, typically Combobox only commits on selection or blur.
-                // But to support "Free Text", we should probably commit on Blur or explicit Enter?
-                // The user might be typing "Jo..." looking for "John". If we fire onChange("Jo..."), parent state updates.
-                // If parent state updates 'value' to "Jo...", then 'selectedOption' is undefined, 'resolvedDisplay' is "Jo...".
-                // This seems fine for a "Creatable" or "Free" combobox.
-                onChange(nextValue);
-              }
               
               const normalizedQuery = normalize(nextValue);
               const nextFilteredOptions = normalizedQuery
@@ -158,7 +147,12 @@ export const Combobox = ({
                   setIsOpen(true);
                 }
             }}
-            onBlur={() => setIsOpen(false)}
+            onBlur={() => {
+              setIsOpen(false);
+              if (!isMultiple && query !== resolvedDisplayValue) {
+                onChange(query);
+              }
+            }}
             onKeyDown={(event) => {
               if (disabled) return;
               if (!isOpen) {

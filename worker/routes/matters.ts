@@ -316,23 +316,35 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
       const fields = buildMatterUpdateFields(before, afterMatter);
       console.log('[MatterDiff] computed fields', { matterId, fields });
       if (fields.length > 0 && env.MATTER_DIFFS) {
-        const activities = await fetchActivityList(env, request, practiceId, matterId);
-        console.log('[MatterDiff] activity candidates', activities.filter((item) => item.action === 'matter_updated'));
+        let candidate: { item: BackendMatterActivity; delta: number } | undefined;
+        const delays = [100, 300, 700];
         const now = Date.now();
-        const candidates = activities
-          .filter((item) => item.action === 'matter_updated')
-          .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
-          .map((item) => ({
-            item,
-            createdAt: new Date(item.created_at ?? 0).getTime()
-          }))
-          .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
-          .map((record) => ({
-            ...record,
-            delta: Math.abs(record.createdAt - now)
-          }))
-          .sort((a, b) => a.delta - b.delta);
-        const candidate = candidates[0];
+
+        for (let i = 0; i <= delays.length; i++) {
+          const activities = await fetchActivityList(env, request, practiceId, matterId);
+          const candidates = activities
+            .filter((item) => item.action === 'matter_updated')
+            .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
+            .map((item) => ({
+              item,
+              createdAt: new Date(item.created_at ?? 0).getTime()
+            }))
+            .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
+            .map((record) => ({
+              ...record,
+              delta: Math.abs(record.createdAt - now)
+            }))
+            .sort((a, b) => a.delta - b.delta);
+
+          candidate = candidates[0];
+          if (candidate?.item?.id) break;
+
+          if (i < delays.length) {
+            console.log(`[MatterDiff] matching activity not found, retrying in ${delays[i]}ms (attempt ${i + 1})`);
+            await new Promise((resolve) => setTimeout(resolve, delays[i]));
+          }
+        }
+
         if (candidate?.item?.id) {
           console.log('[MatterDiff] storing diff', {
             activityId: candidate.item.id,
@@ -357,6 +369,8 @@ export async function handleMatters(request: Request, env: Env): Promise<Respons
           } catch (error) {
             console.warn('[MatterDiff] Failed to store diff', error);
           }
+        } else {
+          console.warn('[MatterDiff] Could not associate diff: no matching activity found after retries', { matterId, fields });
         }
       }
     }

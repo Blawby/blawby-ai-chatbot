@@ -18,6 +18,10 @@ import {
 
 // Greenfield address validation utilities
 function validateAddressObject(addressValue: unknown): Address | null {
+  if (typeof addressValue === 'string') {
+    return { address: addressValue } as unknown as Address;
+  }
+
   // Type check
   if (!addressValue || typeof addressValue !== 'object' || Array.isArray(addressValue)) {
     return null;
