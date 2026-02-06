@@ -1,19 +1,21 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from 'react-i18next';
-import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ClipboardDocumentListIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ClipboardDocumentListIcon, UserCircleIcon, InboxIcon, Squares2X2Icon, UsersIcon } from '@heroicons/react/24/outline';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 
 interface PublicEmbedNavigationProps {
-  activeTab: 'home' | 'messages' | 'matters' | 'settings';
-  onSelectTab: (tab: 'home' | 'messages' | 'matters' | 'settings') => void;
+  activeTab: 'home' | 'messages' | 'matters' | 'settings' | 'leads' | 'pricing' | 'clients';
+  onSelectTab: (tab: 'home' | 'messages' | 'matters' | 'settings' | 'leads' | 'pricing' | 'clients') => void;
   showClientTabs?: boolean;
+  showPracticeTabs?: boolean;
 }
 
 const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   activeTab,
   onSelectTab,
-  showClientTabs = false
+  showClientTabs = false,
+  showPracticeTabs = false
 }) => {
   const { t } = useTranslation();
   const { session } = useSessionContext();
@@ -28,7 +30,9 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   const activeClasses = 'bg-accent-100 text-accent-700 shadow-sm dark:bg-accent-900/30 dark:text-accent-300';
   const inactiveClasses = 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200';
 
-  const containerClasses = showClientTabs
+  const containerClasses = showPracticeTabs
+    ? 'grid grid-cols-7 gap-2'
+    : showClientTabs
     ? 'grid grid-cols-4 gap-2'
     : 'flex items-center justify-between gap-3';
 
@@ -53,7 +57,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
           <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />
           <span>{t('embed.navigation.messages')}</span>
         </button>
-        {showClientTabs && (
+        {(showClientTabs || showPracticeTabs) && (
           <button
             type="button"
             className={`${baseClasses} ${activeTab === 'matters' ? activeClasses : inactiveClasses}`}
@@ -64,7 +68,18 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
             <span>{t('embed.navigation.matters')}</span>
           </button>
         )}
-        {showClientTabs && (
+        {showPracticeTabs && (
+          <button
+            type="button"
+            className={`${baseClasses} ${activeTab === 'clients' ? activeClasses : inactiveClasses}`}
+            onClick={() => onSelectTab('clients')}
+            aria-current={activeTab === 'clients' ? 'page' : undefined}
+          >
+            <UsersIcon className="h-5 w-5" aria-hidden="true" />
+            <span>Clients</span>
+          </button>
+        )}
+        {(showClientTabs || showPracticeTabs) && (
           <button
             type="button"
             className={`${baseClasses} ${activeTab === 'settings' ? activeClasses : inactiveClasses}`}
@@ -82,6 +97,28 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
               <UserCircleIcon className="h-5 w-5" aria-hidden="true" />
             )}
             <span className="max-w-[96px] truncate">{profileLabel}</span>
+          </button>
+        )}
+        {showPracticeTabs && (
+          <button
+            type="button"
+            className={`${baseClasses} ${activeTab === 'leads' ? activeClasses : inactiveClasses}`}
+            onClick={() => onSelectTab('leads')}
+            aria-current={activeTab === 'leads' ? 'page' : undefined}
+          >
+            <InboxIcon className="h-5 w-5" aria-hidden="true" />
+            <span>Leads</span>
+          </button>
+        )}
+        {showPracticeTabs && (
+          <button
+            type="button"
+            className={`${baseClasses} ${activeTab === 'pricing' ? activeClasses : inactiveClasses}`}
+            onClick={() => onSelectTab('pricing')}
+            aria-current={activeTab === 'pricing' ? 'page' : undefined}
+          >
+            <Squares2X2Icon className="h-5 w-5" aria-hidden="true" />
+            <span>Pricing</span>
           </button>
         )}
       </div>

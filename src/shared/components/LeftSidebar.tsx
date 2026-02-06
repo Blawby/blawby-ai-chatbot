@@ -1,13 +1,11 @@
 import { useState } from 'preact/hooks';
 import { SidebarContent, type SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
-import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
 
 interface LeftSidebarProps {
   navItems: SidebarNavItem[];
   onClose?: () => void;
-  conversationContent?: ComponentChildren;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -22,7 +20,6 @@ interface LeftSidebarProps {
 const LeftSidebar = ({
   navItems,
   onClose,
-  conversationContent,
   practiceConfig,
   currentPractice
 }: LeftSidebarProps) => {
@@ -38,7 +35,6 @@ const LeftSidebar = ({
         practiceConfig={practiceConfig}
         navItems={navItems}
         onClose={onClose}
-        conversationContent={conversationContent}
         currentPractice={currentPractice}
         isCollapsed={shouldShowCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}

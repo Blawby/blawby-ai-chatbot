@@ -12,8 +12,8 @@ const LoadingScreen = () => (
 );
 
 const resolveFallbackPath = (workspace: ReturnType<typeof useWorkspace>['defaultWorkspace']) => {
-  if (workspace === 'practice') return '/practice/home';
-  return '/client/conversations';
+  if (workspace === 'practice') return '/practice';
+  return '/client';
 };
 
 const isSafeRedirectPath = (path: string | null | undefined): path is string => {

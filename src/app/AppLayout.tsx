@@ -70,7 +70,6 @@ interface AppLayoutProps {
   practiceDetails?: PracticeDetails | null;
   messages?: ChatMessageUI[];
   onRequestConsultation?: () => void | Promise<void>;
-  conversationSidebarContent?: ComponentChildren;
   showRightSidebar?: boolean;
   children: ComponentChildren;
 }
@@ -88,7 +87,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   currentPractice,
   messages: chatMessages = [],
   onRequestConsultation,
-  conversationSidebarContent,
   showRightSidebar = false,
   children,
   practiceDetails
@@ -123,8 +121,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     };
   }, [currentPractice, navigate, workspace]);
 
-  const shouldShowSidebar = features.enableLeftSidebar && workspace !== 'public' && !(isMobile && isSettingsModalOpen);
-  const shouldOffsetForMobileNav = features.enableLeftSidebar && workspace !== 'public';
+  const hasNavItems = Boolean(navItems && navItems.length > 0);
+  const shouldShowSidebar = features.enableLeftSidebar && workspace === 'client' && hasNavItems && !(isMobile && isSettingsModalOpen);
+  const shouldOffsetForMobileNav = features.enableLeftSidebar && workspace === 'client' && hasNavItems;
 
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
@@ -139,7 +138,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
           <div className="overflow-y-auto hidden lg:block">
             <LeftSidebar
               navItems={navItems ?? []}
-              conversationContent={conversationSidebarContent}
               practiceConfig={{
                 name: practiceConfig.name,
                 profileImage: practiceConfig.profileImage,
@@ -187,7 +185,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 >
                   <LeftSidebar
                     navItems={navItems ?? []}
-                    conversationContent={conversationSidebarContent}
                     onClose={() => onToggleMobileSidebar(false)}
                     practiceConfig={{
                       name: practiceConfig.name,
@@ -257,7 +254,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
         </div>
       )}
 
-      {features.enableLeftSidebar && workspace !== 'public' && (
+      {features.enableLeftSidebar && workspace === 'client' && (
         <MobileTopNav
           onOpenSidebar={() => onToggleMobileSidebar(true)}
           onPlusClick={() => {

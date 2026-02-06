@@ -63,11 +63,14 @@ export const PracticePricingPage = () => {
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const canEdit = normalizedRole === 'owner' || normalizedRole === 'admin';
   const isReadOnly = !activeMemberRoleLoading && !canEdit;
+  const practiceSlug = currentPractice?.slug ?? null;
+  const pricingBasePath = practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}/pricing` : '/practice/pricing';
 
   const pathSegments = location.path.split('/').filter(Boolean);
-  const detailSlug = pathSegments[0] === 'practice' && pathSegments[1] === 'pricing'
-    ? pathSegments[2]
-    : undefined;
+  const pricingIndex = pathSegments[0] === 'practice'
+    ? (pathSegments[1] === 'pricing' ? 1 : (pathSegments[2] === 'pricing' ? 2 : -1))
+    : -1;
+  const detailSlug = pricingIndex >= 0 ? pathSegments[pricingIndex + 1] : undefined;
   const isConsultationDetail = detailSlug === 'consultation-fee';
   const isBillingDetail = detailSlug === 'billing-increment';
 
@@ -248,7 +251,7 @@ export const PracticePricingPage = () => {
   const createdAt = formatDate(currentPractice?.createdAt, locale);
   const consultationRow: DataTableRow = {
     id: 'consultation-fee',
-    onClick: () => navigate('/practice/pricing/consultation-fee'),
+    onClick: () => navigate(`${pricingBasePath}/consultation-fee`),
     cells: {
       name: (
         <div className="flex items-center gap-3">
@@ -285,7 +288,7 @@ export const PracticePricingPage = () => {
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[9rem]">
-            <DropdownMenuItem onSelect={() => navigate('/practice/pricing/consultation-fee')}>
+            <DropdownMenuItem onSelect={() => navigate(`${pricingBasePath}/consultation-fee`)}>
               Edit
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -301,7 +304,7 @@ export const PracticePricingPage = () => {
 
   const billingRow: DataTableRow = {
     id: 'billing-increment',
-    onClick: () => navigate('/practice/pricing/billing-increment'),
+    onClick: () => navigate(`${pricingBasePath}/billing-increment`),
     cells: {
       name: (
         <div className="flex items-center gap-3">
@@ -338,7 +341,7 @@ export const PracticePricingPage = () => {
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[9rem]">
-            <DropdownMenuItem onSelect={() => navigate('/practice/pricing/billing-increment')}>
+            <DropdownMenuItem onSelect={() => navigate(`${pricingBasePath}/billing-increment`)}>
               Edit
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -377,13 +380,13 @@ export const PracticePricingPage = () => {
       id: 'intake-fees',
       label: 'Intake fee',
       description: 'Charge clients before intake confirmation.',
-      onSelect: () => navigate('/practice/pricing/consultation-fee')
+      onSelect: () => navigate(`${pricingBasePath}/consultation-fee`)
     },
     {
       id: 'billing-increment',
       label: 'Billing increment',
       description: 'Set the time-based billing step (1–60 min).',
-      onSelect: () => navigate('/practice/pricing/billing-increment')
+      onSelect: () => navigate(`${pricingBasePath}/billing-increment`)
     },
     {
       id: 'hourly-rates',
@@ -589,7 +592,7 @@ export const PracticePricingPage = () => {
         <div className="max-w-5xl mx-auto space-y-6">
           <Breadcrumbs
             items={[
-              { label: 'Pricing catalog', href: '/practice/pricing' },
+              { label: 'Pricing catalog', href: pricingBasePath },
               { label: 'Billing increment' }
             ]}
             onNavigate={navigate}
@@ -670,7 +673,7 @@ export const PracticePricingPage = () => {
         <div className="space-y-4">
           <Breadcrumbs
             items={[
-              { label: 'Pricing catalog', href: '/practice/pricing' },
+              { label: 'Pricing catalog', href: pricingBasePath },
               { label: 'Intake fees' }
             ]}
             onNavigate={navigate}
@@ -718,7 +721,7 @@ export const PracticePricingPage = () => {
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => navigate('/practice/payouts')}
+                    onClick={() => navigate('/settings/account/payouts')}
                     disabled={!canEdit}
                   >
                     Connect Stripe
@@ -726,7 +729,7 @@ export const PracticePricingPage = () => {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => navigate('/practice/payouts')}
+                    onClick={() => navigate('/settings/account/payouts')}
                   >
                     View payout settings
                   </Button>

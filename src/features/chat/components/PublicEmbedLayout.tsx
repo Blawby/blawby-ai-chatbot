@@ -11,7 +11,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 
-type EmbedView = 'home' | 'list' | 'conversation' | 'matters';
+type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'leads' | 'pricing' | 'clients';
 
 interface PublicEmbedLayoutProps {
   view: EmbedView;
@@ -21,8 +21,14 @@ interface PublicEmbedLayoutProps {
   practiceLogo?: string | null;
   messages: ChatMessageUI[];
   showClientTabs?: boolean;
+  showPracticeTabs?: boolean;
+  workspace?: 'public' | 'practice' | 'client';
   onStartNewConversation: (mode: ConversationMode) => Promise<string | null>;
   chatView: ComponentChildren;
+  mattersView?: ComponentChildren;
+  clientsView?: ComponentChildren;
+  leadsView?: ComponentChildren;
+  pricingView?: ComponentChildren;
 }
 
 const filterPublicMessages = (messages: ChatMessageUI[]) => {
@@ -42,23 +48,35 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   practiceLogo,
   messages,
   showClientTabs = false,
+  showPracticeTabs = false,
+  workspace = 'public',
   onStartNewConversation,
-  chatView
+  chatView,
+  mattersView,
+  clientsView,
+  leadsView,
+  pricingView
 }) => {
   const { navigate } = useNavigation();
   const publicMessages = useMemo(() => filterPublicMessages(messages), [messages]);
 
-  const embedBasePath = useMemo(() => (
-    practiceSlug ? `/embed/${encodeURIComponent(practiceSlug)}` : '/embed'
-  ), [practiceSlug]);
+  const embedBasePath = useMemo(() => {
+    if (workspace === 'practice') {
+      return practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/practice';
+    }
+    if (workspace === 'client') {
+      return practiceSlug ? `/client/${encodeURIComponent(practiceSlug)}` : '/client';
+    }
+    return practiceSlug ? `/embed/${encodeURIComponent(practiceSlug)}` : '/embed';
+  }, [workspace, practiceSlug]);
   const conversationsPath = `${embedBasePath}/conversations`;
 
-  // Redirect if unauthorized to view matters
+  // Redirect if unauthorized to view matters/leads/pricing
   useEffect(() => {
-    if (!showClientTabs && view === 'matters') {
+    if (!showClientTabs && !showPracticeTabs && (view === 'matters' || view === 'leads' || view === 'pricing' || view === 'clients')) {
       navigate(embedBasePath, true);
     }
-  }, [showClientTabs, view, embedBasePath, navigate]);
+  }, [showClientTabs, showPracticeTabs, view, embedBasePath, navigate]);
 
   const {
     conversations: publicConversations,
@@ -220,7 +238,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
           />
         );
       case 'matters':
-        return (
+        return mattersView ?? (
           <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Matters</h2>
@@ -236,15 +254,56 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
             </div>
           </div>
         );
+      case 'leads':
+        return leadsView ?? (
+          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Leads</h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Manage your practice leads here.
+              </p>
+            </div>
+          </div>
+        );
+      case 'clients':
+        return clientsView ?? (
+          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clients</h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Manage your practice clients here.
+              </p>
+            </div>
+          </div>
+        );
+      case 'pricing':
+        return pricingView ?? (
+          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pricing</h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                View pricing information here.
+              </p>
+            </div>
+          </div>
+        );
       case 'conversation':
       default:
         return chatView;
     }
   };
 
-  const showBottomNav = showClientTabs || view === 'home' || view === 'list' || view === 'matters';
+  const showBottomNav = showClientTabs || showPracticeTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'leads' || view === 'pricing' || view === 'clients';
   const activeTab = view === 'list' || view === 'conversation'
     ? 'messages'
+    : view === 'matters'
+    ? 'matters'
+    : view === 'clients'
+    ? 'clients'
+    : view === 'leads'
+    ? 'leads'
+    : view === 'pricing'
+    ? 'pricing'
     : view;
   const shouldFrame = view !== 'conversation';
   const containerClassName = 'flex flex-col h-screen w-full m-0 p-0 relative overflow-hidden bg-light-bg dark:bg-dark-bg';
@@ -268,6 +327,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
             <PublicEmbedNavigation
               activeTab={activeTab}
               showClientTabs={showClientTabs}
+              showPracticeTabs={showPracticeTabs}
               onSelectTab={(tab) => {
                 if (tab === 'messages') {
                   void refreshPublicConversations();
@@ -276,6 +336,18 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
                 }
                 if (tab === 'matters') {
                   navigate(`${embedBasePath}/matters`);
+                  return;
+                }
+                if (tab === 'leads') {
+                  navigate(`${embedBasePath}/leads`);
+                  return;
+                }
+                if (tab === 'clients') {
+                  navigate(`${embedBasePath}/clients`);
+                  return;
+                }
+                if (tab === 'pricing') {
+                  navigate(`${embedBasePath}/pricing`);
                   return;
                 }
                 if (tab === 'settings') {
