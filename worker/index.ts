@@ -16,6 +16,7 @@ import {
   handleBackendProxy,
   handleIntakes,
   handleParalegal,
+  handleMatters,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
@@ -76,15 +77,16 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     console.log('🔍 Route matching for path:', path);
 
-  if (path.startsWith('/api/intakes')) {
+    if (path.startsWith('/api/intakes')) {
       response = await handleIntakes(request, env);
+    } else if (path.startsWith('/api/matters')) {
+      response = await handleMatters(request, env, _ctx);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
     } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {
       response = await handleBackendProxy(request, env);
     } else if (
       path.startsWith('/api/onboarding') ||
-      path.startsWith('/api/matters') ||
       path.startsWith('/api/practice/client-intakes') ||
       path.startsWith('/api/user-details') ||
       ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
@@ -189,3 +191,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
+export { MatterDiffStore } from './durable-objects/MatterDiffStore';

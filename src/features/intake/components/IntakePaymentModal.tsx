@@ -79,7 +79,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       ) : isValidCheckoutSession ? (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
           <p className="mb-4 text-gray-600 dark:text-gray-300">
-            One more step: click below to complete your payment on Stripe's secure checkout page.
+            One more step: click below to complete your payment on Stripe&apos;s secure checkout page.
           </p>
           <Button
             variant="primary"

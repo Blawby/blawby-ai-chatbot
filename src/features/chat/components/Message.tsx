@@ -266,7 +266,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						isStreaming={isStreaming}
 						isUser={isUser}
 						variant={variant}
-						size="sm"
+						size={size}
 						className={contentClassName}
 					/>
 				)}

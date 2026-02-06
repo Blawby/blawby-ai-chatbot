@@ -988,12 +988,12 @@ export async function updatePracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const normalized = normalizePracticeUpdatePayload(details);
+  const normalized = normalizePracticeDetailsPayload(details);
   if (import.meta.env.DEV) {
     console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
   }
   const response = await apiClient.put(
-    `/api/practice/${encodeURIComponent(practiceId)}`,
+    `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
     { signal: config?.signal }
   );
@@ -1009,7 +1009,7 @@ export async function getPracticeDetails(
   }
   try {
     const response = await apiClient.get(
-      `/api/practice/${encodeURIComponent(practiceId)}`,
+      `/api/practice/${encodeURIComponent(practiceId)}/details`,
       { signal: config?.signal }
     );
     return normalizePracticeDetailsResponse(response.data);

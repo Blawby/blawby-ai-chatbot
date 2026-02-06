@@ -172,9 +172,9 @@ const MockEmbedPanel: FunctionComponent<{ title: string; showClientTabs: boolean
           message: 'Tell us a bit about your situation.',
           initialValues: {
             name: 'Paul Luke',
-            email: 'paulluke+paulchrisluke@gmail.com',
-            phone: '(615) 444-9999',
-            address: '908 Islander Way, Alexander Beach, WA 98221',
+            email: 'test@example.com',
+            phone: '555-0100',
+            address: '123 Test Street, Alexander Beach, WA 98221',
             opposingParty: 'Alex Beach Properties'
           }
         }

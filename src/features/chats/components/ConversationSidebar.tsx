@@ -25,6 +25,7 @@ export const ConversationSidebar = ({
   selectedConversationId,
   onSelectConversation
 }: ConversationSidebarProps) => {
+  const conversationsDisabled = workspace === 'practice';
   const { showError } = useToastContext();
   const { session, isAnonymous } = useSessionContext();
   const hasSession = Boolean(session?.user);
@@ -34,7 +35,7 @@ export const ConversationSidebar = ({
   const practiceConversationsData = useConversations({
     practiceId,
     scope: 'practice',
-    enabled: isPracticeWorkspace && hasSession && Boolean(practiceId),
+    enabled: !conversationsDisabled && isPracticeWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
   });
 
@@ -42,13 +43,13 @@ export const ConversationSidebar = ({
     practiceId,
     scope: 'practice',
     list: isPublicWorkspace,
-    enabled: isPublicWorkspace && hasSession && Boolean(practiceId),
+    enabled: !conversationsDisabled && isPublicWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
   });
 
   const conversationsData = useConversationsWithContext({
     scope: 'all',
-    enabled: !isPracticeWorkspace && !isPublicWorkspace && allowAllScope,
+    enabled: !conversationsDisabled && !isPracticeWorkspace && !isPublicWorkspace && allowAllScope,
     onError: (message) => showError(message)
   });
 
@@ -153,6 +154,9 @@ export const ConversationSidebar = ({
   }, [queueReadUpdate, refresh]);
 
   useEffect(() => {
+    if (conversationsDisabled) {
+      return;
+    }
     if (!hasSession || typeof WebSocket === 'undefined') {
       return;
     }
@@ -251,7 +255,15 @@ export const ConversationSidebar = ({
         markReadTimerRef.current = null;
       }
     };
-  }, [conversationIds, hasSession, refresh, sendReadUpdate]);
+  }, [conversationIds, conversationsDisabled, hasSession, refresh, sendReadUpdate]);
+
+  if (conversationsDisabled) {
+    return (
+      <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+        Conversations are temporarily disabled.
+      </div>
+    );
+  }
 
   if (workspace === 'practice' && !practiceId) {
     return (

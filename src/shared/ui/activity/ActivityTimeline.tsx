@@ -1,4 +1,10 @@
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+import {
+  EyeIcon,
+  PencilSquareIcon,
+  PlusCircleIcon,
+  PaperAirplaneIcon
+} from '@heroicons/react/24/outline';
 import { FaceSmileIcon, PaperClipIcon } from '@heroicons/react/20/solid';
 import { Avatar } from '@/shared/ui/profile';
 import { cn } from '@/shared/utils/cn';
@@ -28,6 +34,7 @@ export interface ActivityTimelineProps {
   composerPlaceholder?: string;
   composerLabel?: string;
   composerValue?: string;
+  composerPerson?: TimelinePerson;
   onComposerChange?: (value: string) => void;
   onComposerSubmit?: (value: string) => void | Promise<void>;
   onEditComment?: (id: string, value: string) => void | Promise<void>;
@@ -44,6 +51,13 @@ const DEFAULT_ACTIONS: Record<TimelineItem['type'], string> = {
   paid: 'paid the invoice.'
 };
 
+const TYPE_ICONS: Partial<Record<TimelineItem['type'], (props: { className?: string }) => JSX.Element>> = {
+  created: (props) => <PlusCircleIcon {...props} />,
+  edited: (props) => <PencilSquareIcon {...props} />,
+  sent: (props) => <PaperAirplaneIcon {...props} />,
+  viewed: (props) => <EyeIcon {...props} />
+};
+
 export const ActivityTimeline = ({
   items,
   className = '',
@@ -53,6 +67,7 @@ export const ActivityTimeline = ({
   composerPlaceholder = 'Add your comment...',
   composerLabel = 'Comment',
   composerValue,
+  composerPerson,
   onComposerChange,
   onComposerSubmit,
   onEditComment,
@@ -130,34 +145,50 @@ export const ActivityTimeline = ({
 
         return (
           <li key={item.id} className="relative flex gap-x-4">
-            <div
-              className={cn(
-                isLast ? 'h-6' : '-bottom-6',
-                'absolute top-0 left-0 flex w-6 justify-center'
+            <div className="relative flex w-10 flex-none justify-center pt-0.5">
+              <div
+                className={cn(
+                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-gray-200 dark:bg-white/15',
+                  isLast ? 'h-6' : '-bottom-6',
+                  'top-0'
+                )}
+              />
+              {item.type === 'commented' ? (
+                <div className="relative z-10 flex h-10 w-10 items-center justify-center">
+                  <Avatar
+                    name={item.person.name}
+                    src={item.person.imageUrl}
+                    size="md"
+                    className="ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-dark-card-bg dark:outline-white/10"
+                  />
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-gray-700 ring-2 ring-white dark:bg-white/15 dark:text-white dark:ring-dark-card-bg">
+                    <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
+                  </span>
+                </div>
+              ) : (
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-gray-700 ring-0 dark:bg-dark-card-bg dark:text-white">
+                  {item.type === 'paid' ? (
+                    <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-accent-500" />
+                  ) : TYPE_ICONS[item.type] ? (
+                    (() => {
+                      const Icon = TYPE_ICONS[item.type];
+                      return Icon ? (
+                        <Icon className="h-4 w-4 text-gray-600 dark:text-gray-200" />
+                      ) : null;
+                    })()
+                  ) : (
+                    <div className="h-1.5 w-1.5 rounded-full bg-gray-500 dark:bg-white/60" />
+                  )}
+                </div>
               )}
-            >
-              <div className="w-px bg-gray-200 dark:bg-white/15" />
             </div>
 
             {item.type === 'commented' ? (
               <>
-                <Avatar
-                  name={item.person.name}
-                  src={item.person.imageUrl}
-                  size="sm"
-                  className="mt-3 ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-gray-800 dark:outline-white/10"
-                />
-                <div className="flex-auto rounded-md p-3 ring-1 ring-gray-200 ring-inset dark:ring-white/15">
-                  <div className="flex justify-between gap-x-4">
-                    <div className="py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                      <span className="font-medium text-gray-900 dark:text-white">{item.person.name}</span> commented
-                    </div>
-                    <time
-                      dateTime={item.dateTime ?? item.date}
-                      className="flex-none py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400"
-                    >
-                      {item.date}
-                    </time>
+                <div className="flex-auto">
+                  <div className="text-sm leading-5 text-gray-500 dark:text-gray-400">
+                    <div className="font-semibold text-gray-900 dark:text-white">{item.person.name}</div>
+                    <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
                   {editingId === item.id ? (
                     <div className="mt-2 space-y-2">
@@ -199,7 +230,7 @@ export const ActivityTimeline = ({
                   ) : (
                     <>
                       {item.comment && (
-                        <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
+                        <p className="mt-2 text-sm leading-6 text-gray-900 dark:text-white">
                           {item.comment}
                         </p>
                       )}
@@ -239,15 +270,22 @@ export const ActivityTimeline = ({
               </>
             ) : (
               <>
-                <div className="relative flex h-6 w-6 flex-none items-center justify-center bg-white dark:bg-gray-900">
-                  {item.type === 'paid' ? (
-                    <CheckCircleIcon aria-hidden="true" className="h-6 w-6 text-accent-500" />
-                  ) : (
-                    <div className="h-1.5 w-1.5 rounded-full bg-gray-100 ring ring-gray-300 dark:bg-white/10 dark:ring-white/20" />
-                  )}
-                </div>
-                <p className="flex-auto py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-900 dark:text-white">{item.person.name}</span> {actionText}
+                <p className="flex-auto py-0.5 text-sm leading-5 text-gray-900 dark:text-white">
+                  <span className="font-semibold">{item.person.name}</span>{' '}
+                  {(() => {
+                    const trimmed = actionText.trim();
+                    const match = trimmed.match(/^(\w+)\s+(.*)$/);
+                    if (!match) {
+                      return <span className="text-gray-900 dark:text-white">{trimmed}</span>;
+                    }
+                    const [, verb, rest] = match;
+                    return (
+                      <>
+                        <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
+                        <span className="text-gray-900 dark:text-white">{rest}</span>
+                      </>
+                    );
+                  })()}
                 </p>
                 <time
                   dateTime={item.dateTime ?? item.date}
@@ -265,7 +303,8 @@ export const ActivityTimeline = ({
     {showComposer && (
       <div className="flex gap-x-3">
         <Avatar
-          name="You"
+          name={composerPerson?.name ?? 'You'}
+          src={composerPerson?.imageUrl ?? null}
           size="sm"
           className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-gray-800 dark:outline-white/10"
         />

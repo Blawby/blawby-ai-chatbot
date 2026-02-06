@@ -118,6 +118,7 @@ const workerEndpoints = [
 	'preferences',
 	'subscriptions',
 	'subscription',
+	'matters',
 	'uploads',
 ];
 
@@ -297,9 +298,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			}
 		},
 		server: {
+			host: true,
 			port: 5137,      // Matches your current setup
 			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
 			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
+			hmr: {
+				protocol: 'wss',
+				host: 'local.blawby.com',
+				clientPort: 443
+			},
 			proxy: {
 				...buildProxyEntries(),
 

@@ -15,6 +15,21 @@ import { asMinor } from '@/shared/utils/money';
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
 
+const STATUS_LABELS: Record<string, string> = {
+  succeeded: 'Paid',
+  processing: 'Processing',
+  requires_payment_method: 'Payment needed',
+  default: 'Pending',
+  paid: 'Paid',
+  open: 'Open',
+  complete: 'Complete',
+  expired: 'Expired',
+  canceled: 'Canceled',
+  failed: 'Failed',
+  draft: 'Draft',
+  unable_to_fetch: 'Status unavailable'
+};
+
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
@@ -91,7 +106,25 @@ export const IntakePaymentPage: FunctionComponent = () => {
             >
               Open secure payment
             </Button>
+            {intakeUuid && (
+              <Button
+                variant="secondary"
+                onClick={handleCheckStatus}
+                disabled={isChecking}
+              >
+                {isChecking ? 'Checking status...' : 'Check payment status'}
+              </Button>
+            )}
           </div>
+          {status && (
+            <div className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+              isPaidIntakeStatus(status)
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200'
+                : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200'
+            }`}>
+              Payment status: {status}.
+            </div>
+          )}
         </div>
       </div>
     );

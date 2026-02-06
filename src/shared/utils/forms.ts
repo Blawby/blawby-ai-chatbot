@@ -182,7 +182,9 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
     }
     return { url: result.data.url, sessionId: result.data.session_id };
   } catch (error) {
-    console.warn('[Intake] Checkout session request failed', error);
+    if (import.meta.env.DEV) {
+      console.warn('[Intake] Checkout session request failed', error);
+    }
     return null;
   }
 };
