@@ -560,6 +560,7 @@ export const AcceptInvitationPage = () => {
           variant="primary"
           onClick={handleAccept}
           disabled={accepting || invitation.status !== 'pending' || hasEmailMismatch}
+          className={accepting || invitation.status !== 'pending' || hasEmailMismatch ? 'opacity-50 cursor-not-allowed' : undefined}
         >
           {accepting ? 'Accepting…' : 'Accept invitation'}
         </Button>

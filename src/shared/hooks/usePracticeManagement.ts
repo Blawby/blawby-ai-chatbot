@@ -446,7 +446,9 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
       }
       return null;
     })(),
-    currency: typeof raw.currency === 'string' ? raw.currency : null,
+    currency: (typeof raw.currency === 'string' && raw.currency.trim().length > 0)
+      ? raw.currency.trim()
+      : null,
     paymentUrl: (() => {
       const val = raw.paymentUrl ?? raw.payment_url ?? null;
       return typeof val === 'string' && val.trim().length > 0 ? val : null;

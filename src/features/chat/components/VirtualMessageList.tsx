@@ -237,6 +237,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     ? `${practiceName} has joined the conversation.`
                     : `${practiceName} was unable to take your request at this time.`;
 
+                let systemMessageFailed = false;
                 try {
                     await postSystemMessage(
                         leadReviewActions.conversationId,
@@ -252,14 +253,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     );
                 } catch (msgErr) {
                     console.error('[VirtualMessageList] Failed to post system message', msgErr);
-                    // Continue - transition succeeded, just log the message failure
+                    systemMessageFailed = true;
                 }
+
+                const notificationText = systemMessageFailed
+                    ? 'Attempted to notify client; notification failed.'
+                    : (action === 'accept' ? 'The client has been notified.' : 'The client has been notified of the decline.');
 
                 showSuccess(
                     action === 'accept' ? 'Lead accepted' : 'Lead declined',
-                    action === 'accept'
-                        ? 'The client has been notified.'
-                        : 'The client has been notified of the decline.'
+                    notificationText
                 );
                 leadReviewActions.onLeadStatusChange?.();
             } catch (err) {
