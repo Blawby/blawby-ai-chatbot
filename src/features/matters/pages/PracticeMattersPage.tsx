@@ -1473,12 +1473,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId || undefined,
+      client_id: (values.clientId && isUuid(values.clientId)) ? values.clientId : undefined,
       description: values.description || undefined,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? undefined,
       contingency_percentage: values.contingencyPercent ?? undefined,
-      practice_service_id: values.practiceAreaId || undefined,
+      practice_service_id: (values.practiceAreaId && isUuid(values.practiceAreaId)) ? values.practiceAreaId : undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
@@ -1551,13 +1551,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
       description: values.description?.trim() || undefined,
-      client_id: values.clientId || undefined,
-      practice_service_id: values.practiceAreaId || undefined,
+      client_id: (values.clientId && isUuid(values.clientId)) ? values.clientId : (values.clientId === '' ? null : undefined),
+      practice_service_id: (values.practiceAreaId && isUuid(values.practiceAreaId)) ? values.practiceAreaId : (values.practiceAreaId === '' ? null : undefined),
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
       status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined
+      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : null
     };
 
     await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));

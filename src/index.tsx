@@ -1,4 +1,4 @@
-import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
+import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider, Link } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
@@ -37,13 +37,12 @@ const NotFoundRoute = () => (
   <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
     <div className="text-lg font-medium">Page Not Found</div>
     <div>The page you&apos;re looking for doesn&apos;t exist.</div>
-    <a 
+    <Link
       href="/" 
       className="text-primary hover:underline font-medium"
-      // If client-side routing is preferred, one would use Link, but <a> is robust for a 404 recovery
     >
       Return to Home
-    </a>
+    </Link>
   </div>
 );
 
