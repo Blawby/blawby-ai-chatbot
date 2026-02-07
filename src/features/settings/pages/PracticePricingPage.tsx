@@ -284,7 +284,7 @@ export const PracticePricingPage = () => {
                 Manage
               </Button>
             </div>
-            {!canEdit && (
+            {isReadOnly && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Owner/admin access required to update billing increments.
               </p>

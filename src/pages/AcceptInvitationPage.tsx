@@ -459,7 +459,7 @@ export const AcceptInvitationPage = () => {
         </div>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">You’re signed in</h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-          Continue to {organizationName} to finish your intake.
+          Continue to {organizationName || organizationSlug} to finish your intake.
         </p>
         <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
           <div>

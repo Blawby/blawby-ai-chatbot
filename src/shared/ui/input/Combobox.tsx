@@ -172,7 +172,9 @@ export const Combobox = ({
               setIsOpen(false);
               // Only emit if the user actually typed something or if query differs from display value and was intentional
               if (!isMultiple && userTyped && query !== resolvedDisplayValue) {
-                emitChange(query);
+                const lowerQuery = query.trim().toLowerCase();
+                const matchedOption = options.find(o => o.label.trim().toLowerCase() === lowerQuery);
+                emitChange(matchedOption ? matchedOption.value : query);
               }
               setUserTyped(false);
             }}

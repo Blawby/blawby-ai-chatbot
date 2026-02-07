@@ -228,7 +228,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     result = await leadReviewActions.rejectMatter(leadReviewActions.practiceId, leadId);
                 }
 
-                if (result.error || result.success === false) {
+                if (result.error || result.success !== true) {
                     throw new Error(result.error || 'The action could not be completed at this time.');
                 }
 

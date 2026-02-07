@@ -1542,17 +1542,17 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     if (!activePracticeId || !selectedMatterId) return;
 
     if (values.clientId && !isUuid(values.clientId)) {
-      console.warn(`[PracticeMattersPage] Invalid client_id UUID provided: "${values.clientId}"`);
+      throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
     }
     if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
-      console.warn(`[PracticeMattersPage] Invalid practice_service_id UUID provided: "${values.practiceAreaId}"`);
+      throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
     }
 
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
       description: values.description?.trim() || undefined,
-      client_id: (values.clientId && isUuid(values.clientId)) ? values.clientId : (values.clientId === '' ? null : undefined),
-      practice_service_id: (values.practiceAreaId && isUuid(values.practiceAreaId)) ? values.practiceAreaId : (values.practiceAreaId === '' ? null : undefined),
+      client_id: values.clientId || (values.clientId === '' ? null : undefined),
+      practice_service_id: values.practiceAreaId || (values.practiceAreaId === '' ? null : undefined),
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,

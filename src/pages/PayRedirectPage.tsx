@@ -47,7 +47,7 @@ export const PayRedirectPage: FunctionComponent = () => {
   const sessionId = resolveQueryValue(location.query?.session_id || location.query?.sessionId);
   const returnToParam = resolveQueryValue(location.query?.return_to || location.query?.returnTo);
   const conversationId = resolveQueryValue(location.query?.conversation_id || location.query?.conversationId);
-  const practiceId = resolveQueryValue(location.query?.practiceId);
+  const practiceId = resolveQueryValue(location.query?.practice_id || location.query?.practiceId);
   const practiceName = resolveQueryValue(location.query?.practice);
 
   const safeReturnTo = useMemo(() => {
