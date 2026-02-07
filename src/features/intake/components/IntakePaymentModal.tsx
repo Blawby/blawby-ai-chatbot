@@ -124,7 +124,9 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
           <Button
             variant="primary"
             className="w-full"
+            disabled={isVerifying}
             onClick={() => {
+              if (isVerifying) return;
               if (typeof window !== 'undefined' && checkoutSessionUrl) {
                 window.open(checkoutSessionUrl, '_blank', 'noopener');
               }

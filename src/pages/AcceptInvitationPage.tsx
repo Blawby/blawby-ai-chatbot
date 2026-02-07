@@ -338,16 +338,52 @@ export const AcceptInvitationPage = () => {
 
     setIsLinkingConversation(true);
     try {
+      // Resolve organization ID if we only have slug (or ensure consistency)
+      let targetOrgId = activeOrganizationId;
+      
       if (organizationSlug) {
-        await setActive(organizationSlug);
+        // If we have a slug, we should ensure we are active in that org context.
+        // We use getClient() to interact with Better Auth directly.
+        const { getClient } = await import('@/shared/lib/authClient');
+        const client = getClient();
+        
+        // Attempt to list organizations to find the ID if needed, 
+        // OR simply call setActive if we have the ID. 
+        // However, setActive usually takes an ID. 
+        // If we don't have the ID but have the slug, we might need to rely on the active session 
+        // matching the slug or use a lookup. 
+        // Assuming for intake flows, the user might just have accepted an invite to this org.
+        
+        // Ideally we'd have the ID from props or context. If not, we fall back to:
+        if (!targetOrgId) {
+           // We can't easily lookup ID by slug on the client without an API call.
+           // But 'linkConversationToUser' will fail without an ID.
+           // Strategy: If we lack ID, try to rely on current session being correct or trigger a refresh?
+           // Actually, let's try to assume activeOrganizationId is fresh enough due to re-renders, 
+           // BUT the prompt says "capture the resulting organization ID".
+           // Since setActive is async, let's call it.
+           
+           // If we don't have ID, we can't call sync setActive easily without lookup.
+           // However, better-auth's listOrganizations might be cached.
+           const { data: orgs } = await client.organization.list();
+           const match = orgs?.find(o => o.slug === organizationSlug || o.id === organizationSlug); // slug check
+           if (match) {
+             targetOrgId = match.id;
+           }
+        }
+        
+        if (targetOrgId) {
+          await client.organization.setActive({ organizationId: targetOrgId });
+        } else {
+           throw new Error('Could not resolve organization context.');
+        }
       }
-      // Re-check active org after setting it
-      if (!activeOrganizationId && !organizationSlug) {
+
+      if (!targetOrgId) {
          throw new Error('Missing practice context.');
       }
-      // Use the freshly set org ID if available, otherwise fallback to current
-      // (The setActive call should update the context, but we use the known slug to be safe if ID isn't immediate)
-      await linkConversationToUser(intakeConversationId, activeOrganizationId || organizationSlug);
+
+      await linkConversationToUser(intakeConversationId, targetOrgId);
       navigate(
         `/embed/${encodeURIComponent(organizationSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true

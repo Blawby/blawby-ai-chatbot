@@ -404,10 +404,8 @@ export async function submitContactForm(
           if (!(error as LoggedError)._logged) {
             console.warn('[Intake] Optional checkout session creation failed', error);
           }
-          // If paymentLinkEnabled is true, we might want to alert the user or fallback to paymentLinkUrl
-          if (!paymentLinkUrl) {
-             throw error; // Rethrow if we have no fallback
-          }
+          // Do not rethrow. Fall back to paymentLinkUrl if available, or just proceed without checkout session.
+          // The form submission was successful.
         }
       }
 

@@ -206,10 +206,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
         const isSubmitting = Boolean(leadActionState[leadId]);
 
+        const submittingRef = useRef(false);
+
         const runLeadAction = async (action: 'accept' | 'reject') => {
-            if (!leadReviewActions.canReviewLeads || isSubmitting) {
+            if (!leadReviewActions.canReviewLeads || isSubmitting || submittingRef.current) {
                 return;
             }
+            submittingRef.current = true;
             setLeadActionState((prev) => ({ ...prev, [leadId]: action }));
             try {
                 let result: MatterTransitionResult;
@@ -262,6 +265,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     delete next[leadId];
                     return next;
                 });
+                submittingRef.current = false;
             }
         };
 

@@ -352,7 +352,7 @@ export const PracticePricingPage = () => {
                 return;
               }
               const parsed = Number(trimmed);
-              if (Number.isFinite(parsed)) {
+              if (Number.isFinite(parsed) && Number.isInteger(parsed)) {
                 setBillingDraft(parsed);
               }
             }}

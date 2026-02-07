@@ -61,23 +61,29 @@ export class MatterDiffStore {
         const rawCreatedAt = entry.createdAt;
         let normalizedCreatedAt: string | null = null;
         if (typeof rawCreatedAt === 'string') {
-          normalizedCreatedAt = rawCreatedAt;
+          const parsed = Date.parse(rawCreatedAt);
+          if (Number.isFinite(parsed)) {
+            normalizedCreatedAt = new Date(parsed).toISOString();
+          }
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
           let adjustedValue: number;
-          if (rawCreatedAt > 1e15) {
-            // Treat as nanoseconds
+          // Heuristic based on digit count / magnitude
+          if (rawCreatedAt >= 1e16) {
+            // >16 digits: Nanoseconds
             adjustedValue = rawCreatedAt / 1e6;
-          } else if (rawCreatedAt > 1e12) {
-            // Treat as microseconds
+          } else if (rawCreatedAt >= 1e13) {
+             // 14-16 digits: Microseconds
             adjustedValue = rawCreatedAt / 1000;
-          } else if (rawCreatedAt > 1e9) {
-            // Treat as milliseconds
+          } else if (rawCreatedAt >= 1e10) {
+            // 11-13 digits: Milliseconds (standard JS timestamp)
             adjustedValue = rawCreatedAt;
           } else {
-            // Treat as seconds
+            // <=10 digits: Seconds (Unix epoch)
             adjustedValue = rawCreatedAt * 1000;
           }
-          normalizedCreatedAt = new Date(adjustedValue).toISOString();
+          if (Number.isFinite(adjustedValue)) {
+            normalizedCreatedAt = new Date(adjustedValue).toISOString();
+          }
         }
         updates.set(`diff:${activityId}`, {
           activityId,

@@ -418,7 +418,7 @@ function PracticeAppRoute({
     const abortController = new AbortController();
     setSlugLookupStatus('loading');
 
-    getPublicPracticeDetails(normalizedPracticeSlug)
+    getPublicPracticeDetails(normalizedPracticeSlug, { signal: abortController.signal })
       .then((details) => {
         if (abortController.signal.aborted) return;
         

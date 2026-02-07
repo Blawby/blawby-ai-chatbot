@@ -130,6 +130,7 @@ export const PayRedirectPage: FunctionComponent = () => {
         }
       } else {
         setMessage('Payment confirmation pending. You can return to the conversation.');
+        return;
       }
 
       if (!safeReturnTo) {
