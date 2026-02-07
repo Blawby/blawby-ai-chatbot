@@ -592,7 +592,8 @@ export async function triggerIntakeInvitation(intakeUuid: string): Promise<{ mes
     throw new Error('intakeUuid is required');
   }
   const response = await apiClient.post(
-    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`
+    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`,
+    {}
   );
   const data = unwrapApiData(response.data);
   if (!isRecord(data)) {

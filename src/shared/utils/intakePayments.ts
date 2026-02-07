@@ -123,7 +123,7 @@ export const buildIntakePaymentUrl = (
   if (returnTo) params.set('return_to', returnTo);
 
   const query = params.toString();
-  return query.length > 0 ? `/intake/pay?${query}` : '/intake/pay';
+  return query.length > 0 ? `/pay?${query}` : '/pay';
 };
 
 export const fetchIntakePaymentStatus = async (

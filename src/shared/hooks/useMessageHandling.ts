@@ -1551,30 +1551,17 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
                 persisted = true;
               }
             } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to persist payment message';
               console.warn('[Intake] Failed to persist payment message', error);
+              onError?.(message);
+              throw new Error(message);
             }
           }
 
           if (!persisted) {
-            setMessages(prev => {
-              if (prev.some((msg) => msg.id === paymentMessageId)) {
-                return prev;
-              }
-              return [
-                ...prev,
-                {
-                  id: paymentMessageId,
-                  role: 'assistant',
-                  content: 'One more step: submit the consultation fee to complete your intake.',
-                  timestamp: Date.now(),
-                  isUser: false,
-                  paymentRequest: paymentRequestPayload,
-                  metadata: {
-                    paymentUrl
-                  }
-                }
-              ];
-            });
+            const message = 'Payment message could not be saved. Please retry.';
+            onError?.(message);
+            throw new Error(message);
           }
           if (import.meta.env.DEV) {
             console.info('[Intake] Payment message enqueued', {
@@ -2037,11 +2024,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
   useEffect(() => {
     if (!isAnonymous) return;
 
-    type PaymentFlag = { uuid: string; practiceName: string };
-
     let cancelled = false;
-
-    const paymentFlags: PaymentFlag[] = [];
 
     const parseStoredFlag = (raw: string | null) => {
       if (!raw) return null;
@@ -2058,38 +2041,37 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       }
     };
 
-    const applyPaymentConfirmation = (flag: PaymentFlag) => {
-      setMessages(prev => {
-        if (cancelled) return prev;
-        const newMessages = [...prev];
-        const baseMaxTimestamp = newMessages.length > 0
-          ? Math.max(...newMessages.map(m => m.timestamp))
-          : Date.now();
-        let tempTimestamp = baseMaxTimestamp;
+    const postPaymentConfirmation = async (uuid: string, practiceName: string) => {
+      if (cancelled || !conversationId || !practiceId) {
+        return;
+      }
+      const messageId = `system-payment-confirm-${uuid}`;
+      if (messages.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
+        return;
+      }
 
-        const messageId = `system-payment-confirm-${flag.uuid}`;
-        const alreadyExists = newMessages.some((m) =>
-          m.id === messageId || m.metadata?.intakePaymentUuid === flag.uuid
-        );
-        if (alreadyExists) {
-          return prev;
-        }
-
-        void confirmIntakeLead(flag.uuid);
-        newMessages.push({
-          id: messageId,
-          role: 'assistant',
-          content: `Payment received. ${flag.practiceName} will review your intake and follow up here shortly.`,
-          timestamp: ++tempTimestamp,
-          isUser: false,
+      try {
+        const persistedMessage = await postSystemMessage(conversationId, practiceId, {
+          clientId: messageId,
+          content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
           metadata: {
-            intakePaymentUuid: flag.uuid,
+            intakePaymentUuid: uuid,
             paymentStatus: 'succeeded'
           }
         });
+        if (persistedMessage) {
+          applyServerMessages([persistedMessage]);
+        } else {
+          throw new Error('Payment confirmation message could not be saved.');
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
+        console.warn('[Intake] Failed to persist payment confirmation message', error);
+        onError?.(message);
+        throw error;
+      }
 
-        return newMessages.sort((a, b) => a.timestamp - b.timestamp);
-      });
+      void confirmIntakeLead(uuid);
     };
 
     if (typeof window !== 'undefined') {
@@ -2112,7 +2094,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         if (parsed?.practiceName && parsed.practiceName.trim().length > 0) {
           practiceName = parsed.practiceName.trim();
         }
-        paymentFlags.push({ uuid, practiceName });
+        void postPaymentConfirmation(uuid, practiceName);
         window.sessionStorage.removeItem(key);
       });
 
@@ -2121,14 +2103,17 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       });
     }
 
-    paymentFlags.forEach(applyPaymentConfirmation);
     return () => {
       cancelled = true;
     };
   }, [
     isAnonymous,
     confirmIntakeLead,
-    conversationId
+    conversationId,
+    messages,
+    onError,
+    practiceId,
+    applyServerMessages
   ]);
 
   // The intake flow is now conversational and non-blocking

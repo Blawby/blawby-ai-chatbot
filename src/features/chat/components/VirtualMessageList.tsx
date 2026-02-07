@@ -88,9 +88,26 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 }) => {
     const { session, activeMemberRole } = useSessionContext();
     const { showError, showSuccess } = useToastContext();
+    const dedupedMessages = useMemo(() => {
+        const seenPaymentConfirm = new Set<string>();
+        return messages.filter((message) => {
+            const intakePaymentUuid = typeof message.metadata?.intakePaymentUuid === 'string'
+                ? message.metadata.intakePaymentUuid
+                : null;
+            if (!intakePaymentUuid) {
+                return true;
+            }
+            const key = `${intakePaymentUuid}:${message.role}`;
+            if (seenPaymentConfirm.has(key)) {
+                return false;
+            }
+            seenPaymentConfirm.add(key);
+            return true;
+        });
+    }, [messages]);
     const listRef = useRef<HTMLDivElement>(null);
-    const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
-    const [endIndex, setEndIndex] = useState(messages.length);
+    const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
+    const [endIndex, setEndIndex] = useState(dedupedMessages.length);
     const isScrolledToBottomRef = useRef(true);
     const isUserScrollingRef = useRef(false);
     const isLoadingRef = useRef(false);
@@ -362,48 +379,48 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     useEffect(() => {
         // Update indices when new messages are added
         if (isScrolledToBottomRef.current) {
-            setEndIndex(messages.length);
-            setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
+            setEndIndex(dedupedMessages.length);
+            setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
         }
-    }, [messages.length]);
+    }, [dedupedMessages.length]);
 
     useEffect(() => {
-        const lastMessage = messages[messages.length - 1];
+        const lastMessage = dedupedMessages[dedupedMessages.length - 1];
         if (!lastMessage?.paymentRequest) return;
-        setEndIndex(messages.length);
-        setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
+        setEndIndex(dedupedMessages.length);
+        setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
         if (listRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
         }
-    }, [messages]);
+    }, [dedupedMessages]);
 
     useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
         }
-    }, [messages, endIndex]);
+    }, [dedupedMessages, endIndex]);
 
 
     const visibleMessages = useMemo(
-        () => messages.slice(startIndex, endIndex),
-        [messages, startIndex, endIndex]
+        () => dedupedMessages.slice(startIndex, endIndex),
+        [dedupedMessages, startIndex, endIndex]
     );
     const messageMap = useMemo(() => {
-        return new Map(messages.map((message) => [message.id, message]));
-    }, [messages]);
+        return new Map(dedupedMessages.map((message) => [message.id, message]));
+    }, [dedupedMessages]);
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
             return;
         }
-        const targetIndex = messages.findIndex((message) => message.id === messageId);
+        const targetIndex = dedupedMessages.findIndex((message) => message.id === messageId);
         if (targetIndex === -1) {
             return;
         }
 
         const nextStart = Math.max(0, targetIndex - Math.floor(BATCH_SIZE / 2));
-        const nextEnd = Math.min(messages.length, nextStart + BATCH_SIZE);
+        const nextEnd = Math.min(dedupedMessages.length, nextStart + BATCH_SIZE);
         setStartIndex(nextStart);
         setEndIndex(nextEnd);
         isScrolledToBottomRef.current = false;
@@ -417,7 +434,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 }
             });
         });
-    }, [messages]);
+    }, [dedupedMessages]);
 
     useEffect(() => {
         if (!onRequestReactions || visibleMessages.length === 0) {

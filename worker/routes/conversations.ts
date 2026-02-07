@@ -18,6 +18,11 @@ const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-lead-declined'
 ]);
 
+const isAllowedSystemMessageId = (clientId: string): boolean => {
+  if (SYSTEM_MESSAGE_ALLOWLIST.has(clientId)) return true;
+  return clientId.startsWith('system-payment-');
+};
+
 const isValidContactFormMetadata = (metadata: Record<string, unknown> | null | undefined): boolean => {
   if (!metadata) return false;
   const contactForm = metadata.contactForm as { fields?: unknown; required?: unknown } | undefined;
@@ -315,7 +320,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (!rawClientId) {
       throw HttpErrors.badRequest('clientId is required');
     }
-    if (!SYSTEM_MESSAGE_ALLOWLIST.has(rawClientId)) {
+    if (!isAllowedSystemMessageId(rawClientId)) {
       throw HttpErrors.badRequest('Unsupported system message id');
     }
 

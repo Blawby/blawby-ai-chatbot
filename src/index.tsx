@@ -20,7 +20,7 @@ import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { getSettingsReturnPath, getWorkspaceHomePath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
+import { PayRedirectPage } from '@/pages/PayRedirectPage';
 import { AppGuard } from '@/app/AppGuard';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -185,7 +185,7 @@ function AppShell() {
           <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
           <Route path="/cart" component={CartPage} />
           <Route path="/onboarding" component={OnboardingPage} />
-          <Route path="/intake/pay" component={IntakePaymentPage} />
+          <Route path="/pay" component={PayRedirectPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
