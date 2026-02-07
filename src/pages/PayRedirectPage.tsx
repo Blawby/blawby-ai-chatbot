@@ -51,7 +51,7 @@ export const PayRedirectPage: FunctionComponent = () => {
   const practiceName = resolveQueryValue(location.query?.practice);
 
   const safeReturnTo = useMemo(() => {
-    if (!returnToParam) return undefined;
+    if (!returnToParam || typeof window === 'undefined') return undefined;
     const trimmed = returnToParam.trim();
     if (trimmed[0] !== '/' || trimmed[1] === '/' || trimmed[1] === '\\' || trimmed.includes('\\')) return undefined;
 
