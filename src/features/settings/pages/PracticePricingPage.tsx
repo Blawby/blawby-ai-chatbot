@@ -43,10 +43,11 @@ export const PracticePricingPage = () => {
 
   const feeEnabled = typeof activeFee === 'number' && activeFee > 0;
   const feeEnabledDisplay = feeEnabledOverride ?? feeEnabled;
+  const currencyCode = (currentPractice as unknown as { currency?: string })?.currency || 'USD';
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
-    return formatCurrency(activeFee, 'USD', locale);
-  }, [activeFee, feeEnabled, locale]);
+    return formatCurrency(activeFee, currencyCode, locale);
+  }, [activeFee, feeEnabled, locale, currencyCode]);
 
   const effectiveBillingIncrement = Number.isFinite(activeBillingIncrement)
     ? (activeBillingIncrement as number)
@@ -257,7 +258,7 @@ export const PracticePricingPage = () => {
                     {formattedFee ?? 'Not set'}
                   </p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit}>
+                <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit || isSaving}>
                   {formattedFee ? 'Edit' : 'Set amount'}
                 </Button>
               </div>
@@ -279,7 +280,7 @@ export const PracticePricingPage = () => {
                   Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit}>
+              <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit || isSaving}>
                 Manage
               </Button>
             </div>
@@ -317,7 +318,7 @@ export const PracticePricingPage = () => {
               disabled={!canEdit || isSaving}
               step={0.01}
               min={0.01}
-              description="USD"
+              description={currencyCode}
               error={feeValidationError}
             />
           )}

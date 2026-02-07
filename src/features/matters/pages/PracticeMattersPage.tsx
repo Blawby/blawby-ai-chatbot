@@ -1076,9 +1076,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         const nextNotes = items
           .slice()
           .sort((a, b) => {
-            const aTime = new Date(a.created_at ?? 0).getTime();
-            const bTime = new Date(b.created_at ?? 0).getTime();
-            return aTime - bTime;
+            const getTimestamp = (item: typeof a) => {
+              if (!item.created_at) return Date.now();
+              const time = new Date(item.created_at).getTime();
+              return Number.isNaN(time) ? Date.now() : time;
+            };
+            return getTimestamp(a) - getTimestamp(b);
           })
           .map(toNoteTimelineItem);
         setNoteItems(nextNotes);

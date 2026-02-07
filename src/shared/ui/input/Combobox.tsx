@@ -53,7 +53,7 @@ export const Combobox = ({
   // If no option found, treat 'value' as the raw input to display
   const resolvedDisplayValue = selectedOptions.length > 0
     ? selectedOptions.map((option) => option.label).join(', ')
-    : (typeof value === 'string' ? value : '');
+    : (isMultiple && Array.isArray(value) ? value.join(', ') : (typeof value === 'string' ? value : ''));
   const [query, setQuery] = useState(resolvedDisplayValue);
   const [userTyped, setUserTyped] = useState(false);
   const [isOpen, setIsOpen] = useState(false);

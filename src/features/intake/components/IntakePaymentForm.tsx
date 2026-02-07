@@ -398,7 +398,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
             {formattedAmount ? `Thank you for your payment of ${formattedAmount}.` : 'Thank you for your payment.'}
           </p>
           <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-900/40 text-xs text-green-600 dark:text-green-400">
-            Payment processed successfully. You can return to your consultation.
+            Payment processed successfully. You will receive a confirmation email.
           </div>
         </div>
       )}

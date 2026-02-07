@@ -190,7 +190,12 @@ export const AcceptInvitationPage = () => {
   const payloadType = prefill?.payloadType?.toLowerCase() ?? '';
 
   const sessionEmail = typeof session?.user?.email === 'string' ? session.user.email.trim() : '';
-  const hasEmailMismatch = Boolean(invitedEmail && sessionEmail && invitedEmail.toLowerCase() !== sessionEmail.toLowerCase());
+  const effectiveInvitedEmail = invitedEmail || (inviteState.status === 'ready' ? inviteState.invitation.email : '');
+  const hasEmailMismatch = Boolean(
+    effectiveInvitedEmail &&
+    sessionEmail &&
+    effectiveInvitedEmail.trim().toLowerCase() !== sessionEmail.toLowerCase()
+  );
 
   const preAuthError = useMemo(() => {
     if (flowType === 'invalid') {
@@ -331,39 +336,25 @@ export const AcceptInvitationPage = () => {
       navigate(`/embed/${encodeURIComponent(organizationSlug)}`, true);
       return;
     }
-    if (!activeOrganizationId) {
-      showError('Unable to open conversation', 'Missing practice context. Please refresh and try again.');
-      return;
-    }
 
     setIsLinkingConversation(true);
     try {
-      let targetOrgId = activeOrganizationId;
-
-      // If we have a slug, ensure we resolve it to an ID and set it as active
-      if (organizationSlug) {
-        // If we don't have an ID or we want to be sure, we need to look it up.
-        // We can't assume activeOrganizationId corresponds to organizationSlug without verification.
-        const client = getClient();
-        const { data: orgs } = await client.organization.list();
-        const match = orgs?.find(o => o.slug === organizationSlug || o.id === organizationSlug);
-        
-        if (match) {
-          targetOrgId = match.id;
-        } else if (!targetOrgId) {
-           // Fallback: if we can't find it in list (maybe not member yet?), we can't switch context safely.
-           // But for intake continuation, user should be a member.
-           throw new Error('Organization not found.');
-        }
-
-        if (targetOrgId) {
-          await client.organization.setActive({ organizationId: targetOrgId });
-        }
+      const client = getClient();
+      const { data: orgs } = await (client as unknown as { 
+        organization: { list: () => Promise<any> } 
+      }).organization.list();
+      
+      const match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
+      
+      if (!match) {
+        throw new Error('Organization not found.');
       }
 
-      if (!targetOrgId) {
-         throw new Error('Missing practice context.');
-      }
+      const targetOrgId = match.id;
+      
+      await (client as unknown as {
+        organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
+      }).organization.setActive({ organizationId: targetOrgId });
 
       await linkConversationToUser(intakeConversationId, targetOrgId);
       navigate(
@@ -376,7 +367,7 @@ export const AcceptInvitationPage = () => {
     } finally {
       setIsLinkingConversation(false);
     }
-  }, [activeOrganizationId, intakeConversationId, navigate, organizationSlug, showError]);
+  }, [intakeConversationId, navigate, organizationSlug, showError]);
 
   if (isPending) {
     return <LoadingScreen />;
@@ -549,22 +540,22 @@ export const AcceptInvitationPage = () => {
             <span className="font-medium text-gray-900 dark:text-white">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
           </div>
         )}
-        {invitedEmail && (
+        {effectiveInvitedEmail && (
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Invited email:</span> {invitedEmail}
+            <span className="font-medium text-gray-900 dark:text-white">Invited email:</span> {effectiveInvitedEmail}
           </div>
         )}
       </div>
       {hasEmailMismatch && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-          You’re signed in with {sessionEmail}. Switch accounts to accept with {invitedEmail}.
+          You’re signed in with {sessionEmail}. Switch accounts to accept with {effectiveInvitedEmail}.
         </div>
       )}
       <div className="mt-6 flex flex-wrap gap-3">
         <Button
           variant="primary"
           onClick={handleAccept}
-          disabled={accepting || invitation.status !== 'pending'}
+          disabled={accepting || invitation.status !== 'pending' || hasEmailMismatch}
         >
           {accepting ? 'Accepting…' : 'Accept invitation'}
         </Button>
