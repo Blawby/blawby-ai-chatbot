@@ -63,7 +63,17 @@ export class MatterDiffStore {
         if (typeof rawCreatedAt === 'string') {
           normalizedCreatedAt = rawCreatedAt;
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
-          const adjustedValue = rawCreatedAt < 1e12 ? rawCreatedAt * 1000 : rawCreatedAt;
+          let adjustedValue: number;
+          if (rawCreatedAt > 1e15) {
+            // Treat as nanoseconds
+            adjustedValue = rawCreatedAt / 1e6;
+          } else if (rawCreatedAt > 1e12) {
+            // Treat as milliseconds
+            adjustedValue = rawCreatedAt;
+          } else {
+            // Treat as seconds
+            adjustedValue = rawCreatedAt * 1000;
+          }
           normalizedCreatedAt = new Date(adjustedValue).toISOString();
         }
         updates.set(`diff:${activityId}`, {

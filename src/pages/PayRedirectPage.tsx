@@ -107,18 +107,21 @@ export const PayRedirectPage: FunctionComponent = () => {
       if (!resolvedUuid && sessionId) {
         setMessage('Confirming payment…');
         resolvedUuid = await fetchPostPayStatus(sessionId);
+        if (cancelled) return;
       }
-
-      if (cancelled) return;
 
       if (resolvedUuid) {
         setPaymentSuccessFlag(resolvedUuid);
         try {
           await triggerIntakeInvitation(resolvedUuid);
+          if (cancelled) return;
         } catch (error) {
           console.warn('[PayRedirect] Failed to trigger intake invitation', error);
-          // Don't return here; allow the user to return to the practice even if the background trigger fails
-          setMessage('Payment confirmed. Returning you to the practice…');
+          const errorMsg = 'Payment confirmed. Returning you to the practice…';
+          setMessage(errorMsg);
+          // Wait a bit so the user can see the message
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          if (cancelled) return;
         }
       } else {
         setMessage('Payment confirmation pending. You can return to the conversation.');

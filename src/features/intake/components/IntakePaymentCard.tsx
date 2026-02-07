@@ -57,23 +57,21 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       onOpenPayment(paymentRequest);
       return;
     }
-    if (hasCheckoutSession && onOpenPayment) {
-      if (isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl)) {
-        onOpenPayment(paymentRequest);
-        return;
+    if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
+      const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
+      if (isValid) {
+        if (onOpenPayment) {
+          onOpenPayment(paymentRequest);
+          return;
+        }
+        if (typeof window !== 'undefined') {
+          window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
+          return;
+        }
+      } else {
+        console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
+        showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
       }
-      console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
-      showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
-      // Fall through to allow other handlers
-    }
-    if (hasCheckoutSession && typeof window !== 'undefined' && paymentRequest.checkoutSessionUrl) {
-      if (isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl)) {
-        window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
-        return;
-      }
-      console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
-      showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
-      // Fall through to allow fallback to paymentLinkUrl or other handlers
     }
     if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
       return;

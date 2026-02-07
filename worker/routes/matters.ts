@@ -245,17 +245,18 @@ const fetchBackend = async (
   env: Env,
   headers: Headers,
   targetPath: string,
-  init?: { method?: string; body?: BodyInit | null }
+  init?: { method?: string; body?: BodyInit | null; signal?: AbortSignal }
 ): Promise<Response> => {
   const backendUrl = resolveBackendUrl(env);
-  const url = new URL(targetPath, backendUrl);
-  const response = await fetch(url.toString(), {
+  const timeoutMs = 10000;
+  const signal = init?.signal ?? AbortSignal.timeout(timeoutMs);
+
+  return fetch(`${backendUrl}${targetPath}`, {
     method: init?.method ?? 'GET',
     headers,
-    redirect: 'manual',
-    body: init?.body
+    body: init?.body,
+    signal
   });
-  return response;
 };
 
 const fetchMatterSnapshot = async (

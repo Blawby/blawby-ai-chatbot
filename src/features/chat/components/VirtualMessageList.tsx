@@ -250,7 +250,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     action === 'accept' ? 'Lead accepted' : 'Lead declined',
                     action === 'accept'
                         ? 'The client has been notified.'
-                        : 'The client has been notified.'
+                        : 'The client has been notified of the decline.'
                 );
                 leadReviewActions.onLeadStatusChange?.();
             } catch (err) {

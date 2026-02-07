@@ -55,6 +55,7 @@ export const Combobox = ({
     ? selectedOptions.map((option) => option.label).join(', ')
     : (typeof value === 'string' ? value : '');
   const [query, setQuery] = useState(resolvedDisplayValue);
+  const [userTyped, setUserTyped] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const inputId = useMemo(
@@ -110,6 +111,7 @@ export const Combobox = ({
        emitChange(optionValue);
     }
     setQuery('');
+    setUserTyped(false);
     setIsOpen(true);
   };
 
@@ -147,6 +149,7 @@ export const Combobox = ({
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
               setQuery(nextValue);
+              setUserTyped(true);
               setIsOpen(true);
               
               const normalizedQuery = normalize(nextValue);
@@ -163,14 +166,17 @@ export const Combobox = ({
                   if (query === resolvedDisplayValue) {
                     setQuery('');
                   }
+                  setUserTyped(false);
                   setIsOpen(true);
                 }
             }}
             onBlur={() => {
               setIsOpen(false);
-              if (!isMultiple && query !== resolvedDisplayValue) {
+              // Only emit if the user actually typed something or if query differs from display value and was intentional
+              if (!isMultiple && userTyped && query !== resolvedDisplayValue) {
                 emitChange(query);
               }
+              setUserTyped(false);
             }}
             onKeyDown={(event) => {
               if (disabled) return;
@@ -220,6 +226,7 @@ export const Combobox = ({
                     } else {
                       emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
+                      setUserTyped(false);
                       setIsOpen(false);
                     }
                   } else {
@@ -293,6 +300,7 @@ export const Combobox = ({
                     } else {
                       emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
+                      setUserTyped(false);
                       setIsOpen(false);
                     }
                   }}
