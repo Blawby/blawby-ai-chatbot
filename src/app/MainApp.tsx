@@ -60,7 +60,7 @@ export function MainApp({
   workspace,
   settingsOverlayOpen,
   chatContent,
-  activeRoute,
+  activeRoute: _activeRoute,
   routeConversationId,
   publicPracticeSlug,
   publicEmbedView,

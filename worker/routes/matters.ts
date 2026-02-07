@@ -339,7 +339,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     const authContext = await optionalAuth(request, env);
     const headers = new Headers(request.headers);
     const taskHeaders = new Headers(headers); // Clone for background task
-    const before = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
+    const before = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), matterId);
     const requestBody = await request.arrayBuffer();
 
     const updateResponse = await fetchBackend(
@@ -365,7 +365,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       }
     }
     if (!afterMatter) {
-      afterMatter = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
+      afterMatter = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), matterId);
     }
 
     if (before && afterMatter) {

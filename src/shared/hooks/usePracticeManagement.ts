@@ -93,6 +93,7 @@ export interface Practice {
   description?: string;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
+  currency?: string | null;
   consultationFee: MajorAmount | null;
   paymentUrl: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
@@ -445,6 +446,7 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
       }
       return null;
     })(),
+    currency: typeof raw.currency === 'string' ? raw.currency : null,
     paymentUrl: (() => {
       const val = raw.paymentUrl ?? raw.payment_url ?? null;
       return typeof val === 'string' && val.trim().length > 0 ? val : null;

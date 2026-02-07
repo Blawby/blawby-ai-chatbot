@@ -43,7 +43,7 @@ export const PracticePricingPage = () => {
 
   const feeEnabled = typeof activeFee === 'number' && activeFee > 0;
   const feeEnabledDisplay = feeEnabledOverride ?? feeEnabled;
-  const currencyCode = (currentPractice as unknown as { currency?: string })?.currency || 'USD';
+  const currencyCode = currentPractice?.currency || 'USD';
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
     return formatCurrency(fromMinorUnits(activeFee), currencyCode, locale);

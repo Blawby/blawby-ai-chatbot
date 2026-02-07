@@ -68,7 +68,8 @@ export class MatterDiffStore {
             normalizedCreatedAt = new Date(parsed).toISOString();
           }
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
-          // Deterministic detection checks candidates against valid window (1970-2100)
+          // Deterministic detection checks candidates against valid window (2000-2100)
+          // Lower bound 2000 prioritizes milliseconds over small seconds, reducing ambiguity
           const candidates = [
             rawCreatedAt * 1000, // Seconds
             rawCreatedAt,        // Milliseconds
@@ -76,7 +77,7 @@ export class MatterDiffStore {
             rawCreatedAt / 1e6   // Nanoseconds
           ];
           
-          const MIN_TS = 0; 
+          const MIN_TS = 946684800000; // 2000-01-01
           const MAX_TS = 4133980800000; // ~2100-01-01
 
           let bestCandidate: number | null = null;
