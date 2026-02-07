@@ -1856,7 +1856,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                           name: session?.user?.name ?? session?.user?.email ?? 'You',
                           imageUrl: session?.user?.image ?? null
                         }}
-                        onComposerSubmit={(value) => handleCreateNote({ content: value })}
+                        onComposerSubmit={async (value) => {
+                          try {
+                            await handleCreateNote({ content: value });
+                          } catch (err) {
+                            console.error('[PracticeMattersPage] Failed to create note', err);
+                            showError('Could not save comment', 'Please try again.');
+                          }
+                        }}
                       />
                     )}
                   </div>

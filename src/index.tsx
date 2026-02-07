@@ -499,7 +499,12 @@ function PracticeAppRoute({
     if (!session?.user) return;
     if (shouldDelayPracticeConfig) return;
     if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
-      navigate('/client', true);
+      const clientSlug = practices[0]?.slug ?? currentPractice?.slug;
+      if (clientSlug) {
+        navigate(`/client/${encodeURIComponent(clientSlug)}`, true);
+      } else {
+        navigate('/auth', true);
+      }
     }
   }, [
     canAccessPractice,

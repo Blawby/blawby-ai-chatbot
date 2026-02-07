@@ -1553,14 +1553,12 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Failed to persist payment message';
               console.warn('[Intake] Failed to persist payment message', error);
-              onError?.(message);
               throw new Error(message);
             }
           }
 
           if (!persisted) {
             const message = 'Payment message could not be saved. Please retry.';
-            onError?.(message);
             throw new Error(message);
           }
           if (import.meta.env.DEV) {
@@ -2068,7 +2066,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
         console.warn('[Intake] Failed to persist payment confirmation message', error);
         onError?.(message);
-        throw error;
       }
 
       void confirmIntakeLead(uuid);

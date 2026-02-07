@@ -40,28 +40,38 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   useEffect(() => {
     if (!isOpen || !paymentRequest?.intakeUuid) return;
 
+    let cancelled = false;
     const handleFocus = async () => {
-      if (isVerifyingRef.current) return;
+      if (isVerifyingRef.current || cancelled) return;
       isVerifyingRef.current = true;
       setIsVerifying(true);
       try {
         const status = await fetchIntakePaymentStatus(paymentRequest.intakeUuid);
+        if (cancelled) return;
         if (isPaidIntakeStatus(status)) {
           if (onSuccess) {
             await Promise.resolve(onSuccess());
           }
+          if (cancelled) return;
           onClose();
         }
       } catch (err) {
-        console.warn('[IntakePaymentModal] Focus-triggered status check failed', err);
+        if (!cancelled) {
+          console.warn('[IntakePaymentModal] Focus-triggered status check failed', err);
+        }
       } finally {
-        isVerifyingRef.current = false;
-        setIsVerifying(false);
+        if (!cancelled) {
+          isVerifyingRef.current = false;
+          setIsVerifying(false);
+        }
       }
     };
 
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose]);
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {

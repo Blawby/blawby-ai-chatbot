@@ -63,7 +63,8 @@ export class MatterDiffStore {
         if (typeof rawCreatedAt === 'string') {
           normalizedCreatedAt = rawCreatedAt;
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
-          normalizedCreatedAt = new Date(rawCreatedAt).toISOString();
+          const adjustedValue = rawCreatedAt < 1e12 ? rawCreatedAt * 1000 : rawCreatedAt;
+          normalizedCreatedAt = new Date(adjustedValue).toISOString();
         }
         updates.set(`diff:${activityId}`, {
           activityId,

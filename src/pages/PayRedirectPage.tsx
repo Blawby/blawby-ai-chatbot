@@ -117,7 +117,8 @@ export const PayRedirectPage: FunctionComponent = () => {
           await triggerIntakeInvitation(resolvedUuid);
         } catch (error) {
           console.warn('[PayRedirect] Failed to trigger intake invitation', error);
-          return;
+          // Don't return here; allow the user to return to the practice even if the background trigger fails
+          setMessage('Payment confirmed. Returning you to the practice…');
         }
       } else {
         setMessage('Payment confirmation pending. You can return to the conversation.');

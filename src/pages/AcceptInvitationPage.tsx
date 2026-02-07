@@ -375,7 +375,7 @@ export const AcceptInvitationPage = () => {
   if (!isAuthenticated) {
     const inviterLabel = organizationName || 'the practice';
     const subtitle = organizationName
-      ? `Sign up to accept ${inviterLabel}'s invitation to join ${organizationName} on Blawby.`
+      ? `Sign up to accept ${inviterLabel}'s invitation to join Blawby.`
       : 'Sign up to accept your invitation to join Blawby.';
 
     return (

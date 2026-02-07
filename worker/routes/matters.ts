@@ -348,10 +348,18 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
 
           for (let i = 0; i <= delays.length; i++) {
             const now = Date.now();
+            const MATCH_THRESHOLD_MS = 5000;
+            const AMBIGUOUS_THRESHOLD_MS = 100;
             const activities = await fetchActivityList(env, taskHeaders, practiceId, matterId);
             const candidates = activities
               .filter((item) => item.action === 'matter_updated')
-              .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
+              .filter((item) => {
+                // If we have a user_id from auth context, prefer matches by that user
+                if (authContext?.user?.id && item.user_id && item.user_id !== authContext.user.id) {
+                  return false;
+                }
+                return true;
+              })
               .map((item) => ({
                 item,
                 createdAt: new Date(item.created_at ?? 0).getTime()
@@ -361,7 +369,19 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
                 ...record,
                 delta: Math.abs(record.createdAt - now)
               }))
+              .filter((record) => record.delta <= MATCH_THRESHOLD_MS)
               .sort((a, b) => a.delta - b.delta);
+
+            if (candidates.length > 1) {
+              const deltaDiff = Math.abs(candidates[0].delta - candidates[1].delta);
+              if (deltaDiff <= AMBIGUOUS_THRESHOLD_MS) {
+                console.warn('[MatterDiff] Ambiguous match detected', {
+                  matterId,
+                  candidate1: { id: candidates[0].item.id, delta: candidates[0].delta },
+                  candidate2: { id: candidates[1].item.id, delta: candidates[1].delta }
+                });
+              }
+            }
 
             candidate = candidates[0];
             if (candidate?.item?.id) break;

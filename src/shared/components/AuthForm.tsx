@@ -169,7 +169,15 @@ const AuthForm = ({
       const redirectParam = currentUrl.searchParams.get('redirect');
       let resolvedCallbackURL = window.location.origin;
       if (typeof callbackURL === 'string' && callbackURL.trim().length > 0) {
-        resolvedCallbackURL = callbackURL.trim();
+        const trimmed = callbackURL.trim();
+        try {
+          const url = new URL(trimmed, window.location.origin);
+          if (url.origin === window.location.origin) {
+            resolvedCallbackURL = url.href;
+          }
+        } catch {
+          // Fall back to origin
+        }
       } else if (redirectParam) {
         const decodedRedirect = decodeURIComponent(redirectParam);
         try {
@@ -178,7 +186,7 @@ const AuthForm = ({
             resolvedCallbackURL = redirectUrl.href;
           }
         } catch {
-          resolvedCallbackURL = window.location.origin;
+          // Fall back to origin
         }
       }
       const result = await client.signIn.social({

@@ -100,11 +100,11 @@ const annotateLeadConversations = async (
     return {
       ...conversation,
       lead: {
-        isLead: true,
-        leadId: record.id,
-        matterId: record.id,
-        leadSource: record.leadSource ?? null,
-        createdAt: record.createdAt ?? null
+        is_lead: true,
+        lead_id: record.id,
+        matter_id: record.id,
+        lead_source: record.leadSource ?? null,
+        created_at: record.createdAt ?? null
       }
     };
   });

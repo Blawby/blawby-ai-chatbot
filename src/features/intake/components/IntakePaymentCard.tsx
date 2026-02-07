@@ -58,8 +58,13 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       return;
     }
     if (hasCheckoutSession && onOpenPayment) {
-      onOpenPayment(paymentRequest);
-      return;
+      if (isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl)) {
+        onOpenPayment(paymentRequest);
+        return;
+      }
+      console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
+      showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
+      // Fall through to allow other handlers
     }
     if (hasCheckoutSession && typeof window !== 'undefined' && paymentRequest.checkoutSessionUrl) {
       if (isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl)) {
