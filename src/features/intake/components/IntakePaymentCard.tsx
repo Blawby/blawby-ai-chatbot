@@ -68,6 +68,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
           return;
         }
+        console.warn('[IntakePayment] Cannot open checkout session in SSR environment');
       } else {
         console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
         

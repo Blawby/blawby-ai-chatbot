@@ -68,26 +68,28 @@ export class MatterDiffStore {
             normalizedCreatedAt = new Date(parsed).toISOString();
           }
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
-          let adjustedValue: number;
-          // Heuristic based on digit count / magnitude
-          // Use absolute value to correctly handle negative timestamps (pre-1970)
-          const absValue = Math.abs(rawCreatedAt);
-          if (absValue >= 1e16) {
-            // >16 digits: Nanoseconds
-            adjustedValue = rawCreatedAt / 1e6;
-          } else if (absValue >= 1e13) {
-             // 14-16 digits: Microseconds
-            adjustedValue = rawCreatedAt / 1000;
-          } else if (absValue >= 1e10) {
-            // 11-13 digits: Milliseconds (standard JS timestamp)
-            adjustedValue = rawCreatedAt;
-          } else {
-            // <=10 digits: Seconds (Unix epoch)
-            adjustedValue = rawCreatedAt * 1000;
+          // Deterministic detection checks candidates against valid window (1970-2100)
+          const candidates = [
+            rawCreatedAt * 1000, // Seconds
+            rawCreatedAt,        // Milliseconds
+            rawCreatedAt / 1000, // Microseconds
+            rawCreatedAt / 1e6   // Nanoseconds
+          ];
+          
+          const MIN_TS = 0; 
+          const MAX_TS = 4133980800000; // ~2100-01-01
+
+          let bestCandidate: number | null = null;
+          for (const cand of candidates) {
+            if (Number.isFinite(cand) && cand >= MIN_TS && cand <= MAX_TS) {
+              bestCandidate = cand;
+              break;
+            }
           }
-          if (Number.isFinite(adjustedValue)) {
+
+          if (bestCandidate !== null) {
             try {
-              normalizedCreatedAt = new Date(adjustedValue).toISOString();
+              normalizedCreatedAt = new Date(bestCandidate).toISOString();
             } catch {
               normalizedCreatedAt = null;
             }

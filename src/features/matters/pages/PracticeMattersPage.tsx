@@ -310,7 +310,10 @@ const isDifferentValue = (left: unknown, right: unknown): boolean => {
   const leftType = typeof left;
   const rightType = typeof right;
   if (leftType !== rightType) return true;
-  if (left && right && (leftType === 'object' || leftType === 'function')) {
+  if (leftType === 'function' || rightType === 'function') {
+    return left !== right;
+  }
+  if (left && right && leftType === 'object') {
     try {
       return JSON.stringify(left) !== JSON.stringify(right);
     } catch {
@@ -1035,12 +1038,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             const getTimestamp = (item: typeof a) => {
               if (!item.created_at) {
                 console.warn('[PracticeMattersPage] Item missing created_at', { id: item.id, action: item.action });
-                return Date.now();
+                return 0;
               }
               const time = new Date(item.created_at).getTime();
               if (Number.isNaN(time)) {
                 console.warn('[PracticeMattersPage] Item has invalid created_at', { id: item.id, action: item.action, value: item.created_at });
-                return Date.now();
+                return 0;
               }
               return time;
             };
