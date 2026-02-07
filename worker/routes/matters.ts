@@ -249,16 +249,47 @@ const fetchBackend = async (
 ): Promise<Response> => {
   const backendUrl = resolveBackendUrl(env);
   const timeoutMs = 10000;
-  const timeoutSignal = AbortSignal.timeout(timeoutMs);
-  const signal = init?.signal 
-    ? (AbortSignal.any ? AbortSignal.any([init.signal, timeoutSignal]) : init.signal)
-    : timeoutSignal;
+  let signal: AbortSignal;
+  let cleanup: (() => void) | undefined;
+
+  // Use AbortSignal.any if available (Node 20+, recent browsers, Cloudflare Workers)
+  if (typeof AbortSignal.any === 'function') {
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    signal = init?.signal 
+      ? AbortSignal.any([init.signal, timeoutSignal])
+      : timeoutSignal;
+  } else {
+    // Fallback: Create manual controller that races custom signal + timer
+    const controller = new AbortController();
+    signal = controller.signal;
+    
+    // 1. Timeout timer
+    const timerId = setTimeout(() => controller.abort(), timeoutMs);
+
+    // 2. Listener for user signal
+    const onAbort = () => controller.abort();
+    if (init?.signal) {
+      if (init.signal.aborted) {
+        controller.abort();
+        clearTimeout(timerId);
+      } else {
+        init.signal.addEventListener('abort', onAbort);
+      }
+    }
+
+    cleanup = () => {
+      clearTimeout(timerId);
+      init?.signal?.removeEventListener('abort', onAbort);
+    };
+  }
 
   return fetch(`${backendUrl}${targetPath}`, {
     method: init?.method ?? 'GET',
     headers,
     body: init?.body,
     signal
+  }).finally(() => {
+    cleanup?.();
   });
 };
 

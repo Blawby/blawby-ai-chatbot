@@ -338,7 +338,16 @@ export const AcceptInvitationPage = () => {
 
     setIsLinkingConversation(true);
     try {
-      await linkConversationToUser(intakeConversationId, activeOrganizationId);
+      if (organizationSlug) {
+        await setActive(organizationSlug);
+      }
+      // Re-check active org after setting it
+      if (!activeOrganizationId && !organizationSlug) {
+         throw new Error('Missing practice context.');
+      }
+      // Use the freshly set org ID if available, otherwise fallback to current
+      // (The setActive call should update the context, but we use the known slug to be safe if ID isn't immediate)
+      await linkConversationToUser(intakeConversationId, activeOrganizationId || organizationSlug);
       navigate(
         `/embed/${encodeURIComponent(organizationSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true
@@ -417,7 +426,7 @@ export const AcceptInvitationPage = () => {
         </p>
         <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {organizationSlug}
+            <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {organizationName || organizationSlug}
           </div>
           <div>
             <span className="font-medium text-gray-900 dark:text-white">Email:</span> {invitedEmail}

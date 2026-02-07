@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '@/shared/utils/navigation';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
+import { getBackendApiUrl } from '@/config/urls';
 
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
@@ -12,7 +13,7 @@ const resolveQueryValue = (value?: string | string[]) => {
 const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => {
   try {
     const params = new URLSearchParams({ session_id: sessionId });
-    const response = await fetch(`/api/practice/client-intakes/post-pay/status?${params.toString()}`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/practice/client-intakes/post-pay/status?${params.toString()}`, {
       method: 'GET',
       credentials: 'include',
       headers: {
