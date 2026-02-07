@@ -272,7 +272,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       }
     }
 
-    if (typeof window !== 'undefined' && paymentRequest.intakeUuid) {
+    const isValidUuid = typeof paymentRequest.intakeUuid === 'string' && /^[a-zA-Z0-9-]+$/.test(paymentRequest.intakeUuid);
+
+    if (typeof window !== 'undefined' && isValidUuid && paymentRequest.intakeUuid) {
       try {
         const payload: Record<string, string> = {};
         if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
@@ -286,6 +288,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       } catch (error) {
         console.warn('[Chat] Failed to persist payment success flag', error);
       }
+    } else if (paymentRequest.intakeUuid) {
+      console.warn('[Chat] Skipped persisting invalid intakeUuid', paymentRequest.intakeUuid);
     }
     handleClosePayment();
   };

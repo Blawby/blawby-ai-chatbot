@@ -1622,8 +1622,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const timelineItems = useMemo(() => {
     const combined = [...activityItems, ...noteItems];
     return combined.sort((a, b) => {
-      const aTime = a.dateTime ? new Date(a.dateTime).getTime() : Number.MAX_SAFE_INTEGER;
-      const bTime = b.dateTime ? new Date(b.dateTime).getTime() : Number.MAX_SAFE_INTEGER;
+      const aTime = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+      const bTime = b.dateTime ? new Date(b.dateTime).getTime() : 0;
       return bTime - aTime;
     });
   }, [activityItems, noteItems]);

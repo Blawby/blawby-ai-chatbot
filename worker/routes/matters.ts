@@ -333,13 +333,13 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       });
     }
     const [, rawPracticeId, rawMatterId] = updateMatch;
-    const practiceId = encodeURIComponent(rawPracticeId);
-    const matterId = encodeURIComponent(rawMatterId);
+    const practiceId = rawPracticeId;
+    const matterId = rawMatterId;
     const requestHost = resolveRequestHost(request);
     const authContext = await optionalAuth(request, env);
     const headers = new Headers(request.headers);
     const taskHeaders = new Headers(headers); // Clone for background task
-    const before = await fetchMatterSnapshot(env, headers, practiceId, matterId);
+    const before = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
     const requestBody = await request.arrayBuffer();
 
     const updateResponse = await fetchBackend(
@@ -365,7 +365,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       }
     }
     if (!afterMatter) {
-      afterMatter = await fetchMatterSnapshot(env, headers, practiceId, matterId);
+      afterMatter = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
     }
 
     if (before && afterMatter) {
@@ -381,7 +381,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
             const now = requestTimestamp;
             const MATCH_THRESHOLD_MS = 5000;
             const AMBIGUOUS_THRESHOLD_MS = 100;
-            const activities = await fetchActivityList(env, taskHeaders, practiceId, matterId);
+            const activities = await fetchActivityList(env, taskHeaders, encodeURIComponent(practiceId), encodeURIComponent(matterId));
             const candidates = activities
               .filter((item) => item.action === 'matter_updated')
               .map((item) => {

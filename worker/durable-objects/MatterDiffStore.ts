@@ -70,13 +70,15 @@ export class MatterDiffStore {
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
           let adjustedValue: number;
           // Heuristic based on digit count / magnitude
-          if (rawCreatedAt >= 1e16) {
+          // Use absolute value to correctly handle negative timestamps (pre-1970)
+          const absValue = Math.abs(rawCreatedAt);
+          if (absValue >= 1e16) {
             // >16 digits: Nanoseconds
             adjustedValue = rawCreatedAt / 1e6;
-          } else if (rawCreatedAt >= 1e13) {
+          } else if (absValue >= 1e13) {
              // 14-16 digits: Microseconds
             adjustedValue = rawCreatedAt / 1000;
-          } else if (rawCreatedAt >= 1e10) {
+          } else if (absValue >= 1e10) {
             // 11-13 digits: Milliseconds (standard JS timestamp)
             adjustedValue = rawCreatedAt;
           } else {

@@ -34,9 +34,16 @@ const LoadingScreen = () => (
 );
 
 const NotFoundRoute = () => (
-  <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-    <div>Not found</div>
-    <div>Open a practice or client link with a slug.</div>
+  <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+    <div className="text-lg font-medium">Page Not Found</div>
+    <div>The page you&apos;re looking for doesn&apos;t exist.</div>
+    <a 
+      href="/" 
+      className="text-primary hover:underline font-medium"
+      // If client-side routing is preferred, one would use Link, but <a> is robust for a 404 recovery
+    >
+      Return to Home
+    </a>
   </div>
 );
 
