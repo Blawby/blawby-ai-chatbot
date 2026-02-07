@@ -14,7 +14,15 @@ type DiffLookupRequest = {
 };
 
 type DiffStoreRequest = {
-  entries: DiffEntry[];
+  entries: DiffEntryInput[];
+};
+
+type DiffEntryInput = {
+  activityId: string;
+  matterId: string;
+  fields: string[];
+  userId?: string | null;
+  createdAt?: string | number | null;
 };
 
 type DiffStoreResponse = {
@@ -55,21 +63,52 @@ export class MatterDiffStore {
         const matterId = typeof entry.matterId === 'string' ? entry.matterId.trim() : '';
         if (!activityId || !matterId) continue;
         const fields = Array.isArray(entry.fields)
-          ? entry.fields.filter((field) => typeof field === 'string' && field.trim().length > 0)
+          ? entry.fields
+              .filter((field) => typeof field === 'string' && field.trim().length > 0)
+              .map((field) => field.trim())
           : [];
         if (fields.length === 0) continue;
         const rawCreatedAt = entry.createdAt;
         let normalizedCreatedAt: string | null = null;
         if (typeof rawCreatedAt === 'string') {
-          normalizedCreatedAt = rawCreatedAt;
+          const parsed = Date.parse(rawCreatedAt);
+          if (Number.isFinite(parsed)) {
+            normalizedCreatedAt = new Date(parsed).toISOString();
+          }
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
-          normalizedCreatedAt = new Date(rawCreatedAt).toISOString();
+          // Deterministic detection checks candidates against valid window (2000-2100)
+          // Prioritizes milliseconds (rawCreatedAt) over seconds to reduce ambiguity
+          const candidates = [
+            rawCreatedAt,        // Milliseconds
+            rawCreatedAt * 1000, // Seconds
+            rawCreatedAt / 1000, // Microseconds
+            rawCreatedAt / 1e6   // Nanoseconds
+          ];
+          
+          const MIN_TS = 946684800000; // 2000-01-01
+          const MAX_TS = 4133980800000; // ~2100-01-01
+
+          let bestCandidate: number | null = null;
+          for (const cand of candidates) {
+            if (Number.isFinite(cand) && cand >= MIN_TS && cand <= MAX_TS) {
+              bestCandidate = cand;
+              break;
+            }
+          }
+
+          if (bestCandidate !== null) {
+            try {
+              normalizedCreatedAt = new Date(bestCandidate).toISOString();
+            } catch {
+              normalizedCreatedAt = null;
+            }
+          }
         }
         updates.set(`diff:${activityId}`, {
           activityId,
           matterId,
           fields,
-          userId: typeof entry.userId === 'string' ? entry.userId : null,
+          userId: typeof entry.userId === 'string' ? entry.userId.trim() : null,
           createdAt: normalizedCreatedAt
         });
       }
@@ -88,7 +127,9 @@ export class MatterDiffStore {
       }
       const payload = await request.json().catch(() => null) as DiffLookupRequest | null;
       const activityIds = Array.isArray(payload?.activityIds)
-        ? payload?.activityIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+        ? payload?.activityIds
+            .filter((id) => typeof id === 'string' && id.trim().length > 0)
+            .map((id) => id.trim())
         : [];
       if (activityIds.length === 0) {
         return this.json({ success: true, diffs: {} }, 200);

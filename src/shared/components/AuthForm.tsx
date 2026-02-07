@@ -13,11 +13,14 @@ interface AuthFormProps {
   mode?: AuthMode;
   defaultMode?: AuthMode;
   initialEmail?: string;
+  signupVariant?: 'full' | 'minimal';
+  callbackURL?: string;
   onSuccess?: (user: unknown) => void | Promise<void>;
   onError?: (error: string) => void;
   onModeChange?: (mode: AuthMode) => void;
   showHeader?: boolean;
   showGoogleSignIn?: boolean;
+  showModeToggle?: boolean;
   className?: string;
 }
 
@@ -25,11 +28,14 @@ const AuthForm = ({
   mode,
   defaultMode = 'signin',
   initialEmail,
+  signupVariant = 'full',
+  callbackURL,
   onSuccess,
   onError,
   onModeChange,
   showHeader = true,
   showGoogleSignIn = true,
+  showModeToggle = true,
   className = ''
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
@@ -74,7 +80,7 @@ const AuthForm = ({
 
     try {
       if (resolvedMode === 'signup') {
-        if (formData.password !== formData.confirmPassword) {
+        if (signupVariant === 'full' && formData.password !== formData.confirmPassword) {
           setError(t('errors.passwordsDoNotMatch'));
           setLoading(false);
           return;
@@ -161,21 +167,31 @@ const AuthForm = ({
       const client = getClient();
       const currentUrl = new URL(window.location.href);
       const redirectParam = currentUrl.searchParams.get('redirect');
-      let callbackURL = window.location.origin;
-      if (redirectParam) {
-        const decodedRedirect = decodeURIComponent(redirectParam);
+      let resolvedCallbackURL = window.location.origin;
+      if (typeof callbackURL === 'string' && callbackURL.trim().length > 0) {
+        const trimmed = callbackURL.trim();
         try {
-          const redirectUrl = new URL(decodedRedirect, window.location.origin);
-          if (redirectUrl.origin === window.location.origin) {
-            callbackURL = redirectUrl.href;
+          const url = new URL(trimmed, window.location.origin);
+          if (url.origin === window.location.origin) {
+            resolvedCallbackURL = url.href;
           }
         } catch {
-          callbackURL = window.location.origin;
+          // Fall back to origin
+        }
+      } else if (redirectParam) {
+        try {
+          const decodedRedirect = decodeURIComponent(redirectParam);
+          const redirectUrl = new URL(decodedRedirect, window.location.origin);
+          if (redirectUrl.origin === window.location.origin) {
+            resolvedCallbackURL = redirectUrl.href;
+          }
+        } catch {
+          // Fall back to origin
         }
       }
       const result = await client.signIn.social({
         provider: 'google',
-        callbackURL,
+        callbackURL: resolvedCallbackURL,
       });
 
       if (result.error) {
@@ -270,7 +286,7 @@ const AuthForm = ({
 
         <Form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {resolvedMode === 'signup' && (
+            {resolvedMode === 'signup' && signupVariant === 'full' && (
               <FormField name="name">
                 {({ error: fieldError, onChange }) => (
                   <FormItem>
@@ -342,7 +358,7 @@ const AuthForm = ({
               )}
             </FormField>
 
-            {resolvedMode === 'signup' && (
+            {resolvedMode === 'signup' && signupVariant === 'full' && (
               <FormField name="confirmPassword">
                 {({ error: fieldError, onChange }) => (
                   <FormItem>
@@ -401,20 +417,22 @@ const AuthForm = ({
             </Button>
           </div>
 
-          <div className="mt-2 text-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={handleToggleMode}
-              disabled={loading}
-              className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300"
-            >
-              {resolvedMode === 'signup' 
-                ? t('signup.hasAccount', { signInLink: t('signup.signInLink') })
-                : t('signin.noAccount', { signUpLink: t('signin.signUpLink') })}
-            </Button>
-          </div>
+          {showModeToggle && (
+            <div className="mt-2 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={handleToggleMode}
+                disabled={loading}
+                className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300"
+              >
+                {resolvedMode === 'signup' 
+                  ? t('signup.hasAccount', { signInLink: t('signup.signInLink') })
+                  : t('signin.noAccount', { signUpLink: t('signin.signUpLink') })}
+              </Button>
+            </div>
+          )}
         </Form>
       </div>
     </div>

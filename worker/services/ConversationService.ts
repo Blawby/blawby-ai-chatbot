@@ -31,11 +31,11 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   lead?: {
-    isLead: boolean;
-    leadId?: string;
-    matterId?: string;
-    leadSource?: string | null;
-    createdAt?: string | null;
+    is_lead: boolean;
+    lead_id?: string;
+    matter_id?: string;
+    lead_source?: string | null;
+    created_at?: string | null;
   };
 }
 
@@ -153,59 +153,89 @@ export class ConversationService {
     return this.getConversation(conversationId, options.practiceId);
   }
 
+  private mapRecordToConversation(record: any): Conversation {
+    if (!record) {
+      throw new Error('[ConversationService] Cannot map null record to conversation');
+    }
+    
+    // Parse JSON fields if they are strings
+    const safeParse = <T>(label: string, value: any, fallback: T): T => {
+      if (typeof value !== 'string') return value ?? fallback;
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.error(`[ConversationService] JSON parse error [${label}]`, { 
+          error: err instanceof Error ? err.message : String(err),
+          type: typeof value,
+          length: typeof value === 'string' ? value.length : undefined,
+          preview: typeof value === 'string' ? `${value.slice(0, 30)}...` : undefined
+        });
+        return fallback;
+      }
+    };
+
+    const participants = safeParse<string[]>('participants', record.participants, []);
+    const user_info = safeParse<Record<string, any> | null>('user_info', record.user_info, null);
+    const tags = safeParse<string[] | undefined>('tags', record.tags, undefined);
+    
+    const conversation: Conversation = {
+      id: record.id,
+      practice_id: record.practice_id,
+      practice: record.practice_name ? {
+        id: record.practice_id,
+        name: record.practice_name,
+        slug: record.practice_slug || record.practice_id
+      } : null,
+      user_id: record.user_id,
+      matter_id: record.matter_id,
+      participants,
+      user_info,
+      status: record.status as Conversation['status'],
+      assigned_to: record.assigned_to || null,
+      priority: (record.priority || 'normal') as Conversation['priority'],
+      tags,
+      internal_notes: record.internal_notes || null,
+      last_message_at: record.last_message_at || null,
+      first_response_at: record.first_response_at || null,
+      closed_at: record.closed_at || null,
+      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
+      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
+      created_at: record.created_at,
+      updated_at: record.updated_at
+    };
+
+    // Populate lead property if matter record joined and status is 'lead'
+    if (record.lead_id && record.lead_status === 'lead') {
+      conversation.lead = {
+        is_lead: true,
+        lead_id: record.lead_id,
+        matter_id: record.matter_id || undefined,
+        lead_source: record.lead_source || null,
+        created_at: record.lead_created_at || null
+      };
+    }
+
+    return conversation;
+  }
+
   /**
    * Get a single conversation by ID
    */
   async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at
-      FROM conversations
-      WHERE id = ? AND practice_id = ?
-    `).bind(conversationId, practiceId).first<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-    } | null>();
+        c.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      FROM conversations c
+      LEFT JOIN matters m ON c.matter_id = m.id
+      WHERE c.id = ? AND c.practice_id = ?
+    `).bind(conversationId, practiceId).first<any>();
 
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
     }
 
-    return {
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
-      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    };
+    return this.mapRecordToConversation(record);
   }
 
   /**
@@ -215,53 +245,18 @@ export class ConversationService {
   async getConversationById(conversationId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at
-      FROM conversations
-      WHERE id = ?
-    `).bind(conversationId).first<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-    } | null>();
+        c.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      FROM conversations c
+      LEFT JOIN matters m ON c.matter_id = m.id
+      WHERE c.id = ?
+    `).bind(conversationId).first<any>();
 
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
     }
 
-    return {
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
-      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    };
+    return this.mapRecordToConversation(record);
   }
 
   /**
@@ -324,58 +319,23 @@ export class ConversationService {
 
     // Try to get most recent conversation (prefer active if present)
     // Build WHERE clause conditionally to avoid SQL keyword interpolation
-    const userIdCondition = isAnonymous ? 'AND user_id IS NULL' : 'AND user_id IS NOT NULL';
+    const userIdCondition = isAnonymous ? 'AND c.user_id IS NULL' : 'AND c.user_id IS NOT NULL';
     const query = `
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at
-      FROM conversations
-      WHERE practice_id = ? 
-        AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
+        c.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      FROM conversations c
+      LEFT JOIN matters m ON c.matter_id = m.id
+      WHERE c.practice_id = ? 
+        AND EXISTS (SELECT 1 FROM json_each(c.participants) WHERE json_each.value = ?)
         ${userIdCondition}
-      ORDER BY (status = 'active') DESC, updated_at DESC
+      ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
-    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-    } | null>();
+    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<any>();
 
     if (existing) {
-      return {
-        id: existing.id,
-        practice_id: existing.practice_id,
-        practice: null,
-        user_id: existing.user_id,
-        matter_id: existing.matter_id,
-        participants: JSON.parse(existing.participants || '[]') as string[],
-        user_info: existing.user_info ? JSON.parse(existing.user_info) : null,
-        status: existing.status as Conversation['status'],
-        assigned_to: existing.assigned_to || null,
-        priority: (existing.priority || 'normal') as Conversation['priority'],
-        tags: existing.tags ? JSON.parse(existing.tags) as string[] : undefined,
-        internal_notes: existing.internal_notes || null,
-        last_message_at: existing.last_message_at || null,
-        first_response_at: existing.first_response_at || null,
-        closed_at: existing.closed_at || null,
-        created_at: existing.created_at,
-        updated_at: existing.updated_at
-      };
+      return this.mapRecordToConversation(existing);
     }
 
     // No existing conversation, create new one
@@ -405,17 +365,8 @@ export class ConversationService {
     let query = includeReadState
       ? `
       SELECT 
-        conversations.id,
-        conversations.practice_id,
-        conversations.user_id,
-        conversations.matter_id,
-        conversations.participants,
-        conversations.user_info,
-        conversations.status,
-        conversations.closed_at,
-        conversations.created_at,
-        conversations.updated_at,
-        conversations.latest_seq,
+        conversations.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -425,67 +376,43 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE conversations.practice_id = ?
     `
       : `
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status, closed_at, created_at, updated_at, latest_seq
+        conversations.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations
-      WHERE practice_id = ?
+      LEFT JOIN matters m ON conversations.matter_id = m.id
+      WHERE conversations.practice_id = ?
     `;
     const bindings: unknown[] = includeReadState
       ? [options.userId, options.practiceId]
       : [options.practiceId];
 
     if (options.matterId) {
-      query += ' AND matter_id = ?';
+      query += ' AND conversations.matter_id = ?';
       bindings.push(options.matterId);
     }
 
     if (options.userId) {
       // User must be in participants array
-      query += ' AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)';
+      query += ' AND EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)';
       bindings.push(options.userId);
     }
 
     if (options.status) {
-      query += ' AND status = ?';
+      query += ' AND conversations.status = ?';
       bindings.push(options.status);
     }
 
     query += ' ORDER BY conversations.updated_at DESC LIMIT ?';
     bindings.push(limit);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-      latest_seq?: number | null;
-      unread_count?: number | null;
-    }>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<any>();
 
-    return records.results.map(record => ({
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      closed_at: record.closed_at || null,
-      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
-      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    }));
+    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   /**
@@ -501,17 +428,8 @@ export class ConversationService {
     const offset = Math.max(options.offset || 0, 0);
     let query = `
       SELECT 
-        conversations.id,
-        conversations.practice_id,
-        conversations.user_id,
-        conversations.matter_id,
-        conversations.participants,
-        conversations.user_info,
-        conversations.status,
-        conversations.closed_at,
-        conversations.created_at,
-        conversations.updated_at,
-        conversations.latest_seq,
+        conversations.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -521,6 +439,7 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)
     `;
     const bindings: unknown[] = [options.userId, options.userId];
@@ -533,36 +452,9 @@ export class ConversationService {
     query += ' ORDER BY conversations.updated_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-      latest_seq?: number | null;
-      unread_count?: number | null;
-    }>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<any>();
 
-    return records.results.map(record => ({
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      closed_at: record.closed_at || null,
-      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
-      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    }));
+    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   /**
@@ -1388,23 +1280,8 @@ export class ConversationService {
     let query = includeReadState
       ? `
       SELECT 
-        conversations.id,
-        conversations.practice_id,
-        conversations.user_id,
-        conversations.matter_id,
-        conversations.participants,
-        conversations.user_info,
-        conversations.status,
-        conversations.assigned_to,
-        conversations.priority,
-        conversations.tags,
-        conversations.internal_notes,
-        conversations.last_message_at,
-        conversations.first_response_at,
-        conversations.closed_at,
-        conversations.created_at,
-        conversations.updated_at,
-        conversations.latest_seq,
+        conversations.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -1414,15 +1291,16 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE conversations.practice_id = ?
     `
       : `
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at, latest_seq
+        conversations.*,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations
-      WHERE practice_id = ?
+      LEFT JOIN matters m ON conversations.matter_id = m.id
+      WHERE conversations.practice_id = ?
     `;
     const bindings: unknown[] = includeReadState
       ? [options.userId, options.practiceId]
@@ -1434,9 +1312,9 @@ export class ConversationService {
     }
 
     const sortColumnMap: Record<string, string> = {
-      'last_message_at': 'COALESCE(last_message_at, created_at)',
-      'created_at': 'created_at',
-      'priority': 'priority'
+      'last_message_at': 'COALESCE(conversations.last_message_at, conversations.created_at)',
+      'created_at': 'conversations.created_at',
+      'priority': 'conversations.priority'
     };
     const validSortColumn = sortColumnMap[sortBy] || sortColumnMap['last_message_at'];
     const validSortOrder = (sortOrder === 'asc' || sortOrder === 'desc') ? sortOrder.toUpperCase() : 'DESC';
@@ -1444,48 +1322,9 @@ export class ConversationService {
     query += ` ORDER BY ${validSortColumn} ${validSortOrder} LIMIT ? OFFSET ?`;
     bindings.push(limit, offset);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-      latest_seq?: number | null;
-      unread_count?: number | null;
-    }>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<any>();
 
-    return records.results.map(record => ({
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
-      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
-      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
-      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    }));
+    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   private async notifyMembershipChanged(conversationId: string, removedUserId?: string): Promise<void> {

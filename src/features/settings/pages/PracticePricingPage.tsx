@@ -5,7 +5,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, fromMinorUnits, toMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import Modal from '@/shared/components/Modal';
@@ -43,21 +43,22 @@ export const PracticePricingPage = () => {
 
   const feeEnabled = typeof activeFee === 'number' && activeFee > 0;
   const feeEnabledDisplay = feeEnabledOverride ?? feeEnabled;
+  const currencyCode = currentPractice?.currency || 'USD';
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
-    return formatCurrency(activeFee, 'USD', locale);
-  }, [activeFee, feeEnabled, locale]);
+    return formatCurrency(fromMinorUnits(activeFee), currencyCode, locale);
+  }, [activeFee, feeEnabled, locale, currencyCode]);
 
   const effectiveBillingIncrement = Number.isFinite(activeBillingIncrement)
     ? (activeBillingIncrement as number)
     : DEFAULT_BILLING_INCREMENT;
   const feeValidationError = showValidation && feeEnabledDraft && (!Number.isFinite(feeDraft) || (feeDraft ?? 0) <= 0)
-    ? 'Enter a fee greater than $0.'
+    ? `Enter a fee greater than ${formatCurrency(0, currencyCode, locale)}.`
     : undefined;
 
   const openFeeModal = () => {
     const nextFee = typeof activeFee === 'number' && activeFee > 0 ? activeFee : undefined;
-    setFeeDraft(nextFee !== undefined ? asMajor(nextFee) : undefined);
+    setFeeDraft(nextFee !== undefined ? fromMinorUnits(nextFee) : undefined);
     setFeeEnabledDraft(Boolean(nextFee));
     setShowValidation(false);
     setIsFeeModalOpen(true);
@@ -89,13 +90,14 @@ export const PracticePricingPage = () => {
     }
     if (feeEnabledDraft && (!Number.isFinite(feeDraft) || (feeDraft ?? 0) <= 0)) {
       setShowValidation(true);
-      showError('Consultation fee', 'Enter a fee greater than $0.');
+      showError('Consultation fee', `Enter a fee greater than ${formatCurrency(0, currencyCode, locale)}.`);
       return;
     }
 
-    const nextFee = feeEnabledDraft ? (feeDraft ?? null) : null;
-    const currentFee = typeof activeFee === 'number' ? activeFee : null;
-    if (nextFee === currentFee || (!feeEnabledDraft && !feeEnabled)) {
+    const currentFeeMinor = typeof activeFee === 'number' ? activeFee : null;
+    const nextFeeMinor = feeEnabledDraft && typeof feeDraft === 'number' ? toMinorUnits(feeDraft) : null;
+
+    if ((nextFeeMinor as unknown as number | null) === (currentFeeMinor as unknown as number | null) || (!feeEnabledDraft && !feeEnabled)) {
       setIsFeeModalOpen(false);
       return;
     }
@@ -103,9 +105,9 @@ export const PracticePricingPage = () => {
     setIsSaving(true);
     try {
       await updatePracticeDetails(currentPractice.id, {
-        consultationFee: nextFee,
+        consultationFee: nextFeeMinor,
         paymentLinkEnabled: feeEnabledDraft,
-        paymentLinkPrefillAmount: nextFee
+        paymentLinkPrefillAmount: nextFeeMinor
       });
       showSuccess(
         feeEnabledDraft ? 'Consultation fee enabled' : 'Consultation fee disabled',
@@ -256,7 +258,7 @@ export const PracticePricingPage = () => {
                     {formattedFee ?? 'Not set'}
                   </p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit}>
+                <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit || isSaving}>
                   {formattedFee ? 'Edit' : 'Set amount'}
                 </Button>
               </div>
@@ -274,15 +276,15 @@ export const PracticePricingPage = () => {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Billing increment</div>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit}>
+              <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit || isSaving}>
                 Manage
               </Button>
             </div>
-            {!canEdit && (
+            {isReadOnly && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Owner/admin access required to update billing increments.
               </p>
@@ -315,8 +317,8 @@ export const PracticePricingPage = () => {
               placeholder="150.00"
               disabled={!canEdit || isSaving}
               step={0.01}
-              min={0}
-              description="USD"
+              min={0.01}
+              description={currencyCode}
               error={feeValidationError}
             />
           )}
@@ -353,6 +355,9 @@ export const PracticePricingPage = () => {
               const parsed = Number(trimmed);
               if (Number.isFinite(parsed)) {
                 setBillingDraft(parsed);
+                if (!Number.isInteger(parsed)) {
+                  setShowBillingValidation(true);
+                }
               }
             }}
             min={1}

@@ -341,7 +341,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
             body: `${clientName} submitted an intake for ${matterType}.`,
             link: resolvedPracticeSlug
               ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}/conversations`
-              : '/practice',
+              : '/practice/leads',
             metadata: {
               matterId,
               conversationId,

@@ -1,4 +1,5 @@
 import type { Env } from '../types.js';
+import { getDomain } from 'tldts';
 import { HttpErrors } from '../errorHandler.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { handleBackendProxy } from './authProxy.js';
@@ -52,25 +53,13 @@ const normalizeCookieDomain = (value: string, requestHost: string, env?: Env): s
     return value;
   }
 
-  const host = requestHost.split(':')[0];
-  const hostParts = host.split('.');
-  if (hostParts.length < 2) {
+  // Use tldts to get the registrable domain (e.g. example.co.uk)
+  const registrable = getDomain(requestHost);
+  if (!registrable) {
     return value.replace(DOMAIN_PATTERN, '');
   }
 
-  // Basic public-suffix awareness for multi-part TLDs (e.g., .co.uk, .com.au)
-  // If the last part is 2 chars and the second to last is a short common part, take 3 parts.
-  let baseDomain = hostParts.slice(-2).join('.');
-  if (hostParts.length >= 3) {
-    const tld = hostParts[hostParts.length - 1];
-    const sld = hostParts[hostParts.length - 2];
-    const commonPublicParts = new Set(['com', 'co', 'net', 'org', 'edu', 'gov']);
-    if (tld.length === 2 && commonPublicParts.has(sld)) {
-      baseDomain = hostParts.slice(-3).join('.');
-    }
-  }
-
-  const domainValue = `.${baseDomain}`;
+  const domainValue = `.${registrable}`;
   if (DOMAIN_PATTERN.test(value)) {
     return value.replace(DOMAIN_PATTERN, `; Domain=${domainValue}`);
   }
@@ -245,17 +234,52 @@ const fetchBackend = async (
   env: Env,
   headers: Headers,
   targetPath: string,
-  init?: { method?: string; body?: BodyInit | null }
+  init?: { method?: string; body?: BodyInit | null; signal?: AbortSignal }
 ): Promise<Response> => {
   const backendUrl = resolveBackendUrl(env);
-  const url = new URL(targetPath, backendUrl);
-  const response = await fetch(url.toString(), {
+  const timeoutMs = 10000;
+  let signal: AbortSignal;
+  let cleanup: (() => void) | undefined;
+
+  // Use AbortSignal.any if available (Node 20+, recent browsers, Cloudflare Workers)
+  if (typeof AbortSignal.any === 'function') {
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    signal = init?.signal 
+      ? AbortSignal.any([init.signal, timeoutSignal])
+      : timeoutSignal;
+  } else {
+    // Fallback: Create manual controller that races custom signal + timer
+    const controller = new AbortController();
+    signal = controller.signal;
+    
+    // 1. Timeout timer
+    const timerId = setTimeout(() => controller.abort(), timeoutMs);
+
+    // 2. Listener for user signal
+    const onAbort = () => controller.abort();
+    if (init?.signal) {
+      if (init.signal.aborted) {
+        controller.abort();
+        clearTimeout(timerId);
+      } else {
+        init.signal.addEventListener('abort', onAbort);
+      }
+    }
+
+    cleanup = () => {
+      clearTimeout(timerId);
+      init?.signal?.removeEventListener('abort', onAbort);
+    };
+  }
+
+  return fetch(`${backendUrl}${targetPath}`, {
     method: init?.method ?? 'GET',
     headers,
-    redirect: 'manual',
-    body: init?.body
+    body: init?.body,
+    signal
+  }).finally(() => {
+    cleanup?.();
   });
-  return response;
 };
 
 const fetchMatterSnapshot = async (
@@ -303,13 +327,19 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
   const updateMatch = url.pathname.match(UPDATE_PATTERN);
   if (updateMatch) {
     if (!['PUT', 'PATCH', 'POST'].includes(request.method.toUpperCase())) {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: { 'Allow': 'PUT, PATCH, POST' }
+      });
     }
-    const [, practiceId, matterId] = updateMatch;
+    const [, rawPracticeId, rawMatterId] = updateMatch;
+    const practiceId = rawPracticeId;
+    const matterId = rawMatterId;
     const requestHost = resolveRequestHost(request);
     const authContext = await optionalAuth(request, env);
     const headers = new Headers(request.headers);
-    const before = await fetchMatterSnapshot(env, headers, practiceId, matterId);
+    const taskHeaders = new Headers(headers); // Clone for background task
+    const before = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
     const requestBody = await request.arrayBuffer();
 
     const updateResponse = await fetchBackend(
@@ -335,33 +365,59 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       }
     }
     if (!afterMatter) {
-      afterMatter = await fetchMatterSnapshot(env, headers, practiceId, matterId);
+      afterMatter = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
     }
 
     if (before && afterMatter) {
       const fields = buildMatterUpdateFields(before, afterMatter);
       console.log('[MatterDiff] computed fields', { matterId, fields });
       if (fields.length > 0 && env.MATTER_DIFFS) {
+        const requestTimestamp = Date.now();
         const backgroundTask = async (taskHeaders: Headers) => {
           let candidate: { item: BackendMatterActivity; delta: number } | undefined;
           const delays = [100, 300, 700];
 
           for (let i = 0; i <= delays.length; i++) {
-            const now = Date.now();
-            const activities = await fetchActivityList(env, taskHeaders, practiceId, matterId);
+            const MATCH_THRESHOLD_MS = 5000;
+            const AMBIGUOUS_THRESHOLD_MS = 100;
+            const activities = await fetchActivityList(env, taskHeaders, encodeURIComponent(practiceId), encodeURIComponent(matterId));
             const candidates = activities
               .filter((item) => item.action === 'matter_updated')
-              .filter((item) => !authContext?.user?.id || item.user_id === authContext.user.id)
-              .map((item) => ({
-                item,
-                createdAt: new Date(item.created_at ?? 0).getTime()
-              }))
+              .map((item) => {
+                let score = 0;
+                // Prefer matches by the user who initiated the request
+                if (authContext?.user?.id && item.user_id && item.user_id === authContext.user.id) {
+                  score += 10;
+                }
+                return {
+                  item,
+                  createdAt: new Date(item.created_at ?? 0).getTime(),
+                  score
+                };
+              })
               .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
               .map((record) => ({
                 ...record,
-                delta: Math.abs(record.createdAt - now)
+                delta: Math.abs(record.createdAt - requestTimestamp)
               }))
-              .sort((a, b) => a.delta - b.delta);
+              .filter((record) => record.delta <= MATCH_THRESHOLD_MS)
+              .sort((a, b) => {
+                // Primary sort: smallest time delta
+                if (a.delta !== b.delta) return a.delta - b.delta;
+                // Secondary tiebreaker: descending score
+                return b.score - a.score;
+              });
+
+            if (candidates.length > 1) {
+              const deltaDiff = Math.abs(candidates[0].delta - candidates[1].delta);
+              if (deltaDiff <= AMBIGUOUS_THRESHOLD_MS) {
+                console.warn('[MatterDiff] Ambiguous match detected', {
+                  matterId,
+                  candidate1: { id: candidates[0].item.id, delta: candidates[0].delta },
+                  candidate2: { id: candidates[1].item.id, delta: candidates[1].delta }
+                });
+              }
+            }
 
             candidate = candidates[0];
             if (candidate?.item?.id) break;
@@ -402,9 +458,12 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         };
 
         if (ctx?.waitUntil) {
-          ctx.waitUntil(backgroundTask(headers));
+          ctx.waitUntil(backgroundTask(taskHeaders));
         } else {
-          await backgroundTask(headers);
+          // Fire and forget, but log errors
+          backgroundTask(taskHeaders).catch((err) => {
+            console.error('[MatterDiff] Background task failed (unawaited)', err);
+          });
         }
       }
     }
@@ -419,7 +478,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
   const activityMatch = url.pathname.match(ACTIVITY_PATTERN);
   if (activityMatch) {
     if (request.method.toUpperCase() !== 'GET') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: { 'Allow': 'GET' }
+      });
     }
     const [, _practiceId, matterId] = activityMatch;
     const requestHost = resolveRequestHost(request);
@@ -451,10 +513,12 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     if (activityIds.length > 0 && env.MATTER_DIFFS) {
       try {
         const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
+        const signal = AbortSignal.timeout(3000);
         const response = await stub.fetch('https://matter-diffs/internal/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activityIds })
+          body: JSON.stringify({ activityIds }),
+          signal
         });
         const json = await response.json().catch(() => null) as { diffs?: Record<string, { fields: string[] }> } | null;
         diffs = json?.diffs ?? {};

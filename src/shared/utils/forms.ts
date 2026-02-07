@@ -182,7 +182,26 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
       error._logged = true;
       throw error;
     }
-    const result = await response.json() as CheckoutSessionResponse;
+    let result: CheckoutSessionResponse;
+    try {
+      result = await response.json() as CheckoutSessionResponse;
+    } catch (parseError) {
+      const errorLog = {
+        status: response.status,
+        statusText: response.statusText,
+        parseError: parseError instanceof Error ? parseError.message : String(parseError),
+        intakeUuid
+      };
+      if (import.meta.env.DEV) {
+        console.warn('[Intake] Failed to parse checkout session JSON', errorLog);
+      } else {
+        console.error('[Intake] Failed to parse checkout session JSON', JSON.stringify(errorLog));
+      }
+      const error = new Error(`Invalid server response (invalid JSON): ${response.status}`) as LoggedError;
+      error._logged = true;
+      throw error;
+    }
+
     if (!result.success || !result.data?.url) {
       if (import.meta.env.DEV) {
         console.warn('[Intake] Checkout session response missing url', result);
@@ -385,10 +404,8 @@ export async function submitContactForm(
           if (!(error as LoggedError)._logged) {
             console.warn('[Intake] Optional checkout session creation failed', error);
           }
-          // If paymentLinkEnabled is true, we might want to alert the user or fallback to paymentLinkUrl
-          if (!paymentLinkUrl) {
-             throw error; // Rethrow if we have no fallback
-          }
+          // Do not rethrow. Fall back to paymentLinkUrl if available, or just proceed without checkout session.
+          // The form submission was successful.
         }
       }
 

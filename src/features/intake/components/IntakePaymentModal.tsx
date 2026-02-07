@@ -37,32 +37,57 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   const isValidCheckoutSession = checkoutSessionUrl ? isValidStripeCheckoutSessionUrl(checkoutSessionUrl) : false;
 
   const isVerifyingRef = useRef(false);
+  const latestOnSuccessRef = useRef(onSuccess);
+  const latestOnCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    latestOnSuccessRef.current = onSuccess;
+    latestOnCloseRef.current = onClose;
+  }, [onSuccess, onClose]);
+
   useEffect(() => {
     if (!isOpen || !paymentRequest?.intakeUuid) return;
 
+    let cancelled = false;
     const handleFocus = async () => {
-      if (isVerifyingRef.current) return;
+      if (isVerifyingRef.current || cancelled) return;
       isVerifyingRef.current = true;
       setIsVerifying(true);
       try {
         const status = await fetchIntakePaymentStatus(paymentRequest.intakeUuid);
+        if (cancelled) return;
         if (isPaidIntakeStatus(status)) {
-          if (onSuccess) {
-            await Promise.resolve(onSuccess());
+          if (latestOnSuccessRef.current) {
+            await Promise.resolve(latestOnSuccessRef.current());
           }
-          onClose();
+          if (cancelled) return;
+          latestOnCloseRef.current();
         }
       } catch (err) {
-        console.warn('[IntakePaymentModal] Focus-triggered status check failed', err);
+        if (!cancelled) {
+          console.warn('[IntakePaymentModal] Focus-triggered status check failed', err);
+        }
       } finally {
-        isVerifyingRef.current = false;
-        setIsVerifying(false);
+        if (!cancelled) {
+          isVerifyingRef.current = false;
+          setIsVerifying(false);
+        }
       }
     };
 
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+      isVerifyingRef.current = false;
+    };
+  }, [isOpen, paymentRequest?.intakeUuid]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsVerifying(false);
+    }
+  }, [isOpen]);
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
@@ -114,7 +139,9 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
           <Button
             variant="primary"
             className="w-full"
+            disabled={isVerifying}
             onClick={() => {
+              if (isVerifying) return;
               if (typeof window !== 'undefined' && checkoutSessionUrl) {
                 window.open(checkoutSessionUrl, '_blank', 'noopener');
               }

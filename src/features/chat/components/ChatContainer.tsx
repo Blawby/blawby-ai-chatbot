@@ -142,6 +142,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
   const contactFormMessage = filteredMessages.find((message) => Boolean(message.contactForm));
+  const shouldShowContactFormFooter = Boolean(
+    contactFormMessage &&
+    onContactFormSubmit &&
+    intakeStatus?.step === 'contact_form'
+  );
   const contactFormId = useMemo(() => (
     conversationId ? `contact-form-${conversationId}` : 'contact-form'
   ), [conversationId]);
@@ -267,16 +272,24 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       }
     }
 
-    if (onAddMessage) {
-      onAddMessage({
-        id: `system-payment-confirm-${paymentRequest.intakeUuid ?? Date.now()}`,
-        role: 'assistant',
-        content: invitationTriggered
-          ? `Payment received! Check your email for a secure invite link to finish creating your account and continue the conversation with ${paymentRequest.practiceName || 'the practice'}.`
-          : `Payment received. ${paymentRequest.practiceName || 'The practice'} will review your intake shortly. If you don't see an invite email soon, reply here and we'll resend it.`,
-        timestamp: Date.now(),
-        isUser: false
-      });
+    const isValidUuid = typeof paymentRequest.intakeUuid === 'string' && /^[a-zA-Z0-9-]+$/.test(paymentRequest.intakeUuid);
+
+    if (typeof window !== 'undefined' && isValidUuid && paymentRequest.intakeUuid) {
+      try {
+        const payload: Record<string, string> = {};
+        if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
+        if (paymentRequest.practiceId) payload.practiceId = paymentRequest.practiceId;
+        if (paymentRequest.conversationId) payload.conversationId = paymentRequest.conversationId;
+
+        window.sessionStorage.setItem(
+          `intakePaymentSuccess:${paymentRequest.intakeUuid}`,
+          JSON.stringify(payload)
+        );
+      } catch (error) {
+        console.warn('[Chat] Failed to persist payment success flag', error);
+      }
+    } else if (paymentRequest.intakeUuid) {
+      console.warn('[Chat] Skipped persisting invalid intakeUuid', paymentRequest.intakeUuid);
     }
     handleClosePayment();
   };
@@ -369,7 +382,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               )}
             </div>
 
-            {contactFormMessage && onContactFormSubmit ? (
+            {shouldShowContactFormFooter ? (
               <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
                 <Button
                   type="submit"

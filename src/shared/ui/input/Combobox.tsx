@@ -52,9 +52,10 @@ export const Combobox = ({
   const selectedOption = selectedOptions[0];
   // If no option found, treat 'value' as the raw input to display
   const resolvedDisplayValue = selectedOptions.length > 0
-    ? selectedOptions.map((option) => option.label).join(', ')
-    : (typeof value === 'string' ? value : '');
+    ? selectedOptions.map((option) => displayValue?.(option) ?? option.label).join(', ')
+    : (isMultiple && Array.isArray(value) ? value.join(', ') : (typeof value === 'string' ? value : ''));
   const [query, setQuery] = useState(resolvedDisplayValue);
+  const [userTyped, setUserTyped] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const inputId = useMemo(
@@ -101,15 +102,14 @@ export const Combobox = ({
   const hasValue = valueList.length > 0;
 
   const toggleValue = (optionValue: string) => {
-    if (isMultiple) {
-      const next = valueList.includes(optionValue)
-        ? valueList.filter((item) => item !== optionValue)
-        : [...valueList, optionValue];
-      emitChange(next);
-    } else {
-       emitChange(optionValue);
-    }
+    if (!isMultiple) return;
+
+    const next = valueList.includes(optionValue)
+      ? valueList.filter((item) => item !== optionValue)
+      : [...valueList, optionValue];
+    emitChange(next);
     setQuery('');
+    setUserTyped(false);
     setIsOpen(true);
   };
 
@@ -147,6 +147,7 @@ export const Combobox = ({
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
               setQuery(nextValue);
+              setUserTyped(true);
               setIsOpen(true);
               
               const normalizedQuery = normalize(nextValue);
@@ -163,14 +164,29 @@ export const Combobox = ({
                   if (query === resolvedDisplayValue) {
                     setQuery('');
                   }
+                  setUserTyped(false);
                   setIsOpen(true);
                 }
             }}
             onBlur={() => {
               setIsOpen(false);
-              if (!isMultiple && query !== resolvedDisplayValue) {
-                emitChange(query);
+              // Only emit if the user actually typed something or if query differs from display value and was intentional
+              if (!isMultiple && userTyped && query !== resolvedDisplayValue) {
+                const trimmedQuery = query.trim();
+                const exactMatch = options.find(o => o.label.trim() === trimmedQuery);
+                if (exactMatch) {
+                   emitChange(exactMatch.value);
+                } else {
+                   const lowerQuery = trimmedQuery.toLowerCase();
+                   const caseInsensitiveMatches = options.filter(o => o.label.trim().toLowerCase() === lowerQuery);
+                   if (caseInsensitiveMatches.length >= 1) {
+                      emitChange(caseInsensitiveMatches[0].value);
+                   } else {
+                      emitChange(trimmedQuery);
+                   }
+                }
               }
+              setUserTyped(false);
             }}
             onKeyDown={(event) => {
               if (disabled) return;
@@ -220,6 +236,7 @@ export const Combobox = ({
                     } else {
                       emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
+                      setUserTyped(false);
                       setIsOpen(false);
                     }
                   } else {
@@ -266,6 +283,7 @@ export const Combobox = ({
           <div
             id={listboxId}
             role="listbox"
+            aria-multiselectable={isMultiple}
             tabIndex={-1}
             className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
             onMouseDown={(event) => {
@@ -293,6 +311,7 @@ export const Combobox = ({
                     } else {
                       emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
+                      setUserTyped(false);
                       setIsOpen(false);
                     }
                   }}

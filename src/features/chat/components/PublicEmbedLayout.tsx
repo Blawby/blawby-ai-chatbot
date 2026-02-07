@@ -82,10 +82,6 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
     }
   }, [allowed, embedBasePath, navigate]);
 
-  if (!allowed) {
-    return null;
-  }
-
   const {
     conversations: publicConversations,
     isLoading: isPublicConversationsLoading,
@@ -195,6 +191,10 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
       conversationId: null
     };
   }, [practiceLogo, practiceName, publicConversationPreviews, publicConversations, publicMessages]);
+
+  if (!allowed) {
+    return null;
+  }
 
   const handleStartConversation = async (mode: ConversationMode) => {
     try {

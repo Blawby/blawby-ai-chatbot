@@ -138,6 +138,7 @@ const normalizeAddressInitialValue = (value: unknown): Partial<Address> | undefi
       'street' in obj || 
       'streetAddress' in obj || 
       'line1' in obj || 
+      'line2' in obj || 
       'city' in obj || 
       'state' in obj || 
       'postalCode' in obj || 

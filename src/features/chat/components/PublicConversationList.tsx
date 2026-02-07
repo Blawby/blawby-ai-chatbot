@@ -78,12 +78,9 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
               const timeLabel = preview?.createdAt
                 ? formatRelativeTime(preview.createdAt)
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
-              const rawPreview = preview?.content
+              const previewText = preview?.content
                 ? preview.content
                 : t('embed.conversationList.previewPlaceholder');
-              const previewText = rawPreview.length > 90
-                ? `${rawPreview.slice(0, 90)}…`
-                : rawPreview;
 
               return (
                 <button
@@ -100,12 +97,12 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex items-center gap-2">
+                      <div className="min-w-0 flex items-center gap-2 overflow-hidden">
                         <span className={`truncate ${chatTypography.previewName}`}>
                           {title}
                         </span>
-                        {conversation.lead?.isLead && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
+                        {conversation.lead?.is_lead && (
+                          <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
                             {t('conversation.badge.lead')}
                           </span>
                         )}

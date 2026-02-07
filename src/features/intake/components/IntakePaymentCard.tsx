@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useMemo } from 'preact/hooks';
+import { useMemo, useState, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
@@ -26,7 +26,13 @@ const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: 
 
 export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ paymentRequest, onOpenPayment }) => {
   const { navigate } = useNavigation();
-  const { showError } = useToastContext();
+  const { showError, showInfo } = useToastContext();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const formattedAmount = useMemo(
     () => resolveDisplayAmount(paymentRequest.amount, paymentRequest.currency, locale),
@@ -57,18 +63,47 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       onOpenPayment(paymentRequest);
       return;
     }
-    if (hasCheckoutSession && onOpenPayment) {
-      onOpenPayment(paymentRequest);
-      return;
-    }
-    if (hasCheckoutSession && typeof window !== 'undefined' && paymentRequest.checkoutSessionUrl) {
-      if (isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl)) {
-        window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
+    if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
+      const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
+      if (isValid) {
+        if (onOpenPayment) {
+          onOpenPayment(paymentRequest);
+          return;
+        }
+        if (typeof window !== 'undefined') {
+          window.location.assign(paymentRequest.checkoutSessionUrl);
+          return;
+        }
+        console.warn('[IntakePayment] Cannot open checkout session in SSR environment');
+        return;
+      } else {
+        console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
+        
+        // Attempt fallback methods
+        let fallbackSucceeded = false;
+        if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
+          fallbackSucceeded = true;
+        } else if (onOpenPayment) {
+          const sanitizedRequest = { ...paymentRequest };
+          delete sanitizedRequest.checkoutSessionUrl;
+          onOpenPayment(sanitizedRequest);
+          fallbackSucceeded = true;
+        } else {
+             // Try simple navigation to payment URL as last resort if it differs from checkout session
+             if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
+                 navigate(paymentUrl);
+                 fallbackSucceeded = true;
+             }
+        }
+
+        if (fallbackSucceeded) {
+            // Using showInfo instead of showError to avoid alarming the user during fallback flow
+            showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
+        } else if (typeof window !== 'undefined') {
+             showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
+        }
         return;
       }
-      console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
-      showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
-      // Fall through to allow fallback to paymentLinkUrl or other handlers
     }
     if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
       return;
@@ -86,6 +121,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         variant="primary"
         onClick={handlePay}
         className="w-full"
+        disabled={!isClient || (typeof window === 'undefined' && !onOpenPayment)}
+        aria-label={(!isClient || (typeof window === 'undefined' && !onOpenPayment)) ? 'Payment not available in this environment' : undefined}
       >
         {buttonLabel}
       </Button>

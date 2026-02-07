@@ -88,9 +88,27 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 }) => {
     const { session, activeMemberRole } = useSessionContext();
     const { showError, showSuccess } = useToastContext();
+    const dedupedMessages = useMemo(() => {
+        const seenPaymentConfirm = new Set<string>();
+        return messages.filter((message) => {
+            const intakePaymentUuid = typeof message.metadata?.intakePaymentUuid === 'string'
+                ? message.metadata.intakePaymentUuid
+                : null;
+            if (!intakePaymentUuid) {
+                return true;
+            }
+            const key = `${intakePaymentUuid}:${message.role}`;
+            if (seenPaymentConfirm.has(key)) {
+                return false;
+            }
+            seenPaymentConfirm.add(key);
+            return true;
+        });
+    }, [messages]);
     const listRef = useRef<HTMLDivElement>(null);
-    const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
-    const [endIndex, setEndIndex] = useState(messages.length);
+    const submittingRef = useRef<Record<string, boolean>>({});
+    const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
+    const [endIndex, setEndIndex] = useState(dedupedMessages.length);
     const isScrolledToBottomRef = useRef(true);
     const isUserScrollingRef = useRef(false);
     const isLoadingRef = useRef(false);
@@ -117,6 +135,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     };
     const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
     const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -190,9 +215,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         const isSubmitting = Boolean(leadActionState[leadId]);
 
         const runLeadAction = async (action: 'accept' | 'reject') => {
-            if (!leadReviewActions.canReviewLeads || isSubmitting) {
+            if (!leadReviewActions.canReviewLeads || isSubmitting || submittingRef.current[leadId]) {
                 return;
             }
+            submittingRef.current[leadId] = true;
             setLeadActionState((prev) => ({ ...prev, [leadId]: action }));
             try {
                 let result: MatterTransitionResult;
@@ -202,7 +228,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     result = await leadReviewActions.rejectMatter(leadReviewActions.practiceId, leadId);
                 }
 
-                if (result.error || result.success === false) {
+                if (result.error || result.success !== true) {
                     throw new Error(result.error || 'The action could not be completed at this time.');
                 }
 
@@ -211,6 +237,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     ? `${practiceName} has joined the conversation.`
                     : `${practiceName} was unable to take your request at this time.`;
 
+                let systemMessageFailed = false;
                 try {
                     await postSystemMessage(
                         leadReviewActions.conversationId,
@@ -226,25 +253,30 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     );
                 } catch (msgErr) {
                     console.error('[VirtualMessageList] Failed to post system message', msgErr);
-                    // Continue - transition succeeded, just log the message failure
+                    systemMessageFailed = true;
                 }
+
+                const notificationText = systemMessageFailed
+                    ? 'Attempted to notify client; notification failed.'
+                    : (action === 'accept' ? 'The client has been notified.' : 'The client has been notified of the decline.');
 
                 showSuccess(
                     action === 'accept' ? 'Lead accepted' : 'Lead declined',
-                    action === 'accept'
-                        ? 'The client has been notified.'
-                        : 'The client has been notified.'
+                    notificationText
                 );
                 leadReviewActions.onLeadStatusChange?.();
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Failed to update lead';
                 showError('Action failed', message);
             } finally {
-                setLeadActionState((prev) => {
-                    const next = { ...prev };
-                    delete next[leadId];
-                    return next;
-                });
+                if (isMountedRef.current) {
+                    setLeadActionState((prev) => {
+                        const next = { ...prev };
+                        delete next[leadId];
+                        return next;
+                    });
+                    delete submittingRef.current[leadId];
+                }
             }
         };
 
@@ -362,48 +394,48 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     useEffect(() => {
         // Update indices when new messages are added
         if (isScrolledToBottomRef.current) {
-            setEndIndex(messages.length);
-            setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
+            setEndIndex(dedupedMessages.length);
+            setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
         }
-    }, [messages.length]);
+    }, [dedupedMessages.length]);
 
     useEffect(() => {
-        const lastMessage = messages[messages.length - 1];
+        const lastMessage = dedupedMessages[dedupedMessages.length - 1];
         if (!lastMessage?.paymentRequest) return;
-        setEndIndex(messages.length);
-        setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
+        setEndIndex(dedupedMessages.length);
+        setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
         if (listRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
         }
-    }, [messages]);
+    }, [dedupedMessages]);
 
     useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
         }
-    }, [messages, endIndex]);
+    }, [dedupedMessages, endIndex]);
 
 
     const visibleMessages = useMemo(
-        () => messages.slice(startIndex, endIndex),
-        [messages, startIndex, endIndex]
+        () => dedupedMessages.slice(startIndex, endIndex),
+        [dedupedMessages, startIndex, endIndex]
     );
     const messageMap = useMemo(() => {
-        return new Map(messages.map((message) => [message.id, message]));
-    }, [messages]);
+        return new Map(dedupedMessages.map((message) => [message.id, message]));
+    }, [dedupedMessages]);
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
             return;
         }
-        const targetIndex = messages.findIndex((message) => message.id === messageId);
+        const targetIndex = dedupedMessages.findIndex((message) => message.id === messageId);
         if (targetIndex === -1) {
             return;
         }
 
         const nextStart = Math.max(0, targetIndex - Math.floor(BATCH_SIZE / 2));
-        const nextEnd = Math.min(messages.length, nextStart + BATCH_SIZE);
+        const nextEnd = Math.min(dedupedMessages.length, nextStart + BATCH_SIZE);
         setStartIndex(nextStart);
         setEndIndex(nextEnd);
         isScrolledToBottomRef.current = false;
@@ -417,7 +449,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 }
             });
         });
-    }, [messages]);
+    }, [dedupedMessages]);
 
     useEffect(() => {
         if (!onRequestReactions || visibleMessages.length === 0) {

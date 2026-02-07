@@ -60,7 +60,6 @@ export function MainApp({
   workspace,
   settingsOverlayOpen,
   chatContent,
-  activeRoute: _activeRoute,
   routeConversationId,
   publicPracticeSlug,
   publicEmbedView,
@@ -77,7 +76,6 @@ export function MainApp({
   workspace: WorkspaceType;
   settingsOverlayOpen?: boolean;
   chatContent?: ComponentChildren;
-  activeRoute: RouteKey;
   routeConversationId?: string;
   publicPracticeSlug?: string;
   publicEmbedView?: EmbedView;
@@ -637,7 +635,11 @@ export function MainApp({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!conversationCacheKey || !activeConversationId) return;
-    window.localStorage.setItem(conversationCacheKey, activeConversationId);
+    try {
+      window.localStorage.setItem(conversationCacheKey, activeConversationId);
+    } catch (e) {
+      console.warn('Failed to save conversation ID', e);
+    }
   }, [conversationCacheKey, activeConversationId]);
 
   const currentUserRole = normalizePracticeRole(activeMemberRole) ?? 'member';
@@ -979,8 +981,8 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         <PracticeMattersPage
-          basePath={(practiceSlug || resolvedPracticeSlug)
-            ? `/practice/${encodeURIComponent(practiceSlug || resolvedPracticeSlug || '')}/matters`
+          basePath={(practiceSlug ?? resolvedPracticeSlug)
+            ? `/practice/${encodeURIComponent(practiceSlug ?? resolvedPracticeSlug ?? '')}/matters`
             : '/practice/matters'}
         />
       }

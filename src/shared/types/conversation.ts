@@ -68,11 +68,11 @@ export interface Conversation {
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
   lead?: {
-    isLead: boolean;
-    leadId?: string;
-    matterId?: string;
-    leadSource?: string | null;
-    createdAt?: string | null;
+    is_lead: boolean;
+    lead_id?: string;
+    matter_id?: string;
+    lead_source?: string | null;
+    created_at?: string | null;
   };
 }
 

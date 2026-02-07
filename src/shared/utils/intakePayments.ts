@@ -111,10 +111,14 @@ export const buildIntakePaymentUrl = (
   if (intakeUuid) params.set('uuid', intakeUuid);
 
   const paymentLinkUrl = getQueryValue(request.paymentLinkUrl);
-  if (paymentLinkUrl) params.set('payment_link_url', paymentLinkUrl);
+  if (paymentLinkUrl && isValidStripePaymentLink(paymentLinkUrl)) {
+    params.set('payment_link_url', paymentLinkUrl);
+  }
 
   const checkoutSessionUrl = getQueryValue(request.checkoutSessionUrl);
-  if (checkoutSessionUrl) params.set('checkout_session_url', checkoutSessionUrl);
+  if (checkoutSessionUrl && isValidStripeCheckoutSessionUrl(checkoutSessionUrl)) {
+    params.set('checkout_session_url', checkoutSessionUrl);
+  }
 
   const checkoutSessionId = getQueryValue(request.checkoutSessionId);
   if (checkoutSessionId) params.set('checkout_session_id', checkoutSessionId);
@@ -123,7 +127,7 @@ export const buildIntakePaymentUrl = (
   if (returnTo) params.set('return_to', returnTo);
 
   const query = params.toString();
-  return query.length > 0 ? `/intake/pay?${query}` : '/intake/pay';
+  return query.length > 0 ? `/pay?${query}` : '/pay';
 };
 
 export const fetchIntakePaymentStatus = async (

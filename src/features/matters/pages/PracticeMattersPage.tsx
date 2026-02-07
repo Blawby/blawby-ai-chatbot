@@ -139,7 +139,7 @@ const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => 
   const normalized = status?.toLowerCase().replace(/\s+/g, '_');
   if (normalized === 'draft') return 'draft';
   if (normalized === 'active') return 'active';
-  // Fallback for any legacy legacy statuses if they persist
+  // Fallback for any legacy statuses if they persist
   if (normalized === 'lead') return 'draft';
   return 'active';
 };
@@ -310,7 +310,10 @@ const isDifferentValue = (left: unknown, right: unknown): boolean => {
   const leftType = typeof left;
   const rightType = typeof right;
   if (leftType !== rightType) return true;
-  if (left && right && (leftType === 'object' || leftType === 'function')) {
+  if (leftType === 'function' || rightType === 'function') {
+    return left !== right;
+  }
+  if (left && right && leftType === 'object') {
     try {
       return JSON.stringify(left) !== JSON.stringify(right);
     } catch {
@@ -857,7 +860,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           if (cancelled) break;
 
           const options = response.data.map(buildClientOption);
-          allClients = [...allClients, ...options];
+          allClients.push(...options);
 
           // Determine if we should fetch more
           const count = response.data.length;
@@ -1032,8 +1035,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           .filter((item) => !String(item.action ?? '').startsWith('note_'))
           .slice()
           .sort((a, b) => {
-            const aTime = new Date(a.created_at ?? 0).getTime();
-            const bTime = new Date(b.created_at ?? 0).getTime();
+            const getTimestamp = (item: typeof a) => {
+              if (!item.created_at) {
+                console.warn('[PracticeMattersPage] Item missing created_at', { id: item.id, action: item.action });
+                return 0;
+              }
+              const time = new Date(item.created_at).getTime();
+              if (Number.isNaN(time)) {
+                console.warn('[PracticeMattersPage] Item has invalid created_at', { id: item.id, action: item.action, value: item.created_at });
+                return 0;
+              }
+              return time;
+            };
+
+            const aTime = getTimestamp(a);
+            const bTime = getTimestamp(b);
             return aTime - bTime;
           })
           .map(toActivityTimelineItem);
@@ -1063,9 +1079,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         const nextNotes = items
           .slice()
           .sort((a, b) => {
-            const aTime = new Date(a.created_at ?? 0).getTime();
-            const bTime = new Date(b.created_at ?? 0).getTime();
-            return aTime - bTime;
+            const getTimestamp = (item: typeof a) => {
+              if (!item.created_at) return 0;
+              const time = new Date(item.created_at).getTime();
+              return Number.isNaN(time) ? 0 : time;
+            };
+            return getTimestamp(a) - getTimestamp(b);
           })
           .map(toNoteTimelineItem);
         setNoteItems(nextNotes);
@@ -1445,14 +1464,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       throw new Error('Practice ID is required to create a matter.');
     }
 
+    if (values.clientId && !isUuid(values.clientId)) {
+      throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
+    }
+    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
+      throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
+    }
+
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : undefined,
+      client_id: values.clientId || undefined,
       description: values.description || undefined,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? undefined,
       contingency_percentage: values.contingencyPercent ?? undefined,
-      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : undefined,
+      practice_service_id: values.practiceAreaId || undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
@@ -1485,9 +1511,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         .filter((item) => !String(item.action ?? '').startsWith('note_'))
         .slice()
         .sort((a, b) => {
-          const aTime = new Date(a.created_at ?? 0).getTime();
-          const bTime = new Date(b.created_at ?? 0).getTime();
-          return aTime - bTime;
+          const getTimestamp = (d?: string | null) => {
+             const t = d ? new Date(d).getTime() : 0;
+             return Number.isNaN(t) ? 0 : t;
+          };
+          return getTimestamp(a.created_at) - getTimestamp(b.created_at);
         })
         .map(toActivityTimelineItem);
       
@@ -1513,16 +1541,23 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId || !selectedMatterId) return;
 
+    if (values.clientId && !isUuid(values.clientId)) {
+      throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
+    }
+    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
+      throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
+    }
+
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
-      description: values.description?.trim() || null,
-      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : null,
-      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : null,
+      description: values.description !== undefined ? values.description.trim() : undefined,
+      client_id: values.clientId || (values.clientId === '' ? null : undefined),
+      practice_service_id: values.practiceAreaId || (values.practiceAreaId === '' ? null : undefined),
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
       status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : []
+      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : null
     };
 
     await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));
@@ -1604,9 +1639,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const timelineItems = useMemo(() => {
     const combined = [...activityItems, ...noteItems];
     return combined.sort((a, b) => {
-      const aTime = new Date(a.dateTime ?? 0).getTime();
-      const bTime = new Date(b.dateTime ?? 0).getTime();
-      return aTime - bTime;
+      const getTimestamp = (d?: string | null) => {
+        const t = d ? new Date(d).getTime() : 0;
+        return Number.isFinite(t) ? t : 0;
+      };
+      const aTime = getTimestamp(a.dateTime);
+      const bTime = getTimestamp(b.dateTime);
+      return bTime - aTime;
     });
   }, [activityItems, noteItems]);
 
@@ -1621,9 +1660,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       selectedMatterDetail.clientId,
       ...((selectedMatterDetail as { clientIds?: string[] }).clientIds ?? [])
     ].filter(Boolean) as string[];
-    const clientNames = clientIds.map((id) => resolveOptionLabel(clientOptions, id, resolveClientLabel(id)));
-    if (clientNames.length === 0 && resolvedSelectedMatter.clientName) {
-      clientNames.push(resolvedSelectedMatter.clientName);
+    const clientEntries = clientIds.map((id) => ({
+      id,
+      name: resolveOptionLabel(clientOptions, id, resolveClientLabel(id))
+    }));
+    if (clientEntries.length === 0 && resolvedSelectedMatter.clientName) {
+      clientEntries.push({ id: 'client-name-fallback', name: resolvedSelectedMatter.clientName });
     }
 
     const assigneeNames = selectedMatterDetail.assigneeIds
@@ -1639,7 +1681,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       description: selectedMatterDetail.description || '',
       billingLabel,
       createdLabel,
-      clientNames,
+      clientEntries,
       assigneeNames
     };
   }, [assigneeOptions, clientOptions, resolvedSelectedMatter, selectedMatterDetail]);
@@ -1762,12 +1804,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Client</p>
-                    {headerMeta.clientNames.length > 0 ? (
+                    {headerMeta.clientEntries.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {headerMeta.clientNames.map((name, i) => (
-                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
-                            <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
+                        {headerMeta.clientEntries.map((entry) => (
+                          <div key={entry.id} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                            <Avatar name={entry.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">{entry.name}</span>
                           </div>
                         ))}
                       </div>
@@ -1856,7 +1898,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                           name: session?.user?.name ?? session?.user?.email ?? 'You',
                           imageUrl: session?.user?.image ?? null
                         }}
-                        onComposerSubmit={(value) => handleCreateNote({ content: value })}
+                        onComposerSubmit={async (value) => {
+                          try {
+                            await handleCreateNote({ content: value });
+                          } catch (err) {
+                            console.error('[PracticeMattersPage] Failed to create note', err);
+                            showError('Could not save comment', 'Please try again.');
+                          }
+                        }}
                       />
                     )}
                   </div>
