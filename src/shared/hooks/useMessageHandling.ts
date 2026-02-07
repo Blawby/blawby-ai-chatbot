@@ -1846,6 +1846,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     }
 
     resetRealtimeState();
+    setPaymentRetryNotice(null);
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -2078,6 +2079,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
         if (persistedMessage) {
           applyServerMessages([persistedMessage]);
+          setPaymentRetryNotice(null);
           void confirmIntakeLead(uuid);
         } else {
           throw new Error('Payment confirmation message could not be saved.');

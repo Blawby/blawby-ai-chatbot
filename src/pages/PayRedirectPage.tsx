@@ -81,10 +81,23 @@ export const PayRedirectPage: FunctionComponent = () => {
       // Extract slug from the normalized pathPart to avoid double encoding
       const slug = pathPart.replace(/^\/p\//, '').split(/[/?#]/)[0];
       if (!slug) return undefined;
+      
+      let decodedSlug = slug;
+      try {
+        decodedSlug = decodeURIComponent(slug);
+      } catch {}
+
+      let decodedConv = conversationFromParam;
       if (conversationFromParam) {
-        return `/embed/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(conversationFromParam)}`;
+        try {
+          decodedConv = decodeURIComponent(conversationFromParam);
+        } catch {}
       }
-      return `/embed/${encodeURIComponent(slug)}`;
+
+      if (decodedConv) {
+        return `/embed/${encodeURIComponent(decodedSlug)}/conversations/${encodeURIComponent(decodedConv)}`;
+      }
+      return `/embed/${encodeURIComponent(decodedSlug)}`;
     }
 
     return pathPart;

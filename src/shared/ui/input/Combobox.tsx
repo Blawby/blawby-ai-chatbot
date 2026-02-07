@@ -179,7 +179,7 @@ export const Combobox = ({
                 } else {
                    const lowerQuery = trimmedQuery.toLowerCase();
                    const caseInsensitiveMatches = options.filter(o => o.label.trim().toLowerCase() === lowerQuery);
-                   if (caseInsensitiveMatches.length === 1) {
+                   if (caseInsensitiveMatches.length >= 1) {
                       emitChange(caseInsensitiveMatches[0].value);
                    } else {
                       emitChange(trimmedQuery);

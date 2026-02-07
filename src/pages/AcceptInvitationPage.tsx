@@ -345,18 +345,22 @@ export const AcceptInvitationPage = () => {
       let targetOrgId = activeOrganizationId;
       let didSwitch = false;
 
+      const { data: orgs } = await (client as unknown as { 
+        organization: { list: () => Promise<any> } 
+      }).organization.list();
+
+      let match: any = null;
       if (organizationSlug) {
-        const { data: orgs } = await (client as unknown as { 
-          organization: { list: () => Promise<any> } 
-        }).organization.list();
-        
-        const match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
+        match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
         if (!match) {
           throw new Error('Organization not found.');
         }
+      } else if (targetOrgId) {
+        match = orgs?.find((o: any) => o.id === targetOrgId);
+      }
 
+      if (match) {
         targetOrgId = match.id;
-
         if (targetOrgId !== activeOrganizationId) {
           await (client as unknown as {
             organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
@@ -384,7 +388,7 @@ export const AcceptInvitationPage = () => {
         throw linkError;
       }
       
-      const finalSlug = organizationSlug || targetOrgId;
+      const finalSlug = organizationSlug || match?.slug || targetOrgId;
       navigate(
         `/embed/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true

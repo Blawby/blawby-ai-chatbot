@@ -26,7 +26,7 @@ const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: 
 
 export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ paymentRequest, onOpenPayment }) => {
   const { navigate } = useNavigation();
-  const { showError } = useToastContext();
+  const { showError, showInfo } = useToastContext();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {

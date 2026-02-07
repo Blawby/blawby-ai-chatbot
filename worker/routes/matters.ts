@@ -372,10 +372,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       const fields = buildMatterUpdateFields(before, afterMatter);
       console.log('[MatterDiff] computed fields', { matterId, fields });
       if (fields.length > 0 && env.MATTER_DIFFS) {
+        const requestTimestamp = Date.now();
         const backgroundTask = async (taskHeaders: Headers) => {
           let candidate: { item: BackendMatterActivity; delta: number } | undefined;
           const delays = [100, 300, 700];
-          const requestTimestamp = Date.now();
 
           for (let i = 0; i <= delays.length; i++) {
             const MATCH_THRESHOLD_MS = 5000;
@@ -513,10 +513,12 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     if (activityIds.length > 0 && env.MATTER_DIFFS) {
       try {
         const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
+        const signal = AbortSignal.timeout(3000);
         const response = await stub.fetch('https://matter-diffs/internal/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activityIds })
+          body: JSON.stringify({ activityIds }),
+          signal
         });
         const json = await response.json().catch(() => null) as { diffs?: Record<string, { fields: string[] }> } | null;
         diffs = json?.diffs ?? {};
