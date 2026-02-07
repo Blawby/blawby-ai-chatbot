@@ -135,6 +135,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     };
     const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
     const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -259,12 +266,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 const message = err instanceof Error ? err.message : 'Failed to update lead';
                 showError('Action failed', message);
             } finally {
-                setLeadActionState((prev) => {
-                    const next = { ...prev };
-                    delete next[leadId];
-                    return next;
-                });
-                delete submittingRef.current[leadId];
+                if (isMountedRef.current) {
+                    setLeadActionState((prev) => {
+                        const next = { ...prev };
+                        delete next[leadId];
+                        return next;
+                    });
+                    delete submittingRef.current[leadId];
+                }
             }
         };
 

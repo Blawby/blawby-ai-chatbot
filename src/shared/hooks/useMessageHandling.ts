@@ -2062,6 +2062,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         if (persistedMessage) {
           processedPaymentUuidsRef.current.add(uuid);
           applyServerMessages([persistedMessage]);
+          void confirmIntakeLead(uuid);
         } else {
           throw new Error('Payment confirmation message could not be saved.');
         }
@@ -2069,9 +2070,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
         console.warn('[Intake] Failed to persist payment confirmation message', error);
         onError?.(message);
+        throw error; // Re-throw to allow caller to handle retry logic
       }
-
-      void confirmIntakeLead(uuid);
     };
 
     if (typeof window !== 'undefined') {
@@ -2090,12 +2090,19 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       paymentKeys.forEach((key) => {
         const uuid = key.split(':')[1] || 'unknown';
         let practiceName = 'the practice';
-        const parsed = parseStoredFlag(window.sessionStorage.getItem(key));
+        const raw = window.sessionStorage.getItem(key);
+        const parsed = parseStoredFlag(raw);
         if (parsed?.practiceName && parsed.practiceName.trim().length > 0) {
           practiceName = parsed.practiceName.trim();
         }
-        void postPaymentConfirmation(uuid, practiceName);
-        window.sessionStorage.removeItem(key);
+        
+        postPaymentConfirmation(uuid, practiceName)
+          .then(() => {
+            window.sessionStorage.removeItem(key);
+          })
+          .catch((error) => {
+            console.warn('[Intake] Payment confirmation retry failed, keeping session key', error);
+          });
       });
 
       pendingKeys.forEach((key) => {

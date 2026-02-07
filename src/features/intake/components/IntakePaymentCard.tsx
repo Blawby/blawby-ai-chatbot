@@ -70,7 +70,28 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         }
       } else {
         console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
-        showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
+        
+        // Attempt fallback methods
+        let fallbackSucceeded = false;
+        if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
+          fallbackSucceeded = true;
+        } else if (onOpenPayment) {
+          onOpenPayment(paymentRequest);
+          fallbackSucceeded = true;
+        } else {
+             // Try simple navigation to payment URL as last resort if it differs from checkout session
+             if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
+                 navigate(paymentUrl);
+                 fallbackSucceeded = true;
+             }
+        }
+
+        if (fallbackSucceeded) {
+            showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
+        } else {
+             showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
+        }
+        return;
       }
     }
     if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {

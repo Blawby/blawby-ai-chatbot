@@ -71,6 +71,8 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
     return () => {
       cancelled = true;
       window.removeEventListener('focus', handleFocus);
+      isVerifyingRef.current = false;
+      setIsVerifying(false);
     };
   }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose]);
 

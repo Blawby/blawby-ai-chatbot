@@ -785,7 +785,7 @@ function PublicPracticeRoute({
     } else if (!isAuthenticatedClient && embedView === 'matters') {
       navigate(`/embed/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending]);
+  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending, session]);
 
   if (isLoading) {
     return <LoadingScreen />;

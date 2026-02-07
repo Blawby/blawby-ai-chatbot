@@ -102,14 +102,12 @@ export const Combobox = ({
   const hasValue = valueList.length > 0;
 
   const toggleValue = (optionValue: string) => {
-    if (isMultiple) {
-      const next = valueList.includes(optionValue)
-        ? valueList.filter((item) => item !== optionValue)
-        : [...valueList, optionValue];
-      emitChange(next);
-    } else {
-       emitChange(optionValue);
-    }
+    if (!isMultiple) return;
+
+    const next = valueList.includes(optionValue)
+      ? valueList.filter((item) => item !== optionValue)
+      : [...valueList, optionValue];
+    emitChange(next);
     setQuery('');
     setUserTyped(false);
     setIsOpen(true);

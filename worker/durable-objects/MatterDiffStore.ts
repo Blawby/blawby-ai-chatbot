@@ -55,7 +55,9 @@ export class MatterDiffStore {
         const matterId = typeof entry.matterId === 'string' ? entry.matterId.trim() : '';
         if (!activityId || !matterId) continue;
         const fields = Array.isArray(entry.fields)
-          ? entry.fields.filter((field) => typeof field === 'string' && field.trim().length > 0)
+          ? entry.fields
+              .filter((field) => typeof field === 'string' && field.trim().length > 0)
+              .map((field) => field.trim())
           : [];
         if (fields.length === 0) continue;
         const rawCreatedAt = entry.createdAt;
@@ -112,7 +114,9 @@ export class MatterDiffStore {
       }
       const payload = await request.json().catch(() => null) as DiffLookupRequest | null;
       const activityIds = Array.isArray(payload?.activityIds)
-        ? payload?.activityIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+        ? payload?.activityIds
+            .filter((id) => typeof id === 'string' && id.trim().length > 0)
+            .map((id) => id.trim())
         : [];
       if (activityIds.length === 0) {
         return this.json({ success: true, diffs: {} }, 200);

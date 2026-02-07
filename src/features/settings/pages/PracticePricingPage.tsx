@@ -90,7 +90,7 @@ export const PracticePricingPage = () => {
     }
     if (feeEnabledDraft && (!Number.isFinite(feeDraft) || (feeDraft ?? 0) <= 0)) {
       setShowValidation(true);
-      showError('Consultation fee', 'Enter a fee greater than $0.');
+      showError('Consultation fee', `Enter a fee greater than ${formatCurrency(0, currencyCode, locale)}.`);
       return;
     }
 
