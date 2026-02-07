@@ -378,7 +378,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
           const requestTimestamp = Date.now();
 
           for (let i = 0; i <= delays.length; i++) {
-            const now = requestTimestamp;
+            const now = Date.now();
             const MATCH_THRESHOLD_MS = 5000;
             const AMBIGUOUS_THRESHOLD_MS = 100;
             const activities = await fetchActivityList(env, taskHeaders, encodeURIComponent(practiceId), encodeURIComponent(matterId));

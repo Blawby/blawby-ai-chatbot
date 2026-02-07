@@ -72,9 +72,14 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       cancelled = true;
       window.removeEventListener('focus', handleFocus);
       isVerifyingRef.current = false;
-      setIsVerifying(false);
     };
   }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsVerifying(false);
+    }
+  }, [isOpen]);
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;

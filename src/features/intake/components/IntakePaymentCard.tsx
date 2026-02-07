@@ -68,6 +68,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
           return;
         }
+        showError('Payment not available', 'Payment not available in this environment');
         console.warn('[IntakePayment] Cannot open checkout session in SSR environment');
         return;
       } else {
@@ -115,6 +116,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         variant="primary"
         onClick={handlePay}
         className="w-full"
+        disabled={!onOpenPayment && typeof window === 'undefined'}
+        aria-label={(!onOpenPayment && typeof window === 'undefined') ? 'Payment not available in this environment' : undefined}
       >
         {buttonLabel}
       </Button>

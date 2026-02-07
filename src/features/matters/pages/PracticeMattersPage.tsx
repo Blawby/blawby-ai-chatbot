@@ -1663,7 +1663,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       description: selectedMatterDetail.description || '',
       billingLabel,
       createdLabel,
-      createdLabel,
       clientEntries,
       assigneeNames
     };
