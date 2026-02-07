@@ -1543,7 +1543,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
       status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : []
+      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined
     };
 
     await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));

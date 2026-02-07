@@ -341,7 +341,9 @@ export const AcceptInvitationPage = () => {
     setIsLinkingConversation(true);
     try {
       const client = getClient();
+      const previousOrgId = activeOrganizationId;
       let targetOrgId = activeOrganizationId;
+      let didSwitch = false;
 
       if (organizationSlug) {
         const { data: orgs } = await (client as unknown as { 
@@ -359,6 +361,7 @@ export const AcceptInvitationPage = () => {
           await (client as unknown as {
             organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
           }).organization.setActive({ organizationId: targetOrgId });
+          didSwitch = true;
         }
       }
 
@@ -366,7 +369,20 @@ export const AcceptInvitationPage = () => {
         throw new Error('No active organization context found.');
       }
 
-      await linkConversationToUser(intakeConversationId, targetOrgId);
+      try {
+        await linkConversationToUser(intakeConversationId, targetOrgId);
+      } catch (linkError) {
+        if (didSwitch && previousOrgId) {
+          try {
+            await (client as unknown as {
+              organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
+            }).organization.setActive({ organizationId: previousOrgId });
+          } catch (revertError) {
+            console.error('[AcceptInvitationPage] Failed to revert active organization', revertError);
+          }
+        }
+        throw linkError;
+      }
       
       const finalSlug = organizationSlug || targetOrgId;
       navigate(
@@ -464,8 +480,8 @@ export const AcceptInvitationPage = () => {
           </div>
         )}
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button 
-            variant="primary" 
+          <Button
+            variant="primary"
             onClick={() => {
               if (hasEmailMismatch) return;
               handleContinueIntake();

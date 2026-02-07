@@ -78,12 +78,9 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
               const timeLabel = preview?.createdAt
                 ? formatRelativeTime(preview.createdAt)
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
-              const rawPreview = preview?.content
+              const previewText = preview?.content
                 ? preview.content
                 : t('embed.conversationList.previewPlaceholder');
-              const previewText = rawPreview.length > 90
-                ? `${rawPreview.slice(0, 90)}…`
-                : rawPreview;
 
               return (
                 <button
