@@ -172,9 +172,19 @@ export const Combobox = ({
               setIsOpen(false);
               // Only emit if the user actually typed something or if query differs from display value and was intentional
               if (!isMultiple && userTyped && query !== resolvedDisplayValue) {
-                const lowerQuery = query.trim().toLowerCase();
-                const matchedOption = options.find(o => o.label.trim().toLowerCase() === lowerQuery);
-                emitChange(matchedOption ? matchedOption.value : query);
+                const trimmedQuery = query.trim();
+                const exactMatch = options.find(o => o.label.trim() === trimmedQuery);
+                if (exactMatch) {
+                   emitChange(exactMatch.value);
+                } else {
+                   const lowerQuery = trimmedQuery.toLowerCase();
+                   const caseInsensitiveMatches = options.filter(o => o.label.trim().toLowerCase() === lowerQuery);
+                   if (caseInsensitiveMatches.length === 1) {
+                      emitChange(caseInsensitiveMatches[0].value);
+                   } else {
+                      emitChange(query);
+                   }
+                }
               }
               setUserTyped(false);
             }}

@@ -860,7 +860,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           if (cancelled) break;
 
           const options = response.data.map(buildClientOption);
-          allClients = [...allClients, ...options];
+          allClients.push(...options);
 
           // Determine if we should fetch more
           const count = response.data.length;

@@ -314,7 +314,7 @@ export class ConversationService {
 
     // Try to get most recent conversation (prefer active if present)
     // Build WHERE clause conditionally to avoid SQL keyword interpolation
-    const userIdCondition = isAnonymous ? 'AND user_id IS NULL' : 'AND user_id IS NOT NULL';
+    const userIdCondition = isAnonymous ? 'AND c.user_id IS NULL' : 'AND c.user_id IS NOT NULL';
     const query = `
       SELECT 
         c.*,

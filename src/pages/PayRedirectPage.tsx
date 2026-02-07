@@ -53,7 +53,7 @@ export const PayRedirectPage: FunctionComponent = () => {
   const safeReturnTo = useMemo(() => {
     if (!returnToParam) return undefined;
     const trimmed = returnToParam.trim();
-    if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return undefined;
+    if (trimmed[0] !== '/' || trimmed[1] === '/' || trimmed[1] === '\\' || trimmed.includes('\\')) return undefined;
 
     let pathPart = trimmed;
     let conversationFromParam = conversationId;

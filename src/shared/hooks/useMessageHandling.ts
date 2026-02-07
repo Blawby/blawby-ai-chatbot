@@ -2064,6 +2064,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         });
         
         if (cancelled) {
+          processedPaymentUuidsRef.current.delete(uuid);
           return;
         }
 
