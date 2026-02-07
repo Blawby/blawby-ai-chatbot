@@ -197,16 +197,16 @@ export const AcceptInvitationPage = () => {
       return payloadResult.error ?? 'This link is missing required information. Please request a new invite.';
     }
 
-    if (flowType === 'intake' && !prefill) {
-      return payloadResult.error ?? 'This link is missing required invitation details. Please use the latest email from your practice.';
-    }
-
-    if (flowType === 'intake' && payloadType !== 'intake') {
-      return 'Invitation data is invalid.';
-    }
-
-    if (flowType === 'intake' && (!prefill.intakeId || !prefill.conversationId)) {
-      return 'Invitation data is incomplete.';
+    if (flowType === 'intake') {
+      if (!prefill) {
+        return payloadResult.error ?? 'This link is missing required invitation details. Please use the latest email from your practice.';
+      }
+      if (payloadType !== 'intake') {
+        return 'Invitation data is invalid.';
+      }
+      if (!prefill.intakeId || !prefill.conversationId) {
+        return 'Invitation data is incomplete.';
+      }
     }
 
     return null;

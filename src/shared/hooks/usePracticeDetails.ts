@@ -64,7 +64,7 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
 
   return {
     details,
-    hasDetails: hasCachedDetails,
+    hasDetails: Boolean(practiceId && hasCachedDetails && detailsMap[practiceId]?.services !== undefined),
     fetchDetails,
     updateDetails,
     setDetails

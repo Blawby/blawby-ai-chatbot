@@ -373,10 +373,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
               }))
               .filter((record) => record.delta <= MATCH_THRESHOLD_MS)
               .sort((a, b) => {
-                // Secondary sort: prefer high score (current user matches)
-                if (b.score !== a.score) return b.score - a.score;
                 // Primary sort: smallest time delta
-                return a.delta - b.delta;
+                if (a.delta !== b.delta) return a.delta - b.delta;
+                // Secondary tiebreaker: descending score
+                return b.score - a.score;
               });
 
             if (candidates.length > 1) {

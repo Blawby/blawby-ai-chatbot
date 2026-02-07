@@ -199,8 +199,8 @@ export class ConversationService {
       updated_at: record.updated_at
     };
 
-    // Populate lead property if matter record joined
-    if (record.lead_id) {
+    // Populate lead property if matter record joined and status is 'lead'
+    if (record.lead_id && record.lead_status === 'lead') {
       conversation.lead = {
         is_lead: true,
         lead_id: record.lead_id,
@@ -220,7 +220,7 @@ export class ConversationService {
     const record = await this.env.DB.prepare(`
       SELECT 
         c.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations c
       LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.id = ? AND c.practice_id = ?
@@ -241,7 +241,7 @@ export class ConversationService {
     const record = await this.env.DB.prepare(`
       SELECT 
         c.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations c
       LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.id = ?
@@ -318,7 +318,7 @@ export class ConversationService {
     const query = `
       SELECT 
         c.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations c
       LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.practice_id = ? 
@@ -361,7 +361,7 @@ export class ConversationService {
       ? `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -377,7 +377,7 @@ export class ConversationService {
       : `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations
       LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE conversations.practice_id = ?
@@ -424,7 +424,7 @@ export class ConversationService {
     let query = `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -1276,7 +1276,7 @@ export class ConversationService {
       ? `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at,
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -1292,7 +1292,7 @@ export class ConversationService {
       : `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at
+        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
       FROM conversations
       LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE conversations.practice_id = ?

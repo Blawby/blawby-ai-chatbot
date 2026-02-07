@@ -274,11 +274,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
     if (typeof window !== 'undefined' && paymentRequest.intakeUuid) {
       try {
-        const payload = {
-          practiceName: paymentRequest.practiceName,
-          practiceId: paymentRequest.practiceId,
-          conversationId: paymentRequest.conversationId
-        };
+        const payload: Record<string, string> = {};
+        if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
+        if (paymentRequest.practiceId) payload.practiceId = paymentRequest.practiceId;
+        if (paymentRequest.conversationId) payload.conversationId = paymentRequest.conversationId;
+
         window.sessionStorage.setItem(
           `intakePaymentSuccess:${paymentRequest.intakeUuid}`,
           JSON.stringify(payload)
