@@ -338,49 +338,10 @@ export const AcceptInvitationPage = () => {
 
     setIsLinkingConversation(true);
     try {
-      // Resolve organization ID if we only have slug (or ensure consistency)
-      let targetOrgId = activeOrganizationId;
-      
+      const targetOrgId = activeOrganizationId;
       if (organizationSlug) {
-        // If we have a slug, we should ensure we are active in that org context.
-        // We use getClient() to interact with Better Auth directly.
-        const { getClient } = await import('@/shared/lib/authClient');
-        const client = getClient();
-        
-        // Attempt to list organizations to find the ID if needed, 
-        // OR simply call setActive if we have the ID. 
-        // However, setActive usually takes an ID. 
-        // If we don't have the ID but have the slug, we might need to rely on the active session 
-        // matching the slug or use a lookup. 
-        // Assuming for intake flows, the user might just have accepted an invite to this org.
-        
-        // Ideally we'd have the ID from props or context. If not, we fall back to:
-        if (!targetOrgId) {
-           // We can't easily lookup ID by slug on the client without an API call.
-           // But 'linkConversationToUser' will fail without an ID.
-           // Strategy: If we lack ID, try to rely on current session being correct or trigger a refresh?
-           // Actually, let's try to assume activeOrganizationId is fresh enough due to re-renders, 
-           // BUT the prompt says "capture the resulting organization ID".
-           // Since setActive is async, let's call it.
-           
-           // If we don't have ID, we can't call sync setActive easily without lookup.
-           // However, better-auth's listOrganizations might be cached.
-           const { data: orgs } = await client.organization.list();
-           const match = orgs?.find(o => o.slug === organizationSlug || o.id === organizationSlug); // slug check
-           if (match) {
-             targetOrgId = match.id;
-           }
-        }
-        
-        if (targetOrgId) {
-          await client.organization.setActive({ organizationId: targetOrgId });
-        } else {
-           throw new Error('Could not resolve organization context.');
-        }
-      }
-
-      if (!targetOrgId) {
-         throw new Error('Missing practice context.');
+        // Ensure we are active in the target organization context
+        await getClient().organization.setActive({ organizationId: targetOrgId });
       }
 
       await linkConversationToUser(intakeConversationId, targetOrgId);
@@ -479,7 +440,16 @@ export const AcceptInvitationPage = () => {
           </div>
         )}
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button variant="primary" onClick={handleContinueIntake} disabled={isLinkingConversation}>
+          <Button 
+            variant="primary" 
+            onClick={() => {
+              if (hasEmailMismatch) return;
+              handleContinueIntake();
+            }}
+            disabled={isLinkingConversation || hasEmailMismatch}
+            aria-disabled={isLinkingConversation || hasEmailMismatch}
+            className={hasEmailMismatch ? 'opacity-50 cursor-not-allowed' : ''}
+          >
             {isLinkingConversation ? 'Opening conversation…' : 'Continue to practice'}
           </Button>
           <Button variant="secondary" onClick={() => handleSwitchAccount('signin')}>
@@ -542,7 +512,7 @@ export const AcceptInvitationPage = () => {
       <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
         {invitation.organizationSlug && (
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {invitation.organizationSlug}
+            <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {invitation.organizationName || invitation.organizationSlug}
           </div>
         )}
         {(invitation.inviterName || invitation.inviterEmail) && (

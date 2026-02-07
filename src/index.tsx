@@ -513,10 +513,12 @@ function PracticeAppRoute({
     }
   }, [
     canAccessPractice,
+    currentPractice,
     hasPracticeCandidate,
     isPracticeEnabled,
     isPending,
     navigate,
+    practices,
     practicesLoading,
     session?.user,
     settingsMode,

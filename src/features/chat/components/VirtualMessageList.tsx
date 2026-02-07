@@ -106,6 +106,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         });
     }, [messages]);
     const listRef = useRef<HTMLDivElement>(null);
+    const submittingRef = useRef<Record<string, boolean>>({});
     const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(dedupedMessages.length);
     const isScrolledToBottomRef = useRef(true);
@@ -206,13 +207,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
         const isSubmitting = Boolean(leadActionState[leadId]);
 
-        const submittingRef = useRef(false);
-
         const runLeadAction = async (action: 'accept' | 'reject') => {
-            if (!leadReviewActions.canReviewLeads || isSubmitting || submittingRef.current) {
+            if (!leadReviewActions.canReviewLeads || isSubmitting || submittingRef.current[leadId]) {
                 return;
             }
-            submittingRef.current = true;
+            submittingRef.current[leadId] = true;
             setLeadActionState((prev) => ({ ...prev, [leadId]: action }));
             try {
                 let result: MatterTransitionResult;
@@ -265,7 +264,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     delete next[leadId];
                     return next;
                 });
-                submittingRef.current = false;
+                delete submittingRef.current[leadId];
             }
         };
 
