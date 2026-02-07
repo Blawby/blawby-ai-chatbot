@@ -1465,20 +1465,20 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
 
     if (values.clientId && !isUuid(values.clientId)) {
-      console.warn(`[PracticeMattersPage] Invalid client_id UUID provided: "${values.clientId}"`);
+      throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
     }
     if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
-      console.warn(`[PracticeMattersPage] Invalid practice_service_id UUID provided: "${values.practiceAreaId}"`);
+      throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
     }
 
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: (values.clientId && isUuid(values.clientId)) ? values.clientId : undefined,
+      client_id: values.clientId || undefined,
       description: values.description || undefined,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? undefined,
       contingency_percentage: values.contingencyPercent ?? undefined,
-      practice_service_id: (values.practiceAreaId && isUuid(values.practiceAreaId)) ? values.practiceAreaId : undefined,
+      practice_service_id: values.practiceAreaId || undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
@@ -1550,7 +1550,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
-      description: values.description?.trim() || undefined,
+      description: values.description !== undefined ? values.description.trim() : undefined,
       client_id: values.clientId || (values.clientId === '' ? null : undefined),
       practice_service_id: values.practiceAreaId || (values.practiceAreaId === '' ? null : undefined),
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
