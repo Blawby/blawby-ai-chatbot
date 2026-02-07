@@ -483,6 +483,7 @@ function PracticeAppRoute({
 
   useEffect(() => {
     if (!canAutoActivatePractice) return;
+    if (slugActivationRef.current) return;
     const activationKey = `${session?.user?.id ?? 'unknown'}:${autoActivationCandidateId}`;
     if (autoActivationKeyRef.current === activationKey) return;
     autoActivationKeyRef.current = activationKey;

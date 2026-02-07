@@ -53,7 +53,7 @@ export const PracticePricingPage = () => {
     ? (activeBillingIncrement as number)
     : DEFAULT_BILLING_INCREMENT;
   const feeValidationError = showValidation && feeEnabledDraft && (!Number.isFinite(feeDraft) || (feeDraft ?? 0) <= 0)
-    ? 'Enter a fee greater than $0.'
+    ? `Enter a fee greater than ${formatCurrency(0, currencyCode, locale)}.`
     : undefined;
 
   const openFeeModal = () => {

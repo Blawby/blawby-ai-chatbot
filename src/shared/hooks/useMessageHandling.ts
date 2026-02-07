@@ -2048,7 +2048,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       if (processedPaymentUuidsRef.current.has(uuid) || messages.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
         return;
       }
-      processedPaymentUuidsRef.current.add(uuid);
+
 
       try {
         const persistedMessage = await postSystemMessage(conversationId, practiceId, {
@@ -2060,6 +2060,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
           }
         });
         if (persistedMessage) {
+          processedPaymentUuidsRef.current.add(uuid);
           applyServerMessages([persistedMessage]);
         } else {
           throw new Error('Payment confirmation message could not be saved.');

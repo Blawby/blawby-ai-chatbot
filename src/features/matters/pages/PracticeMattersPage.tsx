@@ -139,7 +139,7 @@ const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => 
   const normalized = status?.toLowerCase().replace(/\s+/g, '_');
   if (normalized === 'draft') return 'draft';
   if (normalized === 'active') return 'active';
-  // Fallback for any legacy legacy statuses if they persist
+  // Fallback for any legacy statuses if they persist
   if (normalized === 'lead') return 'draft';
   return 'active';
 };
@@ -1620,9 +1620,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const timelineItems = useMemo(() => {
     const combined = [...activityItems, ...noteItems];
     return combined.sort((a, b) => {
-      const aTime = new Date(a.dateTime ?? 0).getTime();
-      const bTime = new Date(b.dateTime ?? 0).getTime();
-      return aTime - bTime;
+      const aTime = a.dateTime ? new Date(a.dateTime).getTime() : Number.MAX_SAFE_INTEGER;
+      const bTime = b.dateTime ? new Date(b.dateTime).getTime() : Number.MAX_SAFE_INTEGER;
+      return bTime - aTime;
     });
   }, [activityItems, noteItems]);
 

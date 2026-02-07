@@ -82,7 +82,11 @@ export class MatterDiffStore {
             adjustedValue = rawCreatedAt * 1000;
           }
           if (Number.isFinite(adjustedValue)) {
-            normalizedCreatedAt = new Date(adjustedValue).toISOString();
+            try {
+              normalizedCreatedAt = new Date(adjustedValue).toISOString();
+            } catch {
+              normalizedCreatedAt = null;
+            }
           }
         }
         updates.set(`diff:${activityId}`, {

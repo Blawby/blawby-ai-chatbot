@@ -150,7 +150,23 @@ export const PayRedirectPage: FunctionComponent = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
       <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
-        <p>{message}</p>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <p>{message}</p>
+          {!intakeUuid && !sessionId && (
+            <button
+              type="button"
+              className="mt-2 text-blue-600 hover:text-blue-800 underline disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => {
+                if (safeReturnTo) {
+                  navigate(safeReturnTo, true);
+                }
+              }}
+              disabled={!safeReturnTo}
+            >
+              Return to conversation
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

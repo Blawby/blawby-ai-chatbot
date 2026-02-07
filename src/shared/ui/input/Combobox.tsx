@@ -273,6 +273,7 @@ export const Combobox = ({
           <div
             id={listboxId}
             role="listbox"
+            aria-multiselectable={isMultiple}
             tabIndex={-1}
             className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
             onMouseDown={(event) => {

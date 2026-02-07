@@ -338,7 +338,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
   const updateMatch = url.pathname.match(UPDATE_PATTERN);
   if (updateMatch) {
     if (!['PUT', 'PATCH', 'POST'].includes(request.method.toUpperCase())) {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: { 'Allow': 'PUT, PATCH, POST' }
+      });
     }
     const [, practiceId, matterId] = updateMatch;
     const requestHost = resolveRequestHost(request);
@@ -484,7 +487,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
   const activityMatch = url.pathname.match(ACTIVITY_PATTERN);
   if (activityMatch) {
     if (request.method.toUpperCase() !== 'GET') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: { 'Allow': 'GET' }
+      });
     }
     const [, _practiceId, matterId] = activityMatch;
     const requestHost = resolveRequestHost(request);
