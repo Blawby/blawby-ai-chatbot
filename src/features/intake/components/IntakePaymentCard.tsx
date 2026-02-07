@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useMemo } from 'preact/hooks';
+import { useMemo, useState, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
@@ -27,6 +27,12 @@ const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: 
 export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ paymentRequest, onOpenPayment }) => {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const formattedAmount = useMemo(
     () => resolveDisplayAmount(paymentRequest.amount, paymentRequest.currency, locale),
@@ -65,10 +71,9 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           return;
         }
         if (typeof window !== 'undefined') {
-          window.open(paymentRequest.checkoutSessionUrl, '_blank', 'noopener');
+          window.location.assign(paymentRequest.checkoutSessionUrl);
           return;
         }
-        showError('Payment not available', 'Payment not available in this environment');
         console.warn('[IntakePayment] Cannot open checkout session in SSR environment');
         return;
       } else {
@@ -94,7 +99,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         if (fallbackSucceeded) {
             // Using showInfo instead of showError to avoid alarming the user during fallback flow
             // showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
-        } else {
+        } else if (typeof window !== 'undefined') {
              showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
         }
         return;
@@ -116,8 +121,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         variant="primary"
         onClick={handlePay}
         className="w-full"
-        disabled={!onOpenPayment && typeof window === 'undefined'}
-        aria-label={(!onOpenPayment && typeof window === 'undefined') ? 'Payment not available in this environment' : undefined}
+        disabled={!isClient || !onOpenPayment && typeof window === 'undefined'}
+        aria-label={(!isClient || !onOpenPayment && typeof window === 'undefined') ? 'Payment not available in this environment' : undefined}
       >
         {buttonLabel}
       </Button>

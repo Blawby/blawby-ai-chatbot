@@ -1464,14 +1464,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       throw new Error('Practice ID is required to create a matter.');
     }
 
+    if (values.clientId && !isUuid(values.clientId)) {
+      console.warn(`[PracticeMattersPage] Invalid client_id UUID provided: "${values.clientId}"`);
+    }
+    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
+      console.warn(`[PracticeMattersPage] Invalid practice_service_id UUID provided: "${values.practiceAreaId}"`);
+    }
+
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : undefined,
+      client_id: values.clientId || undefined,
       description: values.description || undefined,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? undefined,
       contingency_percentage: values.contingencyPercent ?? undefined,
-      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : undefined,
+      practice_service_id: values.practiceAreaId || undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
@@ -1534,11 +1541,18 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId || !selectedMatterId) return;
 
+    if (values.clientId && !isUuid(values.clientId)) {
+      console.warn(`[PracticeMattersPage] Invalid client_id UUID provided: "${values.clientId}"`);
+    }
+    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
+      console.warn(`[PracticeMattersPage] Invalid practice_service_id UUID provided: "${values.practiceAreaId}"`);
+    }
+
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
       description: values.description?.trim() || undefined,
-      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : undefined,
-      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : undefined,
+      client_id: values.clientId || undefined,
+      practice_service_id: values.practiceAreaId || undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,

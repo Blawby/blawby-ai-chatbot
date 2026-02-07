@@ -48,7 +48,7 @@ const NotFoundRoute = () => (
 );
 
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
-type PracticeRouteKey = 'home' | 'messages' | 'matters' | 'clients';
+type PracticeRouteKey = 'home' | 'messages' | 'matters' | 'clients' | 'conversations';
 
 // Client routes align with public embed structure
 

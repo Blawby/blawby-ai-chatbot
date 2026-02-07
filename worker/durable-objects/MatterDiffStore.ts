@@ -100,7 +100,7 @@ export class MatterDiffStore {
           activityId,
           matterId,
           fields,
-          userId: typeof entry.userId === 'string' ? entry.userId : null,
+          userId: typeof entry.userId === 'string' ? entry.userId.trim() : null,
           createdAt: normalizedCreatedAt
         });
       }
