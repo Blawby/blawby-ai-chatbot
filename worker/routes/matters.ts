@@ -378,7 +378,6 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
           const requestTimestamp = Date.now();
 
           for (let i = 0; i <= delays.length; i++) {
-            const now = Date.now();
             const MATCH_THRESHOLD_MS = 5000;
             const AMBIGUOUS_THRESHOLD_MS = 100;
             const activities = await fetchActivityList(env, taskHeaders, encodeURIComponent(practiceId), encodeURIComponent(matterId));
@@ -399,7 +398,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
               .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
               .map((record) => ({
                 ...record,
-                delta: Math.abs(record.createdAt - now)
+                delta: Math.abs(record.createdAt - requestTimestamp)
               }))
               .filter((record) => record.delta <= MATCH_THRESHOLD_MS)
               .sort((a, b) => {
