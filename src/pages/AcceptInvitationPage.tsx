@@ -331,38 +331,46 @@ export const AcceptInvitationPage = () => {
   }, [inviteState, invitationId, navigate, showError, showSuccess]);
 
   const handleContinueIntake = useCallback(async () => {
-    if (!organizationSlug) return;
     if (!intakeConversationId) {
-      navigate(`/embed/${encodeURIComponent(organizationSlug)}`, true);
+      if (organizationSlug) {
+        navigate(`/embed/${encodeURIComponent(organizationSlug)}`, true);
+      }
       return;
     }
 
     setIsLinkingConversation(true);
     try {
+      const client = getClient();
       let targetOrgId = activeOrganizationId;
 
-      if (!targetOrgId) {
-        const client = getClient();
+      if (organizationSlug) {
         const { data: orgs } = await (client as unknown as { 
           organization: { list: () => Promise<any> } 
         }).organization.list();
         
         const match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
-        
         if (!match) {
           throw new Error('Organization not found.');
         }
 
         targetOrgId = match.id;
-        
-        await (client as unknown as {
-          organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
-        }).organization.setActive({ organizationId: targetOrgId });
+
+        if (targetOrgId !== activeOrganizationId) {
+          await (client as unknown as {
+            organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
+          }).organization.setActive({ organizationId: targetOrgId });
+        }
+      }
+
+      if (!targetOrgId) {
+        throw new Error('No active organization context found.');
       }
 
       await linkConversationToUser(intakeConversationId, targetOrgId);
+      
+      const finalSlug = organizationSlug || targetOrgId;
       navigate(
-        `/embed/${encodeURIComponent(organizationSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
+        `/embed/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true
       );
     } catch (error) {
