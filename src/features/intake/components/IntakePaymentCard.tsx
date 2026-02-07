@@ -98,7 +98,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
 
         if (fallbackSucceeded) {
             // Using showInfo instead of showError to avoid alarming the user during fallback flow
-            // showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
+            showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
         } else if (typeof window !== 'undefined') {
              showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
         }

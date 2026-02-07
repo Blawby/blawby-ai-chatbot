@@ -14,7 +14,15 @@ type DiffLookupRequest = {
 };
 
 type DiffStoreRequest = {
-  entries: DiffEntry[];
+  entries: DiffEntryInput[];
+};
+
+type DiffEntryInput = {
+  activityId: string;
+  matterId: string;
+  fields: string[];
+  userId?: string | null;
+  createdAt?: string | number | null;
 };
 
 type DiffStoreResponse = {
@@ -69,10 +77,10 @@ export class MatterDiffStore {
           }
         } else if (typeof rawCreatedAt === 'number' && Number.isFinite(rawCreatedAt)) {
           // Deterministic detection checks candidates against valid window (2000-2100)
-          // Lower bound 2000 prioritizes milliseconds over small seconds, reducing ambiguity
+          // Prioritizes milliseconds (rawCreatedAt) over seconds to reduce ambiguity
           const candidates = [
-            rawCreatedAt * 1000, // Seconds
             rawCreatedAt,        // Milliseconds
+            rawCreatedAt * 1000, // Seconds
             rawCreatedAt / 1000, // Microseconds
             rawCreatedAt / 1e6   // Nanoseconds
           ];

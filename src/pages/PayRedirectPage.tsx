@@ -71,13 +71,14 @@ export const PayRedirectPage: FunctionComponent = () => {
       const urlObj = new URL(trimmed, window.location.origin);
       if (urlObj.searchParams.has('conversation_id')) {
         urlObj.searchParams.delete('conversation_id');
-        pathPart = urlObj.pathname + (urlObj.search ? urlObj.search : '');
       }
+      pathPart = urlObj.pathname + (urlObj.search ? urlObj.search : '');
     } catch (e) {
       console.warn('[PayRedirect] Failed to parse return_to URL', e);
     }
 
     if (pathPart.startsWith('/p/')) {
+      // Extract slug from the normalized pathPart to avoid double encoding
       const slug = pathPart.replace(/^\/p\//, '').split(/[/?#]/)[0];
       if (!slug) return undefined;
       if (conversationFromParam) {

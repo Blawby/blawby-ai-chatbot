@@ -2061,6 +2061,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       processedPaymentUuidsRef.current.add(uuid);
 
       try {
+        if (cancelled) return;
+
         const persistedMessage = await postSystemMessage(conversationId, practiceId, {
           clientId: messageId,
           content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
@@ -2071,7 +2073,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         });
         
         if (cancelled) {
-          processedPaymentUuidsRef.current.delete(uuid);
           return;
         }
 
@@ -2082,7 +2083,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
           throw new Error('Payment confirmation message could not be saved.');
         }
       } catch (error) {
-        // Remove from set so it can be retried
+        // Only remove if it failed to save (so it can be retried)
+        // If it was cancelled but saved, we rely on the dedupe check above on next run
         processedPaymentUuidsRef.current.delete(uuid);
         
         const message = error instanceof Error ? error.message : 'Payment confirmation failed.';

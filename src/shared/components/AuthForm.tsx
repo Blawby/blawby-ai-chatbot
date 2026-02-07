@@ -179,8 +179,8 @@ const AuthForm = ({
           // Fall back to origin
         }
       } else if (redirectParam) {
-        const decodedRedirect = decodeURIComponent(redirectParam);
         try {
+          const decodedRedirect = decodeURIComponent(redirectParam);
           const redirectUrl = new URL(decodedRedirect, window.location.origin);
           if (redirectUrl.origin === window.location.origin) {
             resolvedCallbackURL = redirectUrl.href;
