@@ -2049,6 +2049,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         return;
       }
 
+      // Optimistically add to prevent race conditions
+      processedPaymentUuidsRef.current.add(uuid);
 
       try {
         const persistedMessage = await postSystemMessage(conversationId, practiceId, {
@@ -2059,14 +2061,21 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             paymentStatus: 'succeeded'
           }
         });
+        
+        if (cancelled) {
+          return;
+        }
+
         if (persistedMessage) {
-          processedPaymentUuidsRef.current.add(uuid);
           applyServerMessages([persistedMessage]);
           void confirmIntakeLead(uuid);
         } else {
           throw new Error('Payment confirmation message could not be saved.');
         }
       } catch (error) {
+        // Remove from set so it can be retried
+        processedPaymentUuidsRef.current.delete(uuid);
+        
         const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
         console.warn('[Intake] Failed to persist payment confirmation message', error);
         onError?.(message);

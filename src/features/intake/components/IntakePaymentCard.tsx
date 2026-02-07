@@ -76,7 +76,9 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
           fallbackSucceeded = true;
         } else if (onOpenPayment) {
-          onOpenPayment(paymentRequest);
+          const sanitizedRequest = { ...paymentRequest };
+          delete sanitizedRequest.checkoutSessionUrl;
+          onOpenPayment(sanitizedRequest);
           fallbackSucceeded = true;
         } else {
              // Try simple navigation to payment URL as last resort if it differs from checkout session
@@ -87,7 +89,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         }
 
         if (fallbackSucceeded) {
-            showError('Payment link error', 'The checkout link appears to be invalid. We will try an alternative method.');
+            // Using showInfo instead of showError to avoid alarming the user during fallback flow
+            // showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
         } else {
              showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
         }

@@ -40,6 +40,7 @@ export const PayRedirectPage: FunctionComponent = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const [message, setMessage] = useState('Finalizing payment…');
+  const [postPayFetchFailed, setPostPayFetchFailed] = useState(false);
   const hasRunRef = useRef(false);
 
   const intakeUuid = resolveQueryValue(location.query?.uuid);
@@ -113,6 +114,9 @@ export const PayRedirectPage: FunctionComponent = () => {
         setMessage('Confirming payment…');
         resolvedUuid = await fetchPostPayStatus(sessionId);
         if (cancelled) return;
+        if (!resolvedUuid) {
+          setPostPayFetchFailed(true);
+        }
       }
 
       if (resolvedUuid) {
@@ -152,7 +156,7 @@ export const PayRedirectPage: FunctionComponent = () => {
       <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
         <div className="flex flex-col items-center gap-4 text-center">
           <p>{message}</p>
-          {!intakeUuid && !sessionId && (
+          {!intakeUuid && (!sessionId || postPayFetchFailed) && (
             <button
               type="button"
               className="mt-2 text-blue-600 hover:text-blue-800 underline disabled:opacity-50 disabled:cursor-not-allowed"

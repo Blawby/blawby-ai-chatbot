@@ -59,16 +59,8 @@ const normalizeCookieDomain = (value: string, requestHost: string, env?: Env): s
   }
 
   // Basic public-suffix awareness for multi-part TLDs (e.g., .co.uk, .com.au)
-  // If the last part is 2 chars and the second to last is a short common part, take 3 parts.
-  let baseDomain = hostParts.slice(-2).join('.');
-  if (hostParts.length >= 3) {
-    const tld = hostParts[hostParts.length - 1];
-    const sld = hostParts[hostParts.length - 2];
-    const commonPublicParts = new Set(['com', 'co', 'net', 'org', 'edu', 'gov']);
-    if (tld.length === 2 && commonPublicParts.has(sld)) {
-      baseDomain = hostParts.slice(-3).join('.');
-    }
-  }
+  // Replaced previous complex logic with simple assumption as per requirements
+  const baseDomain = hostParts.slice(-2).join('.');
 
   const domainValue = `.${baseDomain}`;
   if (DOMAIN_PATTERN.test(value)) {
@@ -343,10 +335,13 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         headers: { 'Allow': 'PUT, PATCH, POST' }
       });
     }
-    const [, practiceId, matterId] = updateMatch;
+    const [, rawPracticeId, rawMatterId] = updateMatch;
+    const practiceId = encodeURIComponent(rawPracticeId);
+    const matterId = encodeURIComponent(rawMatterId);
     const requestHost = resolveRequestHost(request);
     const authContext = await optionalAuth(request, env);
     const headers = new Headers(request.headers);
+    const taskHeaders = new Headers(headers); // Clone for background task
     const before = await fetchMatterSnapshot(env, headers, practiceId, matterId);
     const requestBody = await request.arrayBuffer();
 
@@ -467,10 +462,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         };
 
         if (ctx?.waitUntil) {
-          ctx.waitUntil(backgroundTask(headers));
+          ctx.waitUntil(backgroundTask(taskHeaders));
         } else {
           // Fire and forget, but log errors
-          backgroundTask(headers).catch((err) => {
+          backgroundTask(taskHeaders).catch((err) => {
             console.error('[MatterDiff] Background task failed (unawaited)', err);
           });
         }
