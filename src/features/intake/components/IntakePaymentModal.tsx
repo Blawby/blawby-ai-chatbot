@@ -37,6 +37,14 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   const isValidCheckoutSession = checkoutSessionUrl ? isValidStripeCheckoutSessionUrl(checkoutSessionUrl) : false;
 
   const isVerifyingRef = useRef(false);
+  const latestOnSuccessRef = useRef(onSuccess);
+  const latestOnCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    latestOnSuccessRef.current = onSuccess;
+    latestOnCloseRef.current = onClose;
+  }, [onSuccess, onClose]);
+
   useEffect(() => {
     if (!isOpen || !paymentRequest?.intakeUuid) return;
 
@@ -49,11 +57,11 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
         const status = await fetchIntakePaymentStatus(paymentRequest.intakeUuid);
         if (cancelled) return;
         if (isPaidIntakeStatus(status)) {
-          if (onSuccess) {
-            await Promise.resolve(onSuccess());
+          if (latestOnSuccessRef.current) {
+            await Promise.resolve(latestOnSuccessRef.current());
           }
           if (cancelled) return;
-          onClose();
+          latestOnCloseRef.current();
         }
       } catch (err) {
         if (!cancelled) {
@@ -73,7 +81,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       window.removeEventListener('focus', handleFocus);
       isVerifyingRef.current = false;
     };
-  }, [isOpen, paymentRequest?.intakeUuid, onSuccess, onClose]);
+  }, [isOpen, paymentRequest?.intakeUuid]);
 
   useEffect(() => {
     if (!isOpen) {

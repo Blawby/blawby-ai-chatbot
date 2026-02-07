@@ -299,6 +299,10 @@ export const useMessageHandling = ({
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
+  const [paymentRetryNotice, setPaymentRetryNotice] = useState<{
+    message: string;
+    paymentUrl: string;
+  } | null>(null);
   practiceIdRef.current = practiceId;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -1536,7 +1540,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             returnTo
           };
 
-          let persisted = false;
+          let persistenceStatus: 'idle' | 'success' | 'retry_queued' | 'failed' = 'idle';
           if (conversationId && practiceContextId) {
             try {
               const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {
@@ -1549,16 +1553,19 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
               });
               if (persistedMessage) {
                 applyServerMessages([persistedMessage]);
-                persisted = true;
+                persistenceStatus = 'success';
               }
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to persist payment message';
               console.warn('[Intake] Failed to persist payment message', error);
-              throw new Error(message);
+              setPaymentRetryNotice({
+                message: 'Payment message delivery will be retried. You can also pay using the link below.',
+                paymentUrl: paymentUrl
+              });
+              persistenceStatus = 'retry_queued';
             }
           }
 
-          if (!persisted) {
+          if (persistenceStatus === 'idle') {
             const message = 'Payment message could not be saved. Please retry.';
             throw new Error(message);
           }
@@ -2147,6 +2154,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     updateConversationMetadata,
     isSocketReady,
     isConsultFlowActive,
+    paymentRetryNotice,
     messagesReady,
     hasMoreMessages,
     isLoadingMoreMessages,

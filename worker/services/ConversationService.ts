@@ -159,19 +159,24 @@ export class ConversationService {
     }
     
     // Parse JSON fields if they are strings
-    const safeParse = <T>(value: any, fallback: T): T => {
+    const safeParse = <T>(label: string, value: any, fallback: T): T => {
       if (typeof value !== 'string') return value ?? fallback;
       try {
         return JSON.parse(value);
       } catch (err) {
-        console.error('[ConversationService] JSON parse error', { error: err, value });
+        console.error(`[ConversationService] JSON parse error [${label}]`, { 
+          error: err instanceof Error ? err.message : String(err),
+          type: typeof value,
+          length: typeof value === 'string' ? value.length : undefined,
+          preview: typeof value === 'string' ? `${value.slice(0, 30)}...` : undefined
+        });
         return fallback;
       }
     };
 
-    const participants = safeParse<string[]>(record.participants, []);
-    const user_info = safeParse<Record<string, any> | null>(record.user_info, null);
-    const tags = safeParse<string[] | undefined>(record.tags, undefined);
+    const participants = safeParse<string[]>('participants', record.participants, []);
+    const user_info = safeParse<Record<string, any> | null>('user_info', record.user_info, null);
+    const tags = safeParse<string[] | undefined>('tags', record.tags, undefined);
     
     const conversation: Conversation = {
       id: record.id,

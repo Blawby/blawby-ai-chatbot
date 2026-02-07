@@ -573,7 +573,6 @@ function PracticeAppRoute({
       isPracticeView={true}
       workspace="practice"
       settingsOverlayOpen={settingsOverlayOpen}
-      activeRoute={activeRoute}
       routeConversationId={conversationId}
       practiceEmbedView={practiceEmbedView}
       practiceSlug={normalizedPracticeSlug || undefined}
@@ -664,7 +663,6 @@ function ClientPracticeRoute({
         handleRetryPracticeConfig={handleRetryPracticeConfig}
         isPracticeView={true}
         workspace="client"
-        activeRoute={embedView === 'conversation' || embedView === 'list' ? 'messages' : embedView === 'matters' ? 'matters' : 'home'}
         clientPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
         clientEmbedView={embedView}
@@ -842,7 +840,6 @@ function PublicPracticeRoute({
         handleRetryPracticeConfig={handleRetryPracticeConfig}
         isPracticeView={true}
         workspace="public"
-        activeRoute="conversations"
         publicPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
         publicEmbedView={embedView}

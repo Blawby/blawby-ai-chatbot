@@ -182,7 +182,7 @@ export const Combobox = ({
                    if (caseInsensitiveMatches.length === 1) {
                       emitChange(caseInsensitiveMatches[0].value);
                    } else {
-                      emitChange(query);
+                      emitChange(trimmedQuery);
                    }
                 }
               }

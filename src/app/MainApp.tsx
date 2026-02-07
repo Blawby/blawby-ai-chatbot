@@ -60,7 +60,6 @@ export function MainApp({
   workspace,
   settingsOverlayOpen,
   chatContent,
-  activeRoute: _activeRoute,
   routeConversationId,
   publicPracticeSlug,
   publicEmbedView,
@@ -77,7 +76,6 @@ export function MainApp({
   workspace: WorkspaceType;
   settingsOverlayOpen?: boolean;
   chatContent?: ComponentChildren;
-  activeRoute: RouteKey;
   routeConversationId?: string;
   publicPracticeSlug?: string;
   publicEmbedView?: EmbedView;
