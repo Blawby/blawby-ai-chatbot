@@ -338,10 +338,31 @@ export const AcceptInvitationPage = () => {
 
     setIsLinkingConversation(true);
     try {
-      const targetOrgId = activeOrganizationId;
+      let targetOrgId = activeOrganizationId;
+
+      // If we have a slug, ensure we resolve it to an ID and set it as active
       if (organizationSlug) {
-        // Ensure we are active in the target organization context
-        await getClient().organization.setActive({ organizationId: targetOrgId });
+        // If we don't have an ID or we want to be sure, we need to look it up.
+        // We can't assume activeOrganizationId corresponds to organizationSlug without verification.
+        const client = getClient();
+        const { data: orgs } = await client.organization.list();
+        const match = orgs?.find(o => o.slug === organizationSlug || o.id === organizationSlug);
+        
+        if (match) {
+          targetOrgId = match.id;
+        } else if (!targetOrgId) {
+           // Fallback: if we can't find it in list (maybe not member yet?), we can't switch context safely.
+           // But for intake continuation, user should be a member.
+           throw new Error('Organization not found.');
+        }
+
+        if (targetOrgId) {
+          await client.organization.setActive({ organizationId: targetOrgId });
+        }
+      }
+
+      if (!targetOrgId) {
+         throw new Error('Missing practice context.');
       }
 
       await linkConversationToUser(intakeConversationId, targetOrgId);

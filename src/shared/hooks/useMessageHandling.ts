@@ -2019,6 +2019,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
   }, [isAnonymous, userMessages.length, hasSubmittedContactForm, currentStep, messages.length, logDev]);
 
   // Inject system messages based on step
+  const processedPaymentUuidsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!isAnonymous) return;
 
@@ -2044,9 +2045,10 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         return;
       }
       const messageId = `system-payment-confirm-${uuid}`;
-      if (messages.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
+      if (processedPaymentUuidsRef.current.has(uuid) || messages.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
         return;
       }
+      processedPaymentUuidsRef.current.add(uuid);
 
       try {
         const persistedMessage = await postSystemMessage(conversationId, practiceId, {

@@ -316,7 +316,7 @@ export const PracticePricingPage = () => {
               placeholder="150.00"
               disabled={!canEdit || isSaving}
               step={0.01}
-              min={0}
+              min={0.01}
               description="USD"
               error={feeValidationError}
             />
@@ -352,8 +352,11 @@ export const PracticePricingPage = () => {
                 return;
               }
               const parsed = Number(trimmed);
-              if (Number.isFinite(parsed) && Number.isInteger(parsed)) {
+              if (Number.isFinite(parsed)) {
                 setBillingDraft(parsed);
+                if (!Number.isInteger(parsed)) {
+                  setShowBillingValidation(true);
+                }
               }
             }}
             min={1}

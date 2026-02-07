@@ -380,9 +380,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         const backgroundTask = async (taskHeaders: Headers) => {
           let candidate: { item: BackendMatterActivity; delta: number } | undefined;
           const delays = [100, 300, 700];
+          const requestTimestamp = Date.now();
 
           for (let i = 0; i <= delays.length; i++) {
-            const now = Date.now();
+            const now = requestTimestamp;
             const MATCH_THRESHOLD_MS = 5000;
             const AMBIGUOUS_THRESHOLD_MS = 100;
             const activities = await fetchActivityList(env, taskHeaders, practiceId, matterId);
@@ -465,7 +466,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         if (ctx?.waitUntil) {
           ctx.waitUntil(backgroundTask(headers));
         } else {
-          await backgroundTask(headers);
+          // Fire and forget, but log errors
+          backgroundTask(headers).catch((err) => {
+            console.error('[MatterDiff] Background task failed (unawaited)', err);
+          });
         }
       }
     }

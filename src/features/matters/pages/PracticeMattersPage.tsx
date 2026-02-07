@@ -1032,8 +1032,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           .filter((item) => !String(item.action ?? '').startsWith('note_'))
           .slice()
           .sort((a, b) => {
-            const aTime = new Date(a.created_at ?? 0).getTime();
-            const bTime = new Date(b.created_at ?? 0).getTime();
+            const getTimestamp = (item: typeof a) => {
+              if (!item.created_at) {
+                console.warn('[PracticeMattersPage] Item missing created_at', { id: item.id, action: item.action });
+                return Date.now();
+              }
+              const time = new Date(item.created_at).getTime();
+              if (Number.isNaN(time)) {
+                console.warn('[PracticeMattersPage] Item has invalid created_at', { id: item.id, action: item.action, value: item.created_at });
+                return Date.now();
+              }
+              return time;
+            };
+
+            const aTime = getTimestamp(a);
+            const bTime = getTimestamp(b);
             return aTime - bTime;
           })
           .map(toActivityTimelineItem);
