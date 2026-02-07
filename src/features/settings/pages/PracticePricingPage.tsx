@@ -93,21 +93,20 @@ export const PracticePricingPage = () => {
       return;
     }
 
-    const nextFee = feeEnabledDraft ? (feeDraft ?? null) : null;
-    const currentFee = typeof activeFee === 'number' ? fromMinorUnits(activeFee) : null;
+    const currentFeeMinor = typeof activeFee === 'number' ? activeFee : null;
+    const nextFeeMinor = feeEnabledDraft && typeof feeDraft === 'number' ? toMinorUnits(feeDraft) : null;
 
-    if (nextFee === currentFee || (!feeEnabledDraft && !feeEnabled)) {
+    if ((nextFeeMinor as unknown as number | null) === (currentFeeMinor as unknown as number | null) || (!feeEnabledDraft && !feeEnabled)) {
       setIsFeeModalOpen(false);
       return;
     }
 
     setIsSaving(true);
     try {
-      const minorFee = typeof nextFee === 'number' ? toMinorUnits(nextFee) : null;
       await updatePracticeDetails(currentPractice.id, {
-        consultationFee: minorFee,
+        consultationFee: nextFeeMinor,
         paymentLinkEnabled: feeEnabledDraft,
-        paymentLinkPrefillAmount: minorFee
+        paymentLinkPrefillAmount: nextFeeMinor
       });
       showSuccess(
         feeEnabledDraft ? 'Consultation fee enabled' : 'Consultation fee disabled',

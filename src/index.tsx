@@ -611,7 +611,7 @@ function ClientPracticeRoute({
     } else if (!isAuthenticatedClient && embedView === 'matters') {
       navigate(`/client/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending]);
+  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending, session]);
 
   if (isLoading || sessionIsPending) {
     return <LoadingScreen />;

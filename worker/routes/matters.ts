@@ -249,7 +249,10 @@ const fetchBackend = async (
 ): Promise<Response> => {
   const backendUrl = resolveBackendUrl(env);
   const timeoutMs = 10000;
-  const signal = init?.signal ?? AbortSignal.timeout(timeoutMs);
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = init?.signal 
+    ? (AbortSignal.any ? AbortSignal.any([init.signal, timeoutSignal]) : init.signal)
+    : timeoutSignal;
 
   return fetch(`${backendUrl}${targetPath}`, {
     method: init?.method ?? 'GET',

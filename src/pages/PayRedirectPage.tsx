@@ -65,10 +65,14 @@ export const PayRedirectPage: FunctionComponent = () => {
       }
     }
 
-    if (trimmed.includes('&conversation_id=')) {
-      pathPart = trimmed.split('&conversation_id=')[0];
-    } else if (trimmed.includes('?conversation_id=')) {
-      pathPart = trimmed.split('?conversation_id=')[0];
+    try {
+      const urlObj = new URL(trimmed, window.location.origin);
+      if (urlObj.searchParams.has('conversation_id')) {
+        urlObj.searchParams.delete('conversation_id');
+        pathPart = urlObj.pathname + (urlObj.search ? urlObj.search : '');
+      }
+    } catch (e) {
+      console.warn('[PayRedirect] Failed to parse return_to URL', e);
     }
 
     if (pathPart.startsWith('/p/')) {

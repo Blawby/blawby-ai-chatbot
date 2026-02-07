@@ -385,7 +385,7 @@ export const AcceptInvitationPage = () => {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            Accept your invitation to sign up | {organizationName}
+            Accept your invitation to sign up{organizationName ? ` | ${organizationName}` : ''}
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
             {subtitle}

@@ -68,6 +68,9 @@ export class MatterDiffStore {
             // Treat as nanoseconds
             adjustedValue = rawCreatedAt / 1e6;
           } else if (rawCreatedAt > 1e12) {
+            // Treat as microseconds
+            adjustedValue = rawCreatedAt / 1000;
+          } else if (rawCreatedAt > 1e9) {
             // Treat as milliseconds
             adjustedValue = rawCreatedAt;
           } else {
