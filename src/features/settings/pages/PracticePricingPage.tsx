@@ -46,7 +46,7 @@ export const PracticePricingPage = () => {
   const currencyCode = (currentPractice as unknown as { currency?: string })?.currency || 'USD';
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
-    return formatCurrency(activeFee, currencyCode, locale);
+    return formatCurrency(fromMinorUnits(activeFee), currencyCode, locale);
   }, [activeFee, feeEnabled, locale, currencyCode]);
 
   const effectiveBillingIncrement = Number.isFinite(activeBillingIncrement)

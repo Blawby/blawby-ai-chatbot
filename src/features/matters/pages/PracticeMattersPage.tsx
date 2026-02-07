@@ -1501,9 +1501,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         .filter((item) => !String(item.action ?? '').startsWith('note_'))
         .slice()
         .sort((a, b) => {
-          const aTime = new Date(a.created_at ?? Date.now()).getTime();
-          const bTime = new Date(b.created_at ?? Date.now()).getTime();
-          return aTime - bTime;
+          const getTimestamp = (d?: string | null) => {
+             const t = d ? new Date(d).getTime() : 0;
+             return Number.isNaN(t) ? 0 : t;
+          };
+          return getTimestamp(a.created_at) - getTimestamp(b.created_at);
         })
         .map(toActivityTimelineItem);
       

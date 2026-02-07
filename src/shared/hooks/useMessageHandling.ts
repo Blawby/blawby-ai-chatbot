@@ -299,8 +299,9 @@ export const useMessageHandling = ({
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
-  conversationIdRef.current = conversationId;
   practiceIdRef.current = practiceId;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const sessionReadyRef = useRef(sessionReady);
   sessionReadyRef.current = sessionReady;
   
@@ -2045,7 +2046,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         return;
       }
       const messageId = `system-payment-confirm-${uuid}`;
-      if (processedPaymentUuidsRef.current.has(uuid) || messages.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
+      if (processedPaymentUuidsRef.current.has(uuid) || messagesRef.current.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
         return;
       }
 
@@ -2126,7 +2127,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     isAnonymous,
     confirmIntakeLead,
     conversationId,
-    messages,
     onError,
     practiceId,
     applyServerMessages

@@ -339,22 +339,26 @@ export const AcceptInvitationPage = () => {
 
     setIsLinkingConversation(true);
     try {
-      const client = getClient();
-      const { data: orgs } = await (client as unknown as { 
-        organization: { list: () => Promise<any> } 
-      }).organization.list();
-      
-      const match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
-      
-      if (!match) {
-        throw new Error('Organization not found.');
-      }
+      let targetOrgId = activeOrganizationId;
 
-      const targetOrgId = match.id;
-      
-      await (client as unknown as {
-        organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
-      }).organization.setActive({ organizationId: targetOrgId });
+      if (!targetOrgId) {
+        const client = getClient();
+        const { data: orgs } = await (client as unknown as { 
+          organization: { list: () => Promise<any> } 
+        }).organization.list();
+        
+        const match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
+        
+        if (!match) {
+          throw new Error('Organization not found.');
+        }
+
+        targetOrgId = match.id;
+        
+        await (client as unknown as {
+          organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
+        }).organization.setActive({ organizationId: targetOrgId });
+      }
 
       await linkConversationToUser(intakeConversationId, targetOrgId);
       navigate(
@@ -367,7 +371,7 @@ export const AcceptInvitationPage = () => {
     } finally {
       setIsLinkingConversation(false);
     }
-  }, [intakeConversationId, navigate, organizationSlug, showError]);
+  }, [activeOrganizationId, intakeConversationId, navigate, organizationSlug, showError]);
 
   if (isPending) {
     return <LoadingScreen />;

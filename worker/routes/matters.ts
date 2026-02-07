@@ -1,4 +1,5 @@
 import type { Env } from '../types.js';
+import { getDomain } from 'tldts';
 import { HttpErrors } from '../errorHandler.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { handleBackendProxy } from './authProxy.js';
@@ -52,17 +53,13 @@ const normalizeCookieDomain = (value: string, requestHost: string, env?: Env): s
     return value;
   }
 
-  const host = requestHost.split(':')[0];
-  const hostParts = host.split('.');
-  if (hostParts.length < 2) {
+  // Use tldts to get the registrable domain (e.g. example.co.uk)
+  const registrable = getDomain(requestHost);
+  if (!registrable) {
     return value.replace(DOMAIN_PATTERN, '');
   }
 
-  // Basic public-suffix awareness for multi-part TLDs (e.g., .co.uk, .com.au)
-  // Replaced previous complex logic with simple assumption as per requirements
-  const baseDomain = hostParts.slice(-2).join('.');
-
-  const domainValue = `.${baseDomain}`;
+  const domainValue = `.${registrable}`;
   if (DOMAIN_PATTERN.test(value)) {
     return value.replace(DOMAIN_PATTERN, `; Domain=${domainValue}`);
   }
