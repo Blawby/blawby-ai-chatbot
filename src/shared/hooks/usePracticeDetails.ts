@@ -9,7 +9,10 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
   const hasCachedDetails = practiceId
     ? Object.prototype.hasOwnProperty.call(detailsMap, practiceId)
     : false;
-  const details = practiceId && hasCachedDetails ? detailsMap[practiceId] ?? null : null;
+  const details =
+    practiceId && hasCachedDetails && detailsMap[practiceId]?.services !== undefined
+      ? detailsMap[practiceId] ?? null
+      : null;
   const { updatePracticeDetails } = usePracticeManagement({
     autoFetchPractices: false,
     fetchInvitations: false

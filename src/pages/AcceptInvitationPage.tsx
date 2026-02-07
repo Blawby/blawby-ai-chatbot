@@ -197,7 +197,7 @@ export const AcceptInvitationPage = () => {
       return payloadResult.error ?? 'This link is missing required information. Please request a new invite.';
     }
 
-    if (!prefill) {
+    if (flowType === 'intake' && !prefill) {
       return payloadResult.error ?? 'This link is missing required invitation details. Please use the latest email from your practice.';
     }
 

@@ -5,7 +5,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, fromMinorUnits, toMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import Modal from '@/shared/components/Modal';
@@ -57,7 +57,7 @@ export const PracticePricingPage = () => {
 
   const openFeeModal = () => {
     const nextFee = typeof activeFee === 'number' && activeFee > 0 ? activeFee : undefined;
-    setFeeDraft(nextFee !== undefined ? asMajor(nextFee) : undefined);
+    setFeeDraft(nextFee !== undefined ? fromMinorUnits(nextFee) : undefined);
     setFeeEnabledDraft(Boolean(nextFee));
     setShowValidation(false);
     setIsFeeModalOpen(true);
@@ -94,7 +94,8 @@ export const PracticePricingPage = () => {
     }
 
     const nextFee = feeEnabledDraft ? (feeDraft ?? null) : null;
-    const currentFee = typeof activeFee === 'number' ? activeFee : null;
+    const currentFee = typeof activeFee === 'number' ? fromMinorUnits(activeFee) : null;
+
     if (nextFee === currentFee || (!feeEnabledDraft && !feeEnabled)) {
       setIsFeeModalOpen(false);
       return;
@@ -102,10 +103,11 @@ export const PracticePricingPage = () => {
 
     setIsSaving(true);
     try {
+      const minorFee = typeof nextFee === 'number' ? toMinorUnits(nextFee) : null;
       await updatePracticeDetails(currentPractice.id, {
-        consultationFee: nextFee,
+        consultationFee: minorFee,
         paymentLinkEnabled: feeEnabledDraft,
-        paymentLinkPrefillAmount: nextFee
+        paymentLinkPrefillAmount: minorFee
       });
       showSuccess(
         feeEnabledDraft ? 'Consultation fee enabled' : 'Consultation fee disabled',

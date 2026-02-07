@@ -354,24 +354,30 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
             const activities = await fetchActivityList(env, taskHeaders, practiceId, matterId);
             const candidates = activities
               .filter((item) => item.action === 'matter_updated')
-              .filter((item) => {
-                // If we have a user_id from auth context, prefer matches by that user
-                if (authContext?.user?.id && item.user_id && item.user_id !== authContext.user.id) {
-                  return false;
+              .map((item) => {
+                let score = 0;
+                // Prefer matches by the user who initiated the request
+                if (authContext?.user?.id && item.user_id && item.user_id === authContext.user.id) {
+                  score += 10;
                 }
-                return true;
+                return {
+                  item,
+                  createdAt: new Date(item.created_at ?? 0).getTime(),
+                  score
+                };
               })
-              .map((item) => ({
-                item,
-                createdAt: new Date(item.created_at ?? 0).getTime()
-              }))
               .filter((record) => Number.isFinite(record.createdAt) && record.createdAt > 0)
               .map((record) => ({
                 ...record,
                 delta: Math.abs(record.createdAt - now)
               }))
               .filter((record) => record.delta <= MATCH_THRESHOLD_MS)
-              .sort((a, b) => a.delta - b.delta);
+              .sort((a, b) => {
+                // Secondary sort: prefer high score (current user matches)
+                if (b.score !== a.score) return b.score - a.score;
+                // Primary sort: smallest time delta
+                return a.delta - b.delta;
+              });
 
             if (candidates.length > 1) {
               const deltaDiff = Math.abs(candidates[0].delta - candidates[1].delta);

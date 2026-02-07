@@ -154,12 +154,24 @@ export class ConversationService {
   }
 
   private mapRecordToConversation(record: any): Conversation {
-    if (!record) return null as any;
+    if (!record) {
+      throw new Error('[ConversationService] Cannot map null record to conversation');
+    }
     
     // Parse JSON fields if they are strings
-    const participants = typeof record.participants === 'string' ? JSON.parse(record.participants) : (record.participants || []);
-    const user_info = typeof record.user_info === 'string' ? JSON.parse(record.user_info) : (record.user_info || null);
-    const tags = typeof record.tags === 'string' ? JSON.parse(record.tags) : (record.tags || undefined);
+    const safeParse = <T>(value: any, fallback: T): T => {
+      if (typeof value !== 'string') return value ?? fallback;
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.error('[ConversationService] JSON parse error', { error: err, value });
+        return fallback;
+      }
+    };
+
+    const participants = safeParse<string[]>(record.participants, []);
+    const user_info = safeParse<Record<string, any> | null>(record.user_info, null);
+    const tags = safeParse<string[] | undefined>(record.tags, undefined);
     
     const conversation: Conversation = {
       id: record.id,

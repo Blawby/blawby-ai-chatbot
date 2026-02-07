@@ -414,11 +414,14 @@ function PracticeAppRoute({
       setSlugLookupStatus('idle');
       return;
     }
-    let isMounted = true;
+
+    const abortController = new AbortController();
     setSlugLookupStatus('loading');
+
     getPublicPracticeDetails(normalizedPracticeSlug)
       .then((details) => {
-        if (!isMounted) return;
+        if (abortController.signal.aborted) return;
+        
         const practiceId = details?.practiceId ?? null;
         if (!practiceId) {
           setResolvedSlugPracticeId(null);
@@ -429,13 +432,15 @@ function PracticeAppRoute({
         setSlugLookupStatus('done');
       })
       .catch((error) => {
-        if (!isMounted) return;
+        if (abortController.signal.aborted) return;
+        
         console.warn('[PracticeSlug] Failed to resolve practice slug', error);
         setResolvedSlugPracticeId(null);
         setSlugLookupStatus('error');
       });
+
     return () => {
-      isMounted = false;
+      abortController.abort();
     };
   }, [hasPracticeSlug, normalizedPracticeSlug, slugLookupRetry]);
 
