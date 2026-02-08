@@ -7,6 +7,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      screens: {
+        short: { raw: '(max-height: 500px)' }
+      },
       // Custom color scheme - keeping your custom colors
       colors: {
         // Primary colors (brand colors - dark blue theme)
@@ -101,6 +104,6 @@ export default {
   },
   plugins: [
     require('@tailwindcss/typography'),
+    require('@tailwindcss/container-queries'),
   ],
 }
-

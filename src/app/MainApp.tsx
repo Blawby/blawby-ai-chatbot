@@ -967,6 +967,8 @@ export function MainApp({
     }
     return practiceEmbedView;
   }, [activeConversationId, practiceEmbedView, workspace]);
+  const shouldUsePracticeSplitView = workspace === 'practice'
+    && (resolvedPracticeEmbedView === 'list' || resolvedPracticeEmbedView === 'conversation');
 
   const practiceEmbedContent = workspace === 'practice' ? (
     <PublicEmbedLayout
@@ -1020,6 +1022,7 @@ export function MainApp({
         practiceDetails={practiceDetails}
         messages={messages}
         showRightSidebar={shouldShowRightSidebar}
+        mainClassName={shouldUsePracticeSplitView ? 'overflow-hidden' : undefined}
       >
         {mainContent}
       </AppLayout>

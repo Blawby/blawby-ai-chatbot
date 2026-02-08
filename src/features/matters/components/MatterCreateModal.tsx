@@ -17,6 +17,7 @@ import { PlusIcon } from '@heroicons/react/24/solid';
 import { cn } from '@/shared/utils/cn';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { FormGrid } from '@/shared/ui/layout/FormGrid';
 
 type MatterFormMode = 'create' | 'edit';
 
@@ -487,7 +488,7 @@ const MatterFormModalInner = ({
           />
 
           {formState.billingType === 'hourly' && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <FormGrid>
               <CurrencyInput
                 label="Attorney hourly rate"
                 value={formState.attorneyHourlyRate}
@@ -504,7 +505,7 @@ const MatterFormModalInner = ({
                 }
                 placeholder="95"
               />
-            </div>
+            </FormGrid>
           )}
 
           {formState.billingType === 'fixed' && (
