@@ -136,7 +136,7 @@ async function main() {
     console.log('✅ Validation PASSED - External API is available and working.');
     console.log('   You can proceed with the migration: 20251201_remove_lawyers_table.sql');
     console.log('\n   Next steps:');
-    console.log('   1. Apply the migration: wrangler d1 migrations apply blawby-ai-chatbot --local');
+    console.log('   1. Apply the migration: npx wrangler d1 migrations apply blawby-ai-chatbot --local');
     console.log('   2. Monitor the application for any issues');
     console.log('   3. If issues occur, rollback using the rollback script\n');
     process.exit(0);

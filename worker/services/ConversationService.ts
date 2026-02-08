@@ -167,8 +167,7 @@ export class ConversationService {
         console.error(`[ConversationService] JSON parse error [${label}]`, { 
           error: err instanceof Error ? err.message : String(err),
           type: typeof value,
-          length: typeof value === 'string' ? value.length : undefined,
-          preview: typeof value === 'string' ? `${value.slice(0, 30)}...` : undefined
+          length: typeof value === 'string' ? value.length : undefined
         });
         return fallback;
       }
@@ -525,6 +524,21 @@ export class ConversationService {
       return conversation;
     }
 
+    const matterRecord = await this.env.DB.prepare(`
+      SELECT id, practice_id
+      FROM matters
+      WHERE id = ?
+      LIMIT 1
+    `).bind(matterId).first<{ id: string; practice_id: string }>();
+
+    if (!matterRecord) {
+      throw HttpErrors.notFound(`Matter ${matterId} not found`);
+    }
+
+    if (matterRecord.practice_id !== practiceId) {
+      throw HttpErrors.forbidden('Matter does not belong to this practice');
+    }
+
     const now = new Date().toISOString();
     await this.env.DB.prepare(`
       UPDATE conversations
@@ -533,6 +547,58 @@ export class ConversationService {
     `).bind(matterId, now, conversationId, practiceId).run();
 
     return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
+   * Detach a matter from a conversation
+   */
+  async detachMatter(
+    conversationId: string,
+    practiceId: string
+  ): Promise<Conversation> {
+    const conversation = await this.getConversation(conversationId, practiceId);
+    if (!conversation.matter_id) {
+      return conversation;
+    }
+
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET matter_id = NULL, updated_at = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(now, conversationId, practiceId).run();
+
+    return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
+   * List conversations linked to a matter
+   */
+  async listByMatterId(
+    matterId: string,
+    practiceId: string
+  ): Promise<Conversation[]> {
+    const records = await this.env.DB.prepare(`
+      SELECT
+        conversations.*,
+        m.id as lead_id,
+        m.lead_source,
+        m.created_at as lead_created_at,
+        m.status as lead_status
+      FROM conversations
+      LEFT JOIN matters m ON conversations.matter_id = m.id
+      WHERE conversations.matter_id = ?
+        AND conversations.practice_id = ?
+      ORDER BY (conversations.last_message_at IS NULL),
+               conversations.last_message_at DESC,
+               conversations.created_at DESC
+    `).bind(matterId, practiceId).all<any>();
+
+    if (!records.results || records.results.length === 0) {
+      return [];
+    }
+
+    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   /**

@@ -556,6 +556,44 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(conversation);
   }
 
+  // PATCH /api/conversations/:id/matter - Link or unlink a conversation to a matter
+  if (segments.length === 4 && segments[3] === 'matter' && request.method === 'PATCH') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+    const body = await parseJsonBody(request) as { matterId?: string | null };
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+
+    await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+    if (body.matterId === undefined) {
+      throw HttpErrors.badRequest('matterId is required');
+    }
+
+    if (body.matterId !== null && typeof body.matterId !== 'string') {
+      throw HttpErrors.badRequest('matterId must be a string or null');
+    }
+
+    const trimmedMatterId = typeof body.matterId === 'string'
+      ? body.matterId.trim()
+      : body.matterId;
+
+    if (trimmedMatterId === '') {
+      throw HttpErrors.badRequest('matterId cannot be empty or whitespace');
+    }
+
+    const conversation = trimmedMatterId === null
+      ? await conversationService.detachMatter(conversationId, practiceId)
+      : await conversationService.attachMatter(conversationId, practiceId, trimmedMatterId);
+
+    return createJsonResponse(conversation);
+  }
+
   // PATCH /api/conversations/:id/link - Link anonymous conversation to authenticated user
   if (
     segments.length === 4 &&

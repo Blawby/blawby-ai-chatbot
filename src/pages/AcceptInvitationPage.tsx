@@ -388,7 +388,10 @@ export const AcceptInvitationPage = () => {
         throw linkError;
       }
       
-      const finalSlug = organizationSlug || match?.slug || targetOrgId;
+      const finalSlug = organizationSlug || match?.slug;
+      if (!finalSlug) {
+        throw new Error('Organization slug unavailable. Please reopen the invitation link.');
+      }
       navigate(
         `/embed/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true

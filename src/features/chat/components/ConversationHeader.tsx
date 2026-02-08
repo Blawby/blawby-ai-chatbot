@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { MatterStatusBadge } from '@/features/matters/components/StatusBadge';
-import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { getConversationEndpoint, getPracticeWorkspaceEndpoint } from '@/config/api';
+import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
+import type { Conversation } from '@/shared/types/conversation';
 import type { MatterWorkflowStatus, MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface ConversationHeaderProps {
   practiceId?: string;
-  matterId?: string | null;
+  practiceSlug?: string | null;
+  conversationId?: string;
   canReviewLeads?: boolean;
   acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
   rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
@@ -44,21 +48,80 @@ const STATUS_TRANSITIONS: Record<MatterWorkflowStatus, MatterWorkflowStatus[]> =
 
 export const ConversationHeader = ({
   practiceId,
-  matterId,
+  practiceSlug,
+  conversationId,
   canReviewLeads = false,
   acceptMatter,
   rejectMatter,
   updateMatterStatus
 }: ConversationHeaderProps) => {
   const [matter, setMatter] = useState<MatterSummary | null>(null);
+  const [linkedMatterId, setLinkedMatterId] = useState<string | null>(null);
+  const [conversationLoading, setConversationLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const { navigate } = useNavigation();
 
   useEffect(() => {
-    if (!practiceId || !matterId) {
+    if (!practiceId || !conversationId) {
+      setLinkedMatterId(null);
       setMatter(null);
       setError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchConversation = async () => {
+      setConversationLoading(true);
+      setError(null);
+      try {
+        const endpoint = `${getConversationEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`;
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load conversation (${response.status})`);
+        }
+
+        const payload = await response.json() as {
+          success?: boolean;
+          error?: string;
+          data?: Conversation;
+        };
+
+        if (payload.success === false) {
+          throw new Error(payload.error || 'Failed to load conversation');
+        }
+
+        const conversation = payload.data;
+        const nextMatterId = conversation?.matter_id ?? null;
+        setLinkedMatterId(nextMatterId);
+      } catch (err) {
+        if ((err as DOMException).name !== 'AbortError') {
+          const message = err instanceof Error ? err.message : 'Failed to load conversation';
+          setError(message);
+          setLinkedMatterId(null);
+        }
+      } finally {
+        setConversationLoading(false);
+      }
+    };
+
+    void fetchConversation();
+    return () => controller.abort();
+  }, [practiceId, conversationId]);
+
+  useEffect(() => {
+    if (!practiceId || !linkedMatterId) {
+      setMatter(null);
       return;
     }
 
@@ -67,7 +130,7 @@ export const ConversationHeader = ({
       setLoading(true);
       setError(null);
       try {
-        const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}`;
+        const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(linkedMatterId)}`;
         const response = await fetch(endpoint, {
           method: 'GET',
           credentials: 'include',
@@ -132,14 +195,14 @@ export const ConversationHeader = ({
 
     void fetchMatter();
     return () => controller.abort();
-  }, [practiceId, matterId]);
+  }, [practiceId, linkedMatterId]);
 
   const handleAccept = async () => {
-    if (!practiceId || !matterId) return;
+    if (!practiceId || !linkedMatterId) return;
     setActionLoading(true);
     setError(null);
     try {
-      const result = await acceptMatter(practiceId, matterId);
+      const result = await acceptMatter(practiceId, linkedMatterId);
       setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: result.acceptedBy ?? prev.acceptedBy } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to accept lead';
@@ -150,11 +213,11 @@ export const ConversationHeader = ({
   };
 
   const handleReject = async () => {
-    if (!practiceId || !matterId) return;
+    if (!practiceId || !linkedMatterId) return;
     setActionLoading(true);
     setError(null);
     try {
-      const result = await rejectMatter(practiceId, matterId);
+      const result = await rejectMatter(practiceId, linkedMatterId);
       setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: null } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reject lead';
@@ -165,12 +228,12 @@ export const ConversationHeader = ({
   };
 
   const handleStatusChange = async (nextStatus: MatterWorkflowStatus) => {
-    if (!practiceId || !matterId || !matter) return;
+    if (!practiceId || !linkedMatterId || !matter) return;
     if (nextStatus === matter.status) return;
     setActionLoading(true);
     setError(null);
     try {
-      const result = await updateMatterStatus(practiceId, matterId, nextStatus);
+      const result = await updateMatterStatus(practiceId, linkedMatterId, nextStatus);
       setMatter(prev => prev ? { ...prev, status: result.status } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update status';
@@ -194,21 +257,70 @@ export const ConversationHeader = ({
     return STATUS_OPTIONS.filter(option => allowed.has(option.value));
   }, [matter]);
 
-  if (!practiceId || !matterId) {
+  const handleMatterUpdated = (conversation: Conversation) => {
+    setError(null);
+    setLinkedMatterId(conversation.matter_id ?? null);
+  };
+
+  if (!practiceId || !conversationId) {
     return null;
   }
 
   const canUpdateMatter = Boolean(canReviewLeads);
+  const matterLink = linkedMatterId && practiceSlug
+    ? `/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(linkedMatterId)}`
+    : null;
 
   return (
     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-      {loading && (
-        <div className="animate-pulse text-sm text-gray-500 dark:text-gray-400">
-          Loading matter…
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Conversation</h2>
+          {linkedMatterId && matter && matterLink && (
+            <Button
+              variant="link"
+              size="xs"
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-3 py-1 text-xs text-gray-700 dark:text-gray-200"
+              onClick={() => navigate(matterLink)}
+            >
+              <span className="font-medium">{matter.title}</span>
+              <MatterStatusBadge status={matter.status} />
+            </Button>
+          )}
+          {linkedMatterId && matter && !matterLink && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-3 py-1 text-xs text-gray-700 dark:text-gray-200">
+              <span className="font-medium">{matter.title}</span>
+              <MatterStatusBadge status={matter.status} />
+            </span>
+          )}
+          {!linkedMatterId && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">No matter linked</span>
+          )}
+        </div>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setIsLinkModalOpen(true)}
+          disabled={actionLoading || conversationLoading}
+        >
+          {linkedMatterId ? 'Update link' : 'Link to matter'}
+        </Button>
+      </div>
+
+      {(conversationLoading || loading) && (
+        <div className="animate-pulse text-sm text-gray-500 dark:text-gray-400 mt-2">
+          {conversationLoading ? 'Loading conversation…' : 'Loading matter…'}
         </div>
       )}
 
-      {!loading && !matter && !error && (
+      {!linkedMatterId && !loading && !conversationLoading && !error && (
+        <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          Link a matter to enable lead workflows and quick access.
+        </div>
+      )}
+
+      {!loading && linkedMatterId && !matter && !error && (
         <div className="text-sm text-gray-500 dark:text-gray-400">
           Select a matter to manage lead status.
         </div>
@@ -220,7 +332,7 @@ export const ConversationHeader = ({
         </div>
       )}
 
-      {matter && !loading && (
+      {matter && linkedMatterId && !loading && (
         <div className="flex flex-col gap-2">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col">
@@ -289,6 +401,17 @@ export const ConversationHeader = ({
             </div>
           </div>
         </div>
+      )}
+
+      {isLinkModalOpen && (
+        <LinkMatterModal
+          isOpen={isLinkModalOpen}
+          onClose={() => setIsLinkModalOpen(false)}
+          practiceId={practiceId}
+          conversationId={conversationId}
+          currentMatterId={linkedMatterId}
+          onMatterUpdated={handleMatterUpdated}
+        />
       )}
     </div>
   );

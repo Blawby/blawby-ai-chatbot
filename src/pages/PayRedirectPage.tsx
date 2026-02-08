@@ -11,15 +11,16 @@ const resolveQueryValue = (value?: string | string[]) => {
 };
 
 const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
     const params = new URLSearchParams({ session_id: sessionId });
     const response = await fetch(`${getBackendApiUrl()}/api/practice/client-intakes/post-pay/status?${params.toString()}`, {
       method: 'GET',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     if (!response.ok) {
       return null;
     }
@@ -33,6 +34,8 @@ const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => 
     return typeof payload.data.intake_uuid === 'string' ? payload.data.intake_uuid : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 

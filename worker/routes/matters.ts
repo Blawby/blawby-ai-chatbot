@@ -1,8 +1,10 @@
 import type { Env } from '../types.js';
 import { getDomain } from 'tldts';
 import { HttpErrors } from '../errorHandler.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember } from '../middleware/auth.js';
 import { handleBackendProxy } from './authProxy.js';
+import { ConversationService } from '../services/ConversationService.js';
+import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 type BackendMatter = Record<string, unknown>;
 type BackendMatterActivity = {
@@ -17,6 +19,7 @@ type BackendMatterActivity = {
 
 const UPDATE_PATTERN = /^\/api\/matters\/([^/]+)\/update\/([^/]+)$/;
 const ACTIVITY_PATTERN = /^\/api\/matters\/([^/]+)\/matters\/([^/]+)\/activity$/;
+const CONVERSATIONS_PATTERN = /^\/api\/matters\/([^/]+)\/conversations$/;
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 
 const resolveRequestHost = (request: Request): string => {
@@ -94,6 +97,13 @@ const resolveBackendUrl = (env: Env): string => {
   return env.BACKEND_API_URL;
 };
 
+const createJsonResponse = (data: unknown): Response => (
+  new Response(JSON.stringify({ success: true, data }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  })
+);
+
 const extractMatter = (payload: unknown): BackendMatter | null => {
   if (!payload || typeof payload !== 'object') return null;
   if (Array.isArray(payload)) {
@@ -160,6 +170,15 @@ const enrichActivityPayload = (
 
 const isEmptyValue = (value: unknown): boolean => value === null || value === undefined || value === '';
 
+const createTimeoutSignal = (ms: number): AbortSignal => {
+  if (typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+};
+
 const areEquivalentValues = (left: unknown, right: unknown): boolean => {
   if (isEmptyValue(left) && isEmptyValue(right)) return true;
   if (Object.is(left, right)) return true;
@@ -168,14 +187,16 @@ const areEquivalentValues = (left: unknown, right: unknown): boolean => {
   if (leftType !== rightType) return false;
   if (left && right && leftType === 'object') {
     try {
-      // Stable stringify by sorting keys
-      const stableStringify = (obj: unknown): string => {
+      // Stable stringify by sorting keys (with cycle detection)
+      const stableStringify = (obj: unknown, seen = new WeakSet<object>()): string => {
         if (typeof obj !== 'object' || obj === null) return JSON.stringify(obj);
+        if (seen.has(obj)) return '"[Circular]"';
+        seen.add(obj);
         if (Array.isArray(obj)) {
-          return '[' + obj.map(item => stableStringify(item)).join(',') + ']';
+          return '[' + obj.map(item => stableStringify(item, seen)).join(',') + ']';
         }
         const sortedKeys = Object.keys(obj as Record<string, unknown>).sort();
-        const parts = sortedKeys.map(key => `${JSON.stringify(key)}:${stableStringify((obj as Record<string, unknown>)[key])}`);
+        const parts = sortedKeys.map(key => `${JSON.stringify(key)}:${stableStringify((obj as Record<string, unknown>)[key], seen)}`);
         return `{${parts.join(',')}}`;
       };
       return stableStringify(left) === stableStringify(right);
@@ -322,6 +343,29 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/api/matters')) {
     throw HttpErrors.notFound('Matters route not found');
+  }
+
+  const conversationsMatch = url.pathname.match(CONVERSATIONS_PATTERN);
+  if (conversationsMatch) {
+    if (request.method.toUpperCase() !== 'GET') {
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: { 'Allow': 'GET' }
+      });
+    }
+
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+    const matterId = conversationsMatch[1];
+
+    await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
+
+    const conversationService = new ConversationService(env);
+    const conversations = await conversationService.listByMatterId(matterId, practiceId);
+
+    return createJsonResponse(conversations);
   }
 
   const updateMatch = url.pathname.match(UPDATE_PATTERN);
@@ -513,7 +557,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     if (activityIds.length > 0 && env.MATTER_DIFFS) {
       try {
         const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
-        const signal = AbortSignal.timeout(3000);
+        const signal = createTimeoutSignal(3000);
         const response = await stub.fetch('https://matter-diffs/internal/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

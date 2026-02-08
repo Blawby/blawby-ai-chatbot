@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
   user_id TEXT,
-  matter_id TEXT, -- Optional: link to specific matter for tighter integration
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL, -- Optional: link to specific matter for tighter integration
   participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,
   status TEXT DEFAULT 'active',
@@ -58,9 +58,10 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- D1 migrations table (bootstrap marker)
+-- D1 migrations table (wrangler expects an id column)
 CREATE TABLE IF NOT EXISTS d1_migrations (
-  name TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
   applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
