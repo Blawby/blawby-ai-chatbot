@@ -309,19 +309,15 @@ export async function updateConversationMatter(
 }
 
 export async function listMatterConversations(
-  practiceId: string,
   matterId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<Conversation[]> {
-  if (!practiceId) {
-    throw new Error('Missing required parameter: practiceId');
-  }
   if (!matterId) {
     throw new Error('Missing required parameter: matterId');
   }
 
   const response = await apiClient.get(
-    `/api/practices/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/conversations`,
+    `/api/matters/${encodeURIComponent(matterId)}/conversations`,
     { signal: config?.signal }
   );
 

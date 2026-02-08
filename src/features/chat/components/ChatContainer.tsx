@@ -273,7 +273,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
 
     const isValidUuid = typeof paymentRequest.intakeUuid === 'string'
-      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(paymentRequest.intakeUuid);
+      && (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentRequest.intakeUuid)
+        || /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(paymentRequest.intakeUuid)
+      );
 
     if (typeof window !== 'undefined' && isValidUuid && paymentRequest.intakeUuid) {
       try {

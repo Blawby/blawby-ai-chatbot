@@ -2111,7 +2111,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
       paymentKeys.forEach((key) => {
         const uuid = key.split(':')[1];
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
         if (!uuid || !uuidPattern.test(uuid)) {
           console.warn('[Intake] Skipping malformed payment confirmation key', { key });
           return;

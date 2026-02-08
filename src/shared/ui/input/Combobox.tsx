@@ -101,7 +101,7 @@ export const Combobox = ({
   const resolvedLeading = typeof leading === 'function' ? leading(selectedOption, selectedOptions) : leading;
   const hasValue = valueList.length > 0;
 
-  const toggleValue = (optionValue: string) => {
+  const toggleValue = (optionValue: string, options?: { openAfterToggle?: boolean }) => {
     if (!isMultiple) return;
 
     const next = valueList.includes(optionValue)
@@ -110,7 +110,9 @@ export const Combobox = ({
     emitChange(next);
     setQuery('');
     setUserTyped(false);
-    setIsOpen(true);
+    if (options?.openAfterToggle !== false) {
+      setIsOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -185,7 +187,7 @@ export const Combobox = ({
 
                 if (isMultiple) {
                   if (matchToEmit) {
-                    toggleValue(matchToEmit.value);
+                    toggleValue(matchToEmit.value, { openAfterToggle: false });
                   }
                 } else {
                   if (matchToEmit) {

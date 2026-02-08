@@ -47,8 +47,8 @@ CREATE TABLE IF NOT EXISTS matters (
   matter_type TEXT NOT NULL, -- e.g., 'Family Law', 'Employment Law', etc.
   title TEXT NOT NULL,
   description TEXT,
-  status TEXT DEFAULT 'lead', -- 'lead', 'open', 'in_progress', 'completed', 'archived'
-  priority TEXT NOT NULL DEFAULT 'normal', -- 'low', 'normal', 'high' - maps from urgency
+  status TEXT DEFAULT 'lead' CHECK (status IN ('lead', 'open', 'in_progress', 'completed', 'archived')), -- 'lead', 'open', 'in_progress', 'completed', 'archived'
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high')), -- 'low', 'normal', 'high' - maps from urgency
   assigned_lawyer_id TEXT,
   lead_source TEXT, -- 'website', 'referral', 'advertising', etc.
   estimated_value INTEGER, -- in cents
@@ -394,6 +394,13 @@ END;
 -- These triggers ensure that updated_at columns are automatically updated
 -- when rows are modified, using the same millisecond timestamp format
 -- as the auth schema defaults: (strftime('%s', 'now') * 1000)
+
+CREATE TRIGGER IF NOT EXISTS matters_before_update_timestamp
+BEFORE UPDATE ON matters
+FOR EACH ROW
+BEGIN
+  SELECT NEW.updated_at = CURRENT_TIMESTAMP;
+END;
 
 -- Auth table triggers removed - user management is handled by remote API
 

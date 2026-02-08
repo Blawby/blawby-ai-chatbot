@@ -19,7 +19,7 @@ type BackendMatterActivity = {
 
 const UPDATE_PATTERN = /^\/api\/matters\/([^/]+)\/update\/([^/]+)$/;
 const ACTIVITY_PATTERN = /^\/api\/matters\/([^/]+)\/matters\/([^/]+)\/activity$/;
-const CONVERSATIONS_PATTERN = /^\/api\/matters\/([^/]+)\/matters\/([^/]+)\/conversations$/;
+const CONVERSATIONS_PATTERN = /^\/api\/matters\/([^/]+)\/conversations$/;
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 
 const resolveRequestHost = (request: Request): string => {
@@ -358,17 +358,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       requirePractice: true
     });
     const practiceId = getPracticeId(requestWithContext);
-    const [, practiceIdSegment, matterId] = conversationsMatch;
-    if (practiceIdSegment && practiceIdSegment !== practiceId) {
-      console.warn('[Matters] Practice ID mismatch in conversations route', {
-        practiceId,
-        practiceIdSegment
-      });
-      return new Response(JSON.stringify({ error: 'Practice ID mismatch' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    const matterId = conversationsMatch[1];
 
     await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
 

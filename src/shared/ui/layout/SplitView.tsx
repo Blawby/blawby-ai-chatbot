@@ -41,7 +41,7 @@ export const SplitView = ({
       {hasTertiary && (
         <aside
           className={cn(
-            'min-h-0 border-t border-gray-200 dark:border-white/10 md:border-t-0 md:border-l md:overflow-y-auto',
+            'hidden min-h-0 border-t border-gray-200 dark:border-white/10 md:border-t-0 md:border-l md:overflow-y-auto xl:block',
             tertiaryClassName
           )}
         >

@@ -8,18 +8,17 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 
 interface MatterMessagesPanelProps {
   matter: MatterDetail;
-  practiceId: string;
   conversationBasePath?: string;
 }
 
-export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }: MatterMessagesPanelProps) => {
+export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMessagesPanelProps) => {
   const { navigate } = useNavigation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!matter?.id || !practiceId) {
+    if (!matter?.id) {
       setConversations([]);
       setError(null);
       setLoading(false);
@@ -31,7 +30,7 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
       setLoading(true);
       setError(null);
       try {
-        const data = await listMatterConversations(practiceId, matter.id, { signal: controller.signal });
+        const data = await listMatterConversations(matter.id, { signal: controller.signal });
         setConversations(data);
       } catch (err) {
         if ((err as DOMException).name === 'AbortError') {
@@ -49,7 +48,7 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
 
     void load();
     return () => controller.abort();
-  }, [matter?.id, practiceId]);
+  }, [matter?.id]);
 
   const sortedConversations = useMemo(() => (
     [...conversations].sort((a, b) => {
