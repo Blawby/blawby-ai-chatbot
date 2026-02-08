@@ -4,29 +4,12 @@ import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import type { MatterDetail } from '@/features/matters/data/mockMatters';
 import type { Conversation } from '@/shared/types/conversation';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 interface MatterMessagesPanelProps {
   matter: MatterDetail;
   conversationBasePath?: string;
 }
-
-const formatRelativeTime = (dateString: string): string => {
-  const date = new Date(dateString);
-  const now = new Date();
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-  if (date > now) return 'Just now';
-  const diffMs = now.getTime() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString();
-};
 
 export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMessagesPanelProps) => {
   const { navigate } = useNavigation();
