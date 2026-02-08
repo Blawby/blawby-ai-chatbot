@@ -313,7 +313,7 @@ export async function listMatterConversations(
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<Conversation[]> {
   if (!matterId) {
-    return [];
+    throw new Error('Missing required parameter: matterId');
   }
 
   const response = await apiClient.get(

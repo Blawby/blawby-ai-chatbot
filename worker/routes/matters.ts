@@ -349,7 +349,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     const practiceId = getPracticeId(requestWithContext);
     const matterId = conversationsMatch[1];
 
-    await requirePracticeMember(request, env, practiceId, 'paralegal');
+    await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
 
     const conversationService = new ConversationService(env);
     const conversations = await conversationService.listByMatterId(matterId, practiceId);

@@ -167,8 +167,7 @@ export class ConversationService {
         console.error(`[ConversationService] JSON parse error [${label}]`, { 
           error: err instanceof Error ? err.message : String(err),
           type: typeof value,
-          length: typeof value === 'string' ? value.length : undefined,
-          preview: typeof value === 'string' ? `${value.slice(0, 30)}...` : undefined
+          length: typeof value === 'string' ? value.length : undefined
         });
         return fallback;
       }

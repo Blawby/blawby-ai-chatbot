@@ -37,6 +37,10 @@ export const LinkMatterModal = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setSelectedMatterId(currentMatterId ?? '');
+  }, [currentMatterId]);
+
+  useEffect(() => {
     if (!practiceId) {
       setMatters([]);
       return;

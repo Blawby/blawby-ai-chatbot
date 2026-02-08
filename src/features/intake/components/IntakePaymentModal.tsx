@@ -111,7 +111,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
     return null;
   }
 
-  const canUseElements = Boolean(clientSecret && elementsOptions && STRIPE_PUBLIC_KEY && stripePromise);
+  const canUseElements = Boolean(clientSecret && elementsOptions && STRIPE_PUBLIC_KEY && stripePromise && paymentRequest);
 
   return (
     <Modal
@@ -120,7 +120,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       title="Complete Payment"
       type="drawer"
     >
-      {canUseElements ? (
+      {canUseElements && paymentRequest ? (
         <Elements stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
             amount={paymentRequest.amount}

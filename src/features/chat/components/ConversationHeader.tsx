@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { Link } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { MatterStatusBadge } from '@/features/matters/components/StatusBadge';
 import { getConversationEndpoint, getPracticeWorkspaceEndpoint } from '@/config/api';
 import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
 import type { Conversation } from '@/shared/types/conversation';
 import type { MatterWorkflowStatus, MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface ConversationHeaderProps {
   practiceId?: string;
@@ -62,6 +62,7 @@ export const ConversationHeader = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const { navigate } = useNavigation();
 
   useEffect(() => {
     if (!practiceId || !conversationId) {
@@ -276,13 +277,15 @@ export const ConversationHeader = ({
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Conversation</h2>
           {linkedMatterId && matter && matterLink && (
-            <Link
-              href={matterLink}
+            <Button
+              variant="link"
+              size="xs"
               className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-3 py-1 text-xs text-gray-700 dark:text-gray-200"
+              onClick={() => navigate(matterLink)}
             >
               <span className="font-medium">{matter.title}</span>
               <MatterStatusBadge status={matter.status} />
-            </Link>
+            </Button>
           )}
           {linkedMatterId && matter && !matterLink && (
             <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-3 py-1 text-xs text-gray-700 dark:text-gray-200">

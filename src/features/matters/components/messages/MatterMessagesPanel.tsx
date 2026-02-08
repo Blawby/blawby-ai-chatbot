@@ -31,13 +31,14 @@ const formatRelativeTime = (dateString: string): string => {
 export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMessagesPanelProps) => {
   const { navigate } = useNavigation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!matter?.id) {
       setConversations([]);
       setError(null);
+      setLoading(false);
       return;
     }
 
@@ -61,7 +62,7 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
 
     void load();
     return () => controller.abort();
-  }, [matter.id]);
+  }, [matter?.id]);
 
   const sortedConversations = useMemo(() => (
     [...conversations].sort((a, b) => {

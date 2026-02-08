@@ -575,13 +575,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('matterId is required');
     }
 
-    const normalizedMatterId = typeof body.matterId === 'string'
+    const trimmedMatterId = typeof body.matterId === 'string'
       ? body.matterId.trim()
-      : null;
+      : body.matterId;
 
-    const conversation = normalizedMatterId
-      ? await conversationService.attachMatter(conversationId, practiceId, normalizedMatterId)
-      : await conversationService.detachMatter(conversationId, practiceId);
+    if (trimmedMatterId === '') {
+      throw HttpErrors.badRequest('matterId cannot be empty or whitespace');
+    }
+
+    const conversation = trimmedMatterId === null
+      ? await conversationService.detachMatter(conversationId, practiceId)
+      : await conversationService.attachMatter(conversationId, practiceId, trimmedMatterId);
 
     return createJsonResponse(conversation);
   }
