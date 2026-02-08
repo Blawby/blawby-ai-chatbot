@@ -5,7 +5,7 @@ A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent c
 ## 🚀 **Quick Start**
 
 ### Prerequisites
-- Node.js 20.x and npm
+- Node.js 18+ and npm
 - Cloudflare account with Workers, D1, KV, and R2 access
 
 ### Installation

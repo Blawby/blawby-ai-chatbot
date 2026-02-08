@@ -164,7 +164,7 @@ BACKEND_API_URL=http://localhost:3000
      BACKEND_API_URL = "https://production-api.blawby.com"
      ```
    - Option 2: Use Cloudflare Dashboard → Workers & Pages → Settings → Variables
-- Option 3: Use `npx wrangler secret put BACKEND_API_URL` (for sensitive values)
+   - Option 3: Use `npx wrangler secret put BACKEND_API_URL` (for sensitive values)
 
 ### Important Notes
 

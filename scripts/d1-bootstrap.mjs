@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -61,8 +61,7 @@ if (remote) {
 }
 
 const run = (commandArgs) => {
-  const cmd = ['npx', 'wrangler', ...commandArgs].join(' ');
-  execSync(cmd, { stdio: 'inherit', cwd: repoRoot });
+  execFileSync('npx', ['wrangler', ...commandArgs], { stdio: 'inherit', cwd: repoRoot });
 };
 
 console.log(`Bootstrapping D1 database '${db}' (env: ${env}, remote: ${remote})`);

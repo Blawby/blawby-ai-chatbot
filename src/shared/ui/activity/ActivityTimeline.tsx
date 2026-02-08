@@ -274,7 +274,7 @@ export const ActivityTimeline = ({
                   <span className="font-semibold">{item.person.name}</span>{' '}
                   {(() => {
                     const trimmed = actionText.trim();
-                    const match = trimmed.match(/^(\w+)\s+(.*)$/);
+                    const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
                     if (!match) {
                       return <span className="text-gray-900 dark:text-white">{trimmed}</span>;
                     }

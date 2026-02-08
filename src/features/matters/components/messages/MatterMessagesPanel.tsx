@@ -50,13 +50,16 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
         const data = await listMatterConversations(matter.id, { signal: controller.signal });
         setConversations(data);
       } catch (err) {
-        if ((err as DOMException).name !== 'AbortError') {
-          const message = err instanceof Error ? err.message : 'Failed to load conversations';
-          setError(message);
-          setConversations([]);
+        if ((err as DOMException).name === 'AbortError') {
+          return;
         }
+        const message = err instanceof Error ? err.message : 'Failed to load conversations';
+        setError(message);
+        setConversations([]);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -76,9 +79,10 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
   ), [conversations]);
 
   const trimmedBasePath = conversationBasePath?.trim() ?? '';
-  const basePath = trimmedBasePath.length
+  const basePath = (trimmedBasePath.length
     ? trimmedBasePath
-    : '/practice/conversations';
+    : '/practice/conversations'
+  ).replace(/\/+$/, '');
 
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">

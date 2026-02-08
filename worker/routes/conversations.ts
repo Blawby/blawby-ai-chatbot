@@ -575,6 +575,10 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('matterId is required');
     }
 
+    if (body.matterId !== null && typeof body.matterId !== 'string') {
+      throw HttpErrors.badRequest('matterId must be a string or null');
+    }
+
     const trimmedMatterId = typeof body.matterId === 'string'
       ? body.matterId.trim()
       : body.matterId;

@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "20.x"
+    "node": ">=18"
   },
   "scripts": {
     "d1:bootstrap": "node scripts/d1-bootstrap.mjs",

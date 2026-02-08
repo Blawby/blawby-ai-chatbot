@@ -26,7 +26,7 @@ Production worker route: ai.blawby.com/api/* (worker/wrangler.toml).
 
 Routing rules:
 Cloudflare Pages `public/_redirects` must include:
-```
+```text
 /api/*              /api/:splat        200
 /__better-auth__/*  /__better-auth__/:splat 200
 /*                  /index.html        200
