@@ -75,8 +75,9 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
     })
   ), [conversations]);
 
-  const basePath = conversationBasePath?.trim().length
-    ? conversationBasePath
+  const trimmedBasePath = conversationBasePath?.trim() ?? '';
+  const basePath = trimmedBasePath.length
+    ? trimmedBasePath
     : '/practice/conversations';
 
   return (
@@ -115,8 +116,8 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
                     Conversation {conversation.id.slice(0, 8)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {conversation.last_message_at || conversation.updated_at
-                      ? `Last message ${formatRelativeTime(conversation.last_message_at ?? conversation.updated_at)}`
+                    {conversation.last_message_at
+                      ? `Last message ${formatRelativeTime(conversation.last_message_at)}`
                       : 'No messages yet'}
                   </p>
                 </div>

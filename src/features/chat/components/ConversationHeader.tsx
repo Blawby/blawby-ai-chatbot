@@ -310,7 +310,7 @@ export const ConversationHeader = ({
 
       {(conversationLoading || loading) && (
         <div className="animate-pulse text-sm text-gray-500 dark:text-gray-400 mt-2">
-          Loading matter…
+          {conversationLoading ? 'Loading conversation…' : 'Loading matter…'}
         </div>
       )}
 
