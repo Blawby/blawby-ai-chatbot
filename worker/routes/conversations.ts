@@ -556,6 +556,36 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(conversation);
   }
 
+  // PATCH /api/conversations/:id/matter - Link or unlink a conversation to a matter
+  if (segments.length === 4 && segments[3] === 'matter' && request.method === 'PATCH') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+    const body = await parseJsonBody(request) as { matterId?: string | null };
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+
+    await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+    if (body.matterId === undefined) {
+      throw HttpErrors.badRequest('matterId is required');
+    }
+
+    const normalizedMatterId = typeof body.matterId === 'string'
+      ? body.matterId.trim()
+      : null;
+
+    const conversation = normalizedMatterId
+      ? await conversationService.attachMatter(conversationId, practiceId, normalizedMatterId)
+      : await conversationService.detachMatter(conversationId, practiceId);
+
+    return createJsonResponse(conversation);
+  }
+
   // PATCH /api/conversations/:id/link - Link anonymous conversation to authenticated user
   if (
     segments.length === 4 &&

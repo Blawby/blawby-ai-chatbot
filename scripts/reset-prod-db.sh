@@ -13,7 +13,7 @@ Drops all D1 tables for the specified environment, reapplies worker/schema.sql,
 and applies migrations.
 
 This is destructive. Always take a backup first:
-  wrangler d1 backup blawby-ai-chatbot --env production --output backups/$(date +%Y%m%d-%H%M%S).sqlite
+  npx wrangler d1 backup blawby-ai-chatbot --env production --output backups/$(date +%Y%m%d-%H%M%S).sqlite
 EOF
 }
 
@@ -54,13 +54,13 @@ EOF
   exit 1
 fi
 
-if ! command -v wrangler &>/dev/null; then
-  echo "wrangler CLI is required but not found in PATH." >&2
+if ! command -v npx &>/dev/null; then
+  echo "npx is required but not found in PATH." >&2
   exit 1
 fi
 
 echo "🚨 Dropping all tables in production..."
-wrangler d1 execute blawby-ai-chatbot --env "${ENVIRONMENT}" --remote --command "$(cat <<'SQL'
+npx wrangler d1 execute blawby-ai-chatbot --env "${ENVIRONMENT}" --remote --command "$(cat <<'SQL'
 DROP TABLE IF EXISTS organization_events;
 DROP TABLE IF EXISTS organization_api_tokens;
 DROP TABLE IF EXISTS payment_history;
@@ -95,10 +95,10 @@ SQL
 )"
 
 echo "🧱 Reapplying worker/schema.sql..."
-wrangler d1 execute blawby-ai-chatbot --env "${ENVIRONMENT}" --remote --file worker/schema.sql
+npx wrangler d1 execute blawby-ai-chatbot --env "${ENVIRONMENT}" --remote --file worker/schema.sql
 
 echo "🔄 Applying migrations..."
-wrangler d1 migrations apply blawby-ai-chatbot --env "${ENVIRONMENT}" --remote
+npx wrangler d1 migrations apply blawby-ai-chatbot --env "${ENVIRONMENT}" --remote
 
 echo "✅ Production database reset complete."
 echo "   - All tables dropped and recreated"

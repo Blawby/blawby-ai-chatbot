@@ -10,10 +10,9 @@ echo "   Please use 'npm run dev:full' instead for the standard development work
 echo "   This script will be removed in a future version."
 echo ""
 
-# Check if wrangler is installed
-if ! command -v wrangler &> /dev/null; then
-    echo "❌ Wrangler is not installed. Please install it first:"
-    echo "   npm install -g wrangler"
+# Ensure npx is available
+if ! command -v npx &> /dev/null; then
+    echo "❌ npx is not available. Please install Node.js (includes npm + npx)."
     exit 1
 fi
 
@@ -30,7 +29,7 @@ trap cleanup SIGINT SIGTERM
 
 echo "📡 Starting Cloudflare Worker (backend)..."
 echo "   API will be available at: http://localhost:8787"
-wrangler dev --port 8787 &
+npx wrangler dev --port 8787 &
 BACKEND_PID=$!
 
 # Wait a moment for the backend to start

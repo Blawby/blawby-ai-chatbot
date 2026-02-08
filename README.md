@@ -5,9 +5,8 @@ A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent c
 ## 🚀 **Quick Start**
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 20.x and npm
 - Cloudflare account with Workers, D1, KV, and R2 access
-- Wrangler CLI installed globally
 
 ### Installation
 
@@ -42,7 +41,7 @@ A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent c
    # Option 2: Start worker only
    npm run dev:worker
    # OR manually:
-   # wrangler dev --port 8787 --config worker/wrangler.toml
+   # npx wrangler dev --port 8787 --config worker/wrangler.toml
    
    # Option 3: Start frontend only
    npm run dev
@@ -50,7 +49,7 @@ A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent c
 
 5. **Deploy to Cloudflare**
    ```bash
-   wrangler deploy
+   npx wrangler deploy
    ```
 
 ## 🎯 **Key Features**
@@ -228,15 +227,15 @@ npm run db:reset
 **Worker not starting:**
 ```bash
 # Check wrangler installation
-wrangler --version
+npx wrangler --version
 
 # Ensure you're using the correct config file
 npm run dev:worker
 # OR manually:
-# wrangler dev --port 8787 --config worker/wrangler.toml
+# npx wrangler dev --port 8787 --config worker/wrangler.toml
 
 # Start with verbose logging
-wrangler dev --port 8787 --config worker/wrangler.toml --log-level debug
+npx wrangler dev --port 8787 --config worker/wrangler.toml --log-level debug
 ```
 
 **Worker shows "Pages project" error:**

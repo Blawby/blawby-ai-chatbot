@@ -1,8 +1,10 @@
 import type { Env } from '../types.js';
 import { getDomain } from 'tldts';
 import { HttpErrors } from '../errorHandler.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember } from '../middleware/auth.js';
 import { handleBackendProxy } from './authProxy.js';
+import { ConversationService } from '../services/ConversationService.js';
+import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 type BackendMatter = Record<string, unknown>;
 type BackendMatterActivity = {
@@ -17,6 +19,7 @@ type BackendMatterActivity = {
 
 const UPDATE_PATTERN = /^\/api\/matters\/([^/]+)\/update\/([^/]+)$/;
 const ACTIVITY_PATTERN = /^\/api\/matters\/([^/]+)\/matters\/([^/]+)\/activity$/;
+const CONVERSATIONS_PATTERN = /^\/api\/matters\/([^/]+)\/conversations$/;
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 
 const resolveRequestHost = (request: Request): string => {
@@ -93,6 +96,13 @@ const resolveBackendUrl = (env: Env): string => {
   }
   return env.BACKEND_API_URL;
 };
+
+const createJsonResponse = (data: unknown): Response => (
+  new Response(JSON.stringify({ success: true, data }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  })
+);
 
 const extractMatter = (payload: unknown): BackendMatter | null => {
   if (!payload || typeof payload !== 'object') return null;
@@ -322,6 +332,29 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/api/matters')) {
     throw HttpErrors.notFound('Matters route not found');
+  }
+
+  const conversationsMatch = url.pathname.match(CONVERSATIONS_PATTERN);
+  if (conversationsMatch) {
+    if (request.method.toUpperCase() !== 'GET') {
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: { 'Allow': 'GET' }
+      });
+    }
+
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+    const matterId = conversationsMatch[1];
+
+    await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+    const conversationService = new ConversationService(env);
+    const conversations = await conversationService.listByMatterId(matterId, practiceId);
+
+    return createJsonResponse(conversations);
   }
 
   const updateMatch = url.pathname.match(UPDATE_PATTERN);

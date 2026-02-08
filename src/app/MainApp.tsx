@@ -853,7 +853,8 @@ export function MainApp({
           {showMatterControls && (
             <ConversationHeader
               practiceId={practiceId}
-              matterId={null}
+              practiceSlug={resolvedPracticeSlug ?? null}
+              conversationId={activeConversationId ?? undefined}
               canReviewLeads={canReviewLeads}
               acceptMatter={acceptMatter}
               rejectMatter={rejectMatter}

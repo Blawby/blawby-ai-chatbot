@@ -492,7 +492,7 @@ Add unit tests for:
 **Symptom**: Connection errors or timeout
 
 **Solutions**:
-1. Ensure `wrangler dev` is running on `http://localhost:8787`
+1. Ensure `npx wrangler dev` is running on `http://localhost:8787`
 2. Ensure frontend dev server is running on `http://localhost:5173`
 3. Check `worker/.dev.vars` contains `BETTER_AUTH_SECRET` (32+ characters)
 4. Verify worker health: `curl http://localhost:8787/health`

@@ -552,6 +552,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const selectedMatterId = firstSegment && firstSegment !== 'activity'
     ? decodeURIComponent(firstSegment)
     : null;
+  const conversationBasePath = basePath.endsWith('/matters')
+    ? basePath.replace(/\/matters$/, '/conversations')
+    : '/practice/conversations';
   const { activePracticeId, session } = useSessionContext();
   const { showError } = useToastContext();
   const { getMembers, fetchMembers } = usePracticeManagement({
@@ -1978,7 +1981,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               </div>
             ) : detailTab === 'messages' && selectedMatterDetail ? (
               <div className="px-0">
-                <MatterMessagesPanel key={`messages-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <MatterMessagesPanel
+                  key={`messages-${selectedMatterDetail.id}`}
+                  matter={selectedMatterDetail}
+                  conversationBasePath={conversationBasePath}
+                />
               </div>
             ) : (
               <div className="px-0 text-sm text-gray-500 dark:text-gray-400">

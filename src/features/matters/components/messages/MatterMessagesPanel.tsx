@@ -1,206 +1,140 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { ulid } from 'ulid';
-import ChatContainer from '@/features/chat/components/ChatContainer';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import { listMatterConversations } from '@/shared/lib/apiClient';
+import { Button } from '@/shared/ui/Button';
+import { useNavigation } from '@/shared/utils/navigation';
 import type { MatterDetail } from '@/features/matters/data/mockMatters';
-import type { ChatMessageUI, FileAttachment } from '../../../../../worker/types';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import { Avatar } from '@/shared/ui/profile';
-
-const buildMockMessages = (matter: MatterDetail): ChatMessageUI[] => {
-  const now = Date.now();
-  return [
-    {
-      id: `${matter.id}-m1`,
-      role: 'user',
-      content: 'Can we confirm the deadline for the filing?',
-      timestamp: now - 1000 * 60 * 60 * 24,
-      isUser: true,
-      metadata: {
-        displayName: matter.clientName,
-        role: 'Client'
-      }
-    },
-    {
-      id: `${matter.id}-m2`,
-      role: 'assistant',
-      content: 'Draft is ready for review. I can send it over once approved.',
-      timestamp: now - 1000 * 60 * 60 * 18,
-      isUser: false,
-      metadata: {
-        displayName: 'Jordan Lee',
-        role: 'Paralegal'
-      }
-    },
-    {
-      id: `${matter.id}-m3`,
-      role: 'assistant',
-      content: 'Thanks! I will review and respond by end of day.',
-      timestamp: now - 1000 * 60 * 60 * 2,
-      isUser: false,
-      metadata: {
-        displayName: 'You',
-        role: 'Lead Attorney'
-      }
-    }
-  ];
-};
+import type { Conversation } from '@/shared/types/conversation';
 
 interface MatterMessagesPanelProps {
   matter: MatterDetail;
+  conversationBasePath?: string;
 }
 
-export const MatterMessagesPanel = ({ matter }: MatterMessagesPanelProps) => {
-  const [messages, setMessages] = useState<ChatMessageUI[]>(() => buildMockMessages(matter));
-  const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const previewUrlsRef = useRef<string[]>([]);
+const formatRelativeTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (date > now) return 'Just now';
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  const participants = useMemo(() => {
-    const names = new Map<string, { name: string; role?: string }>();
-    messages.forEach((message) => {
-      const displayName = typeof message.metadata?.displayName === 'string'
-        ? message.metadata.displayName
-        : message.isUser ? 'You' : 'Blawby';
-      if (!displayName.trim()) return;
-      names.set(displayName, {
-        name: displayName,
-        role: typeof message.metadata?.role === 'string' ? message.metadata.role : undefined
-      });
-    });
-    return Array.from(names.values());
-  }, [messages]);
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
 
-  const sortedMessages = useMemo(() => (
-    [...messages].sort((a, b) => a.timestamp - b.timestamp)
-  ), [messages]);
+  return date.toLocaleDateString();
+};
 
-  const handleSendMessage = (content: string, attachments: FileAttachment[]) => {
-    const nextMessage: ChatMessageUI = {
-      id: ulid(),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-      isUser: true,
-      metadata: {
-        displayName: 'You',
-        role: 'Lead Attorney',
-        attachments
-      }
-    };
+export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMessagesPanelProps) => {
+  const { navigate } = useNavigation();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    setMessages((prev) => [nextMessage, ...prev]);
-  };
+  useEffect(() => {
+    if (!matter?.id) {
+      setConversations([]);
+      setError(null);
+      return;
+    }
 
-  const handleFileSelect = async (files: File[]) => {
-    const next = files.map((file) => ({
-      id: ulid(),
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      url: URL.createObjectURL(file)
-    }));
-    setPreviewFiles((prev) => [...prev, ...next]);
-  };
-
-  const handleCameraCapture = async (file: File) => {
-    await handleFileSelect([file]);
-  };
-
-  const handleMediaCapture = (_blob: Blob, _type: 'audio' | 'video') => {};
-
-  const removePreviewFile = (index: number) => {
-    setPreviewFiles((prev) => {
-      const target = prev[index];
-      if (target?.url) {
-        URL.revokeObjectURL(target.url);
-      }
-      return prev.filter((_, idx) => idx !== index);
-    });
-  };
-
-  const clearPreviewFiles = () => {
-    setPreviewFiles((prev) => {
-      prev.forEach((file) => {
-        if (file.url) {
-          URL.revokeObjectURL(file.url);
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await listMatterConversations(matter.id, { signal: controller.signal });
+        setConversations(data);
+      } catch (err) {
+        if ((err as DOMException).name !== 'AbortError') {
+          const message = err instanceof Error ? err.message : 'Failed to load conversations';
+          setError(message);
+          setConversations([]);
         }
-      });
-      return [];
-    });
-  };
-
-  const cancelUpload = (fileId: string) => {
-    setUploadingFiles((prev) => prev.filter((file) => file.id !== fileId));
-  };
-
-  useEffect(() => {
-    previewUrlsRef.current = previewFiles.map((file) => file.url).filter(Boolean);
-  }, [previewFiles]);
-
-  useEffect(() => {
-    return () => {
-      previewUrlsRef.current.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
+      } finally {
+        setLoading(false);
+      }
     };
-  }, []);
+
+    void load();
+    return () => controller.abort();
+  }, [matter.id]);
+
+  const sortedConversations = useMemo(() => (
+    [...conversations].sort((a, b) => {
+      const aTime = a.last_message_at ?? a.updated_at;
+      const bTime = b.last_message_at ?? b.updated_at;
+      if (!aTime && !bTime) return 0;
+      if (!aTime) return 1;
+      if (!bTime) return -1;
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    })
+  ), [conversations]);
+
+  const basePath = conversationBasePath?.trim().length
+    ? conversationBasePath
+    : '/practice/conversations';
 
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
         <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Matter conversation</p>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Linked conversations</p>
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">{matter.title}</h3>
         </div>
-        <div className="flex items-center gap-1.5">
-          {participants.slice(0, 4).map((participant) => (
-            <Avatar
-              key={participant.name}
-              name={participant.name}
-              size="xs"
-              className="bg-gray-200 text-gray-700 dark:bg-gray-700"
-            />
-          ))}
-          {participants.length > 4 && (
-            <span className="ml-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-              +{participants.length - 4}
-            </span>
-          )}
-        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => navigate(basePath)}
+        >
+          View all conversations
+        </Button>
       </header>
-      <div className="h-[540px] flex flex-col">
-        <ChatContainer
-          messages={sortedMessages}
-          conversationTitle={`Matter ${matter.title}`}
-          onSendMessage={handleSendMessage}
-          previewFiles={previewFiles}
-          uploadingFiles={uploadingFiles}
-          removePreviewFile={removePreviewFile}
-          clearPreviewFiles={clearPreviewFiles}
-          handleFileSelect={handleFileSelect}
-          handleCameraCapture={handleCameraCapture}
-          cancelUpload={cancelUpload}
-          handleMediaCapture={handleMediaCapture}
-          isRecording={isRecording}
-          setIsRecording={setIsRecording}
-          isReadyToUpload
-          isSessionReady
-          isSocketReady
-          practiceConfig={{
-            name: 'Blawby',
-            profileImage: null,
-            practiceId: 'preview',
-            description: 'Matter conversation',
-            slug: 'blawby',
-            introMessage: null
-          }}
-          practiceId="preview"
-          conversationId={matter.id}
-          showPracticeHeader={false}
-          heightClassName="h-full"
-          messagesReady
-        />
+      <div className="p-6">
+        {loading && (
+          <div className="text-sm text-gray-500 dark:text-gray-400">Loading conversations…</div>
+        )}
+        {!loading && error && (
+          <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
+        )}
+        {!loading && !error && sortedConversations.length === 0 && (
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            No conversations are linked to this matter yet.
+          </div>
+        )}
+        {!loading && !error && sortedConversations.length > 0 && (
+          <div className="divide-y divide-gray-200 dark:divide-gray-800">
+            {sortedConversations.map((conversation) => (
+              <div key={conversation.id} className="py-4 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Conversation {conversation.id.slice(0, 8)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {conversation.last_message_at || conversation.updated_at
+                      ? `Last message ${formatRelativeTime(conversation.last_message_at ?? conversation.updated_at)}`
+                      : 'No messages yet'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {conversation.status ?? 'active'}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => navigate(`${basePath}/${encodeURIComponent(conversation.id)}`)}
+                  >
+                    Open
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

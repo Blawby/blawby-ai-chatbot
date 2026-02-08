@@ -115,7 +115,7 @@ BACKEND_API_URL=http://localhost:3000
 
 **Production Configuration**:
 - Set via Cloudflare Dashboard: Workers & Pages → Settings → Variables
-- Or use `wrangler secret put BACKEND_API_URL` for sensitive values
+- Or use `npx wrangler secret put BACKEND_API_URL` for sensitive values
 - Or set in `wrangler.toml` under `[env.production.vars]` for non-sensitive values
 
 **Note**: `worker/.dev.vars` is git-ignored and should contain secrets only. Non-sensitive config belongs in `worker/wrangler.toml`.
@@ -164,7 +164,7 @@ BACKEND_API_URL=http://localhost:3000
      BACKEND_API_URL = "https://production-api.blawby.com"
      ```
    - Option 2: Use Cloudflare Dashboard → Workers & Pages → Settings → Variables
-   - Option 3: Use `wrangler secret put BACKEND_API_URL` (for sensitive values)
+- Option 3: Use `npx wrangler secret put BACKEND_API_URL` (for sensitive values)
 
 ### Important Notes
 

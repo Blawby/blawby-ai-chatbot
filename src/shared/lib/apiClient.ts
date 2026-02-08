@@ -238,6 +238,10 @@ export interface CurrentSubscription {
   currentPeriodEnd?: string | null;
 }
 
+export interface UpdateConversationMatterRequest {
+  matterId?: string | null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -279,6 +283,50 @@ export async function linkConversationToUser(
   }
 
   return conversation;
+}
+
+export async function updateConversationMatter(
+  conversationId: string,
+  matterId: string | null,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Conversation> {
+  if (!conversationId) {
+    throw new Error('conversationId is required to update a conversation matter');
+  }
+
+  const response = await apiClient.patch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/matter`,
+    { matterId } satisfies UpdateConversationMatterRequest,
+    { signal: config?.signal }
+  );
+
+  const data = unwrapApiData(response.data);
+  if (!isRecord(data)) {
+    throw new Error('Invalid response from updateConversationMatter');
+  }
+
+  return data as Conversation;
+}
+
+export async function listMatterConversations(
+  matterId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Conversation[]> {
+  if (!matterId) {
+    return [];
+  }
+
+  const response = await apiClient.get(
+    `/api/matters/${encodeURIComponent(matterId)}/conversations`,
+    { signal: config?.signal }
+  );
+
+  const data = unwrapApiData(response.data);
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid response from listMatterConversations');
+  }
+
+  return data as Conversation[];
 }
 
 async function postSubscriptionEndpoint(

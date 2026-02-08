@@ -61,7 +61,7 @@ if (remote) {
 }
 
 const run = (commandArgs) => {
-  const cmd = ['wrangler', ...commandArgs].join(' ');
+  const cmd = ['npx', 'wrangler', ...commandArgs].join(' ');
   execSync(cmd, { stdio: 'inherit', cwd: repoRoot });
 };
 
