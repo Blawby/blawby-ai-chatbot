@@ -235,7 +235,8 @@ export const Combobox = ({
                   if (option) {
                     if (isMultiple) {
                       toggleValue(option.value);
-                      setFocusedIndex(0);
+                      // Preserve current focusedIndex, clamped to the potentially new list length
+                      setFocusedIndex((prev) => Math.min(prev, filteredOptions.length - 1));
                     } else {
                       emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);

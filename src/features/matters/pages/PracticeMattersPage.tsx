@@ -844,6 +844,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   useEffect(() => {
     if (!activePracticeId) {
       setClientOptions([]);
+      setIsClientListTruncated(false);
       return;
     }
 
@@ -851,6 +852,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     const controller = new AbortController();
 
     const fetchAllClients = async () => {
+      setIsClientListTruncated(false);
       let offset = 0;
       const limit = 100;
       const allClients: MatterOption[] = [];

@@ -36,6 +36,38 @@ PRAGMA foreign_keys = ON;
 -- reference for scoping, and any organization data should be derived via remote API
 -- using the practice_id when needed.
 
+-- Matters table to represent legal matters
+CREATE TABLE IF NOT EXISTS matters (
+  id TEXT PRIMARY KEY,
+  practice_id TEXT NOT NULL,
+  user_id TEXT,
+  client_name TEXT NOT NULL,
+  client_email TEXT,
+  client_phone TEXT,
+  matter_type TEXT NOT NULL, -- e.g., 'Family Law', 'Employment Law', etc.
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'lead', -- 'lead', 'open', 'in_progress', 'completed', 'archived'
+  priority TEXT NOT NULL DEFAULT 'normal', -- 'low', 'normal', 'high' - maps from urgency
+  assigned_lawyer_id TEXT,
+  lead_source TEXT, -- 'website', 'referral', 'advertising', etc.
+  estimated_value INTEGER, -- in cents
+  billable_hours REAL DEFAULT 0,
+  flat_fee INTEGER, -- in cents, if applicable
+  retainer_amount INTEGER, -- in cents
+  retainer_balance INTEGER DEFAULT 0, -- in cents
+  statute_of_limitations DATE,
+  court_jurisdiction TEXT,
+  opposing_party TEXT,
+  matter_number TEXT, -- Changed from case_number to matter_number
+  tags JSON, -- Array of tags for categorization
+  internal_notes TEXT, -- Internal notes for practice members
+  custom_fields JSON, -- Flexible metadata storage
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  closed_at DATETIME
+);
+
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
@@ -97,37 +129,7 @@ CREATE TABLE IF NOT EXISTS contact_forms (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Matters table to represent legal matters
-CREATE TABLE IF NOT EXISTS matters (
-  id TEXT PRIMARY KEY,
-  practice_id TEXT NOT NULL,
-  user_id TEXT,
-  client_name TEXT NOT NULL,
-  client_email TEXT,
-  client_phone TEXT,
-  matter_type TEXT NOT NULL, -- e.g., 'Family Law', 'Employment Law', etc.
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'lead', -- 'lead', 'open', 'in_progress', 'completed', 'archived'
-  priority TEXT NOT NULL DEFAULT 'normal', -- 'low', 'normal', 'high' - maps from urgency
-  assigned_lawyer_id TEXT,
-  lead_source TEXT, -- 'website', 'referral', 'advertising', etc.
-  estimated_value INTEGER, -- in cents
-  billable_hours REAL DEFAULT 0,
-  flat_fee INTEGER, -- in cents, if applicable
-  retainer_amount INTEGER, -- in cents
-  retainer_balance INTEGER DEFAULT 0, -- in cents
-  statute_of_limitations DATE,
-  court_jurisdiction TEXT,
-  opposing_party TEXT,
-  matter_number TEXT, -- Changed from case_number to matter_number
-  tags JSON, -- Array of tags for categorization
-  internal_notes TEXT, -- Internal notes for practice members
-  custom_fields JSON, -- Flexible metadata storage
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  closed_at DATETIME
-);
+
 
 -- Counters table for atomic sequences per practice
 CREATE TABLE IF NOT EXISTS counters (

@@ -97,7 +97,10 @@ export const PracticePricingPage = () => {
     const currentFeeMinor = typeof activeFee === 'number' ? activeFee : null;
     const nextFeeMinor = feeEnabledDraft && typeof feeDraft === 'number' ? toMinorUnits(feeDraft) : null;
 
-    if ((nextFeeMinor as unknown as number | null) === (currentFeeMinor as unknown as number | null) || (!feeEnabledDraft && !feeEnabled)) {
+    const currentVal = typeof currentFeeMinor === 'number' ? currentFeeMinor : null;
+    const nextVal = typeof nextFeeMinor === 'number' ? nextFeeMinor : null;
+
+    if (nextVal === currentVal || (!feeEnabledDraft && !feeEnabled)) {
       setIsFeeModalOpen(false);
       return;
     }

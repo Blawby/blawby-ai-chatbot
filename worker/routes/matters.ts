@@ -364,6 +364,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         practiceId,
         practiceIdSegment
       });
+      return new Response(JSON.stringify({ error: 'Practice ID mismatch' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');

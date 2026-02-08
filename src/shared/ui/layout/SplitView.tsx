@@ -20,7 +20,7 @@ export const SplitView = ({
   secondaryClassName,
   tertiaryClassName
 }: SplitViewProps) => {
-  const hasTertiary = Boolean(tertiary);
+  const hasTertiary = tertiary != null && (!Array.isArray(tertiary) || tertiary.length > 0);
   const gridClassName = hasTertiary
     ? 'grid-cols-1 md:grid-cols-[minmax(0,320px)_1fr] xl:grid-cols-[minmax(0,320px)_1fr_minmax(0,320px)]'
     : 'grid-cols-1 md:grid-cols-[minmax(0,320px)_1fr]';
