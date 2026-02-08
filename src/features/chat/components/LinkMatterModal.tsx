@@ -197,7 +197,7 @@ export const LinkMatterModal = ({
               variant="danger"
               size="sm"
               onClick={handleUnlink}
-              disabled={saving}
+              disabled={loading || saving}
             >
               Unlink
             </Button>

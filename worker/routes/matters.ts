@@ -170,6 +170,15 @@ const enrichActivityPayload = (
 
 const isEmptyValue = (value: unknown): boolean => value === null || value === undefined || value === '';
 
+const createTimeoutSignal = (ms: number): AbortSignal => {
+  if (typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+};
+
 const areEquivalentValues = (left: unknown, right: unknown): boolean => {
   if (isEmptyValue(left) && isEmptyValue(right)) return true;
   if (Object.is(left, right)) return true;
@@ -178,14 +187,16 @@ const areEquivalentValues = (left: unknown, right: unknown): boolean => {
   if (leftType !== rightType) return false;
   if (left && right && leftType === 'object') {
     try {
-      // Stable stringify by sorting keys
-      const stableStringify = (obj: unknown): string => {
+      // Stable stringify by sorting keys (with cycle detection)
+      const stableStringify = (obj: unknown, seen = new WeakSet<object>()): string => {
         if (typeof obj !== 'object' || obj === null) return JSON.stringify(obj);
+        if (seen.has(obj)) return '"[Circular]"';
+        seen.add(obj);
         if (Array.isArray(obj)) {
-          return '[' + obj.map(item => stableStringify(item)).join(',') + ']';
+          return '[' + obj.map(item => stableStringify(item, seen)).join(',') + ']';
         }
         const sortedKeys = Object.keys(obj as Record<string, unknown>).sort();
-        const parts = sortedKeys.map(key => `${JSON.stringify(key)}:${stableStringify((obj as Record<string, unknown>)[key])}`);
+        const parts = sortedKeys.map(key => `${JSON.stringify(key)}:${stableStringify((obj as Record<string, unknown>)[key], seen)}`);
         return `{${parts.join(',')}}`;
       };
       return stableStringify(left) === stableStringify(right);
@@ -546,7 +557,7 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     if (activityIds.length > 0 && env.MATTER_DIFFS) {
       try {
         const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
-        const signal = AbortSignal.timeout(3000);
+        const signal = createTimeoutSignal(3000);
         const response = await stub.fetch('https://matter-diffs/internal/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
