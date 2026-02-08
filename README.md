@@ -49,8 +49,9 @@ A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent c
 
 5. **Deploy to Cloudflare**
    ```bash
-   npx wrangler deploy
+   npx wrangler deploy --config worker/wrangler.toml
    ```
+   This deploys the Cloudflare Worker only (Pages is configured separately).
 
 ## 🎯 **Key Features**
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
@@ -39,6 +39,7 @@ export const LinkMatterModal = ({
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -59,7 +60,9 @@ export const LinkMatterModal = ({
       return;
     }
 
+    controllerRef.current?.abort();
     const controller = new AbortController();
+    controllerRef.current = controller;
     const setLoadingState = append ? setLoadingMore : setLoading;
     setLoadingState(true);
     setError(null);
@@ -124,6 +127,9 @@ export const LinkMatterModal = ({
         }
       }
     } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
       setLoadingState(false);
     }
 
@@ -135,6 +141,9 @@ export const LinkMatterModal = ({
     }
 
     void fetchMatters(1, { append: false });
+    return () => {
+      controllerRef.current?.abort();
+    };
   }, [fetchMatters, isOpen]);
 
   const handleLoadMore = async () => {

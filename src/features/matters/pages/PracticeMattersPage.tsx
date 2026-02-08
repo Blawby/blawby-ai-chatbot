@@ -848,21 +848,26 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
 
     let cancelled = false;
+    const controller = new AbortController();
 
     const fetchAllClients = async () => {
       let offset = 0;
       const limit = 100;
-      let allClients: MatterOption[] = [];
+      const allClients: MatterOption[] = [];
       let hasMore = true;
 
       let lastTotal = 0;
       try {
         const MAX_PAGES = 100;
         let iterations = 0;
-        while (hasMore && !cancelled && iterations < MAX_PAGES) {
+        while (hasMore && !cancelled && !controller.signal.aborted && iterations < MAX_PAGES) {
           iterations++;
-          const response = await listUserDetails(activePracticeId, { limit, offset });
-          if (cancelled) break;
+          const response = await listUserDetails(activePracticeId, {
+            limit,
+            offset,
+            signal: controller.signal
+          });
+          if (cancelled || controller.signal.aborted) break;
 
           const options = response.data.map(buildClientOption);
           allClients.push(...options);
@@ -882,13 +887,16 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           }
         }
 
-        if (!cancelled) {
+        if (!cancelled && !controller.signal.aborted) {
           setClientOptions(allClients);
           // Detect truncation if we broke loop prematurely or if total exceeds the amount we fetched
           const isTruncated = iterations >= MAX_PAGES || (lastTotal > allClients.length);
           setIsClientListTruncated(isTruncated);
         }
       } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+          return;
+        }
         if (!cancelled) {
           console.error('[PracticeMattersPage] Failed to load clients', error);
           setClientOptions(allClients); // Show what we have
@@ -902,6 +910,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [activePracticeId, buildClientOption, showError]);
 

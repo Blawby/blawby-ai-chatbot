@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS counters (
 -- Matter events table for matter activity logs
 CREATE TABLE IF NOT EXISTS matter_events (
   id TEXT PRIMARY KEY,
-  matter_id TEXT NOT NULL,
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL,
   event_type TEXT NOT NULL, -- 'note', 'call', 'email', 'meeting', 'filing', 'payment', 'status_change'
   title TEXT NOT NULL,
   description TEXT,
@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS files (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
   user_id TEXT,
-  matter_id TEXT, -- Optional: link to specific matter
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL, -- Optional: link to specific matter
   conversation_id TEXT, -- Optional: link to conversation
   original_name TEXT NOT NULL,
   file_name TEXT NOT NULL, -- Storage filename
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS files (
 -- Matter questions table for Q&A pairs from intake
 CREATE TABLE IF NOT EXISTS matter_questions (
   id TEXT PRIMARY KEY,
-  matter_id TEXT,
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL,
   practice_id TEXT NOT NULL, -- Aligned with other tables: practice scoping required
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
