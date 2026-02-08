@@ -91,6 +91,7 @@ DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS pii_access_audit_backup;
 DROP TABLE IF EXISTS pii_access_audit;
+DROP TABLE IF EXISTS d1_migrations;
 SQL
 )"
 

@@ -300,6 +300,8 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
     <PublicConversationList
       conversations={publicConversations}
       previews={publicConversationPreviews}
+      practiceName={practiceName}
+      practiceLogo={practiceLogo}
       isLoading={isPublicConversationsLoading}
       onClose={() => navigate(embedBasePath)}
       onSelectConversation={(conversationId) => {

@@ -1986,6 +1986,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 <MatterMessagesPanel
                   key={`messages-${selectedMatterDetail.id}`}
                   matter={selectedMatterDetail}
+                  practiceId={activePracticeId ?? ''}
                   conversationBasePath={conversationBasePath}
                 />
               </div>

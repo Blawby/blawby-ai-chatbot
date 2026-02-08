@@ -384,6 +384,9 @@ export function MainApp({
       let currentConversationId = activeConversationId;
       if (!currentConversationId && !isCreatingConversation) {
         currentConversationId = await createConversation();
+        if (!currentConversationId) {
+          showErrorRef.current?.('Unable to create a new conversation. Please try again.');
+        }
       }
       if (!currentConversationId || !practiceId) {
         return;

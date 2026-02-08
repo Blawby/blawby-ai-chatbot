@@ -29,7 +29,7 @@ export const AppShell = ({
   const hasBottomBar = Boolean(bottomBar);
 
   const gridClassName = hasSidebar
-    ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr] md:grid-rows-[auto,1fr]'
+    ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr] md:grid-rows-[auto,1fr,auto]'
     : 'grid-rows-[auto,1fr,auto] md:grid-cols-1 md:grid-rows-[auto,1fr,auto]';
 
   return (
