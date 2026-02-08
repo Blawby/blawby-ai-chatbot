@@ -171,19 +171,25 @@ export const Combobox = ({
             onBlur={() => {
               setIsOpen(false);
               // Only emit if the user actually typed something or if query differs from display value and was intentional
-              if (!isMultiple && userTyped && query !== resolvedDisplayValue) {
+              if (userTyped && query !== resolvedDisplayValue) {
                 const trimmedQuery = query.trim();
                 const exactMatch = options.find(o => o.label.trim() === trimmedQuery);
-                if (exactMatch) {
-                  emitChange(exactMatch.value);
-                } else {
+                const matchToEmit = exactMatch || (() => {
                   const lowerQuery = trimmedQuery.toLowerCase();
                   const caseInsensitiveMatches = options.filter(o => o.label.trim().toLowerCase() === lowerQuery);
                   if (caseInsensitiveMatches.length >= 1) {
-                    const sortedMatches = [...caseInsensitiveMatches].sort((a, b) =>
-                      a.label.localeCompare(b.label)
-                    );
-                    emitChange(sortedMatches[0].value);
+                    return [...caseInsensitiveMatches].sort((a, b) => a.label.localeCompare(b.label))[0];
+                  }
+                  return null;
+                })();
+
+                if (isMultiple) {
+                  if (matchToEmit) {
+                    toggleValue(matchToEmit.value);
+                  }
+                } else {
+                  if (matchToEmit) {
+                    emitChange(matchToEmit.value);
                   } else {
                     emitChange(trimmedQuery);
                   }
@@ -235,8 +241,7 @@ export const Combobox = ({
                   if (option) {
                     if (isMultiple) {
                       toggleValue(option.value);
-                      // Preserve current focusedIndex, clamped to the potentially new list length
-                      setFocusedIndex((prev) => Math.min(prev, filteredOptions.length - 1));
+                      setFocusedIndex(0);
                     } else {
                       emitChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);

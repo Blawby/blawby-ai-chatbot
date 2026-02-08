@@ -305,7 +305,7 @@ export async function updateConversationMatter(
     throw new Error('Invalid response from updateConversationMatter');
   }
 
-  return data as Conversation;
+  return data as unknown as Conversation;
 }
 
 export async function listMatterConversations(
@@ -321,7 +321,7 @@ export async function listMatterConversations(
   }
 
   const response = await apiClient.get(
-    `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/conversations`,
+    `/api/practices/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/conversations`,
     { signal: config?.signal }
   );
 

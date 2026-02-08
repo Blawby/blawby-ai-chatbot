@@ -126,7 +126,13 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       await openPayment(paymentRequest);
       return;
     }
-    navigate(paymentUrl);
+    try {
+      if (paymentUrl) {
+        navigate(paymentUrl);
+      }
+    } catch (error) {
+      console.warn('[IntakePayment] Catch-all navigation failed', error);
+    }
   };
 
   return (

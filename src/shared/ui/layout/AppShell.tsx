@@ -43,7 +43,7 @@ export const AppShell = ({
       {hasSidebar && (
         <aside
           className={cn(
-            'row-start-2 min-h-0 overflow-y-auto border-r border-gray-200 dark:border-white/10',
+            'row-start-2 min-h-0 overflow-y-auto border-r border-gray-200 dark:border-white/10 hidden md:block',
             sidebarClassName
           )}
         >

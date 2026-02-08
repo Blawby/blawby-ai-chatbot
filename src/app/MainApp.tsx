@@ -998,7 +998,7 @@ export function MainApp({
 
   const mainContent = workspace === 'practice'
     ? practiceEmbedContent
-    : (workspace === 'client' ? clientEmbedContent : publicEmbedContent ?? chatPanel);
+    : (workspace === 'client' ? clientEmbedContent : publicEmbedContent);
   const shouldShowRightSidebar = false;
 
   // Render the main app

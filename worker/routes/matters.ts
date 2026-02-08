@@ -538,6 +538,24 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       });
     }
     const [, _practiceId, matterId] = activityMatch;
+    
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+    
+    if (_practiceId && _practiceId !== practiceId) {
+      console.warn('[Matters] Practice ID mismatch in activity route', {
+        practiceId,
+        _practiceId
+      });
+      return new Response(JSON.stringify({ error: 'Practice ID mismatch' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
     const requestHost = resolveRequestHost(request);
     const headers = new Headers(request.headers);
     const backendResponse = await fetchBackend(env, headers, url.pathname + url.search, {
