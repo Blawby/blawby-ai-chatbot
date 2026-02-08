@@ -58,16 +58,27 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     return false;
   };
 
-  const handlePay = () => {
+  const openPayment = async (request: IntakePaymentRequest) => {
+    if (!onOpenPayment) return false;
+    try {
+      await Promise.resolve(onOpenPayment(request));
+      return true;
+    } catch (error) {
+      console.warn('[IntakePayment] Failed to open payment flow', error);
+      return false;
+    }
+  };
+
+  const handlePay = async () => {
     if (hasClientSecret && onOpenPayment) {
-      onOpenPayment(paymentRequest);
+      await openPayment(paymentRequest);
       return;
     }
     if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
       const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
       if (isValid) {
         if (onOpenPayment) {
-          onOpenPayment(paymentRequest);
+          await openPayment(paymentRequest);
           return;
         }
         if (typeof window !== 'undefined') {
@@ -86,21 +97,24 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         } else if (onOpenPayment) {
           const sanitizedRequest = { ...paymentRequest };
           delete sanitizedRequest.checkoutSessionUrl;
-          onOpenPayment(sanitizedRequest);
-          fallbackSucceeded = true;
+          fallbackSucceeded = await openPayment(sanitizedRequest);
         } else {
-             // Try simple navigation to payment URL as last resort if it differs from checkout session
-             if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
-                 navigate(paymentUrl);
-                 fallbackSucceeded = true;
-             }
+          // Try simple navigation to payment URL as last resort if it differs from checkout session
+          if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
+            try {
+              navigate(paymentUrl);
+              fallbackSucceeded = true;
+            } catch (error) {
+              console.warn('[IntakePayment] Failed to navigate to payment URL', error);
+            }
+          }
         }
 
         if (fallbackSucceeded) {
-            // Using showInfo instead of showError to avoid alarming the user during fallback flow
-            showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
+          // Using showInfo instead of showError to avoid alarming the user during fallback flow
+          showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
         } else if (typeof window !== 'undefined') {
-             showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
+          showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
         }
         return;
       }
@@ -109,10 +123,16 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       return;
     }
     if (onOpenPayment) {
-      onOpenPayment(paymentRequest);
+      await openPayment(paymentRequest);
       return;
     }
-    navigate(paymentUrl);
+    try {
+      if (paymentUrl) {
+        navigate(paymentUrl);
+      }
+    } catch (error) {
+      console.warn('[IntakePayment] Catch-all navigation failed', error);
+    }
   };
 
   return (

@@ -5,6 +5,8 @@ import { useNavigation } from '@/shared/utils/navigation';
 import PublicEmbedHome from './PublicEmbedHome';
 import PublicEmbedNavigation from './PublicEmbedNavigation';
 import PublicConversationList from './PublicConversationList';
+import { SplitView } from '@/shared/ui/layout/SplitView';
+import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -55,6 +57,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
 }) => {
   const { navigate } = useNavigation();
   const publicMessages = useMemo(() => filterPublicMessages(messages), [messages]);
+  const isPracticeWorkspace = workspace === 'practice';
 
   const embedBasePath = useMemo(() => {
     if (workspace === 'practice') {
@@ -82,6 +85,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
     }
   }, [allowed, embedBasePath, navigate]);
 
+  const shouldListConversations = isPracticeWorkspace ? true : view !== 'conversation';
   const {
     conversations: publicConversations,
     isLoading: isPublicConversationsLoading,
@@ -89,8 +93,8 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   } = useConversations({
     practiceId,
     scope: 'practice',
-    list: view !== 'conversation',
-    enabled: view !== 'conversation' && Boolean(practiceId)
+    list: shouldListConversations,
+    enabled: shouldListConversations && Boolean(practiceId)
   });
 
   const [publicConversationPreviews, setPublicConversationPreviews] = useState<Record<string, {
@@ -291,6 +295,54 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   const containerClassName = 'flex flex-col h-screen w-full m-0 p-0 relative overflow-hidden bg-light-bg dark:bg-dark-bg';
   const mainClassName = 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative items-center px-3 py-4';
   const frameClassName = 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden';
+
+  const conversationListView = (
+    <PublicConversationList
+      conversations={publicConversations}
+      previews={publicConversationPreviews}
+      practiceName={practiceName}
+      practiceLogo={practiceLogo}
+      isLoading={isPublicConversationsLoading}
+      onClose={() => navigate(embedBasePath)}
+      onSelectConversation={(conversationId) => {
+        navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
+      }}
+      onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+    />
+  );
+
+  if (isPracticeWorkspace && (view === 'list' || view === 'conversation')) {
+    const showListOnMobile = view === 'list';
+    const showChatOnMobile = view === 'conversation';
+
+    return (
+      <div className="flex h-full min-h-0 w-full">
+        <SplitView
+          className="h-full min-h-0 w-full"
+          primary={conversationListView}
+          secondary={chatView}
+          primaryClassName={cn(
+            'min-h-0',
+            showListOnMobile ? 'block' : 'hidden',
+            'md:block'
+          )}
+          secondaryClassName={cn(
+            'min-h-0',
+            showChatOnMobile ? 'block' : 'hidden',
+            'md:block'
+          )}
+        />
+      </div>
+    );
+  }
+
+  if (isPracticeWorkspace) {
+    return (
+      <div className="flex h-full min-h-0 w-full">
+        {renderContent()}
+      </div>
+    );
+  }
 
   if (!shouldFrame) {
     return (

@@ -121,7 +121,12 @@ export const buildIntakePaymentUrl = (
   }
 
   const checkoutSessionId = getQueryValue(request.checkoutSessionId);
-  if (checkoutSessionId) params.set('checkout_session_id', checkoutSessionId);
+  if (checkoutSessionId) {
+    const isValidCheckoutSessionId = /^cs_(test|live)_[A-Za-z0-9]+$/.test(checkoutSessionId);
+    if (isValidCheckoutSessionId) {
+      params.set('checkout_session_id', checkoutSessionId);
+    }
+  }
 
   const returnTo = sanitizeReturnTo(request.returnTo);
   if (returnTo) params.set('return_to', returnTo);

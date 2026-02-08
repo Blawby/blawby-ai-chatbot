@@ -1,6 +1,9 @@
 import { Fragment } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
+import { Page } from '@/shared/ui/layout/Page';
+import { Panel } from '@/shared/ui/layout/Panel';
+import { SplitView } from '@/shared/ui/layout/SplitView';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
@@ -817,17 +820,17 @@ export const PracticeClientsPage = () => {
   if (clientsLoading) {
     return (
       <>
-        <div className="h-full p-6">
+        <Page className="h-full">
           <div className="max-w-6xl mx-auto h-full">
             <PageHeader
               title="Clients"
               subtitle="A unified list of client relationships tied to conversations and matters."
             />
-            <div className="mt-6 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg min-h-[520px] flex items-center justify-center">
+            <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">Loading clients...</p>
-            </div>
+            </Panel>
           </div>
-        </div>
+        </Page>
         {addClientModal}
         {editClientModal}
       </>
@@ -837,17 +840,17 @@ export const PracticeClientsPage = () => {
   if (clientsError) {
     return (
       <>
-        <div className="h-full p-6">
+        <Page className="h-full">
           <div className="max-w-6xl mx-auto h-full">
             <PageHeader
               title="Clients"
               subtitle="A unified list of client relationships tied to conversations and matters."
             />
-            <div className="mt-6 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg min-h-[520px] flex items-center justify-center">
+            <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">{clientsError}</p>
-            </div>
+            </Panel>
           </div>
-        </div>
+        </Page>
         {addClientModal}
         {editClientModal}
       </>
@@ -857,7 +860,7 @@ export const PracticeClientsPage = () => {
   if (sortedClients.length === 0) {
     return (
       <>
-        <div className="h-full p-6">
+        <Page className="h-full">
           <div className="max-w-6xl mx-auto h-full">
             <PageHeader
               title="Clients"
@@ -873,11 +876,11 @@ export const PracticeClientsPage = () => {
                 </div>
               )}
             />
-            <div className="mt-6 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg min-h-[520px]">
+            <Panel className="mt-6 min-h-[520px]">
               <EmptyState onAddClient={handleOpenAddClient} />
-            </div>
+            </Panel>
           </div>
-        </div>
+        </Page>
         {addClientModal}
         {editClientModal}
       </>
@@ -886,7 +889,7 @@ export const PracticeClientsPage = () => {
 
   return (
     <>
-      <div className="h-full p-6">
+      <Page className="h-full">
         <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
           <PageHeader
             title="Clients"
@@ -902,123 +905,127 @@ export const PracticeClientsPage = () => {
               </div>
             )}
           />
-          <div className="flex-1 min-h-0 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
-            <div className="flex h-full flex-col lg:flex-row min-h-[560px]">
-              <div className="relative w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-100 dark:border-white/10">
-                <div
-                  ref={listRef}
-                  className="h-full overflow-y-auto"
-                >
-                  <ul className="divide-y divide-gray-100 dark:divide-white/10">
-                    {letters.map((letter) => (
-                      <Fragment key={letter}>
-                        <li
-                          data-letter={letter}
-                          className="sticky top-0 z-10 bg-white dark:bg-dark-card-bg px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400"
-                        >
-                          {letter}
-                        </li>
-                        {groupedClients[letter].map((client) => {
-                          const isActive = client.id === selectedClient?.id;
-                          const nameParts = splitName(client.name);
-                          return (
-                            <li key={client.id}>
-                              <Button
-                                variant="ghost"
-                                onClick={() => handleSelectClient(client.id)}
-                                aria-current={isActive ? 'true' : undefined}
-                                className={cn(
-                                  'w-full justify-start px-4 py-3 h-auto',
-                                  isActive
-                                    ? 'bg-light-hover dark:bg-dark-hover border-l-2 border-accent-500'
-                                    : 'hover:bg-gray-50 dark:hover:bg-dark-hover border-l-2 border-transparent'
-                                )}
-                              >
-                                <div className="flex items-center gap-4 w-full">
-                                  <Avatar
-                                    name={client.name}
-                                    size="sm"
-                                    className="bg-gray-200 text-gray-700 dark:bg-gray-700"
-                                  />
-                                  <div className="min-w-0 flex-1 text-left">
-                                    <p className="text-sm text-gray-900 dark:text-white truncate">
-                                      {nameParts.first ? (
-                                        <>
-                                          <span>{nameParts.first} </span>
+          <Panel className="flex-1 min-h-0 overflow-hidden">
+            <SplitView
+              className="h-full min-h-[560px]"
+              primary={(
+                <div className="relative h-full">
+                  <div
+                    ref={listRef}
+                    className="h-full overflow-y-auto"
+                  >
+                    <ul className="divide-y divide-gray-100 dark:divide-white/10">
+                      {letters.map((letter) => (
+                        <Fragment key={letter}>
+                          <li
+                            data-letter={letter}
+                            className="sticky top-0 z-10 bg-white dark:bg-dark-card-bg px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400"
+                          >
+                            {letter}
+                          </li>
+                          {groupedClients[letter].map((client) => {
+                            const isActive = client.id === selectedClient?.id;
+                            const nameParts = splitName(client.name);
+                            return (
+                              <li key={client.id}>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => handleSelectClient(client.id)}
+                                  aria-current={isActive ? 'true' : undefined}
+                                  className={cn(
+                                    'w-full justify-start px-4 py-3 h-auto',
+                                    isActive
+                                      ? 'bg-light-hover dark:bg-dark-hover border-l-2 border-accent-500'
+                                      : 'hover:bg-gray-50 dark:hover:bg-dark-hover border-l-2 border-transparent'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-4 w-full">
+                                    <Avatar
+                                      name={client.name}
+                                      size="sm"
+                                      className="bg-gray-200 text-gray-700 dark:bg-gray-700"
+                                    />
+                                    <div className="min-w-0 flex-1 text-left">
+                                      <p className="text-sm text-gray-900 dark:text-white truncate">
+                                        {nameParts.first ? (
+                                          <>
+                                            <span>{nameParts.first} </span>
+                                            <span className="font-semibold">{nameParts.last}</span>
+                                          </>
+                                        ) : (
                                           <span className="font-semibold">{nameParts.last}</span>
-                                        </>
-                                      ) : (
-                                        <span className="font-semibold">{nameParts.last}</span>
-                                      )}
-                                    </p>
+                                        )}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              </Button>
-                            </li>
-                          );
-                        })}
-                      </Fragment>
-                    ))}
-                    <li
-                      ref={loadMoreRef}
-                      className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400"
-                    >
-                      {clientsLoadingMore
-                        ? 'Loading more clients...'
-                        : clientsHasMore
-                          ? 'Scroll to load more'
-                          : 'No more clients'}
-                    </li>
-                  </ul>
-                </div>
-                <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                  {letters.map((letter) => (
-                    <Button
-                      key={letter}
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => scrollToLetter(letter)}
-                      className={cn(
-                        'h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center',
-                        currentLetter === letter
-                          ? 'text-gray-900 dark:text-white font-semibold'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      )}
-                    >
-                      {letter}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="hidden lg:block flex-1">
-                {selectedClient ? (
-                  <ClientDetailPanel
-                    client={selectedClient}
-                    activity={selectedClientActivity}
-                    onAddMemo={handleMemoSubmit}
-                    memoSubmitting={memoSubmitting}
-                    onEditMemo={handleMemoEdit}
-                    onDeleteMemo={handleMemoDelete}
-                    memoActionId={memoActionId}
-                    onEditClient={handleOpenEditClient}
-                    onDeleteClient={handleDeleteClient}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-                        <UserIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
-                      </div>
-                      <h3 className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Select a client</h3>
-                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Choose a client from the list to view their details.
-                      </p>
-                    </div>
+                                </Button>
+                              </li>
+                            );
+                          })}
+                        </Fragment>
+                      ))}
+                      <li
+                        ref={loadMoreRef}
+                        className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        {clientsLoadingMore
+                          ? 'Loading more clients...'
+                          : clientsHasMore
+                            ? 'Scroll to load more'
+                            : 'No more clients'}
+                      </li>
+                    </ul>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
+                  <div className="absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                    {letters.map((letter) => (
+                      <Button
+                        key={letter}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => scrollToLetter(letter)}
+                        className={cn(
+                          'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center',
+                          // Increase interactive hit area to at least 44x44
+                          "before:absolute before:-inset-2 before:content-['']",
+                          currentLetter === letter
+                            ? 'text-gray-900 dark:text-white font-semibold'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        )}
+                      >
+                        {letter}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              secondary={selectedClient ? (
+                <ClientDetailPanel
+                  client={selectedClient}
+                  activity={selectedClientActivity}
+                  onAddMemo={handleMemoSubmit}
+                  memoSubmitting={memoSubmitting}
+                  onEditMemo={handleMemoEdit}
+                  onDeleteMemo={handleMemoDelete}
+                  memoActionId={memoActionId}
+                  onEditClient={handleOpenEditClient}
+                  onDeleteClient={handleDeleteClient}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
+                      <UserIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                    </div>
+                    <h3 className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Select a client</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Choose a client from the list to view their details.
+                    </p>
+                  </div>
+                </div>
+              )}
+              secondaryClassName="hidden md:block"
+            />
+          </Panel>
         </div>
 
         {selectedClient && (
@@ -1042,7 +1049,7 @@ export const PracticeClientsPage = () => {
             />
           </Modal>
         )}
-      </div>
+      </Page>
       {addClientModal}
       {editClientModal}
     </>

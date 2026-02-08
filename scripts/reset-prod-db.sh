@@ -13,7 +13,7 @@ Drops all D1 tables for the specified environment, reapplies worker/schema.sql,
 and applies migrations.
 
 This is destructive. Always take a backup first:
-  npx wrangler d1 backup blawby-ai-chatbot --env production --output backups/$(date +%Y%m%d-%H%M%S).sqlite
+  npx wrangler d1 backup blawby-ai-chatbot --env production --remote --output backups/$(date +%Y%m%d-%H%M%S).sqlite
 EOF
 }
 
@@ -91,6 +91,7 @@ DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS pii_access_audit_backup;
 DROP TABLE IF EXISTS pii_access_audit;
+DROP TABLE IF EXISTS d1_migrations;
 SQL
 )"
 

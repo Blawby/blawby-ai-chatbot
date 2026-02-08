@@ -115,8 +115,8 @@ BACKEND_API_URL=http://localhost:3000
 
 **Production Configuration**:
 - Set via Cloudflare Dashboard: Workers & Pages → Settings → Variables
-- Or use `npx wrangler secret put BACKEND_API_URL` for sensitive values
-- Or set in `wrangler.toml` under `[env.production.vars]` for non-sensitive values
+- Or set in `wrangler.toml` (or `worker/wrangler.toml` for env-specific vars) for non-sensitive values like `BACKEND_API_URL`
+- Explicitly use `npx wrangler secret put` only for sensitive values such as API keys or tokens
 
 **Note**: `worker/.dev.vars` is git-ignored and should contain secrets only. Non-sensitive config belongs in `worker/wrangler.toml`.
 

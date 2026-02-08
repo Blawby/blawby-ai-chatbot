@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
@@ -30,83 +30,126 @@ export const LinkMatterModal = ({
   currentMatterId = null,
   onMatterUpdated
 }: LinkMatterModalProps) => {
+  const pageSize = 50;
   const [matters, setMatters] = useState<WorkspaceMatterOption[]>([]);
   const [selectedMatterId, setSelectedMatterId] = useState<string>(currentMatterId ?? '');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
     setSelectedMatterId(currentMatterId ?? '');
-  }, [currentMatterId]);
+    setError(null);
+    setPage(1);
+  }, [currentMatterId, isOpen]);
 
-  useEffect(() => {
+  const fetchMatters = useCallback(async (
+    pageToLoad: number,
+    { append }: { append: boolean }
+  ) => {
     if (!practiceId) {
       setMatters([]);
+      setHasMore(false);
       return;
     }
 
+    controllerRef.current?.abort();
     const controller = new AbortController();
-    const loadMatters = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({ limit: '100' });
-        const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}?${params.toString()}`;
-        const response = await fetch(endpoint, {
-          method: 'GET',
-          credentials: 'include',
-          signal: controller.signal,
-          headers: { 'Accept': 'application/json' }
-        });
+    controllerRef.current = controller;
+    const setLoadingState = append ? setLoadingMore : setLoading;
+    setLoadingState(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        limit: String(pageSize),
+        page: String(pageToLoad)
+      });
+      const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}?${params.toString()}`;
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        credentials: 'include',
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
 
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null) as { error?: string } | null;
-          throw new Error(payload?.error || `Failed to load matters (${response.status})`);
-        }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || `Failed to load matters (${response.status})`);
+      }
 
-        const payload = await response.json() as { success?: boolean; error?: string; data?: unknown };
-        if (payload.success === false) {
-          throw new Error(payload.error || 'Failed to load matters');
-        }
+      const payload = await response.json() as { success?: boolean; error?: string; data?: unknown };
+      if (payload.success === false) {
+        throw new Error(payload.error || 'Failed to load matters');
+      }
 
-        const data = (payload && typeof payload === 'object' && 'data' in payload)
-          ? (payload as { data?: unknown }).data
-          : payload;
+      const data = (payload && typeof payload === 'object' && 'data' in payload)
+        ? (payload as { data?: unknown }).data
+        : payload;
 
-        const record = (data && typeof data === 'object') ? data as Record<string, unknown> : null;
-        const items = Array.isArray(record?.items)
-          ? record?.items
-          : Array.isArray(record?.matters)
-            ? record?.matters
-            : [];
+      const record = (data && typeof data === 'object') ? data as Record<string, unknown> : null;
+      const items = Array.isArray(record?.items)
+        ? record?.items
+        : Array.isArray(record?.matters)
+          ? record?.matters
+          : [];
 
-        const normalized = items
-          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
-          .map((item) => ({
-            id: typeof item.id === 'string' ? item.id : String(item.id ?? ''),
-            title: typeof item.title === 'string' ? item.title : 'Untitled Matter',
-            clientName: typeof item.clientName === 'string' ? item.clientName : null,
-            matterType: typeof item.matterType === 'string' ? item.matterType : null,
-            status: typeof item.status === 'string' ? item.status : null
-          }))
-          .filter((item) => item.id.trim().length > 0);
+      const normalized = items
+        .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+        .map((item) => ({
+          id: typeof item.id === 'string' ? item.id : String(item.id ?? ''),
+          title: typeof item.title === 'string' ? item.title : 'Untitled Matter',
+          clientName: typeof item.clientName === 'string' ? item.clientName : null,
+          matterType: typeof item.matterType === 'string' ? item.matterType : null,
+          status: typeof item.status === 'string' ? item.status : null
+        }))
+        .filter((item) => item.id.trim().length > 0);
 
-        setMatters(normalized);
-      } catch (err) {
-        if ((err as DOMException).name !== 'AbortError') {
-          const message = err instanceof Error ? err.message : 'Failed to load matters';
-          setError(message);
+      const nextHasMore = typeof record?.hasMore === 'boolean'
+        ? record.hasMore
+        : normalized.length === pageSize;
+
+      setMatters((prev) => append ? [...prev, ...normalized] : normalized);
+      setHasMore(nextHasMore);
+      setPage(pageToLoad);
+    } catch (err) {
+      if ((err as DOMException).name !== 'AbortError') {
+        const message = err instanceof Error ? err.message : 'Failed to load matters';
+        setError(message);
+        if (!append) {
           setMatters([]);
         }
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
+      setLoadingState(false);
+    }
 
-    void loadMatters();
-    return () => controller.abort();
-  }, [practiceId]);
+  }, [practiceId, pageSize]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    void fetchMatters(1, { append: false });
+    return () => {
+      controllerRef.current?.abort();
+    };
+  }, [fetchMatters, isOpen]);
+
+  const handleLoadMore = async () => {
+    if (loading || loadingMore || !hasMore) return;
+    await fetchMatters(page + 1, { append: true });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -177,6 +220,11 @@ export const LinkMatterModal = ({
           {loading && (
             <div className="text-xs text-gray-500 dark:text-gray-400">Loading matters…</div>
           )}
+          {!loading && hasMore && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Showing {matters.length} results. Load more to see additional matters.
+            </div>
+          )}
         </div>
 
         {error && (
@@ -211,6 +259,19 @@ export const LinkMatterModal = ({
             Cancel
           </Button>
         </div>
+
+        {hasMore && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={loading || loadingMore || saving}
+            >
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </Button>
+          </div>
+        )}
       </div>
     </Modal>
   );

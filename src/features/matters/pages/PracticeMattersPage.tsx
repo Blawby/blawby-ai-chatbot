@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
+import { Page } from '@/shared/ui/layout/Page';
+import { Panel } from '@/shared/ui/layout/Panel';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
 import { Button } from '@/shared/ui/Button';
 import { Breadcrumbs } from '@/shared/ui/navigation';
@@ -842,25 +844,32 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   useEffect(() => {
     if (!activePracticeId) {
       setClientOptions([]);
+      setIsClientListTruncated(false);
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
 
     const fetchAllClients = async () => {
+      setIsClientListTruncated(false);
       let offset = 0;
       const limit = 100;
-      let allClients: MatterOption[] = [];
+      const allClients: MatterOption[] = [];
       let hasMore = true;
 
       let lastTotal = 0;
       try {
         const MAX_PAGES = 100;
         let iterations = 0;
-        while (hasMore && !cancelled && iterations < MAX_PAGES) {
+        while (hasMore && !cancelled && !controller.signal.aborted && iterations < MAX_PAGES) {
           iterations++;
-          const response = await listUserDetails(activePracticeId, { limit, offset });
-          if (cancelled) break;
+          const response = await listUserDetails(activePracticeId, {
+            limit,
+            offset,
+            signal: controller.signal
+          });
+          if (cancelled || controller.signal.aborted) break;
 
           const options = response.data.map(buildClientOption);
           allClients.push(...options);
@@ -880,13 +889,16 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           }
         }
 
-        if (!cancelled) {
+        if (!cancelled && !controller.signal.aborted) {
           setClientOptions(allClients);
           // Detect truncation if we broke loop prematurely or if total exceeds the amount we fetched
           const isTruncated = iterations >= MAX_PAGES || (lastTotal > allClients.length);
           setIsClientListTruncated(isTruncated);
         }
       } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+          return;
+        }
         if (!cancelled) {
           console.error('[PracticeMattersPage] Failed to load clients', error);
           setClientOptions(allClients); // Show what we have
@@ -900,6 +912,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [activePracticeId, buildClientOption, showError]);
 
@@ -1692,15 +1705,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   if (selectedMatterId) {
     if (detailLoading && !resolvedSelectedMatter) {
       return (
-        <div className="h-full p-6">
+        <Page className="h-full">
           <LoadingState message="Loading matter details..." />
-        </div>
+        </Page>
       );
     }
 
     if (detailError && !resolvedSelectedMatter) {
       return (
-        <div className="h-full p-6">
+        <Page className="h-full">
           <div className="max-w-5xl mx-auto space-y-6">
             <PageHeader
               title="Unable to load matter"
@@ -1712,13 +1725,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               )}
             />
           </div>
-        </div>
+        </Page>
       );
     }
 
     if (!resolvedSelectedMatter) {
       return (
-        <div className="h-full p-6">
+        <Page className="h-full">
           <div className="max-w-5xl mx-auto space-y-6">
             <PageHeader
               title="Matter not found"
@@ -1737,12 +1750,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               </p>
             </section>
           </div>
-        </div>
+        </Page>
       );
     }
 
     return (
-      <div className="min-h-full p-6">
+      <Page className="min-h-full">
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
           <div className="space-y-4">
             <Breadcrumbs
@@ -1887,7 +1900,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               <div className="px-0 space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent activity</h3>
-                  <div className="mt-4 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
+                  <Panel className="mt-4 p-4">
                     {activityLoading && activityItems.length === 0 ? (
                       <LoadingState message="Loading activity..." />
                     ) : (
@@ -1911,7 +1924,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                         }}
                       />
                     )}
-                  </div>
+                  </Panel>
                 </div>
                 {selectedMatterDetail && (
                   <MatterMilestonesPanel
@@ -1953,7 +1966,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   onUpdateExpense={handleUpdateExpense}
                   onDeleteExpense={handleDeleteExpense}
                 />
-                <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
+                <Panel>
                   <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent transactions</h3>
@@ -1977,7 +1990,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       </div>
                     ))}
                   </div>
-                </section>
+                </Panel>
               </div>
             ) : detailTab === 'messages' && selectedMatterDetail ? (
               <div className="px-0">
@@ -2037,12 +2050,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             />
           </Modal>
         )}
-      </div>
+      </Page>
     );
   }
 
   return (
-    <div className="min-h-full p-6">
+    <Page className="min-h-full">
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <PageHeader
           title="Matters"
@@ -2106,7 +2119,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         )}
 
         <div className="flex flex-col gap-6">
-          <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
+          <Panel className="overflow-hidden">
             <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-4 py-4 sm:px-6 lg:px-8">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{activeTabLabel} Matters</h2>
@@ -2144,7 +2157,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 Loading more matters...
               </div>
             )}
-          </section>
+          </Panel>
 
         </div>
       </div>
@@ -2161,6 +2174,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           assignees={assigneeOptions}
         />
       )}
-    </div>
+    </Page>
   );
 };

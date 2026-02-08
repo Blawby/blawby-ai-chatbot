@@ -351,12 +351,12 @@ export const AcceptInvitationPage = () => {
 
       let match: any = null;
       if (organizationSlug) {
-        match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug);
+        match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
         if (!match) {
-          throw new Error('Organization not found.');
+          throw new Error('Organization not found for organizationSlug.');
         }
       } else if (targetOrgId) {
-        match = orgs?.find((o: any) => o.id === targetOrgId);
+        match = orgs?.find((o: any) => o.id === targetOrgId) ?? null;
       }
 
       if (match) {
@@ -388,9 +388,9 @@ export const AcceptInvitationPage = () => {
         throw linkError;
       }
       
-      const finalSlug = organizationSlug || match?.slug;
+      const finalSlug = organizationSlug || (match ? match.slug : '');
       if (!finalSlug) {
-        throw new Error('Organization slug unavailable. Please reopen the invitation link.');
+        throw new Error('Organization slug unavailable (missing organizationSlug and no matched organization for targetOrgId).');
       }
       navigate(
         `/embed/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,

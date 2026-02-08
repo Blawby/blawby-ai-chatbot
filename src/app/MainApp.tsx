@@ -384,6 +384,9 @@ export function MainApp({
       let currentConversationId = activeConversationId;
       if (!currentConversationId && !isCreatingConversation) {
         currentConversationId = await createConversation();
+        if (!currentConversationId) {
+          showErrorRef.current?.('Unable to create a new conversation. Please try again.');
+        }
       }
       if (!currentConversationId || !practiceId) {
         return;
@@ -967,6 +970,8 @@ export function MainApp({
     }
     return practiceEmbedView;
   }, [activeConversationId, practiceEmbedView, workspace]);
+  const shouldUsePracticeSplitView = workspace === 'practice'
+    && (resolvedPracticeEmbedView === 'list' || resolvedPracticeEmbedView === 'conversation');
 
   const practiceEmbedContent = workspace === 'practice' ? (
     <PublicEmbedLayout
@@ -993,7 +998,7 @@ export function MainApp({
 
   const mainContent = workspace === 'practice'
     ? practiceEmbedContent
-    : (workspace === 'client' ? clientEmbedContent : publicEmbedContent ?? chatPanel);
+    : (workspace === 'client' ? clientEmbedContent : publicEmbedContent);
   const shouldShowRightSidebar = false;
 
   // Render the main app
@@ -1020,6 +1025,7 @@ export function MainApp({
         practiceDetails={practiceDetails}
         messages={messages}
         showRightSidebar={shouldShowRightSidebar}
+        mainClassName={shouldUsePracticeSplitView ? 'overflow-hidden' : undefined}
       >
         {mainContent}
       </AppLayout>

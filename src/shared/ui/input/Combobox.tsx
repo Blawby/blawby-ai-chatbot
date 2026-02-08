@@ -101,7 +101,7 @@ export const Combobox = ({
   const resolvedLeading = typeof leading === 'function' ? leading(selectedOption, selectedOptions) : leading;
   const hasValue = valueList.length > 0;
 
-  const toggleValue = (optionValue: string) => {
+  const toggleValue = (optionValue: string, options?: { openAfterToggle?: boolean }) => {
     if (!isMultiple) return;
 
     const next = valueList.includes(optionValue)
@@ -110,7 +110,9 @@ export const Combobox = ({
     emitChange(next);
     setQuery('');
     setUserTyped(false);
-    setIsOpen(true);
+    if (options?.openAfterToggle !== false) {
+      setIsOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -171,19 +173,28 @@ export const Combobox = ({
             onBlur={() => {
               setIsOpen(false);
               // Only emit if the user actually typed something or if query differs from display value and was intentional
-              if (!isMultiple && userTyped && query !== resolvedDisplayValue) {
+              if (userTyped && query !== resolvedDisplayValue) {
                 const trimmedQuery = query.trim();
                 const exactMatch = options.find(o => o.label.trim() === trimmedQuery);
-                if (exactMatch) {
-                   emitChange(exactMatch.value);
+                const matchToEmit = exactMatch || (() => {
+                  const lowerQuery = trimmedQuery.toLowerCase();
+                  const caseInsensitiveMatches = options.filter(o => o.label.trim().toLowerCase() === lowerQuery);
+                  if (caseInsensitiveMatches.length >= 1) {
+                    return [...caseInsensitiveMatches].sort((a, b) => a.label.localeCompare(b.label))[0];
+                  }
+                  return null;
+                })();
+
+                if (isMultiple) {
+                  if (matchToEmit) {
+                    toggleValue(matchToEmit.value, { openAfterToggle: false });
+                  }
                 } else {
-                   const lowerQuery = trimmedQuery.toLowerCase();
-                   const caseInsensitiveMatches = options.filter(o => o.label.trim().toLowerCase() === lowerQuery);
-                   if (caseInsensitiveMatches.length >= 1) {
-                      emitChange(caseInsensitiveMatches[0].value);
-                   } else {
-                      emitChange(trimmedQuery);
-                   }
+                  if (matchToEmit) {
+                    emitChange(matchToEmit.value);
+                  } else {
+                    emitChange(trimmedQuery);
+                  }
                 }
               }
               setUserTyped(false);

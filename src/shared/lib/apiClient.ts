@@ -305,7 +305,7 @@ export async function updateConversationMatter(
     throw new Error('Invalid response from updateConversationMatter');
   }
 
-  return data as Conversation;
+  return data as unknown as Conversation;
 }
 
 export async function listMatterConversations(
@@ -719,14 +719,16 @@ export async function listUserDetails(
     status?: UserDetailStatus;
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   }
 ): Promise<UserDetailListResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const { signal, ...queryParams } = params ?? {};
   const response = await apiClient.get(
     `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
-    { params }
+    { params: queryParams, signal }
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data)) {

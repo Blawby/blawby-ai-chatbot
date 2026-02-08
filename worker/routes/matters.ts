@@ -170,13 +170,13 @@ const enrichActivityPayload = (
 
 const isEmptyValue = (value: unknown): boolean => value === null || value === undefined || value === '';
 
-const createTimeoutSignal = (ms: number): AbortSignal => {
+const createTimeoutSignal = (ms: number): { signal: AbortSignal; clear: () => void } => {
   if (typeof AbortSignal.timeout === 'function') {
-    return AbortSignal.timeout(ms);
+    return { signal: AbortSignal.timeout(ms), clear: () => undefined };
   }
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), ms);
-  return controller.signal;
+  const timerId = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, clear: () => clearTimeout(timerId) };
 };
 
 const areEquivalentValues = (left: unknown, right: unknown): boolean => {
@@ -528,6 +528,24 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       });
     }
     const [, _practiceId, matterId] = activityMatch;
+    
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+    
+    if (_practiceId && _practiceId !== practiceId) {
+      console.warn('[Matters] Practice ID mismatch in activity route', {
+        practiceId,
+        _practiceId
+      });
+      return new Response(JSON.stringify({ error: 'Practice ID mismatch' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
     const requestHost = resolveRequestHost(request);
     const headers = new Headers(request.headers);
     const backendResponse = await fetchBackend(env, headers, url.pathname + url.search, {
@@ -557,12 +575,14 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     if (activityIds.length > 0 && env.MATTER_DIFFS) {
       try {
         const stub = env.MATTER_DIFFS.get(env.MATTER_DIFFS.idFromName(matterId));
-        const signal = createTimeoutSignal(3000);
+        const { signal, clear } = createTimeoutSignal(3000);
         const response = await stub.fetch('https://matter-diffs/internal/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ activityIds }),
           signal
+        }).finally(() => {
+          clear();
         });
         const json = await response.json().catch(() => null) as { diffs?: Record<string, { fields: string[] }> } | null;
         diffs = json?.diffs ?? {};

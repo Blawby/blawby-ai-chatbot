@@ -24,6 +24,8 @@ import type { WorkspaceType } from '@/shared/types/workspace';
 import type { SubscriptionTier } from '@/shared/types/user';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import AnnouncementBanner from '@/shared/components/AnnouncementBanner';
+import { AppShell } from '@/shared/ui/layout/AppShell';
+import { cn } from '@/shared/utils/cn';
 
 // Simple messages object for localization
 const messages = {
@@ -71,6 +73,7 @@ interface AppLayoutProps {
   messages?: ChatMessageUI[];
   onRequestConsultation?: () => void | Promise<void>;
   showRightSidebar?: boolean;
+  mainClassName?: string;
   children: ComponentChildren;
 }
 
@@ -88,6 +91,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   messages: chatMessages = [],
   onRequestConsultation,
   showRightSidebar = false,
+  mainClassName,
   children,
   practiceDetails
 }) => {
@@ -127,6 +131,37 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
+  }
+
+  if (workspace === 'practice') {
+    return (
+      <>
+        <AppShell
+          className="bg-white dark:bg-dark-bg"
+          header={practiceBanner ? (
+            <div className="px-4 pt-4 short:pt-2">
+              <AnnouncementBanner
+                title={practiceBanner.title}
+                description={practiceBanner.description}
+                actions={practiceBanner.actions}
+                tone="warning"
+              />
+            </div>
+          ) : undefined}
+          main={
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
+          }
+          mainClassName={cn('min-h-0', mainClassName ?? 'overflow-y-auto')}
+          headerClassName="col-span-full"
+        />
+
+        {import.meta.env.VITE_DEBUG_OVERLAY === 'true' && (
+          <DebugOverlay isVisible={true} />
+        )}
+      </>
+    );
   }
 
   return (
@@ -201,10 +236,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
       {/* Main Content Area - Flex grow, full width on mobile */}
-      <div className="flex-1 bg-white dark:bg-dark-bg flex flex-col min-h-0">
-        {practiceBanner && (
-          <div className="px-4 pt-4">
-            <AnnouncementBanner
+        <div className="flex-1 bg-white dark:bg-dark-bg flex flex-col min-h-0">
+          {practiceBanner && (
+            <div className="px-4 pt-4">
+              <AnnouncementBanner
               title={practiceBanner.title}
               description={practiceBanner.description}
               actions={practiceBanner.actions}

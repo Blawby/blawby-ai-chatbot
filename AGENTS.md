@@ -18,8 +18,9 @@ If an endpoint is not defined in worker/routes or the root worker route list, tr
 URLs and env variables (don’t guess; follow src/config/urls.ts, README.md, and docs/engineering/URL_CONFIG_MIGRATION_COMPLETE.md):
 Frontend (local dev): .env in repo root for VITE_* vars. Production: Cloudflare Pages env vars.
 Worker API base: VITE_WORKER_API_URL; defaults to http://localhost:8787 in dev and https://ai.blawby.com in prod (base URL should NOT include /api; callers append /api/*).
-Backend API base: VITE_BACKEND_API_URL (required in production); dev fallback to https://staging-api.blawby.com unless VITE_ENABLE_MSW=true.
+Backend API base: VITE_BACKEND_API_URL wins if set (used in prod or local providing). If unset and VITE_ENABLE_MSW=true, the app uses Mock Service Worker (MSW) and will not call the staging URL (MSW intercepts/backfills API responses). Otherwise (both unset/false), falls back to https://staging-api.blawby.com in dev. Source of truth for runtime host resolution is src/config/urls.ts.
 Frontend host validation uses VITE_APP_BASE_URL / VITE_PUBLIC_APP_URL / VITE_APP_URL when window.location is unavailable.
+Precedence and intent: prefer VITE_APP_BASE_URL (deployment base URL), then VITE_PUBLIC_APP_URL (public runtime override), then VITE_APP_URL (legacy fallback). Source of truth for host resolution is in src/config/urls.ts (see the frontend host resolver there).
 Worker (local dev): worker/.dev.vars for secrets (see dev.vars.example). Worker non-secrets live in worker/wrangler.toml [env.*.vars].
 BACKEND_API_URL determines which remote backend the worker calls (RemoteApiService); must be set explicitly.
 Production worker route: ai.blawby.com/api/* (worker/wrangler.toml).
@@ -35,4 +36,4 @@ No internal <a href="/..."> for in-app routes. Use preact-iso Link or location.r
 Only use hard navigations for cross-origin URLs, Stripe checkout, or external auth redirects.
 Avoid manual path parsing in MainApp; prefer Router routes for /practice/* and /client/*.
 Keep Workbox/PWA navigation denylist for /api/*; index.html fallback only for document navigations.
-Greenfield app: no backward-compat/legacy support. Do not add fallbacks or shims. Frontend + Worker proxy must speak directly to the Railway backend; surface backend errors rather than masking them.
+Greenfield app: no backward-compat/legacy support except for environment-variable migration (specifically VITE_APP_BASE_URL, VITE_PUBLIC_APP_URL, and the legacy VITE_APP_URL fallback). Do not add other fallbacks or shims. Frontend + Worker proxy must speak directly to the Railway backend; surface backend errors rather than masking them.

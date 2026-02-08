@@ -36,6 +36,38 @@ PRAGMA foreign_keys = ON;
 -- reference for scoping, and any organization data should be derived via remote API
 -- using the practice_id when needed.
 
+-- Matters table to represent legal matters
+CREATE TABLE IF NOT EXISTS matters (
+  id TEXT PRIMARY KEY,
+  practice_id TEXT NOT NULL,
+  user_id TEXT,
+  client_name TEXT NOT NULL,
+  client_email TEXT,
+  client_phone TEXT,
+  matter_type TEXT NOT NULL, -- e.g., 'Family Law', 'Employment Law', etc.
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'lead' CHECK (status IN ('lead', 'open', 'in_progress', 'completed', 'archived')), -- 'lead', 'open', 'in_progress', 'completed', 'archived'
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high')), -- 'low', 'normal', 'high' - maps from urgency
+  assigned_lawyer_id TEXT,
+  lead_source TEXT, -- 'website', 'referral', 'advertising', etc.
+  estimated_value INTEGER, -- in cents
+  billable_hours REAL DEFAULT 0,
+  flat_fee INTEGER, -- in cents, if applicable
+  retainer_amount INTEGER, -- in cents
+  retainer_balance INTEGER DEFAULT 0, -- in cents
+  statute_of_limitations DATE,
+  court_jurisdiction TEXT,
+  opposing_party TEXT,
+  matter_number TEXT, -- Changed from case_number to matter_number
+  tags JSON, -- Array of tags for categorization
+  internal_notes TEXT, -- Internal notes for practice members
+  custom_fields JSON, -- Flexible metadata storage
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  closed_at DATETIME
+);
+
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
@@ -97,37 +129,7 @@ CREATE TABLE IF NOT EXISTS contact_forms (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Matters table to represent legal matters
-CREATE TABLE IF NOT EXISTS matters (
-  id TEXT PRIMARY KEY,
-  practice_id TEXT NOT NULL,
-  user_id TEXT,
-  client_name TEXT NOT NULL,
-  client_email TEXT,
-  client_phone TEXT,
-  matter_type TEXT NOT NULL, -- e.g., 'Family Law', 'Employment Law', etc.
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'lead', -- 'lead', 'open', 'in_progress', 'completed', 'archived'
-  priority TEXT NOT NULL DEFAULT 'normal', -- 'low', 'normal', 'high' - maps from urgency
-  assigned_lawyer_id TEXT,
-  lead_source TEXT, -- 'website', 'referral', 'advertising', etc.
-  estimated_value INTEGER, -- in cents
-  billable_hours REAL DEFAULT 0,
-  flat_fee INTEGER, -- in cents, if applicable
-  retainer_amount INTEGER, -- in cents
-  retainer_balance INTEGER DEFAULT 0, -- in cents
-  statute_of_limitations DATE,
-  court_jurisdiction TEXT,
-  opposing_party TEXT,
-  matter_number TEXT, -- Changed from case_number to matter_number
-  tags JSON, -- Array of tags for categorization
-  internal_notes TEXT, -- Internal notes for practice members
-  custom_fields JSON, -- Flexible metadata storage
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  closed_at DATETIME
-);
+
 
 -- Counters table for atomic sequences per practice
 CREATE TABLE IF NOT EXISTS counters (
@@ -140,7 +142,7 @@ CREATE TABLE IF NOT EXISTS counters (
 -- Matter events table for matter activity logs
 CREATE TABLE IF NOT EXISTS matter_events (
   id TEXT PRIMARY KEY,
-  matter_id TEXT NOT NULL,
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL,
   event_type TEXT NOT NULL, -- 'note', 'call', 'email', 'meeting', 'filing', 'payment', 'status_change'
   title TEXT NOT NULL,
   description TEXT,
@@ -160,7 +162,7 @@ CREATE TABLE IF NOT EXISTS files (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
   user_id TEXT,
-  matter_id TEXT, -- Optional: link to specific matter
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL, -- Optional: link to specific matter
   conversation_id TEXT, -- Optional: link to conversation
   original_name TEXT NOT NULL,
   file_name TEXT NOT NULL, -- Storage filename
@@ -186,7 +188,7 @@ CREATE TABLE IF NOT EXISTS files (
 -- Matter questions table for Q&A pairs from intake
 CREATE TABLE IF NOT EXISTS matter_questions (
   id TEXT PRIMARY KEY,
-  matter_id TEXT,
+  matter_id TEXT REFERENCES matters(id) ON DELETE SET NULL,
   practice_id TEXT NOT NULL, -- Aligned with other tables: practice scoping required
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
@@ -392,6 +394,13 @@ END;
 -- These triggers ensure that updated_at columns are automatically updated
 -- when rows are modified, using the same millisecond timestamp format
 -- as the auth schema defaults: (strftime('%s', 'now') * 1000)
+
+CREATE TRIGGER IF NOT EXISTS matters_before_update_timestamp
+BEFORE UPDATE ON matters
+FOR EACH ROW
+BEGIN
+  SELECT NEW.updated_at = CURRENT_TIMESTAMP;
+END;
 
 -- Auth table triggers removed - user management is handled by remote API
 

@@ -16,7 +16,8 @@ interface MatterSummaryCardsProps {
   } | null;
 }
 
-const cardBase = 'rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4';
+const cardBase = 'rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4 sm:p-5';
+const gridBase = 'grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
   if (!totalSeconds || totalSeconds <= 0) return '0:00 hrs';
@@ -55,7 +56,7 @@ export const MatterSummaryCards = ({
 
   if (activeTab === 'overview') {
     return (
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className={gridBase}>
         <div className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Billable time</p>
           <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{billableDisplay}</p>
@@ -99,11 +100,22 @@ export const MatterSummaryCards = ({
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Add new entries or open the full timesheet.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="xs" onClick={() => onAddTime?.()} disabled={!onAddTime}>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              size="xs"
+              onClick={() => onAddTime?.()}
+              disabled={!onAddTime}
+              className="w-full sm:w-auto"
+            >
               Add time
             </Button>
-            <Button variant="secondary" size="xs" onClick={() => onViewTimesheet?.()} disabled={!onViewTimesheet}>
+            <Button
+              variant="secondary"
+              size="xs"
+              onClick={() => onViewTimesheet?.()}
+              disabled={!onViewTimesheet}
+              className="w-full sm:w-auto"
+            >
               View timesheet
             </Button>
           </div>
@@ -121,7 +133,7 @@ export const MatterSummaryCards = ({
     ];
 
     return (
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className={gridBase}>
         {cards.map((card) => (
           <div key={card.label} className={cardBase}>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
@@ -143,7 +155,7 @@ export const MatterSummaryCards = ({
   ];
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section className={gridBase}>
       {messageCards.map((card) => (
         <div key={card.label} className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
