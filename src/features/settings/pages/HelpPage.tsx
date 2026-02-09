@@ -1,6 +1,9 @@
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
+import { SettingRow } from '@/features/settings/components/SettingRow';
+import { SectionDivider } from '@/shared/ui/layout';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 
 export interface HelpPageProps {
   className?: string;
@@ -29,191 +32,138 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
   };
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      {/* Header */}
-      <div className="px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {t('help.title')}
-        </h1>
-        <div className="border-t border-gray-200 dark:border-dark-border mt-4" />
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          {/* Help Center */}
-          <div className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {t('help.sections.helpCenter.title')}
-              </div>
-              <Button
-                onClick={() => handleExternalLink('https://blawby.com/help')}
-                variant="ghost"
-                size="sm"
-                className="text-gray-900 dark:text-gray-100"
-                aria-label={t('help.sections.helpCenter.ariaLabel')}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                }
-                iconPosition="right"
-              >
-                {t('help.sections.helpCenter.cta')}
-              </Button>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {t('help.sections.helpCenter.description')}
-            </div>
-          </div>
+    <SettingsPageLayout title={t('help.title')} className={className}>
+      <SettingRow
+        label={t('help.sections.helpCenter.title')}
+        description={t('help.sections.helpCenter.description')}
+      >
+        <Button
+          onClick={() => handleExternalLink('https://blawby.com/help')}
+          variant="ghost"
+          size="sm"
+          aria-label={t('help.sections.helpCenter.ariaLabel')}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          }
+          iconPosition="right"
+        >
+          {t('help.sections.helpCenter.cta')}
+        </Button>
+      </SettingRow>
+      
+      {showReleaseNotes && (
+        <>
+          <SectionDivider />
           
-          {showReleaseNotes && (
-            <>
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-              
-              {/* Release Notes */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {t('help.sections.releaseNotes.title')}
-                  </div>
-                  <Button
-                    onClick={() => handleExternalLink('https://blawby.com/release-notes')}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-900 dark:text-gray-100"
-                    aria-label={t('help.sections.releaseNotes.ariaLabel')}
-                    icon={
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    }
-                    iconPosition="right"
-                  >
-                    {t('help.sections.releaseNotes.cta')}
-                  </Button>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t('help.sections.releaseNotes.description')}
-                </div>
-              </div>
-            </>
-          )}
+          <SettingRow
+            label={t('help.sections.releaseNotes.title')}
+            description={t('help.sections.releaseNotes.description')}
+          >
+            <Button
+              onClick={() => handleExternalLink('https://blawby.com/release-notes')}
+              variant="ghost"
+              size="sm"
+              aria-label={t('help.sections.releaseNotes.ariaLabel')}
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              }
+              iconPosition="right"
+            >
+              {t('help.sections.releaseNotes.cta')}
+            </Button>
+          </SettingRow>
+        </>
+      )}
+      
+      <SectionDivider />
+      {/* Terms & Policies */}
+      <SettingRow
+        label={t('help.sections.terms.title')}
+        description={t('help.sections.terms.description')}
+      >
+        <Button
+          onClick={() => handleExternalLink('https://blawby.com/terms')}
+          variant="ghost"
+          size="sm"
+          aria-label={t('help.sections.terms.ariaLabel')}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          }
+          iconPosition="right"
+        >
+          {t('help.sections.terms.cta')}
+        </Button>
+      </SettingRow>
+      
+      {showReportBug && (
+        <>
+          <SectionDivider />
           
-          {/* Terms & Policies */}
-          <div className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {t('help.sections.terms.title')}
-              </div>
-              <Button
-                onClick={() => handleExternalLink('https://blawby.com/terms')}
-                variant="ghost"
-                size="sm"
-                className="text-gray-900 dark:text-gray-100"
-                aria-label={t('help.sections.terms.ariaLabel')}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                }
-                iconPosition="right"
-              >
-                {t('help.sections.terms.cta')}
-              </Button>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {t('help.sections.terms.description')}
-            </div>
-          </div>
+          <SettingRow
+            label={t('help.sections.bug.title')}
+            description={t('help.sections.bug.description')}
+          >
+            <Button
+              onClick={handleReportBug}
+              variant="ghost"
+              size="sm"
+            >
+              {t('help.sections.bug.cta')}
+            </Button>
+          </SettingRow>
+        </>
+      )}
+      
+      {showDownloads && (
+        <>
+          <SectionDivider />
           
-          {showReportBug && (
-            <>
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-              
-              {/* Report Bug */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {t('help.sections.bug.title')}
-                  </div>
-                  <Button
-                    onClick={handleReportBug}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-900 dark:text-gray-100"
-                  >
-                    {t('help.sections.bug.cta')}
-                  </Button>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t('help.sections.bug.description')}
-                </div>
-              </div>
-            </>
-          )}
+          <SettingRow
+            label={t('help.sections.downloads.title')}
+            description={t('help.sections.downloads.description')}
+          >
+            <Button
+              onClick={() => handleExternalLink('https://blawby.com/download')}
+              variant="ghost"
+              size="sm"
+              aria-label={t('help.sections.downloads.ariaLabel')}
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              }
+              iconPosition="right"
+            >
+              {t('help.sections.downloads.cta')}
+            </Button>
+          </SettingRow>
+        </>
+      )}
+      
+      {showShortcuts && (
+        <>
+          <SectionDivider />
           
-          {showDownloads && (
-            <>
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-              
-              {/* Download Apps */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {t('help.sections.downloads.title')}
-                  </div>
-                  <Button
-                    onClick={() => handleExternalLink('https://blawby.com/download')}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-900 dark:text-gray-100"
-                    aria-label={t('help.sections.downloads.ariaLabel')}
-                    icon={
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    }
-                    iconPosition="right"
-                  >
-                    {t('help.sections.downloads.cta')}
-                  </Button>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t('help.sections.downloads.description')}
-                </div>
-              </div>
-            </>
-          )}
-          
-          {showShortcuts && (
-            <>
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-              
-              {/* Keyboard Shortcuts */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {t('help.sections.shortcuts.title')}
-                  </div>
-                  <Button
-                    onClick={handleKeyboardShortcuts}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-900 dark:text-gray-100"
-                  >
-                    {t('help.sections.shortcuts.cta')}
-                  </Button>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t('help.sections.shortcuts.description')}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+          <SettingRow
+            label={t('help.sections.shortcuts.title')}
+            description={t('help.sections.shortcuts.description')}
+          >
+            <Button
+              onClick={handleKeyboardShortcuts}
+              variant="ghost"
+              size="sm"
+            >
+              {t('help.sections.shortcuts.cta')}
+            </Button>
+          </SettingRow>
+        </>
+      )}
+    </SettingsPageLayout>
   );
 };

@@ -189,19 +189,19 @@ export const Select = ({
             id={listboxId}
             role="listbox"
             className={cn(
-              "absolute left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50",
+              "absolute left-0 right-0 bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg z-50",
               direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
             )}
           >
             <div className="py-1">
               {searchable && (
-                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-dark-border">
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                     placeholder="Search..."
-                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-dark-border rounded bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
                     ref={searchInputRef}
                   />
                 </div>
@@ -222,10 +222,10 @@ export const Select = ({
                   }}
                   className={cn(
                     'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-                    'hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between',
-                    'focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700',
+                    'hover:bg-gray-50 dark:hover:bg-dark-bg flex items-center justify-between',
+                    'focus:outline-none focus:bg-gray-50 dark:focus:bg-dark-bg',
                     value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                    focusedIndex === index && 'bg-gray-100 dark:bg-gray-700'
+                    focusedIndex === index && 'bg-gray-100 dark:bg-dark-bg'
                   )}
                 >
                   <span>{option.label}</span>
@@ -267,8 +267,8 @@ export const Select = ({
         aria-controls={listboxId}
         aria-disabled={disabled}
         className={cn(
-          'w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg',
-          'hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500',
+          'w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 rounded-md border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-input-bg',
+          'hover:bg-gray-50 dark:hover:bg-dark-bg focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500',
           'transition-colors',
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -287,19 +287,19 @@ export const Select = ({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute right-0 min-w-48 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
+            "absolute right-0 min-w-48 w-full bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >
           <div className="py-1 overflow-y-auto">
             {searchable && (
-              <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+              <div className="px-3 py-2 border-b border-gray-200 dark:border-dark-border">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                   placeholder="Search..."
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
+                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-dark-border rounded bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
                   ref={searchInputRef}
                 />
               </div>
@@ -320,10 +320,10 @@ export const Select = ({
                 }}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-                  'hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between',
-                  'focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700',
+                  'hover:bg-gray-50 dark:hover:bg-dark-bg flex items-center justify-between',
+                  'focus:outline-none focus:bg-gray-50 dark:focus:bg-dark-bg',
                   value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                  focusedIndex === index && 'bg-gray-100 dark:bg-gray-700'
+                  focusedIndex === index && 'bg-gray-100 dark:bg-dark-bg'
                 )}
               >
                 <span>{option.label}</span>

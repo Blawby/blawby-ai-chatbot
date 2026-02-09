@@ -5,6 +5,8 @@ import { Button } from '@/shared/ui/Button';
 import { XMarkIcon, ShieldCheckIcon, LockClosedIcon, ExclamationTriangleIcon, PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { App } from '../pages/appsData';
+import { SectionDivider } from '@/shared/ui/layout';
+import { SettingRow } from '@/features/settings/components/SettingRow';
 
 interface AppConnectionModalProps {
   isOpen: boolean;
@@ -95,90 +97,100 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
         className="flex flex-col h-full max-h-[90vh] w-full max-w-md mx-auto bg-white dark:bg-dark-bg"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+        <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-dark-bg flex items-center justify-center">
               <PuzzlePieceIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" aria-hidden="true" />
             </div>
             <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {t('settings:apps.clio.connectModal.title', { app: app.name })}
             </h2>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="icon"
+            size="icon"
             onClick={onClose}
             ref={closeButtonRef}
-            className="p-2 rounded-lg text-gray-600 dark:text-gray-300"
             aria-label="Close"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
+            icon={<XMarkIcon className="w-5 h-5" />}
+          />
         </div>
+        <SectionDivider />
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-          {/* Permissions Section */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheckIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {t('settings:apps.clio.connectModal.permissions.title')}
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 pl-7">
-              {t('settings:apps.clio.connectModal.permissions.description', { app: app.name })}
-            </p>
-          </div>
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-2">
+          <SettingRow
+            label={t('settings:apps.clio.connectModal.permissions.title')}
+            labelNode={(
+              <div className="flex items-center gap-2">
+                <ShieldCheckIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {t('settings:apps.clio.connectModal.permissions.title')}
+                </span>
+              </div>
+            )}
+            description={t('settings:apps.clio.connectModal.permissions.description', { app: app.name })}
+          />
 
-          {/* Control Section */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <LockClosedIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {t('settings:apps.clio.connectModal.control.title')}
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 pl-7">
-              {t('settings:apps.clio.connectModal.control.description', { app: app.name })}
-              {' '}
-              <a
-                href={app.privacyPolicy}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-600 dark:text-accent-400 hover:underline"
-              >
-                {t('settings:apps.clio.connectModal.control.learnMore')}
-              </a>
-            </p>
-          </div>
+          <SectionDivider />
 
-          {/* Risk Section */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {t('settings:apps.clio.connectModal.risk.title')}
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 pl-7">
-              {t('settings:apps.clio.connectModal.risk.description')}
-              {' '}
-              <button
-                type="button"
-                onClick={() => {
-                  // TODO: Link to security guide
-                }}
-                className="text-accent-600 dark:text-accent-400 hover:underline bg-transparent p-0 font-medium"
-              >
-                {t('settings:apps.clio.connectModal.risk.learnMore')}
-              </button>
-            </p>
-          </div>
+          <SettingRow
+            label={t('settings:apps.clio.connectModal.control.title')}
+            labelNode={(
+              <div className="flex items-center gap-2">
+                <LockClosedIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {t('settings:apps.clio.connectModal.control.title')}
+                </span>
+              </div>
+            )}
+            description={(
+              <>
+                {t('settings:apps.clio.connectModal.control.description', { app: app.name })}{' '}
+                <a
+                  href={app.privacyPolicy}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent-600 dark:text-accent-400 hover:underline"
+                >
+                  {t('settings:apps.clio.connectModal.control.learnMore')}
+                </a>
+              </>
+            )}
+          />
 
+          <SectionDivider />
+
+          <SettingRow
+            label={t('settings:apps.clio.connectModal.risk.title')}
+            labelNode={(
+              <div className="flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {t('settings:apps.clio.connectModal.risk.title')}
+                </span>
+              </div>
+            )}
+            description={(
+              <>
+                {t('settings:apps.clio.connectModal.risk.description')}{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // TODO: Link to security guide
+                  }}
+                  className="text-accent-600 dark:text-accent-400 hover:underline bg-transparent p-0 font-medium"
+                >
+                  {t('settings:apps.clio.connectModal.risk.learnMore')}
+                </button>
+              </>
+            )}
+          />
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-border">
+        <SectionDivider />
+        <div className="px-6 py-4">
           <Button
             variant="primary"
             size="lg"

@@ -8,6 +8,8 @@ import { createServiceId, type Service } from '@/features/services/types';
 import { getServiceDetailsForSave, normalizeServices } from '@/features/services/utils';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
+import { Button } from '@/shared/ui/Button';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -114,41 +116,37 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="pt-4 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/settings/practice')}
-            className="flex items-center gap-2 mb-4 text-gray-600 dark:text-gray-300"
-            aria-label="Back to practice settings"
-          >
-            <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
-            <span className="text-sm font-medium">Back to Practice</span>
-          </button>
-
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Services</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Manage the legal services shown to clients during intake.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {servicesError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
-            {servicesError}
-          </p>
-        )}
-
-        <ServicesEditor
-          services={initialServiceDetails}
-          onChange={(nextServices) => void saveServices(nextServices)}
-          catalog={SERVICE_CATALOG}
+    <SettingsPageLayout
+      title="Services"
+      wrapChildren={false}
+      contentClassName="pb-6"
+      headerLeading={(
+        <Button
+          variant="icon"
+          size="icon"
+          onClick={() => navigate('/settings/practice')}
+          aria-label="Back to practice settings"
+          icon={<ArrowLeftIcon className="w-5 h-5" />}
         />
+      )}
+    >
+      <div className="pt-2 pb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Manage the legal services shown to clients during intake.
+        </p>
       </div>
-    </div>
+
+      {servicesError && (
+        <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+          {servicesError}
+        </p>
+      )}
+
+      <ServicesEditor
+        services={initialServiceDetails}
+        onChange={(nextServices) => void saveServices(nextServices)}
+        catalog={SERVICE_CATALOG}
+      />
+    </SettingsPageLayout>
   );
 };

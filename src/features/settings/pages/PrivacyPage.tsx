@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SectionDivider } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import Modal from '@/shared/components/Modal';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 
 type PrivacySettings = {
   piiConsentGiven: boolean;
@@ -119,68 +120,62 @@ export default function PrivacyPage() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingHeader title="Privacy" />
+    <SettingsPageLayout title="Privacy">
+      <SettingSection
+        title="Consent & data use"
+        description="Control how Blawby processes and retains your personal data."
+      >
+        <SettingToggle
+          id="privacy-pii-consent"
+          label="Allow handling of sensitive personal data"
+          description="Required for storing intake details and supporting documents. Disabling may limit service functionality."
+          value={settings.piiConsentGiven}
+          onChange={(value) => handleToggle('piiConsentGiven', value)}
+        />
+        <SettingToggle
+          id="privacy-processing-consent"
+          label="Allow data processing for service delivery"
+          description="Required for case analysis and communications. Disabling may limit service functionality."
+          value={settings.dataProcessingConsent}
+          onChange={(value) => handleToggle('dataProcessingConsent', value)}
+        />
+        <SettingToggle
+          id="privacy-retention-consent"
+          label="Allow data retention for ongoing matters"
+          description="Keeps your records available across future sessions."
+          value={settings.dataRetentionConsent}
+          onChange={(value) => handleToggle('dataRetentionConsent', value)}
+        />
+        <SettingToggle
+          id="privacy-marketing-consent"
+          label="Allow product updates and marketing"
+          description="Receive product updates, tips, and service announcements."
+          value={settings.marketingConsent}
+          onChange={(value) => handleToggle('marketingConsent', value)}
+        />
+      </SettingSection>
 
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          <SettingSection
-            title="Consent & data use"
-            description="Control how Blawby processes and retains your personal data."
+      <SectionDivider />
+
+      <SettingSection
+        title="Data requests"
+        description="Need a copy of your data or want to delete your account?"
+      >
+        <div className="flex flex-col gap-3 py-3 sm:flex-row">
+          <Button
+            variant="secondary"
+            onClick={() => window.open('https://blawby.com/privacy', '_blank', 'noopener,noreferrer')}
           >
-            <SettingToggle
-              id="privacy-pii-consent"
-              label="Allow handling of sensitive personal data"
-              description="Required for storing intake details and supporting documents. Disabling may limit service functionality."
-              value={settings.piiConsentGiven}
-              onChange={(value) => handleToggle('piiConsentGiven', value)}
-            />
-            <SettingToggle
-              id="privacy-processing-consent"
-              label="Allow data processing for service delivery"
-              description="Required for case analysis and communications. Disabling may limit service functionality."
-              value={settings.dataProcessingConsent}
-              onChange={(value) => handleToggle('dataProcessingConsent', value)}
-            />
-            <SettingToggle
-              id="privacy-retention-consent"
-              label="Allow data retention for ongoing matters"
-              description="Keeps your records available across future sessions."
-              value={settings.dataRetentionConsent}
-              onChange={(value) => handleToggle('dataRetentionConsent', value)}
-            />
-            <SettingToggle
-              id="privacy-marketing-consent"
-              label="Allow product updates and marketing"
-              description="Receive product updates, tips, and service announcements."
-              value={settings.marketingConsent}
-              onChange={(value) => handleToggle('marketingConsent', value)}
-            />
-          </SettingSection>
-
-          <SectionDivider />
-
-          <SettingSection
-            title="Data requests"
-            description="Need a copy of your data or want to delete your account?"
+            View privacy policy
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/settings/account')}
           >
-            <div className="flex flex-col gap-3 py-3 sm:flex-row">
-              <Button
-                variant="secondary"
-                onClick={() => window.open('https://blawby.com/privacy', '_blank', 'noopener,noreferrer')}
-              >
-                View privacy policy
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => navigate('/settings/account')}
-              >
-                Manage account deletion
-              </Button>
-            </div>
-          </SettingSection>
+            Manage account deletion
+          </Button>
         </div>
-      </div>
+      </SettingSection>
 
       {/* Confirmation Dialog for Critical Consents */}
       <Modal
@@ -190,8 +185,8 @@ export default function PrivacyPage() {
         disableBackdropClick={true}
       >
         <div className="space-y-4">
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-            <p className="text-sm text-amber-800 dark:text-amber-200 font-medium mb-2">
+          <SettingsNotice variant="warning" className="p-4">
+            <p className="text-sm font-medium mb-2">
               ⚠️ Warning: Disabling this consent may limit service functionality
             </p>
             <p className="text-sm text-amber-700 dark:text-amber-300">
@@ -208,14 +203,14 @@ export default function PrivacyPage() {
                 </>
               )}
             </p>
-          </div>
+          </SettingsNotice>
 
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+          <SettingsNotice variant="info">
+            <p className="text-sm">
               <strong>Note:</strong> Your existing data will remain stored according to your data retention preferences. 
               You can re-enable this consent at any time.
             </p>
-          </div>
+          </SettingsNotice>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={handleCancelToggle}>
@@ -231,6 +226,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </SettingsPageLayout>
   );
 }

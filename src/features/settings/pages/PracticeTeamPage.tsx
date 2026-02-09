@@ -14,6 +14,10 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { FormGrid, SectionDivider } from '@/shared/ui/layout';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 
 interface PracticeTeamPageProps {
   onNavigate?: (path: string) => void;
@@ -172,44 +176,45 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="pt-4 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/settings/practice')}
-            className="flex items-center gap-2 mb-4 text-gray-600 dark:text-gray-300"
-            aria-label="Back to practice settings"
-          >
-            <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
-            <span className="text-sm font-medium">Back to Practice</span>
-          </button>
-
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Team Members</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Manage access to your practice workspace.
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Seats used: {members.length} / {normalizeSeats(currentPractice?.seats)}
-              </p>
-            </div>
-            {isAdmin && (
-              <Button
-                size="sm"
-                onClick={() => setIsInvitingMember(!isInvitingMember)}
-              >
-                <UserPlusIcon className="w-4 h-4 mr-2" />
-                {isInvitingMember ? 'Cancel' : 'Invite'}
-              </Button>
-            )}
+    <SettingsPageLayout
+      title="Team Members"
+      wrapChildren={false}
+      contentClassName="pb-6"
+      headerLeading={(
+        <Button
+          variant="icon"
+          size="icon"
+          onClick={() => navigate('/settings/practice')}
+          aria-label="Back to practice settings"
+          icon={<ArrowLeftIcon className="w-5 h-5" />}
+        />
+      )}
+    >
+      <div className="pt-2 pb-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Manage access to your practice workspace.
+            </p>
+            <SettingsHelperText className="mt-2">
+              Seats used: {members.length} / {normalizeSeats(currentPractice?.seats)}
+            </SettingsHelperText>
           </div>
+          {isAdmin && (
+            <Button
+              size="sm"
+              onClick={() => setIsInvitingMember(!isInvitingMember)}
+            >
+              <UserPlusIcon className="w-4 h-4 mr-2" />
+              {isInvitingMember ? 'Cancel' : 'Invite'}
+            </Button>
+          )}
         </div>
+      </div>
 
         {members.length > normalizeSeats(currentPractice?.seats) && (
-          <div role="status" aria-live="polite" className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+          <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
+            <p className="text-sm">
               You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentPractice?.seats)}. The billing owner can increase seats in Stripe.
               {isOwner && (
                 <Button
@@ -226,12 +231,12 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                 </Button>
               )}
             </p>
-          </div>
+          </SettingsNotice>
         )}
 
-        {members.length === 0 && loading ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">Loading members...</p>
-        ) : members.length > 0 ? (
+      {members.length === 0 && loading ? (
+        <SettingsHelperText>Loading members...</SettingsHelperText>
+      ) : members.length > 0 ? (
           <div className="space-y-3">
             {members.map((member) => (
               <div key={member.userId} className="flex items-center justify-between py-2">
@@ -239,9 +244,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {member.name || member.email}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <SettingsHelperText>
                     {member.email} • {getPracticeRoleLabel(member.role)}
-                  </p>
+                  </SettingsHelperText>
                 </div>
                 {isAdmin && member.role !== 'owner' && (
                   <Button
@@ -264,33 +269,35 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-xs text-gray-500 dark:text-gray-400">No team members yet</p>
-        )}
+      ) : (
+        <SettingsHelperText>No team members yet</SettingsHelperText>
+      )}
 
         {isInvitingMember && (
           <div className="mt-6 space-y-4">
-            <div>
-              <FormLabel htmlFor="invite-email">Email Address</FormLabel>
-              <Input
-                id="invite-email"
-                type="email"
-                value={inviteForm.email}
-                onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
-                placeholder="colleague@lawfirm.com"
-              />
-            </div>
+            <FormGrid>
+              <div>
+                <FormLabel htmlFor="invite-email">Email Address</FormLabel>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  value={inviteForm.email}
+                  onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
+                  placeholder="colleague@lawfirm.com"
+                />
+              </div>
 
-            <div>
-              <FormLabel htmlFor="invite-role">Role</FormLabel>
-              <Select
-                value={inviteForm.role}
-                options={[
-                  ...teamRoleOptions
-                ]}
-                onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
-              />
-            </div>
+              <div>
+                <FormLabel htmlFor="invite-role">Role</FormLabel>
+                <Select
+                  value={inviteForm.role}
+                  options={[
+                    ...teamRoleOptions
+                  ]}
+                  onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
+                />
+              </div>
+            </FormGrid>
 
             <div className="flex gap-2 pt-2">
               <Button variant="secondary" onClick={() => setIsInvitingMember(false)}>
@@ -309,9 +316,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                 {editMemberData.name || editMemberData.email}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {editMemberData.email}
-              </p>
+            <SettingsHelperText>
+              {editMemberData.email}
+            </SettingsHelperText>
             </div>
 
             <div>
@@ -348,7 +355,8 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
           </div>
         )}
 
-        <div className="mt-8 border-t border-gray-200 dark:border-dark-border pt-6">
+        <SectionDivider className="mt-8" />
+        <div className="pt-6">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Pending Invitations
           </h3>
@@ -360,9 +368,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {inv.practiceName || inv.practiceId}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <SettingsHelperText>
                       Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
-                    </p>
+                    </SettingsHelperText>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
@@ -376,10 +384,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-500 dark:text-gray-400">No pending invitations</p>
+            <SettingsHelperText>No pending invitations</SettingsHelperText>
           )}
         </div>
-      </div>
-    </div>
+    </SettingsPageLayout>
   );
 };

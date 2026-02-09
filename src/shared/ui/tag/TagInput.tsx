@@ -486,8 +486,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             id={listboxId}
             role="listbox"
             className={cn(
-              'absolute z-50 w-full mt-1 bg-white dark:bg-gray-800',
-              'border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg',
+              'absolute z-50 w-full mt-1 bg-white dark:bg-dark-card-bg',
+              'border border-gray-200 dark:border-dark-border rounded-lg shadow-lg',
               'max-h-60 overflow-y-auto'
             )}
           >
@@ -511,8 +511,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
                 onClick={() => addTag(suggestion)}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-                  'hover:bg-gray-50 dark:hover:bg-gray-700',
-                  'focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700',
+                  'hover:bg-gray-50 dark:hover:bg-dark-bg',
+                  'focus:outline-none focus:bg-gray-50 dark:focus:bg-dark-bg',
                   focusedSuggestionIndex === index && 'bg-accent-50 dark:bg-accent-900/20'
                 )}
               >
@@ -546,4 +546,3 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
     </div>
   );
 });
-

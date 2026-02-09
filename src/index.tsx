@@ -11,7 +11,7 @@ import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
-import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
+import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { useNavigation } from '@/shared/utils/navigation';
 import { CartPage } from '@/features/cart/pages/CartPage';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -51,7 +51,6 @@ const NotFoundRoute = () => {
   );
 };
 
-type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
 // Client routes align with public structure
 
 // Main App component with routing
@@ -70,22 +69,15 @@ export function App() {
 function AppShell() {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const isSettingsOpen = location.path.startsWith('/settings');
-  const isMobileHoisted = useMobileDetection();
   const { session, isPending: sessionPending, activeOrganizationId } = useSessionContext();
   const { defaultWorkspace, canAccessPractice, isPracticeLoading } = useWorkspace();
   const { currentPractice, practices } = usePracticeManagement();
   const lastWorkspaceRef = useRef<'client' | 'practice' | null>(null);
   const lastActivePracticeRef = useRef<string | null>(null);
-  const lastNonSettingsUrlRef = useRef<string | null>(null);
   const routeTransitionRef = useRef(0);
 
   if (session?.user?.primaryWorkspace && lastWorkspaceRef.current !== session.user.primaryWorkspace) {
     lastWorkspaceRef.current = session.user.primaryWorkspace;
-  }
-
-  if (!isSettingsOpen && location.url !== lastNonSettingsUrlRef.current) {
-    lastNonSettingsUrlRef.current = location.url;
   }
 
   const handleRouteChange = useCallback((url: string) => {
@@ -136,30 +128,6 @@ function AppShell() {
     }
   }, [activeOrganizationId, canAccessPractice, isPracticeLoading, session?.user, sessionPending]);
 
-  const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-  const handleCloseSettings = useCallback(() => {
-    const returnPath = getSettingsReturnPath();
-    const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
-    navigate(returnPath ?? fallback, true);
-  }, [defaultWorkspace, fallbackSlug, navigate]);
-
-  const fallbackSettingsBackground = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
-  const backgroundUrl = isSettingsOpen
-    ? (lastNonSettingsUrlRef.current ?? fallbackSettingsBackground)
-    : location.url;
-  const wasPush = (location as LocationValue).wasPush;
-
-  const routerLocation = useMemo<LocationValue>(() => {
-    const parsed = new URL(backgroundUrl, 'http://localhost');
-    return {
-      url: backgroundUrl,
-      path: parsed.pathname.replace(/\/+$/g, '') || '/',
-      query: Object.fromEntries(parsed.searchParams),
-      route: location.route,
-      wasPush
-    };
-  }, [backgroundUrl, location.route, wasPush]);
-
   useEffect(() => {
     if (sessionPending) return;
     const user = session?.user;
@@ -181,58 +149,48 @@ function AppShell() {
     }
 
     if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
+      const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
       const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
       navigate(fallback, true);
     }
-  }, [defaultWorkspace, fallbackSlug, location.path, location.url, navigate, session?.user, sessionPending]);
+  }, [currentPractice, defaultWorkspace, location.path, location.url, navigate, practices, session?.user, sessionPending]);
 
   return (
     <ToastProvider>
-      <LocationProvider.ctx.Provider value={routerLocation}>
-        <Router onRouteChange={handleRouteChange}>
-          <Route path="/auth" component={AuthPage} />
-          <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
-          <Route path="/cart" component={CartPage} />
-          <Route path="/pricing" component={PricingPage} />
-          <Route path="/onboarding" component={OnboardingPage} />
-          <Route path="/pay" component={PayRedirectPage} />
-          <Route path="/settings" component={SettingsRoute} />
-          <Route path="/settings/*" component={SettingsRoute} />
-          <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
-          <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
-          <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
-          <Route path="/public/:practiceSlug/matters" component={PublicPracticeRoute} workspaceView="matters" />
-          <Route path="/client" component={NotFoundRoute} />
-          <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
-          <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
-          <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
-          <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} workspaceView="matters" />
-          <Route path="/practice" component={NotFoundRoute} />
-          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
-          <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
-          <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
-          <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} workspaceView="clients" />
-          <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
-          <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
-          <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
-          <Route default component={RootRoute} />
-        </Router>
-      </LocationProvider.ctx.Provider>
-
-      {isSettingsOpen && (
-        <SettingsLayout
-          key="settings-modal-hoisted"
-          isMobile={isMobileHoisted}
-          onClose={handleCloseSettings}
-          className="h-full"
-        />
-      )}
+      <Router onRouteChange={handleRouteChange}>
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
+        <Route path="/cart" component={CartPage} />
+        <Route path="/pricing" component={PricingPage} />
+        <Route path="/onboarding" component={OnboardingPage} />
+        <Route path="/pay" component={PayRedirectPage} />
+        <Route path="/settings" component={SettingsRoute} />
+        <Route path="/settings/*" component={SettingsRoute} />
+        <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
+        <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
+        <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
+        <Route path="/public/:practiceSlug/matters" component={PublicPracticeRoute} workspaceView="matters" />
+        <Route path="/client" component={NotFoundRoute} />
+        <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
+        <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
+        <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
+        <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} workspaceView="matters" />
+        <Route path="/practice" component={NotFoundRoute} />
+        <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
+        <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
+        <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
+        <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} workspaceView="clients" />
+        <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
+        <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
+        <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
+        <Route default component={RootRoute} />
+      </Router>
     </ToastProvider>
   );
 }
 
 function SettingsRoute() {
-  const { preferredWorkspace } = useWorkspace();
+  const { preferredWorkspace, defaultWorkspace } = useWorkspace();
   const { activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const isClientWorkspace = preferredWorkspace === 'client';
@@ -248,6 +206,11 @@ function SettingsRoute() {
     practices[0] ??
     null;
   const resolvedSlug = resolvedPractice?.slug ?? null;
+  const handleCloseSettings = useCallback(() => {
+    const returnPath = getSettingsReturnPath();
+    const fallback = getWorkspaceHomePath(defaultWorkspace, resolvedSlug, '/');
+    navigate(returnPath ?? fallback, true);
+  }, [defaultWorkspace, navigate, resolvedSlug]);
 
   useEffect(() => {
     if (!isClientWorkspace) return;
@@ -280,6 +243,7 @@ function SettingsRoute() {
   return (
     <PracticeAppRoute
       settingsMode={true}
+      onSettingsClose={handleCloseSettings}
     />
   );
 }
@@ -373,11 +337,13 @@ function RootRoute() {
 
 function PracticeAppRoute({
   settingsMode = false,
+  onSettingsClose,
   conversationId,
   workspaceView = 'home',
   practiceSlug
 }: {
   settingsMode?: boolean;
+  onSettingsClose?: () => void;
   conversationId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
   practiceSlug?: string;
@@ -385,6 +351,7 @@ function PracticeAppRoute({
   const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const { isPracticeEnabled, canAccessPractice } = useWorkspace();
+  const isMobile = useMobileDetection();
   const {
     currentPractice,
     practices,
@@ -585,6 +552,16 @@ function PracticeAppRoute({
       return <LoadingScreen />;
     }
     return <LoadingScreen />;
+  }
+
+  if (settingsMode) {
+    return (
+      <SettingsPage
+        isMobile={isMobile}
+        onClose={onSettingsClose}
+        className="h-full"
+      />
+    );
   }
 
   return (
