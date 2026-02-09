@@ -15,6 +15,8 @@ interface AnnouncementBannerProps {
   tone?: AnnouncementTone;
   actions?: AnnouncementAction[];
   children?: ComponentChildren;
+  variant?: 'card' | 'flat';
+  className?: string;
 }
 
 const toneStyles: Record<AnnouncementTone, { container: string; title: string; body: string }> = {
@@ -35,17 +37,28 @@ const toneStyles: Record<AnnouncementTone, { container: string; title: string; b
   }
 };
 
+const flatToneStyles: Record<AnnouncementTone, string> = {
+  warning: 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100',
+  info: 'bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-100',
+  success: 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
+};
+
 const AnnouncementBanner = ({
   title,
   description,
   tone = 'warning',
   actions = [],
-  children
+  children,
+  variant = 'card',
+  className
 }: AnnouncementBannerProps) => {
   const styles = toneStyles[tone];
+  const containerClassName = variant === 'flat'
+    ? `w-full px-4 py-2 ${flatToneStyles[tone]} ${className ?? ''}`.trim()
+    : `w-full rounded-xl border px-4 py-3 shadow-sm ${styles.container} ${className ?? ''}`.trim();
 
   return (
-    <div className={`w-full rounded-xl border px-4 py-3 shadow-sm ${styles.container}`}>
+    <div className={containerClassName}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
           <p className={`text-sm font-semibold ${styles.title}`}>{title}</p>

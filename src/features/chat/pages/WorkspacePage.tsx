@@ -401,11 +401,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   return (
     <AppShell
       className="bg-light-bg dark:bg-dark-bg"
-      header={header}
-      headerClassName={header ? headerClassName : undefined}
       sidebar={sidebarNav}
       main={(
         <div className="flex h-full min-h-0 w-full flex-col">
+          {header && (
+            <div className={cn('w-full', headerClassName)}>
+              {header}
+            </div>
+          )}
           {mainContent}
         </div>
       )}

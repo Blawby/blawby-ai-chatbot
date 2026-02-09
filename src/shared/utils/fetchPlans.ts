@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/lib/apiClient';
-import { toMajorUnits, assertMinorUnits } from '@/shared/utils/money';
+import { toMajorUnits } from '@/shared/utils/money';
 
 export interface SubscriptionPlan {
   id: string;
@@ -28,19 +28,39 @@ export interface SubscriptionPlan {
 }
 
 const normalizePlanAmount = (value: unknown): string => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    assertMinorUnits(value, 'subscription.plan.price');
-    const major = toMajorUnits(value);
+  const normalizeMajor = (amount: number): string => {
+    if (!Number.isFinite(amount)) return '';
+    return amount.toFixed(2);
+  };
+
+  const normalizeMinor = (amount: number): string => {
+    if (!Number.isFinite(amount)) return '';
+    const major = toMajorUnits(amount);
     return typeof major === 'number' ? major.toFixed(2) : '';
+  };
+
+  const shouldTreatAsMinor = (amount: number): boolean => {
+    if (!Number.isFinite(amount)) return false;
+    if (!Number.isInteger(amount)) return false;
+    return Math.abs(amount) >= 1000;
+  };
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return shouldTreatAsMinor(value) ? normalizeMinor(value) : normalizeMajor(value);
   }
+
   if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value);
+    const trimmed = value.trim();
+    if (trimmed.includes('.')) {
+      const parsedMajor = Number(trimmed);
+      return Number.isFinite(parsedMajor) ? normalizeMajor(parsedMajor) : '';
+    }
+    const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) {
-      assertMinorUnits(parsed, 'subscription.plan.price');
-      const major = toMajorUnits(parsed);
-      return typeof major === 'number' ? major.toFixed(2) : '';
+      return shouldTreatAsMinor(parsed) ? normalizeMinor(parsed) : normalizeMajor(parsed);
     }
   }
+
   return '';
 };
 

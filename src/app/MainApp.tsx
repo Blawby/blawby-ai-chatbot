@@ -5,8 +5,6 @@ import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import type { SubscriptionTier } from '@/shared/types/user';
-import { resolvePracticeKind } from '@/shared/utils/subscription';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
@@ -15,7 +13,6 @@ import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import { useNavigation } from '@/shared/utils/navigation';
-import PricingModal from '@/features/modals/components/PricingModal';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -128,20 +125,18 @@ export function MainApp({
     if (stripeReady) return null;
 
     return (
-      <div className="px-4 pt-4 short:pt-2">
-        <AnnouncementBanner
-          title="Blawby payouts are almost ready to go."
-          description="You just need to provide a few details to start sending invoices and getting paid."
-          actions={[
-            {
-              label: 'Set up payouts',
-              onClick: () => navigate('/settings/account/payouts'),
-              variant: 'primary' as const
-            }
-          ]}
-          tone="warning"
-        />
-      </div>
+      <AnnouncementBanner
+        title="Almost ready to go"
+        actions={[
+          {
+            label: 'Set up payouts',
+            onClick: () => navigate('/settings/account/payouts'),
+            variant: 'primary' as const
+          }
+        ]}
+        tone="warning"
+        variant="flat"
+      />
     );
   }, [currentPractice, navigate, workspace]);
 
@@ -527,48 +522,7 @@ export function MainApp({
     void checkPracticeWelcome();
   }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
 
-  // Handle hash-based routing for pricing modal
-  const [showPricingModal, setShowPricingModal] = useState(false);
-
-  // Derive current user tier from practice config (our custom system)
-  // Note: subscriptionTier is on Practice
-  const resolvedKindForTier = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
-
-  // Whitelist of valid SubscriptionTier values
-  const VALID_SUBSCRIPTION_TIERS: SubscriptionTier[] = ['free', 'plus', 'business', 'enterprise'];
-
-  // Normalize and validate subscriptionTier
-  const normalizedTier = currentPractice?.subscriptionTier
-    ? currentPractice.subscriptionTier.trim().toLowerCase()
-    : null;
-
-  // Find matching tier from whitelist (case-insensitive) to avoid unsafe casts
-  const validatedTier = normalizedTier
-    ? VALID_SUBSCRIPTION_TIERS.find(tier => tier.toLowerCase() === normalizedTier)
-    : null;
-
-  const currentUserTier: SubscriptionTier = validatedTier
-    ? validatedTier
-    : resolvedKindForTier === 'business'
-      ? 'business'
-      : 'free';
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash;
-      setShowPricingModal(hash === '#pricing');
-    };
-
-    // Check initial hash
-    handleHashChange();
-
-    // Listen for hash changes
-    window.addEventListener('hashchange', handleHashChange);
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
+  // Pricing modal removed; subscription tier derivation not needed here.
 
   // User tier is now derived directly from practice - no need for custom event listeners
 
@@ -1012,66 +966,6 @@ export function MainApp({
       </div>
 
       {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
-
-      {/* Pricing Modal */}
-      {workspace !== 'public' && (
-        <PricingModal
-          isOpen={showPricingModal}
-          onClose={() => {
-            setShowPricingModal(false);
-            window.location.hash = '';
-          }}
-          currentTier={currentUserTier}
-          onUpgrade={async (tier) => {
-            let shouldNavigateToCart = true;
-            try {
-              if (!session?.user) {
-                showError('Sign-in required', 'Please sign in before upgrading your plan.');
-                return false;
-              }
-
-              if (tier === 'business') {
-                // Navigate to cart page for business upgrades instead of direct checkout
-                try {
-                  const existing = localStorage.getItem('cartPreferences');
-                  const parsed = existing ? JSON.parse(existing) : {};
-                  localStorage.setItem('cartPreferences', JSON.stringify({
-                    ...parsed,
-                    tier,
-                  }));
-                } catch (_error) {
-                  console.warn('Unable to store cart preferences for upgrade:', _error);
-                }
-                // Keep shouldNavigateToCart = true to go to cart page
-              } else if (tier === 'enterprise') {
-                navigate('/enterprise');
-                shouldNavigateToCart = false;
-              } else {
-                try {
-                  const existing = localStorage.getItem('cartPreferences');
-                  const parsed = existing ? JSON.parse(existing) : {};
-                  localStorage.setItem('cartPreferences', JSON.stringify({
-                    ...parsed,
-                    tier,
-                  }));
-                } catch (_error) {
-                  console.warn('Unable to store cart preferences for upgrade:', _error);
-                }
-              }
-            } catch (_error) {
-              console.error('Error initiating subscription upgrade:', _error);
-              const message = _error instanceof Error ? _error.message : 'Unable to start upgrade.';
-              showError('Upgrade failed', message);
-              shouldNavigateToCart = false;
-            } finally {
-              setShowPricingModal(false);
-              window.location.hash = '';
-            }
-
-            return shouldNavigateToCart;
-          }}
-        />
-      )}
 
       {/* Welcome Modal */}
       <WelcomeModal
