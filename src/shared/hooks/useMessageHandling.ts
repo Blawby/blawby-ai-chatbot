@@ -2064,6 +2064,10 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
       try {
         if (cancelled) return;
+        if (processedPaymentUuidsRef.current.has(uuid)) {
+          return;
+        }
+        processedPaymentUuidsRef.current.add(uuid);
 
         const persistedMessage = await postSystemMessage(conversationId, practiceId, {
           clientId: messageId,
@@ -2079,7 +2083,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         }
 
         if (persistedMessage) {
-          processedPaymentUuidsRef.current.add(uuid);
           applyServerMessages([persistedMessage]);
           setPaymentRetryNotice(null);
           void confirmIntakeLead(uuid);

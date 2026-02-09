@@ -82,7 +82,7 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
       if (!normalizedUnit) {
         requireUnit();
       }
-      return shouldTreatAsMinor(parsed, normalizedUnit) ? normalizeMinor(parsed) : '';
+      return shouldTreatAsMinor(parsed, normalizedUnit) ? normalizeMinor(parsed) : normalizeMajor(parsed);
     }
   }
 

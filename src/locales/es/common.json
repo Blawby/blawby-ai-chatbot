@@ -243,12 +243,15 @@
     },
     "error": {
       "title": "Detalles de la práctica no disponibles",
-      "description": "No pudimos cargar el nombre y el logotipo de la práctica {{slug}}. Por favor actualiza o contacta a la práctica para confirmar su configuración pública.",
+      "description": "No pudimos cargar el nombre y el logotipo de la práctica \"{{slug}}\". Por favor actualiza o contacta a la práctica para confirmar su configuración pública.",
       "retry": "Intentar de nuevo"
     },
     "header": {
       "activeNow": "Activo ahora",
-      "back": "Atrás"
+      "back": "Atrás",
+      "inactive": "Inactive",
+      "away": "Away",
+      "unknown": "Status unknown"
     }
   }
 }

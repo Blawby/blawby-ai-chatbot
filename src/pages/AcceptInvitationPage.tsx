@@ -415,15 +415,25 @@ export const AcceptInvitationPage = () => {
         throw linkError;
       }
       
-      const finalSlug = organizationSlug || (match ? match.slug : '');
+      const matchedSlug = match && typeof match.slug === 'string' && match.slug.trim().length > 0
+        ? match.slug.trim()
+        : '';
+      const finalSlug = organizationSlug || matchedSlug;
       if (!finalSlug) {
-        console.error('[AcceptInvitationPage] Missing organization slug for navigation', {
-          organizationSlug,
-          targetOrgId,
-          match,
-          orgList
-        });
-        throw new Error('Unable to open the conversation right now.');
+        if (match) {
+          console.error('[AcceptInvitationPage] Matched organization missing slug', {
+            targetOrgId,
+            match
+          });
+        } else {
+          console.error('[AcceptInvitationPage] Missing organization slug for navigation', {
+            organizationSlug,
+            targetOrgId,
+            match,
+            orgList
+          });
+        }
+        throw new Error('Organization slug is missing. Please contact support.');
       }
       navigate(
         `/public/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,

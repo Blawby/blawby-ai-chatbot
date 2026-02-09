@@ -163,7 +163,7 @@ const sanitizeErrorBody = (raw: string): string => {
   const redactKey = (key: string) => /token|secret|password|ssn|email|phone|address|name|clientsecret/i.test(key);
   const redactValue = (value: unknown): unknown => {
     if (typeof value === 'string') {
-      return value.length > 12 ? `${value.slice(0, 4)}…${value.slice(-4)}` : 'REDACTED';
+      return 'REDACTED';
     }
     return 'REDACTED';
   };
@@ -243,7 +243,12 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
       if (import.meta.env.DEV) {
         console.warn('[Intake] Checkout session response missing url', result);
       } else {
-        console.error('[Intake] Checkout session response missing url', JSON.stringify(result));
+        console.error('[Intake] Checkout session response missing url', JSON.stringify({
+          success: result.success,
+          hasUrl: Boolean(result.data?.url),
+          hasSessionId: Boolean(result.data?.session_id),
+          hasError: Boolean(result.error)
+        }));
       }
       const error = new Error(result.error || 'Checkout session response missing URL') as LoggedError;
       error._logged = true;

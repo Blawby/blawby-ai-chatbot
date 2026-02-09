@@ -243,12 +243,15 @@
     },
     "error": {
       "title": "Détails du cabinet indisponibles",
-      "description": "Nous n'avons pas pu charger le nom et le logo du cabinet {{slug}}. Veuillez rafraîchir ou contacter le cabinet pour confirmer leurs paramètres publics.",
+      "description": "Nous n'avons pas pu charger le nom et le logo du cabinet «{{slug}}». Veuillez rafraîchir ou contacter le cabinet pour confirmer leurs paramètres publics.",
       "retry": "Réessayer"
     },
     "header": {
       "activeNow": "Actif maintenant",
-      "back": "Retour"
+      "back": "Retour",
+      "inactive": "Inactive",
+      "away": "Away",
+      "unknown": "Status unknown"
     }
   }
 }

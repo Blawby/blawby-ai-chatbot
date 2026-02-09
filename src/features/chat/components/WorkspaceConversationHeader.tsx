@@ -27,12 +27,14 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
       return activeLabel.trim();
     }
     switch (presenceStatus) {
+      case 'active':
+        return t('workspace.header.activeNow');
       case 'inactive':
         return t('workspace.header.inactive');
       case 'away':
         return t('workspace.header.away');
       default:
-        return t('workspace.header.activeNow');
+        return t('workspace.header.unknown');
     }
   })();
   const resolvedStatus = presenceStatus === 'away' ? 'inactive' : presenceStatus;

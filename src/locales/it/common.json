@@ -217,12 +217,15 @@
     },
     "error": {
       "title": "Dettagli studio non disponibili",
-      "description": "Non è stato possibile caricare il nome e il logo dello studio {{slug}}. Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
+      "description": "Non è stato possibile caricare il nome e il logo dello studio \"{{slug}}\". Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
       "retry": "Riprova"
     },
     "header": {
       "activeNow": "Attivo ora",
-      "back": "Indietro"
+      "back": "Indietro",
+      "inactive": "Inactive",
+      "away": "Away",
+      "unknown": "Status unknown"
     }
   },
   "businessWelcome": {
