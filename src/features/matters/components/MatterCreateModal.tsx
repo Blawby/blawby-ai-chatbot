@@ -85,11 +85,8 @@ const BILLING_OPTIONS = [
 ];
 
 const STATUS_OPTIONS: Array<{ value: MattersSidebarStatus; label: string }> = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'open', label: 'Open' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'archived', label: 'Archived' }
+  { value: 'draft', label: 'Draft' },
+  { value: 'active', label: 'Active' }
 ];
 
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
@@ -110,7 +107,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
   clientId: initialValues?.clientId ?? '',
   practiceAreaId: initialValues?.practiceAreaId ?? '',
   assigneeIds: initialValues?.assigneeIds ?? [],
-  status: initialValues?.status ?? 'open',
+  status: initialValues?.status ?? 'draft',
   billingType: initialValues?.billingType ?? 'hourly',
   attorneyHourlyRate: initialValues?.attorneyHourlyRate,
   adminHourlyRate: initialValues?.adminHourlyRate,

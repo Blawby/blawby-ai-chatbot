@@ -7,6 +7,7 @@ import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
+import type { Address } from '@/shared/types/address';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -118,6 +119,66 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         src: currentUserAvatar,
         name: currentUserName
     };
+
+    const normalizeContactForm = useCallback((contactForm?: ChatMessageUI['contactForm']) => {
+        if (!contactForm) return undefined;
+        const { initialValues, ...rest } = contactForm;
+        if (!initialValues || typeof initialValues !== 'object' || Array.isArray(initialValues)) {
+            return { ...rest };
+        }
+        const record = initialValues as Record<string, unknown>;
+        const normalizedInitialValues: {
+            name?: string;
+            email?: string;
+            phone?: string;
+            address?: Partial<Address>;
+            opposingParty?: string;
+            description?: string;
+        } = {};
+
+        if (typeof record.name === 'string') normalizedInitialValues.name = record.name;
+        if (typeof record.email === 'string') normalizedInitialValues.email = record.email;
+        if (typeof record.phone === 'string') normalizedInitialValues.phone = record.phone;
+        if (typeof record.opposingParty === 'string') normalizedInitialValues.opposingParty = record.opposingParty;
+        if (typeof record.description === 'string') normalizedInitialValues.description = record.description;
+
+        const addressValue = record.address;
+        if (typeof addressValue === 'string' && addressValue.trim().length > 0) {
+            normalizedInitialValues.address = { address: addressValue.trim() };
+        } else if (addressValue && typeof addressValue === 'object' && !Array.isArray(addressValue)) {
+            const addressRecord = addressValue as Record<string, unknown>;
+            const addressLine =
+                (typeof addressRecord.line1 === 'string' && addressRecord.line1) ||
+                (typeof addressRecord.address === 'string' && addressRecord.address) ||
+                (typeof addressRecord.streetAddress === 'string' && addressRecord.streetAddress) ||
+                (typeof addressRecord.street === 'string' && addressRecord.street) ||
+                '';
+            const normalizedAddress: Partial<Address> = {};
+            if (addressLine) normalizedAddress.address = addressLine;
+            const apartment = typeof addressRecord.line2 === 'string'
+                ? addressRecord.line2
+                : typeof addressRecord.apartment === 'string'
+                    ? addressRecord.apartment
+                    : undefined;
+            if (apartment) normalizedAddress.apartment = apartment;
+            if (typeof addressRecord.city === 'string') normalizedAddress.city = addressRecord.city;
+            if (typeof addressRecord.state === 'string') normalizedAddress.state = addressRecord.state;
+            const postalCode = typeof addressRecord.postal_code === 'string'
+                ? addressRecord.postal_code
+                : typeof addressRecord.postalCode === 'string'
+                    ? addressRecord.postalCode
+                    : undefined;
+            if (postalCode) normalizedAddress.postalCode = postalCode;
+            if (typeof addressRecord.country === 'string') normalizedAddress.country = addressRecord.country;
+            if (Object.keys(normalizedAddress).length > 0) {
+                normalizedInitialValues.address = normalizedAddress;
+            }
+        }
+
+        return Object.keys(normalizedInitialValues).length > 0
+            ? { ...rest, initialValues: normalizedInitialValues }
+            : { ...rest };
+    }, []);
     const practiceProfile = practiceConfig ? {
         src: practiceConfig.profileImage,
         name: practiceConfig.name
@@ -543,6 +604,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const modeSelector = resolveModeSelector(message);
                     const leadReview = resolveLeadReview(message);
 
+                    const normalizedContactForm = normalizeContactForm(message.contactForm);
+
                     return (
                         <Message
                             key={message.id}
@@ -569,7 +632,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onToggleReaction(message.id, emoji);
                             } : undefined}
                             matterCanvas={message.matterCanvas}
-                            contactForm={message.contactForm}
+                            contactForm={normalizedContactForm}
                             contactFormVariant={contactFormVariant}
                             contactFormFormId={contactFormFormId}
                             showContactFormSubmit={showContactFormSubmit}
