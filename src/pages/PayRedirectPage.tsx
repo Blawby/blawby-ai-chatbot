@@ -88,13 +88,17 @@ export const PayRedirectPage: FunctionComponent = () => {
       let decodedSlug = slug;
       try {
         decodedSlug = decodeURIComponent(slug);
-      } catch {}
+      } catch {
+        // Ignore invalid URL encoding
+      }
 
       let decodedConv = conversationFromParam;
       if (conversationFromParam) {
         try {
           decodedConv = decodeURIComponent(conversationFromParam);
-        } catch {}
+        } catch {
+          // Ignore invalid URL encoding
+        }
       }
 
       if (decodedConv) {

@@ -111,6 +111,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const MAX_PREVIEW_ATTEMPTS = 2;
 
   useEffect(() => {
+    fetchedPreviewIds.current = new Set();
+    previewFailureCounts.current = {};
+  }, [practiceId]);
+
+  useEffect(() => {
     if (view === 'conversation' || conversations.length === 0 || !practiceId) {
       return;
     }

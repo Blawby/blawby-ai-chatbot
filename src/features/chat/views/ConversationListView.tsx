@@ -90,7 +90,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 <button
                   key={conversation.id}
                   type="button"
-                  className="flex w-full items-center gap-3 py-4 text-left"
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-4 text-left transition hover:bg-light-hover dark:hover:bg-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <Avatar

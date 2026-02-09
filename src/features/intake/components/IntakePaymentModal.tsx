@@ -58,9 +58,12 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
         if (cancelled) return;
         if (isPaidIntakeStatus(status)) {
           if (latestOnSuccessRef.current) {
-            await Promise.resolve(latestOnSuccessRef.current());
+            try {
+              await Promise.resolve(latestOnSuccessRef.current());
+            } catch (error) {
+              console.warn('[IntakePaymentModal] onSuccess callback failed', error);
+            }
           }
-          if (cancelled) return;
           latestOnCloseRef.current();
         }
       } catch (err) {

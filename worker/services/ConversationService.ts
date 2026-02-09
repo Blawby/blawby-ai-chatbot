@@ -153,14 +153,14 @@ export class ConversationService {
     return this.getConversation(conversationId, options.practiceId);
   }
 
-  private mapRecordToConversation(record: any): Conversation {
+  private mapRecordToConversation(record: Record<string, unknown> | null): Conversation {
     if (!record) {
       throw new Error('[ConversationService] Cannot map null record to conversation');
     }
     
     // Parse JSON fields if they are strings
-    const safeParse = <T>(label: string, value: any, fallback: T): T => {
-      if (typeof value !== 'string') return value ?? fallback;
+    const safeParse = <T>(label: string, value: unknown, fallback: T): T => {
+      if (typeof value !== 'string') return (value as T) ?? fallback;
       try {
         return JSON.parse(value);
       } catch (err) {
@@ -173,44 +173,54 @@ export class ConversationService {
       }
     };
 
+    const getString = (value: unknown): string => (
+      typeof value === 'string' ? value : value != null ? String(value) : ''
+    );
+    const getNullableString = (value: unknown): string | null => (
+      typeof value === 'string' ? value : value == null ? null : String(value)
+    );
+
     const participants = safeParse<string[]>('participants', record.participants, []);
-    const user_info = safeParse<Record<string, any> | null>('user_info', record.user_info, null);
+    const user_info = safeParse<Record<string, unknown> | null>('user_info', record.user_info, null);
     const tags = safeParse<string[] | undefined>('tags', record.tags, undefined);
+    const practiceName = getNullableString(record.practice_name);
+    const practiceId = getString(record.practice_id);
     
     const conversation: Conversation = {
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: record.practice_name ? {
-        id: record.practice_id,
-        name: record.practice_name,
-        slug: record.practice_slug || record.practice_id
+      id: getString(record.id),
+      practice_id: practiceId,
+      practice: practiceName ? {
+        id: practiceId,
+        name: practiceName,
+        slug: getString(record.practice_slug) || practiceId
       } : null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
+      user_id: getNullableString(record.user_id),
+      matter_id: getNullableString(record.matter_id),
       participants,
       user_info,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
+      status: getString(record.status) as Conversation['status'],
+      assigned_to: getNullableString(record.assigned_to),
+      priority: (getString(record.priority) || 'normal') as Conversation['priority'],
       tags,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
+      internal_notes: getNullableString(record.internal_notes),
+      last_message_at: getNullableString(record.last_message_at),
+      first_response_at: getNullableString(record.first_response_at),
+      closed_at: getNullableString(record.closed_at),
       unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
       latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
+      created_at: getString(record.created_at),
+      updated_at: getString(record.updated_at)
     };
 
     // Populate lead property if matter record joined and status is 'lead'
-    if (record.lead_id && record.lead_status === 'lead') {
+    const leadId = getNullableString(record.lead_id);
+    if (leadId && getString(record.lead_status) === 'lead') {
       conversation.lead = {
         is_lead: true,
-        lead_id: record.lead_id,
-        matter_id: record.matter_id || undefined,
-        lead_source: record.lead_source || null,
-        created_at: record.lead_created_at || null
+        lead_id: leadId,
+        matter_id: getNullableString(record.matter_id) || undefined,
+        lead_source: getNullableString(record.lead_source),
+        created_at: getNullableString(record.lead_created_at)
       };
     }
 
@@ -228,7 +238,7 @@ export class ConversationService {
       FROM conversations c
       LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.id = ? AND c.practice_id = ?
-    `).bind(conversationId, practiceId).first<any>();
+    `).bind(conversationId, practiceId).first<Record<string, unknown>>();
 
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
@@ -249,7 +259,7 @@ export class ConversationService {
       FROM conversations c
       LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.id = ?
-    `).bind(conversationId).first<any>();
+    `).bind(conversationId).first<Record<string, unknown>>();
 
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
@@ -331,7 +341,7 @@ export class ConversationService {
       ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
-    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<any>();
+    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<Record<string, unknown>>();
 
     if (existing) {
       return this.mapRecordToConversation(existing);
@@ -409,7 +419,7 @@ export class ConversationService {
     query += ' ORDER BY conversations.updated_at DESC LIMIT ?';
     bindings.push(limit);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<any>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
 
     return records.results.map(record => this.mapRecordToConversation(record));
   }
@@ -451,7 +461,7 @@ export class ConversationService {
     query += ' ORDER BY conversations.updated_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<any>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
 
     return records.results.map(record => this.mapRecordToConversation(record));
   }
@@ -592,7 +602,7 @@ export class ConversationService {
       ORDER BY (conversations.last_message_at IS NULL),
                conversations.last_message_at DESC,
                conversations.created_at DESC
-    `).bind(matterId, practiceId).all<any>();
+    `).bind(matterId, practiceId).all<Record<string, unknown>>();
 
     if (!records.results || records.results.length === 0) {
       return [];
@@ -1388,7 +1398,7 @@ export class ConversationService {
     query += ` ORDER BY ${validSortColumn} ${validSortOrder} LIMIT ? OFFSET ?`;
     bindings.push(limit, offset);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<any>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
 
     return records.results.map(record => this.mapRecordToConversation(record));
   }

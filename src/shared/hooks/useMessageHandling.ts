@@ -1559,7 +1559,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
               console.warn('[Intake] Failed to persist payment message', error);
               setPaymentRetryNotice({
                 message: 'Payment message delivery will be retried. You can also pay using the link below.',
-                paymentUrl: paymentUrl
+                paymentUrl
               });
               persistenceStatus = 'retry_queued';
             }
@@ -2055,6 +2055,10 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       }
       const messageId = `system-payment-confirm-${uuid}`;
       if (processedPaymentUuidsRef.current.has(uuid) || messagesRef.current.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
+        return;
+      }
+
+      if (cancelled) {
         return;
       }
 

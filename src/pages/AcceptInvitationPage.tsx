@@ -49,6 +49,11 @@ type PrefillDetails = {
   payloadType?: string;
 };
 
+type OrganizationSummary = {
+  id: string;
+  slug?: string | null;
+};
+
 type PayloadParseResult = {
   data: PrefillDetails | null;
   error: string | null;
@@ -345,18 +350,19 @@ export const AcceptInvitationPage = () => {
       let targetOrgId = activeOrganizationId;
       let didSwitch = false;
 
-      const { data: orgs } = await (client as unknown as { 
-        organization: { list: () => Promise<any> } 
+      const { data: orgs } = await (client as unknown as {
+        organization: { list: () => Promise<{ data?: OrganizationSummary[] }> }
       }).organization.list();
+      const orgList = Array.isArray(orgs) ? orgs : [];
 
-      let match: any = null;
+      let match: OrganizationSummary | null = null;
       if (organizationSlug) {
-        match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
+        match = orgList.find((o) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
         if (!match) {
           throw new Error('Organization not found for organizationSlug.');
         }
       } else if (targetOrgId) {
-        match = orgs?.find((o: any) => o.id === targetOrgId) ?? null;
+        match = orgList.find((o) => o.id === targetOrgId) ?? null;
       }
 
       if (match) {

@@ -50,6 +50,7 @@ export const LinkMatterModal = ({
     setSelectedMatterId(matterId);
     setError(null);
     setPage(1);
+    const controller = new AbortController();
 
     // Fetch current matter specifically if we have an ID
     if (matterId) {
@@ -59,12 +60,13 @@ export const LinkMatterModal = ({
           const response = await fetch(endpoint, {
             method: 'GET',
             credentials: 'include',
+            signal: controller.signal,
             headers: { 'Accept': 'application/json' }
           });
           if (response.ok) {
             const payload = await response.json() as { data?: { matter?: Record<string, unknown> } };
             const m = payload.data?.matter;
-            if (m) {
+            if (m && !controller.signal.aborted) {
               setCurrentMatter({
                 id: typeof m.id === 'string' ? m.id : String(m.id ?? ''),
                 title: typeof m.title === 'string' ? m.title : 'Untitled Matter',
@@ -73,6 +75,9 @@ export const LinkMatterModal = ({
             }
           }
         } catch (err) {
+          if ((err as DOMException).name === 'AbortError' || controller.signal.aborted) {
+            return;
+          }
           console.warn('[LinkMatterModal] Failed to fetch current matter details', err);
         }
       };
@@ -80,6 +85,9 @@ export const LinkMatterModal = ({
     } else {
       setCurrentMatter(null);
     }
+    return () => {
+      controller.abort();
+    };
   }, [currentMatterId, isOpen, practiceId]);
 
   const fetchMatters = useCallback(async (
