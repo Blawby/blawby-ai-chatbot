@@ -5,7 +5,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import AppLayout from './AppLayout';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
-import PublicEmbedLayout from '@/features/chat/components/PublicEmbedLayout';
+import PublicEmbedPage from '@/features/chat/components/PublicEmbedPage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
@@ -924,7 +924,7 @@ export function MainApp({
 
 
   const publicEmbedContent = workspace === 'public' ? (
-    <PublicEmbedLayout
+    <PublicEmbedPage
       view={publicEmbedView ?? 'conversation'}
       practiceId={practiceId}
       practiceSlug={resolvedPublicPracticeSlug}
@@ -947,7 +947,7 @@ export function MainApp({
   }, [activeConversationId, clientEmbedView, workspace]);
 
   const clientEmbedContent = workspace === 'client' ? (
-    <PublicEmbedLayout
+    <PublicEmbedPage
       view={resolvedClientEmbedView ?? 'home'}
       practiceId={practiceId}
       practiceSlug={clientPracticeSlug ?? resolvedClientPracticeSlug}
@@ -974,7 +974,7 @@ export function MainApp({
     && (resolvedPracticeEmbedView === 'list' || resolvedPracticeEmbedView === 'conversation');
 
   const practiceEmbedContent = workspace === 'practice' ? (
-    <PublicEmbedLayout
+    <PublicEmbedPage
       view={resolvedPracticeEmbedView ?? 'home'}
       practiceId={practiceId}
       practiceSlug={practiceSlug ?? resolvedPracticeSlug ?? null}

@@ -15,7 +15,7 @@ import type { ConversationMode } from '@/shared/types/conversation';
 
 type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 
-interface PublicEmbedLayoutProps {
+interface PublicEmbedPageProps {
   view: EmbedView;
   practiceId: string;
   practiceSlug: string | null;
@@ -40,7 +40,7 @@ const filterPublicMessages = (messages: ChatMessageUI[]) => {
   return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
 };
 
-const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
+const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
   view,
   practiceId,
   practiceSlug,
@@ -208,7 +208,7 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
         return;
       }
     } catch (error) {
-      console.error('[PublicEmbedLayout] Failed to start conversation:', error);
+      console.error('[PublicEmbedPage] Failed to start conversation:', error);
     }
     navigate(conversationsPath);
   };
@@ -390,4 +390,4 @@ const PublicEmbedLayout: FunctionComponent<PublicEmbedLayoutProps> = ({
   );
 };
 
-export default PublicEmbedLayout;
+export default PublicEmbedPage;

@@ -1,4 +1,4 @@
-import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider, Link } from 'preact-iso';
+import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
@@ -33,18 +33,23 @@ const LoadingScreen = () => (
   </div>
 );
 
-const NotFoundRoute = () => (
-  <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-    <div className="text-lg font-medium">Page Not Found</div>
-    <div>The page you&apos;re looking for doesn&apos;t exist.</div>
-    <Link
-      href="/" 
-      className="text-primary hover:underline font-medium"
-    >
-      Return to Home
-    </Link>
-  </div>
-);
+const NotFoundRoute = () => {
+  const { navigate } = useNavigation();
+
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="text-lg font-medium">Page Not Found</div>
+      <div>The page you&apos;re looking for doesn&apos;t exist.</div>
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="text-primary hover:underline font-medium"
+      >
+        Return to Home
+      </button>
+    </div>
+  );
+};
 
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
 type PracticeRouteKey = 'home' | 'messages' | 'matters' | 'clients' | 'conversations';
