@@ -940,7 +940,7 @@ export const AccountPage = ({
             }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
-                handleDomainSubmit();
+                void handleDomainSubmit();
               }
             }}
             placeholder={t('settings:account.links.domainPlaceholder')}

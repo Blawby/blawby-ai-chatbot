@@ -181,6 +181,10 @@ export const MFAEnrollmentPage = ({
     }
   };
 
+  const handleExternalLink = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <SettingsPageLayout
       title={t('settings:mfa.title')}
@@ -320,11 +324,23 @@ export const MFAEnrollmentPage = ({
           <div className="pt-8">
             <SectionDivider />
             <div className="flex justify-center space-x-4 text-sm">
-              <Button variant="link" size="sm" type="button">
+              <Button
+                variant="link"
+                size="sm"
+                type="button"
+                onClick={() => handleExternalLink('https://blawby.com/terms')}
+                aria-label={t('settings:mfa.footer.terms')}
+              >
                 {t('settings:mfa.footer.terms')}
               </Button>
               <span className="text-gray-300 dark:text-gray-600">|</span>
-              <Button variant="link" size="sm" type="button">
+              <Button
+                variant="link"
+                size="sm"
+                type="button"
+                onClick={() => handleExternalLink('https://blawby.com/privacy')}
+                aria-label={t('settings:mfa.footer.privacy')}
+              >
                 {t('settings:mfa.footer.privacy')}
               </Button>
             </div>

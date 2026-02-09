@@ -163,7 +163,7 @@ export const SettingsPage = ({
     if (currentPage === 'account' && accountSubPage === 'payouts') {
       return t('settings:account.payouts.title');
     }
-    return navigationItems.find(item => item.id === currentPage)?.label || 'Settings';
+    return navigationItems.find(item => item.id === currentPage)?.label || t('settings:navigation.title');
   })();
 
   const activeNavigationId = currentPage === 'navigation' ? undefined : currentPage;
@@ -263,7 +263,7 @@ export const SettingsPage = ({
   const mobileHeader = currentPage === 'navigation' ? (
     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
       <div className="flex-1" />
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h1>
+      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings:navigation.title')}</h1>
       <div className="flex-1 flex justify-end">
         <Button
           variant="icon"
@@ -298,7 +298,7 @@ export const SettingsPage = ({
     </div>
   );
 
-  const desktopTitle = currentPage === 'navigation' ? 'Settings' : mobileTitle;
+  const desktopTitle = currentPage === 'navigation' ? t('settings:navigation.title') : mobileTitle;
   const desktopHeader = (
     <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{desktopTitle}</h1>

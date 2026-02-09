@@ -46,7 +46,7 @@ export const NotificationChannelSelector = ({
   const options: SelectOption[] = isDisabled
     ? [{ value: 'required', label: displayText }]
     : [
-      { value: 'both', label: resolvedBothLabel },
+      ...(pushChannel && emailChannel ? [{ value: 'both', label: resolvedBothLabel }] : []),
       ...(pushChannel ? [{ value: 'push', label: pushChannel.label }] : []),
       ...(emailChannel ? [{ value: 'email', label: emailChannel.label }] : []),
       { value: 'none', label: noneLabel }
@@ -59,8 +59,8 @@ export const NotificationChannelSelector = ({
         options={options}
         onChange={(nextValue) => {
           if (isDisabled) return;
-          const enablePush = nextValue === 'push' || nextValue === 'both';
-          const enableEmail = nextValue === 'email' || nextValue === 'both';
+          const enablePush = pushChannel ? nextValue === 'push' || nextValue === 'both' : false;
+          const enableEmail = emailChannel ? nextValue === 'email' || nextValue === 'both' : false;
           onSelectionChange({ push: enablePush, email: enableEmail });
         }}
         disabled={isDisabled}

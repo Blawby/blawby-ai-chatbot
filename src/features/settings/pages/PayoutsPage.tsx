@@ -197,7 +197,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
         )}
       </SettingSection>
 
-      {isLoading && (
+      {stripeStatus && !detailsSubmitted && (
         <>
           <SectionDivider />
           <div className="mt-4">

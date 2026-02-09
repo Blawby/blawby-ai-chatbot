@@ -79,6 +79,7 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
         </>
       )}
       
+      <SectionDivider />
       {/* Terms & Policies */}
       <SettingRow
         label={t('help.sections.terms.title')}
