@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "رجوع"
+    "back": "رجوع",
+    "errors": {
+      "tryAgainLater": "يرجى المحاولة مرة أخرى لاحقاً."
+    }
   },
   "app": {
     "loading": "جارٍ التحميل…"
@@ -226,9 +229,9 @@
     "header": {
       "activeNow": "نشط الآن",
       "back": "رجوع",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "غير نشط",
+      "away": "بالخارج",
+      "unknown": "حالة غير معروفة"
     }
   },
   "businessWelcome": {

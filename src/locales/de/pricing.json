@@ -204,7 +204,11 @@
     "billedAnnually": "Jährlich abgerechnet",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Keine Kanzlei ausgewählt",
+    "selectPracticeToManage": "Bitte wählen Sie eine Kanzlei aus, um die Abrechnung zu verwalten.",
+    "unableOpenPortal": "Abrechnungsportal konnte nicht geöffnet werden",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Pläne vergleichen",
@@ -215,5 +219,6 @@
   "sections": {
     "benefits": "Vorteile:",
     "limitations": "Einschränkungen:"
-  }
+  },
+  "upgradeFailed": "Upgrade fehlgeschlagen"
 }

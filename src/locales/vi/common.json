@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Quay lại"
+    "back": "Quay lại",
+    "errors": {
+      "tryAgainLater": "Vui lòng thử lại sau."
+    }
   },
   "app": {
     "loading": "Đang tải…"
@@ -249,9 +252,9 @@
     "header": {
       "activeNow": "Đang hoạt động",
       "back": "Quay lại",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Không hoạt động",
+      "away": "Vắng mặt",
+      "unknown": "Không rõ trạng thái"
     }
   }
 }

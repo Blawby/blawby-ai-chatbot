@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Retour"
+    "back": "Retour",
+    "errors": {
+      "tryAgainLater": "Veuillez réessayer plus tard."
+    }
   },
   "app": {
     "loading": "Chargement…"
@@ -249,9 +252,9 @@
     "header": {
       "activeNow": "Actif maintenant",
       "back": "Retour",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Inactif",
+      "away": "Absent",
+      "unknown": "Statut inconnu"
     }
   }
 }

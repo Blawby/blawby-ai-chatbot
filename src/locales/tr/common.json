@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Lütfen daha sonra tekrar deneyiniz."
+    }
+  },
   "app": {
     "loading": "[NEEDS TRANSLATION] Loading…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "Şimdi aktif",
       "back": "Geri",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Çevrimdışı",
+      "away": "Uzakta",
+      "unknown": "Durum bilinmiyor"
     }
   },
   "businessWelcome": {

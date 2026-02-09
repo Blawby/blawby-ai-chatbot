@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Silakan coba lagi nanti."
+    }
+  },
   "app": {
     "loading": "Memuat…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "Aktif sekarang",
       "back": "Kembali",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Tidak aktif",
+      "away": "Tidak di tempat",
+      "unknown": "Status tidak diketahui"
     }
   },
   "businessWelcome": {

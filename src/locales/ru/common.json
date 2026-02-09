@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Пожалуйста, попробуйте позже."
+    }
+  },
   "app": {
     "loading": "Загрузка…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "В сети",
       "back": "Назад",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Неактивен",
+      "away": "Отошел",
+      "unknown": "Статус неизвестен"
     }
   },
   "businessWelcome": {

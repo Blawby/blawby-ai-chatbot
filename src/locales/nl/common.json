@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Probeer het later opnieuw."
+    }
+  },
   "app": {
     "loading": "Laden…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "Nu actief",
       "back": "Terug",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Inactief",
+      "away": "Afwezig",
+      "unknown": "Status onbekend"
     }
   },
   "businessWelcome": {

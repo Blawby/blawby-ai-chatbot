@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "कृपया बाद में फिर से प्रयास करें।"
+    }
+  },
   "app": {
     "loading": "लोड हो रहा है…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "अभी सक्रिय",
       "back": "पीछे",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "निष्क्रिय",
+      "away": "दूर",
+      "unknown": "स्थिति अज्ञात"
     }
   },
   "businessWelcome": {

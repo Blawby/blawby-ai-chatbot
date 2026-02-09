@@ -204,12 +204,17 @@
     "billedAnnually": "Щорічна оплата",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Практика не вибрана",
+    "selectPracticeToManage": "Будь ласка, виберіть практику для управління рахунками.",
+    "unableOpenPortal": "Не вдалося відкрити портал рахунків",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Порівняти плани",
     "feature": "Функція",
     "included": "Включено",
     "notIncluded": "Не включено"
-  }
+  },
+  "upgradeFailed": "Не вдалося оновити"
 }

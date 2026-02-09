@@ -88,8 +88,8 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
       }
     } catch (error) {
       console.error('Error during upgrade process:', error);
-      const message = error instanceof Error ? error.message : 'Please try again later.';
-      showError('Upgrade failed', message);
+      const message = error instanceof Error ? error.message : t('common:errors.tryAgainLater');
+      showError(t('pricing:upgradeFailed'), message);
     }
   };
 
@@ -97,16 +97,16 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
     try {
       const practiceId = currentPractice?.id;
       if (!practiceId) {
-        console.error('No practice selected');
-        showError('No practice selected', 'Please select a practice to manage billing.');
+        console.error(t('pricing:billing.noPracticeSelected'));
+        showError(t('pricing:billing.noPracticeSelected'), t('pricing:billing.selectPracticeToManage'));
         return;
       }
       setIsBillingLoading(true);
       await openBillingPortal({ practiceId });
     } catch (error) {
       console.error('Failed to open billing portal:', error);
-      const message = error instanceof Error ? error.message : 'Please try again later.';
-      showError('Unable to open billing portal', message);
+      const message = error instanceof Error ? error.message : t('common:errors.tryAgainLater');
+      showError(t('pricing:billing.unableOpenPortal'), message);
     } finally {
       setIsBillingLoading(false);
     }

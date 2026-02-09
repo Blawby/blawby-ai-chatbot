@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Spróbuj ponownie później."
+    }
+  },
   "app": {
     "loading": "Ładowanie…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "Aktywny teraz",
       "back": "Wstecz",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Nieaktywny",
+      "away": "Nieobecny",
+      "unknown": "Status nieznany"
     }
   },
   "businessWelcome": {

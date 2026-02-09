@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Voltar"
+    "back": "Voltar",
+    "errors": {
+      "tryAgainLater": "Por favor, tente novamente mais tarde."
+    }
   },
   "app": {
     "loading": "Carregando…"
@@ -226,9 +229,9 @@
     "header": {
       "activeNow": "Ativo agora",
       "back": "Voltar",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Inativo",
+      "away": "Ausente",
+      "unknown": "Status desconhecido"
     }
   },
   "businessWelcome": {

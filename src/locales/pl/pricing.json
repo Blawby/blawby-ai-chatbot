@@ -204,12 +204,17 @@
     "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
     "currency": {
       "usd": "[NEEDS TRANSLATION] USD"
-    }
+    },
+    "noPracticeSelected": "Nie wybrano kancelarii",
+    "selectPracticeToManage": "Wybierz kancelarię, aby zarządzać rozliczeniami.",
+    "unableOpenPortal": "Nie można otworzyć portalu rozliczeniowego",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Szczegółowe porównanie planów",
     "feature": "[NEEDS TRANSLATION] Feature",
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
-  }
+  },
+  "upgradeFailed": "Aktualizacja nie powiodła się"
 }

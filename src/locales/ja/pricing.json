@@ -204,7 +204,11 @@
     "billedAnnually": "年次請求",
     "currency": {
       "usd": "米ドル"
-    }
+    },
+    "noPracticeSelected": "事務所が選択されていません",
+    "selectPracticeToManage": "請求を管理するには事務所を選択してください。",
+    "unableOpenPortal": "請求ポータルを開けませんでした",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "プランを比較",
@@ -215,5 +219,6 @@
   "sections": {
     "benefits": "メリット:",
     "limitations": "制限:"
-  }
+  },
+  "upgradeFailed": "アップグレードに失敗しました"
 }

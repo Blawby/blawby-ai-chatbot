@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Будь ласка, спробуйте пізніше."
+    }
+  },
   "app": {
     "loading": "Завантаження…"
   },
@@ -223,9 +229,9 @@
     "header": {
       "activeNow": "У мережі",
       "back": "Назад",
-      "inactive": "Inactive",
-      "away": "Away",
-      "unknown": "Status unknown"
+      "inactive": "Неактивний",
+      "away": "Відсутній",
+      "unknown": "Статус невідомий"
     }
   },
   "businessWelcome": {

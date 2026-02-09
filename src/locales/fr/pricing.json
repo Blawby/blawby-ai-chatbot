@@ -204,7 +204,11 @@
     "billedAnnually": "Facturé annuellement",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Aucune étude sélectionnée",
+    "selectPracticeToManage": "Veuillez sélectionner une étude pour gérer la facturation.",
+    "unableOpenPortal": "Impossible d'ouvrir le portail de facturation",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Comparer les plans",
@@ -215,5 +219,6 @@
   "sections": {
     "benefits": "Avantages:",
     "limitations": "Limitations:"
-  }
+  },
+  "upgradeFailed": "Échec de la mise à niveau"
 }
