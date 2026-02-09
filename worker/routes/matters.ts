@@ -416,14 +416,6 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       const fields = buildMatterUpdateFields(before, afterMatter);
       console.log('[MatterDiff] computed fields', { matterId, fields });
       if (fields.length > 0 && env.MATTER_DIFFS) {
-        if (!ctx?.waitUntil) {
-          return new Response(JSON.stringify({
-            error: 'ExecutionContext is required to persist matter diffs.'
-          }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
         const requestTimestamp = Date.now();
         const backgroundTask = async (taskHeaders: Headers) => {
           let candidate: { item: BackendMatterActivity; delta: number } | undefined;
@@ -509,7 +501,15 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
           }
         };
 
-        ctx.waitUntil(backgroundTask(taskHeaders));
+        if (ctx?.waitUntil) {
+          ctx.waitUntil(backgroundTask(taskHeaders));
+        } else {
+          console.warn('[MatterDiff] ExecutionContext missing; skipping diff persistence', {
+            matterId,
+            updateBufferBytes: updateBuffer.byteLength,
+            hasProxyHeaders: Boolean(proxyHeaders)
+          });
+        }
       }
     }
 

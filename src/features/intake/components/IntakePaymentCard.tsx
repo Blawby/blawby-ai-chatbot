@@ -77,14 +77,20 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     setIsPaying(true);
     try {
       if (hasClientSecret && onOpenPayment) {
-        await openPayment(paymentRequest);
+        const opened = await openPayment(paymentRequest);
+        if (!opened) {
+          showError('Payment unavailable', 'Payment is currently unavailable.');
+        }
         return;
       }
       if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
         const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
         if (isValid) {
           if (onOpenPayment) {
-            await openPayment(paymentRequest);
+            const opened = await openPayment(paymentRequest);
+            if (!opened) {
+              showError('Payment unavailable', 'Payment is currently unavailable.');
+            }
             return;
           }
           if (typeof window !== 'undefined') {
@@ -129,7 +135,10 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         return;
       }
       if (onOpenPayment) {
-        await openPayment(paymentRequest);
+        const opened = await openPayment(paymentRequest);
+        if (!opened) {
+          showError('Payment unavailable', 'Payment is currently unavailable.');
+        }
         return;
       }
       try {

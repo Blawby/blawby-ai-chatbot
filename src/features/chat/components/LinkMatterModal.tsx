@@ -184,7 +184,7 @@ export const LinkMatterModal = ({
     return () => {
       controllerRef.current?.abort();
     };
-  }, [fetchMatters, isOpen]);
+  }, [fetchMatters, isOpen, currentMatterId]);
 
   const handleLoadMore = async () => {
     if (loadingState !== 'idle' || !hasMore) return;
