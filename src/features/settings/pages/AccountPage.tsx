@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Select } from '@/shared/ui/input';
+import { Input, Select } from '@/shared/ui/input';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui';
 import Modal from '@/shared/components/Modal';
@@ -18,11 +18,13 @@ import { formatDate } from '@/shared/utils/dateTime';
 import { deleteUser } from '@/shared/lib/authClient';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import type { AccountPreferences } from '@/shared/types/preferences';
@@ -612,7 +614,7 @@ export const AccountPage = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
             <p className="text-sm font-medium">{t('settings:account.loadingError')}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{errorMessage}</p>
+            <SettingsHelperText className="mt-1">{errorMessage}</SettingsHelperText>
           </div>
           <Button
             variant="primary"
@@ -635,19 +637,14 @@ export const AccountPage = ({
   }
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title={t('settings:account.title')} />
+    <SettingsPageLayout title={t('settings:account.title')} className={className}>
+      <SettingRow label={t('settings:account.nameLabel')}>
+        <span className="text-sm text-gray-900 dark:text-gray-100">
+          {displayName}
+        </span>
+      </SettingRow>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          <SettingRow label={t('settings:account.nameLabel')}>
-            <span className="text-sm text-gray-900 dark:text-gray-100">
-              {displayName}
-            </span>
-          </SettingRow>
-
-          <SectionDivider />
+      <SectionDivider />
 
           {/* Subscription Plan Section */}
           <SettingRow
@@ -719,7 +716,7 @@ export const AccountPage = ({
             }
           />
 
-          <SectionDivider />
+      <SectionDivider />
 
           <SettingRow
             label={t('settings:account.payments.sectionTitle')}
@@ -738,7 +735,7 @@ export const AccountPage = ({
             </Button>
           </SettingRow>
 
-          <SectionDivider />
+      <SectionDivider />
 
           <SettingRow
             label={t('settings:account.payouts.sectionTitle')}
@@ -753,7 +750,7 @@ export const AccountPage = ({
             </Button>
           </SettingRow>
 
-          <SectionDivider />
+      <SectionDivider />
 
           {/* Delete account Section */}
           <SettingRow
@@ -785,120 +782,114 @@ export const AccountPage = ({
                 )}
               </div>
             ) : (
-              <Button
-                variant="primary"
+              <SettingsDangerButton
                 size="sm"
                 onClick={handleDeleteAccount}
-                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
                 data-testid="account-delete-action"
               >
                 {t('settings:account.delete.button')}
-              </Button>
+              </SettingsDangerButton>
             )}
           </SettingRow>
           {isDeleteBlocked && deletionBlockedMessage && (
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <SettingsHelperText className="mt-2">
               {deletionBlockedMessage}
-            </div>
+            </SettingsHelperText>
           )}
 
-          <SectionDivider />
+      <SectionDivider />
 
-          {showLinksSection && (
-            <>
-              {/* Links Section */}
-              <SettingSection title={t('settings:account.links.title')}>
-                {/* Domain Selector */}
-                <SettingRow
-                  label={t('settings:account.links.domainLabel')}
-                  labelNode={
-                    <div className="flex items-center gap-3">
-                      <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
-                    </div>
-                  }
-                >
-                  <Select
-                    value={selectedDomain}
-                    options={[
-                      { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                      ...customDomainOptions,
-                      { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
-                    ]}
-                    onChange={handleDomainChange}
-                    placeholder={t('settings:account.links.selectOption')}
-                    className="border-0 bg-transparent px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-accent-500"
-                  />
-                </SettingRow>
+      {showLinksSection && (
+        <>
+          {/* Links Section */}
+          <SettingSection title={t('settings:account.links.title')}>
+            {/* Domain Selector */}
+            <SettingRow
+              label={t('settings:account.links.domainLabel')}
+              labelNode={
+                <div className="flex items-center gap-3">
+                  <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
+                </div>
+              }
+            >
+              <Select
+                value={selectedDomain}
+                options={[
+                  { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
+                  ...customDomainOptions,
+                  { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
+                ]}
+                onChange={handleDomainChange}
+                placeholder={t('settings:account.links.selectOption')}
+                className="border-0 bg-transparent px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-accent-500"
+              />
+            </SettingRow>
 
-                {/* LinkedIn */}
-                <SettingRow
-                  label="LinkedIn"
-                  labelNode={
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">in</span>
-                      </div>
-                      <FormLabel>LinkedIn</FormLabel>
-                    </div>
-                  }
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleAddLinkedIn}
-                    icon={<PlusIcon className="w-4 h-4" />}
-                    iconPosition="right"
-                  >
-                    {t('settings:account.links.addButton')}
-                  </Button>
-                </SettingRow>
+            {/* LinkedIn */}
+            <SettingRow
+              label="LinkedIn"
+              labelNode={
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">in</span>
+                  </div>
+                  <FormLabel>LinkedIn</FormLabel>
+                </div>
+              }
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddLinkedIn}
+                icon={<PlusIcon className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                {t('settings:account.links.addButton')}
+              </Button>
+            </SettingRow>
 
-                {/* GitHub */}
-                <SettingRow
-                  label="GitHub"
-                  labelNode={
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4">
-                        <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
-                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                      </div>
-                      <FormLabel>GitHub</FormLabel>
-                    </div>
-                  }
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleAddGitHub}
-                    icon={<PlusIcon className="w-4 h-4" />}
-                    iconPosition="right"
-                  >
-                    {t('settings:account.links.addButton')}
-                  </Button>
-                </SettingRow>
-              </SettingSection>
-
-              <SectionDivider />
-            </>
-          )}
-
-          {/* Email Section */}
-          <EmailSettingsSection
-            email={emailAddress}
-            receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
-            onFeedbackChange={handleFeedbackEmailsChange}
-            title={t('settings:account.email.title')}
-            feedbackLabel={t('settings:account.email.receiveFeedback')}
-            showFeedbackToggle={showFeedbackToggle}
-          />
+            {/* GitHub */}
+            <SettingRow
+              label="GitHub"
+              labelNode={
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
+                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                  </div>
+                  <FormLabel>GitHub</FormLabel>
+                </div>
+              }
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddGitHub}
+                icon={<PlusIcon className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                {t('settings:account.links.addButton')}
+              </Button>
+            </SettingRow>
+          </SettingSection>
 
           <SectionDivider />
-        </div>
-      </div>
+        </>
+      )}
 
+      {/* Email Section */}
+      <EmailSettingsSection
+        email={emailAddress}
+        receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
+        onFeedbackChange={handleFeedbackEmailsChange}
+        title={t('settings:account.email.title')}
+        feedbackLabel={t('settings:account.email.receiveFeedback')}
+        showFeedbackToggle={showFeedbackToggle}
+      />
 
+      <SectionDivider />
 
       {/* Delete Account Confirmation Dialog */}
       <ConfirmationDialog
@@ -938,34 +929,23 @@ export const AccountPage = ({
         type="modal"
       >
         <div className="space-y-4">
-          <div>
-            <label htmlFor="domain-input" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-              {t('settings:account.domainModal.label')}
-            </label>
-            <input
-              id="domain-input"
-              type="text"
-              value={domainInput}
-              onChange={(e) => {
-                setDomainInput(e.currentTarget.value);
-                setDomainError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleDomainSubmit();
-                }
-              }}
-              placeholder={t('settings:account.links.domainPlaceholder')}
-              className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
-                domainError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
-              }`}
-            />
-            {domainError && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                {domainError}
-              </p>
-            )}
-          </div>
+          <Input
+            id="domain-input"
+            type="text"
+            label={t('settings:account.domainModal.label')}
+            value={domainInput}
+            onChange={(value) => {
+              setDomainInput(value);
+              setDomainError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleDomainSubmit();
+              }
+            }}
+            placeholder={t('settings:account.links.domainPlaceholder')}
+            error={domainError ?? undefined}
+          />
           
           <div className="flex gap-3 justify-end pt-4">
             <Button
@@ -987,6 +967,6 @@ export const AccountPage = ({
           </div>
         </div>
       </Modal>
-    </div>
+    </SettingsPageLayout>
   );
 };

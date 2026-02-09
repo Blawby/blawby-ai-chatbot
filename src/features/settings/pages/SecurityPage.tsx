@@ -9,11 +9,13 @@ import Modal from '@/shared/components/Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
 
@@ -312,113 +314,103 @@ export const SecurityPage = ({
   }
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title={t('settings:security.title')} />
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          {/* Password Section */}
-          <SettingSection
-            title={t('settings:security.password.sectionTitle')}
-            description={t('settings:security.password.description')}
+    <SettingsPageLayout title={t('settings:security.title')} className={className}>
+      {/* Password Section */}
+      <SettingSection
+        title={t('settings:security.password.sectionTitle')}
+        description={t('settings:security.password.description')}
+      >
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsChangingPassword(!isChangingPassword)}
           >
-            <div className="flex items-center justify-end gap-2 mb-4">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsChangingPassword(!isChangingPassword)}
-              >
-                {isChangingPassword ? t('settings:security.password.cancelButton') : t('settings:security.password.changeButton')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleResetPassword}
-                className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-              >
-                {t('settings:security.password.resetButton')}
-              </Button>
-            </div>
-
-            <PasswordChangeForm
-              currentPassword={passwordForm.currentPassword}
-              newPassword={passwordForm.newPassword}
-              confirmPassword={passwordForm.confirmPassword}
-              onCurrentPasswordChange={(value) => handlePasswordChange('currentPassword', value)}
-              onNewPasswordChange={(value) => handlePasswordChange('newPassword', value)}
-              onConfirmPasswordChange={(value) => handlePasswordChange('confirmPassword', value)}
-              onSubmit={handleChangePassword}
-              onCancel={() => {
-                setIsChangingPassword(false);
-                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-              }}
-              isOpen={isChangingPassword}
-            />
-          </SettingSection>
-
-          <SectionDivider />
-          {showMfa && (
-            <>
-              {/* Multi-factor authentication Section */}
-              <SettingToggle
-                label={t('settings:security.mfa.title')}
-                description={t('settings:security.mfa.description')}
-                value={settings.twoFactorEnabled}
-                onChange={(value) => handleToggleChange('twoFactorEnabled', value)}
-                id="mfa-toggle"
-              />
-
-              <SectionDivider />
-            </>
-          )}
-
-          {/* Trusted Devices Section */}
-          <SettingRow
-            label={t('settings:security.trustedDevices.title')}
-            description={t('settings:security.trustedDevices.description')}
+            {isChangingPassword ? t('settings:security.password.cancelButton') : t('settings:security.password.changeButton')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResetPassword}
+            className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
           >
-            <span
-              className="text-xs text-gray-500 dark:text-gray-400"
-              aria-label={t('settings:security.trustedDevices.comingSoonAria', { defaultValue: 'Trusted devices management is coming soon' })}
-            >
-              {t('settings:security.trustedDevices.comingSoon', { defaultValue: 'Coming soon' })}
-            </span>
-          </SettingRow>
-
-          <SectionDivider />
-
-          {/* Log out of this device Section */}
-          <SettingRow
-            label={t('settings:security.logout.current.title')}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleLogout('current')}
-            >
-              {t('settings:security.logout.current.button')}
-            </Button>
-          </SettingRow>
-
-          <SectionDivider />
-
-          {/* Log out of all devices Section */}
-          <SettingRow
-            label={t('settings:security.logout.all.title')}
-            description={t('settings:security.logout.all.description')}
-          >
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => handleLogout('all')}
-              className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
-            >
-              {t('settings:security.logout.all.button')}
-            </Button>
-          </SettingRow>
+            {t('settings:security.password.resetButton')}
+          </Button>
         </div>
-      </div>
+
+        <PasswordChangeForm
+          currentPassword={passwordForm.currentPassword}
+          newPassword={passwordForm.newPassword}
+          confirmPassword={passwordForm.confirmPassword}
+          onCurrentPasswordChange={(value) => handlePasswordChange('currentPassword', value)}
+          onNewPasswordChange={(value) => handlePasswordChange('newPassword', value)}
+          onConfirmPasswordChange={(value) => handlePasswordChange('confirmPassword', value)}
+          onSubmit={handleChangePassword}
+          onCancel={() => {
+            setIsChangingPassword(false);
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          }}
+          isOpen={isChangingPassword}
+        />
+      </SettingSection>
+
+      <SectionDivider />
+      {showMfa && (
+        <>
+          {/* Multi-factor authentication Section */}
+          <SettingToggle
+            label={t('settings:security.mfa.title')}
+            description={t('settings:security.mfa.description')}
+            value={settings.twoFactorEnabled}
+            onChange={(value) => handleToggleChange('twoFactorEnabled', value)}
+            id="mfa-toggle"
+          />
+
+          <SectionDivider />
+        </>
+      )}
+
+      {/* Trusted Devices Section */}
+      <SettingRow
+        label={t('settings:security.trustedDevices.title')}
+        description={t('settings:security.trustedDevices.description')}
+      >
+        <SettingsHelperText
+          aria-label={t('settings:security.trustedDevices.comingSoonAria', { defaultValue: 'Trusted devices management is coming soon' })}
+        >
+          {t('settings:security.trustedDevices.comingSoon', { defaultValue: 'Coming soon' })}
+        </SettingsHelperText>
+      </SettingRow>
+
+      <SectionDivider />
+
+      {/* Log out of this device Section */}
+      <SettingRow
+        label={t('settings:security.logout.current.title')}
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => handleLogout('current')}
+        >
+          {t('settings:security.logout.current.button')}
+        </Button>
+      </SettingRow>
+
+      <SectionDivider />
+
+      {/* Log out of all devices Section */}
+      <SettingRow
+        label={t('settings:security.logout.all.title')}
+        description={t('settings:security.logout.all.description')}
+      >
+        <SettingsDangerButton
+          size="sm"
+          onClick={() => handleLogout('all')}
+        >
+          {t('settings:security.logout.all.button')}
+        </SettingsDangerButton>
+      </SettingRow>
 
       {showMfa && (
         <>
@@ -467,6 +459,6 @@ export const SecurityPage = ({
           </Modal>
         </>
       )}
-    </div>
+    </SettingsPageLayout>
   );
 };

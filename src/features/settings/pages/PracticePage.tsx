@@ -28,6 +28,12 @@ import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { getFrontendHost } from '@/config/urls';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { FormGrid, SectionDivider } from '@/shared/ui/layout';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingRow } from '@/features/settings/components/SettingRow';
 import {
   usePracticeMembersSync,
   usePracticeSyncParamRefetch,
@@ -599,177 +605,168 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <div className="px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Practice
-        </h1>
-        <div className="border-t border-gray-200 dark:border-dark-border mt-4" />
-      </div>
-      
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          {hasPractice && (
-            <>
-              {/* Practice Details Row */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {practice.name || 'Practice'}
-                  </h3>
-                  <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-start gap-3">
-                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        URL
-                      </span>
-                      <a
-                        href={practiceUrlHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-brand-600 hover:text-brand-700 hover:underline"
-                      >
-                        {practiceUrlValue}
-                      </a>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        Description
-                      </span>
-                      <span>{descriptionPreview}</span>
+    <SettingsPageLayout title="Practice" className={className}>
+      {hasPractice && (
+        <>
+              <SettingRow
+                label="Practice details"
+                labelNode={(
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {practice.name || 'Practice'}
+                    </h3>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-start gap-3">
+                        <SettingsSubheader className="w-20 text-[10px]">URL</SettingsSubheader>
+                        <a
+                          href={practiceUrlHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-brand-600 hover:text-brand-700 hover:underline"
+                        >
+                          {practiceUrlValue}
+                        </a>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <SettingsSubheader className="w-20 text-[10px]">Description</SettingsSubheader>
+                        <SettingsHelperText>{descriptionPreview}</SettingsHelperText>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="ml-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={openEditPracticeModal}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              </div>
+                )}
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={openEditPracticeModal}
+                >
+                  Edit
+                </Button>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
-              {/* Contact Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
+              <SettingRow
+                label="Contact"
+                labelNode={(
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Contact</h3>
-                    <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="mt-2 space-y-2">
                       <div className="flex items-start gap-2">
                         <GlobeAltIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
-                        <span>{websiteValue || 'Not set'}</span>
+                        <SettingsHelperText>{websiteValue || 'Not set'}</SettingsHelperText>
                       </div>
                       <div className="flex items-start gap-2">
                         <PhoneIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
-                        <span>{phoneValue || 'Not set'}</span>
+                        <SettingsHelperText>{phoneValue || 'Not set'}</SettingsHelperText>
                       </div>
                       <div className="flex items-start gap-2">
                         <MapPinIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
-                        <span>{addressSummary || 'Not set'}</span>
+                        <SettingsHelperText>{addressSummary || 'Not set'}</SettingsHelperText>
                       </div>
                     </div>
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={openContactModal}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={openContactModal}
-                      className="sm:hidden"
-                      aria-label="Manage contact details"
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={openContactModal}
+                    className="hidden sm:inline-flex"
+                  >
+                    Manage
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={openContactModal}
+                    className="sm:hidden"
+                    aria-label="Manage contact details"
+                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
-              {/* Services Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
+              <SettingRow
+                label="Services"
+                labelNode={(
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
                     {servicesList.length > 0 ? (
-                      <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="mt-2 space-y-1">
                         {servicesList.map((service) => (
-                          <p key={service}>{service}</p>
+                          <SettingsHelperText key={service}>{service}</SettingsHelperText>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <SettingsHelperText className="mt-1">
                         No services configured yet
-                      </p>
+                      </SettingsHelperText>
                     )}
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo('/settings/practice/services')}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={() => navigateTo('/settings/practice/services')}
-                      className="sm:hidden"
-                      aria-label="Manage services"
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateTo('/settings/practice/services')}
+                    className="hidden sm:inline-flex"
+                  >
+                    Manage
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={() => navigateTo('/settings/practice/services')}
+                    className="sm:hidden"
+                    aria-label="Manage services"
+                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
-              {/* Pricing Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
+              <SettingRow
+                label="Pricing"
+                labelNode={(
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Pricing &amp; Fees</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <SettingsHelperText className="mt-1">
                       Configure consultation fees and billing increments.
-                    </p>
+                    </SettingsHelperText>
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo('/settings/practice/pricing')}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={() => navigateTo('/settings/practice/pricing')}
-                      className="sm:hidden"
-                      aria-label="Manage pricing"
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateTo('/settings/practice/pricing')}
+                    className="hidden sm:inline-flex"
+                  >
+                    Manage
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={() => navigateTo('/settings/practice/pricing')}
+                    className="sm:hidden"
+                    aria-label="Manage pricing"
+                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
-              {/* Team Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
+              <SettingRow
+                label="Team"
+                labelNode={(
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       Team Members
@@ -779,37 +776,38 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                         <StackedAvatars users={teamAvatars} size="sm" />
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <SettingsHelperText className="mt-1">
                         No team members yet
-                      </p>
+                      </SettingsHelperText>
                     )}
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo(members.length === 0
-                        ? '/settings/practice/team?invite=1'
-                        : '/settings/practice/team')}
-                      className="hidden sm:inline-flex"
-                    >
-                      {members.length === 0 ? 'Invite' : 'Manage'}
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={() => navigateTo(members.length === 0
-                        ? '/settings/practice/team?invite=1'
-                        : '/settings/practice/team')}
-                      className="sm:hidden"
-                      aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateTo(members.length === 0
+                      ? '/settings/practice/team?invite=1'
+                      : '/settings/practice/team')}
+                    className="hidden sm:inline-flex"
+                  >
+                    {members.length === 0 ? 'Invite' : 'Manage'}
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={() => navigateTo(members.length === 0
+                      ? '/settings/practice/team?invite=1'
+                      : '/settings/practice/team')}
+                    className="sm:hidden"
+                    aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
+                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
               {/* Visibility Toggle */}
               <div className="py-3">
@@ -824,63 +822,63 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 />
               </div>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
               {/* Delete Practice Section (Owner only) */}
               {isOwner && (
                 <>
-                  <div className="flex items-center justify-between py-3" data-testid="practice-delete-section">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Permanently delete this practice and all its data
-                      </p>
-                    </div>
-                    <div className="ml-4">
-                      {deletionBlockedBySubscription ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (!practice?.id) return;
-                            openBillingPortal({ 
-                              practiceId: practice.id, 
-                              returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
-                            });
-                          }}
-                          disabled={submitting}
-                          data-testid="practice-delete-action"
-                        >
-                          {t('settings:account.plan.manage')}
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowDeleteModal(true)}
-                          className="text-red-600 hover:text-red-700"
-                          data-testid="practice-delete-action"
-                        >
-                          <TrashIcon className="w-4 h-4 mr-2" />
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  <SettingRow
+                    label="Delete Practice"
+                    labelNode={(
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
+                        <SettingsHelperText className="mt-1">
+                          Permanently delete this practice and all its data
+                        </SettingsHelperText>
+                      </div>
+                    )}
+                    className="py-3"
+                  >
+                    {deletionBlockedBySubscription ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (!practice?.id) return;
+                          openBillingPortal({ 
+                            practiceId: practice.id, 
+                            returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
+                          });
+                        }}
+                        disabled={submitting}
+                        data-testid="practice-delete-action"
+                      >
+                        {t('settings:account.plan.manage')}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowDeleteModal(true)}
+                        className="text-red-600 hover:text-red-700"
+                        data-testid="practice-delete-action"
+                      >
+                        <TrashIcon className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
+                    )}
+                  </SettingRow>
                   {deletionBlockedBySubscription && deletionBlockedMessage && (
-                    <div role="status" aria-live="polite" className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
-                      <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    <SettingsNotice variant="warning" className="mt-2" role="status" aria-live="polite">
+                      <p className="text-xs">
                         {deletionBlockedMessage}
                       </p>
-                    </div>
+                    </SettingsNotice>
                   )}
                 </>
               )}
             </>
           )}
-          
-        </div>
-      </div>
 
       {/* Edit Practice Modal */}
       <Modal
@@ -889,29 +887,31 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Edit Practice"
       >
         <div className="space-y-4">
-          <div>
-            <FormLabel htmlFor="edit-practice-name">Practice Name *</FormLabel>
-            <Input
-              id="edit-practice-name"
-              value={editPracticeForm.name}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
-              placeholder="Your Law Firm Name"
-              required
-            />
-          </div>
+          <FormGrid>
+            <div>
+              <FormLabel htmlFor="edit-practice-name">Practice Name *</FormLabel>
+              <Input
+                id="edit-practice-name"
+                value={editPracticeForm.name}
+                onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
+                placeholder="Your Law Firm Name"
+                required
+              />
+            </div>
 
-          <div>
-            <FormLabel htmlFor="edit-practice-slug">Slug (optional)</FormLabel>
-            <Input
-              id="edit-practice-slug"
-              value={editPracticeForm.slug}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, slug: value }))}
-              placeholder="your-law-firm"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Used in URLs. Leave empty to keep the current slug.
-            </p>
-          </div>
+            <div>
+              <FormLabel htmlFor="edit-practice-slug">Slug (optional)</FormLabel>
+              <Input
+                id="edit-practice-slug"
+                value={editPracticeForm.slug}
+                onChange={(value) => setEditPracticeForm(prev => ({ ...prev, slug: value }))}
+                placeholder="your-law-firm"
+              />
+              <SettingsHelperText className="mt-1">
+                Used in URLs. Leave empty to keep the current slug.
+              </SettingsHelperText>
+            </div>
+          </FormGrid>
 
           <div>
             {showLogoUploader ? (
@@ -927,10 +927,10 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   disabled={isSettingsSaving || logoUploading}
                 />
                 {(logoUploading || logoUploadProgress !== null) && (
-                  <p className="text-xs text-gray-500 mt-2">
+                  <SettingsHelperText className="mt-2">
                     {logoUploading ? 'Uploading logo' : 'Upload progress'}
                     {logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
-                  </p>
+                  </SettingsHelperText>
                 )}
               </>
             ) : (
@@ -943,7 +943,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Saved logo</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Upload a new image to replace it.</p>
+                    <SettingsHelperText>Upload a new image to replace it.</SettingsHelperText>
                   </div>
                 </div>
                 <Button
@@ -1001,7 +1001,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       >
         <div className="space-y-4">
           {/* Contact Information Fields */}
-          <div className="space-y-4">
+          <FormGrid>
             <Input
               label="Website"
               value={contactDraft.website || ''}
@@ -1027,7 +1027,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               type="tel"
               placeholder="+1 (555) 123-4567"
             />
-          </div>
+          </FormGrid>
 
           {/* Address Fields */}
           <div className="space-y-4">
@@ -1072,39 +1072,41 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Create Practice"
       >
         <div className="space-y-4">
-          <div>
-            <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
-            <Input
-              id="practice-name"
-              value={createForm.name}
-              onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
-              placeholder="Your Law Firm Name"
-              required
-            />
-          </div>
-          
-          <div>
-            <FormLabel htmlFor="practice-slug">Slug (optional)</FormLabel>
-            <Input
-              id="practice-slug"
-              value={createForm.slug}
-              onChange={(value) => setCreateForm(prev => ({ ...prev, slug: value }))}
-              placeholder="your-law-firm"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Used in URLs. Leave empty to auto-generate.
-            </p>
-          </div>
-          
-          <div>
-            <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
-            <Input
-              id="practice-description"
-              value={createForm.description}
-              onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
-              placeholder="Brief description of your practice"
-            />
-          </div>
+          <FormGrid>
+            <div>
+              <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
+              <Input
+                id="practice-name"
+                value={createForm.name}
+                onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
+                placeholder="Your Law Firm Name"
+                required
+              />
+            </div>
+
+            <div>
+              <FormLabel htmlFor="practice-slug">Slug (optional)</FormLabel>
+              <Input
+                id="practice-slug"
+                value={createForm.slug}
+                onChange={(value) => setCreateForm(prev => ({ ...prev, slug: value }))}
+                placeholder="your-law-firm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Used in URLs. Leave empty to auto-generate.
+              </p>
+            </div>
+
+            <div className="@md:col-span-2">
+              <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
+              <Input
+                id="practice-description"
+                value={createForm.description}
+                onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
+                placeholder="Brief description of your practice"
+              />
+            </div>
+          </FormGrid>
           
           <div className="flex justify-end gap-3 pt-4">
             <Button 
@@ -1128,11 +1130,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Delete Practice"
       >
         <div className="space-y-4">
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-            <p className="text-sm text-red-800 dark:text-red-200">
+          <SettingsNotice variant="danger" className="p-4">
+            <p className="text-sm">
               ⚠️ This action cannot be undone. This will permanently delete the practice and all its data.
             </p>
-          </div>
+          </SettingsNotice>
           
           <div>
             <FormLabel htmlFor="delete-confirm">
@@ -1162,6 +1164,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         </div>
       </Modal>
 
-    </div>
+    </SettingsPageLayout>
   );
 };

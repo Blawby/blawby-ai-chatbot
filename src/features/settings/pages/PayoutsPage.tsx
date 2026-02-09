@@ -2,7 +2,8 @@ import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -139,81 +140,77 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
 
   const detailsSubmitted = stripeStatus?.details_submitted === true;
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title="Payouts" />
-
-      <div className="flex-1 overflow-y-auto px-6 pb-8">
-        <SettingSection title="External payout accounts">
-          {detailsSubmitted ? (
+    <SettingsPageLayout title="Payouts" className={className} contentClassName="pb-8">
+      <SettingSection title="External payout accounts">
+        {detailsSubmitted ? (
+          <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+              <CheckCircleIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </span>
+            <p>
+              Your Blawby payout account is set up and ready to receive payments. You can now start sending invoices and receiving payments.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
             <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <CheckCircleIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <ShieldCheckIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </span>
               <p>
-                Your Blawby payout account is set up and ready to receive payments. You can now start sending invoices and receiving payments.
+                Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
               </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <ShieldCheckIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </span>
-                <p>
-                  Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
-                </p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <UserCircleIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </span>
-                <p>
-                  It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
-                </p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <LockClosedIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </span>
-                <p>
-                  Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!detailsSubmitted && (
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSubmitDetails}
-                disabled={isSubmitting || isLoading}
-              >
-                {isSubmitting ? 'Preparing Stripe...' : 'Submit details'}
-              </Button>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                You will be prompted to complete Stripe verification.
+            <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                <UserCircleIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </span>
+              <p>
+                It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
+              </p>
             </div>
-          )}
-        </SettingSection>
-
-        {isLoading && (
-          <>
-            <SectionDivider />
-            <div className="mt-4">
-              <StripeOnboardingStep
-                status={stripeStatus}
-                loading={isLoading}
-                showIntro={false}
-                showInfoCard={false}
-              />
+            <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                <LockClosedIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </span>
+              <p>
+                Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
+              </p>
             </div>
-          </>
+          </div>
         )}
-      </div>
-    </div>
+
+        {!detailsSubmitted && (
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSubmitDetails}
+              disabled={isSubmitting || isLoading}
+            >
+              {isSubmitting ? 'Preparing Stripe...' : 'Submit details'}
+            </Button>
+            <SettingsHelperText>
+              You will be prompted to complete Stripe verification.
+            </SettingsHelperText>
+          </div>
+        )}
+      </SettingSection>
+
+      {isLoading && (
+        <>
+          <SectionDivider />
+          <div className="mt-4">
+            <StripeOnboardingStep
+              status={stripeStatus}
+              loading={isLoading}
+              showIntro={false}
+              showInfoCard={false}
+            />
+          </div>
+        </>
+      )}
+    </SettingsPageLayout>
   );
 };
 

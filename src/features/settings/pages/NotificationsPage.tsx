@@ -3,9 +3,10 @@ import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import {
   useNotificationSettings,
   updateNotificationChannel,
@@ -151,9 +152,22 @@ export const NotificationsPage = ({
 
   const isPermissionSupported = permissionState !== 'unsupported';
 
-  const handleChannelChange = async (category: NotificationCategory, channelKey: string, value: boolean) => {
+  const handleChannelSelectionChange = async (
+    category: NotificationCategory,
+    currentSettings: NotificationSettings['messages'],
+    nextSelection: { push: boolean; email: boolean }
+  ) => {
+    const updates: Array<Promise<void>> = [];
+    if (currentSettings.push !== nextSelection.push) {
+      updates.push(updateNotificationChannel(category, 'push', nextSelection.push));
+    }
+    if (currentSettings.email !== nextSelection.email) {
+      updates.push(updateNotificationChannel(category, 'email', nextSelection.email));
+    }
+    if (updates.length === 0) return;
+
     try {
-      await updateNotificationChannel(category, channelKey as 'push' | 'email', value);
+      await Promise.all(updates);
       showSuccess(
         t('common:notifications.settingsSavedTitle', { defaultValue: 'Settings saved' }),
         t('settings:notifications.toastBody', { defaultValue: 'Your notification preferences have been updated.' })
@@ -291,142 +305,141 @@ export const NotificationsPage = ({
   }
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title={t('settings:notifications.title', { defaultValue: 'Notifications' })} />
+    <SettingsPageLayout
+      title={t('settings:notifications.title', { defaultValue: 'Notifications' })}
+      className={className}
+    >
+      {CATEGORY_CONFIG.map((category, index) => {
+        const categorySettings = getCategorySettings(settings, category.key);
+        const isSystem = category.key === 'system';
+        const displayText = category.key === 'system'
+          ? translations.required
+          : getNotificationDisplayText(categorySettings, translations);
+        const channels = [
+          {
+            key: 'push',
+            label: translations.push,
+            checked: categorySettings.push,
+            disabled: isSystem
+          },
+          {
+            key: 'email',
+            label: translations.email,
+            checked: categorySettings.email,
+            disabled: isSystem
+          }
+        ];
+        const baseDescription = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
+        const description = isSystem
+          ? (
+            <>
+              <span>{baseDescription}</span>
+              <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">
+                {t('settings:notifications.systemRequiredHint', { defaultValue: 'System notifications are required for all members.' })}
+              </span>
+            </>
+          )
+          : baseDescription;
 
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          {CATEGORY_CONFIG.map((category, index) => {
-            const categorySettings = getCategorySettings(settings, category.key);
-            const isSystem = category.key === 'system';
-            const displayText = category.key === 'system'
-              ? translations.required
-              : getNotificationDisplayText(categorySettings, translations);
-            const channels = [
-              {
-                key: 'push',
-                label: translations.push,
-                checked: categorySettings.push,
-                disabled: isSystem
-              },
-              {
-                key: 'email',
-                label: translations.email,
-                checked: categorySettings.email,
-                disabled: isSystem
-              }
-            ];
-            const baseDescription = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
-            const description = isSystem
-              ? (
-                <>
-                  <span>{baseDescription}</span>
-                  <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">
-                    {t('settings:notifications.systemRequiredHint', { defaultValue: 'System notifications are required for all members.' })}
-                  </span>
-                </>
-              )
-              : baseDescription;
-
-            return (
-              <div key={category.key}>
+        return (
+          <div key={category.key}>
+            <SettingRow
+              label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
+              description={description}
+            >
+              <NotificationChannelSelector
+                displayText={displayText}
+                channels={channels}
+                noneLabel={translations.none}
+                bothLabel={`${translations.push} + ${translations.email}`}
+                onSelectionChange={(nextSelection) => {
+                  if (isSystem) {
+                    return;
+                  }
+                  void handleChannelSelectionChange(category.key, categorySettings, nextSelection);
+                }}
+              />
+            </SettingRow>
+            {category.key === 'message' && (
+              <>
+                <SectionDivider />
                 <SettingRow
-                  label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
-                  description={description}
-                >
-                  <NotificationChannelSelector
-                    displayText={displayText}
-                    channels={channels}
-                    onChannelChange={(channelKey, checked) => {
-                      if (isSystem) {
-                        return;
-                      }
-                      handleChannelChange(category.key, channelKey, checked);
-                    }}
-                  />
-                </SettingRow>
-                {category.key === 'message' && (
-                  <>
-                    <SectionDivider />
-                    <SettingRow
-                      label={t('settings:notifications.mentions.title', { defaultValue: 'Mentions only' })}
-                      description={t('settings:notifications.mentions.description', { defaultValue: 'Only notify me when I am @mentioned in a conversation.' })}
-                    >
-                      <Switch
-                        value={settings.messagesMentionsOnly}
-                        onChange={handleMentionsOnlyToggle}
-                        className="py-0"
-                      />
-                    </SettingRow>
-                  </>
-                )}
-                {index < CATEGORY_CONFIG.length - 1 && <SectionDivider />}
-              </div>
-            );
-          })}
-
-          <SectionDivider />
-
-          <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            {t('settings:notifications.inApp.sectionTitle', { defaultValue: 'In-app bot messages' })}
-          </div>
-
-          {IN_APP_CATEGORY_CONFIG.map((category, index) => {
-            const isSystem = category.key === 'system';
-            const description = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
-
-            return (
-              <div key={`in-app-${category.key}`}>
-                <SettingRow
-                  label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
-                  description={description}
+                  label={t('settings:notifications.mentions.title', { defaultValue: 'Mentions only' })}
+                  description={t('settings:notifications.mentions.description', { defaultValue: 'Only notify me when I am @mentioned in a conversation.' })}
                 >
                   <Switch
-                    value={settings.inApp[inAppSettingKey[category.key]]}
-                    onChange={(value) => handleInAppToggle(category.key, value)}
-                    disabled={isSystem}
+                    value={settings.messagesMentionsOnly}
+                    onChange={handleMentionsOnlyToggle}
                     className="py-0"
                   />
                 </SettingRow>
-                {isSystem && (
-                  <>
-                    <SectionDivider />
-                    <SettingRow
-                      label={t('settings:notifications.inApp.frequencyLabel', { defaultValue: 'System summaries only' })}
-                      description={t('settings:notifications.inApp.frequencyDescription', {
-                        defaultValue: 'Show a single summary message for the Blawby System conversation.'
-                      })}
-                    >
-                      <Switch
-                        value={settings.inAppFrequency === 'summaries_only'}
-                        onChange={handleInAppFrequencyToggle}
-                        className="py-0"
-                      />
-                    </SettingRow>
-                  </>
-                )}
-                {index < IN_APP_CATEGORY_CONFIG.length - 1 && <SectionDivider />}
-              </div>
-            );
-          })}
+              </>
+            )}
+            {index < CATEGORY_CONFIG.length - 1 && <SectionDivider />}
+          </div>
+        );
+      })}
 
-          <SectionDivider />
+      <SectionDivider />
 
-          <SettingRow
-            label={t('settings:notifications.desktop.title', { defaultValue: 'Desktop notifications' })}
-            description={t('settings:notifications.desktop.description', { defaultValue: 'Allow Blawby to send OS-level alerts.' })}
-          >
-            <div className="flex items-center gap-2">
+      <SettingsSubheader variant="section" className="px-1 pb-2 text-left">
+        {t('settings:notifications.inApp.sectionTitle', { defaultValue: 'In-app bot messages' })}
+      </SettingsSubheader>
+
+      {IN_APP_CATEGORY_CONFIG.map((category, index) => {
+        const isSystem = category.key === 'system';
+        const description = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
+
+        return (
+          <div key={`in-app-${category.key}`}>
+            <SettingRow
+              label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
+              description={description}
+            >
               <Switch
-                value={settings.desktopPushEnabled}
-                onChange={handleDesktopToggle}
-                disabled={!isPermissionSupported}
+                value={settings.inApp[inAppSettingKey[category.key]]}
+                onChange={(value) => handleInAppToggle(category.key, value)}
+                disabled={isSystem}
                 className="py-0"
               />
-            </div>
-          </SettingRow>
+            </SettingRow>
+            {isSystem && (
+              <>
+                <SectionDivider />
+                <SettingRow
+                  label={t('settings:notifications.inApp.frequencyLabel', { defaultValue: 'System summaries only' })}
+                  description={t('settings:notifications.inApp.frequencyDescription', {
+                    defaultValue: 'Show a single summary message for the Blawby System conversation.'
+                  })}
+                >
+                  <Switch
+                    value={settings.inAppFrequency === 'summaries_only'}
+                    onChange={handleInAppFrequencyToggle}
+                    className="py-0"
+                  />
+                </SettingRow>
+              </>
+            )}
+            {index < IN_APP_CATEGORY_CONFIG.length - 1 && <SectionDivider />}
+          </div>
+        );
+      })}
+
+      <SectionDivider />
+
+      <SettingRow
+        label={t('settings:notifications.desktop.title', { defaultValue: 'Desktop notifications' })}
+        description={t('settings:notifications.desktop.description', { defaultValue: 'Allow Blawby to send OS-level alerts.' })}
+      >
+        <div className="flex items-center gap-2">
+          <Switch
+            value={settings.desktopPushEnabled}
+            onChange={handleDesktopToggle}
+            disabled={!isPermissionSupported}
+            className="py-0"
+          />
         </div>
-      </div>
-    </div>
+      </SettingRow>
+    </SettingsPageLayout>
   );
 };

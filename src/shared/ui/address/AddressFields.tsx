@@ -214,7 +214,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
                       id={`address-suggestion-${suggestion.id}`}
                       aria-selected={index === streetAddressProps.selectedIndex}
                       className={cn(
-                        'w-full text-left px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700',
+                        'w-full text-left px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-dark-bg',
                         index === streetAddressProps.selectedIndex && 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                       )}
                       onClick={() => streetAddressProps.onSuggestionSelect(suggestion)}

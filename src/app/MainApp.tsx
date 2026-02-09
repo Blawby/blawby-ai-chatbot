@@ -965,8 +965,6 @@ export function MainApp({
         {mainContent}
       </div>
 
-      {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
-
       {/* Welcome Modal */}
       <WelcomeModal
         isOpen={showWelcomeModal}

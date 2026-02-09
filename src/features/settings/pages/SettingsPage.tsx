@@ -1,5 +1,6 @@
 import { useLocation } from 'preact-iso';
 import { useEffect, useState } from 'preact/hooks';
+import { AnimatePresence, motion } from 'framer-motion';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
@@ -25,6 +26,7 @@ import {
   BuildingOfficeIcon,
   PuzzlePieceIcon
 } from '@heroicons/react/24/outline';
+import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { cn } from '@/shared/utils/cn';
@@ -33,6 +35,7 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { AppShell, Page, Panel, SplitView } from '@/shared/ui/layout';
 
 
 export interface SettingsPageProps {
@@ -163,6 +166,7 @@ export const SettingsPage = ({
     return navigationItems.find(item => item.id === currentPage)?.label || 'Settings';
   })();
 
+  const activeNavigationId = currentPage === 'navigation' ? undefined : currentPage;
 
   const handleAppUpdate = (appId: string, updates: Partial<App>) => {
     setApps((prev) => prev.map((app) => app.id === appId ? { ...app, ...updates } : app));
@@ -231,108 +235,139 @@ export const SettingsPage = ({
     );
   }
 
-  // Mobile layout - show navigation or content based on current page
-  if (isMobile) {
-    return (
-    <div className={cn('h-full min-h-0 flex flex-col', className)}>
-        {currentPage === 'navigation' ? (
-          // Main settings page (navigation)
-          <>
-            {/* Mobile Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
-              <div className="flex-1" />
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h1>
-              <div className="flex-1 flex justify-end">
-                <button
-                  onClick={handleBack}
-                  className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  aria-label={t('settings:navigation.close')}
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+  const navigationList = (
+    <SidebarNavigation
+      items={navigationItems}
+      activeItem={activeNavigationId}
+      onItemClick={handleNavigation}
+      mobile={isMobile}
+    />
+  );
 
-            {/* Mobile Content - Show sidebar navigation as main content */}
-            <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-bg">
-              <div className="px-4 py-2">
-                <SidebarNavigation
-                  items={navigationItems}
-                  activeItem={currentPage}
-                  onItemClick={handleNavigation}
-                  mobile={true}
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          // Specific settings page
-          <>
-            {/* Mobile Header with Back Button */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
-              <button
-                onClick={() => {
-                  if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team' || practiceSubPage === 'pricing')) {
-                    navigate('/settings/practice');
-                    return;
-                  }
-                  navigate('/settings');
-                }}
-                className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                aria-label={t('settings:navigation.backToSettings')}
-              >
-                <ArrowLeftIcon className="w-5 h-5" />
-              </button>
-              <div className="flex-1 flex justify-center">
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {mobileTitle}
-                </h1>
-              </div>
-              <div className="w-9" /> {/* Spacer to center the title */}
-            </div>
-
-            {/* Mobile Content - Show specific settings page */}
-            <div className="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-dark-bg">
-              {renderContent()}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  // Desktop layout - two panel
-  return (
-    <div className={cn('h-full min-h-0 flex', className)}>
-      {/* Left Navigation Panel */}
-      <div className="w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-dark-border flex flex-col">
-        {/* Close Button - Top of Sidebar */}
-        <button
-          onClick={handleBack}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handleBack();
-          }}
-          className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 touch-manipulation"
-          aria-label={t('settings:navigation.close')}
-        >
-          <XMarkIcon className="w-5 h-5 flex-shrink-0" />
-        </button>
-        
-        {/* Navigation Items */}
-        <div>
-          <SidebarNavigation
-            items={navigationItems}
-            activeItem={currentPage}
-            onItemClick={handleNavigation}
-          />
-        </div>
-      </div>
-
-      {/* Right Content Panel */}
-      <div className="flex-1 min-h-0 bg-white dark:bg-dark-bg flex flex-col">
-        {renderContent()}
+  const desktopNavigation = (
+    <div className="flex min-h-0 flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {navigationList}
       </div>
     </div>
+  );
+
+  const contentPanel = (
+    <Page className="h-full min-h-0">
+      <Panel className="h-full min-h-0 overflow-hidden">
+        {renderContent()}
+      </Panel>
+    </Page>
+  );
+
+  const mobileHeader = currentPage === 'navigation' ? (
+    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
+      <div className="flex-1" />
+      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h1>
+      <div className="flex-1 flex justify-end">
+        <Button
+          variant="icon"
+          size="icon"
+          onClick={handleBack}
+          aria-label={t('settings:navigation.close')}
+          icon={<XMarkIcon className="w-5 h-5" />}
+        />
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
+      <Button
+        variant="icon"
+        size="icon"
+        onClick={() => {
+          if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team' || practiceSubPage === 'pricing')) {
+            navigate('/settings/practice');
+            return;
+          }
+          navigate('/settings');
+        }}
+        aria-label={t('settings:navigation.backToSettings')}
+        icon={<ArrowLeftIcon className="w-5 h-5" />}
+      />
+      <div className="flex-1 flex justify-center">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {mobileTitle}
+        </h1>
+      </div>
+      <div className="w-9" />
+    </div>
+  );
+
+  const desktopTitle = currentPage === 'navigation' ? 'Settings' : mobileTitle;
+  const desktopHeader = (
+    <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
+      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{desktopTitle}</h1>
+      <Button
+        variant="icon"
+        size="icon"
+        onClick={handleBack}
+        aria-label={t('settings:navigation.close')}
+        icon={<XMarkIcon className="w-5 h-5" />}
+      />
+    </div>
+  );
+
+  const mobileContent = currentPage === 'navigation'
+    ? (
+      <div className="flex-1 overflow-y-auto bg-light-bg dark:bg-dark-bg">
+        <div className="px-4 py-2">
+          {navigationList}
+        </div>
+      </div>
+    )
+    : (
+      <div className="flex-1 min-h-0">
+        {contentPanel}
+      </div>
+    );
+
+  const desktopContent = (
+    <SplitView
+      className="h-full min-h-0"
+      primary={desktopNavigation}
+      secondary={contentPanel}
+      primaryClassName="min-h-0 bg-light-bg dark:bg-dark-bg"
+      secondaryClassName="min-h-0"
+    />
+  );
+
+  const shellKey = isMobile ? 'settings-mobile-shell' : 'settings-desktop-shell';
+  const shellMotion = isMobile
+    ? {
+      initial: { y: '100%' },
+      animate: { y: 0 },
+      exit: { y: '100%' }
+    }
+    : {
+      initial: { opacity: 0, y: 24 },
+      animate: { opacity: 1, y: 0 },
+      exit: { opacity: 0, y: 24 }
+    };
+
+  return (
+    <AppShell
+      className={cn('bg-light-bg dark:bg-dark-bg', className)}
+      header={isMobile ? mobileHeader : desktopHeader}
+      main={(
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={shellKey}
+            className="h-full min-h-0"
+            initial={shellMotion.initial}
+            animate={shellMotion.animate}
+            exit={shellMotion.exit}
+            transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+          >
+            {isMobile ? mobileContent : desktopContent}
+          </motion.div>
+        </AnimatePresence>
+      )}
+      mainClassName="min-h-0"
+    />
   );
 };

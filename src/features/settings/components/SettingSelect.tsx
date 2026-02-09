@@ -32,8 +32,9 @@ export const SettingSelect = ({
           options={options}
           onChange={onChange}
           className={cn(
-            'border-0 bg-transparent px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-700',
-            'focus:ring-2 focus:ring-accent-500'
+            'min-w-[180px] rounded-full border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-900',
+            'dark:border-dark-border dark:bg-transparent dark:text-gray-100',
+            'hover:bg-transparent dark:hover:bg-transparent focus:ring-2 focus:ring-accent-500'
           )}
         />
       </div>

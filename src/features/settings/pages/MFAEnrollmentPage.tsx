@@ -1,5 +1,11 @@
 import { useState, useMemo, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/input';
+import { SectionDivider } from '@/shared/ui/layout';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { authClient, hasTwoFactorPlugin, type TwoFactorClient } from '@/shared/lib/authClient';
@@ -176,28 +182,25 @@ export const MFAEnrollmentPage = ({
   };
 
   return (
-    <div className={`min-h-screen bg-white dark:bg-dark-bg ${className}`}>
-      {/* Header */}
-      <div className="px-6 py-8">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={() => navigate('/settings/security')}
-            className="mb-6 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 flex items-center"
-          >
-            {t('settings:mfa.back')}
-          </button>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 text-center">
-            {t('settings:mfa.title')}
-          </h1>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="px-6 pb-8">
-        <div className="max-w-md mx-auto text-center space-y-8">
+    <SettingsPageLayout
+      title={t('settings:mfa.title')}
+      className={className}
+      wrapChildren={false}
+      contentClassName="pb-8"
+      headerLeading={(
+        <Button
+          variant="icon"
+          size="icon"
+          onClick={() => navigate('/settings/security')}
+          aria-label={t('settings:mfa.back')}
+          icon={<ArrowLeftIcon className="w-5 h-5" />}
+        />
+      )}
+    >
+      <div className="max-w-md mx-auto text-center space-y-8">
           {/* Configuration Error Banner */}
           {isMFAConfigured === false && (
-            <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+            <SettingsNotice variant="danger" className="p-4">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <svg
@@ -214,7 +217,7 @@ export const MFAEnrollmentPage = ({
                   </svg>
                 </div>
                 <div className="ml-3 flex-1">
-                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                  <h3 className="text-sm font-medium">
                     {t('settings:mfa.errors.configurationError.title')}
                   </h3>
                   <div className="mt-2 text-sm text-red-700 dark:text-red-300">
@@ -222,7 +225,7 @@ export const MFAEnrollmentPage = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </SettingsNotice>
           )}
 
           {/* Instructions */}
@@ -234,9 +237,9 @@ export const MFAEnrollmentPage = ({
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="p-4 bg-white dark:bg-dark-card-bg rounded-lg border border-gray-200 dark:border-dark-border">
               {/* Mock QR Code - in real app, you'd use a QR code library */}
-              <div className="w-48 h-48 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+              <div className="w-48 h-48 bg-gray-100 dark:bg-dark-bg rounded flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-32 h-32 bg-black dark:bg-white rounded grid grid-cols-8 gap-1 p-2">
                     {/* Mock QR pattern - stable pattern that doesn't flicker */}
@@ -249,9 +252,9 @@ export const MFAEnrollmentPage = ({
                       />
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <SettingsHelperText className="mt-2">
                     {t('settings:mfa.qrLabel')}
-                  </p>
+                  </SettingsHelperText>
                 </div>
               </div>
             </div>
@@ -259,18 +262,19 @@ export const MFAEnrollmentPage = ({
 
           {/* Troubleshooting Link */}
           <div>
-            <button
+            <Button
+              variant="link"
+              size="sm"
               onClick={handleCopyManualCode}
-              className="text-sm text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300 underline"
             >
               {t('settings:mfa.troubleScanning')}
-            </button>
+            </Button>
           </div>
 
           {/* Separator */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+              <SectionDivider className="w-full" />
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-white dark:bg-dark-bg text-gray-500 dark:text-gray-400">
@@ -281,20 +285,17 @@ export const MFAEnrollmentPage = ({
 
           {/* Code Input */}
           <div className="space-y-4">
-            <div className="text-left">
-              <label htmlFor="verification-code" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                {t('settings:mfa.codeLabel')}
-              </label>
-              <input
-                id="verification-code"
-                type="text"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder={t('settings:mfa.codePlaceholder')}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent text-center text-lg tracking-widest"
-                maxLength={6}
-              />
-            </div>
+            <Input
+              id="verification-code"
+              label={t('settings:mfa.codeLabel')}
+              type="text"
+              value={verificationCode}
+              onChange={(value) => setVerificationCode(value.replace(/\D/g, '').slice(0, 6))}
+              placeholder={t('settings:mfa.codePlaceholder')}
+              maxLength={6}
+              inputMode="numeric"
+              className="text-center text-lg tracking-widest"
+            />
 
             {/* Continue Button */}
             <Button
@@ -316,25 +317,19 @@ export const MFAEnrollmentPage = ({
           </div>
 
           {/* Footer Links */}
-          <div className="pt-8 border-t border-gray-200 dark:border-dark-border">
+          <div className="pt-8">
+            <SectionDivider />
             <div className="flex justify-center space-x-4 text-sm">
-              <button
-                type="button"
-                className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-              >
+              <Button variant="link" size="sm" type="button">
                 {t('settings:mfa.footer.terms')}
-              </button>
+              </Button>
               <span className="text-gray-300 dark:text-gray-600">|</span>
-              <button
-                type="button"
-                className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-              >
+              <Button variant="link" size="sm" type="button">
                 {t('settings:mfa.footer.privacy')}
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
       </div>
-    </div>
+    </SettingsPageLayout>
   );
 };

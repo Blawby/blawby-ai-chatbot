@@ -7,6 +7,9 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { asMajor, fromMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
+import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SectionDivider } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import Modal from '@/shared/components/Modal';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -214,83 +217,80 @@ export const PracticePricingPage = () => {
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="pt-4 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/settings/practice')}
-            className="flex items-center gap-2 mb-4 text-gray-600 dark:text-gray-300"
-            aria-label="Back to practice settings"
-          >
-            <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
-            <span className="text-sm font-medium">Back to Practice</span>
-          </button>
+    <SettingsPageLayout
+      title="Pricing &amp; Fees"
+      wrapChildren={false}
+      contentClassName="pb-6"
+      headerLeading={(
+        <Button
+          variant="icon"
+          size="icon"
+          onClick={() => navigate('/settings/practice')}
+          aria-label="Back to practice settings"
+          icon={<ArrowLeftIcon className="w-5 h-5" />}
+        />
+      )}
+    >
+      <div className="pt-2 pb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Configure intake payments and billing increments for this practice.
+        </p>
+      </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pricing &amp; Fees</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Configure intake payments and billing increments for this practice.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200 dark:border-dark-border">
-          <div className="py-3">
-            <Switch
-              id="consultation-fee-enabled"
-              label="Consultation fee"
-              description="Require payment before confirming an intake."
-              value={feeEnabledDisplay}
-              onChange={(value) => void handleFeeToggle(value)}
-              disabled={!canEdit || isSaving}
-              className="py-0"
-            />
-          </div>
-          {feeEnabledDisplay && (
-            <div className="py-3 border-t border-gray-200 dark:border-dark-border">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Amount</div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {formattedFee ?? 'Not set'}
-                  </p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit || isSaving}>
-                  {formattedFee ? 'Edit' : 'Set amount'}
-                </Button>
-              </div>
-              {isReadOnly && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Owner/admin access required to update pricing.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-gray-200 dark:border-dark-border mt-6">
+      <SectionDivider />
+      <div className="py-3">
+          <Switch
+            id="consultation-fee-enabled"
+            label="Consultation fee"
+            description="Require payment before confirming an intake."
+            value={feeEnabledDisplay}
+            onChange={(value) => void handleFeeToggle(value)}
+            disabled={!canEdit || isSaving}
+            className="py-0"
+          />
+      </div>
+      {feeEnabledDisplay && (
+        <>
+          <SectionDivider />
           <div className="py-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Billing increment</div>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
-                </p>
+                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Amount</div>
+                <SettingsHelperText className="mt-1">
+                  {formattedFee ?? 'Not set'}
+                </SettingsHelperText>
               </div>
-              <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit || isSaving}>
-                Manage
+              <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit || isSaving}>
+                {formattedFee ? 'Edit' : 'Set amount'}
               </Button>
             </div>
             {isReadOnly && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Owner/admin access required to update billing increments.
-              </p>
+              <SettingsHelperText className="mt-2">
+                Owner/admin access required to update pricing.
+              </SettingsHelperText>
             )}
           </div>
-        </div>
+        </>
+      )}
+
+      <SectionDivider className="mt-6" />
+      <div className="py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Billing increment</div>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit || isSaving}>
+              Manage
+            </Button>
+          </div>
+          {isReadOnly && (
+            <SettingsHelperText className="mt-2">
+              Owner/admin access required to update billing increments.
+            </SettingsHelperText>
+          )}
       </div>
 
       <Modal isOpen={isFeeModalOpen} onClose={closeFeeModal} title="Consultation fee">
@@ -382,6 +382,6 @@ export const PracticePricingPage = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </SettingsPageLayout>
   );
 };
