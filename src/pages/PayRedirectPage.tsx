@@ -98,9 +98,9 @@ export const PayRedirectPage: FunctionComponent = () => {
       }
 
       if (decodedConv) {
-        return `/embed/${encodeURIComponent(decodedSlug)}/conversations/${encodeURIComponent(decodedConv)}`;
+        return `/public/${encodeURIComponent(decodedSlug)}/conversations/${encodeURIComponent(decodedConv)}`;
       }
-      return `/embed/${encodeURIComponent(decodedSlug)}`;
+      return `/public/${encodeURIComponent(decodedSlug)}`;
     }
 
     return pathPart;

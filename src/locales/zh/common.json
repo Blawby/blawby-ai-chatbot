@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "返回"
+  },
   "app": {
     "loading": "加载中…"
   },

@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Voltar"
+  },
   "app": {
     "loading": "Carregando…"
   },

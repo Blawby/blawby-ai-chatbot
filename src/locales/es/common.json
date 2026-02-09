@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Atrás"
+  },
   "app": {
     "loading": "Cargando…"
   },

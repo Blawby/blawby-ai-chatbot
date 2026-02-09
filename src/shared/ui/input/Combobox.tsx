@@ -188,6 +188,8 @@ export const Combobox = ({
                 if (isMultiple) {
                   if (matchToEmit) {
                     toggleValue(matchToEmit.value, { openAfterToggle: false });
+                  } else if (trimmedQuery) {
+                    toggleValue(trimmedQuery, { openAfterToggle: false });
                   }
                 } else {
                   if (matchToEmit) {

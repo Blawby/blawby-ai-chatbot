@@ -41,14 +41,47 @@ export const LinkMatterModal = ({
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
+  const [currentMatter, setCurrentMatter] = useState<WorkspaceMatterOption | null>(null);
+
   useEffect(() => {
     if (!isOpen) {
       return;
     }
-    setSelectedMatterId(currentMatterId ?? '');
+    const matterId = currentMatterId ?? '';
+    setSelectedMatterId(matterId);
     setError(null);
     setPage(1);
-  }, [currentMatterId, isOpen]);
+
+    // Fetch current matter specifically if we have an ID
+    if (matterId) {
+      const fetchCurrent = async () => {
+        try {
+          const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}`;
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+          });
+          if (response.ok) {
+            const payload = await response.json() as { data?: { matter?: Record<string, unknown> } };
+            const m = payload.data?.matter;
+            if (m) {
+              setCurrentMatter({
+                id: typeof m.id === 'string' ? m.id : String(m.id ?? ''),
+                title: typeof m.title === 'string' ? m.title : 'Untitled Matter',
+                clientName: typeof m.clientName === 'string' ? m.clientName : null
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('[LinkMatterModal] Failed to fetch current matter details', err);
+        }
+      };
+      void fetchCurrent();
+    } else {
+      setCurrentMatter(null);
+    }
+  }, [currentMatterId, isOpen, practiceId]);
 
   const fetchMatters = useCallback(async (
     pageToLoad: number,
@@ -127,10 +160,11 @@ export const LinkMatterModal = ({
         }
       }
     } finally {
+      // Only update state if this request wasn't superseded
       if (controllerRef.current === controller) {
         controllerRef.current = null;
+        setLoadingState(false);
       }
-      setLoadingState(false);
     }
 
   }, [practiceId, pageSize]);
@@ -211,6 +245,12 @@ export const LinkMatterModal = ({
             disabled={loading || saving}
           >
             <option value="">No matter</option>
+            {/* Ensure current matter is always an option even if not in the first page of results */}
+            {currentMatter && !matters.some(m => m.id === currentMatter.id) && (
+              <option value={currentMatter.id}>
+                {currentMatter.title}{currentMatter.clientName ? ` (${currentMatter.clientName})` : ''}
+              </option>
+            )}
             {matters.map((matter) => (
               <option key={matter.id} value={matter.id}>
                 {matter.title}{matter.clientName ? ` (${matter.clientName})` : ''}

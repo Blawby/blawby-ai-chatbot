@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
-import AppLayout from './AppLayout';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -35,18 +33,10 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
 import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
-import type { SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
+import AnnouncementBanner from '@/shared/components/AnnouncementBanner';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-
-type RouteKey =
-  | 'home'
-  | 'messages'
-  | 'matters'
-  | 'clients'
-  | 'payments'
-  | 'conversations';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 
@@ -54,43 +44,34 @@ type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 export function MainApp({
   practiceId,
   practiceConfig,
-  practiceNotFound,
-  handleRetryPracticeConfig,
   isPracticeView,
   workspace,
-  settingsOverlayOpen,
   chatContent,
   routeConversationId,
   publicPracticeSlug,
-  publicEmbedView,
-  practiceEmbedView,
-  clientEmbedView,
+  publicWorkspaceView,
+  practiceWorkspaceView,
+  clientWorkspaceView,
   clientPracticeSlug,
   practiceSlug
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
-  practiceNotFound: boolean;
-  handleRetryPracticeConfig: () => void;
   isPracticeView: boolean;
   workspace: WorkspaceType;
-  settingsOverlayOpen?: boolean;
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   publicPracticeSlug?: string;
-  publicEmbedView?: WorkspaceView;
-  practiceEmbedView?: WorkspaceView;
-  clientEmbedView?: WorkspaceView;
+  publicWorkspaceView?: WorkspaceView;
+  practiceWorkspaceView?: WorkspaceView;
+  clientWorkspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
   practiceSlug?: string;
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const location = useLocation();
   const { navigate } = useNavigation();
-  const isSettingsRouteNow = settingsOverlayOpen ?? location.path.startsWith('/settings');
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
@@ -131,20 +112,44 @@ export function MainApp({
   }, [clientPracticeSlug, practiceConfig.slug, workspace]);
   const publicConversationsBasePath = useMemo(() => {
     if (!resolvedPublicPracticeSlug) return null;
-    return `/embed/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations`;
+    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations`;
   }, [resolvedPublicPracticeSlug]);
   const conversationResetKey = useMemo(() => {
     if (isPublicWorkspace) return resolvedPublicPracticeSlug ?? '';
     return practiceId;
   }, [isPublicWorkspace, practiceId, resolvedPublicPracticeSlug]);
 
+  const practiceBanner = useMemo(() => {
+    if (workspace !== 'practice') return null;
+    if (!currentPractice?.id) return null;
+
+    const stripeStatus = currentPractice.businessOnboardingStatus;
+    const stripeReady = stripeStatus === 'completed' || stripeStatus === 'not_required';
+    if (stripeReady) return null;
+
+    return (
+      <div className="px-4 pt-4 short:pt-2">
+        <AnnouncementBanner
+          title="Blawby payouts are almost ready to go."
+          description="You just need to provide a few details to start sending invoices and getting paid."
+          actions={[
+            {
+              label: 'Set up payouts',
+              onClick: () => navigate('/settings/account/payouts'),
+              variant: 'primary' as const
+            }
+          ]}
+          tone="warning"
+        />
+      </div>
+    );
+  }, [currentPractice, navigate, workspace]);
+
   useEffect(() => {
     setConversationId(null);
     setConversationMode(null);
     conversationRestoreAttemptedRef.current = false;
   }, [conversationResetKey]);
-
-  const navItems: SidebarNavItem[] = [];
 
   const normalizedRouteConversationId = useMemo(() => {
     if (!routeConversationId) return null;
@@ -889,7 +894,7 @@ export function MainApp({
                 slug: resolvedPracticeSlug,
                 introMessage: practiceConfig.introMessage
               }}
-              onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+              onOpenSidebar={undefined}
               practiceId={practiceId}
               previewFiles={previewFiles}
               uploadingFiles={uploadingFiles}
@@ -923,9 +928,9 @@ export function MainApp({
 
 
 
-  const publicEmbedContent = workspace === 'public' ? (
+  const publicWorkspaceContent = workspace === 'public' ? (
     <WorkspacePage
-      view={publicEmbedView ?? 'conversation'}
+      view={publicWorkspaceView ?? 'conversation'}
       practiceId={practiceId}
       practiceSlug={resolvedPublicPracticeSlug}
       practiceName={resolvedPracticeName}
@@ -937,18 +942,18 @@ export function MainApp({
     />
   ) : null;
 
-  const resolvedClientEmbedView = useMemo<WorkspaceView | null>(() => {
+  const resolvedClientWorkspaceView = useMemo<WorkspaceView | null>(() => {
     if (workspace !== 'client') return null;
-    if (!clientEmbedView) return 'home';
-    if (clientEmbedView === 'conversation' && !activeConversationId) {
+    if (!clientWorkspaceView) return 'home';
+    if (clientWorkspaceView === 'conversation' && !activeConversationId) {
       return 'list';
     }
-    return clientEmbedView;
-  }, [activeConversationId, clientEmbedView, workspace]);
+    return clientWorkspaceView;
+  }, [activeConversationId, clientWorkspaceView, workspace]);
 
-  const clientEmbedContent = workspace === 'client' ? (
+  const clientWorkspaceContent = workspace === 'client' ? (
     <WorkspacePage
-      view={resolvedClientEmbedView ?? 'home'}
+      view={resolvedClientWorkspaceView ?? 'home'}
       practiceId={practiceId}
       practiceSlug={clientPracticeSlug ?? resolvedClientPracticeSlug}
       practiceName={resolvedPracticeName}
@@ -962,22 +967,20 @@ export function MainApp({
     />
   ) : null;
 
-  const resolvedPracticeEmbedView = useMemo<WorkspaceView | null>(() => {
+  const resolvedPracticeWorkspaceView = useMemo<WorkspaceView | null>(() => {
     if (workspace !== 'practice') return null;
-    if (!practiceEmbedView) return 'home';
-    if (practiceEmbedView === 'conversation' && !activeConversationId) {
+    if (!practiceWorkspaceView) return 'home';
+    if (practiceWorkspaceView === 'conversation' && !activeConversationId) {
       return 'list';
     }
-    return practiceEmbedView;
-  }, [activeConversationId, practiceEmbedView, workspace]);
-  const shouldUsePracticeSplitView = workspace === 'practice'
-    && (resolvedPracticeEmbedView === 'list' || resolvedPracticeEmbedView === 'conversation');
-
-  const practiceEmbedContent = workspace === 'practice' ? (
+    return practiceWorkspaceView;
+  }, [activeConversationId, practiceWorkspaceView, workspace]);
+  const effectivePracticeSlug = practiceSlug ?? resolvedPracticeSlug ?? null;
+  const practiceWorkspaceContent = workspace === 'practice' ? (
     <WorkspacePage
-      view={resolvedPracticeEmbedView ?? 'home'}
+      view={resolvedPracticeWorkspaceView ?? 'home'}
       practiceId={practiceId}
-      practiceSlug={practiceSlug ?? resolvedPracticeSlug ?? null}
+      practiceSlug={effectivePracticeSlug}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
@@ -987,54 +990,26 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         <PracticeMattersPage
-          basePath={(practiceSlug ?? resolvedPracticeSlug)
-            ? `/practice/${encodeURIComponent(practiceSlug ?? resolvedPracticeSlug ?? '')}/matters`
+          basePath={effectivePracticeSlug
+            ? `/practice/${encodeURIComponent(effectivePracticeSlug)}/matters`
             : '/practice/matters'}
         />
       }
       clientsView={<PracticeClientsPage />}
+      header={practiceBanner ?? undefined}
     />
   ) : null;
 
   const mainContent = workspace === 'practice'
-    ? practiceEmbedContent
-    : (workspace === 'client' ? clientEmbedContent : publicEmbedContent);
-  const shouldShowRightSidebar = false;
-
+    ? practiceWorkspaceContent
+    : (workspace === 'client' ? clientWorkspaceContent : publicWorkspaceContent);
   // Render the main app
   return (
     <>
       <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
-
-      {workspace === 'practice' ? (
-        <AppLayout
-          workspace={workspace}
-          practiceNotFound={practiceNotFound}
-          practiceId={practiceId}
-          onRetryPracticeConfig={handleRetryPracticeConfig}
-          navItems={navItems}
-          isMobileSidebarOpen={isMobileSidebarOpen}
-          onToggleMobileSidebar={setIsMobileSidebarOpen}
-          isSettingsModalOpen={isSettingsRouteNow}
-          practiceConfig={{
-            name: resolvedPracticeName,
-            profileImage: resolvedPracticeLogo,
-            description: resolvedPracticeDescription,
-            slug: resolvedPracticeSlug ?? undefined
-          }}
-          currentPractice={currentPractice}
-          practiceDetails={practiceDetails}
-          messages={messages}
-          showRightSidebar={shouldShowRightSidebar}
-          mainClassName="overflow-hidden"
-        >
-          {mainContent}
-        </AppLayout>
-      ) : (
-        <div className="min-h-dvh w-full">
-          {mainContent}
-        </div>
-      )}
+      <div className="min-h-dvh w-full">
+        {mainContent}
+      </div>
 
       {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
 

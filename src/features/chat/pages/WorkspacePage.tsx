@@ -3,8 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
-import WorkspaceBottomNav from '@/features/chat/views/WorkspaceBottomNav';
-import WorkspaceSidebarNav from '@/features/chat/views/WorkspaceSidebarNav';
+import WorkspaceNav from '@/features/chat/views/WorkspaceNav';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { SplitView } from '@/shared/ui/layout/SplitView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
@@ -31,6 +30,8 @@ interface WorkspacePageProps {
   chatView: ComponentChildren;
   mattersView?: ComponentChildren;
   clientsView?: ComponentChildren;
+  header?: ComponentChildren;
+  headerClassName?: string;
 }
 
 const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
@@ -56,6 +57,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   chatView,
   mattersView,
   clientsView,
+  header,
+  headerClassName,
 }) => {
   const { navigate } = useNavigation();
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
@@ -68,7 +71,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (workspace === 'client') {
       return practiceSlug ? `/client/${encodeURIComponent(practiceSlug)}` : '/client';
     }
-    return practiceSlug ? `/embed/${encodeURIComponent(practiceSlug)}` : '/embed';
+    return practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
   }, [workspace, practiceSlug]);
   const conversationsPath = `${workspaceBasePath}/conversations`;
 
@@ -104,6 +107,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     createdAt: string;
   }>>({});
   const fetchedPreviewIds = useRef<Set<string>>(new Set());
+  const previewFailureCounts = useRef<Record<string, number>>({});
+  const MAX_PREVIEW_ATTEMPTS = 2;
 
   useEffect(() => {
     if (view === 'conversation' || conversations.length === 0 || !practiceId) {
@@ -127,6 +132,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             role: message.role,
             createdAt: message.created_at
           };
+          return;
+        }
+        const currentFailures = previewFailureCounts.current[conversation.id] ?? 0;
+        const nextFailures = currentFailures + 1;
+        previewFailureCounts.current[conversation.id] = nextFailures;
+        if (nextFailures >= MAX_PREVIEW_ATTEMPTS) {
+          fetchedPreviewIds.current.add(conversation.id);
         }
       }));
       if (isMounted && Object.keys(updates).length > 0) {
@@ -233,6 +245,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
             recentMessage={recentMessage}
             onOpenRecentMessage={handleOpenRecentMessage}
+            consultationTitle={workspace === 'practice' ? 'Todo action line 1' : undefined}
+            consultationDescription={workspace === 'practice' ? 'Todo description line 2' : undefined}
+            consultationCta={workspace === 'practice' ? 'TODO cta' : undefined}
           />
         );
       case 'list':
@@ -252,7 +267,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'matters':
         return mattersView ?? (
-          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+          <div className="flex flex-1 flex-col rounded-[32px] bg-light-bg dark:bg-dark-bg">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Matters</h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
@@ -269,7 +284,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'clients':
         return clientsView ?? (
-          <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+          <div className="flex flex-1 flex-col rounded-[32px] bg-light-bg dark:bg-dark-bg">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clients</h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
@@ -294,61 +309,44 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : view === 'clients'
     ? 'clients'
     : view;
-  const shouldFrame = false;
+  const handleSelectTab = (tab: 'home' | 'messages' | 'matters' | 'settings' | 'clients') => {
+    if (tab === 'messages') {
+      void refreshConversations();
+      navigate(conversationsPath);
+      return;
+    }
+    if (tab === 'matters') {
+      navigate(`${workspaceBasePath}/matters`);
+      return;
+    }
+    if (tab === 'clients') {
+      navigate(`${workspaceBasePath}/clients`);
+      return;
+    }
+    if (tab === 'settings') {
+      navigate('/settings');
+      return;
+    }
+    navigate(workspaceBasePath);
+  };
 
   const bottomNav = showBottomNav ? (
-    <WorkspaceBottomNav
+    <WorkspaceNav
+      variant="bottom"
       activeTab={activeTab}
       showClientTabs={showClientTabs}
       showPracticeTabs={showPracticeTabs}
-      onSelectTab={(tab) => {
-        if (tab === 'messages') {
-          void refreshConversations();
-          navigate(conversationsPath);
-          return;
-        }
-        if (tab === 'matters') {
-          navigate(`${workspaceBasePath}/matters`);
-          return;
-        }
-        if (tab === 'clients') {
-          navigate(`${workspaceBasePath}/clients`);
-          return;
-        }
-        if (tab === 'settings') {
-          navigate('/settings');
-          return;
-        }
-        navigate(workspaceBasePath);
-      }}
+      onSelectTab={handleSelectTab}
     />
   ) : undefined;
 
   const sidebarNav = showBottomNav ? (
-    <WorkspaceSidebarNav
+    <WorkspaceNav
+      variant="sidebar"
       activeTab={activeTab}
       showClientTabs={showClientTabs}
       showPracticeTabs={showPracticeTabs}
-      onSelectTab={(tab) => {
-        if (tab === 'messages') {
-          void refreshConversations();
-          navigate(conversationsPath);
-          return;
-        }
-        if (tab === 'matters') {
-          navigate(`${workspaceBasePath}/matters`);
-          return;
-        }
-        if (tab === 'clients') {
-          navigate(`${workspaceBasePath}/clients`);
-          return;
-        }
-        if (tab === 'settings') {
-          navigate('/settings');
-          return;
-        }
-        navigate(workspaceBasePath);
-      }}
+      onSelectTab={handleSelectTab}
     />
   ) : undefined;
 
@@ -368,71 +366,45 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   );
 
-  if (isPracticeWorkspace && (view === 'list' || view === 'conversation')) {
-    const showListOnMobile = view === 'list';
-    const showChatOnMobile = view === 'conversation';
-
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col md:flex-row">
-        <aside className="hidden md:block w-[240px] border-r border-light-border dark:border-white/10">
-          {sidebarNav}
-        </aside>
-        <div className="flex-1 min-h-0 pb-20 md:pb-0">
-          <SplitView
-            className="h-full min-h-0 w-full"
-            primary={conversationListView}
-            secondary={chatView}
-            primaryClassName={cn(
-              'min-h-0',
-              showListOnMobile ? 'block' : 'hidden',
-              'md:block'
-            )}
-            secondaryClassName={cn(
-              'min-h-0',
-              showChatOnMobile ? 'block' : 'hidden',
-              'md:block'
-            )}
-          />
-        </div>
-        {bottomNav && (
-          <div className="md:hidden fixed inset-x-0 bottom-0 z-40">
-            {bottomNav}
-          </div>
+  const showListOnMobile = view === 'list';
+  const showChatOnMobile = view === 'conversation';
+  const isSplitView = isPracticeWorkspace && (view === 'list' || view === 'conversation');
+  const mainContent = isSplitView
+    ? (
+      <SplitView
+        className="h-full min-h-0 w-full"
+        primary={conversationListView}
+        secondary={chatView}
+        primaryClassName={cn(
+          'min-h-0',
+          showListOnMobile ? 'block' : 'hidden',
+          'md:block'
         )}
+        secondaryClassName={cn(
+          'min-h-0',
+          showChatOnMobile ? 'block' : 'hidden',
+          'md:block'
+        )}
+      />
+    )
+    : (
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {renderContent()}
       </div>
     );
-  }
-
-  if (isPracticeWorkspace) {
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col md:flex-row">
-        <aside className="hidden md:block w-[240px] border-r border-light-border dark:border-white/10">
-          {sidebarNav}
-        </aside>
-        <div className="flex-1 min-h-0 w-full pb-20 md:pb-0">
-          {renderContent()}
-        </div>
-        {bottomNav && (
-          <div className="md:hidden fixed inset-x-0 bottom-0 z-40">
-            {bottomNav}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <AppShell
       className="bg-light-bg dark:bg-dark-bg"
+      header={header}
+      headerClassName={header ? headerClassName : undefined}
+      sidebar={sidebarNav}
       main={(
-        <div className={cn('flex h-full min-h-0 w-full', shouldFrame ? 'items-center justify-center px-3 py-4' : 'flex-col')}>
-          <div className={cn('flex min-h-0 flex-1 flex-col', shouldFrame ? 'max-w-[420px] rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden' : '')}>
-            {renderContent()}
-          </div>
+        <div className="flex h-full min-h-0 w-full flex-col">
+          {mainContent}
         </div>
       )}
-      sidebar={sidebarNav ? <div className="hidden md:block">{sidebarNav}</div> : undefined}
-      mainClassName={cn('min-h-0', showBottomNav ? 'pb-20 md:pb-0' : undefined)}
+      mainClassName={cn('min-h-0 overflow-hidden', showBottomNav ? 'pb-20 md:pb-0' : undefined)}
       bottomBar={bottomNav}
       bottomBarClassName={showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40' : undefined}
     />

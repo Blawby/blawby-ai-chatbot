@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Retour"
+  },
   "app": {
     "loading": "Chargement…"
   },

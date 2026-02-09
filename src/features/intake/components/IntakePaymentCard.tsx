@@ -141,8 +141,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         variant="primary"
         onClick={handlePay}
         className="w-full"
-        disabled={!isClient || (typeof window === 'undefined' && !onOpenPayment)}
-        aria-label={(!isClient || (typeof window === 'undefined' && !onOpenPayment)) ? 'Payment not available in this environment' : undefined}
+        disabled={!isClient}
+        aria-label={!isClient ? 'Payment not available in this environment' : undefined}
       >
         {buttonLabel}
       </Button>

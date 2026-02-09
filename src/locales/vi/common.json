@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Quay lại"
+  },
   "app": {
     "loading": "Đang tải…"
   },

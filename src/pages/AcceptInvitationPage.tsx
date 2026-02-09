@@ -317,7 +317,7 @@ export const AcceptInvitationPage = () => {
       }).organization.setActive({ organizationId: invitation.organizationId });
 
       showSuccess('Invitation accepted', 'You now have access to the practice.');
-      navigate(`/embed/${encodeURIComponent(invitation.organizationSlug)}`, true);
+      navigate(`/public/${encodeURIComponent(invitation.organizationSlug)}`, true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to accept invitation.';
       showError('Invitation error', message);
@@ -333,7 +333,7 @@ export const AcceptInvitationPage = () => {
   const handleContinueIntake = useCallback(async () => {
     if (!intakeConversationId) {
       if (organizationSlug) {
-        navigate(`/embed/${encodeURIComponent(organizationSlug)}`, true);
+        navigate(`/public/${encodeURIComponent(organizationSlug)}`, true);
       }
       return;
     }
@@ -393,7 +393,7 @@ export const AcceptInvitationPage = () => {
         throw new Error('Organization slug unavailable (missing organizationSlug and no matched organization for targetOrgId).');
       }
       navigate(
-        `/embed/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
+        `/public/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true
       );
     } catch (error) {

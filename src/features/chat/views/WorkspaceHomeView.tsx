@@ -17,6 +17,9 @@ interface WorkspaceHomeViewProps {
     avatarSrc?: string | null;
     conversationId?: string | null;
   } | null;
+  consultationTitle?: string;
+  consultationDescription?: string;
+  consultationCta?: string;
 }
 
 const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
@@ -25,12 +28,18 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   onSendMessage,
   onRequestConsultation,
   onOpenRecentMessage,
-  recentMessage
+  recentMessage,
+  consultationTitle,
+  consultationDescription,
+  consultationCta
 }) => {
   const { t } = useTranslation();
   const resolvedName = typeof practiceName === 'string'
     ? practiceName.trim()
     : '';
+  const resolvedConsultationTitle = consultationTitle ?? t('workspace.home.consultation.title');
+  const resolvedConsultationDescription = consultationDescription ?? t('workspace.home.consultation.description');
+  const resolvedConsultationCta = consultationCta ?? t('workspace.home.consultation.button');
   const canSendMessage = Boolean(onSendMessage);
   const canRequestConsultation = Boolean(onRequestConsultation);
   const canOpenRecentMessage = Boolean(onOpenRecentMessage);
@@ -45,7 +54,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
+    <div className="relative flex flex-1 flex-col rounded-[32px] bg-light-bg dark:bg-dark-bg">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/70"
         aria-hidden="true"
@@ -120,9 +129,9 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
         </button>
 
         <div className="rounded-3xl border border-light-border bg-light-card-bg px-5 py-6 shadow-[0_20px_48px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('workspace.home.consultation.title')}</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{resolvedConsultationTitle}</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            {t('workspace.home.consultation.description')}
+            {resolvedConsultationDescription}
           </p>
           <div className="mt-4">
             <Button
@@ -133,7 +142,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
               onClick={onRequestConsultation}
               disabled={!canRequestConsultation}
             >
-              {t('workspace.home.consultation.button')}
+              {resolvedConsultationCta}
             </Button>
           </div>
           <div className="mt-4 text-center text-xs font-medium text-gray-400 dark:text-gray-500">

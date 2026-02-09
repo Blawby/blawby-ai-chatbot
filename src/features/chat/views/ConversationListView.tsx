@@ -61,7 +61,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
             type="button"
             onClick={onClose}
             className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/10"
-            aria-label="Back"
+            aria-label={t('common.back')}
           >
             <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -126,7 +126,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         )}
       </div>
 
-      <div className="border-t-1 border-light-border px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] dark:border-dark-border">
+      <div className="border-t border-light-border px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] dark:border-dark-border">
         <Button
           variant="primary"
           size="lg"

@@ -12,7 +12,7 @@ interface PlaceholderPageProps {
   sections: PlaceholderSection[];
 }
 
-const placeholderNote = 'Stripe embedded component will render here once backend provides account sessions.';
+const placeholderNote = 'Stripe component will render here once backend provides account sessions.';
 
 export const PlaceholderPage = ({ title, subtitle, sections }: PlaceholderPageProps) => (
   <div className="h-full overflow-y-auto p-6">

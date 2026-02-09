@@ -29,7 +29,7 @@ export const PracticePricingPage = () => {
   const [showValidation, setShowValidation] = useState(false);
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const normalizedRole = normalizePracticeRole(activeMemberRole);
-  const canEdit = normalizedRole === 'owner' || normalizedRole === 'admin';
+  const canEdit = !activeMemberRoleLoading && (normalizedRole === 'owner' || normalizedRole === 'admin');
   const isReadOnly = !activeMemberRoleLoading && !canEdit;
 
   const activeFee = useMemo(() => {
