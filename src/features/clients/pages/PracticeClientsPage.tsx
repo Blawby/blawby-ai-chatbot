@@ -986,7 +986,7 @@ export const PracticeClientsPage = () => {
                         className={cn(
                           'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center',
                           // Increase interactive hit area to at least 44x44
-                          "before:absolute before:-inset-2 before:content-['']",
+                          "before:absolute before:-inset-3.5 before:content-['']",
                           currentLetter === letter
                             ? 'text-gray-900 dark:text-white font-semibold'
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'

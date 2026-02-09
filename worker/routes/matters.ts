@@ -1,7 +1,7 @@
 import type { Env } from '../types.js';
 import { getDomain } from 'tldts';
 import { HttpErrors } from '../errorHandler.js';
-import { optionalAuth, requirePracticeMember } from '../middleware/auth.js';
+import { requirePracticeMember } from '../middleware/auth.js';
 import { handleBackendProxy } from './authProxy.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
@@ -377,19 +377,35 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       });
     }
     const [, rawPracticeId, rawMatterId] = updateMatch;
-    const practiceId = rawPracticeId;
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
     const matterId = rawMatterId;
-    const requestHost = resolveRequestHost(request);
-    const authContext = await optionalAuth(request, env);
-    const headers = new Headers(request.headers);
+
+    if (rawPracticeId && rawPracticeId !== practiceId) {
+      console.warn('[Matters] Practice ID mismatch in update route', {
+        practiceId,
+        rawPracticeId
+      });
+      return new Response(JSON.stringify({ error: 'Practice ID mismatch' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const authContext = await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
+    const requestHost = resolveRequestHost(requestWithContext);
+    const headers = new Headers(requestWithContext.headers);
     const taskHeaders = new Headers(headers); // Clone for background task
     const before = await fetchMatterSnapshot(env, headers, encodeURIComponent(practiceId), encodeURIComponent(matterId));
-    const requestBody = await request.arrayBuffer();
+    const requestBody = await requestWithContext.arrayBuffer();
+    const backendPath = `/api/matters/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(matterId)}${url.search}`;
 
     const updateResponse = await fetchBackend(
       env,
       headers,
-      url.pathname + url.search,
+      backendPath,
       {
         method: request.method,
         body: requestBody
@@ -504,9 +520,10 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
         if (ctx?.waitUntil) {
           ctx.waitUntil(backgroundTask(taskHeaders));
         } else {
-          // Fire and forget, but log errors
-          backgroundTask(taskHeaders).catch((err) => {
-            console.error('[MatterDiff] Background task failed (unawaited)', err);
+          console.warn('[MatterDiff] ExecutionContext missing; skipping diff persistence', {
+            matterId,
+            updateBufferBytes: updateBuffer.byteLength,
+            hasProxyHeaders: Boolean(proxyHeaders)
           });
         }
       }

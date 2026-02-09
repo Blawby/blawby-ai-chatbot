@@ -188,7 +188,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Cześć 👋",
       "helpPrompt": "W czym możemy pomóc?",
@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "Strona główna",
-      "messages": "Wiadomości"
+      "messages": "Wiadomości",
+      "matters": "Sprawy",
+      "clients": "Klienci",
+      "settings": "Ustawienia"
     },
     "conversationList": {
       "title": "Wiadomości",

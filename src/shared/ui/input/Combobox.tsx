@@ -115,6 +115,18 @@ export const Combobox = ({
     }
   };
 
+  const addValue = (optionValue: string, options?: { openAfterToggle?: boolean }) => {
+    if (!isMultiple) return;
+    if (valueList.includes(optionValue)) return;
+
+    emitChange([...valueList, optionValue]);
+    setQuery('');
+    setUserTyped(false);
+    if (options?.openAfterToggle !== false) {
+      setIsOpen(true);
+    }
+  };
+
   useEffect(() => {
     // Only reset query from external value if not typing (not open)
     // or if the value fundamentally changed to something else valid
@@ -187,7 +199,9 @@ export const Combobox = ({
 
                 if (isMultiple) {
                   if (matchToEmit) {
-                    toggleValue(matchToEmit.value, { openAfterToggle: false });
+                    addValue(matchToEmit.value, { openAfterToggle: false });
+                  } else if (trimmedQuery) {
+                    addValue(trimmedQuery, { openAfterToggle: false });
                   }
                 } else {
                   if (matchToEmit) {

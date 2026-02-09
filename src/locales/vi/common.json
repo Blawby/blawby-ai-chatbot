@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Quay lại"
+  },
   "app": {
     "loading": "Đang tải…"
   },
@@ -211,7 +214,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Xin chào 👋",
       "helpPrompt": "Chúng tôi có thể giúp gì cho bạn?",
@@ -226,7 +229,10 @@
     },
     "navigation": {
       "home": "Trang chủ",
-      "messages": "Tin nhắn"
+      "messages": "Tin nhắn",
+      "matters": "Vụ việc",
+      "clients": "Khách hàng",
+      "settings": "Cài đặt"
     },
     "conversationList": {
       "title": "Tin nhắn",

@@ -395,11 +395,12 @@ END;
 -- when rows are modified, using the same millisecond timestamp format
 -- as the auth schema defaults: (strftime('%s', 'now') * 1000)
 
-CREATE TRIGGER IF NOT EXISTS matters_before_update_timestamp
-BEFORE UPDATE ON matters
+CREATE TRIGGER IF NOT EXISTS matters_after_update_timestamp
+AFTER UPDATE ON matters
 FOR EACH ROW
+WHEN OLD.updated_at = NEW.updated_at
 BEGIN
-  SELECT NEW.updated_at = CURRENT_TIMESTAMP;
+  UPDATE matters SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
 -- Auth table triggers removed - user management is handled by remote API

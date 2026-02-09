@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Back"
+  },
   "app": {
     "loading": "Loading…"
   },
@@ -211,7 +214,7 @@
     },
     "goToSettings": "Go to Practice Settings"
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Hi there 👋",
       "helpPrompt": "How can we help?",
@@ -228,6 +231,7 @@
       "home": "Home",
       "messages": "Messages",
       "matters": "Matters",
+      "clients": "Clients",
       "settings": "Settings"
     },
     "conversationList": {

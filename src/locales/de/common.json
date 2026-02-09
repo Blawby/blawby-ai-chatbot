@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Zurück"
+  },
   "app": {
     "loading": "Lädt…"
   },
@@ -211,7 +214,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Hallo 👋",
       "helpPrompt": "Wie können wir helfen?",
@@ -226,7 +229,10 @@
     },
     "navigation": {
       "home": "Startseite",
-      "messages": "Nachrichten"
+      "messages": "Nachrichten",
+      "matters": "Angelegenheiten",
+      "clients": "Mandanten",
+      "settings": "Einstellungen"
     },
     "conversationList": {
       "title": "Nachrichten",

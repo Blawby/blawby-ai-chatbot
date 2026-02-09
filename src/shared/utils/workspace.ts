@@ -10,14 +10,14 @@ export function resolveWorkspaceFromPath(path: string): WorkspaceType | null {
   ) {
     return 'client';
   }
-  if (path === '/embed' || path.startsWith('/embed/')) return 'public';
+  if (path === '/public' || path.startsWith('/public/')) return 'public';
   return null;
 }
 
 export function getWorkspaceBasePath(workspace: WorkspaceType): string | null {
   if (workspace === 'practice') return '/practice';
   if (workspace === 'client') return '/client';
-  if (workspace === 'public') return '/embed';
+  if (workspace === 'public') return '/public';
   return null;
 }
 
@@ -28,6 +28,7 @@ export function getWorkspaceHomePath(
 ): string {
   if (workspace === 'practice' && slug) return `/practice/${encodeURIComponent(slug)}`;
   if (workspace === 'client' && slug) return `/client/${encodeURIComponent(slug)}`;
+  if (workspace === 'public' && slug) return `/public/${encodeURIComponent(slug)}`;
   return fallback;
 }
 

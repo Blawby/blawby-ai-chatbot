@@ -188,7 +188,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Halo 👋",
       "helpPrompt": "Ada yang bisa kami bantu?",
@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "Beranda",
-      "messages": "Pesan"
+      "messages": "Pesan",
+      "matters": "Kasus",
+      "clients": "Klien",
+      "settings": "Pengaturan"
     },
     "conversationList": {
       "title": "Pesan",

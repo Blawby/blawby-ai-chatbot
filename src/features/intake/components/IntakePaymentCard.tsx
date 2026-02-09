@@ -28,6 +28,11 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
   const { navigate } = useNavigation();
   const { showError, showInfo } = useToastContext();
   const [isClient, setIsClient] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const paymentUnavailableId = useMemo(
+    () => `payment-unavailable-${Math.random().toString(36).slice(2, 8)}`,
+    []
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -70,68 +75,89 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
   };
 
   const handlePay = async () => {
-    if (hasClientSecret && onOpenPayment) {
-      await openPayment(paymentRequest);
+    if (isPaying) {
       return;
     }
-    if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
-      const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
-      if (isValid) {
-        if (onOpenPayment) {
-          await openPayment(paymentRequest);
-          return;
+    setIsPaying(true);
+    try {
+      if (hasClientSecret && onOpenPayment) {
+        const opened = await openPayment(paymentRequest);
+        if (!opened) {
+          showError('Payment unavailable', 'Payment is currently unavailable.');
         }
-        if (typeof window !== 'undefined') {
-          window.location.assign(paymentRequest.checkoutSessionUrl);
-          return;
-        }
-        console.warn('[IntakePayment] Cannot open checkout session in SSR environment');
         return;
-      } else {
-        console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
-        
-        // Attempt fallback methods
-        let fallbackSucceeded = false;
-        if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
-          fallbackSucceeded = true;
-        } else if (onOpenPayment) {
-          const sanitizedRequest = { ...paymentRequest };
-          delete sanitizedRequest.checkoutSessionUrl;
-          fallbackSucceeded = await openPayment(sanitizedRequest);
+      }
+      if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
+        const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
+        if (isValid) {
+          if (onOpenPayment) {
+            const opened = await openPayment(paymentRequest);
+            if (!opened) {
+              showError('Payment unavailable', 'Payment is currently unavailable.');
+            }
+            return;
+          }
+          if (typeof window !== 'undefined') {
+            window.location.assign(paymentRequest.checkoutSessionUrl);
+            return;
+          }
+          console.warn('[IntakePayment] Cannot open checkout session in SSR environment');
+          return;
         } else {
-          // Try simple navigation to payment URL as last resort if it differs from checkout session
-          if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
-            try {
-              navigate(paymentUrl);
-              fallbackSucceeded = true;
-            } catch (error) {
-              console.warn('[IntakePayment] Failed to navigate to payment URL', error);
+          console.warn('[IntakePayment] Invalid Stripe checkout session URL detected. Redacted url.');
+          
+          // Attempt fallback methods
+          let fallbackSucceeded = false;
+          if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
+            fallbackSucceeded = true;
+          } else if (onOpenPayment) {
+            const sanitizedRequest = { ...paymentRequest };
+            delete sanitizedRequest.checkoutSessionUrl;
+            fallbackSucceeded = await openPayment(sanitizedRequest);
+          } else {
+            // Try simple navigation to payment URL as last resort if it differs from checkout session
+            if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
+              try {
+                navigate(paymentUrl);
+                fallbackSucceeded = true;
+              } catch (error) {
+                console.warn('[IntakePayment] Failed to navigate to payment URL', error);
+              }
             }
           }
-        }
 
-        if (fallbackSucceeded) {
-          // Using showInfo instead of showError to avoid alarming the user during fallback flow
-          showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
-        } else if (typeof window !== 'undefined') {
-          showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
+          if (fallbackSucceeded) {
+            // Using showInfo instead of showError to avoid alarming the user during fallback flow
+            showInfo('Payment info', 'The checkout link was invalid; proceeding via an alternative method.');
+          } else {
+            showError('Payment unavailable', 'The payment link is invalid and no alternative methods are available.');
+          }
+          return;
+        }
+      }
+      if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
+        return;
+      }
+      if (onOpenPayment) {
+        const opened = await openPayment(paymentRequest);
+        if (!opened) {
+          showError('Payment unavailable', 'Payment is currently unavailable.');
         }
         return;
       }
-    }
-    if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
-      return;
-    }
-    if (onOpenPayment) {
-      await openPayment(paymentRequest);
-      return;
-    }
-    try {
-      if (paymentUrl) {
-        navigate(paymentUrl);
+      try {
+        if (paymentUrl) {
+          navigate(paymentUrl);
+          return;
+        }
+        console.warn('[IntakePayment] Payment URL unavailable for navigation');
+        showError('Payment unavailable', 'Payment is currently unavailable.');
+      } catch (error) {
+        console.warn('[IntakePayment] Catch-all navigation failed', error);
+        showError('Payment unavailable', 'Payment is currently unavailable.');
       }
-    } catch (error) {
-      console.warn('[IntakePayment] Catch-all navigation failed', error);
+    } finally {
+      setIsPaying(false);
     }
   };
 
@@ -141,11 +167,18 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         variant="primary"
         onClick={handlePay}
         className="w-full"
-        disabled={!isClient || (typeof window === 'undefined' && !onOpenPayment)}
-        aria-label={(!isClient || (typeof window === 'undefined' && !onOpenPayment)) ? 'Payment not available in this environment' : undefined}
+        disabled={!isClient || isPaying}
+        aria-busy={isPaying ? 'true' : undefined}
+        aria-disabled={!isClient ? 'true' : undefined}
+        aria-describedby={!isClient ? paymentUnavailableId : undefined}
       >
         {buttonLabel}
       </Button>
+      {!isClient && (
+        <span id={paymentUnavailableId} className="sr-only">
+          Payments are not available right now.
+        </span>
+      )}
     </div>
   );
 };

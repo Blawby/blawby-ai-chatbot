@@ -75,7 +75,7 @@ function validateAddressObject(addressValue: unknown): Address | null {
     if (field === 'postalCode') {
       // Very basic check: just digits or letters, no specific country-dependent patterns here
       // to avoid over-validating and rejecting international formats the backend might accept.
-      if (!/^[A-Za-z0-9\s-]{3,12}$/.test(trimmedValue)) {
+      if (!/^(?=.*[A-Za-z0-9])[A-Za-z0-9\s-]{3,12}$/.test(trimmedValue)) {
         return null;
       }
     }
@@ -1559,7 +1559,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
               console.warn('[Intake] Failed to persist payment message', error);
               setPaymentRetryNotice({
                 message: 'Payment message delivery will be retried. You can also pay using the link below.',
-                paymentUrl: paymentUrl
+                paymentUrl
               });
               persistenceStatus = 'retry_queued';
             }
@@ -2058,8 +2058,9 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         return;
       }
 
-      // Optimistically add to prevent race conditions
-      processedPaymentUuidsRef.current.add(uuid);
+      if (cancelled) {
+        return;
+      }
 
       try {
         if (cancelled) return;
@@ -2078,6 +2079,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         }
 
         if (persistedMessage) {
+          processedPaymentUuidsRef.current.add(uuid);
           applyServerMessages([persistedMessage]);
           setPaymentRetryNotice(null);
           void confirmIntakeLead(uuid);

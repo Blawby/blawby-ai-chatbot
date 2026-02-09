@@ -49,6 +49,11 @@ type PrefillDetails = {
   payloadType?: string;
 };
 
+type OrganizationSummary = {
+  id: string;
+  slug?: string | null;
+};
+
 type PayloadParseResult = {
   data: PrefillDetails | null;
   error: string | null;
@@ -317,7 +322,7 @@ export const AcceptInvitationPage = () => {
       }).organization.setActive({ organizationId: invitation.organizationId });
 
       showSuccess('Invitation accepted', 'You now have access to the practice.');
-      navigate(`/embed/${encodeURIComponent(invitation.organizationSlug)}`, true);
+      navigate(`/public/${encodeURIComponent(invitation.organizationSlug)}`, true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to accept invitation.';
       showError('Invitation error', message);
@@ -333,7 +338,7 @@ export const AcceptInvitationPage = () => {
   const handleContinueIntake = useCallback(async () => {
     if (!intakeConversationId) {
       if (organizationSlug) {
-        navigate(`/embed/${encodeURIComponent(organizationSlug)}`, true);
+        navigate(`/public/${encodeURIComponent(organizationSlug)}`, true);
       }
       return;
     }
@@ -345,18 +350,24 @@ export const AcceptInvitationPage = () => {
       let targetOrgId = activeOrganizationId;
       let didSwitch = false;
 
-      const { data: orgs } = await (client as unknown as { 
-        organization: { list: () => Promise<any> } 
+      const { data: orgs } = await (client as unknown as {
+        organization: { list: () => Promise<{ data?: OrganizationSummary[] }> }
       }).organization.list();
+      const orgList = Array.isArray(orgs) ? orgs : [];
 
-      let match: any = null;
+      let match: OrganizationSummary | null = null;
       if (organizationSlug) {
-        match = orgs?.find((o: any) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
+        match = orgList.find((o) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
         if (!match) {
           throw new Error('Organization not found for organizationSlug.');
         }
       } else if (targetOrgId) {
-        match = orgs?.find((o: any) => o.id === targetOrgId) ?? null;
+        match = orgList.find((o) => o.id === targetOrgId) ?? null;
+        if (!match) {
+          const missingOrgId = targetOrgId;
+          targetOrgId = null;
+          throw new Error(`Active organization not found in user's organization list: ${missingOrgId}`);
+        }
       }
 
       if (match) {
@@ -393,7 +404,7 @@ export const AcceptInvitationPage = () => {
         throw new Error('Organization slug unavailable (missing organizationSlug and no matched organization for targetOrgId).');
       }
       navigate(
-        `/embed/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
+        `/public/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
         true
       );
     } catch (error) {

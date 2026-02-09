@@ -39,7 +39,7 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 **Route Baselines**:
 - Practice workspace routes live under `/practice/*` (home: `/practice/home`, leads: `/practice/leads`).
 - Client workspace routes live under `/client/*` (default: `/client/conversations`).
-- Public widget routes live under `/embed/:practiceSlug`.
+- Public widget routes live under `/public/:practiceSlug`.
 
 **Key Patterns**:
 - Use relative URLs (`/api/*`) to leverage Vite proxy (maintains cookies/session state)

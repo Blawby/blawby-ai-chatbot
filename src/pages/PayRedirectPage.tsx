@@ -63,11 +63,7 @@ export const PayRedirectPage: FunctionComponent = () => {
 
     const conversationMatch = trimmed.match(/[?&]conversation_id=([^&]+)/);
     if (conversationMatch?.[1] && !conversationFromParam) {
-      try {
-        conversationFromParam = decodeURIComponent(conversationMatch[1]);
-      } catch {
-        conversationFromParam = conversationMatch[1];
-      }
+      conversationFromParam = conversationMatch[1];
     }
 
     try {
@@ -88,19 +84,23 @@ export const PayRedirectPage: FunctionComponent = () => {
       let decodedSlug = slug;
       try {
         decodedSlug = decodeURIComponent(slug);
-      } catch {}
+      } catch {
+        // Ignore invalid URL encoding
+      }
 
       let decodedConv = conversationFromParam;
       if (conversationFromParam) {
         try {
           decodedConv = decodeURIComponent(conversationFromParam);
-        } catch {}
+        } catch {
+          // Ignore invalid URL encoding
+        }
       }
 
       if (decodedConv) {
-        return `/embed/${encodeURIComponent(decodedSlug)}/conversations/${encodeURIComponent(decodedConv)}`;
+        return `/public/${encodeURIComponent(decodedSlug)}/conversations/${encodeURIComponent(decodedConv)}`;
       }
-      return `/embed/${encodeURIComponent(decodedSlug)}`;
+      return `/public/${encodeURIComponent(decodedSlug)}`;
     }
 
     return pathPart;

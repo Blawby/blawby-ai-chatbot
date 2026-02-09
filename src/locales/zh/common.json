@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "返回"
+  },
   "app": {
     "loading": "加载中…"
   },
@@ -211,7 +214,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "你好 👋",
       "helpPrompt": "有什么我们可以帮您的吗？",
@@ -226,7 +229,10 @@
     },
     "navigation": {
       "home": "首页",
-      "messages": "消息"
+      "messages": "消息",
+      "matters": "案件",
+      "clients": "客户",
+      "settings": "设置"
     },
     "conversationList": {
       "title": "消息",

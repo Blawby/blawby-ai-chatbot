@@ -1,4 +1,4 @@
-import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider, Link } from 'preact-iso';
+import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
@@ -33,23 +33,26 @@ const LoadingScreen = () => (
   </div>
 );
 
-const NotFoundRoute = () => (
-  <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-    <div className="text-lg font-medium">Page Not Found</div>
-    <div>The page you&apos;re looking for doesn&apos;t exist.</div>
-    <Link
-      href="/" 
-      className="text-primary hover:underline font-medium"
-    >
-      Return to Home
-    </Link>
-  </div>
-);
+const NotFoundRoute = () => {
+  const { navigate } = useNavigation();
+
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="text-lg font-medium">Page Not Found</div>
+      <div>The page you&apos;re looking for doesn&apos;t exist.</div>
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="text-primary hover:underline font-medium"
+      >
+        Return to Home
+      </button>
+    </div>
+  );
+};
 
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
-type PracticeRouteKey = 'home' | 'messages' | 'matters' | 'clients' | 'conversations';
-
-// Client routes align with public embed structure
+// Client routes align with public structure
 
 // Main App component with routing
 export function App() {
@@ -194,23 +197,23 @@ function AppShell() {
           <Route path="/pay" component={PayRedirectPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
-          <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} embedView="home" />
-          <Route path="/embed/:practiceSlug/conversations" component={PublicPracticeRoute} embedView="list" />
-          <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} embedView="conversation" />
-          <Route path="/embed/:practiceSlug/matters" component={PublicPracticeRoute} embedView="matters" />
+          <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
+          <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
+          <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
+          <Route path="/public/:practiceSlug/matters" component={PublicPracticeRoute} workspaceView="matters" />
           <Route path="/client" component={NotFoundRoute} />
-          <Route path="/client/:practiceSlug" component={ClientPracticeRoute} embedView="home" />
-          <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} embedView="list" />
-          <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} embedView="conversation" />
-          <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} embedView="matters" />
+          <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
+          <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
+          <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
+          <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} workspaceView="matters" />
           <Route path="/practice" component={NotFoundRoute} />
-          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" practiceEmbedView="home" />
-          <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="list" />
-          <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="messages" practiceEmbedView="conversation" />
-          <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" practiceEmbedView="clients" />
-          <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" practiceEmbedView="clients" />
-          <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" practiceEmbedView="matters" />
-          <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" practiceEmbedView="matters" />
+          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
+          <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
+          <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
+          <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} workspaceView="clients" />
+          <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
+          <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
+          <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
           <Route default component={RootRoute} />
         </Router>
       </LocationProvider.ctx.Provider>
@@ -272,8 +275,6 @@ function SettingsRoute() {
   return (
     <PracticeAppRoute
       settingsMode={true}
-      settingsOverlayOpen={true}
-      activeRoute="home"
     />
   );
 }
@@ -357,17 +358,13 @@ function RootRoute() {
 
 function PracticeAppRoute({
   settingsMode = false,
-  settingsOverlayOpen = false,
-  activeRoute = 'home',
   conversationId,
-  practiceEmbedView = 'home',
+  workspaceView = 'home',
   practiceSlug
 }: {
   settingsMode?: boolean;
-  settingsOverlayOpen?: boolean;
-  activeRoute?: PracticeRouteKey;
   conversationId?: string;
-  practiceEmbedView?: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
   practiceSlug?: string;
 }) {
   const { session, isPending, activeOrganizationId } = useSessionContext();
@@ -453,7 +450,6 @@ function PracticeAppRoute({
   const {
     practiceConfig,
     practiceNotFound,
-    handleRetryPracticeConfig,
     isLoading: _isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
@@ -565,29 +561,26 @@ function PracticeAppRoute({
   }
 
   return (
-    <MainApp
-      practiceId={practiceId}
-      practiceConfig={practiceConfig}
-      practiceNotFound={practiceNotFound}
-      handleRetryPracticeConfig={handleRetryPracticeConfig}
-      isPracticeView={true}
-      workspace="practice"
-      settingsOverlayOpen={settingsOverlayOpen}
-      routeConversationId={conversationId}
-      practiceEmbedView={practiceEmbedView}
-      practiceSlug={normalizedPracticeSlug || undefined}
-    />
+      <MainApp
+        practiceId={practiceId}
+        practiceConfig={practiceConfig}
+        isPracticeView={true}
+        workspace="practice"
+        routeConversationId={conversationId}
+        practiceWorkspaceView={workspaceView}
+        practiceSlug={normalizedPracticeSlug || undefined}
+      />
   );
 }
 
 function ClientPracticeRoute({
   practiceSlug,
   conversationId,
-  embedView = 'home'
+  workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;
-  embedView?: 'home' | 'list' | 'conversation' | 'matters';
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -618,12 +611,12 @@ function ClientPracticeRoute({
 
   useEffect(() => {
     if (!slug || sessionIsPending) return;
-    if (isAuthenticatedClient && embedView === 'home') {
+    if (isAuthenticatedClient && workspaceView === 'home') {
       navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
-    } else if (!isAuthenticatedClient && embedView === 'matters') {
+    } else if (!isAuthenticatedClient && workspaceView === 'matters') {
       navigate(`/client/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending, session]);
+  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending, session]);
 
   if (isLoading || sessionIsPending) {
     return <LoadingScreen />;
@@ -659,13 +652,11 @@ function ClientPracticeRoute({
       <MainApp
         practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
-        practiceNotFound={practiceNotFound}
-        handleRetryPracticeConfig={handleRetryPracticeConfig}
         isPracticeView={true}
         workspace="client"
         clientPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
-        clientEmbedView={embedView}
+        clientWorkspaceView={workspaceView}
       />
     </>
   );
@@ -674,11 +665,11 @@ function ClientPracticeRoute({
 function PublicPracticeRoute({
   practiceSlug,
   conversationId,
-  embedView = 'home'
+  workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;
-  embedView?: 'home' | 'list' | 'conversation' | 'matters';
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -788,12 +779,12 @@ function PublicPracticeRoute({
 
   useEffect(() => {
     if (!slug || sessionIsPending) return;
-    if (isAuthenticatedClient && embedView === 'home') {
-      navigate(`/embed/${encodeURIComponent(slug)}/conversations`, true);
-    } else if (!isAuthenticatedClient && embedView === 'matters') {
-      navigate(`/embed/${encodeURIComponent(slug)}`, true);
+    if (isAuthenticatedClient && workspaceView === 'home') {
+      navigate(`/public/${encodeURIComponent(slug)}/conversations`, true);
+    } else if (!isAuthenticatedClient && workspaceView === 'matters') {
+      navigate(`/public/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, embedView, slug, navigate, sessionIsPending, session]);
+  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending, session]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -816,10 +807,10 @@ function PublicPracticeRoute({
     return <LoadingScreen />;
   }
 
-  if (isAuthenticatedClient && embedView === 'home' && slug) {
+  if (isAuthenticatedClient && workspaceView === 'home' && slug) {
     return <LoadingScreen />;
   }
-  if (!isAuthenticatedClient && embedView === 'matters' && slug) {
+  if (!isAuthenticatedClient && workspaceView === 'matters' && slug) {
     return <LoadingScreen />;
   }
 
@@ -836,17 +827,16 @@ function PublicPracticeRoute({
       <MainApp
         practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
-        practiceNotFound={practiceNotFound}
-        handleRetryPracticeConfig={handleRetryPracticeConfig}
         isPracticeView={true}
         workspace="public"
         publicPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
-        publicEmbedView={embedView}
+        publicWorkspaceView={workspaceView}
       />
     </>
   );
 }
+
 
 const FallbackLoader = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
