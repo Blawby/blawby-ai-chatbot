@@ -57,12 +57,23 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
         const status = await fetchIntakePaymentStatus(paymentRequest.intakeUuid);
         if (cancelled) return;
         if (isPaidIntakeStatus(status)) {
+          const requestToken = paymentRequest?.intakeUuid ?? null;
+          const onCloseToken = latestOnCloseRef.current;
           if (latestOnSuccessRef.current) {
             try {
               await Promise.resolve(latestOnSuccessRef.current());
             } catch (error) {
               console.warn('[IntakePaymentModal] onSuccess callback failed', error);
             }
+          }
+          if (
+            cancelled
+            || requestToken !== (paymentRequest?.intakeUuid ?? null)
+            || !isPaidIntakeStatus(status)
+            || onCloseToken !== latestOnCloseRef.current
+            || !latestOnCloseRef.current
+          ) {
+            return;
           }
           latestOnCloseRef.current();
         }

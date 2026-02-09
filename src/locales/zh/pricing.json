@@ -204,7 +204,11 @@
     "billedAnnually": "按年计费",
     "currency": {
       "usd": "美元"
-    }
+    },
+    "noPracticeSelected": "未选择事务所",
+    "selectPracticeToManage": "请选择一家事务所来管理账单。",
+    "unableOpenPortal": "无法打开账单门户",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "比较计划",
@@ -215,5 +219,6 @@
   "sections": {
     "benefits": "优势:",
     "limitations": "限制:"
-  }
+  },
+  "upgradeFailed": "升级失败"
 }

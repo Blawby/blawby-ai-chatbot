@@ -121,7 +121,7 @@ export const UserProfileDisplay = ({
   };
 
   const handleUpgrade = () => {
-    window.location.hash = '#pricing';
+    navigate('/pricing');
   };
 
   const handleProfileClick = () => {
@@ -147,7 +147,7 @@ export const UserProfileDisplay = ({
 
   const handleUpgradeClick = () => {
     setShowDropdown(false);
-    window.location.hash = '#pricing';
+    navigate('/pricing');
   };
 
   const handleHelpClick = () => {

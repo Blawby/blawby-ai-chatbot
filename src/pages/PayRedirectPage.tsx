@@ -103,7 +103,27 @@ export const PayRedirectPage: FunctionComponent = () => {
       return `/public/${encodeURIComponent(decodedSlug)}`;
     }
 
-    return pathPart;
+    try {
+      const normalizedUrl = new URL(pathPart, window.location.origin);
+      const normalizedPath = normalizedUrl.pathname.replace(/\/{2,}/g, '/');
+      if (!normalizedPath.startsWith('/') || normalizedPath.includes('\\')) {
+        return undefined;
+      }
+      const decodedSegments = normalizedPath.split('/').map((segment, index) => {
+        if (index === 0) return '';
+        try {
+          return decodeURIComponent(segment);
+        } catch {
+          return segment;
+        }
+      });
+      const encodedPath = `/${decodedSegments.slice(1).map((segment) => encodeURIComponent(segment)).join('/')}`;
+      return encodedPath + (normalizedUrl.search ? normalizedUrl.search : '');
+    } catch (e) {
+      console.warn('[PayRedirect] Failed to normalize return_to path', e);
+    }
+
+    return undefined;
   }, [conversationId, returnToParam]);
 
   const setPaymentSuccessFlag = useCallback((uuid: string) => {

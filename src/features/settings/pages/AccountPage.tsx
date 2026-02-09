@@ -696,7 +696,7 @@ export const AccountPage = ({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => navigate('/#pricing')}
+                  onClick={() => navigate('/pricing')}
                 >
                   {t('settings:account.plan.upgrade')}
                 </Button>

@@ -204,7 +204,11 @@
     "billedAnnually": "يتم إصدار الفاتورة سنوياً",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "لم يتم اختيار مكتب",
+    "selectPracticeToManage": "يرجى اختيار مكتب لإدارة الفواتير.",
+    "unableOpenPortal": "تعذر فتح بوابة الفواتير",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "مقارنة الخطط",
@@ -215,5 +219,6 @@
   "sections": {
     "benefits": "الفوائد:",
     "limitations": "القيود:"
-  }
+  },
+  "upgradeFailed": "فشلت الترقية"
 }

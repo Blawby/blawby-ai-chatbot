@@ -1,3 +1,4 @@
+import type { JSX } from 'preact';
 import { CheckCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 import {
   EyeIcon,

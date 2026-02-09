@@ -539,6 +539,7 @@ export async function getPractice(practiceId: string, config?: Pick<AxiosRequest
   return unwrapPracticeResponse(response.data);
 }
 
+
 export async function createPractice(
   payload: CreatePracticeRequest,
   config?: Pick<AxiosRequestConfig, 'signal'>

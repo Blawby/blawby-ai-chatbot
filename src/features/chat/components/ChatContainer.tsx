@@ -88,7 +88,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   conversationTitle,
   onSendMessage,
   onContactFormSubmit,
-  onAddMessage,
+  onAddMessage: _onAddMessage,
   isPublicWorkspace = false,
   practiceConfig,
   showPracticeHeader = true,
@@ -262,11 +262,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       return;
     }
 
-    let invitationTriggered = false;
     if (paymentRequest.intakeUuid) {
       try {
         await triggerIntakeInvitation(paymentRequest.intakeUuid);
-        invitationTriggered = true;
       } catch (error) {
         console.error('[Chat] Failed to trigger intake invitation', error);
       }

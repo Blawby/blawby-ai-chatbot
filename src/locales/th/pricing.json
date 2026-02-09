@@ -204,12 +204,17 @@
     "billedAnnually": "เรียกเก็บเงินรายปี",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "ไม่ได้เลือกสำนักงาน",
+    "selectPracticeToManage": "กรุณาเลือกสำนักงานเพื่อจัดการการเรียกเก็บเงิน",
+    "unableOpenPortal": "ไม่สามารถเปิดพอร์ทัลการเรียกเก็บเงินได้",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "เปรียบเทียบแผน",
     "feature": "ฟีเจอร์",
     "included": "รวมอยู่ด้วย",
     "notIncluded": "ไม่รวม"
-  }
+  },
+  "upgradeFailed": "การอัปเกรดล้มเหลว"
 }

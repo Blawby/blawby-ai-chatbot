@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Zurück"
+    "back": "Zurück",
+    "errors": {
+      "tryAgainLater": "Bitte versuchen Sie es später noch einmal."
+    }
   },
   "app": {
     "loading": "Lädt…"
@@ -243,12 +246,15 @@
     },
     "error": {
       "title": "Kanzleidetails nicht verfügbar",
-      "description": "Wir konnten den Namen und das Logo der Kanzlei {{slug}} nicht laden. Bitte aktualisieren Sie die Seite oder kontaktieren Sie die Kanzlei, um deren öffentliche Einstellungen zu bestätigen.",
+      "description": "Wir konnten den Namen und das Logo der Kanzlei „{{slug}}“ nicht laden. Bitte aktualisieren Sie die Seite oder kontaktieren Sie die Kanzlei, um deren öffentliche Einstellungen zu bestätigen.",
       "retry": "Erneut versuchen"
     },
     "header": {
       "activeNow": "Jetzt aktiv",
-      "back": "Zurück"
+      "back": "Zurück",
+      "inactive": "Inaktiv",
+      "away": "Abwesend",
+      "unknown": "Status unbekannt"
     }
   }
 }

@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Lütfen daha sonra tekrar deneyiniz."
+    }
+  },
   "app": {
     "loading": "[NEEDS TRANSLATION] Loading…"
   },
@@ -217,12 +223,15 @@
     },
     "error": {
       "title": "Ofis detayları mevcut değil",
-      "description": "Ofis adını ve logosunu yükleyemedik {{slug}}. Lütfen sayfayı yenileyin veya genel ayarlarını onaylamak için ofisle iletişime geçin.",
+      "description": "Ofis adını ve logosunu yükleyemedik \"{{slug}}\". Lütfen sayfayı yenileyin veya genel ayarlarını onaylamak için ofisle iletişime geçin.",
       "retry": "Tekrar dene"
     },
     "header": {
       "activeNow": "Şimdi aktif",
-      "back": "Geri"
+      "back": "Geri",
+      "inactive": "Çevrimdışı",
+      "away": "Uzakta",
+      "unknown": "Durum bilinmiyor"
     }
   },
   "businessWelcome": {

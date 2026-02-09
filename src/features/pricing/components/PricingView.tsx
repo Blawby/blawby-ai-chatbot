@@ -2,12 +2,9 @@ import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
 import { useTranslation, i18n } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
-import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
-import BadgeRecommended from './BadgeRecommended';
-import ModalCloseButton from './ModalCloseButton';
-// Tabs removed per product decision
+import BadgeRecommended from '@/features/modals/components/BadgeRecommended';
 import { getBusinessPrices, TIER_FEATURES } from '@/shared/utils/stripe-products';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -16,18 +13,16 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { features } from '@/config/features';
 
-interface PricingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface PricingViewProps {
   currentTier?: SubscriptionTier;
   onUpgrade?: (tier: SubscriptionTier) => Promise<boolean | void> | boolean | void;
+  className?: string;
 }
 
-const PricingModal: FunctionComponent<PricingModalProps> = ({
-  isOpen,
-  onClose,
+const PricingView: FunctionComponent<PricingViewProps> = ({
   currentTier = 'free',
-  onUpgrade
+  onUpgrade,
+  className
 }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
@@ -79,8 +74,6 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
       }));
   })();
 
-  
-
   const handleUpgrade = async (tier: SubscriptionTier) => {
     let shouldNavigateToCart = true;
     try {
@@ -92,12 +85,11 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
       }
       if (shouldNavigateToCart) {
         navigate(`/cart?tier=${tier}`);
-        onClose();
       }
     } catch (error) {
       console.error('Error during upgrade process:', error);
-      navigate(`/cart?tier=${tier}`);
-      onClose();
+      const message = error instanceof Error ? error.message : t('common:errors.tryAgainLater');
+      showError(t('pricing:upgradeFailed'), message);
     }
   };
 
@@ -105,97 +97,91 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
     try {
       const practiceId = currentPractice?.id;
       if (!practiceId) {
-        console.error('No practice selected');
-        showError('No practice selected', 'Please select a practice to manage billing.');
+        console.error(t('pricing:billing.noPracticeSelected'));
+        showError(t('pricing:billing.noPracticeSelected'), t('pricing:billing.selectPracticeToManage'));
         return;
       }
       setIsBillingLoading(true);
       await openBillingPortal({ practiceId });
-      onClose();
     } catch (error) {
       console.error('Failed to open billing portal:', error);
-      const message = error instanceof Error ? error.message : 'Please try again later.';
-      showError('Unable to open billing portal', message);
+      const message = error instanceof Error ? error.message : t('common:errors.tryAgainLater');
+      showError(t('pricing:billing.unableOpenPortal'), message);
     } finally {
       setIsBillingLoading(false);
     }
   };
 
-  // NOTE: Country selector removed until region-specific pricing is implemented.
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} type="fullscreen" showCloseButton={false}>
-      <div className="h-full bg-dark-bg text-white overflow-y-auto">
-        <div className="relative p-6 border-b border-dark-border">
-          <ModalCloseButton onClick={onClose} ariaLabel={t('common:close')} className="absolute top-4 right-4" />
-          <div className="flex flex-col items-center space-y-6">
-            <h1 data-testid="pricing-modal-title" className="text-2xl font-semibold text-white">{t('modal.title')}</h1>
-          </div>
+    <div className={`min-h-screen bg-dark-bg text-white ${className ?? ''}`}>
+      <div className="relative p-6 border-b border-dark-border">
+        <div className="flex flex-col items-center space-y-6">
+          <h1 data-testid="pricing-page-title" className="text-2xl font-semibold text-white">{t('modal.title')}</h1>
         </div>
+      </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
-            {mainPlans.map((plan) => (
-              <div key={plan.id} className={`relative rounded-xl p-6 transition-all duration-200 flex flex-col h-full ${plan.isRecommended ? 'bg-dark-card-bg border-2 border-accent-500' : 'bg-dark-card-bg border border-dark-border'}`}>
-                {plan.isRecommended && (
-                  <div className="absolute -top-3 left-6">
-                    <BadgeRecommended>{t('modal.recommended').toUpperCase()}</BadgeRecommended>
-                  </div>
-                )}
-                <div className="mb-6">
-                  <h3 className="text-2xl font-bold mb-2 text-white">{plan.name}</h3>
-                  <div className="text-3xl font-bold mb-2 text-white">{plan.price}</div>
-                  <p className="text-gray-300">{plan.description}</p>
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
+          {mainPlans.map((plan) => (
+            <div key={plan.id} className={`relative rounded-xl p-6 transition-all duration-200 flex flex-col h-full ${plan.isRecommended ? 'bg-dark-card-bg border-2 border-accent-500' : 'bg-dark-card-bg border border-dark-border'}`}>
+              {plan.isRecommended && (
+                <div className="absolute -top-3 left-6">
+                  <BadgeRecommended>{t('modal.recommended').toUpperCase()}</BadgeRecommended>
                 </div>
-                <div className="mb-6">
-                  {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise' || plan.id === 'plus') ? (
-                    <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
-                      {isBillingLoading ? t('modal.openingBilling') : t('modal.manageBilling')}
-                    </Button>
-                  ) : (
-                    <Button onClick={() => handleUpgrade(plan.id)} disabled={plan.isCurrent} variant={plan.isCurrent ? 'secondary' : 'primary'} size="lg" className="w-full">
-                      {plan.buttonText}
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-3 flex-1">
-                  <PlanFeaturesList features={plan.features} />
-                </div>
-                {plan.id === 'free' && (
-                  <div className="mt-6 pt-4 border-t border-dark-border">
-                    <p className="text-xs text-gray-400">
-                      {t('plans.free.footer.existingPlan')}{' '}
-                      <button onClick={() => navigate('/help/billing')} className="underline hover:text-white">{t('plans.free.footer.billingHelp')}</button>
-                    </p>
-                  </div>
-                )}
-                {plan.id === 'business' && (
-                  <div className="mt-6 pt-4 border-t border-dark-border">
-                    <p className="text-xs text-gray-400 mb-1">{t('plans.business.footer.billing')}</p>
-                    <p className="text-xs text-gray-400">
-                      {t('plans.business.footer.unlimited')}{' '}
-                      <button onClick={() => navigate('/business/features')} className="underline hover:text-white">{t('plans.business.footer.learnMore')}</button>
-                    </p>
-                  </div>
+              )}
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold mb-2 text-white">{plan.name}</h3>
+                <div className="text-3xl font-bold mb-2 text-white">{plan.price}</div>
+                <p className="text-gray-300">{plan.description}</p>
+              </div>
+              <div className="mb-6">
+                {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise' || plan.id === 'plus') ? (
+                  <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
+                    {isBillingLoading ? t('modal.openingBilling') : t('modal.manageBilling')}
+                  </Button>
+                ) : (
+                  <Button onClick={() => handleUpgrade(plan.id)} disabled={plan.isCurrent} variant={plan.isCurrent ? 'secondary' : 'primary'} size="lg" className="w-full">
+                    {plan.buttonText}
+                  </Button>
                 )}
               </div>
-            ))}
-          </div>
-          <div className="border-t border-dark-border px-6 py-2 mt-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <UserGroupIcon className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-400">{t('footer.enterprise.question')}</span>
-                <button className="text-sm text-white underline hover:text-gray-300 transition-colors" onClick={() => { window.open('/enterprise', '_blank', 'noopener,noreferrer'); }}>
-                  {t('footer.enterprise.link')}
-                </button>
+              <div className="space-y-3 flex-1">
+                <PlanFeaturesList features={plan.features} />
               </div>
+              {plan.id === 'free' && (
+                <div className="mt-6 pt-4 border-t border-dark-border">
+                  <p className="text-xs text-gray-400">
+                    {t('plans.free.footer.existingPlan')}{' '}
+                    <button onClick={() => navigate('/help/billing')} className="underline hover:text-white">{t('plans.free.footer.billingHelp')}</button>
+                  </p>
+                </div>
+              )}
+              {plan.id === 'business' && (
+                <div className="mt-6 pt-4 border-t border-dark-border">
+                  <p className="text-xs text-gray-400 mb-1">{t('plans.business.footer.billing')}</p>
+                  <p className="text-xs text-gray-400">
+                    {t('plans.business.footer.unlimited')}{' '}
+                    <button onClick={() => navigate('/business/features')} className="underline hover:text-white">{t('plans.business.footer.learnMore')}</button>
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-dark-border px-6 py-2 mt-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <UserGroupIcon className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-400">{t('footer.enterprise.question')}</span>
+              <button className="text-sm text-white underline hover:text-gray-300 transition-colors" onClick={() => { window.open('/enterprise', '_blank', 'noopener,noreferrer'); }}>
+                {t('footer.enterprise.link')}
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 };
 
-export default PricingModal;
+export default PricingView;

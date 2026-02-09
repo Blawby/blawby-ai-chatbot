@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Silakan coba lagi nanti."
+    }
+  },
   "app": {
     "loading": "Memuat…"
   },
@@ -204,7 +210,7 @@
     "navigation": {
       "home": "Beranda",
       "messages": "Pesan",
-      "matters": "Kasus",
+      "matters": "Perkara",
       "clients": "Klien",
       "settings": "Pengaturan"
     },
@@ -217,12 +223,15 @@
     },
     "error": {
       "title": "Detail praktik tidak tersedia",
-      "description": "Kami tidak dapat memuat nama dan logo praktik {{slug}}. Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
+      "description": "Kami tidak dapat memuat nama dan logo praktik \"{{slug}}\". Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
       "retry": "Coba lagi"
     },
     "header": {
       "activeNow": "Aktif sekarang",
-      "back": "Kembali"
+      "back": "Kembali",
+      "inactive": "Tidak aktif",
+      "away": "Tidak di tempat",
+      "unknown": "Status tidak diketahui"
     }
   },
   "businessWelcome": {

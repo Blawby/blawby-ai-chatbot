@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Probeer het later opnieuw."
+    }
+  },
   "app": {
     "loading": "Laden…"
   },
@@ -217,12 +223,15 @@
     },
     "error": {
       "title": "Praktijkgegevens niet beschikbaar",
-      "description": "We konden de praktijknaam en het logo van {{slug}} niet laden. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
+      "description": "We konden de praktijknaam en het logo van \"{{slug}}\" niet laden. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
       "retry": "Opnieuw proberen"
     },
     "header": {
       "activeNow": "Nu actief",
-      "back": "Terug"
+      "back": "Terug",
+      "inactive": "Inactief",
+      "away": "Afwezig",
+      "unknown": "Status onbekend"
     }
   },
   "businessWelcome": {

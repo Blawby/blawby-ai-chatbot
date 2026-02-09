@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Voltar"
+    "back": "Voltar",
+    "errors": {
+      "tryAgainLater": "Por favor, tente novamente mais tarde."
+    }
   },
   "app": {
     "loading": "Carregando…"
@@ -220,12 +223,15 @@
     },
     "error": {
       "title": "Detalhes da prática indisponíveis",
-      "description": "Não conseguimos carregar o nome e o logotipo da prática {{slug}}. Atualize ou entre em contato com a prática para confirmar suas configurações públicas.",
+      "description": "Não conseguimos carregar o nome e o logotipo da prática \"{{slug}}\". Atualize ou entre em contato com a prática para confirmar suas configurações públicas.",
       "retry": "Tentar novamente"
     },
     "header": {
       "activeNow": "Ativo agora",
-      "back": "Voltar"
+      "back": "Voltar",
+      "inactive": "Inativo",
+      "away": "Ausente",
+      "unknown": "Status desconhecido"
     }
   },
   "businessWelcome": {

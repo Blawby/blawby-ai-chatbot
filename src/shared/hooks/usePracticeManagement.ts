@@ -1330,7 +1330,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
     });
 
-    return normalizeMatterTransitionResult(response);
+    const result = normalizeMatterTransitionResult(response);
+    if (result.success === false || (typeof result.error === 'string' && result.error.trim().length > 0)) {
+      throw new Error(`Matter accept failed: ${result.error || 'Unknown error'}`);
+    }
+    return result;
   }, [workspaceCall]);
 
   const rejectMatter = useCallback(async (practiceId: string, matterId: string, reason?: string): Promise<MatterTransitionResult> => {
@@ -1353,7 +1357,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
     });
 
-    return normalizeMatterTransitionResult(response);
+    const result = normalizeMatterTransitionResult(response);
+    if (result.success === false || (typeof result.error === 'string' && result.error.trim().length > 0)) {
+      throw new Error(`Matter reject failed: ${result.error || 'Unknown error'}`);
+    }
+    return result;
   }, [workspaceCall]);
 
   const updateMatterStatus = useCallback(async (practiceId: string, matterId: string, status: MatterWorkflowStatus, reason?: string): Promise<MatterTransitionResult> => {
@@ -1376,7 +1384,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
     });
 
-    return normalizeMatterTransitionResult(response);
+    const result = normalizeMatterTransitionResult(response);
+    if (result.success === false || (typeof result.error === 'string' && result.error.trim().length > 0)) {
+      throw new Error(`Matter status update failed: ${result.error || 'Unknown error'}`);
+    }
+    return result;
   }, [workspaceCall]);
 
   // Refetch all data

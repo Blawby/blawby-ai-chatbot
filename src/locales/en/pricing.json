@@ -277,13 +277,10 @@
     }
   },
   "billing": {
-    "monthly": "month",
-    "yearly": "year",
-    "billedMonthly": "Billed monthly",
-    "billedAnnually": "Billed annually",
-    "currency": {
-      "usd": "USD"
-    }
+    "noPracticeSelected": "No practice selected",
+    "selectPracticeToManage": "Please select a practice to manage billing.",
+    "unableOpenPortal": "Unable to open billing portal",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Compare Plans",
@@ -294,5 +291,6 @@
   "sections": {
     "benefits": "Benefits:",
     "limitations": "Limitations:"
-  }
+  },
+  "upgradeFailed": "Upgrade failed"
 }

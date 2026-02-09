@@ -4,6 +4,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
+import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 const LoadingScreen = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -31,7 +32,7 @@ const isSafeRedirectPath = (path: string | null | undefined): path is string => 
 };
 
 const OnboardingPage = () => {
-  const { session, isPending } = useSessionContext();
+  const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const { defaultWorkspace } = useWorkspace();
   const location = useLocation();
@@ -48,10 +49,11 @@ const OnboardingPage = () => {
   }
   const requestedReturnPath = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : null;
 
-  const fallbackPath = useMemo(
-    () => requestedReturnPath ?? resolveFallbackPath(defaultWorkspace),
-    [defaultWorkspace, requestedReturnPath]
-  );
+  const fallbackPath = useMemo(() => {
+    if (requestedReturnPath) return requestedReturnPath;
+    if (!activeOrganizationId) return '/pricing';
+    return resolveFallbackPath(defaultWorkspace);
+  }, [activeOrganizationId, defaultWorkspace, requestedReturnPath]);
 
   const userId = session?.user?.id;
   const userIsAnonymous = session?.user?.isAnonymous;
@@ -91,13 +93,15 @@ const OnboardingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
-      <OnboardingFlow
-        onClose={() => navigate(fallbackPath, true)}
-        onComplete={() => navigate(fallbackPath, true)}
-        active
-      />
-    </div>
+    <SetupShell>
+      <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
+        <OnboardingFlow
+          onClose={() => navigate(fallbackPath, true)}
+          onComplete={() => navigate(fallbackPath, true)}
+          active
+        />
+      </div>
+    </SetupShell>
   );
 };
 

@@ -204,7 +204,11 @@
     "billedAnnually": "Thanh toán hàng năm",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Chưa chọn văn phòng",
+    "selectPracticeToManage": "Vui lòng chọn một văn phòng để quản lý thanh toán.",
+    "unableOpenPortal": "Không thể mở cổng thanh toán",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "So sánh gói",
@@ -215,5 +219,6 @@
   "sections": {
     "benefits": "Lợi ích:",
     "limitations": "Hạn chế:"
-  }
+  },
+  "upgradeFailed": "Nâng cấp thất bại"
 }

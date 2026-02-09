@@ -5,11 +5,11 @@ import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import OnboardingPage from '@/pages/OnboardingPage';
+import PricingPage from '@/pages/PricingPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getClient, updateUser } from '@/shared/lib/authClient';
-import { getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -193,6 +193,7 @@ function AppShell() {
           <Route path="/auth" component={AuthPage} />
           <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
           <Route path="/cart" component={CartPage} />
+          <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/pay" component={PayRedirectPage} />
           <Route path="/settings" component={SettingsRoute} />
@@ -235,7 +236,11 @@ function SettingsRoute() {
   const { activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const isClientWorkspace = preferredWorkspace === 'client';
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const {
+    currentPractice,
+    practices,
+    loading: practicesLoading
+  } = usePracticeManagement();
   const practiceById = (id: string | null) => practices.find((practice) => practice.id === id) ?? null;
   const resolvedPractice =
     practiceById(activeOrganizationId) ??
@@ -306,6 +311,16 @@ function RootRoute() {
       return;
     }
 
+    if (session.user.onboardingComplete !== true && !session.user.isAnonymous) {
+      return;
+    }
+
+    const hasPractice = Boolean(currentPractice?.id || practices.length > 0);
+    if (!canAccessPractice && !hasPractice) {
+      navigate('/pricing', true);
+      return;
+    }
+
     if (
       !session.user.primaryWorkspace &&
       !workspaceInitRef.current
@@ -370,12 +385,18 @@ function PracticeAppRoute({
   const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const { isPracticeEnabled, canAccessPractice } = useWorkspace();
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const {
+    currentPractice,
+    practices,
+    loading: practicesLoading,
+    refetch
+  } = usePracticeManagement();
   const [autoActivationState, setAutoActivationState] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
   const autoActivationKeyRef = useRef<string | null>(null);
   const [resolvedSlugPracticeId, setResolvedSlugPracticeId] = useState<string | null>(null);
   const [slugLookupStatus, setSlugLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [slugLookupRetry, setSlugLookupRetry] = useState(0);
+  const slugToIdRef = useRef<Map<string, string>>(new Map());
   const autoActivationCandidateId = practices[0]?.id ?? currentPractice?.id ?? '';
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
   const hasPracticeSlug = normalizedPracticeSlug.length > 0;
@@ -397,10 +418,11 @@ function PracticeAppRoute({
     console.error('Practice config error:', error);
   }, []);
 
-  const handleRetrySlugLookup = useCallback(() => {
+  const handleRetrySlugLookup = () => {
     setSlugLookupStatus('idle');
     setSlugLookupRetry((prev) => prev + 1);
-  }, []);
+    void refetch();
+  };
 
   const canAutoActivatePractice = Boolean(
     !hasPracticeSlug &&
@@ -418,34 +440,39 @@ function PracticeAppRoute({
       return;
     }
 
-    const abortController = new AbortController();
-    setSlugLookupStatus('loading');
+    if (practicesLoading) {
+      setSlugLookupStatus('loading');
+      return;
+    }
 
-    getPublicPracticeDetails(normalizedPracticeSlug, { signal: abortController.signal })
-      .then((details) => {
-        if (abortController.signal.aborted) return;
-        
-        const practiceId = details?.practiceId ?? null;
-        if (!practiceId) {
-          setResolvedSlugPracticeId(null);
-          setSlugLookupStatus('error');
-          return;
-        }
-        setResolvedSlugPracticeId(practiceId);
-        setSlugLookupStatus('done');
-      })
-      .catch((error) => {
-        if (abortController.signal.aborted) return;
-        
-        console.warn('[PracticeSlug] Failed to resolve practice slug', error);
-        setResolvedSlugPracticeId(null);
-        setSlugLookupStatus('error');
-      });
+    const cachedId = slugToIdRef.current.get(normalizedPracticeSlug);
+    if (cachedId) {
+      setResolvedSlugPracticeId(cachedId);
+      setSlugLookupStatus('done');
+      return;
+    }
 
-    return () => {
-      abortController.abort();
-    };
-  }, [hasPracticeSlug, normalizedPracticeSlug, slugLookupRetry]);
+    const match =
+      practices.find((practice) => practice.slug === normalizedPracticeSlug)
+      ?? (currentPractice?.slug === normalizedPracticeSlug ? currentPractice : null);
+
+    if (match?.id) {
+      slugToIdRef.current.set(normalizedPracticeSlug, match.id);
+      setResolvedSlugPracticeId(match.id);
+      setSlugLookupStatus('done');
+      return;
+    }
+
+    setResolvedSlugPracticeId(null);
+    setSlugLookupStatus('error');
+  }, [
+    currentPractice,
+    hasPracticeSlug,
+    normalizedPracticeSlug,
+    practices,
+    practicesLoading,
+    slugLookupRetry
+  ]);
 
   const {
     practiceConfig,

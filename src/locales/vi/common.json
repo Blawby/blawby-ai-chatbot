@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Quay lại"
+    "back": "Quay lại",
+    "errors": {
+      "tryAgainLater": "Vui lòng thử lại sau."
+    }
   },
   "app": {
     "loading": "Đang tải…"
@@ -243,12 +246,15 @@
     },
     "error": {
       "title": "Không có thông tin văn phòng",
-      "description": "Chúng tôi không thể tải tên và logo của văn phòng {{slug}}. Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
+      "description": "Chúng tôi không thể tải tên và logo của văn phòng \"{{slug}}\". Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
       "retry": "Thử lại"
     },
     "header": {
       "activeNow": "Đang hoạt động",
-      "back": "Quay lại"
+      "back": "Quay lại",
+      "inactive": "Không hoạt động",
+      "away": "Vắng mặt",
+      "unknown": "Không rõ trạng thái"
     }
   }
 }

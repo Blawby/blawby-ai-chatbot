@@ -129,7 +129,7 @@ export function normalizeMattersResponse(
     }
 
     // Validate status against allowed values
-    let normalizedStatus: MattersSidebarStatus = 'lead';
+    let normalizedStatus: MattersSidebarStatus = 'draft';
     if (typeof item.status === 'string') {
       if (VALID_STATUSES.includes(item.status as MattersSidebarStatus)) {
         normalizedStatus = item.status as MattersSidebarStatus;
@@ -140,7 +140,7 @@ export function normalizeMattersResponse(
           value: item.status,
           allowedValues: VALID_STATUSES
         });
-        normalizedStatus = 'active';
+        normalizedStatus = 'draft';
       }
     } else if (item.status !== undefined && item.status !== null) {
       logger.warn('Invalid status type', {

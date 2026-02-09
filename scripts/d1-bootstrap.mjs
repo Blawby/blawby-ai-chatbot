@@ -61,7 +61,8 @@ if (remote) {
 }
 
 const run = (commandArgs) => {
-  execFileSync('npx', ['wrangler', ...commandArgs], { stdio: 'inherit', cwd: repoRoot });
+  const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  execFileSync(npxCommand, ['wrangler', ...commandArgs], { stdio: 'inherit', cwd: repoRoot });
 };
 
 console.log(`Bootstrapping D1 database '${db}' (env: ${env}, remote: ${remote})`);

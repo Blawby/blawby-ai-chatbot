@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "返回"
+    "back": "返回",
+    "errors": {
+      "tryAgainLater": "请稍后再试。"
+    }
   },
   "app": {
     "loading": "加载中…"
@@ -243,12 +246,15 @@
     },
     "error": {
       "title": "律所详情不可用",
-      "description": "我们无法加载律所 {{slug}} 的名称和徽标。请刷新或联系律所确认其公开设置。",
+      "description": "我们无法加载律所 「{{slug}}」 的名称和徽标。请刷新或联系律所确认其公开设置。",
       "retry": "重试"
     },
     "header": {
       "activeNow": "当前在线",
-      "back": "返回"
+      "back": "返回",
+      "inactive": "离线",
+      "away": "离开",
+      "unknown": "状态未知"
     }
   }
 }

@@ -204,12 +204,17 @@
     "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
     "currency": {
       "usd": "[NEEDS TRANSLATION] USD"
-    }
+    },
+    "noPracticeSelected": "Uygulama seçilmedi",
+    "selectPracticeToManage": "Faturalandırmayı yönetmek için lütfen bir uygulama seçin.",
+    "unableOpenPortal": "Faturalandırma portalı açılamadı",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Detaylı plan karşılaştırması",
     "feature": "[NEEDS TRANSLATION] Feature",
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
-  }
+  },
+  "upgradeFailed": "Yükseltme başarısız oldu"
 }

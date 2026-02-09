@@ -204,12 +204,17 @@
     "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
     "currency": {
       "usd": "[NEEDS TRANSLATION] USD"
-    }
+    },
+    "noPracticeSelected": "선택된 사무소가 없습니다",
+    "selectPracticeToManage": "청구 관리를 위해 사무소를 선택해 주세요.",
+    "unableOpenPortal": "청구 포털을 열 수 없습니다",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "상세 플랜 비교",
     "feature": "[NEEDS TRANSLATION] Feature",
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
-  }
+  },
+  "upgradeFailed": "업그레이드 실패"
 }

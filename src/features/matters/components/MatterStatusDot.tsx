@@ -2,11 +2,8 @@ import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import { cn } from '@/shared/utils/cn';
 
 const STATUS_DOT_STYLES: Record<MattersSidebarStatus, string> = {
-  lead: 'text-amber-400',
-  open: 'text-amber-400',
-  in_progress: 'text-blue-400',
-  completed: 'text-green-400',
-  archived: 'text-gray-400'
+  draft: 'text-amber-400',
+  active: 'text-blue-400'
 };
 
 interface MatterStatusDotProps {

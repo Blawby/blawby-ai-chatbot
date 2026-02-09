@@ -204,12 +204,17 @@
     "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
     "currency": {
       "usd": "[NEEDS TRANSLATION] USD"
-    }
+    },
+    "noPracticeSelected": "Практика не выбрана",
+    "selectPracticeToManage": "Пожалуйста, выберите практику для управления счетами.",
+    "unableOpenPortal": "Не удалось открыть портал счетов",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
   "comparison": {
     "title": "Подробное сравнение планов",
     "feature": "[NEEDS TRANSLATION] Feature",
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
-  }
+  },
+  "upgradeFailed": "Ошибка обновления"
 }

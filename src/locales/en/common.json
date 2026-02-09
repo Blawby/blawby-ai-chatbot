@@ -1,6 +1,9 @@
 {
   "common": {
-    "back": "Back"
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Please try again later."
+    }
   },
   "app": {
     "loading": "Loading…"
@@ -243,12 +246,15 @@
     },
     "error": {
       "title": "Practice details unavailable",
-      "description": "We could not load the practice name and logo {{slug}}. Please refresh or contact the practice to confirm their public settings.",
+      "description": "We could not load the name and logo for practice \"{{slug}}\". Please refresh or contact the practice to confirm their public settings.",
       "retry": "Try again"
     },
     "header": {
       "activeNow": "Active now",
-      "back": "Back"
+      "back": "Back",
+      "inactive": "Inactive",
+      "away": "Away",
+      "unknown": "Status unknown"
     }
   },
   "chat": {

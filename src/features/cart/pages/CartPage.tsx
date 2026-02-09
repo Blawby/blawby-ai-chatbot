@@ -14,6 +14,7 @@ import {
 } from '@/shared/utils/subscription';
 import { isForcePaidEnabled } from '@/shared/utils/devFlags';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 
 export const CartPage = () => {
@@ -249,17 +250,38 @@ export const CartPage = () => {
   }, [selectedPriceId, selectedPlan]);
 
   if (isPaidTier) {
-    return paidState;
+    return (
+      <SetupShell>
+        {paidState}
+      </SetupShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SetupShell>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-400 mb-4">{loadError}</p>
+            <Button size="md" onClick={loadPlans}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </SetupShell>
+    );
   }
 
   if (!selectedPlan) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
-          <p>Loading pricing information...</p>
+      <SetupShell>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
+            <p>Loading pricing information...</p>
+          </div>
         </div>
-      </div>
+      </SetupShell>
     );
   }
 
@@ -340,46 +362,32 @@ export const CartPage = () => {
     }
   };
 
-  if (loadError) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 mb-4">{loadError}</p>
-          <Button size="md" onClick={loadPlans}>
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="false">
-      {/* Header */}
-      <header className="py-4">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
-          <img 
-            src="/blawby-favicon-iframe.png" 
-            alt="Blawby" 
-            className="h-8 w-8"
-          />
-        </div>
-      </header>
+    <SetupShell>
+      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="false">
+        {/* Header */}
+        <header className="py-4">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
+            <img 
+              src="/blawby-favicon-iframe.png" 
+              alt="Blawby" 
+              className="h-8 w-8"
+            />
+          </div>
+        </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left: Price selection */}
-          <div className="px-4 md:px-8 lg:px-16">
-            <h2 className="text-2xl font-bold mb-4">Pick your plan</h2>
-            
-            {/* Plan Description */}
-            {selectedPlan.description && (
-              <p className="text-gray-300 mb-6 text-sm md:text-base">
-                {selectedPlan.description}
-              </p>
-            )}
+        <main className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left: Price selection */}
+            <div className="px-4 md:px-8 lg:px-16">
+              <h2 className="text-2xl font-bold mb-4">Pick your plan</h2>
+              
+              {/* Plan Description */}
+              {selectedPlan.description && (
+                <p className="text-gray-300 mb-6 text-sm md:text-base">
+                  {selectedPlan.description}
+                </p>
+              )}
 
             {/* Plan Features */}
             {selectedPlan.features && selectedPlan.features.length > 0 && (
@@ -569,5 +577,6 @@ export const CartPage = () => {
         </div>
       </main>
     </div>
+    </SetupShell>
   );
 };
