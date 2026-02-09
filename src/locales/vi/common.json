@@ -211,7 +211,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Xin chào 👋",
       "helpPrompt": "Chúng tôi có thể giúp gì cho bạn?",

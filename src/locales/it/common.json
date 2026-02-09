@@ -188,7 +188,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Ciao 👋",
       "helpPrompt": "Come possiamo aiutarti?",

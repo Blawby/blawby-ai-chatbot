@@ -14,7 +14,7 @@ interface ConversationPreview {
   createdAt: string;
 }
 
-interface PublicConversationListProps {
+interface ConversationListViewProps {
   conversations: Conversation[];
   previews: Record<string, ConversationPreview | undefined>;
   practiceName?: string | null;
@@ -23,6 +23,7 @@ interface PublicConversationListProps {
   onClose?: () => void;
   onSelectConversation: (conversationId: string) => void;
   onSendMessage: () => void;
+  showBackButton?: boolean;
 }
 
 const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
@@ -33,7 +34,7 @@ const resolveConversationTitle = (conversation: Conversation, fallback: string) 
   return fallback;
 };
 
-const PublicConversationList: FunctionComponent<PublicConversationListProps> = ({
+const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   conversations,
   previews,
   practiceName,
@@ -41,7 +42,8 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
   isLoading = false,
   onClose,
   onSelectConversation,
-  onSendMessage
+  onSendMessage,
+  showBackButton = true
 }) => {
   const { t } = useTranslation();
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
@@ -54,22 +56,24 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
   return (
     <div className="flex h-full flex-col bg-light-bg dark:bg-dark-bg">
       <div className="relative flex min-h-[56px] items-center justify-center border-b border-light-border px-4 py-3 dark:border-dark-border">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/10"
-          aria-label="Back"
-        >
-          <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
-        </button>
-        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('embed.conversationList.title')}</div>
+        {showBackButton && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/10"
+            aria-label="Back"
+          >
+            <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('workspace.conversationList.title')}</div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4">
         {isLoading ? (
-          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('embed.conversationList.loading')}</div>
+          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('workspace.conversationList.loading')}</div>
         ) : sorted.length === 0 ? (
-          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('embed.conversationList.empty')}</div>
+          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('workspace.conversationList.empty')}</div>
         ) : (
           <div className="divide-y divide-light-border dark:divide-dark-border">
             {sorted.map((conversation) => {
@@ -80,7 +84,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
               const previewText = preview?.content
                 ? preview.content
-                : t('embed.conversationList.previewPlaceholder');
+                : t('workspace.conversationList.previewPlaceholder');
 
               return (
                 <button
@@ -131,11 +135,11 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
           iconPosition="right"
           onClick={onSendMessage}
         >
-          {t('embed.conversationList.sendMessage')}
+          {t('workspace.conversationList.sendMessage')}
         </Button>
       </div>
     </div>
   );
 };
 
-export default PublicConversationList;
+export default ConversationListView;

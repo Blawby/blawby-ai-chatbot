@@ -5,7 +5,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import AppLayout from './AppLayout';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
-import PublicEmbedPage from '@/features/chat/components/PublicEmbedPage';
+import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
@@ -37,7 +37,7 @@ import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPag
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import type { SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
-import PublicConversationHeader from '@/features/chat/components/PublicConversationHeader';
+import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 type RouteKey =
@@ -48,7 +48,7 @@ type RouteKey =
   | 'payments'
   | 'conversations';
 
-type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -78,9 +78,9 @@ export function MainApp({
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   publicPracticeSlug?: string;
-  publicEmbedView?: EmbedView;
-  practiceEmbedView?: EmbedView;
-  clientEmbedView?: EmbedView;
+  publicEmbedView?: WorkspaceView;
+  practiceEmbedView?: WorkspaceView;
+  clientEmbedView?: WorkspaceView;
   clientPracticeSlug?: string;
   practiceSlug?: string;
 }) {
@@ -822,7 +822,7 @@ export function MainApp({
   const publicHeaderContent = useMemo(() => {
     if (!isPublicWorkspace || !publicConversationsBasePath) return undefined;
     return (
-      <PublicConversationHeader
+      <WorkspaceConversationHeader
         practiceName={resolvedPracticeName}
         practiceLogo={resolvedPracticeLogo}
         activeLabel={publicActiveTimeLabel}
@@ -924,7 +924,7 @@ export function MainApp({
 
 
   const publicEmbedContent = workspace === 'public' ? (
-    <PublicEmbedPage
+    <WorkspacePage
       view={publicEmbedView ?? 'conversation'}
       practiceId={practiceId}
       practiceSlug={resolvedPublicPracticeSlug}
@@ -937,7 +937,7 @@ export function MainApp({
     />
   ) : null;
 
-  const resolvedClientEmbedView = useMemo<EmbedView | null>(() => {
+  const resolvedClientEmbedView = useMemo<WorkspaceView | null>(() => {
     if (workspace !== 'client') return null;
     if (!clientEmbedView) return 'home';
     if (clientEmbedView === 'conversation' && !activeConversationId) {
@@ -947,7 +947,7 @@ export function MainApp({
   }, [activeConversationId, clientEmbedView, workspace]);
 
   const clientEmbedContent = workspace === 'client' ? (
-    <PublicEmbedPage
+    <WorkspacePage
       view={resolvedClientEmbedView ?? 'home'}
       practiceId={practiceId}
       practiceSlug={clientPracticeSlug ?? resolvedClientPracticeSlug}
@@ -962,7 +962,7 @@ export function MainApp({
     />
   ) : null;
 
-  const resolvedPracticeEmbedView = useMemo<EmbedView | null>(() => {
+  const resolvedPracticeEmbedView = useMemo<WorkspaceView | null>(() => {
     if (workspace !== 'practice') return null;
     if (!practiceEmbedView) return 'home';
     if (practiceEmbedView === 'conversation' && !activeConversationId) {
@@ -974,7 +974,7 @@ export function MainApp({
     && (resolvedPracticeEmbedView === 'list' || resolvedPracticeEmbedView === 'conversation');
 
   const practiceEmbedContent = workspace === 'practice' ? (
-    <PublicEmbedPage
+    <WorkspacePage
       view={resolvedPracticeEmbedView ?? 'home'}
       practiceId={practiceId}
       practiceSlug={practiceSlug ?? resolvedPracticeSlug ?? null}

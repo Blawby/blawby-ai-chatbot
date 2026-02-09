@@ -188,7 +188,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Halo 👋",
       "helpPrompt": "Ada yang bisa kami bantu?",

@@ -211,7 +211,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Bonjour 👋",
       "helpPrompt": "Comment pouvons-nous vous aider ?",

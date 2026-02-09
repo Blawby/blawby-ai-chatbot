@@ -4,14 +4,14 @@ import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ClipboardDocumentListIcon, Us
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 
-interface PublicEmbedNavigationProps {
+interface WorkspaceBottomNavProps {
   activeTab: 'home' | 'messages' | 'matters' | 'settings' | 'clients';
   onSelectTab: (tab: 'home' | 'messages' | 'matters' | 'settings' | 'clients') => void;
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
 }
 
-const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
+const WorkspaceBottomNav: FunctionComponent<WorkspaceBottomNavProps> = ({
   activeTab,
   onSelectTab,
   showClientTabs = false,
@@ -23,7 +23,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   const isMessages = activeTab === 'messages';
   const profileName = session?.user?.name?.trim() ?? '';
   const profileEmail = session?.user?.email?.trim() ?? '';
-  const profileLabel = profileName || profileEmail || t('embed.navigation.settings');
+  const profileLabel = profileName || profileEmail || t('workspace.navigation.settings');
   const profileImage = session?.user?.image ?? null;
 
   const baseClasses = 'flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold transition';
@@ -46,7 +46,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
           aria-current={isHome ? 'page' : undefined}
         >
           <HomeIcon className="h-5 w-5" aria-hidden="true" />
-          <span>{t('embed.navigation.home')}</span>
+          <span>{t('workspace.navigation.home')}</span>
         </button>
         <button
           type="button"
@@ -55,7 +55,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
           aria-current={isMessages ? 'page' : undefined}
         >
           <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />
-          <span>{t('embed.navigation.messages')}</span>
+          <span>{t('workspace.navigation.messages')}</span>
         </button>
         {(showClientTabs || showPracticeTabs) && (
           <button
@@ -65,7 +65,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
             aria-current={activeTab === 'matters' ? 'page' : undefined}
           >
             <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />
-            <span>{t('embed.navigation.matters')}</span>
+            <span>{t('workspace.navigation.matters')}</span>
           </button>
         )}
         {showPracticeTabs && (
@@ -76,7 +76,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
             aria-current={activeTab === 'clients' ? 'page' : undefined}
           >
             <UsersIcon className="h-5 w-5" aria-hidden="true" />
-            <span>{t('embed.navigation.clients')}</span>
+            <span>{t('workspace.navigation.clients')}</span>
           </button>
         )}
         {(showClientTabs || showPracticeTabs) && (
@@ -104,4 +104,4 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   );
 };
 
-export default PublicEmbedNavigation;
+export default WorkspaceBottomNav;

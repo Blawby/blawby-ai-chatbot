@@ -188,7 +188,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Merhaba 👋",
       "helpPrompt": "Nasıl yardımcı olabiliriz?",

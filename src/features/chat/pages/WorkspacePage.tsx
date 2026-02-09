@@ -2,10 +2,11 @@ import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
-import PublicEmbedHome from './PublicEmbedHome';
-import PublicEmbedNavigation from './PublicEmbedNavigation';
-import PublicConversationList from './PublicConversationList';
+import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
+import WorkspaceBottomNav from '@/features/chat/views/WorkspaceBottomNav';
+import ConversationListView from '@/features/chat/views/ConversationListView';
 import { SplitView } from '@/shared/ui/layout/SplitView';
+import { AppShell } from '@/shared/ui/layout/AppShell';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
@@ -13,10 +14,10 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 
-type EmbedView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 
-interface PublicEmbedPageProps {
-  view: EmbedView;
+interface WorkspacePageProps {
+  view: WorkspaceView;
   practiceId: string;
   practiceSlug: string | null;
   practiceName?: string | null;
@@ -31,7 +32,7 @@ interface PublicEmbedPageProps {
   clientsView?: ComponentChildren;
 }
 
-const filterPublicMessages = (messages: ChatMessageUI[]) => {
+const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
   const base = messages.filter(
     (message) =>
       message.metadata?.systemMessageKey !== 'ask_question_help'
@@ -40,7 +41,7 @@ const filterPublicMessages = (messages: ChatMessageUI[]) => {
   return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
 };
 
-const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
+const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
   practiceId,
   practiceSlug,
@@ -56,10 +57,10 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
   clientsView,
 }) => {
   const { navigate } = useNavigation();
-  const publicMessages = useMemo(() => filterPublicMessages(messages), [messages]);
+  const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const isPracticeWorkspace = workspace === 'practice';
 
-  const embedBasePath = useMemo(() => {
+  const workspaceBasePath = useMemo(() => {
     if (workspace === 'practice') {
       return practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/practice';
     }
@@ -68,7 +69,7 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
     }
     return practiceSlug ? `/embed/${encodeURIComponent(practiceSlug)}` : '/embed';
   }, [workspace, practiceSlug]);
-  const conversationsPath = `${embedBasePath}/conversations`;
+  const conversationsPath = `${workspaceBasePath}/conversations`;
 
   const isPracticeOnly = useMemo(() => ['clients'].includes(view), [view]);
   const isSharedGuarded = useMemo(() => ['matters'].includes(view), [view]);
@@ -78,18 +79,17 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
     return true;
   }, [isPracticeOnly, isSharedGuarded, showClientTabs, showPracticeTabs]);
 
-  // Redirect if unauthorized to view specific pages
   useEffect(() => {
     if (!allowed) {
-      navigate(embedBasePath, true);
+      navigate(workspaceBasePath, true);
     }
-  }, [allowed, embedBasePath, navigate]);
+  }, [allowed, workspaceBasePath, navigate]);
 
   const shouldListConversations = isPracticeWorkspace ? true : view !== 'conversation';
   const {
-    conversations: publicConversations,
-    isLoading: isPublicConversationsLoading,
-    refresh: refreshPublicConversations
+    conversations,
+    isLoading: isConversationsLoading,
+    refresh: refreshConversations
   } = useConversations({
     practiceId,
     scope: 'practice',
@@ -97,7 +97,7 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
     enabled: shouldListConversations && Boolean(practiceId)
   });
 
-  const [publicConversationPreviews, setPublicConversationPreviews] = useState<Record<string, {
+  const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
     role: string;
     createdAt: string;
@@ -105,13 +105,13 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
   const fetchedPreviewIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (view === 'conversation' || publicConversations.length === 0 || !practiceId) {
+    if (view === 'conversation' || conversations.length === 0 || !practiceId) {
       return;
     }
     let isMounted = true;
     const loadPreviews = async () => {
       const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      const toFetch = publicConversations.slice(0, 10).filter(
+      const toFetch = conversations.slice(0, 10).filter(
         (conversation) => !fetchedPreviewIds.current.has(conversation.id)
       );
       await Promise.all(toFetch.map(async (conversation) => {
@@ -129,31 +129,31 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
         }
       }));
       if (isMounted && Object.keys(updates).length > 0) {
-        setPublicConversationPreviews((prev) => ({ ...prev, ...updates }));
+        setConversationPreviews((prev) => ({ ...prev, ...updates }));
       }
     };
     void loadPreviews();
     return () => {
       isMounted = false;
     };
-  }, [practiceId, publicConversations, view]);
+  }, [practiceId, conversations, view]);
 
   const recentMessage = useMemo(() => {
     const fallbackPracticeName = typeof practiceName === 'string'
       ? practiceName.trim()
       : '';
-    if (publicConversations.length > 0) {
-      const sorted = [...publicConversations].sort((a, b) => {
+    if (conversations.length > 0) {
+      const sorted = [...conversations].sort((a, b) => {
         const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
         const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
         return bTime - aTime;
       });
       const top = sorted.find((conversation) => {
-        const preview = publicConversationPreviews[conversation.id];
+        const preview = conversationPreviews[conversation.id];
         return typeof preview?.content === 'string' && preview.content.trim().length > 0;
       });
       if (top) {
-        const preview = publicConversationPreviews[top.id];
+        const preview = conversationPreviews[top.id];
         const previewText = typeof preview?.content === 'string' ? preview.content.trim() : '';
         const clipped = previewText
           ? (previewText.length > 90 ? `${previewText.slice(0, 90)}…` : previewText)
@@ -171,10 +171,10 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
         };
       }
     }
-    if (publicMessages.length === 0) {
+    if (filteredMessages.length === 0) {
       return null;
     }
-    const candidate = [...publicMessages]
+    const candidate = [...filteredMessages]
       .reverse()
       .find((message) => message.role !== 'system' && typeof message.content === 'string' && message.content.trim().length > 0);
     if (!candidate) {
@@ -194,7 +194,7 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
       avatarSrc: practiceLogo ?? null,
       conversationId: null
     };
-  }, [practiceLogo, practiceName, publicConversationPreviews, publicConversations, publicMessages]);
+  }, [practiceLogo, practiceName, conversationPreviews, conversations, filteredMessages]);
 
   if (!allowed) {
     return null;
@@ -208,7 +208,7 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
         return;
       }
     } catch (error) {
-      console.error('[PublicEmbedPage] Failed to start conversation:', error);
+      console.error('[WorkspacePage] Failed to start conversation:', error);
     }
     navigate(conversationsPath);
   };
@@ -225,7 +225,7 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
     switch (view) {
       case 'home':
         return (
-          <PublicEmbedHome
+          <WorkspaceHomeView
             practiceName={practiceName}
             practiceLogo={practiceLogo}
             onSendMessage={() => handleStartConversation('ASK_QUESTION')}
@@ -236,13 +236,13 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
         );
       case 'list':
         return (
-          <PublicConversationList
-            conversations={publicConversations}
-            previews={publicConversationPreviews}
+          <ConversationListView
+            conversations={conversations}
+            previews={conversationPreviews}
             practiceName={practiceName}
             practiceLogo={practiceLogo}
-            isLoading={isPublicConversationsLoading}
-            onClose={() => navigate(embedBasePath)}
+            isLoading={isConversationsLoading}
+            onClose={() => navigate(workspaceBasePath)}
             onSelectConversation={(conversationId) => {
               navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
             }}
@@ -292,22 +292,48 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
     ? 'clients'
     : view;
   const shouldFrame = view !== 'conversation';
-  const containerClassName = 'flex flex-col h-screen w-full m-0 p-0 relative overflow-hidden bg-light-bg dark:bg-dark-bg';
-  const mainClassName = 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative items-center px-3 py-4';
-  const frameClassName = 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden';
+
+  const bottomNav = showBottomNav ? (
+    <WorkspaceBottomNav
+      activeTab={activeTab}
+      showClientTabs={showClientTabs}
+      showPracticeTabs={showPracticeTabs}
+      onSelectTab={(tab) => {
+        if (tab === 'messages') {
+          void refreshConversations();
+          navigate(conversationsPath);
+          return;
+        }
+        if (tab === 'matters') {
+          navigate(`${workspaceBasePath}/matters`);
+          return;
+        }
+        if (tab === 'clients') {
+          navigate(`${workspaceBasePath}/clients`);
+          return;
+        }
+        if (tab === 'settings') {
+          navigate('/settings');
+          return;
+        }
+        navigate(workspaceBasePath);
+      }}
+    />
+  ) : undefined;
 
   const conversationListView = (
-    <PublicConversationList
-      conversations={publicConversations}
-      previews={publicConversationPreviews}
+    <ConversationListView
+      conversations={conversations}
+      previews={conversationPreviews}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
-      isLoading={isPublicConversationsLoading}
-      onClose={() => navigate(embedBasePath)}
+      isLoading={isConversationsLoading}
+      onClose={() => navigate(workspaceBasePath)}
       onSelectConversation={(conversationId) => {
         navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
       }}
       onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+      showBackButton={false}
     />
   );
 
@@ -316,78 +342,72 @@ const PublicEmbedPage: FunctionComponent<PublicEmbedPageProps> = ({
     const showChatOnMobile = view === 'conversation';
 
     return (
-      <div className="flex h-full min-h-0 w-full">
-        <SplitView
-          className="h-full min-h-0 w-full"
-          primary={conversationListView}
-          secondary={chatView}
-          primaryClassName={cn(
-            'min-h-0',
-            showListOnMobile ? 'block' : 'hidden',
-            'md:block'
-          )}
-          secondaryClassName={cn(
-            'min-h-0',
-            showChatOnMobile ? 'block' : 'hidden',
-            'md:block'
-          )}
-        />
+      <div className="flex h-full min-h-0 w-full flex-col">
+        <div className="flex-1 min-h-0">
+          <SplitView
+            className="h-full min-h-0 w-full"
+            primary={conversationListView}
+            secondary={chatView}
+            primaryClassName={cn(
+              'min-h-0',
+              showListOnMobile ? 'block' : 'hidden',
+              'md:block'
+            )}
+            secondaryClassName={cn(
+              'min-h-0',
+              showChatOnMobile ? 'block' : 'hidden',
+              'md:block'
+            )}
+          />
+        </div>
+        {bottomNav && (
+          <div className="md:hidden">
+            {bottomNav}
+          </div>
+        )}
       </div>
     );
   }
 
   if (isPracticeWorkspace) {
     return (
-      <div className="flex h-full min-h-0 w-full">
-        {renderContent()}
+      <div className="flex h-full min-h-0 w-full flex-col">
+        <div className="flex-1 min-h-0 w-full">
+          {renderContent()}
+        </div>
+        {bottomNav && (
+          <div className="md:hidden">
+            {bottomNav}
+          </div>
+        )}
       </div>
     );
   }
 
-  if (!shouldFrame) {
-    return (
-      <div className="flex flex-1 min-h-0 flex-col">
-        {renderContent()}
-      </div>
-    );
-  }
+  const containerClassName = 'flex min-h-0 w-full flex-1 items-center justify-center px-3 py-4';
+  const frameClassName = 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden';
 
   return (
-    <div className={containerClassName}>
-      <main className={mainClassName}>
-        <div className={frameClassName}>
-          {renderContent()}
-          {showBottomNav && (
-            <PublicEmbedNavigation
-              activeTab={activeTab}
-              showClientTabs={showClientTabs}
-              showPracticeTabs={showPracticeTabs}
-              onSelectTab={(tab) => {
-                if (tab === 'messages') {
-                  void refreshPublicConversations();
-                  navigate(conversationsPath);
-                  return;
-                }
-                if (tab === 'matters') {
-                  navigate(`${embedBasePath}/matters`);
-                  return;
-                }
-                if (tab === 'clients') {
-                  navigate(`${embedBasePath}/clients`);
-                  return;
-                }
-                if (tab === 'settings') {
-                  navigate('/settings');
-                  return;
-                }
-                navigate(embedBasePath);
-              }}
-            />
+    <AppShell
+      className="bg-light-bg dark:bg-dark-bg"
+      main={(
+        <div className={cn('flex h-full min-h-0 w-full', shouldFrame ? containerClassName : 'flex-col')}>
+          {shouldFrame ? (
+            <div className={frameClassName}>
+              {renderContent()}
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col">
+              {renderContent()}
+            </div>
           )}
         </div>
-      </main>
-    </div>
+      )}
+      mainClassName="min-h-0"
+      bottomBar={bottomNav}
+      bottomBarClassName={showBottomNav ? 'md:hidden' : undefined}
+    />
   );
 };
 
-export default PublicEmbedPage;
+export default WorkspacePage;

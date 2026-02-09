@@ -4,7 +4,7 @@ import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
 
-interface PublicEmbedHomeProps {
+interface WorkspaceHomeViewProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   onSendMessage?: () => void;
@@ -19,7 +19,7 @@ interface PublicEmbedHomeProps {
   } | null;
 }
 
-const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
+const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   practiceName,
   practiceLogo,
   onSendMessage,
@@ -65,8 +65,8 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
         </div>
 
         <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">
-          <div className="animate-float-in">{t('embed.home.greeting')}</div>
-          <div className="animate-float-in [animation-delay:120ms]">{t('embed.home.helpPrompt')}</div>
+          <div className="animate-float-in">{t('workspace.home.greeting')}</div>
+          <div className="animate-float-in [animation-delay:120ms]">{t('workspace.home.helpPrompt')}</div>
         </div>
       </section>
 
@@ -77,10 +77,10 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
             className="rounded-2xl border border-light-border bg-light-card-bg px-4 py-4 text-left shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg"
-            aria-label={t('embed.home.recentMessage')}
+            aria-label={t('workspace.home.recentMessage')}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              {t('embed.home.recentMessage')}
+              {t('workspace.home.recentMessage')}
             </div>
             <div className="mt-3 flex items-center gap-3">
               <Avatar
@@ -111,18 +111,18 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
           onClick={onSendMessage}
           disabled={!canSendMessage}
           className="group flex w-full items-center justify-between rounded-2xl border border-light-border bg-light-card-bg px-5 py-4 text-left text-gray-900 shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg dark:text-gray-100"
-          aria-label={t('embed.home.sendMessage')}
+          aria-label={t('workspace.home.sendMessage')}
         >
-          <span className="text-base font-semibold">{t('embed.home.sendMessage')}</span>
+          <span className="text-base font-semibold">{t('workspace.home.sendMessage')}</span>
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-500 text-gray-900 shadow-sm transition group-hover:scale-[1.02] group-hover:bg-accent-600">
             <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
           </span>
         </button>
 
         <div className="rounded-3xl border border-light-border bg-light-card-bg px-5 py-6 shadow-[0_20px_48px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('embed.home.consultation.title')}</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('workspace.home.consultation.title')}</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            {t('embed.home.consultation.description')}
+            {t('workspace.home.consultation.description')}
           </p>
           <div className="mt-4">
             <Button
@@ -133,11 +133,11 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
               onClick={onRequestConsultation}
               disabled={!canRequestConsultation}
             >
-              {t('embed.home.consultation.button')}
+              {t('workspace.home.consultation.button')}
             </Button>
           </div>
           <div className="mt-4 text-center text-xs font-medium text-gray-400 dark:text-gray-500">
-            {t('embed.home.poweredBy')} {poweredByLink}
+            {t('workspace.home.poweredBy')} {poweredByLink}
           </div>
         </div>
       </section>
@@ -145,4 +145,4 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
   );
 };
 
-export default PublicEmbedHome;
+export default WorkspaceHomeView;

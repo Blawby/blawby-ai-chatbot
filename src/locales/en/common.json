@@ -211,7 +211,7 @@
     },
     "goToSettings": "Go to Practice Settings"
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Hi there 👋",
       "helpPrompt": "How can we help?",

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 
-interface PublicConversationHeaderProps {
+interface WorkspaceConversationHeaderProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   activeLabel?: string;
@@ -11,7 +11,7 @@ interface PublicConversationHeaderProps {
   onBack?: () => void;
 }
 
-const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps> = ({
+const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeaderProps> = ({
   practiceName,
   practiceLogo,
   activeLabel,
@@ -24,7 +24,7 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
     : '';
   const resolvedActive = typeof activeLabel === 'string' && activeLabel.trim().length > 0
     ? activeLabel.trim()
-    : t('embed.header.activeNow');
+    : t('workspace.header.activeNow');
 
   return (
     <header className="flex min-h-[56px] items-center gap-3 border-b border-light-border bg-light-bg px-4 py-3 dark:border-dark-border dark:bg-dark-bg">
@@ -32,7 +32,7 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
         type="button"
         onClick={onBack}
         className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/10"
-        aria-label={t('embed.header.back')}
+        aria-label={t('workspace.header.back')}
       >
         <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -53,4 +53,4 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
   );
 };
 
-export default PublicConversationHeader;
+export default WorkspaceConversationHeader;
