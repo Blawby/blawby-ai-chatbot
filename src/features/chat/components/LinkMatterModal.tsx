@@ -33,8 +33,7 @@ export const LinkMatterModal = ({
   const pageSize = 50;
   const [matters, setMatters] = useState<WorkspaceMatterOption[]>([]);
   const [selectedMatterId, setSelectedMatterId] = useState<string>(currentMatterId ?? '');
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingState, setLoadingState] = useState<'idle' | 'loading' | 'loading-more'>('idle');
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -96,8 +95,7 @@ export const LinkMatterModal = ({
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
-    const setLoadingState = append ? setLoadingMore : setLoading;
-    setLoadingState(true);
+    setLoadingState(append ? 'loading-more' : 'loading');
     setError(null);
     try {
       const params = new URLSearchParams({
@@ -163,7 +161,7 @@ export const LinkMatterModal = ({
       // Only update state if this request wasn't superseded
       if (controllerRef.current === controller) {
         controllerRef.current = null;
-        setLoadingState(false);
+        setLoadingState('idle');
       }
     }
 
@@ -181,7 +179,7 @@ export const LinkMatterModal = ({
   }, [fetchMatters, isOpen]);
 
   const handleLoadMore = async () => {
-    if (loading || loadingMore || !hasMore) return;
+    if (loadingState !== 'idle' || !hasMore) return;
     await fetchMatters(page + 1, { append: true });
   };
 
@@ -242,7 +240,7 @@ export const LinkMatterModal = ({
             value={selectedMatterId}
             onChange={(event) => setSelectedMatterId(event.currentTarget.value)}
             className="w-full rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-card-bg px-3 py-2 text-sm text-gray-900 dark:text-white"
-            disabled={loading || saving}
+            disabled={loadingState !== 'idle' || saving}
           >
             <option value="">No matter</option>
             {/* Ensure current matter is always an option even if not in the first page of results */}
@@ -257,10 +255,10 @@ export const LinkMatterModal = ({
               </option>
             ))}
           </select>
-          {loading && (
+          {loadingState === 'loading' && (
             <div className="text-xs text-gray-500 dark:text-gray-400">Loading matters…</div>
           )}
-          {!loading && hasMore && (
+          {loadingState !== 'loading' && hasMore && (
             <div className="text-xs text-gray-500 dark:text-gray-400">
               Showing {matters.length} results. Load more to see additional matters.
             </div>
@@ -276,7 +274,7 @@ export const LinkMatterModal = ({
             variant="primary"
             size="sm"
             onClick={handleSave}
-            disabled={saving || loading || isUnchanged}
+            disabled={saving || loadingState !== 'idle' || isUnchanged}
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>
@@ -285,7 +283,7 @@ export const LinkMatterModal = ({
               variant="danger"
               size="sm"
               onClick={handleUnlink}
-              disabled={loading || saving}
+              disabled={loadingState !== 'idle' || saving}
             >
               Unlink
             </Button>
@@ -306,9 +304,9 @@ export const LinkMatterModal = ({
               variant="secondary"
               size="sm"
               onClick={handleLoadMore}
-              disabled={loading || loadingMore || saving}
+              disabled={loadingState !== 'idle' || saving}
             >
-              {loadingMore ? 'Loading…' : 'Load more'}
+              {loadingState === 'loading-more' ? 'Loading…' : 'Load more'}
             </Button>
           </div>
         )}

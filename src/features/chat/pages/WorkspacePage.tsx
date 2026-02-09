@@ -245,9 +245,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
             recentMessage={recentMessage}
             onOpenRecentMessage={handleOpenRecentMessage}
-            consultationTitle={workspace === 'practice' ? 'Todo action line 1' : undefined}
-            consultationDescription={workspace === 'practice' ? 'Todo description line 2' : undefined}
-            consultationCta={workspace === 'practice' ? 'TODO cta' : undefined}
+            consultationTitle={undefined}
+            consultationDescription={undefined}
+            consultationCta={undefined}
           />
         );
       case 'list':
