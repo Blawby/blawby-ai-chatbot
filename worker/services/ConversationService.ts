@@ -161,6 +161,9 @@ export class ConversationService {
     // Parse JSON fields if they are strings
     const safeParse = <T>(label: string, value: unknown, fallback: T): T => {
       if (typeof value !== 'string') {
+        if (fallback === null || fallback === undefined) {
+          return (value !== null && value !== undefined) ? (value as T) : fallback;
+        }
         if (value === null || value === undefined) return fallback;
         if (Array.isArray(fallback)) {
           if (Array.isArray(value)) return value as T;

@@ -49,7 +49,7 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
   const requireUnit = () => {
     const message = `[fetchPlans] Missing or invalid price unit for ${label}`;
     console.error(message, { value, unit });
-    throw new Error(message);
+    return null;
   };
 
   const shouldTreatAsMinor = (amount: number, amountUnit: PlanAmountUnit | null): boolean => {
@@ -61,6 +61,7 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
   if (typeof value === 'number' && Number.isFinite(value)) {
     if (!normalizedUnit) {
       requireUnit();
+      return '';
     }
     if (normalizedUnit === 'cents' && !Number.isInteger(value)) {
       console.error('[fetchPlans] Expected integer cents amount', { value, unit });
@@ -78,6 +79,7 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
       if (!Number.isFinite(parsedMajor)) return '';
       if (!normalizedUnit) {
         requireUnit();
+        return '';
       }
       if (normalizedUnit === 'cents' && !Number.isInteger(parsedMajor)) {
         console.warn('[fetchPlans] Decimal string provided for cents unit', { value, unit });
@@ -89,6 +91,7 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
     if (Number.isFinite(parsed)) {
       if (!normalizedUnit) {
         requireUnit();
+        return '';
       }
       return shouldTreatAsMinor(parsed, normalizedUnit) ? normalizeMinor(parsed) : normalizeMajor(parsed);
     }
