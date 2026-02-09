@@ -113,6 +113,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   useEffect(() => {
     fetchedPreviewIds.current = new Set();
     previewFailureCounts.current = {};
+    setConversationPreviews({});
   }, [practiceId]);
 
   useEffect(() => {

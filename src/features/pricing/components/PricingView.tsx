@@ -88,7 +88,8 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
       }
     } catch (error) {
       console.error('Error during upgrade process:', error);
-      navigate(`/cart?tier=${tier}`);
+      const message = error instanceof Error ? error.message : 'Please try again later.';
+      showError('Upgrade failed', message);
     }
   };
 

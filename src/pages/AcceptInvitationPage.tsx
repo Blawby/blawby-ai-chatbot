@@ -359,14 +359,25 @@ export const AcceptInvitationPage = () => {
       if (organizationSlug) {
         match = orgList.find((o) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
         if (!match) {
-          throw new Error('Organization not found for organizationSlug.');
+          console.error('[AcceptInvitationPage] Organization slug not found', {
+            organizationSlug,
+            targetOrgId,
+            orgList
+          });
+          throw new Error('Unable to find the selected organization.');
         }
       } else if (targetOrgId) {
         match = orgList.find((o) => o.id === targetOrgId) ?? null;
         if (!match) {
           const missingOrgId = targetOrgId;
           targetOrgId = null;
-          throw new Error(`Active organization not found in user's organization list: ${missingOrgId}`);
+          console.error('[AcceptInvitationPage] Active organization missing from list', {
+            organizationSlug,
+            targetOrgId,
+            missingOrgId,
+            orgList
+          });
+          throw new Error('You do not have access to the selected organization.');
         }
       }
 
@@ -381,7 +392,12 @@ export const AcceptInvitationPage = () => {
       }
 
       if (!targetOrgId) {
-        throw new Error('No active organization context found.');
+        console.error('[AcceptInvitationPage] No active organization context available', {
+          organizationSlug,
+          targetOrgId,
+          orgList
+        });
+        throw new Error('Unable to determine your organization for this conversation.');
       }
 
       try {
@@ -401,7 +417,13 @@ export const AcceptInvitationPage = () => {
       
       const finalSlug = organizationSlug || (match ? match.slug : '');
       if (!finalSlug) {
-        throw new Error('Organization slug unavailable (missing organizationSlug and no matched organization for targetOrgId).');
+        console.error('[AcceptInvitationPage] Missing organization slug for navigation', {
+          organizationSlug,
+          targetOrgId,
+          match,
+          orgList
+        });
+        throw new Error('Unable to open the conversation right now.');
       }
       navigate(
         `/public/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,

@@ -7,7 +7,7 @@ interface WorkspaceConversationHeaderProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   activeLabel?: string;
-  presenceStatus?: 'active' | 'inactive';
+  presenceStatus?: 'active' | 'inactive' | 'away';
   onBack?: () => void;
 }
 
@@ -22,9 +22,20 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
   const resolvedName = typeof practiceName === 'string'
     ? practiceName.trim()
     : '';
-  const resolvedActive = typeof activeLabel === 'string' && activeLabel.trim().length > 0
-    ? activeLabel.trim()
-    : t('workspace.header.activeNow');
+  const resolvedActive = (() => {
+    if (typeof activeLabel === 'string' && activeLabel.trim().length > 0) {
+      return activeLabel.trim();
+    }
+    switch (presenceStatus) {
+      case 'inactive':
+        return t('workspace.header.inactive');
+      case 'away':
+        return t('workspace.header.away');
+      default:
+        return t('workspace.header.activeNow');
+    }
+  })();
+  const resolvedStatus = presenceStatus === 'away' ? 'inactive' : presenceStatus;
 
   return (
     <header className="flex min-h-[56px] items-center gap-3 border-b border-light-border bg-light-bg px-4 py-3 dark:border-dark-border dark:bg-dark-bg">
@@ -41,7 +52,7 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
         name={resolvedName}
         size="sm"
         className="ring-2 ring-white/10"
-        status={presenceStatus}
+        status={resolvedStatus}
       />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">

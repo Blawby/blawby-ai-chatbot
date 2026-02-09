@@ -112,6 +112,7 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
                 name={profileLabel}
                 size="xs"
                 className="h-5 w-5 ring-1 ring-white/20"
+                aria-hidden="true"
               />
             ) : (
               <UserCircleIcon className="h-5 w-5" aria-hidden="true" />

@@ -563,8 +563,8 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
     }
 
     await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
-    const requestHost = resolveRequestHost(request);
-    const headers = new Headers(request.headers);
+    const requestHost = resolveRequestHost(requestWithContext);
+    const headers = new Headers(requestWithContext.headers);
     const backendResponse = await fetchBackend(env, headers, url.pathname + url.search, {
       method: 'GET'
     });

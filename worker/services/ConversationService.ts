@@ -160,7 +160,42 @@ export class ConversationService {
     
     // Parse JSON fields if they are strings
     const safeParse = <T>(label: string, value: unknown, fallback: T): T => {
-      if (typeof value !== 'string') return (value as T) ?? fallback;
+      if (typeof value !== 'string') {
+        if (value === null || value === undefined) return fallback;
+        if (Array.isArray(fallback)) {
+          if (Array.isArray(value)) return value as T;
+          console.error(`[ConversationService] Type mismatch [${label}]`, {
+            expected: 'array',
+            actual: Array.isArray(value) ? 'array' : typeof value,
+            value
+          });
+          return fallback;
+        }
+        if (fallback !== null && typeof fallback !== 'object') {
+          if (typeof value === typeof fallback) return value as T;
+          console.error(`[ConversationService] Type mismatch [${label}]`, {
+            expected: typeof fallback,
+            actual: typeof value,
+            value
+          });
+          return fallback;
+        }
+        if (fallback !== null && typeof fallback === 'object') {
+          if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+          console.error(`[ConversationService] Type mismatch [${label}]`, {
+            expected: 'object',
+            actual: Array.isArray(value) ? 'array' : typeof value,
+            value
+          });
+          return fallback;
+        }
+        console.error(`[ConversationService] Type mismatch [${label}]`, {
+          expected: 'null',
+          actual: Array.isArray(value) ? 'array' : typeof value,
+          value
+        });
+        return fallback;
+      }
       try {
         return JSON.parse(value);
       } catch (err) {

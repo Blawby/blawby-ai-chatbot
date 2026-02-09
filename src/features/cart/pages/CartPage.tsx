@@ -257,6 +257,21 @@ export const CartPage = () => {
     );
   }
 
+  if (loadError) {
+    return (
+      <SetupShell>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-400 mb-4">{loadError}</p>
+            <Button size="md" onClick={loadPlans}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </SetupShell>
+    );
+  }
+
   if (!selectedPlan) {
     return (
       <SetupShell>
@@ -346,23 +361,6 @@ export const CartPage = () => {
       console.warn('[CART][UPGRADE] debug complete failed:', e);
     }
   };
-
-  if (loadError) {
-    return (
-      <SetupShell>
-        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-red-400 mb-4">{loadError}</p>
-            <Button size="md" onClick={loadPlans}>
-              Retry
-            </Button>
-          </div>
-        </div>
-      </SetupShell>
-    );
-  }
-
-  
 
   return (
     <SetupShell>

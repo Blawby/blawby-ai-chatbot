@@ -236,7 +236,11 @@ function SettingsRoute() {
   const { activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const isClientWorkspace = preferredWorkspace === 'client';
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const {
+    currentPractice,
+    practices,
+    loading: practicesLoading
+  } = usePracticeManagement();
   const practiceById = (id: string | null) => practices.find((practice) => practice.id === id) ?? null;
   const resolvedPractice =
     practiceById(activeOrganizationId) ??
@@ -381,7 +385,12 @@ function PracticeAppRoute({
   const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
   const { isPracticeEnabled, canAccessPractice } = useWorkspace();
-  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const {
+    currentPractice,
+    practices,
+    loading: practicesLoading,
+    refetch
+  } = usePracticeManagement();
   const [autoActivationState, setAutoActivationState] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
   const autoActivationKeyRef = useRef<string | null>(null);
   const [resolvedSlugPracticeId, setResolvedSlugPracticeId] = useState<string | null>(null);
@@ -412,7 +421,7 @@ function PracticeAppRoute({
   const handleRetrySlugLookup = () => {
     setSlugLookupStatus('idle');
     setSlugLookupRetry((prev) => prev + 1);
-    void refetchPractices();
+    void refetch();
   };
 
   const canAutoActivatePractice = Boolean(

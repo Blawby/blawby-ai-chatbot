@@ -157,6 +157,42 @@ const formatDescription = (description?: string) => {
 
 type LoggedError = Error & { _logged?: boolean };
 
+const sanitizeErrorBody = (raw: string): string => {
+  if (!raw) return raw;
+  const maxLength = 600;
+  const redactKey = (key: string) => /token|secret|password|ssn|email|phone|address|name|clientsecret/i.test(key);
+  const redactValue = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      return value.length > 12 ? `${value.slice(0, 4)}…${value.slice(-4)}` : 'REDACTED';
+    }
+    return 'REDACTED';
+  };
+  const sanitizeObject = (input: unknown, depth: number): unknown => {
+    if (depth <= 0) return '[Truncated]';
+    if (Array.isArray(input)) {
+      return input.slice(0, 10).map((item) => sanitizeObject(item, depth - 1));
+    }
+    if (input && typeof input === 'object') {
+      const record = input as Record<string, unknown>;
+      const output: Record<string, unknown> = {};
+      Object.keys(record).slice(0, 50).forEach((key) => {
+        output[key] = redactKey(key)
+          ? redactValue(record[key])
+          : sanitizeObject(record[key], depth - 1);
+      });
+      return output;
+    }
+    return input;
+  };
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return JSON.stringify(sanitizeObject(parsed, 3));
+  } catch {
+    return raw.length > maxLength ? `${raw.slice(0, maxLength)}…[truncated]` : raw;
+  }
+};
+
 const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string }> => {
   try {
     const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
@@ -166,10 +202,11 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
     });
     if (!response.ok) {
       const errorBody = await response.text();
+      const safeErrorBody = import.meta.env.DEV ? errorBody : sanitizeErrorBody(errorBody);
       const errorLog = {
         status: response.status,
         statusText: response.statusText,
-        errorBody,
+        errorBody: safeErrorBody,
         intakeUuid
       };
       if (import.meta.env.DEV) {
