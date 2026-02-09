@@ -75,7 +75,15 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
     const trimmed = value.trim();
     if (trimmed.includes('.')) {
       const parsedMajor = Number(trimmed);
-      return Number.isFinite(parsedMajor) ? normalizeMajor(parsedMajor) : '';
+      if (!Number.isFinite(parsedMajor)) return '';
+      if (!normalizedUnit) {
+        requireUnit();
+      }
+      if (normalizedUnit === 'cents' && !Number.isInteger(parsedMajor)) {
+        console.warn('[fetchPlans] Decimal string provided for cents unit', { value, unit });
+        return '';
+      }
+      return shouldTreatAsMinor(parsedMajor, normalizedUnit) ? normalizeMinor(parsedMajor) : normalizeMajor(parsedMajor);
     }
     const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) {

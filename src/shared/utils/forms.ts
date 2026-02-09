@@ -187,7 +187,10 @@ const sanitizeErrorBody = (raw: string): string => {
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return JSON.stringify(sanitizeObject(parsed, 3));
+    const stringified = JSON.stringify(sanitizeObject(parsed, 3));
+    return stringified.length > maxLength
+      ? `${stringified.slice(0, maxLength)}…[truncated]`
+      : stringified;
   } catch {
     return raw.length > maxLength ? `${raw.slice(0, maxLength)}…[truncated]` : raw;
   }

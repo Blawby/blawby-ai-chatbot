@@ -358,7 +358,19 @@ export async function handleMatters(request: Request, env: Env, ctx?: ExecutionC
       requirePractice: true
     });
     const practiceId = getPracticeId(requestWithContext);
+    const rawPracticeId = conversationsMatch[1];
     const matterId = conversationsMatch[2];
+
+    if (rawPracticeId && rawPracticeId !== practiceId) {
+      console.warn('[Matters] Practice ID mismatch in conversations route', {
+        practiceId,
+        rawPracticeId
+      });
+      return new Response(JSON.stringify({ error: 'Practice ID mismatch' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     await requirePracticeMember(requestWithContext, env, practiceId, 'paralegal');
 

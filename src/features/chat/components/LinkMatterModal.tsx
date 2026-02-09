@@ -54,6 +54,7 @@ export const LinkMatterModal = ({
 
     // Fetch current matter specifically if we have an ID
     if (matterId) {
+      setCurrentMatter(null);
       const fetchCurrent = async () => {
         try {
           const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}`;
@@ -78,6 +79,7 @@ export const LinkMatterModal = ({
           if ((err as DOMException).name === 'AbortError' || controller.signal.aborted) {
             return;
           }
+          setCurrentMatter(null);
           console.warn('[LinkMatterModal] Failed to fetch current matter details', err);
         }
       };
