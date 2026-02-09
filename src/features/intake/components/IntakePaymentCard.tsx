@@ -29,6 +29,10 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
   const { showError, showInfo } = useToastContext();
   const [isClient, setIsClient] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const paymentUnavailableId = useMemo(
+    () => `payment-unavailable-${Math.random().toString(36).slice(2, 8)}`,
+    []
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -165,10 +169,16 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         className="w-full"
         disabled={!isClient || isPaying}
         aria-busy={isPaying ? 'true' : undefined}
-        aria-label={!isClient ? 'Payment not available in this environment' : undefined}
+        aria-disabled={!isClient ? 'true' : undefined}
+        aria-describedby={!isClient ? paymentUnavailableId : undefined}
       >
         {buttonLabel}
       </Button>
+      {!isClient && (
+        <span id={paymentUnavailableId} className="sr-only">
+          Payments are not available right now.
+        </span>
+      )}
     </div>
   );
 };

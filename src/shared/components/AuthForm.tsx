@@ -180,8 +180,7 @@ const AuthForm = ({
         }
       } else if (redirectParam) {
         try {
-          const decodedRedirect = decodeURIComponent(redirectParam);
-          const redirectUrl = new URL(decodedRedirect, window.location.origin);
+          const redirectUrl = new URL(redirectParam, window.location.origin);
           if (redirectUrl.origin === window.location.origin) {
             resolvedCallbackURL = redirectUrl.href;
           }

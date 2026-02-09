@@ -17,14 +17,14 @@ export function WorkspacePracticeDetailsError({
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-light-bg p-4 dark:bg-dark-bg"
       role="alertdialog"
-      aria-modal="true"
       aria-labelledby="workspace-error-heading"
+      aria-describedby="workspace-error-desc"
     >
       <div className="max-w-lg rounded-2xl border border-light-border bg-light-card-bg p-6 text-center shadow-2xl dark:border-dark-border dark:bg-dark-card-bg">
         <h1 id="workspace-error-heading" className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           {t('workspace.error.title')}
         </h1>
-        <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+        <p id="workspace-error-desc" className="mt-3 text-sm text-gray-600 dark:text-gray-300">
           {t('workspace.error.description', { slug: slugLabel })}
         </p>
         {onRetry ? (

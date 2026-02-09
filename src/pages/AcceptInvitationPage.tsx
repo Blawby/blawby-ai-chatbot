@@ -363,6 +363,11 @@ export const AcceptInvitationPage = () => {
         }
       } else if (targetOrgId) {
         match = orgList.find((o) => o.id === targetOrgId) ?? null;
+        if (!match) {
+          const missingOrgId = targetOrgId;
+          targetOrgId = null;
+          throw new Error(`Active organization not found in user's organization list: ${missingOrgId}`);
+        }
       }
 
       if (match) {

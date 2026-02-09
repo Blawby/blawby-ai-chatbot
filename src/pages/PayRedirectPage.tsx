@@ -63,11 +63,7 @@ export const PayRedirectPage: FunctionComponent = () => {
 
     const conversationMatch = trimmed.match(/[?&]conversation_id=([^&]+)/);
     if (conversationMatch?.[1] && !conversationFromParam) {
-      try {
-        conversationFromParam = decodeURIComponent(conversationMatch[1]);
-      } catch {
-        conversationFromParam = conversationMatch[1];
-      }
+      conversationFromParam = conversationMatch[1];
     }
 
     try {

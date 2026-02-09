@@ -212,6 +212,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             return undefined;
         }
 
+        const isSubmittingState = Boolean(leadActionState[leadId]);
+
         const runLeadAction = async (action: 'accept' | 'reject') => {
             const isSubmittingNow = Boolean(leadActionState[leadId]);
             if (!leadReviewActions.canReviewLeads || isSubmittingNow || submittingRef.current[leadId]) {
@@ -281,7 +283,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
         return {
             canReview: leadReviewActions.canReviewLeads,
-            isSubmitting,
+            isSubmitting: isSubmittingState,
             onAccept: () => void runLeadAction('accept'),
             onReject: () => void runLeadAction('reject')
         };

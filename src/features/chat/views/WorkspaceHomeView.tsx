@@ -47,7 +47,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
     <a
       href="https://blawby.com"
       target="_blank"
-      rel="noreferrer"
+      rel="noopener noreferrer"
     >
       Blawby
     </a>

@@ -60,7 +60,9 @@ export const ConversationHeader = ({
   const [conversationLoading, setConversationLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [conversationError, setConversationError] = useState<string | null>(null);
+  const [matterError, setMatterError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const { navigate } = useNavigation();
 
@@ -68,14 +70,16 @@ export const ConversationHeader = ({
     if (!practiceId || !conversationId) {
       setLinkedMatterId(null);
       setMatter(null);
-      setError(null);
+      setConversationError(null);
+      setMatterError(null);
+      setActionError(null);
       return;
     }
 
     const controller = new AbortController();
     const fetchConversation = async () => {
       setConversationLoading(true);
-      setError(null);
+      setConversationError(null);
       try {
         const endpoint = `${getConversationEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`;
         const response = await fetch(endpoint, {
@@ -107,7 +111,7 @@ export const ConversationHeader = ({
       } catch (err) {
         if ((err as DOMException).name !== 'AbortError') {
           const message = err instanceof Error ? err.message : 'Failed to load conversation';
-          setError(message);
+          setConversationError(message);
           setLinkedMatterId(null);
         }
       } finally {
@@ -128,7 +132,7 @@ export const ConversationHeader = ({
     const controller = new AbortController();
     const fetchMatter = async () => {
       setLoading(true);
-      setError(null);
+      setMatterError(null);
       try {
         const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(linkedMatterId)}`;
         const response = await fetch(endpoint, {
@@ -185,7 +189,7 @@ export const ConversationHeader = ({
       } catch (err) {
         if ((err as DOMException).name !== 'AbortError') {
           const message = err instanceof Error ? err.message : 'Failed to load matter';
-          setError(message);
+          setMatterError(message);
           setMatter(null);
         }
       } finally {
@@ -200,13 +204,13 @@ export const ConversationHeader = ({
   const handleAccept = async () => {
     if (!practiceId || !linkedMatterId) return;
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await acceptMatter(practiceId, linkedMatterId);
       setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: result.acceptedBy ?? prev.acceptedBy } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to accept lead';
-      setError(message);
+      setActionError(message);
     } finally {
       setActionLoading(false);
     }
@@ -215,13 +219,13 @@ export const ConversationHeader = ({
   const handleReject = async () => {
     if (!practiceId || !linkedMatterId) return;
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await rejectMatter(practiceId, linkedMatterId);
       setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: null } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reject lead';
-      setError(message);
+      setActionError(message);
     } finally {
       setActionLoading(false);
     }
@@ -231,13 +235,13 @@ export const ConversationHeader = ({
     if (!practiceId || !linkedMatterId || !matter) return;
     if (nextStatus === matter.status) return;
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await updateMatterStatus(practiceId, linkedMatterId, nextStatus);
       setMatter(prev => prev ? { ...prev, status: result.status } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update status';
-      setError(message);
+      setActionError(message);
     } finally {
       setActionLoading(false);
     }
@@ -258,7 +262,8 @@ export const ConversationHeader = ({
   }, [matter]);
 
   const handleMatterUpdated = (conversation: Conversation) => {
-    setError(null);
+    setMatterError(null);
+    setActionError(null);
     setLinkedMatterId(conversation.matter_id ?? null);
   };
 
@@ -270,6 +275,8 @@ export const ConversationHeader = ({
   const matterLink = linkedMatterId && practiceSlug
     ? `/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(linkedMatterId)}`
     : null;
+
+  const error = actionError || matterError || conversationError;
 
   return (
     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
