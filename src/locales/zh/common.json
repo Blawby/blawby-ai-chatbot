@@ -226,7 +226,10 @@
     },
     "navigation": {
       "home": "首页",
-      "messages": "消息"
+      "messages": "消息",
+      "matters": "案件",
+      "clients": "客户",
+      "settings": "设置"
     },
     "conversationList": {
       "title": "消息",

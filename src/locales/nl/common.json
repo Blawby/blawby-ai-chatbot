@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "Home",
-      "messages": "Berichten"
+      "messages": "Berichten",
+      "matters": "Dossiers",
+      "clients": "Cliënten",
+      "settings": "Instellingen"
     },
     "conversationList": {
       "title": "Berichten",

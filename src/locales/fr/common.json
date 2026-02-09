@@ -226,7 +226,10 @@
     },
     "navigation": {
       "home": "Accueil",
-      "messages": "Messages"
+      "messages": "Messages",
+      "matters": "Dossiers",
+      "clients": "Clients",
+      "settings": "Paramètres"
     },
     "conversationList": {
       "title": "Messages",

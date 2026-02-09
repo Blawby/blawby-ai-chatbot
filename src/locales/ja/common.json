@@ -226,7 +226,10 @@
     },
     "navigation": {
       "home": "ホーム",
-      "messages": "メッセージ"
+      "messages": "メッセージ",
+      "matters": "案件",
+      "clients": "クライアント",
+      "settings": "設定"
     },
     "conversationList": {
       "title": "メッセージ",

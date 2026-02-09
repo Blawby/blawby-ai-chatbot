@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "होम",
-      "messages": "संदेश"
+      "messages": "संदेश",
+      "matters": "मामले",
+      "clients": "क्लाइंट्स",
+      "settings": "सेटिंग्स"
     },
     "conversationList": {
       "title": "संदेश",

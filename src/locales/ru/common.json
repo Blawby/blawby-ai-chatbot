@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "Главная",
-      "messages": "Сообщения"
+      "messages": "Сообщения",
+      "matters": "Дела",
+      "clients": "Клиенты",
+      "settings": "Настройки"
     },
     "conversationList": {
       "title": "Сообщения",

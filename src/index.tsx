@@ -541,6 +541,24 @@ function PracticeAppRoute({
     shouldDelayPracticeConfig
   ]);
 
+  useEffect(() => {
+    if (settingsMode || isPending || practicesLoading) return;
+    if (practiceEmbedView !== 'home') return;
+    if (!hasPracticeSlug) return;
+    if (!isPracticeEnabled || !canAccessPractice) return;
+    navigate(`/practice/${encodeURIComponent(normalizedPracticeSlug)}/conversations`, true);
+  }, [
+    canAccessPractice,
+    hasPracticeSlug,
+    isPending,
+    isPracticeEnabled,
+    navigate,
+    normalizedPracticeSlug,
+    practiceEmbedView,
+    practicesLoading,
+    settingsMode
+  ]);
+
   if (isPending || practicesLoading || shouldDelayPracticeConfig || (hasPracticeSlug && slugLookupStatus === 'loading')) {
     return <LoadingScreen />;
   }
@@ -852,6 +870,7 @@ function PublicPracticeRoute({
     </>
   );
 }
+
 
 const FallbackLoader = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">

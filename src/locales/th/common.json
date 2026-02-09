@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "หน้าแรก",
-      "messages": "ข้อความ"
+      "messages": "ข้อความ",
+      "matters": "คดี",
+      "clients": "ลูกค้า",
+      "settings": "ตั้งค่า"
     },
     "conversationList": {
       "title": "ข้อความ",

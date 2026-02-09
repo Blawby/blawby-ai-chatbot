@@ -203,7 +203,10 @@
     },
     "navigation": {
       "home": "홈",
-      "messages": "메시지"
+      "messages": "메시지",
+      "matters": "사건",
+      "clients": "고객",
+      "settings": "설정"
     },
     "conversationList": {
       "title": "메시지",

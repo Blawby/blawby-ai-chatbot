@@ -226,7 +226,10 @@
     },
     "navigation": {
       "home": "Trang chủ",
-      "messages": "Tin nhắn"
+      "messages": "Tin nhắn",
+      "matters": "Vụ việc",
+      "clients": "Khách hàng",
+      "settings": "Cài đặt"
     },
     "conversationList": {
       "title": "Tin nhắn",

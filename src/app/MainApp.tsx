@@ -1006,29 +1006,35 @@ export function MainApp({
     <>
       <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
 
-      <AppLayout
-        workspace={workspace}
-        practiceNotFound={practiceNotFound}
-        practiceId={practiceId}
-        onRetryPracticeConfig={handleRetryPracticeConfig}
-        navItems={navItems}
-        isMobileSidebarOpen={isMobileSidebarOpen}
-        onToggleMobileSidebar={setIsMobileSidebarOpen}
-        isSettingsModalOpen={isSettingsRouteNow}
-        practiceConfig={{
-          name: resolvedPracticeName,
-          profileImage: resolvedPracticeLogo,
-          description: resolvedPracticeDescription,
-          slug: resolvedPracticeSlug ?? undefined
-        }}
-        currentPractice={currentPractice}
-        practiceDetails={practiceDetails}
-        messages={messages}
-        showRightSidebar={shouldShowRightSidebar}
-        mainClassName={shouldUsePracticeSplitView ? 'overflow-hidden' : undefined}
-      >
-        {mainContent}
-      </AppLayout>
+      {workspace === 'practice' ? (
+        <AppLayout
+          workspace={workspace}
+          practiceNotFound={practiceNotFound}
+          practiceId={practiceId}
+          onRetryPracticeConfig={handleRetryPracticeConfig}
+          navItems={navItems}
+          isMobileSidebarOpen={isMobileSidebarOpen}
+          onToggleMobileSidebar={setIsMobileSidebarOpen}
+          isSettingsModalOpen={isSettingsRouteNow}
+          practiceConfig={{
+            name: resolvedPracticeName,
+            profileImage: resolvedPracticeLogo,
+            description: resolvedPracticeDescription,
+            slug: resolvedPracticeSlug ?? undefined
+          }}
+          currentPractice={currentPractice}
+          practiceDetails={practiceDetails}
+          messages={messages}
+          showRightSidebar={shouldShowRightSidebar}
+          mainClassName="overflow-hidden"
+        >
+          {mainContent}
+        </AppLayout>
+      ) : (
+        <div className="min-h-dvh w-full">
+          {mainContent}
+        </div>
+      )}
 
       {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
 

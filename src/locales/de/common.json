@@ -226,7 +226,10 @@
     },
     "navigation": {
       "home": "Startseite",
-      "messages": "Nachrichten"
+      "messages": "Nachrichten",
+      "matters": "Angelegenheiten",
+      "clients": "Klienten",
+      "settings": "Einstellungen"
     },
     "conversationList": {
       "title": "Nachrichten",
