@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui/Button';
 
@@ -12,6 +13,16 @@ export function WorkspacePracticeDetailsError({
 }: WorkspacePracticeDetailsErrorProps) {
   const { t } = useTranslation();
   const slugLabel = practiceSlug ? ` "${practiceSlug}"` : '';
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const retryButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (onRetry && retryButtonRef.current) {
+      retryButtonRef.current.focus();
+    } else {
+      dialogRef.current?.focus();
+    }
+  }, [onRetry]);
 
   return (
     <div 
@@ -19,6 +30,8 @@ export function WorkspacePracticeDetailsError({
       role="alertdialog"
       aria-labelledby="workspace-error-heading"
       aria-describedby="workspace-error-desc"
+      tabIndex={-1}
+      ref={dialogRef}
     >
       <div className="max-w-lg rounded-2xl border border-light-border bg-light-card-bg p-6 text-center shadow-2xl dark:border-dark-border dark:bg-dark-card-bg">
         <h1 id="workspace-error-heading" className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
@@ -29,7 +42,7 @@ export function WorkspacePracticeDetailsError({
         </p>
         {onRetry ? (
           <div className="mt-6 flex justify-center">
-            <Button variant="primary" onClick={onRetry}>
+            <Button variant="primary" onClick={onRetry} ref={retryButtonRef}>
               {t('workspace.error.retry')}
             </Button>
           </div>
