@@ -257,8 +257,8 @@ function RootRoute() {
   } = useWorkspace();
   const { navigate } = useNavigation();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
-  const [isActivatingPractice, setIsActivatingPractice] = useState(false);
-  const activationInProgressRef = useRef(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const activationAttemptedRef = useRef(false);
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -275,22 +275,22 @@ function RootRoute() {
     if (activeOrganizationId) return;
     const targetPracticeId = currentPractice?.id ?? practices[0]?.id ?? null;
     if (!targetPracticeId) return;
-    if (activationInProgressRef.current) return;
-    
-    activationInProgressRef.current = true;
-    setIsActivatingPractice(true);
+    if (activationAttemptedRef.current) return;
+
+    activationAttemptedRef.current = true;
     const client = getClient();
     client.organization
       .setActive({ organizationId: targetPracticeId })
       .then(() => {
-        return getSession().catch(() => undefined);
+        return getSession()
+          .catch((error) => {
+            console.error('[Workspace] Practice activated but failed to refresh session', error);
+            setActivationError('Practice activated but we could not refresh your session. Refresh the page to continue.');
+          });
       })
       .catch((error) => {
-        console.warn('[Workspace] Failed to set active organization automatically', error);
-      })
-      .finally(() => {
-        activationInProgressRef.current = false;
-        setIsActivatingPractice(false);
+        console.error('[Workspace] Failed to set active organization automatically', error);
+        setActivationError('We could not activate your practice automatically. Refresh to retry or pick a practice manually.');
       });
   }, [
     activeOrganizationId,
@@ -366,6 +366,22 @@ function RootRoute() {
     currentPractice,
     practices
   ]);
+
+  if (activationError) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center text-sm text-red-300">
+        <p className="text-base font-semibold text-red-200">Activation stalled</p>
+        <p className="max-w-md text-red-100">{activationError}</p>
+        <button
+          type="button"
+          className="rounded-lg bg-red-500/20 px-4 py-2 font-medium text-red-100 hover:bg-red-500/30"
+          onClick={() => window.location.reload()}
+        >
+          Reload and try again
+        </button>
+      </div>
+    );
+  }
 
   return <LoadingScreen />;
 }
