@@ -9,7 +9,7 @@ import PricingPage from '@/pages/PricingPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
-import { getClient, updateUser } from '@/shared/lib/authClient';
+import { getClient, getSession, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -256,7 +256,8 @@ function RootRoute() {
     isPracticeLoading
   } = useWorkspace();
   const { navigate } = useNavigation();
-  const { currentPractice, practices } = usePracticeManagement();
+  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const [isActivatingPractice, setIsActivatingPractice] = useState(false);
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -268,7 +269,38 @@ function RootRoute() {
   }, []);
 
   useEffect(() => {
-    if (isPending || isPracticeLoading) return;
+    if (isPending || isPracticeLoading || practicesLoading) return;
+    if (!session?.user) return;
+    if (activeOrganizationId) return;
+    const targetPracticeId = currentPractice?.id ?? practices[0]?.id ?? null;
+    if (!targetPracticeId) return;
+    if (isActivatingPractice) return;
+    setIsActivatingPractice(true);
+    const client = getClient();
+    client.organization
+      .setActive({ organizationId: targetPracticeId })
+      .then(() => {
+        return getSession().catch(() => undefined);
+      })
+      .catch((error) => {
+        console.warn('[Workspace] Failed to set active organization automatically', error);
+      })
+      .finally(() => {
+        setIsActivatingPractice(false);
+      });
+  }, [
+    activeOrganizationId,
+    currentPractice?.id,
+    isActivatingPractice,
+    isPending,
+    isPracticeLoading,
+    practices,
+    practicesLoading,
+    session?.user
+  ]);
+
+  useEffect(() => {
+    if (isPending || isPracticeLoading || practicesLoading) return;
 
     if (!session?.user) {
       navigate('/auth', true);
@@ -323,6 +355,7 @@ function RootRoute() {
     canAccessPractice,
     defaultWorkspace,
     isPracticeLoading,
+    practicesLoading,
     isPending,
     navigate,
     activeOrganizationId,
@@ -349,8 +382,6 @@ function PracticeAppRoute({
   practiceSlug?: string;
 }) {
   const { session, isPending, activeOrganizationId } = useSessionContext();
-  const { navigate } = useNavigation();
-  const { isPracticeEnabled, canAccessPractice } = useWorkspace();
   const isMobile = useMobileDetection();
   const {
     currentPractice,
@@ -358,17 +389,19 @@ function PracticeAppRoute({
     loading: practicesLoading,
     refetch
   } = usePracticeManagement();
-  const [autoActivationState, setAutoActivationState] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
-  const autoActivationKeyRef = useRef<string | null>(null);
-  const [resolvedSlugPracticeId, setResolvedSlugPracticeId] = useState<string | null>(null);
-  const [slugLookupStatus, setSlugLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
-  const [slugLookupRetry, setSlugLookupRetry] = useState(0);
-  const slugToIdRef = useRef<Map<string, string>>(new Map());
-  const autoActivationCandidateId = practices[0]?.id ?? currentPractice?.id ?? '';
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
   const hasPracticeSlug = normalizedPracticeSlug.length > 0;
-  const resolvedPracticeId = activeOrganizationId ?? '';
-  const hasPracticeCandidate = Boolean(hasPracticeSlug || resolvedPracticeId || autoActivationCandidateId);
+  const slugPractice = hasPracticeSlug
+    ? practices.find((practice) => practice.slug === normalizedPracticeSlug)
+      ?? (currentPractice?.slug === normalizedPracticeSlug ? currentPractice : null)
+    : null;
+  const fallbackPracticeId = activeOrganizationId
+    ?? currentPractice?.id
+    ?? practices[0]?.id
+    ?? '';
+  const practiceIdCandidate = hasPracticeSlug
+    ? (slugPractice?.id ?? '')
+    : fallbackPracticeId;
   const practiceRefreshKey = useMemo(() => {
     if (!currentPractice) return null;
     return [
@@ -385,61 +418,7 @@ function PracticeAppRoute({
     console.error('Practice config error:', error);
   }, []);
 
-  const handleRetrySlugLookup = () => {
-    setSlugLookupStatus('idle');
-    setSlugLookupRetry((prev) => prev + 1);
-    void refetch();
-  };
-
-  const canAutoActivatePractice = Boolean(
-    !hasPracticeSlug &&
-    !practicesLoading &&
-    session?.user &&
-    autoActivationCandidateId &&
-    !activeOrganizationId
-  );
-  const shouldDelayPracticeConfig = canAutoActivatePractice && autoActivationState !== 'done' && autoActivationState !== 'failed';
-
-  useEffect(() => {
-    if (!hasPracticeSlug) {
-      setResolvedSlugPracticeId(null);
-      setSlugLookupStatus('idle');
-      return;
-    }
-
-    if (practicesLoading) {
-      setSlugLookupStatus('loading');
-      return;
-    }
-
-    const cachedId = slugToIdRef.current.get(normalizedPracticeSlug);
-    if (cachedId) {
-      setResolvedSlugPracticeId(cachedId);
-      setSlugLookupStatus('done');
-      return;
-    }
-
-    const match =
-      practices.find((practice) => practice.slug === normalizedPracticeSlug)
-      ?? (currentPractice?.slug === normalizedPracticeSlug ? currentPractice : null);
-
-    if (match?.id) {
-      slugToIdRef.current.set(normalizedPracticeSlug, match.id);
-      setResolvedSlugPracticeId(match.id);
-      setSlugLookupStatus('done');
-      return;
-    }
-
-    setResolvedSlugPracticeId(null);
-    setSlugLookupStatus('error');
-  }, [
-    currentPractice,
-    hasPracticeSlug,
-    normalizedPracticeSlug,
-    practices,
-    practicesLoading,
-    slugLookupRetry
-  ]);
+  const shouldDelayPracticeConfig = practicesLoading;
 
   const {
     practiceConfig,
@@ -447,86 +426,35 @@ function PracticeAppRoute({
     isLoading: _isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
-    practiceId: shouldDelayPracticeConfig
-      ? ''
-      : (hasPracticeSlug ? (resolvedSlugPracticeId ?? '') : resolvedPracticeId),
+    practiceId: shouldDelayPracticeConfig ? '' : practiceIdCandidate,
     allowUnauthenticated: false,
     refreshKey: practiceRefreshKey
   });
 
   const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
-  const practiceId = hasPracticeSlug
-    ? (resolvedPracticeIdFromConfig || resolvedPracticeId)
-    : resolvedPracticeId;
+  const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceIdCandidate;
 
-  const slugActivationRef = useRef<string | null>(null);
-  const slugActivationVersionRef = useRef(0);
+  const activationTargetId = practiceIdCandidate;
+  const activationRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!hasPracticeSlug) return;
-    const targetPracticeId = resolvedSlugPracticeId ?? resolvedPracticeIdFromConfig;
-    if (!targetPracticeId) return;
-    if (activeOrganizationId === targetPracticeId) return;
-    if (slugActivationRef.current === targetPracticeId) return;
-    
-    slugActivationRef.current = targetPracticeId;
-    const currentVersion = ++slugActivationVersionRef.current;
+    if (!activationTargetId) return;
+    if (activeOrganizationId === activationTargetId) return;
+    if (activationRef.current === activationTargetId) return;
 
+    activationRef.current = activationTargetId;
     const client = getClient();
     client.organization
-      .setActive({ organizationId: targetPracticeId })
-      .catch((error) => {
-        if (slugActivationVersionRef.current !== currentVersion) return;
-        console.warn('[Workspace] Failed to set active organization for practice slug', error);
-        slugActivationRef.current = null;
-      });
-  }, [activeOrganizationId, hasPracticeSlug, resolvedPracticeIdFromConfig, resolvedSlugPracticeId]);
-
-  useEffect(() => {
-    if (!canAutoActivatePractice) return;
-    if (slugActivationRef.current) return;
-    const activationKey = `${session?.user?.id ?? 'unknown'}:${autoActivationCandidateId}`;
-    if (autoActivationKeyRef.current === activationKey) return;
-    autoActivationKeyRef.current = activationKey;
-    setAutoActivationState('pending');
-    const client = getClient();
-    client.organization
-      .setActive({ organizationId: autoActivationCandidateId })
+      .setActive({ organizationId: activationTargetId })
       .then(() => {
-        setAutoActivationState('done');
+        return getSession().catch(() => undefined);
       })
       .catch((error) => {
-        console.warn('[Workspace] Failed to auto-activate practice', error);
-        setAutoActivationState('failed');
+        console.warn('[Workspace] Failed to set active organization', error);
+        activationRef.current = null;
       });
-  }, [autoActivationCandidateId, canAutoActivatePractice, session?.user?.id]);
+  }, [activationTargetId, activeOrganizationId]);
 
-  useEffect(() => {
-    if (settingsMode || isPending || practicesLoading) return;
-    if (!session?.user) return;
-    if (shouldDelayPracticeConfig) return;
-    if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
-      const clientSlug = practices[0]?.slug ?? currentPractice?.slug;
-      if (clientSlug) {
-        navigate(`/client/${encodeURIComponent(clientSlug)}`, true);
-      } else {
-        navigate('/auth', true);
-      }
-    }
-  }, [
-    canAccessPractice,
-    currentPractice,
-    hasPracticeCandidate,
-    isPracticeEnabled,
-    isPending,
-    navigate,
-    practices,
-    practicesLoading,
-    session?.user,
-    settingsMode,
-    shouldDelayPracticeConfig
-  ]);
-
-  if (isPending || practicesLoading || shouldDelayPracticeConfig || (hasPracticeSlug && slugLookupStatus === 'loading')) {
+  if (isPending || practicesLoading || shouldDelayPracticeConfig) {
     return <LoadingScreen />;
   }
 
@@ -534,22 +462,23 @@ function PracticeAppRoute({
     return <AuthPage />;
   }
 
-  if (hasPracticeSlug && slugLookupStatus === 'error') {
+  if (hasPracticeSlug && !slugPractice && !practicesLoading) {
     return (
       <PracticeNotFound
         practiceId={normalizedPracticeSlug}
-        onRetry={handleRetrySlugLookup}
+        onRetry={() => refetch()}
       />
     );
   }
 
-  if (!hasPracticeCandidate) {
-    return <LoadingScreen />;
-  }
-
-  if (!practiceId) {
-    if (practiceNotFound || autoActivationState === 'failed') {
-      return <LoadingScreen />;
+  if (!resolvedPracticeId) {
+    if (practiceNotFound) {
+      return (
+        <PracticeNotFound
+          practiceId={normalizedPracticeSlug || activationTargetId || 'unknown'}
+          onRetry={() => refetch()}
+        />
+      );
     }
     return <LoadingScreen />;
   }
@@ -566,7 +495,7 @@ function PracticeAppRoute({
 
   return (
       <MainApp
-        practiceId={practiceId}
+        practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
         isPracticeView={true}
         workspace="practice"

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useCallback, useEffect } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -39,6 +39,7 @@ import {
   usePracticeSyncParamRefetch,
   type EditPracticeFormState
 } from '@/features/settings/hooks/usePracticePageEffects';
+import { generateSlug } from '@/shared/utils/slug';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -180,7 +181,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: '',
-    slug: '',
     description: ''
   });
   
@@ -351,13 +351,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     try {
       await createPractice({
         name: createForm.name,
-        slug: createForm.slug || undefined,
+        slug: generateSlug(createForm.name),
         description: createForm.description || undefined,
       });
       
       showSuccess('Practice created successfully!');
       setShowCreateModal(false);
-      setCreateForm({ name: '', slug: '', description: '' });
+      setCreateForm({ name: '', description: '' });
 		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to create practice');
     }
@@ -432,7 +432,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       };
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
         name: editPracticeForm.name,
-        slug: editPracticeForm.slug,
         logo: trimmedLogo ? trimmedLogo : undefined,
         description: trimmedDescription ? trimmedDescription : undefined,
         introMessage: trimmedIntro ? trimmedIntro : undefined
@@ -500,15 +499,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     }
   };
 
-  const openContactModal = () => {
+  const openContactModal = useCallback(() => {
     setContactDraft({
       website: websiteValue,
       businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
       phone: phoneValue,
-      address: onboardingData.address,  // Address object
+      address: onboardingData.address,
     });
     setIsContactModalOpen(true);
-  };
+  }, [onboardingData.address, phoneValue, practice?.businessEmail, practiceDetails?.businessEmail, websiteValue]);
 
   const handleSaveContact = async () => {
     const success = await saveOnboardingSettings(
@@ -524,6 +523,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       setIsContactModalOpen(false);
     }
   };
+
+  useEffect(() => {
+    if (location.query?.setup === 'contact' && !isContactModalOpen) {
+      openContactModal();
+      navigate('/settings/practice', true);
+    }
+  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal]);
 
   const handleTogglePublic = async (nextValue: boolean) => {
     await saveOnboardingSettings(
@@ -900,15 +906,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             </div>
 
             <div>
-              <FormLabel htmlFor="edit-practice-slug">Slug (optional)</FormLabel>
-              <Input
-                id="edit-practice-slug"
-                value={editPracticeForm.slug}
-                onChange={(value) => setEditPracticeForm(prev => ({ ...prev, slug: value }))}
-                placeholder="your-law-firm"
-              />
+              <FormLabel>Workspace URL</FormLabel>
               <SettingsHelperText className="mt-1">
-                Used in URLs. Leave empty to keep the current slug.
+                {practice?.slug ? `blawby.com/practice/${practice.slug}` : 'Slug will be generated automatically'}
               </SettingsHelperText>
             </div>
           </FormGrid>
@@ -1082,19 +1082,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 placeholder="Your Law Firm Name"
                 required
               />
-            </div>
-
-            <div>
-              <FormLabel htmlFor="practice-slug">Slug (optional)</FormLabel>
-              <Input
-                id="practice-slug"
-                value={createForm.slug}
-                onChange={(value) => setCreateForm(prev => ({ ...prev, slug: value }))}
-                placeholder="your-law-firm"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Used in URLs. Leave empty to auto-generate.
-              </p>
             </div>
 
             <div className="@md:col-span-2">

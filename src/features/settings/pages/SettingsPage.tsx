@@ -1,5 +1,5 @@
 import { useLocation } from 'preact-iso';
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
@@ -35,7 +35,11 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { AppShell, Page, Panel, SplitView } from '@/shared/ui/layout';
+import { PracticeSetupBanner } from '@/features/practice-setup/components/PracticeSetupBanner';
+import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
 
 export interface SettingsPageProps {
@@ -57,6 +61,10 @@ export const SettingsPage = ({
   const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
   const canShowPracticeSettings = canAccessPractice;
+  const { currentPractice } = usePracticeManagement();
+  const { details: setupDetails } = usePracticeDetails(currentPractice?.id ?? null);
+  const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
+  const showSetupBanner = canShowPracticeSettings && setupStatus.needsSetup;
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -87,6 +95,7 @@ export const SettingsPage = ({
   const practiceSubPage = getPracticeSubPage();
   const accountSubPage = getAccountSubPage();
   const currentPage = getCurrentPage();
+  const shouldHideSettings = currentPage === 'organization';
 
   // Redirect legacy 'organization' URLs to 'practice'
   useEffect(() => {
@@ -103,10 +112,6 @@ export const SettingsPage = ({
       navigate('/settings');
     }
   }, [canShowPracticeSettings, currentPage, navigate, sessionPending]);
-
-  if (currentPage === 'organization') {
-    return null;
-  }
 
   const handleNavigation = (page: string) => {
     navigate(`/settings/${page}`);
@@ -172,6 +177,21 @@ export const SettingsPage = ({
     setApps((prev) => prev.map((app) => app.id === appId ? { ...app, ...updates } : app));
   };
 
+  const handleSetupNavigate = useCallback((target: 'basics' | 'contact' | 'services') => {
+    switch (target) {
+      case 'contact':
+        navigate('/settings/practice?setup=contact');
+        break;
+      case 'services':
+        navigate('/settings/practice/services');
+        break;
+      case 'basics':
+      default:
+        navigate('/settings/practice');
+        break;
+    }
+  }, [navigate]);
+
   // Render content based on current page
   const renderContent = () => {
     switch (currentPage) {
@@ -235,6 +255,10 @@ export const SettingsPage = ({
     );
   }
 
+  if (shouldHideSettings) {
+    return null;
+  }
+
   const navigationList = (
     <SidebarNavigation
       items={navigationItems}
@@ -252,9 +276,17 @@ export const SettingsPage = ({
     </div>
   );
 
+  const setupBanner = showSetupBanner ? (
+    <PracticeSetupBanner
+      status={setupStatus}
+      onNavigate={handleSetupNavigate}
+    />
+  ) : null;
+
   const contentPanel = (
     <Page className="h-full min-h-0">
       <Panel className="h-full min-h-0 overflow-hidden">
+        {setupBanner}
         {renderContent()}
       </Panel>
     </Page>

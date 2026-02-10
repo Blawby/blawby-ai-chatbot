@@ -28,21 +28,19 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     if (cached && cached.services !== undefined) {
       return cached;
     }
-    if (practiceSlug && practiceSlug.trim().length > 0) {
-      const details = await getPracticeDetailsBySlug(practiceSlug.trim());
-      if (details) {
-        // Use authoritative ID from response if available, otherwise fallback to provided practiceId
-        const canonicalId = details.id || practiceId;
-        setPracticeDetailsEntry(canonicalId, details);
-      }
-      return details;
-    }
     if (isLikelyUuid(practiceId)) {
       const details = await getPracticeDetails(practiceId);
       setPracticeDetailsEntry(practiceId, details);
       return details;
     }
-
+    if (practiceSlug && practiceSlug.trim().length > 0) {
+      const details = await getPracticeDetailsBySlug(practiceSlug.trim());
+      if (details) {
+        const canonicalId = details.id || practiceId;
+        setPracticeDetailsEntry(canonicalId, details);
+      }
+      return details;
+    }
     return null;
   }, [detailsMap, hasCachedDetails, practiceId, practiceSlug]);
 
