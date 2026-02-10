@@ -46,6 +46,38 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
     ? (resolvedUnit as PlanAmountUnit)
     : null;
 
+  const inferUnitFromValue = (rawValue: number | string): PlanAmountUnit | null => {
+    if (typeof rawValue === 'string') {
+      const trimmed = rawValue.trim();
+      // strings with a decimal are treated as dollars
+      if (trimmed.includes('.')) {
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? 'dollars' : null;
+      }
+      // integer-only strings are ambiguous
+      return null;
+    }
+    // Number types (integer, non-integer, or NaN) are all treated as ambiguous or null as per requirements
+    // to avoid miscalculating cents vs dollars without an explicit unit.
+    return null;
+  };
+
+  const resolveUnit = (rawValue: number | string): PlanAmountUnit | null => {
+    if (normalizedUnit) return normalizedUnit;
+    const inferred = inferUnitFromValue(rawValue);
+    if (inferred) {
+      console.warn('[fetchPlans] Missing price unit; inferring unit from value', {
+        value: rawValue,
+        unit,
+        label,
+        inferred
+      });
+      return inferred;
+    }
+    
+    return null;
+  };
+
   const requireUnit = () => {
     const message = `[fetchPlans] Missing or invalid price unit for ${label}`;
     console.error(message, { value, unit });
@@ -59,15 +91,16 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
   };
 
   if (typeof value === 'number' && Number.isFinite(value)) {
-    if (!normalizedUnit) {
+    const effectiveUnit = resolveUnit(value);
+    if (!effectiveUnit) {
       requireUnit();
       return '';
     }
-    if (normalizedUnit === 'cents' && !Number.isInteger(value)) {
+    if (effectiveUnit === 'cents' && !Number.isInteger(value)) {
       console.error('[fetchPlans] Expected integer cents amount', { value, unit });
       return '';
     }
-    return shouldTreatAsMinor(value, normalizedUnit)
+    return shouldTreatAsMinor(value, effectiveUnit)
       ? normalizeMinor(value)
       : normalizeMajor(value);
   }
@@ -77,23 +110,25 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
     if (trimmed.includes('.')) {
       const parsedMajor = Number(trimmed);
       if (!Number.isFinite(parsedMajor)) return '';
-      if (!normalizedUnit) {
+      const effectiveUnit = resolveUnit(trimmed);
+      if (!effectiveUnit) {
         requireUnit();
         return '';
       }
-      if (normalizedUnit === 'cents' && !Number.isInteger(parsedMajor)) {
+      if (effectiveUnit === 'cents' && !Number.isInteger(parsedMajor)) {
         console.warn('[fetchPlans] Decimal string provided for cents unit', { value, unit });
         return '';
       }
-      return shouldTreatAsMinor(parsedMajor, normalizedUnit) ? normalizeMinor(parsedMajor) : normalizeMajor(parsedMajor);
+      return shouldTreatAsMinor(parsedMajor, effectiveUnit) ? normalizeMinor(parsedMajor) : normalizeMajor(parsedMajor);
     }
     const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) {
-      if (!normalizedUnit) {
+      const effectiveUnit = resolveUnit(trimmed);
+      if (!effectiveUnit) {
         requireUnit();
         return '';
       }
-      return shouldTreatAsMinor(parsed, normalizedUnit) ? normalizeMinor(parsed) : normalizeMajor(parsed);
+      return shouldTreatAsMinor(parsed, effectiveUnit) ? normalizeMinor(parsed) : normalizeMajor(parsed);
     }
   }
 

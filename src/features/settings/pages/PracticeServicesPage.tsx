@@ -1,57 +1,16 @@
 import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ServicesEditor } from '@/features/services/components/ServicesEditor';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
-import { createServiceId, type Service } from '@/features/services/types';
-import { getServiceDetailsForSave, normalizeServices } from '@/features/services/utils';
+import type { Service } from '@/features/services/types';
+import { getServiceDetailsForSave } from '@/features/services/utils';
+import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const coerceServiceDetails = (value: unknown): Service[] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!isPlainObject(item)) return null;
-      const title = typeof item.name === 'string'
-        ? item.name
-        : (typeof item.title === 'string' ? item.title : '');
-      if (!title.trim()) return null;
-      const rawId = typeof item.id === 'string' ? item.id.trim() : '';
-      return {
-        id: rawId || createServiceId(),
-        title,
-        description: typeof item.description === 'string' ? item.description : ''
-      } as Service;
-    })
-    .filter((item): item is Service => item !== null);
-};
-
-const resolveServiceDetails = (
-  details: { services?: Array<Record<string, unknown>> | null } | null,
-  practice: Practice | null
-): Service[] => {
-  if (Array.isArray(details?.services)) {
-    const fromDetails = coerceServiceDetails(details.services);
-    return normalizeServices(fromDetails, SERVICE_CATALOG);
-  }
-  if (details?.services === null) {
-    return [];
-  }
-  if (practice?.services) {
-    const fromPractice = coerceServiceDetails(practice.services);
-    if (fromPractice.length > 0) {
-      return normalizeServices(fromPractice, SERVICE_CATALOG);
-    }
-  }
-  return [];
-};
 
 interface PracticeServicesPageProps {
   onNavigate?: (path: string) => void;

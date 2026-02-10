@@ -28,6 +28,8 @@ import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/sto
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
 
+const ENABLE_PAYOUT_STATUS = import.meta.env.VITE_ENABLE_PAYOUTS === 'true';
+
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -160,6 +162,7 @@ export interface CreatePracticeData {
   name: string;
   slug?: string;
   description?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdatePracticeData {
@@ -490,12 +493,15 @@ const fetchPracticeDetailsFor = async (
   practice: Practice,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<PracticeDetails | null> => {
+  const byId = await getPracticeDetails(practice.id, config);
+  if (byId) {
+    return byId;
+  }
   const slug = practice.slug?.trim();
   if (slug) {
-    const bySlug = await getPracticeDetailsBySlug(slug, config);
-    if (bySlug) return bySlug;
+    return getPracticeDetailsBySlug(slug, config);
   }
-  return getPracticeDetails(practice.id, config);
+  return null;
 };
 
 function mergePracticeDetails(practice: Practice, details: PracticeDetails | null): Practice {
@@ -841,7 +847,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           : undefined;
         const currentPracticeNext = activePractice || normalizedList[0] || null;
         let details: PracticeDetails | null = null;
-        let stripeDetailsSubmitted: boolean | null = null;
+        let stripeDetailsSubmitted: boolean | null = ENABLE_PAYOUT_STATUS ? null : false;
         if (currentPracticeNext) {
           if (fetchPracticeDetails) {
             try {
@@ -851,17 +857,19 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
               console.warn('Failed to fetch practice details:', detailsError);
             }
           }
-          try {
-            const payload = await getOnboardingStatusPayload(
-              currentPracticeNext.betterAuthOrgId ?? currentPracticeNext.id,
-              { signal: controller.signal }
-            );
-            stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
-          } catch (stripeError) {
-            if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
-              stripeDetailsSubmitted = false;
-            } else {
-              console.warn('Failed to fetch onboarding status:', stripeError);
+          if (ENABLE_PAYOUT_STATUS) {
+            try {
+              const payload = await getOnboardingStatusPayload(
+                currentPracticeNext.betterAuthOrgId ?? currentPracticeNext.id,
+                { signal: controller.signal }
+              );
+              stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
+            } catch (stripeError) {
+              if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
+                stripeDetailsSubmitted = false;
+              } else {
+                console.warn('Failed to fetch onboarding status:', stripeError);
+              }
             }
           }
         }
@@ -1007,9 +1015,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     // Only include slug if user explicitly provided one - API will auto-generate otherwise
     const slug = data.slug && data.slug.trim().length > 0 ? data.slug.trim() : undefined;
-    const metadata = data.description
+    const baseMetadata = data.description
       ? { description: data.description }
       : undefined;
+    const metadata = data.metadata
+      ? {
+          ...(baseMetadata ?? {}),
+          ...data.metadata
+        }
+      : baseMetadata;
 
     const practice = await apiCreatePractice({
       name: data.name,
