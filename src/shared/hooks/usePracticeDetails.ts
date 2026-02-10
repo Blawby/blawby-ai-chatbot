@@ -30,7 +30,9 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     }
     if (isLikelyUuid(practiceId)) {
       const details = await getPracticeDetails(practiceId);
-      setPracticeDetailsEntry(practiceId, details);
+      if (details) {
+        setPracticeDetailsEntry(practiceId, details);
+      }
       return details;
     }
     if (practiceSlug && practiceSlug.trim().length > 0) {

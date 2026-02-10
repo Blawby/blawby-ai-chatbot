@@ -258,6 +258,7 @@ function RootRoute() {
   const { navigate } = useNavigation();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
   const [isActivatingPractice, setIsActivatingPractice] = useState(false);
+  const activationInProgressRef = useRef(false);
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -274,7 +275,9 @@ function RootRoute() {
     if (activeOrganizationId) return;
     const targetPracticeId = currentPractice?.id ?? practices[0]?.id ?? null;
     if (!targetPracticeId) return;
-    if (isActivatingPractice) return;
+    if (activationInProgressRef.current) return;
+    
+    activationInProgressRef.current = true;
     setIsActivatingPractice(true);
     const client = getClient();
     client.organization
@@ -286,12 +289,12 @@ function RootRoute() {
         console.warn('[Workspace] Failed to set active organization automatically', error);
       })
       .finally(() => {
+        activationInProgressRef.current = false;
         setIsActivatingPractice(false);
       });
   }, [
     activeOrganizationId,
     currentPractice?.id,
-    isActivatingPractice,
     isPending,
     isPracticeLoading,
     practices,

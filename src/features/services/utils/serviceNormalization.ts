@@ -13,14 +13,15 @@ const coerceServiceDetails = (value: unknown): Service[] => {
   return value
     .map((item) => {
       if (!isPlainObject(item)) return null;
-      const title = typeof item.name === 'string'
+      const rawTitle = typeof item.name === 'string'
         ? item.name
         : (typeof item.title === 'string' ? item.title : '');
-      if (!title.trim()) return null;
+      const trimmedTitle = rawTitle.trim();
+      if (!trimmedTitle) return null;
       const rawId = typeof item.id === 'string' ? item.id.trim() : '';
       return {
-        id: rawId || createServiceId(title),
-        title,
+        id: rawId || createServiceId(trimmedTitle),
+        title: trimmedTitle,
         description: typeof item.description === 'string' ? item.description : ''
       } as Service;
     })

@@ -908,7 +908,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <div>
               <FormLabel>Workspace URL</FormLabel>
               <SettingsHelperText className="mt-1">
-                {practice?.slug ? `blawby.com/practice/${practice.slug}` : 'Slug will be generated automatically'}
+                {practice?.slug ? practiceUrlValue : 'Slug will be generated automatically'}
               </SettingsHelperText>
             </div>
           </FormGrid>

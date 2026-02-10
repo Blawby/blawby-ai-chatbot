@@ -49,17 +49,17 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
   const inferUnitFromValue = (rawValue: number | string): PlanAmountUnit | null => {
     if (typeof rawValue === 'string') {
       const trimmed = rawValue.trim();
-      if (trimmed.includes('.')) return 'dollars';
-      const parsed = Number(trimmed);
-      if (!Number.isFinite(parsed)) return null;
-      if (!Number.isInteger(parsed)) return 'dollars';
-      if (parsed >= 1000 && parsed % 100 === 0) return 'cents';
-      return 'dollars';
+      // strings with a decimal are treated as dollars
+      if (trimmed.includes('.')) {
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? 'dollars' : null;
+      }
+      // integer-only strings are ambiguous
+      return null;
     }
-    if (!Number.isFinite(rawValue)) return null;
-    if (!Number.isInteger(rawValue)) return 'dollars';
-    if (rawValue >= 1000 && rawValue % 100 === 0) return 'cents';
-    return 'dollars';
+    // Number types (integer, non-integer, or NaN) are all treated as ambiguous or null as per requirements
+    // to avoid miscalculating cents vs dollars without an explicit unit.
+    return null;
   };
 
   const resolveUnit = (rawValue: number | string): PlanAmountUnit | null => {
@@ -72,8 +72,15 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
         label,
         inferred
       });
+      return inferred;
     }
-    return inferred;
+    
+    // Fallback to 'dollars' as a safe default if no unit can be inferred
+    console.error(`[fetchPlans] Missing or invalid price unit for ${label}; using 'dollars' as fallback`, {
+      value: rawValue,
+      unit
+    });
+    return 'dollars';
   };
 
   const requireUnit = () => {
