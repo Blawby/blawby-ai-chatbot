@@ -442,7 +442,7 @@ function PracticeAppRoute({
   useEffect(() => {
     if (!activationTargetId) return;
     if (activeOrganizationId === activationTargetId) return;
-    if (activationRef.current === activationTargetId) return;
+    if (activationRef.current === activationTargetId || activationRef.current === `FAILED:${activationTargetId}`) return;
 
     activationRef.current = activationTargetId;
     const client = getClient();
@@ -453,7 +453,7 @@ function PracticeAppRoute({
       })
       .catch((error) => {
         console.warn('[Workspace] Failed to set active organization', error);
-        activationRef.current = null;
+        activationRef.current = `FAILED:${activationTargetId}`;
       });
   }, [activationTargetId, activeOrganizationId]);
 

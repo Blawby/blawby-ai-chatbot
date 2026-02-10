@@ -75,12 +75,7 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
       return inferred;
     }
     
-    // Fallback to 'dollars' as a safe default if no unit can be inferred
-    console.error(`[fetchPlans] Missing or invalid price unit for ${label}; using 'dollars' as fallback`, {
-      value: rawValue,
-      unit
-    });
-    return 'dollars';
+    return null;
   };
 
   const requireUnit = () => {

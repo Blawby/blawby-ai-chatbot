@@ -22,7 +22,7 @@ const coerceServiceDetails = (value: unknown): Service[] => {
       return {
         id: rawId || createServiceId(trimmedTitle),
         title: trimmedTitle,
-        description: typeof item.description === 'string' ? item.description : ''
+        description: typeof item.description === 'string' ? item.description.trim() : ''
       } as Service;
     })
     .filter((item): item is Service => item !== null);
