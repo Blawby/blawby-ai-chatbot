@@ -316,7 +316,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                 variant="bottom"
                 activeTab={previewTab}
                 onSelectTab={(tab) => setPreviewTab(tab)}
-                showClientTabs={true}
+                showClientTabs={showClientTabs}
+                showPracticeTabs={showPracticeTabs}
                 className="border-t-0 p-2"
               />
             </div>
