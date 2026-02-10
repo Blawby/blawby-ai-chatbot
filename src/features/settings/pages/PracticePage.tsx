@@ -39,7 +39,6 @@ import {
   usePracticeSyncParamRefetch,
   type EditPracticeFormState
 } from '@/features/settings/hooks/usePracticePageEffects';
-import { generateSlug } from '@/shared/utils/slug';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -351,7 +350,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     try {
       await createPractice({
         name: createForm.name,
-        slug: generateSlug(createForm.name),
         description: createForm.description || undefined,
       });
       
@@ -623,17 +621,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     </h3>
                     <div className="mt-2 space-y-2">
                       <div className="flex items-start gap-3">
-                        <SettingsSubheader className="w-20 text-[10px]">URL</SettingsSubheader>
-                        <a
-                          href={practiceUrlHref}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-brand-600 hover:text-brand-700 hover:underline"
-                        >
-                          {practiceUrlValue}
-                        </a>
-                      </div>
-                      <div className="flex items-start gap-3">
                         <SettingsSubheader className="w-20 text-[10px]">Description</SettingsSubheader>
                         <SettingsHelperText>{descriptionPreview}</SettingsHelperText>
                       </div>
@@ -647,6 +634,22 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   onClick={openEditPracticeModal}
                 >
                   Edit
+                </Button>
+              </SettingRow>
+
+              <SectionDivider />
+
+              <SettingRow
+                label="Workspace URL"
+                description={practice?.slug ? 'Share with clients to view your public profile.' : 'Slug will be generated automatically after saving.'}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open(practiceUrlHref, '_blank', 'noopener,noreferrer')}
+                  className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                >
+                  {practiceUrlValue}
                 </Button>
               </SettingRow>
 
