@@ -11,6 +11,10 @@ import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { PracticeSetupBanner } from '@/features/practice-setup/components/PracticeSetupBanner';
+import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 
@@ -61,6 +65,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   headerClassName,
 }) => {
   const { navigate } = useNavigation();
+  const [previewTab, setPreviewTab] = useState<'home' | 'messages' | 'matters' | 'settings' | 'clients'>('home');
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const isPracticeWorkspace = workspace === 'practice';
 
@@ -215,6 +220,28 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, conversations, filteredMessages]);
 
+  const { currentPractice } = usePracticeManagement();
+  const { details: setupDetails } = usePracticeDetails(currentPractice?.id ?? null);
+  const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
+
+  const handleSetupNavigate = (target: 'basics' | 'contact' | 'services' | 'payouts') => {
+    switch (target) {
+      case 'contact':
+        navigate('/settings/practice?setup=contact');
+        break;
+      case 'services':
+        navigate('/settings/practice/services');
+        break;
+      case 'payouts':
+        navigate('/settings/account/payouts');
+        break;
+      case 'basics':
+      default:
+        navigate('/settings/practice');
+        break;
+    }
+  };
+
   if (!allowed) {
     return null;
   }
@@ -241,6 +268,85 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const renderContent = () => {
+    if (workspace === 'practice' && view === 'home') {
+      const { currentPractice } = usePracticeManagement();
+      const { details: setupDetails } = usePracticeDetails(currentPractice?.id ?? null);
+      const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
+
+      const handleSetupNavigate = (target: 'basics' | 'contact' | 'services' | 'payouts') => {
+        switch (target) {
+          case 'contact':
+            navigate('/settings/practice?setup=contact');
+            break;
+          case 'services':
+            navigate('/settings/practice/services');
+            break;
+          case 'payouts':
+            navigate('/settings/account/payouts');
+            break;
+          case 'basics':
+          default:
+            navigate('/settings/practice');
+            break;
+        }
+      };
+
+      return (
+        <div className="flex h-full min-h-0 w-full overflow-hidden bg-white dark:bg-dark-bg">
+          {/* Left: Setup Panel - Expanded */}
+          <div className="flex h-full flex-1 flex-col border-r border-light-border dark:border-dark-border">
+            <div className="flex-1 overflow-y-auto p-12">
+              <div className="mx-auto max-w-2xl">
+                <PracticeSetupBanner
+                  status={setupStatus}
+                  onNavigate={handleSetupNavigate}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Public View Preview - Focused */}
+          <div className="flex w-[500px] shrink-0 flex-col items-center justify-center bg-gray-50 p-8 dark:bg-black/20">
+            <div className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">Public Preview</div>
+            <div className="relative flex h-full max-h-[800px] w-full max-w-[400px] flex-col overflow-hidden rounded-[40px] border-[8px] border-gray-900 bg-white shadow-2xl transition-all dark:border-gray-800 dark:bg-dark-bg">
+              <div className="flex-1 overflow-y-auto">
+                {previewTab === 'home' ? (
+                  <WorkspaceHomeView
+                    practiceName={practiceName}
+                    practiceLogo={practiceLogo}
+                    onSendMessage={() => setPreviewTab('messages')}
+                    onRequestConsultation={() => setPreviewTab('messages')}
+                    recentMessage={null}
+                    onOpenRecentMessage={() => setPreviewTab('messages')}
+                    consultationTitle={undefined}
+                    consultationDescription={undefined}
+                    consultationCta={undefined}
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center p-12 text-center text-gray-400">
+                    <div className="mb-4 h-12 w-12 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center">
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 capitalize">{previewTab}</h4>
+                    <p className="mt-2 text-xs">This view is currently in preview mode.</p>
+                  </div>
+                )}
+              </div>
+              <WorkspaceNav
+                variant="bottom"
+                activeTab={previewTab}
+                onSelectTab={(tab) => setPreviewTab(tab as any)}
+                showClientTabs={true}
+                className="border-t-0 p-2"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     switch (view) {
       case 'home':
         return (

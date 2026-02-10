@@ -35,11 +35,7 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { AppShell, Page, Panel, SplitView } from '@/shared/ui/layout';
-import { PracticeSetupBanner } from '@/features/practice-setup/components/PracticeSetupBanner';
-import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
-import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
 
 export interface SettingsPageProps {
@@ -61,10 +57,6 @@ export const SettingsPage = ({
   const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
   const canShowPracticeSettings = canAccessPractice;
-  const { currentPractice } = usePracticeManagement();
-  const { details: setupDetails } = usePracticeDetails(currentPractice?.id ?? null);
-  const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
-  const showSetupBanner = canShowPracticeSettings && setupStatus.needsSetup;
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -177,20 +169,7 @@ export const SettingsPage = ({
     setApps((prev) => prev.map((app) => app.id === appId ? { ...app, ...updates } : app));
   };
 
-  const handleSetupNavigate = useCallback((target: 'basics' | 'contact' | 'services') => {
-    switch (target) {
-      case 'contact':
-        navigate('/settings/practice?setup=contact');
-        break;
-      case 'services':
-        navigate('/settings/practice/services');
-        break;
-      case 'basics':
-      default:
-        navigate('/settings/practice');
-        break;
-    }
-  }, [navigate]);
+  // Setup navigation logic moved to home page
 
   // Render content based on current page
   const renderContent = () => {
@@ -276,12 +255,7 @@ export const SettingsPage = ({
     </div>
   );
 
-  const setupBanner = showSetupBanner ? (
-    <PracticeSetupBanner
-      status={setupStatus}
-      onNavigate={handleSetupNavigate}
-    />
-  ) : null;
+  const setupBanner = null;
 
   const contentPanel = (
     <Page className="h-full min-h-0">

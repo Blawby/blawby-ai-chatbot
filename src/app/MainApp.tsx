@@ -30,7 +30,6 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
 import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
-import AnnouncementBanner from '@/shared/components/AnnouncementBanner';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -115,30 +114,6 @@ export function MainApp({
     if (isPublicWorkspace) return resolvedPublicPracticeSlug ?? '';
     return practiceId;
   }, [isPublicWorkspace, practiceId, resolvedPublicPracticeSlug]);
-
-  const practiceBanner = useMemo(() => {
-    if (workspace !== 'practice') return null;
-    if (!currentPractice?.id) return null;
-
-    const stripeStatus = currentPractice.businessOnboardingStatus;
-    const stripeReady = stripeStatus === 'completed' || stripeStatus === 'not_required';
-    if (stripeReady) return null;
-
-    return (
-      <AnnouncementBanner
-        title="Almost ready to go"
-        actions={[
-          {
-            label: 'Set up payouts',
-            onClick: () => navigate('/settings/account/payouts'),
-            variant: 'primary' as const
-          }
-        ]}
-        tone="warning"
-        variant="flat"
-      />
-    );
-  }, [currentPractice, navigate, workspace]);
 
   useEffect(() => {
     setConversationId(null);
@@ -950,7 +925,6 @@ export function MainApp({
         />
       }
       clientsView={<PracticeClientsPage />}
-      header={practiceBanner ?? undefined}
     />
   ) : null;
 
