@@ -24,7 +24,9 @@ export const resolvePracticeSetupStatus = (
   );
   const servicesComplete = Boolean(details?.services && details.services.length > 0);
   const stripeStatus = practice?.businessOnboardingStatus;
-  const payoutsComplete = stripeStatus === 'completed' || stripeStatus === 'not_required';
+  const payoutsComplete = stripeStatus === 'completed'
+    || stripeStatus === 'not_required'
+    || stripeStatus === 'skipped';
   const needsSetup = !(basicsComplete && contactComplete && servicesComplete && payoutsComplete);
   return {
     basicsComplete,

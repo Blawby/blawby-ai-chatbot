@@ -1,5 +1,5 @@
 import { useLocation } from 'preact-iso';
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';

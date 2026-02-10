@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
-import WorkspaceNav from '@/features/chat/views/WorkspaceNav';
+import WorkspaceNav, { type WorkspaceNavTab } from '@/features/chat/views/WorkspaceNav';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { SplitView } from '@/shared/ui/layout/SplitView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
@@ -65,7 +65,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   headerClassName,
 }) => {
   const { navigate } = useNavigation();
-  const [previewTab, setPreviewTab] = useState<'home' | 'messages' | 'matters' | 'settings' | 'clients'>('home');
+  const [previewTab, setPreviewTab] = useState<WorkspaceNavTab>('home');
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const isPracticeWorkspace = workspace === 'practice';
 
@@ -269,33 +269,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const renderContent = () => {
     if (workspace === 'practice' && view === 'home') {
-      const { currentPractice } = usePracticeManagement();
-      const { details: setupDetails } = usePracticeDetails(currentPractice?.id ?? null);
-      const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
-
-      const handleSetupNavigate = (target: 'basics' | 'contact' | 'services' | 'payouts') => {
-        switch (target) {
-          case 'contact':
-            navigate('/settings/practice?setup=contact');
-            break;
-          case 'services':
-            navigate('/settings/practice/services');
-            break;
-          case 'payouts':
-            navigate('/settings/account/payouts');
-            break;
-          case 'basics':
-          default:
-            navigate('/settings/practice');
-            break;
-        }
-      };
-
       return (
-        <div className="flex h-full min-h-0 w-full overflow-hidden bg-white dark:bg-dark-bg">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto lg:flex-row lg:overflow-hidden bg-white dark:bg-dark-bg">
           {/* Left: Setup Panel - Expanded */}
-          <div className="flex h-full flex-1 flex-col border-r border-light-border dark:border-dark-border">
-            <div className="flex-1 overflow-y-auto p-12">
+          <div className="flex min-h-0 flex-1 flex-col border-b border-light-border lg:border-b-0 lg:border-r dark:border-dark-border">
+            <div className="flex-1 overflow-y-auto p-6 md:p-12">
               <div className="mx-auto max-w-2xl">
                 <PracticeSetupBanner
                   status={setupStatus}
@@ -306,9 +284,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           </div>
 
           {/* Right: Public View Preview - Focused */}
-          <div className="flex w-[500px] shrink-0 flex-col items-center justify-center bg-gray-50 p-8 dark:bg-black/20">
+          <div className="flex w-full shrink-0 flex-col items-center justify-center bg-gray-50 p-6 md:p-8 lg:w-[500px] dark:bg-black/20">
             <div className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">Public Preview</div>
-            <div className="relative flex h-full max-h-[800px] w-full max-w-[400px] flex-col overflow-hidden rounded-[40px] border-[8px] border-gray-900 bg-white shadow-2xl transition-all dark:border-gray-800 dark:bg-dark-bg">
+            <div className="relative flex h-[600px] w-full max-w-[360px] flex-col overflow-hidden rounded-[40px] border-[8px] border-gray-900 bg-white shadow-2xl transition-all md:h-[700px] lg:h-full lg:max-h-[800px] lg:max-w-[400px] dark:border-gray-800 dark:bg-dark-bg">
               <div className="flex-1 overflow-y-auto">
                 {previewTab === 'home' ? (
                   <WorkspaceHomeView
@@ -326,7 +304,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                   <div className="flex h-full flex-col items-center justify-center p-12 text-center text-gray-400">
                     <div className="mb-4 h-12 w-12 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center">
                       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                     </div>
                     <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 capitalize">{previewTab}</h4>
@@ -337,11 +315,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               <WorkspaceNav
                 variant="bottom"
                 activeTab={previewTab}
-                onSelectTab={(tab) => setPreviewTab(tab as any)}
+                onSelectTab={(tab) => setPreviewTab(tab)}
                 showClientTabs={true}
                 className="border-t-0 p-2"
               />
             </div>
+            {/* Mobile Helper Text */}
+            <p className="mt-6 text-center text-xs text-gray-400 lg:hidden">
+              This is a preview of your public-facing page.
+            </p>
           </div>
         </div>
       );
@@ -421,7 +403,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : view === 'clients'
     ? 'clients'
     : view;
-  const handleSelectTab = (tab: 'home' | 'messages' | 'matters' | 'settings' | 'clients') => {
+  const handleSelectTab = (tab: WorkspaceNavTab) => {
     if (tab === 'messages') {
       void refreshConversations();
       navigate(conversationsPath);
