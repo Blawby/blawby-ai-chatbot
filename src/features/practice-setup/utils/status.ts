@@ -5,6 +5,7 @@ export interface PracticeSetupStatus {
   basicsComplete: boolean;
   contactComplete: boolean;
   servicesComplete: boolean;
+  payoutsComplete: boolean;
   needsSetup: boolean;
 }
 
@@ -22,11 +23,16 @@ export const resolvePracticeSetupStatus = (
     )
   );
   const servicesComplete = Boolean(details?.services && details.services.length > 0);
-  const needsSetup = !(basicsComplete && contactComplete && servicesComplete);
+  const stripeStatus = practice?.businessOnboardingStatus;
+  const payoutsComplete = stripeStatus === 'completed'
+    || stripeStatus === 'not_required'
+    || stripeStatus === 'skipped';
+  const needsSetup = !(basicsComplete && contactComplete && servicesComplete && payoutsComplete);
   return {
     basicsComplete,
     contactComplete,
     servicesComplete,
+    payoutsComplete,
     needsSetup
   };
 };

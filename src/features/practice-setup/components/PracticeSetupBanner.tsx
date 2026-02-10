@@ -4,7 +4,7 @@ import type { PracticeSetupStatus } from '../utils/status';
 
 interface PracticeSetupBannerProps {
   status: PracticeSetupStatus;
-  onNavigate: (target: 'basics' | 'contact' | 'services') => void;
+  onNavigate: (target: 'basics' | 'contact' | 'services' | 'payouts') => void;
 }
 
 export const PracticeSetupBanner = ({ status, onNavigate }: PracticeSetupBannerProps) => {
@@ -31,6 +31,13 @@ export const PracticeSetupBanner = ({ status, onNavigate }: PracticeSetupBannerP
       description: 'Choose the services you want to intake.',
       complete: status.servicesComplete,
       actionLabel: 'Configure services'
+    },
+    {
+      id: 'payouts' as const,
+      label: 'Set up payouts',
+      description: 'Connect your Stripe account to receive payments.',
+      complete: status.payoutsComplete,
+      actionLabel: 'Set up payouts'
     }
   ];
 

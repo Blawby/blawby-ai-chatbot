@@ -11,10 +11,12 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { cn } from '@/shared/utils/cn';
 
+export type WorkspaceNavTab = 'home' | 'messages' | 'matters' | 'settings' | 'clients';
+
 interface WorkspaceNavProps {
   variant: 'bottom' | 'sidebar';
-  activeTab: 'home' | 'messages' | 'matters' | 'settings' | 'clients';
-  onSelectTab: (tab: 'home' | 'messages' | 'matters' | 'settings' | 'clients') => void;
+  activeTab: WorkspaceNavTab;
+  onSelectTab: (tab: WorkspaceNavTab) => void;
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
   className?: string;
