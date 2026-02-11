@@ -320,8 +320,18 @@ export const AccountPage = ({
       await getSession().catch((error) => {
         console.warn('[Account] Session refresh failed after avatar update', error);
       });
+
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      showSuccess('Profile photo updated', 'Your avatar has been saved.');
     } catch (error) {
       showError('Avatar upload failed', error instanceof Error ? error.message : 'Unable to upload image.');
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
       setAvatarPreviewUrl(session?.user?.image ?? null);
     } finally {
       setAvatarUploading(false);

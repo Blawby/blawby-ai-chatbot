@@ -55,6 +55,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
     const files = target.files;
     if (files) {
       onChange?.(Array.from(files));
+      target.value = '';
     }
   };
 

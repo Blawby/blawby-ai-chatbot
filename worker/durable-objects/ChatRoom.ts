@@ -791,7 +791,7 @@ export class ChatRoom {
       return {
         kind: 'error',
         code: 'internal_error',
-        message: error instanceof Error ? `Message persistence failed: ${error.message}` : 'Message persistence failed'
+        message: 'Message persistence failed'
       };
     }
 

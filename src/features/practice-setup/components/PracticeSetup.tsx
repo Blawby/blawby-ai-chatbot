@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState, useRef } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, LogoUploadInput } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
@@ -67,6 +67,8 @@ export const PracticeSetup = ({
 
   const [initialBasics, setInitialBasics] = useState<BasicsFormValues | null>(null);
   const [initialContact, setInitialContact] = useState<ContactFormValues | null>(null);
+  const basicsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentBasicsFromProps = useMemo(() => ({
     name: practice?.name ?? '',
@@ -140,6 +142,10 @@ export const PracticeSetup = ({
         currentBasicsFromProps.slug === initialBasics.slug &&
         currentBasicsFromProps.introMessage === initialBasics.introMessage
       ) {
+        if (basicsTimerRef.current) {
+          clearTimeout(basicsTimerRef.current);
+          basicsTimerRef.current = null;
+        }
         setJustSavedBasics(false);
       }
       return;
@@ -164,6 +170,10 @@ export const PracticeSetup = ({
         (currentContactFromProps.address?.postalCode ?? '') === (initial.address?.postalCode ?? '') &&
         (currentContactFromProps.address?.country ?? '') === (initial.address?.country ?? '')
       ) {
+        if (contactTimerRef.current) {
+          clearTimeout(contactTimerRef.current);
+          contactTimerRef.current = null;
+        }
         setJustSavedContact(false);
       }
       return;
@@ -172,6 +182,13 @@ export const PracticeSetup = ({
     setContactDraft(currentContactFromProps);
     setInitialContact(currentContactFromProps);
   }, [currentContactFromProps, contactDirty, justSavedContact, initialContact]);
+
+  useEffect(() => {
+    return () => {
+      if (basicsTimerRef.current) clearTimeout(basicsTimerRef.current);
+      if (contactTimerRef.current) clearTimeout(contactTimerRef.current);
+    };
+  }, []);
 
   const bannerTitle = status.needsSetup ? 'Almost ready to go' : 'All set';
   const bannerDescription = status.needsSetup
@@ -268,6 +285,11 @@ export const PracticeSetup = ({
                   await onSaveBasics(basicsDraft);
                   setInitialBasics(basicsDraft);
                   setJustSavedBasics(true);
+                  if (basicsTimerRef.current) clearTimeout(basicsTimerRef.current);
+                  basicsTimerRef.current = setTimeout(() => {
+                    setJustSavedBasics(false);
+                    basicsTimerRef.current = null;
+                  }, 5000);
                 } catch (error) {
                   setBasicsSaveError(error instanceof Error ? error.message : 'Failed to save basics');
                 } finally {
@@ -348,6 +370,11 @@ export const PracticeSetup = ({
                   await onSaveContact(contactDraft);
                   setInitialContact(contactDraft);
                   setJustSavedContact(true);
+                  if (contactTimerRef.current) clearTimeout(contactTimerRef.current);
+                  contactTimerRef.current = setTimeout(() => {
+                    setJustSavedContact(false);
+                    contactTimerRef.current = null;
+                  }, 5000);
                 } catch (error) {
                   setContactSaveError(error instanceof Error ? error.message : 'Failed to save contact info');
                 } finally {
