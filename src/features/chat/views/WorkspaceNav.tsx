@@ -55,8 +55,8 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
     <div
       className={cn(
         variant === 'bottom'
-          ? 'border-t border-light-border bg-white/95 px-4 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.12)] dark:border-white/20 dark:bg-dark-bg/95 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.55)]'
-          : 'h-full border-r border-light-border bg-white/95 px-2 py-3 shadow-[0_0_24px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-dark-bg/95',
+          ? 'border-t border-light-border bg-light-card-bg px-4 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg dark:shadow-[0_-8px_24px_rgba(0,0,0,0.55)]'
+          : 'h-full border-r border-light-border bg-light-card-bg px-2 py-3 shadow-[0_0_24px_rgba(15,23,42,0.06)] dark:border-dark-border dark:bg-dark-card-bg',
         className
       )}
     >

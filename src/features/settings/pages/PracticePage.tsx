@@ -301,6 +301,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const modalContentClassName = 'bg-light-card-bg dark:bg-dark-card-bg border-light-border dark:border-dark-border';
+  const modalHeaderClassName = 'bg-light-card-bg dark:bg-dark-card-bg border-light-border dark:border-dark-border';
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -894,6 +896,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={isEditPracticeModalOpen}
         onClose={() => setIsEditPracticeModalOpen(false)}
         title="Edit Practice"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           <FormGrid>
@@ -974,6 +978,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               introMessage={introDraft}
               onIntroChange={setIntroDraft}
               showIntro
+              showDescription={false}
               descriptionRows={4}
               descriptionLabel="Business description"
               descriptionPlaceholder="Tell us about your business..."
@@ -1001,6 +1006,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
         title="Contact"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           {/* Contact Information Fields */}
@@ -1073,6 +1080,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Create Practice"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           <FormGrid>
@@ -1118,6 +1127,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         title="Delete Practice"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           <SettingsNotice variant="danger" className="p-4">

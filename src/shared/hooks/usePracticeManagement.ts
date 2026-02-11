@@ -1031,6 +1031,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       ...(metadata ? { metadata } : {})
     });
 
+    if (practice?.id) {
+      try {
+        await apiUpdatePracticeDetails(practice.id, { isPublic: true });
+        practice.isPublic = true;
+      } catch (err) {
+        console.warn('[usePracticeManagement] Failed to enable public visibility by default', err);
+      }
+    }
+
     const normalized = normalizePracticeRecord(practice as unknown as Record<string, unknown>);
     practicesFetchedRef.current = false;
     await fetchPractices();
