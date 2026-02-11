@@ -122,9 +122,11 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
                 t('workspace.navigation.clients')
               )}
             </div>
-            <div className="border-t border-light-border pt-3 dark:border-dark-border">
-              {settingsButton}
-            </div>
+            {settingsButton && (
+              <div className="border-t border-light-border pt-3 dark:border-dark-border">
+                {settingsButton}
+              </div>
+            )}
           </nav>
         </div>
       ) : (

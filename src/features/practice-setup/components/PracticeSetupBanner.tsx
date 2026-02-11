@@ -64,6 +64,8 @@ export const PracticeSetupBanner = ({
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [basicsSaveError, setBasicsSaveError] = useState<string | null>(null);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
+  const [justSavedBasics, setJustSavedBasics] = useState(false);
+  const [justSavedContact, setJustSavedContact] = useState(false);
 
   const initialBasicsRef = useRef<BasicsFormValues | null>(null);
   const initialContactRef = useRef<ContactFormValues | null>(null);
@@ -133,16 +135,44 @@ export const PracticeSetupBanner = ({
   }, [contactDraft]);
 
   useEffect(() => {
+    if (justSavedBasics) {
+      if (
+        currentBasicsFromProps.name === initialBasicsRef.current?.name &&
+        currentBasicsFromProps.slug === initialBasicsRef.current?.slug &&
+        currentBasicsFromProps.introMessage === initialBasicsRef.current?.introMessage
+      ) {
+        setJustSavedBasics(false);
+      }
+      return;
+    }
     if (basicsDirty) return;
     setBasicsDraft(currentBasicsFromProps);
     initialBasicsRef.current = currentBasicsFromProps;
-  }, [currentBasicsFromProps, basicsDirty]);
+  }, [currentBasicsFromProps, basicsDirty, justSavedBasics]);
 
   useEffect(() => {
+    if (justSavedContact) {
+      const initial = initialContactRef.current;
+      if (
+        initial &&
+        currentContactFromProps.website === initial.website &&
+        currentContactFromProps.businessEmail === initial.businessEmail &&
+        currentContactFromProps.businessPhone === initial.businessPhone &&
+        (currentContactFromProps.address?.address ?? '') === (initial.address?.address ?? '') &&
+        (currentContactFromProps.address?.apartment ?? '') === (initial.address?.apartment ?? '') &&
+        (currentContactFromProps.address?.city ?? '') === (initial.address?.city ?? '') &&
+        (currentContactFromProps.address?.state ?? '') === (initial.address?.state ?? '') &&
+        (currentContactFromProps.address?.postalCode ?? '') === (initial.address?.postalCode ?? '') &&
+        (currentContactFromProps.address?.country ?? '') === (initial.address?.country ?? '')
+      ) {
+        setJustSavedContact(false);
+      }
+      return;
+    }
     if (contactDirty) return;
     setContactDraft(currentContactFromProps);
     initialContactRef.current = currentContactFromProps;
-  }, [currentContactFromProps, contactDirty]);
+  }, [currentContactFromProps, contactDirty, justSavedContact]);
 
   if (!status.needsSetup) {
     return null;
@@ -241,6 +271,7 @@ export const PracticeSetupBanner = ({
                 try {
                   await onSaveBasics(basicsDraft);
                   initialBasicsRef.current = basicsDraft;
+                  setJustSavedBasics(true);
                 } catch (error) {
                   setBasicsSaveError(error instanceof Error ? error.message : 'Failed to save basics');
                 } finally {
@@ -319,6 +350,7 @@ export const PracticeSetupBanner = ({
                 try {
                   await onSaveContact(contactDraft);
                   initialContactRef.current = contactDraft;
+                  setJustSavedContact(true);
                 } catch (error) {
                   setContactSaveError(error instanceof Error ? error.message : 'Failed to save contact info');
                 } finally {
