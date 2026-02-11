@@ -1150,9 +1150,15 @@ export const useMessageHandling = ({
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationIdRef.current;
     if (!effectivePracticeId) {
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] sendMessageOverWs aborted: missing practiceId');
+      }
       return;
     }
     if (!activeConversationId) {
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] sendMessageOverWs aborted: missing conversationId');
+      }
       return;
     }
     if (!content.trim()) {
@@ -1183,11 +1189,35 @@ export const useMessageHandling = ({
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
     try {
+      if (import.meta.env.DEV) {
+        console.info('[useMessageHandling] sendMessageOverWs start', {
+          conversationId: activeConversationId,
+          practiceId: effectivePracticeId,
+          contentLength: content.length,
+          attachments: attachmentIds.length,
+          hasMetadata: Boolean(metadata)
+        });
+      }
       await waitForSessionReady();
       if (!isSocketReadyRef.current || socketConversationIdRef.current !== activeConversationId) {
+        if (import.meta.env.DEV) {
+          console.info('[useMessageHandling] connecting chat room', {
+            socketReady: isSocketReadyRef.current,
+            socketConversationId: socketConversationIdRef.current,
+            targetConversationId: activeConversationId
+          });
+        }
         connectChatRoomRef.current(activeConversationId);
       }
       await waitForSocketReady();
+      if (import.meta.env.DEV) {
+        console.info('[useMessageHandling] sending WS frame message.send', {
+          conversationId: activeConversationId,
+          clientId,
+          hasReply: Boolean(replyToMessageId),
+          attachments: attachmentIds.length
+        });
+      }
       sendFrame({
         type: 'message.send',
         data: {
@@ -1856,10 +1886,12 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       return;
     }
     if (!conversationId || !practiceId) {
+      conversationIdRef.current = undefined;
       closeChatSocket();
       return;
     }
 
+    conversationIdRef.current = conversationId;
     resetRealtimeState();
     setPaymentRetryNotice(null);
     abortControllerRef.current?.abort();

@@ -18,6 +18,7 @@ import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
+import type { LayoutMode } from '@/app/MainApp';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -42,6 +43,7 @@ export interface ChatContainerProps {
   heightClassName?: string;
   headerContent?: ComponentChildren;
   useFrame?: boolean;
+  layoutMode?: LayoutMode;
   onOpenSidebar?: () => void;
   practiceId?: string;
 
@@ -95,6 +97,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   heightClassName,
   headerContent,
   useFrame = true,
+  layoutMode,
   onOpenSidebar,
   practiceId,
   onToggleReaction,
@@ -309,7 +312,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
   };
 
-  const shouldFrame = useFrame !== false;
+  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'embed' : 'desktop');
+  const shouldFrame = resolvedLayoutMode !== 'desktop';
   const containerClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col min-h-0 flex-1 h-full w-full m-0 p-0 relative overflow-hidden'
     : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;

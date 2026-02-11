@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { FileInput, Input } from '@/shared/ui/input';
+import { Input, LogoUploadInput } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import type { Address } from '@/shared/types/address';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
@@ -22,7 +22,7 @@ export interface ContactFormValues {
   address?: Address;
 }
 
-interface PracticeSetupBannerProps {
+interface PracticeSetupProps {
   status: PracticeSetupStatus;
   practice: Practice | null;
   details: PracticeDetails | null;
@@ -30,13 +30,12 @@ interface PracticeSetupBannerProps {
   onSaveContact: (values: ContactFormValues) => Promise<void>;
   servicesSlot?: ComponentChildren;
   payoutsSlot?: ComponentChildren;
-  logoFiles: File[];
   logoUploading: boolean;
   logoUploadProgress: number | null;
   onLogoChange: (files: FileList | File[]) => void;
 }
 
-export const PracticeSetupBanner = ({
+export const PracticeSetup = ({
   status,
   practice,
   details,
@@ -44,11 +43,10 @@ export const PracticeSetupBanner = ({
   onSaveContact,
   servicesSlot,
   payoutsSlot,
-  logoFiles,
   logoUploading,
   logoUploadProgress,
   onLogoChange
-}: PracticeSetupBannerProps) => {
+}: PracticeSetupProps) => {
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: '',
     slug: '',
@@ -175,9 +173,10 @@ export const PracticeSetupBanner = ({
     setInitialContact(currentContactFromProps);
   }, [currentContactFromProps, contactDirty, justSavedContact, initialContact]);
 
-  if (!status.needsSetup) {
-    return null;
-  }
+  const bannerTitle = status.needsSetup ? 'Almost ready to go' : 'All set';
+  const bannerDescription = status.needsSetup
+    ? 'Finish these essentials to unlock AI chat and your public intake flow.'
+    : 'Your workspace essentials are complete. You can update any section at any time.';
 
   const SectionStatus = ({ complete }: { complete: boolean }) => (
     <span
@@ -199,15 +198,15 @@ export const PracticeSetupBanner = ({
             Let&apos;s get started
           </p>
           <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Almost ready to go
+            {bannerTitle}
           </h2>
           <p className="text-sm text-gray-600 dark:text-white/80">
-            Finish these essentials to unlock AI chat and your public intake flow.
+            {bannerDescription}
           </p>
         </header>
 
-        <section className="rounded-3xl border border-light-border bg-light-card-bg p-5 shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Profile</p>
               <p className="text-lg font-semibold">Firm basics</p>
@@ -230,22 +229,17 @@ export const PracticeSetupBanner = ({
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="space-y-3">
-              <FileInput
+              <LogoUploadInput
+                imageUrl={practice?.logo ?? null}
+                name={practice?.name ?? 'Practice'}
                 label="Logo"
                 description="Upload a square logo (max 5 MB)."
                 accept="image/*"
                 multiple={false}
-                maxFileSize={5 * 1024 * 1024}
-                value={logoFiles}
                 onChange={onLogoChange}
                 disabled={logoUploading}
+                progress={logoUploading ? logoUploadProgress : null}
               />
-              {(logoUploading || logoUploadProgress !== null) && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {logoUploading ? 'Uploading logo' : 'Upload progress'}
-                  {logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
-                </p>
-              )}
             </div>
             <div>
               <PracticeProfileTextFields
@@ -260,10 +254,11 @@ export const PracticeSetupBanner = ({
               />
             </div>
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex">
             <Button
               variant="primary"
               size="sm"
+              className="w-full sm:w-auto sm:ml-auto"
               disabled={!basicsDirty || isSavingBasics}
               onClick={async () => {
                 if (!basicsDirty || isSavingBasics) return;
@@ -290,8 +285,8 @@ export const PracticeSetupBanner = ({
           )}
         </section>
 
-        <section className="rounded-3xl border border-light-border bg-light-card-bg p-5 shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Contact</p>
               <p className="text-lg font-semibold">Where can clients reach you?</p>
@@ -339,10 +334,11 @@ export const PracticeSetupBanner = ({
               disabled={isSavingContact}
             />
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex">
             <Button
               variant="primary"
               size="sm"
+              className="w-full sm:w-auto sm:ml-auto"
               disabled={!contactDirty || isSavingContact}
               onClick={async () => {
                 if (!contactDirty || isSavingContact) return;
@@ -370,13 +366,13 @@ export const PracticeSetupBanner = ({
         </section>
 
         {servicesSlot && (
-          <section className="rounded-3xl border border-light-border bg-light-card-bg p-5 shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
+          <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
             {servicesSlot}
           </section>
         )}
 
         {payoutsSlot && (
-          <section className="rounded-3xl border border-light-border bg-light-card-bg p-5 shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
+          <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
             {payoutsSlot}
           </section>
         )}

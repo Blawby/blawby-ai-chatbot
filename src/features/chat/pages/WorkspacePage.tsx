@@ -16,7 +16,7 @@ import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { PracticeSetupBanner, type BasicsFormValues, type ContactFormValues } from '@/features/practice-setup/components/PracticeSetupBanner';
+import { PracticeSetup, type BasicsFormValues, type ContactFormValues } from '@/features/practice-setup/components/PracticeSetup';
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import { ContactForm } from '@/features/intake/components/ContactForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -34,6 +34,7 @@ import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
+import type { LayoutMode } from '@/app/MainApp';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 type PreviewTab = 'home' | 'messages' | 'intake';
@@ -45,6 +46,7 @@ interface WorkspacePageProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   messages: ChatMessageUI[];
+  layoutMode: LayoutMode;
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
   workspace?: 'public' | 'practice' | 'client';
@@ -72,6 +74,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   practiceName,
   practiceLogo,
   messages,
+  layoutMode,
   showClientTabs = false,
   showPracticeTabs = false,
   workspace = 'public',
@@ -265,7 +268,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const { details: setupDetails, updateDetails: updateSetupDetails } = usePracticeDetails(currentPractice?.id ?? null);
   const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
   const { showSuccess, showError } = useToastContext();
-  const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [justSavedServices, setJustSavedServices] = useState(false);
@@ -357,7 +359,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const handleLogoChange = async (files: FileList | File[]) => {
     if (!currentPractice) return;
     const nextFiles = Array.from(files || []);
-    setLogoFiles(nextFiles);
     if (nextFiles.length === 0) return;
     setLogoUploading(true);
     setLogoUploadProgress(0);
@@ -366,14 +367,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         setLogoUploadProgress(progress);
       });
       await updatePractice(currentPractice.id, { logo: uploaded });
-      showSuccess('Logo updated', 'Your logo has been saved.');
       forcePreviewReload();
     } catch (error) {
       showError('Logo upload failed', error instanceof Error ? error.message : 'Unable to upload logo.');
     } finally {
       setLogoUploading(false);
       setLogoUploadProgress(null);
-      setLogoFiles([]);
     }
   };
 
@@ -658,9 +657,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       };
 
       return (
-        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 w-full flex-col lg:h-full lg:flex-row lg:overflow-hidden">
           {/* Left column */}
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-dark-bg">
+          <div className="relative flex w-full flex-col bg-white dark:bg-dark-bg lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <div
               className="pointer-events-none absolute inset-0 bg-white dark:bg-black"
               aria-hidden="true"
@@ -681,9 +680,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               className="pointer-events-none absolute bottom-0 left-1/3 h-56 w-56 rounded-full bg-amber-500/25 blur-[150px] dark:bg-amber-400/30"
               aria-hidden="true"
             />
-            <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
               <Page className="mx-auto w-full max-w-3xl flex-1">
-                <PracticeSetupBanner
+                <PracticeSetup
                   status={setupStatus}
                   practice={currentPractice}
                   details={setupDetails ?? null}
@@ -691,7 +690,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                   onSaveContact={handleSaveContact}
                   servicesSlot={servicesSlot}
                   payoutsSlot={payoutsSlot}
-                  logoFiles={logoFiles}
                   logoUploading={logoUploading}
                   logoUploadProgress={logoUploadProgress}
                   onLogoChange={handleLogoChange}
@@ -701,7 +699,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           </div>
 
           {/* Right: Public Preview */}
-          <div className="flex w-full shrink-0 flex-col items-center gap-5 border-t border-light-border bg-gradient-to-b from-white via-gray-50 to-gray-100 px-4 py-6 dark:border-dark-border dark:from-dark-bg dark:via-dark-bg/80 dark:to-dark-bg lg:w-[420px] lg:border-t-0 lg:border-l">
+          <div className="flex w-full flex-col items-center gap-5 border-t border-light-border bg-gradient-to-b from-white via-gray-50 to-gray-100 px-4 py-6 dark:border-dark-border dark:from-dark-bg dark:via-dark-bg/80 dark:to-dark-bg lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-gray-400">
               Public preview
             </div>
@@ -761,6 +759,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             practiceName={practiceName}
             practiceLogo={practiceLogo}
             isLoading={isConversationsLoading}
+            error={conversationsError}
             onClose={() => navigate(workspaceBasePath)}
             onSelectConversation={(conversationId) => {
               navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
@@ -906,7 +905,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     );
 
-  const isPublicShell = workspace !== 'practice';
+  const isPublicShell = layoutMode !== 'desktop';
 
   const mainShell = isPublicShell ? (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">

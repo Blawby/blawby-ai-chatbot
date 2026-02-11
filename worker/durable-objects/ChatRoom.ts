@@ -315,6 +315,22 @@ export class ChatRoom {
     attachment: ConnectionAttachment,
     frame: ClientFrame
   ): Promise<void> {
+    try {
+      const rawConversationId = this.readString(frame.data.conversation_id);
+      const rawClientId = this.readString(frame.data.client_id);
+      const rawContent = typeof frame.data.content === 'string' ? frame.data.content : '';
+      console.warn('[ChatRoom] message.send received', {
+        conversationId: rawConversationId ?? null,
+        clientId: rawClientId ?? null,
+        contentLength: rawContent.length,
+        hasAttachments: Array.isArray(frame.data.attachments) ? frame.data.attachments.length : 0,
+        hasMetadata: frame.data.metadata !== undefined && frame.data.metadata !== null,
+        requestId: frame.request_id ?? null
+      });
+    } catch {
+      console.warn('[ChatRoom] message.send received (log failure)');
+    }
+
     const conversationId = this.readString(frame.data.conversation_id);
     if (!conversationId || conversationId !== attachment.conversationId) {
       this.rejectInvalidPayload(ws, frame.request_id, 'conversation_id mismatch');
@@ -770,12 +786,12 @@ export class ChatRoom {
       console.error('[ChatRoom] Message persistence failed', {
         conversationId,
         clientId,
-        error
+        error: error instanceof Error ? error.message : String(error)
       });
       return {
         kind: 'error',
         code: 'internal_error',
-        message: 'Message persistence failed'
+        message: error instanceof Error ? `Message persistence failed: ${error.message}` : 'Message persistence failed'
       };
     }
 
@@ -1590,6 +1606,10 @@ export class ChatRoom {
   }
 
   private rejectInvalidPayload(ws: WorkerWebSocket, requestId: string | undefined, message: string): void {
+    console.warn('[ChatRoom] invalid payload', {
+      message,
+      requestId: requestId ?? null
+    });
     this.sendFrame(ws, 'error', {
       code: 'invalid_payload',
       message

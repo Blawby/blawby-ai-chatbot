@@ -10,7 +10,7 @@ import { usePracticeManagement, type Practice } from '@/shared/hooks/usePractice
 import { Button } from '@/shared/ui/Button';
 import type { Address } from '@/shared/types/address';
 import Modal from '@/shared/components/Modal';
-import { FileInput, Input, Switch } from '@/shared/ui/input';
+import { Input, LogoUploadInput, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -186,10 +186,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [isEditPracticeModalOpen, setIsEditPracticeModalOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
-  const [isLogoEditing, setIsLogoEditing] = useState(false);
 
   const practice = currentPractice ?? null;
   const hasPractice = !!practice;
@@ -280,7 +278,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return `${protocol}//${practiceHost}${practicePath}`;
   }, [practiceHost, practicePath]);
   const hasSavedLogo = editPracticeForm.logo.trim().length > 0;
-  const showLogoUploader = isLogoEditing || !hasSavedLogo;
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
     () => members.map((member) => ({
@@ -365,10 +362,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const openEditPracticeModal = () => {
     if (!practice) return;
-    setLogoFiles([]);
     setLogoUploadProgress(null);
     setLogoUploading(false);
-    setIsLogoEditing(false);
     setEditPracticeForm({
       name: practice.name,
       slug: practice.slug || '',
@@ -383,11 +378,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!practice) return;
     const [file] = Array.isArray(files) ? files : Array.from(files);
     if (!file) {
-      setLogoFiles([]);
       return;
     }
 
-    setLogoFiles([file]);
     setLogoUploading(true);
     setLogoUploadProgress(0);
     try {
@@ -395,12 +388,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         setLogoUploadProgress(percentage);
       });
       setEditPracticeForm(prev => ({ ...prev, logo: logoUrl }));
-      setIsLogoEditing(false);
-      showSuccess('Logo uploaded', 'Logo ready to save. Click Save Changes to persist.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Logo upload failed';
       showError('Logo upload failed', message);
-      setLogoFiles([]);
     } finally {
       setLogoUploading(false);
       setLogoUploadProgress(null);
@@ -921,54 +911,17 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           </FormGrid>
 
           <div>
-            {showLogoUploader ? (
-              <>
-                <FileInput
-                  label="Upload logo (optional)"
-                  description="Upload a square logo. Maximum 5 MB."
-                  accept="image/*"
-                  multiple={false}
-                  maxFileSize={5 * 1024 * 1024}
-                  value={logoFiles}
-                  onChange={handleLogoChange}
-                  disabled={isSettingsSaving || logoUploading}
-                />
-                {(logoUploading || logoUploadProgress !== null) && (
-                  <SettingsHelperText className="mt-2">
-                    {logoUploading ? 'Uploading logo' : 'Upload progress'}
-                    {logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
-                  </SettingsHelperText>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center gap-4 rounded-lg border border-gray-200 p-3 dark:border-dark-border">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={editPracticeForm.logo}
-                    alt={`${editPracticeForm.name} logo`}
-                    className="h-12 w-12 rounded-lg border border-gray-200 object-cover dark:border-dark-border"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Saved logo</p>
-                    <SettingsHelperText>Upload a new image to replace it.</SettingsHelperText>
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => {
-                    setLogoFiles([]);
-                    setLogoUploadProgress(null);
-                    setLogoUploading(false);
-                    setIsLogoEditing(true);
-                  }}
-                  disabled={isSettingsSaving}
-                >
-                  Change
-                </Button>
-              </div>
-            )}
+            <LogoUploadInput
+              imageUrl={hasSavedLogo ? editPracticeForm.logo : null}
+              name={editPracticeForm.name || 'Practice'}
+              label="Upload logo (optional)"
+              description="Upload a square logo. Maximum 5 MB."
+              accept="image/*"
+              multiple={false}
+              onChange={handleLogoChange}
+              disabled={isSettingsSaving || logoUploading}
+              progress={logoUploading ? logoUploadProgress : null}
+            />
           </div>
 
           <div>

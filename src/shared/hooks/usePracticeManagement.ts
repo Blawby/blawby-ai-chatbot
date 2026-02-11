@@ -1127,9 +1127,25 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       return;
     }
 
-    const updatedPractice = normalizePracticeRecord(
-      await apiUpdatePractice(id, payload) as unknown as Record<string, unknown>
-    );
+    const response = await apiUpdatePractice(id, payload);
+    const mergedResponse: Record<string, unknown> = {
+      ...(existingPractice ?? {}),
+      ...(response as unknown as Record<string, unknown>)
+    };
+    if (
+      existingPractice?.slug &&
+      mergedResponse.slug === mergedResponse.id &&
+      existingPractice.slug !== mergedResponse.slug
+    ) {
+      mergedResponse.slug = existingPractice.slug;
+    }
+    if (
+      existingPractice?.name &&
+      (mergedResponse.name === 'Practice' || !mergedResponse.name)
+    ) {
+      mergedResponse.name = existingPractice.name;
+    }
+    const updatedPractice = normalizePracticeRecord(mergedResponse);
 
     if (sharedPracticeSnapshot) {
       const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
