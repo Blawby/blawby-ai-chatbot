@@ -312,7 +312,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
   };
 
-  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'embed' : 'desktop');
+  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'embed');
   const shouldFrame = resolvedLayoutMode !== 'desktop';
   const containerClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col min-h-0 flex-1 h-full w-full m-0 p-0 relative overflow-hidden'

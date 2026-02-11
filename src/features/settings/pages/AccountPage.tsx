@@ -325,6 +325,7 @@ export const AccountPage = ({
         URL.revokeObjectURL(avatarObjectUrlRef.current);
         avatarObjectUrlRef.current = null;
       }
+      setAvatarPreviewUrl(null);
       showSuccess('Profile photo updated', 'Your avatar has been saved.');
     } catch (error) {
       showError('Avatar upload failed', error instanceof Error ? error.message : 'Unable to upload image.');
@@ -337,7 +338,7 @@ export const AccountPage = ({
       setAvatarUploading(false);
       setAvatarUploadProgress(null);
     }
-  }, [currentPractice?.id, session?.user?.image, showError]);
+  }, [currentPractice?.id, session?.user?.image, showError, showSuccess]);
 
   useEffect(() => {
     return () => {
