@@ -362,7 +362,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       showError('Logo upload failed', error instanceof Error ? error.message : 'Unable to upload logo.');
     } finally {
       setLogoUploading(false);
-      setLogoUploadProgress(0);
+      setLogoUploadProgress(null);
       setLogoFiles([]);
     }
   };

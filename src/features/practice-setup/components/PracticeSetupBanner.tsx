@@ -67,8 +67,8 @@ export const PracticeSetupBanner = ({
   const [justSavedBasics, setJustSavedBasics] = useState(false);
   const [justSavedContact, setJustSavedContact] = useState(false);
 
-  const initialBasicsRef = useRef<BasicsFormValues | null>(null);
-  const initialContactRef = useRef<ContactFormValues | null>(null);
+  const [initialBasics, setInitialBasics] = useState<BasicsFormValues | null>(null);
+  const [initialContact, setInitialContact] = useState<ContactFormValues | null>(null);
 
   const currentBasicsFromProps = useMemo(() => ({
     name: practice?.name ?? '',
@@ -110,17 +110,17 @@ export const PracticeSetupBanner = ({
   ]);
 
   const basicsDirty = useMemo(() => {
-    if (!initialBasicsRef.current) return false;
+    if (!initialBasics) return false;
     return (
-      basicsDraft.name !== initialBasicsRef.current.name ||
-      basicsDraft.slug !== initialBasicsRef.current.slug ||
-      basicsDraft.introMessage !== initialBasicsRef.current.introMessage
+      basicsDraft.name !== initialBasics.name ||
+      basicsDraft.slug !== initialBasics.slug ||
+      basicsDraft.introMessage !== initialBasics.introMessage
     );
-  }, [basicsDraft]);
+  }, [basicsDraft, initialBasics]);
 
   const contactDirty = useMemo(() => {
-    if (!initialContactRef.current) return false;
-    const initial = initialContactRef.current;
+    if (!initialContact) return false;
+    const initial = initialContact;
     return (
       contactDraft.website !== initial.website ||
       contactDraft.businessEmail !== initial.businessEmail ||
@@ -132,14 +132,15 @@ export const PracticeSetupBanner = ({
       (contactDraft.address?.postalCode ?? '') !== (initial.address?.postalCode ?? '') ||
       (contactDraft.address?.country ?? '') !== (initial.address?.country ?? '')
     );
-  }, [contactDraft]);
+  }, [contactDraft, initialContact]);
 
   useEffect(() => {
     if (justSavedBasics) {
       if (
-        currentBasicsFromProps.name === initialBasicsRef.current?.name &&
-        currentBasicsFromProps.slug === initialBasicsRef.current?.slug &&
-        currentBasicsFromProps.introMessage === initialBasicsRef.current?.introMessage
+        initialBasics &&
+        currentBasicsFromProps.name === initialBasics.name &&
+        currentBasicsFromProps.slug === initialBasics.slug &&
+        currentBasicsFromProps.introMessage === initialBasics.introMessage
       ) {
         setJustSavedBasics(false);
       }
@@ -147,12 +148,12 @@ export const PracticeSetupBanner = ({
     }
     if (basicsDirty) return;
     setBasicsDraft(currentBasicsFromProps);
-    initialBasicsRef.current = currentBasicsFromProps;
-  }, [currentBasicsFromProps, basicsDirty, justSavedBasics]);
+    setInitialBasics(currentBasicsFromProps);
+  }, [currentBasicsFromProps, basicsDirty, justSavedBasics, initialBasics]);
 
   useEffect(() => {
     if (justSavedContact) {
-      const initial = initialContactRef.current;
+      const initial = initialContact;
       if (
         initial &&
         currentContactFromProps.website === initial.website &&
@@ -171,8 +172,8 @@ export const PracticeSetupBanner = ({
     }
     if (contactDirty) return;
     setContactDraft(currentContactFromProps);
-    initialContactRef.current = currentContactFromProps;
-  }, [currentContactFromProps, contactDirty, justSavedContact]);
+    setInitialContact(currentContactFromProps);
+  }, [currentContactFromProps, contactDirty, justSavedContact, initialContact]);
 
   if (!status.needsSetup) {
     return null;
@@ -270,7 +271,7 @@ export const PracticeSetupBanner = ({
                 setBasicsSaveError(null);
                 try {
                   await onSaveBasics(basicsDraft);
-                  initialBasicsRef.current = basicsDraft;
+                  setInitialBasics(basicsDraft);
                   setJustSavedBasics(true);
                 } catch (error) {
                   setBasicsSaveError(error instanceof Error ? error.message : 'Failed to save basics');
@@ -349,7 +350,7 @@ export const PracticeSetupBanner = ({
                 setContactSaveError(null);
                 try {
                   await onSaveContact(contactDraft);
-                  initialContactRef.current = contactDraft;
+                  setInitialContact(contactDraft);
                   setJustSavedContact(true);
                 } catch (error) {
                   setContactSaveError(error instanceof Error ? error.message : 'Failed to save contact info');
