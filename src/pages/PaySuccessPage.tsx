@@ -1,7 +1,6 @@
 import type { FunctionComponent } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { useNavigation } from '@/shared/utils/navigation';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import { getBackendApiUrl } from '@/config/urls';
 
@@ -41,104 +40,11 @@ const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => 
 
 export const PaySuccessPage: FunctionComponent = () => {
   const location = useLocation();
-  const { navigate } = useNavigation();
   const [message, setMessage] = useState('Finalizing payment…');
-  const [postPayFetchFailed, setPostPayFetchFailed] = useState(false);
   const hasRunRef = useRef(false);
 
   const intakeUuid = resolveQueryValue(location.query?.uuid);
   const sessionId = resolveQueryValue(location.query?.session_id || location.query?.sessionId);
-  const returnToParam = resolveQueryValue(location.query?.return_to || location.query?.returnTo);
-  const conversationId = resolveQueryValue(location.query?.conversation_id || location.query?.conversationId);
-  const practiceId = resolveQueryValue(location.query?.practice_id || location.query?.practiceId);
-  const practiceName = resolveQueryValue(location.query?.practice);
-
-  const safeReturnTo = useMemo(() => {
-    if (!returnToParam || typeof window === 'undefined') return undefined;
-    const trimmed = returnToParam.trim();
-    if (trimmed[0] !== '/' || trimmed[1] === '/' || trimmed[1] === '\\' || trimmed.includes('\\')) return undefined;
-
-    let pathPart = trimmed;
-    let conversationFromParam = conversationId;
-
-    const conversationMatch = trimmed.match(/[?&]conversation_id=([^&]+)/);
-    if (conversationMatch?.[1] && !conversationFromParam) {
-      conversationFromParam = conversationMatch[1];
-    }
-
-    try {
-      const urlObj = new URL(trimmed, window.location.origin);
-      if (urlObj.searchParams.has('conversation_id')) {
-        urlObj.searchParams.delete('conversation_id');
-      }
-      pathPart = urlObj.pathname + (urlObj.search ? urlObj.search : '');
-    } catch (e) {
-      console.warn('[PayRedirect] Failed to parse return_to URL', e);
-    }
-
-    if (pathPart.startsWith('/p/')) {
-      // Extract slug from the normalized pathPart to avoid double encoding
-      const slug = pathPart.replace(/^\/p\//, '').split(/[/?#]/)[0];
-      if (!slug) return undefined;
-      
-      let decodedSlug = slug;
-      try {
-        decodedSlug = decodeURIComponent(slug);
-      } catch {
-        // Ignore invalid URL encoding
-      }
-
-      let decodedConv = conversationFromParam;
-      if (conversationFromParam) {
-        try {
-          decodedConv = decodeURIComponent(conversationFromParam);
-        } catch {
-          // Ignore invalid URL encoding
-        }
-      }
-
-      if (decodedConv) {
-        return `/public/${encodeURIComponent(decodedSlug)}/conversations/${encodeURIComponent(decodedConv)}`;
-      }
-      return `/public/${encodeURIComponent(decodedSlug)}`;
-    }
-
-    try {
-      const normalizedUrl = new URL(pathPart, window.location.origin);
-      const normalizedPath = normalizedUrl.pathname.replace(/\/{2,}/g, '/');
-      if (!normalizedPath.startsWith('/') || normalizedPath.includes('\\')) {
-        return undefined;
-      }
-      const decodedSegments = normalizedPath.split('/').map((segment, index) => {
-        if (index === 0) return '';
-        try {
-          return decodeURIComponent(segment);
-        } catch {
-          return segment;
-        }
-      });
-      const encodedPath = `/${decodedSegments.slice(1).map((segment) => encodeURIComponent(segment)).join('/')}`;
-      return encodedPath + (normalizedUrl.search ? normalizedUrl.search : '');
-    } catch (e) {
-      console.warn('[PayRedirect] Failed to normalize return_to path', e);
-    }
-
-    return undefined;
-  }, [conversationId, returnToParam]);
-
-  const setPaymentSuccessFlag = useCallback((uuid: string) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const payload = {
-        practiceName,
-        practiceId,
-        conversationId
-      };
-      window.sessionStorage.setItem(`intakePaymentSuccess:${uuid}`, JSON.stringify(payload));
-    } catch (error) {
-      console.warn('[PayRedirect] Failed to persist payment success flag', error);
-    }
-  }, [conversationId, practiceId, practiceName]);
 
   useEffect(() => {
     if (hasRunRef.current) return;
@@ -151,13 +57,9 @@ export const PaySuccessPage: FunctionComponent = () => {
         setMessage('Confirming payment…');
         resolvedUuid = await fetchPostPayStatus(sessionId);
         if (cancelled) return;
-        if (!resolvedUuid) {
-          setPostPayFetchFailed(true);
-        }
       }
 
       if (resolvedUuid) {
-        setPaymentSuccessFlag(resolvedUuid);
         try {
           // Attempt to trigger the invitation email
           await triggerIntakeInvitation(resolvedUuid);
@@ -176,7 +78,7 @@ export const PaySuccessPage: FunctionComponent = () => {
         // Explicit return to prevent any further navigation logic
         return;
       } else {
-        setMessage('Payment confirmation pending. You can return to the conversation.');
+        setMessage('Thanks for your payment. Please check your email to approve the magic link and complete your invite.');
         return;
       }
       
@@ -189,27 +91,13 @@ export const PaySuccessPage: FunctionComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [intakeUuid, navigate, safeReturnTo, sessionId, setPaymentSuccessFlag]);
+  }, [intakeUuid, sessionId]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
       <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
         <div className="flex flex-col items-center gap-4 text-center">
           <p>{message}</p>
-          {!intakeUuid && (!sessionId || postPayFetchFailed) && (
-            <button
-              type="button"
-              className="mt-2 text-blue-600 hover:text-blue-800 underline disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => {
-                if (safeReturnTo) {
-                  navigate(safeReturnTo, true);
-                }
-              }}
-              disabled={!safeReturnTo}
-            >
-              Return to conversation
-            </button>
-          )}
         </div>
       </div>
     </div>

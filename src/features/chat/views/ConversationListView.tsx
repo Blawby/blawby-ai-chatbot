@@ -20,6 +20,7 @@ interface ConversationListViewProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   isLoading?: boolean;
+  error?: string | null;
   onClose?: () => void;
   onSelectConversation: (conversationId: string) => void;
   onSendMessage: () => void;
@@ -40,6 +41,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   practiceName,
   practiceLogo,
   isLoading = false,
+  error = null,
   onClose,
   onSelectConversation,
   onSendMessage,
@@ -72,6 +74,10 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
       <div className="flex-1 overflow-y-auto px-4">
         {isLoading ? (
           <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('workspace.conversationList.loading')}</div>
+        ) : error ? (
+          <div className="py-6 text-sm text-red-500 dark:text-red-300">
+            {error}
+          </div>
         ) : sorted.length === 0 ? (
           <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('workspace.conversationList.empty')}</div>
         ) : (

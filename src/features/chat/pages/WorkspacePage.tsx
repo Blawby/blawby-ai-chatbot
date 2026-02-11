@@ -137,6 +137,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const {
     conversations,
     isLoading: isConversationsLoading,
+    error: conversationsError,
     refresh: refreshConversations
   } = useConversations({
     practiceId,
@@ -801,8 +802,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
+  const isPublicOrClientWorkspace = workspace === 'public' || workspace === 'client';
+  const hideBottomNav = isPublicOrClientWorkspace && (view === 'list' || view === 'conversation');
   const showBottomNav = workspace !== 'practice'
-    ? true
+    ? !hideBottomNav
     : (showClientTabs || showPracticeTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'clients');
   const activeTab = view === 'list' || view === 'conversation'
     ? 'messages'
@@ -859,6 +862,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceName={practiceName}
       practiceLogo={practiceLogo}
       isLoading={isConversationsLoading}
+      error={conversationsError}
       onClose={() => navigate(workspaceBasePath)}
       onSelectConversation={(conversationId) => {
         navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
@@ -871,6 +875,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const showListOnMobile = view === 'list';
   const showChatOnMobile = view === 'conversation';
   const isSplitView = isPracticeWorkspace && (view === 'list' || view === 'conversation');
+  const shouldAllowMainScroll = view !== 'conversation' && view !== 'list';
   const mainContent = isSplitView
     ? (
       <SplitView
@@ -890,7 +895,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : (
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={cn('min-h-0 flex-1', shouldAllowMainScroll ? 'overflow-y-auto' : 'overflow-hidden')}>
         {renderContent()}
       </div>
     );

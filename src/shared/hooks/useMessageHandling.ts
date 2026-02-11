@@ -4,6 +4,7 @@ import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/
 import type { Address } from '@/shared/types/address';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
+import { getWorkerApiUrl } from '@/config/urls';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
@@ -15,6 +16,20 @@ import {
   removeMessageReaction,
   postSystemMessage
 } from '@/shared/lib/conversationApi';
+
+const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+const buildFileUrl = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+  return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+};
 
 // Greenfield address validation utilities
 function validateAddressObject(addressValue: unknown): Address | null {
@@ -543,7 +558,7 @@ export const useMessageHandling = ({
         name: 'File',
         size: 0,
         type: 'application/octet-stream',
-        url: '', // TODO: Generate file URL from file ID
+        url: buildFileUrl(fileId),
       })) : undefined,
       contactForm,
       paymentRequest,
