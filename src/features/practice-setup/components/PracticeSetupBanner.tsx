@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState, useRef } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { FileInput, Input } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
@@ -62,30 +62,31 @@ export const PracticeSetupBanner = ({
   });
   const [isSavingBasics, setIsSavingBasics] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
+  const [basicsSaveError, setBasicsSaveError] = useState<string | null>(null);
+  const [contactSaveError, setContactSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setBasicsDraft({
-      name: practice?.name ?? '',
-      slug: practice?.slug ?? '',
-      introMessage: details?.introMessage ?? practice?.introMessage ?? ''
-    });
-  }, [practice?.name, practice?.slug, practice?.introMessage, details?.introMessage]);
+  const initialBasicsRef = useRef<BasicsFormValues | null>(null);
+  const initialContactRef = useRef<ContactFormValues | null>(null);
 
-  useEffect(() => {
-    setContactDraft({
-      website: details?.website ?? practice?.website ?? '',
-      businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
-      businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
-      address: {
-        address: details?.address ?? practice?.address ?? '',
-        apartment: details?.apartment ?? practice?.apartment ?? '',
-        city: details?.city ?? practice?.city ?? '',
-        state: details?.state ?? practice?.state ?? '',
-        postalCode: details?.postalCode ?? practice?.postalCode ?? '',
-        country: details?.country ?? practice?.country ?? ''
-      }
-    });
-  }, [
+  const currentBasicsFromProps = useMemo(() => ({
+    name: practice?.name ?? '',
+    slug: practice?.slug ?? '',
+    introMessage: details?.introMessage ?? practice?.introMessage ?? ''
+  }), [practice?.name, practice?.slug, practice?.introMessage, details?.introMessage]);
+
+  const currentContactFromProps = useMemo(() => ({
+    website: details?.website ?? practice?.website ?? '',
+    businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+    businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+    address: {
+      address: details?.address ?? practice?.address ?? '',
+      apartment: details?.apartment ?? practice?.apartment ?? '',
+      city: details?.city ?? practice?.city ?? '',
+      state: details?.state ?? practice?.state ?? '',
+      postalCode: details?.postalCode ?? practice?.postalCode ?? '',
+      country: details?.country ?? practice?.country ?? ''
+    }
+  }), [
     details?.website,
     details?.businessEmail,
     details?.businessPhone,
@@ -107,62 +108,41 @@ export const PracticeSetupBanner = ({
   ]);
 
   const basicsDirty = useMemo(() => {
-    const compareName = practice?.name ?? '';
-    const compareSlug = practice?.slug ?? '';
-    const compareIntro = details?.introMessage ?? practice?.introMessage ?? '';
+    if (!initialBasicsRef.current) return false;
     return (
-      basicsDraft.name !== compareName ||
-      basicsDraft.slug !== compareSlug ||
-      basicsDraft.introMessage !== compareIntro
+      basicsDraft.name !== initialBasicsRef.current.name ||
+      basicsDraft.slug !== initialBasicsRef.current.slug ||
+      basicsDraft.introMessage !== initialBasicsRef.current.introMessage
     );
-  }, [basicsDraft, practice?.name, practice?.slug, practice?.introMessage, details?.introMessage]);
+  }, [basicsDraft]);
 
   const contactDirty = useMemo(() => {
-    const current = {
-      website: details?.website ?? practice?.website ?? '',
-      businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
-      businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
-      address: {
-        address: details?.address ?? practice?.address ?? '',
-        apartment: details?.apartment ?? practice?.apartment ?? '',
-        city: details?.city ?? practice?.city ?? '',
-        state: details?.state ?? practice?.state ?? '',
-        postalCode: details?.postalCode ?? practice?.postalCode ?? '',
-        country: details?.country ?? practice?.country ?? ''
-      }
-    };
+    if (!initialContactRef.current) return false;
+    const initial = initialContactRef.current;
     return (
-      contactDraft.website !== current.website ||
-      contactDraft.businessEmail !== current.businessEmail ||
-      contactDraft.businessPhone !== current.businessPhone ||
-      (contactDraft.address?.address ?? '') !== current.address.address ||
-      (contactDraft.address?.apartment ?? '') !== current.address.apartment ||
-      (contactDraft.address?.city ?? '') !== current.address.city ||
-      (contactDraft.address?.state ?? '') !== current.address.state ||
-      (contactDraft.address?.postalCode ?? '') !== current.address.postalCode ||
-      (contactDraft.address?.country ?? '') !== current.address.country
+      contactDraft.website !== initial.website ||
+      contactDraft.businessEmail !== initial.businessEmail ||
+      contactDraft.businessPhone !== initial.businessPhone ||
+      (contactDraft.address?.address ?? '') !== (initial.address?.address ?? '') ||
+      (contactDraft.address?.apartment ?? '') !== (initial.address?.apartment ?? '') ||
+      (contactDraft.address?.city ?? '') !== (initial.address?.city ?? '') ||
+      (contactDraft.address?.state ?? '') !== (initial.address?.state ?? '') ||
+      (contactDraft.address?.postalCode ?? '') !== (initial.address?.postalCode ?? '') ||
+      (contactDraft.address?.country ?? '') !== (initial.address?.country ?? '')
     );
-  }, [
-    contactDraft,
-    details?.website,
-    details?.businessEmail,
-    details?.businessPhone,
-    details?.address,
-    details?.apartment,
-    details?.city,
-    details?.state,
-    details?.postalCode,
-    details?.country,
-    practice?.website,
-    practice?.businessEmail,
-    practice?.businessPhone,
-    practice?.address,
-    practice?.apartment,
-    practice?.city,
-    practice?.state,
-    practice?.postalCode,
-    practice?.country
-  ]);
+  }, [contactDraft]);
+
+  useEffect(() => {
+    if (basicsDirty) return;
+    setBasicsDraft(currentBasicsFromProps);
+    initialBasicsRef.current = currentBasicsFromProps;
+  }, [currentBasicsFromProps, basicsDirty]);
+
+  useEffect(() => {
+    if (contactDirty) return;
+    setContactDraft(currentContactFromProps);
+    initialContactRef.current = currentContactFromProps;
+  }, [currentContactFromProps, contactDirty]);
 
   if (!status.needsSetup) {
     return null;
@@ -257,8 +237,12 @@ export const PracticeSetupBanner = ({
               onClick={async () => {
                 if (!basicsDirty || isSavingBasics) return;
                 setIsSavingBasics(true);
+                setBasicsSaveError(null);
                 try {
                   await onSaveBasics(basicsDraft);
+                  initialBasicsRef.current = basicsDraft;
+                } catch (error) {
+                  setBasicsSaveError(error instanceof Error ? error.message : 'Failed to save basics');
                 } finally {
                   setIsSavingBasics(false);
                 }
@@ -267,6 +251,11 @@ export const PracticeSetupBanner = ({
               {isSavingBasics ? 'Saving…' : 'Save basics'}
             </Button>
           </div>
+          {basicsSaveError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {basicsSaveError}
+            </p>
+          )}
         </section>
 
         <section className="rounded-3xl border border-light-border bg-light-card-bg p-5 shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
@@ -326,8 +315,12 @@ export const PracticeSetupBanner = ({
               onClick={async () => {
                 if (!contactDirty || isSavingContact) return;
                 setIsSavingContact(true);
+                setContactSaveError(null);
                 try {
                   await onSaveContact(contactDraft);
+                  initialContactRef.current = contactDraft;
+                } catch (error) {
+                  setContactSaveError(error instanceof Error ? error.message : 'Failed to save contact info');
                 } finally {
                   setIsSavingContact(false);
                 }
@@ -336,6 +329,11 @@ export const PracticeSetupBanner = ({
               {isSavingContact ? 'Saving…' : 'Save contact'}
             </Button>
           </div>
+          {contactSaveError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {contactSaveError}
+            </p>
+          )}
         </section>
 
         {servicesSlot && (

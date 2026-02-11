@@ -318,7 +318,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     };
-    const address = values.address ?? {};
+    const address = values.address ?? {
+      address: '',
+      apartment: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: ''
+    };
     try {
       await updateSetupDetails({
         website: normalize(values.website),
@@ -355,6 +362,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       showError('Logo upload failed', error instanceof Error ? error.message : 'Unable to upload logo.');
     } finally {
       setLogoUploading(false);
+      setLogoUploadProgress(0);
+      setLogoFiles([]);
     }
   };
 
@@ -459,9 +468,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       showError('Payouts', 'Unable to start Stripe onboarding in this environment.');
       return;
     }
-    const returnUrl = new URL(window.location.href);
+    const baseUrl = window.location.origin + window.location.pathname;
+    const returnUrl = new URL(baseUrl);
     returnUrl.searchParams.set('stripe', 'return');
-    const refreshUrl = new URL(window.location.href);
+    const refreshUrl = new URL(baseUrl);
     refreshUrl.searchParams.set('stripe', 'refresh');
     setIsStripeSubmitting(true);
     try {
@@ -474,7 +484,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       if (connectedAccount.onboardingUrl) {
         const validated = getValidatedStripeOnboardingUrl(connectedAccount.onboardingUrl);
         if (validated) {
-          window.location.href = validated;
+          window.open(validated, '_blank');
           return;
         }
         showError('Payouts', 'Received an invalid Stripe onboarding link. Please try again.');
@@ -498,9 +508,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Services & intake</p>
         <p className="text-xl font-semibold">What can clients request?</p>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          Update offerings without leaving this screen. Changes are live instantly.
-        </p>
       </div>
       <div className="rounded-2xl border border-light-border bg-light-card-bg shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
         <ServicesEditor
@@ -615,7 +622,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return (
         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden lg:flex-row">
           {/* Left column */}
-          <div className="relative flex flex-1 flex-col overflow-hidden bg-white dark:bg-dark-bg">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-dark-bg">
             <div
               className="pointer-events-none absolute inset-0 bg-white dark:bg-black"
               aria-hidden="true"
@@ -636,21 +643,23 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               className="pointer-events-none absolute bottom-0 left-1/3 h-56 w-56 rounded-full bg-amber-500/25 blur-[150px] dark:bg-amber-400/30"
               aria-hidden="true"
             />
-            <Page className="relative z-10 mx-auto w-full max-w-3xl flex-1">
-              <PracticeSetupBanner
-                status={setupStatus}
-                practice={currentPractice}
-                details={setupDetails ?? null}
-                onSaveBasics={handleSaveBasics}
-                onSaveContact={handleSaveContact}
-                servicesSlot={servicesSlot}
-                payoutsSlot={payoutsSlot}
-                logoFiles={logoFiles}
-                logoUploading={logoUploading}
-                logoUploadProgress={logoUploadProgress}
-                onLogoChange={handleLogoChange}
-              />
-            </Page>
+            <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <Page className="mx-auto w-full max-w-3xl flex-1">
+                <PracticeSetupBanner
+                  status={setupStatus}
+                  practice={currentPractice}
+                  details={setupDetails ?? null}
+                  onSaveBasics={handleSaveBasics}
+                  onSaveContact={handleSaveContact}
+                  servicesSlot={servicesSlot}
+                  payoutsSlot={payoutsSlot}
+                  logoFiles={logoFiles}
+                  logoUploading={logoUploading}
+                  logoUploadProgress={logoUploadProgress}
+                  onLogoChange={handleLogoChange}
+                />
+              </Page>
+            </div>
           </div>
 
           {/* Right: Public Preview */}
@@ -849,23 +858,43 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     );
 
-  return (
-    <AppShell
-      className="bg-light-bg dark:bg-dark-bg"
-      sidebar={sidebarNav}
-      main={(
-        <div className="flex h-full min-h-0 w-full flex-col">
-          {header && (
-            <div className={cn('w-full', headerClassName)}>
-              {header}
-            </div>
-          )}
-          {mainContent}
+  const isPublicShell = workspace !== 'practice';
+
+  const mainShell = isPublicShell ? (
+    <div className="flex h-full min-h-0 w-full flex-col">
+      <div className="flex min-h-0 flex-1 flex-col rounded-[32px] border border-light-border bg-light-bg shadow-[0_0_0_1px_rgba(15,23,42,0.18)] dark:border-white/30 dark:bg-dark-bg dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] overflow-hidden">
+        {header && (
+          <div className={cn('w-full', headerClassName)}>
+            {header}
+          </div>
+        )}
+        <div className="min-h-0 flex-1">{mainContent}</div>
+        {bottomNav && (
+          <div className="mt-auto">
+            {bottomNav}
+          </div>
+        )}
+      </div>
+    </div>
+  ) : (
+    <div className="flex h-full min-h-0 w-full flex-col">
+      {header && (
+        <div className={cn('w-full', headerClassName)}>
+          {header}
         </div>
       )}
-      mainClassName={cn('min-h-0 overflow-hidden', showBottomNav ? 'pb-20 md:pb-0' : undefined)}
-      bottomBar={bottomNav}
-      bottomBarClassName={showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40' : undefined}
+      {mainContent}
+    </div>
+  );
+
+  return (
+    <AppShell
+      className="bg-light-bg dark:bg-dark-bg h-dvh"
+      sidebar={sidebarNav}
+      main={mainShell}
+      mainClassName={cn('min-h-0 overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
+      bottomBar={isPublicShell ? undefined : bottomNav}
+      bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40' : undefined}
     />
   );
 };

@@ -54,7 +54,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col rounded-[32px] bg-light-bg dark:bg-dark-bg">
+    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-light-bg shadow-none dark:bg-dark-bg">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/70"
         aria-hidden="true"
