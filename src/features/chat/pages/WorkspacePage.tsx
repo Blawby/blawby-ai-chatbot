@@ -267,6 +267,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [justSavedServices, setJustSavedServices] = useState(false);
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
+
+  const forcePreviewReload = useCallback(() => {
+    setPreviewReloadKey(prev => prev + 1);
+  }, []);
 
   const handleSaveBasics = async (values: BasicsFormValues) => {
     if (!currentPractice) {
@@ -299,6 +305,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }
       if (Object.keys(practiceUpdates).length > 0 || introChanged) {
         showSuccess('Basics updated', 'Your public profile reflects the newest info.');
+        forcePreviewReload();
       } else {
         showSuccess('Up to date', 'Your firm basics already match these details.');
       }
@@ -339,6 +346,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         country: normalize(address.country ?? '')
       });
       showSuccess('Contact info updated', 'Clients and receipts will use your latest details.');
+      forcePreviewReload();
     } catch (error) {
       showError('Contact update failed', error instanceof Error ? error.message : 'Unable to save contact info.');
       throw error;
@@ -358,6 +366,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       });
       await updatePractice(currentPractice.id, { logo: uploaded });
       showSuccess('Logo updated', 'Your logo has been saved.');
+      forcePreviewReload();
     } catch (error) {
       showError('Logo upload failed', error instanceof Error ? error.message : 'Unable to upload logo.');
     } finally {
@@ -373,8 +382,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const [servicesDraft, setServicesDraft] = useState<Service[]>(initialServiceDetails);
   useEffect(() => {
+    if (justSavedServices) {
+      const draftKey = JSON.stringify(getServiceDetailsForSave(servicesDraft));
+      const initialKey = JSON.stringify(getServiceDetailsForSave(initialServiceDetails));
+      if (draftKey === initialKey) {
+        setJustSavedServices(false);
+      }
+      return;
+    }
     setServicesDraft(initialServiceDetails);
-  }, [initialServiceDetails]);
+  }, [initialServiceDetails, justSavedServices, servicesDraft]);
   const servicesSaveKeyRef = useRef('');
   const servicesToastAtRef = useRef(0);
   const [servicesError, setServicesError] = useState<string | null>(null);
@@ -404,6 +421,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       if (now - servicesToastAtRef.current > servicesToastCooldownMs) {
         showSuccess('Services updated', 'Clients will now see these intake options.');
         servicesToastAtRef.current = now;
+        forcePreviewReload();
+        setJustSavedServices(true);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update services';
@@ -424,35 +443,34 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);
 
-  useEffect(() => {
+  const refreshStripeStatus = useCallback(async (options?: { signal?: AbortSignal }) => {
     if (!organizationId) {
       setStripeStatus(null);
       return;
     }
-    const controller = new AbortController();
     setIsStripeLoading(true);
-    getOnboardingStatusPayload(organizationId, { signal: controller.signal })
-      .then((payload) => {
-        if (controller.signal.aborted) return;
-        const status = extractStripeStatusFromPayload(payload);
-        setStripeStatus(status ?? null);
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          setStripeStatus(null);
-          return;
-        }
-        console.warn('[WorkspacePage] Failed to load payout status:', error);
-        showError('Payouts', 'Unable to load payout account status.');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsStripeLoading(false);
-        }
-      });
-    return () => controller.abort();
+    try {
+      const payload = await getOnboardingStatusPayload(organizationId, { signal: options?.signal });
+      const status = extractStripeStatusFromPayload(payload);
+      setStripeStatus(status ?? null);
+    } catch (error) {
+      if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) return;
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        setStripeStatus(null);
+        return;
+      }
+      console.warn('[WorkspacePage] Failed to load payout status:', error);
+      showError('Payouts', 'Unable to load payout account status.');
+    } finally {
+      setIsStripeLoading(false);
+    }
   }, [organizationId, showError]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshStripeStatus({ signal: controller.signal });
+    return () => controller.abort();
+  }, [refreshStripeStatus]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
     if (!organizationId) {
@@ -497,11 +515,30 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setIsStripeSubmitting(false);
     }
-  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
+
+    // Start polling or visibility-based refresh
+    const pollInterval = setInterval(() => {
+      void refreshStripeStatus();
+    }, 5000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshStripeStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Stop polling after 5 minutes or if status becomes complete
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    }, 5 * 60 * 1000);
+  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError, refreshStripeStatus]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
-  }, [showSuccess]);
+    forcePreviewReload();
+  }, [showSuccess, forcePreviewReload]);
 
   const servicesSlot = (
     <div className="space-y-4 text-gray-900 dark:text-white">
@@ -610,7 +647,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         }
         return (
           <iframe
-            key={previewTab}
+            key={`${previewTab}-${previewReloadKey}`}
             title="Public workspace preview"
             src={previewTab === 'messages' ? previewUrls.messages : previewUrls.home}
             className="h-full w-full border-0"
