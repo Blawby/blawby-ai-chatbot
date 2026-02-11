@@ -264,10 +264,10 @@ export function MainApp({
     : "Create a free account to continue your intake and get updates. We'll email you a confirmation link.";
   const awaitingInvitePath = useMemo(() => {
     if (!isPublicWorkspace || !intakeUuid) return null;
-    const practiceSlug = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
+    const resolvedPracticeSlugLocal = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
     const params = new URLSearchParams();
     params.set('intakeUuid', intakeUuid);
-    if (practiceSlug) params.set('practiceSlug', practiceSlug);
+    if (resolvedPracticeSlugLocal) params.set('practiceSlug', resolvedPracticeSlugLocal);
     if (resolvedPracticeName) params.set('practiceName', resolvedPracticeName);
     if (activeConversationId) params.set('conversationId', activeConversationId);
     return `/auth/awaiting-invite?${params.toString()}`;

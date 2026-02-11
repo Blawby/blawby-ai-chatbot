@@ -40,7 +40,10 @@ export const PaySuccessPage: FunctionComponent = () => {
   const { navigate } = useNavigation();
   const { isAnonymous, isPending } = useSessionContext();
   const [message, setMessage] = useState('Finalizing payment…');
+  const [canRetry, setCanRetry] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const hasRunRef = useRef(false);
+  const resolvedUuidRef = useRef<string | null>(null);
 
   const intakeUuid = resolveQueryValue(location.query?.uuid);
   const sessionId = resolveQueryValue(location.query?.session_id || location.query?.sessionId);
@@ -48,6 +51,25 @@ export const PaySuccessPage: FunctionComponent = () => {
   const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
     ? rawReturnTo
     : null;
+
+  const handleResend = async () => {
+    if (!resolvedUuidRef.current || isRetrying) return;
+    
+    setIsRetrying(true);
+    setCanRetry(false);
+    setMessage('Resending invitation…');
+    
+    try {
+      await triggerIntakeInvitation(resolvedUuidRef.current);
+      setMessage('Payment confirmed. You can return to your conversation.');
+    } catch (error) {
+      console.error('[PayRedirect] Failed to resend intake invitation', error);
+      setMessage('Payment confirmed but invitation email failed to send.');
+      setCanRetry(true);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   useEffect(() => {
     if (hasRunRef.current) return;
@@ -64,6 +86,7 @@ export const PaySuccessPage: FunctionComponent = () => {
       }
 
       if (resolvedUuid) {
+        resolvedUuidRef.current = resolvedUuid;
         if (isAnonymous) {
           setMessage('Payment confirmed. Please sign in to continue.');
           return;
@@ -79,7 +102,8 @@ export const PaySuccessPage: FunctionComponent = () => {
           console.error('[PayRedirect] Failed to trigger intake invitation', error);
           if (cancelled) return;
           
-          setMessage('Payment confirmed. You can return to your conversation.');
+          setMessage('Payment confirmed but invitation email failed to send.');
+          setCanRetry(true);
         }
         // Explicit return to prevent any further navigation logic
         return;
@@ -104,6 +128,15 @@ export const PaySuccessPage: FunctionComponent = () => {
       <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
         <div className="flex flex-col items-center gap-4 text-center">
           <p>{message}</p>
+          {canRetry && (
+            <Button
+              variant="secondary"
+              onClick={handleResend}
+              disabled={isRetrying}
+            >
+              {isRetrying ? 'Resending…' : 'Resend invitation'}
+            </Button>
+          )}
           {returnTo && (
             <Button
               variant="primary"

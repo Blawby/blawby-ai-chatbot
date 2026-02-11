@@ -134,13 +134,21 @@ function AppShell() {
     if (typeof window !== 'undefined') {
       try {
         const pendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
-        if (pendingPath && pendingPath.startsWith('/') && !pendingPath.startsWith('//')) {
-          if (!location.path.startsWith('/auth/awaiting-invite')) {
-            navigate(pendingPath, true);
+        if (pendingPath) {
+          window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+          if (pendingPath.startsWith('/') && !pendingPath.startsWith('//')) {
+            if (!location.path.startsWith('/auth/awaiting-invite')) {
+              navigate(pendingPath, true);
+            }
+            return;
           }
-          return;
         }
       } catch (error) {
+        try {
+          window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+        } catch (innerError) {
+          // Ignore secondary failure
+        }
         if (import.meta.env.DEV) {
           console.warn('[Workspace] Failed to read intake awaiting path', error);
         }
