@@ -247,7 +247,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = (request: IntakePaymentRequest) => {
+  const openPayment = (request: IntakePaymentRequest): boolean => {
     const hasClientSecret = typeof request.clientSecret === 'string' &&
       request.clientSecret.trim().length > 0;
     if (!hasClientSecret &&
@@ -255,10 +255,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       isValidStripePaymentLink(request.paymentLinkUrl) &&
       typeof window !== 'undefined') {
       window.open(request.paymentLinkUrl, '_blank', 'noopener');
-      return;
+      return false;
     }
     setPaymentRequest(request);
     setIsPaymentModalOpen(true);
+    return true;
   };
 
   const handleAuthPromptClose = () => {
@@ -267,11 +268,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   const handleAuthSuccess = () => {
+    let modalOpened = false;
     if (pendingPaymentRequest) {
-      openPayment(pendingPaymentRequest);
+      modalOpened = openPayment(pendingPaymentRequest);
       setPendingPaymentRequest(null);
     }
-    onAuthPromptSuccess?.();
+    if (!modalOpened) {
+      onAuthPromptSuccess?.();
+    }
   };
 
   const handleOpenPayment = (request: IntakePaymentRequest) => {

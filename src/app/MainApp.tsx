@@ -22,6 +22,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent } from '@/shared/lib/conversationApi';
@@ -253,15 +254,16 @@ export function MainApp({
     isPublicWorkspace
   ]);
 
+  const { t } = useTranslation('common');
   const shouldShowIntakeAuthPrompt = Boolean(
     intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget
   );
   const shouldShowAuthPrompt = shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen;
 
-  const intakeAuthTitle = "You're almost done";
+  const intakeAuthTitle = t('intake.authTitle');
   const intakeAuthDescription = resolvedPracticeName
-    ? `Create a free account to continue your intake and get updates from ${resolvedPracticeName}. We'll email you a confirmation link.`
-    : "Create a free account to continue your intake and get updates. We'll email you a confirmation link.";
+    ? t('intake.authDescription', { practice: resolvedPracticeName })
+    : t('intake.authDescriptionFallback');
   const awaitingInvitePath = useMemo(() => {
     if (!isPublicWorkspace || !intakeUuid) return null;
     const resolvedPracticeSlugLocal = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';

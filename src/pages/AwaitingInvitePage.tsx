@@ -14,6 +14,7 @@ export const AwaitingInvitePage: FunctionComponent = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
+  const [wasAlreadySent, setWasAlreadySent] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const hasRunRef = useRef(false);
 
@@ -64,6 +65,14 @@ export const AwaitingInvitePage: FunctionComponent = () => {
         payload,
         result
       });
+      if (typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem(`intakeInviteSent:${intakeUuid}`, 'true');
+        } catch (e) {
+          console.warn('[AwaitingInvitePage] Failed to persist invite flag', e);
+        }
+      }
+      setWasAlreadySent(false);
       setStatus('sent');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send invitation email.';
@@ -90,13 +99,13 @@ export const AwaitingInvitePage: FunctionComponent = () => {
         const inviteKey = `intakeInviteSent:${intakeUuid}`;
         const inviteAlreadySent = window.sessionStorage.getItem(inviteKey) === 'true';
         if (inviteAlreadySent) {
-          window.sessionStorage.removeItem(inviteKey);
+          setWasAlreadySent(true);
           setStatus('sent');
           return;
         }
       } catch (error) {
         if (import.meta.env.DEV) {
-          console.warn('[AwaitingInvitePage] Failed to clear intake awaiting path', error);
+          console.warn('[AwaitingInvitePage] Failed to handle intake awaiting path', error);
         }
       }
     }
@@ -106,9 +115,14 @@ export const AwaitingInvitePage: FunctionComponent = () => {
   const heading = practiceName
     ? `You are almost done with ${practiceName}`
     : 'You are almost done';
-  const description = practiceName
-    ? `We just sent a confirmation link to your email. Open it to join ${practiceName} and continue your intake.`
-    : 'We just sent a confirmation link to your email. Open it to continue your intake.';
+  
+  const description = wasAlreadySent
+    ? (practiceName 
+        ? `A confirmation link was sent to your email. Open it to join ${practiceName} and continue your intake.`
+        : 'A confirmation link was sent to your email. Open it to continue your intake.')
+    : (practiceName
+        ? `We just sent a confirmation link to your email. Open it to join ${practiceName} and continue your intake.`
+        : 'We just sent a confirmation link to your email. Open it to continue your intake.');
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
