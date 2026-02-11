@@ -4,14 +4,12 @@ import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData } from '@/shared/ui/form';
-import { DatePicker, Checkbox, Input, PasswordInput } from '@/shared/ui/input';
+import { DatePicker, Checkbox, Input } from '@/shared/ui/input';
 import { schemas } from '@/shared/ui/validation/schemas';
 
 interface PersonalInfoData extends FormData {
   fullName: string;
   birthday?: string;
-  password: string;
-  confirmPassword: string;
   agreedToTerms: boolean;
 }
 
@@ -124,46 +122,6 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
                 )}
               </FormField>
 
-              {/* Password */}
-              <FormField name="password">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.password', 'Create a password')}</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        required
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.passwordPlaceholder', 'Enter a secure password')}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
-              {/* Confirm Password */}
-              <FormField name="confirmPassword">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.confirmPassword', 'Confirm password')}</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        required
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.confirmPasswordPlaceholder', 'Re-enter your password')}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
             </div>
 
             {/* Terms Agreement */}

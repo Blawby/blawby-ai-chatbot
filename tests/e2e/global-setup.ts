@@ -331,7 +331,9 @@ const createAnonymousState = async (options: {
   const page = await context.newPage();
 
   try {
-    await page.goto(`/embed/${encodeURIComponent(practiceSlug)}`);
+    const isAbsolute = practiceSlug.includes('://');
+    const normalized = isAbsolute ? practiceSlug : `/public/${encodeURIComponent(practiceSlug)}`;
+    await page.goto(normalized);
     await page.waitForLoadState('domcontentloaded');
 
     await page.evaluate(async () => {
@@ -361,6 +363,7 @@ async function globalSetup(config: FullConfig) {
   await waitForBaseUrl(baseURL);
   ensureAuthDir();
   const { owner: ownerPath, client: clientPath, anonymous: anonymousPath } = AUTH_STATE_PATHS;
+  const skipSignedInStates = process.env.E2E_PUBLIC_ONLY === 'true' || process.env.E2E_PUBLIC_ONLY === '1';
 
   if (!e2eConfig) {
     console.warn('⚠️  E2E credentials are not configured. Writing empty auth states.');
@@ -370,28 +373,34 @@ async function globalSetup(config: FullConfig) {
     return;
   }
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath)) {
-    console.log(`✅ owner storageState already valid at ${ownerPath}`);
-  } else {
-    await createSignedInState({
-      baseURL,
-      storagePath: ownerPath,
-      email: e2eConfig.owner.email,
-      password: e2eConfig.owner.password,
-      label: 'owner'
-    });
-  }
+  if (!skipSignedInStates) {
+    if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath)) {
+      console.log(`✅ owner storageState already valid at ${ownerPath}`);
+    } else {
+      await createSignedInState({
+        baseURL,
+        storagePath: ownerPath,
+        email: e2eConfig.owner.email,
+        password: e2eConfig.owner.password,
+        label: 'owner'
+      });
+    }
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath)) {
-    console.log(`✅ client storageState already valid at ${clientPath}`);
+    if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath)) {
+      console.log(`✅ client storageState already valid at ${clientPath}`);
+    } else {
+      await createSignedInState({
+        baseURL,
+        storagePath: clientPath,
+        email: e2eConfig.client.email,
+        password: e2eConfig.client.password,
+        label: 'client'
+      });
+    }
   } else {
-    await createSignedInState({
-      baseURL,
-      storagePath: clientPath,
-      email: e2eConfig.client.email,
-      password: e2eConfig.client.password,
-      label: 'client'
-    });
+    writeEmptyStorageState(ownerPath);
+    writeEmptyStorageState(clientPath);
+    console.log('ℹ️  Skipping owner/client sign-in for public-only E2E run.');
   }
 
   if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, anonymousPath)) {

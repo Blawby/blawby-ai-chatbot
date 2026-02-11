@@ -63,6 +63,10 @@ export interface ChatContainerProps {
   isSocketReady?: boolean;
   intakeStatus?: {
     step: string;
+    decision?: string;
+    intakeUuid?: string | null;
+    paymentRequired?: boolean;
+    paymentReceived?: boolean;
   };
   conversationId?: string | null;
   isAnonymousUser?: boolean;
@@ -83,6 +87,15 @@ export interface ChatContainerProps {
 
   // Input control prop
   clearInput?: number;
+
+  // Auth prompt overrides
+  showAuthPrompt?: boolean;
+  authPromptTitle?: string;
+  authPromptDescription?: string;
+  authPromptCallbackUrl?: string;
+  onAuthPromptRequest?: () => void;
+  onAuthPromptClose?: () => void;
+  onAuthPromptSuccess?: () => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -118,6 +131,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   intakeStatus,
   clearInput,
   conversationId,
+  isAnonymousUser,
   canChat = true,
   onSelectMode,
   composerDisabled,
@@ -125,14 +139,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isLoadingMoreMessages,
   onLoadMoreMessages,
   messagesReady = true,
-  leadReviewActions
+  leadReviewActions,
+  showAuthPrompt = false,
+  authPromptTitle,
+  authPromptDescription,
+  authPromptCallbackUrl,
+  onAuthPromptRequest,
+  onAuthPromptClose,
+  onAuthPromptSuccess
 }) => {
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobileDetection();
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
+  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
@@ -177,13 +198,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, []);
-
-  // Reset auth prompt dismissal when conversation changes
-  useEffect(() => {
-    setShowAuthPrompt(false);
-  }, [conversationId]);
-
-  // Auth prompt is intentionally disabled for intake flows; invite email handles the next step.
 
   // Clear input when clearInput prop changes (numeric change counter)
   useEffect(() => {
@@ -233,15 +247,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const handleAuthPromptClose = () => {
-    setShowAuthPrompt(false);
-  };
-
-  const handleAuthSuccess = () => {
-    setShowAuthPrompt(false);
-  };
-
-  const handleOpenPayment = (request: IntakePaymentRequest) => {
+  const openPayment = (request: IntakePaymentRequest) => {
     const hasClientSecret = typeof request.clientSecret === 'string' &&
       request.clientSecret.trim().length > 0;
     if (!hasClientSecret &&
@@ -255,6 +261,28 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setIsPaymentModalOpen(true);
   };
 
+  const handleAuthPromptClose = () => {
+    setPendingPaymentRequest(null);
+    onAuthPromptClose?.();
+  };
+
+  const handleAuthSuccess = () => {
+    if (pendingPaymentRequest) {
+      openPayment(pendingPaymentRequest);
+      setPendingPaymentRequest(null);
+    }
+    onAuthPromptSuccess?.();
+  };
+
+  const handleOpenPayment = (request: IntakePaymentRequest) => {
+    if (isAnonymousUser) {
+      setPendingPaymentRequest(request);
+      onAuthPromptRequest?.();
+      return;
+    }
+    openPayment(request);
+  };
+
   const handleClosePayment = () => {
     setIsPaymentModalOpen(false);
   };
@@ -265,7 +293,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       return;
     }
 
-    if (paymentRequest.intakeUuid) {
+    if (paymentRequest.intakeUuid && !isAnonymousUser) {
       try {
         await triggerIntakeInvitation(paymentRequest.intakeUuid);
       } catch (error) {
@@ -371,6 +399,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onReply={handleReply}
                   onToggleReaction={onToggleReaction}
                   onRequestReactions={onRequestReactions}
+                  onAuthPromptRequest={onAuthPromptRequest}
                   intakeStatus={intakeStatus}
                   modeSelectorActions={onSelectMode ? {
                     onAskQuestion: handleAskQuestion,
@@ -447,6 +476,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         onClose={handleAuthPromptClose}
         practiceName={practiceConfig?.name}
         onSuccess={handleAuthSuccess}
+        title={authPromptTitle}
+        description={authPromptDescription}
+        callbackURL={authPromptCallbackUrl}
       />
 
       <IntakePaymentModal

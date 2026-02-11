@@ -9,16 +9,24 @@ interface AuthPromptModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   practiceName?: string | null;
+  title?: string;
+  description?: string;
+  callbackURL?: string;
 }
 
 const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  practiceName
+  practiceName,
+  title,
+  description,
+  callbackURL
 }) => {
   const { t } = useTranslation('auth');
   const [currentMode, setCurrentMode] = useState<'signin' | 'signup'>('signup');
+  const resolvedDescription = description ?? t('authPrompt.description');
+  const shouldAppendPractice = Boolean(practiceName && !description);
 
   useEffect(() => {
     if (isOpen) {
@@ -30,7 +38,7 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('authPrompt.title')}
+      title={title ?? t('authPrompt.title')}
       type="modal"
       showCloseButton
       disableBackdropClick={false}
@@ -38,9 +46,9 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
       <div className="w-full max-w-xl mx-auto space-y-4">
         <div className="space-y-2">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            {t('authPrompt.description')}
-            {practiceName && ' '}
-            {practiceName && t('authPrompt.notificationWithPractice', { practiceName })}
+            {resolvedDescription}
+            {shouldAppendPractice && ' '}
+            {shouldAppendPractice && t('authPrompt.notificationWithPractice', { practiceName })}
           </p>
         </div>
 
@@ -48,6 +56,7 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
           mode={currentMode}
           defaultMode="signup"
           onModeChange={(mode) => setCurrentMode(mode)}
+          callbackURL={callbackURL}
           onSuccess={async () => {
             if (onSuccess) {
               await onSuccess();

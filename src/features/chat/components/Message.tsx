@@ -83,6 +83,10 @@ interface MessageProps {
 		status?: 'error' | 'retrying';
 		onRetry?: () => void;
 	};
+	authCta?: {
+		label: string;
+	};
+	onAuthPromptRequest?: () => void;
 	leadReview?: {
 		canReview: boolean;
 		isSubmitting?: boolean;
@@ -108,6 +112,10 @@ interface MessageProps {
 	practiceId?: string;
 	intakeStatus?: {
 		step?: string;
+		decision?: string;
+		intakeUuid?: string | null;
+		paymentRequired?: boolean;
+		paymentReceived?: boolean;
 	};
 	// Styling
 	className?: string;
@@ -137,6 +145,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenPayment,
 	modeSelector,
 	assistantRetry,
+	authCta,
+	onAuthPromptRequest,
 	leadReview,
 	replyPreview,
 	reactions = [],
@@ -301,6 +311,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					onContactFormSubmit={onContactFormSubmit}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
+					authCta={authCta}
+					onAuthPromptRequest={onAuthPromptRequest}
 					leadReview={leadReview}
 				/>
 				

@@ -32,6 +32,10 @@ interface MessageComposerProps {
   isSocketReady?: boolean;
   intakeStatus?: {
     step: string;
+    decision?: string;
+    intakeUuid?: string | null;
+    paymentRequired?: boolean;
+    paymentReceived?: boolean;
   };
   disabled?: boolean;
   showStatusMessage?: boolean;

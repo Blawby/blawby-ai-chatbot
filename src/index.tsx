@@ -4,6 +4,7 @@ import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
+import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import { SEOHead } from '@/app/SEOHead';
@@ -130,6 +131,21 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
+    if (typeof window !== 'undefined') {
+      try {
+        const pendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
+        if (pendingPath && pendingPath.startsWith('/') && !pendingPath.startsWith('//')) {
+          if (!location.path.startsWith('/auth/awaiting-invite')) {
+            navigate(pendingPath, true);
+          }
+          return;
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[Workspace] Failed to read intake awaiting path', error);
+        }
+      }
+    }
     const user = session?.user;
     const requiresOnboarding =
       Boolean(user) && !user?.isAnonymous && user?.onboardingComplete !== true;
@@ -160,6 +176,7 @@ function AppShell() {
       <Router onRouteChange={handleRouteChange}>
         <Route path="/auth" component={AuthPage} />
         <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
+        <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
         <Route path="/cart" component={CartPage} />
         <Route path="/pricing" component={PricingPage} />
         <Route path="/onboarding" component={OnboardingPage} />

@@ -37,8 +37,13 @@ interface VirtualMessageListProps {
     onReply?: (target: ReplyTarget) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onRequestReactions?: (messageId: string) => void;
+    onAuthPromptRequest?: () => void;
     intakeStatus?: {
         step: string;
+        decision?: string;
+        intakeUuid?: string | null;
+        paymentRequired?: boolean;
+        paymentReceived?: boolean;
     };
     modeSelectorActions?: {
         onAskQuestion: () => void;
@@ -79,6 +84,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onReply,
     onToggleReaction,
     onRequestReactions,
+    onAuthPromptRequest,
     intakeStatus: _intakeStatus,
     modeSelectorActions,
     leadReviewActions,
@@ -350,6 +356,23 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
     };
 
+    const resolveAuthCta = useCallback((message: ChatMessageUI) => {
+        const metadata = message.metadata;
+        if (!metadata || typeof metadata !== 'object') {
+            return undefined;
+        }
+        const authCta = (metadata as Record<string, unknown>).authCta;
+        if (!authCta || typeof authCta !== 'object' || Array.isArray(authCta)) {
+            return undefined;
+        }
+        const label = typeof (authCta as Record<string, unknown>).label === 'string'
+            ? String((authCta as Record<string, unknown>).label)
+            : '';
+        const trimmedLabel = label.trim();
+        if (!trimmedLabel) return undefined;
+        return { label: trimmedLabel };
+    }, []);
+
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
         return Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
@@ -603,6 +626,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
                     const modeSelector = resolveModeSelector(message);
                     const leadReview = resolveLeadReview(message);
+                    const authCta = resolveAuthCta(message);
 
                     const normalizedContactForm = normalizeContactForm(message.contactForm);
 
@@ -650,6 +674,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             assistantRetry={message.assistantRetry}
                             modeSelector={modeSelector}
                             leadReview={leadReview}
+                            authCta={authCta}
+                            onAuthPromptRequest={onAuthPromptRequest}
                             intakeStatus={_intakeStatus}
                         />
                     );
