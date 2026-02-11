@@ -39,7 +39,7 @@ const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => 
   }
 };
 
-export const PayRedirectPage: FunctionComponent = () => {
+export const PaySuccessPage: FunctionComponent = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const [message, setMessage] = useState('Finalizing payment…');
@@ -159,26 +159,29 @@ export const PayRedirectPage: FunctionComponent = () => {
       if (resolvedUuid) {
         setPaymentSuccessFlag(resolvedUuid);
         try {
+          // Attempt to trigger the invitation email
           await triggerIntakeInvitation(resolvedUuid);
           if (cancelled) return;
+
+          // SUCCESS: Tell user to check email. Do NOT redirect.
+          setMessage('Thank you! Payment confirmed. Please check your email to verify your email address and access your workspace.');
+          console.log('[PayRedirect] Payment flow complete - user should check email for magic link');
         } catch (error) {
-          console.warn('[PayRedirect] Failed to trigger intake invitation', error);
-          const errorMsg = 'Payment confirmed. Returning you to the practice…';
-          setMessage(errorMsg);
-          // Wait a bit so the user can see the message
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          console.error('[PayRedirect] Failed to trigger intake invitation', error);
           if (cancelled) return;
+          
+          // ERROR (but payment succeeded): Still tell user to check email (backend might have sent it via other means, or they can contact support)
+          setMessage('Payment confirmed. We are finalizing your account. Please check your email for an invitation shortly.');
         }
+        // Explicit return to prevent any further navigation logic
+        return;
       } else {
         setMessage('Payment confirmation pending. You can return to the conversation.');
         return;
       }
-
-      if (!safeReturnTo) {
-        setMessage('Missing return destination. You can close this tab.');
-        return;
-      }
-      navigate(safeReturnTo, true);
+      
+      // Removed automatic navigation logic below.
+      // The return_to parameter is used in the magic link, not here.
     };
 
     void finalize();
@@ -213,4 +216,4 @@ export const PayRedirectPage: FunctionComponent = () => {
   );
 };
 
-export default PayRedirectPage;
+export default PaySuccessPage;

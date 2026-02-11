@@ -431,7 +431,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setServicesSaving(false);
     }
-  }, [currentPractice, showError, showSuccess, updateSetupDetails]);
+  }, [currentPractice, forcePreviewReload, showError, showSuccess, updateSetupDetails]);
 
   const handleServicesEditorChange = useCallback((nextServices: Service[]) => {
     setServicesDraft(nextServices);
