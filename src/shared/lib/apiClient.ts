@@ -19,6 +19,20 @@ import {
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
 const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
+const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+const normalizePublicFileUrl = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+  return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+};
 
 /**
  * Get the base URL for backend API requests via the Worker proxy
@@ -1209,7 +1223,8 @@ function extractPublicPracticeDisplayDetails(
 
   for (const candidate of candidates) {
     const name = toNullableString(candidate.name ?? candidate.practiceName ?? candidate.practice_name);
-    const logo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    const rawLogo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    const logo = normalizePublicFileUrl(rawLogo);
     if (name || logo) {
       return { name, logo };
     }

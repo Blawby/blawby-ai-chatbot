@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, Select } from '@/shared/ui/input';
+import { Input, LogoUploadInput, Select } from '@/shared/ui/input';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui';
 import Modal from '@/shared/components/Modal';
@@ -15,7 +15,8 @@ import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { displayPlan, hasManagedSubscription } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
-import { deleteUser } from '@/shared/lib/authClient';
+import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
+import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
@@ -63,6 +64,10 @@ export const AccountPage = ({
   const [domainError, setDomainError] = useState<string | null>(null);
   const [deleteVerificationSent, setDeleteVerificationSent] = useState(false);
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUploadProgress, setAvatarUploadProgress] = useState<number | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
   
 
   const hasSubscription = hasManagedSubscription(
@@ -272,6 +277,77 @@ export const AccountPage = ({
     : TIER_FEATURES['business'];
   const emailAddress = emailSettings?.email || session?.user?.email || '';
   const displayName = session?.user?.name || emailAddress || '—';
+  const currentAvatarUrl = avatarPreviewUrl ?? session?.user?.image ?? null;
+
+  const handleAvatarChange = useCallback(async (files: FileList | File[]) => {
+    const fileList = Array.isArray(files) ? files : Array.from(files ?? []);
+    const [file] = fileList;
+    if (!file) return;
+
+    if (!currentPractice?.id) {
+      showError('Select a practice first', 'Choose a practice before uploading a profile photo.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      showError('Invalid file', 'Please select an image file.');
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showError('File too large', 'Please upload an image under 5 MB.');
+      return;
+    }
+
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current);
+      avatarObjectUrlRef.current = null;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    avatarObjectUrlRef.current = previewUrl;
+    setAvatarPreviewUrl(previewUrl);
+    setAvatarUploading(true);
+    setAvatarUploadProgress(0);
+
+    try {
+      const uploaded = await uploadWithProgress(file, {
+        practiceId: currentPractice.id,
+        onProgress: (progress) => setAvatarUploadProgress(progress.percentage)
+      });
+      await updateUser({ image: uploaded.url });
+      await getSession().catch((error) => {
+        console.warn('[Account] Session refresh failed after avatar update', error);
+      });
+
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      setAvatarPreviewUrl(null);
+      showSuccess('Profile photo updated', 'Your avatar has been saved.');
+    } catch (error) {
+      showError('Avatar upload failed', error instanceof Error ? error.message : 'Unable to upload image.');
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      setAvatarPreviewUrl(session?.user?.image ?? null);
+    } finally {
+      setAvatarUploading(false);
+      setAvatarUploadProgress(null);
+    }
+  }, [currentPractice?.id, session?.user?.image, showError, showSuccess]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+    };
+  }, []);
   const customDomainOptions = (links?.customDomains || []).map(domain => ({
     value: domain.domain,
     label: domain.domain
@@ -642,6 +718,19 @@ export const AccountPage = ({
         <span className="text-sm text-gray-900 dark:text-gray-100">
           {displayName}
         </span>
+      </SettingRow>
+      <SettingRow label="Profile photo" description="Upload a square image (max 5 MB).">
+        <div className="w-full">
+          <LogoUploadInput
+            imageUrl={currentAvatarUrl}
+            name={displayName}
+            accept="image/*"
+            multiple={false}
+            onChange={handleAvatarChange}
+            disabled={avatarUploading}
+            progress={avatarUploading ? avatarUploadProgress : null}
+          />
+        </div>
       </SettingRow>
 
       <SectionDivider />

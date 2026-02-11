@@ -49,11 +49,12 @@ export function useConversations({
   enabled = true,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
-  const { activePracticeId, activeOrganizationId } = useSessionContext();
+  const { activePracticeId, activeOrganizationId, session, isPending: sessionIsPending } = useSessionContext();
   const sessionPracticeId = useMemo(
     () => activePracticeId ?? activeOrganizationId ?? null,
     [activePracticeId, activeOrganizationId]
   );
+  const sessionReady = Boolean(session?.user) && !sessionIsPending;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +81,11 @@ export function useConversations({
   const fetchConversations = useCallback(async () => {
     if (!enabled) {
       setIsLoading(false);
+      return;
+    }
+
+    if (!sessionReady) {
+      setIsLoading(true);
       return;
     }
 
@@ -190,7 +196,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId]);
+  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
@@ -290,6 +296,11 @@ export function useConversations({
       return;
     }
 
+    if (!sessionReady) {
+      setIsLoading(true);
+      return;
+    }
+
     if (scope === 'practice' && !practiceId) {
       setIsLoading(false);
       return;
@@ -303,7 +314,7 @@ export function useConversations({
         abortControllerRef.current.abort();
       }
     };
-  }, [practiceId, matterId, status, fetchConversations, scope, enabled]);
+  }, [practiceId, matterId, status, fetchConversations, scope, enabled, sessionReady]);
 
   return {
     conversations,

@@ -53,7 +53,7 @@ export const AppShell = ({
 
       <main
         className={cn(
-          'row-start-2 min-h-0',
+          'row-start-2 min-h-0 h-full flex flex-col',
           hasSidebar ? 'col-start-1 md:col-start-2' : 'col-start-1',
           mainClassName
         )}

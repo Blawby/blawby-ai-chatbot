@@ -35,6 +35,7 @@ import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceCon
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+export type LayoutMode = 'embed' | 'mobile' | 'desktop';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -777,8 +778,12 @@ export function MainApp({
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
+  const layoutMode: LayoutMode = workspace === 'practice'
+    ? 'desktop'
+    : (workspace === 'client' ? 'mobile' : 'embed');
+
   const chatPanel = chatContent ?? (
-    <div className="relative h-full flex flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {shouldShowChatPlaceholder ? (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
           {workspace === 'practice'
@@ -813,8 +818,9 @@ export function MainApp({
               leadReviewActions={leadReviewActions}
               messagesReady={messagesReady}
               headerContent={workspace === 'public' ? publicHeaderContent : undefined}
-              heightClassName={workspace === 'public' ? 'h-full' : undefined}
-              useFrame={workspace !== 'public'}
+              heightClassName={layoutMode === 'desktop' ? undefined : 'h-full'}
+              useFrame={layoutMode === 'desktop'}
+              layoutMode={layoutMode}
               practiceConfig={{
                 name: resolvedPracticeName,
                 profileImage: resolvedPracticeLogo,
@@ -865,6 +871,7 @@ export function MainApp({
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
+      layoutMode={layoutMode}
       showClientTabs={isAuthenticatedClient}
       onStartNewConversation={handleStartNewConversation}
       chatView={chatPanel}
@@ -888,6 +895,7 @@ export function MainApp({
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
+      layoutMode={layoutMode}
       showClientTabs={true}
       workspace="client"
       onStartNewConversation={handleStartNewConversation}
@@ -913,6 +921,7 @@ export function MainApp({
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
+      layoutMode={layoutMode}
       showPracticeTabs={true}
       workspace="practice"
       onStartNewConversation={handleStartNewConversation}
