@@ -45,6 +45,7 @@ const { mockApiClient, mockPracticeApi } = vi.hoisted(() => ({
     listPractices: vi.fn(),
     createPractice: vi.fn(),
     updatePractice: vi.fn(),
+    updatePracticeDetails: vi.fn(),
     deletePractice: vi.fn(),
     listPracticeInvitations: vi.fn(),
     createPracticeInvitation: vi.fn(),
@@ -63,6 +64,7 @@ vi.mock('@/shared/lib/apiClient', () => ({
   listPractices: mockPracticeApi.listPractices,
   createPractice: mockPracticeApi.createPractice,
   updatePractice: mockPracticeApi.updatePractice,
+  updatePracticeDetails: mockPracticeApi.updatePracticeDetails,
   deletePractice: mockPracticeApi.deletePractice,
   listPracticeInvitations: mockPracticeApi.listPracticeInvitations,
   createPracticeInvitation: mockPracticeApi.createPracticeInvitation,
@@ -94,6 +96,15 @@ vi.mock('@/shared/lib/authClient', () => ({
   }),
 }));
 
+vi.mock('@/shared/contexts/SessionContext', () => ({
+  useSessionContext: () => ({
+    session: { user: { id: 'user-1', email: 'test@example.com' } },
+    isPending: false,
+    isAnonymous: false,
+    activeOrganizationId: 'practice-1',
+  })
+}));
+
 vi.mock('@/config/api', async () => {
   const actual = await vi.importActual<typeof import('@/config/api')>('@/config/api');
   return {
@@ -113,6 +124,7 @@ describe('usePracticeManagement', () => {
     mockPracticeApi.listPracticeInvitations.mockResolvedValue([]);
     mockPracticeApi.listPracticeMembers.mockResolvedValue([]);
     mockPracticeApi.listPracticeTokens.mockResolvedValue([]);
+    mockPracticeApi.updatePracticeDetails.mockResolvedValue(null);
   });
 
   it('loads practices via listPractices helper', async () => {
@@ -162,7 +174,7 @@ describe('usePracticeManagement', () => {
     });
 
     expect(mockPracticeApi.createPractice).toHaveBeenCalled();
-    expect(mockPracticeApi.listPractices).toHaveBeenCalledTimes(1);
+    expect(mockPracticeApi.updatePracticeDetails).toHaveBeenCalledWith('practice-new', { isPublic: true });
   });
 
   it('throws when attempting to create a practice without a name', async () => {
