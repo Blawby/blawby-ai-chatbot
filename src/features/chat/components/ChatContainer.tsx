@@ -311,8 +311,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const shouldFrame = useFrame !== false;
   const containerClassName = isPublicWorkspace && !shouldFrame
-    ? 'flex flex-col h-full w-full m-0 p-0 relative overflow-hidden'
-    : `flex flex-col ${heightClassName ?? 'h-screen md:h-screen'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;
+    ? 'flex flex-col min-h-0 flex-1 h-full w-full m-0 p-0 relative overflow-hidden'
+    : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;
   const mainClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
     : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-white dark:bg-dark-bg'}`;

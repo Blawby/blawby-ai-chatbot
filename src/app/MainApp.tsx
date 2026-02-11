@@ -778,7 +778,7 @@ export function MainApp({
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
   const chatPanel = chatContent ?? (
-    <div className="relative h-full flex flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {shouldShowChatPlaceholder ? (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
           {workspace === 'practice'

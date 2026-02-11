@@ -1,8 +1,7 @@
 import type { FunctionComponent } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
-import { getBackendApiUrl } from '@/config/urls';
+import { apiClient, triggerIntakeInvitation } from '@/shared/lib/apiClient';
 
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
@@ -14,16 +13,11 @@ const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => 
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
     const params = new URLSearchParams({ session_id: sessionId });
-    const response = await fetch(`${getBackendApiUrl()}/api/practice/client-intakes/post-pay/status?${params.toString()}`, {
-      method: 'GET',
-      credentials: 'include',
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      return null;
-    }
-    const payload = await response.json().catch(() => null) as {
+    const response = await apiClient.get(
+      `/api/practice/client-intakes/post-pay/status?${params.toString()}`,
+      { signal: controller.signal }
+    );
+    const payload = response.data as {
       success?: boolean;
       data?: { paid?: boolean; intake_uuid?: string };
     } | null;

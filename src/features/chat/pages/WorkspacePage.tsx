@@ -798,7 +798,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'conversation':
       default:
-        return chatView;
+        return (
+          <div className="flex h-full min-h-0 flex-1 flex-col">
+            {chatView}
+          </div>
+        );
     }
   };
 
@@ -856,20 +860,22 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   ) : undefined;
 
   const conversationListView = (
-    <ConversationListView
-      conversations={conversations}
-      previews={conversationPreviews}
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      isLoading={isConversationsLoading}
-      error={conversationsError}
-      onClose={() => navigate(workspaceBasePath)}
-      onSelectConversation={(conversationId) => {
-        navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
-      }}
-      onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-      showBackButton={false}
-    />
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <ConversationListView
+        conversations={conversations}
+        previews={conversationPreviews}
+        practiceName={practiceName}
+        practiceLogo={practiceLogo}
+        isLoading={isConversationsLoading}
+        error={conversationsError}
+        onClose={() => navigate(workspaceBasePath)}
+        onSelectConversation={(conversationId) => {
+          navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
+        }}
+        onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+        showBackButton={false}
+      />
+    </div>
   );
 
   const showListOnMobile = view === 'list';
@@ -895,7 +901,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : (
-      <div className={cn('min-h-0 flex-1', shouldAllowMainScroll ? 'overflow-y-auto' : 'overflow-hidden')}>
+      <div className={cn('min-h-0 h-full flex flex-1 flex-col', shouldAllowMainScroll ? 'overflow-y-auto' : 'overflow-hidden')}>
         {renderContent()}
       </div>
     );
@@ -903,14 +909,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const isPublicShell = workspace !== 'practice';
 
   const mainShell = isPublicShell ? (
-    <div className="flex h-full min-h-0 w-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col rounded-[32px] border border-light-border bg-light-bg shadow-[0_0_0_1px_rgba(15,23,42,0.18)] dark:border-white/30 dark:bg-dark-bg dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] overflow-hidden">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
+      <div className="flex h-full min-h-0 flex-1 flex-col rounded-[32px] border border-light-border bg-light-bg shadow-[0_0_0_1px_rgba(15,23,42,0.18)] dark:border-white/30 dark:bg-dark-bg dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] overflow-hidden">
         {header && (
           <div className={cn('w-full', headerClassName)}>
             {header}
           </div>
         )}
-        <div className="min-h-0 flex-1">{mainContent}</div>
+        <div className="min-h-0 h-full flex-1">{mainContent}</div>
         {bottomNav && (
           <div className="mt-auto">
             {bottomNav}
@@ -919,7 +925,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     </div>
   ) : (
-    <div className="flex h-full min-h-0 w-full flex-col">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
       {header && (
         <div className={cn('w-full', headerClassName)}>
           {header}
@@ -934,7 +940,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       className="bg-light-bg dark:bg-dark-bg h-dvh"
       sidebar={sidebarNav}
       main={mainShell}
-      mainClassName={cn('min-h-0 overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
+      mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
       bottomBar={isPublicShell ? undefined : bottomNav}
       bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40' : undefined}
     />
