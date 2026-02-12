@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
 import type { Address } from '@/shared/types/address';
@@ -6,6 +6,7 @@ import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { submitContactForm } from '@/shared/utils/forms';
+import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
@@ -271,7 +272,7 @@ export const useMessageHandling = ({
   onConversationMetadataUpdated,
   onError
 }: UseMessageHandlingOptions) => {
-  const { session, isPending: sessionIsPending } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const sessionReady = Boolean(session?.user) && !sessionIsPending;
   const currentUserId = session?.user?.id ?? null;
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
@@ -1180,6 +1181,7 @@ export const useMessageHandling = ({
     };
 
     setMessages(prev => [...prev, tempMessage]);
+    setMessagesReady(true);
     pendingClientMessageRef.current.set(clientId, tempId);
 
     const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
@@ -1512,18 +1514,76 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         }
       }
 
-      await sendMessageOverWs(contactMessage, [], {
+      const paymentDetails = intakeResult.intake;
+      const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
+      const intakeUuid = typeof paymentDetails?.uuid === 'string' ? paymentDetails.uuid : undefined;
+
+      if (intakeUuid && isAnonymous) {
+        try {
+          const payload = { intakeUuid, practiceSlug: resolvedPracticeSlug, conversationId };
+          console.info('[Intake] Triggering invite pre-auth', payload);
+          const result = await triggerIntakeInvitation(intakeUuid);
+          console.info('[Intake] Invite triggered pre-auth', {
+            payload,
+            result
+          });
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem(`intakeInviteSent:${intakeUuid}`, 'true');
+          }
+        } catch (error) {
+          console.warn('[Intake] Failed to trigger invite pre-auth', {
+            intakeUuid,
+            error
+          });
+        }
+      }
+
+      const nextStepLine = paymentRequired
+        ? 'Next step: sign up to save your details and continue to payment.'
+        : 'Next step: sign up to save your details and finish your intake.';
+      const enrichedContactMessage = `${contactMessage}\n\nThanks! ${nextStepLine}`;
+
+      await sendMessageOverWs(enrichedContactMessage, [], {
         // Mark this as a contact form submission without storing PII in metadata
-        isContactFormSubmission: true
+        isContactFormSubmission: true,
+        ...(intakeUuid ? { intakeUuid } : {}),
+        ...(paymentRequired ? { intakePaymentRequired: true } : {}),
+        authCta: {
+          label: 'Continue to finish intake'
+        }
       }, null);
+
+      setMessages((prev) => {
+        const alreadyPresent = prev.some((message) =>
+          message.metadata?.isContactFormSubmission
+          && (intakeUuid ? message.metadata?.intakeUuid === intakeUuid : true)
+        );
+        if (alreadyPresent) {
+          return prev;
+        }
+        const fallbackMessage: ChatMessageUI = {
+          id: `fallback-contact-${Date.now()}`,
+          content: enrichedContactMessage,
+          isUser: true,
+          role: 'user',
+          timestamp: Date.now(),
+          userId: currentUserId,
+          reply_to_message_id: null,
+          metadata: {
+            isContactFormSubmission: true,
+            ...(intakeUuid ? { intakeUuid } : {}),
+            ...(paymentRequired ? { intakePaymentRequired: true } : {}),
+            authCta: { label: 'Continue to finish intake' }
+          }
+        };
+        return [...prev, fallbackMessage];
+      });
 
       // Show success feedback
       if (import.meta.env.DEV) {
         console.log('[ContactForm] Successfully submitted contact information');
       }
 
-      const paymentDetails = intakeResult.intake;
-      const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
       const clientSecret = paymentDetails?.clientSecret;
       const paymentLinkUrl = paymentDetails?.paymentLinkUrl;
       const checkoutSessionUrl = paymentDetails?.checkoutSessionUrl;
@@ -1547,6 +1607,14 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       }
 
       if (paymentRequired && (hasClientSecret || hasCheckoutSession || hasPaymentLink)) {
+        if (isAnonymous) {
+          if (import.meta.env.DEV) {
+            console.info('[Intake] Skipping payment message until user is authenticated', {
+              intakeUuid: paymentDetails?.uuid
+            });
+          }
+          return;
+        }
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
@@ -1641,7 +1709,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     applyServerMessages,
     sendMessageOverWs,
     updateConversationMetadata,
-    currentUserId
+    currentUserId,
+    isAnonymous
   ]);
 
   // Add message to the list
@@ -2015,13 +2084,43 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
   // 0 messages -> Welcome prompt
   // 1 message -> Show Contact Form
   // After contact form -> Pending review until practice decision
-  const { isAnonymous } = useSessionContext();
   const userMessages = messages.filter(m => m.isUser);
   
   // Check if contact form has been submitted by looking for the submission flag
   const hasSubmittedContactForm = messages.some(m => 
     m.isUser && m.metadata?.isContactFormSubmission
   );
+
+  const latestIntakeSubmission = useMemo(() => {
+    let intakeUuid: string | null = null;
+    let paymentRequired = false;
+
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (!message?.isUser || !message.metadata?.isContactFormSubmission) {
+        continue;
+      }
+      const candidateUuid = message.metadata?.intakeUuid;
+      if (typeof candidateUuid === 'string' && candidateUuid.trim().length > 0) {
+        intakeUuid = candidateUuid.trim();
+      }
+      paymentRequired = message.metadata?.intakePaymentRequired === true;
+      break;
+    }
+
+    return {
+      intakeUuid,
+      paymentRequired
+    };
+  }, [messages]);
+
+  const intakePaymentReceived = useMemo(() => {
+    if (!latestIntakeSubmission.intakeUuid) return false;
+    return messages.some((message) =>
+      message.metadata?.intakePaymentUuid === latestIntakeSubmission.intakeUuid
+      && message.metadata?.paymentStatus === 'succeeded'
+    );
+  }, [latestIntakeSubmission.intakeUuid, messages]);
   
   const intakeDecision = messages.find(m => {
     const decision = m.metadata?.intakeDecision;
@@ -2224,7 +2323,10 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     toggleMessageReaction,
     intakeStatus: {
       step: currentStep,
-      decision: intakeDecision
+      decision: intakeDecision,
+      intakeUuid: latestIntakeSubmission.intakeUuid,
+      paymentRequired: latestIntakeSubmission.paymentRequired,
+      paymentReceived: intakePaymentReceived
     }
   };
 };

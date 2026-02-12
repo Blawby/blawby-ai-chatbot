@@ -92,12 +92,7 @@ export const onboardingSchemas = {
   personalInfo: z.object({
     fullName: z.string().min(2, 'Full name must be at least 2 characters'),
     birthday: commonSchemas.birthday,
-    password: commonSchemas.password,
-    confirmPassword: z.string(),
     agreedToTerms: commonSchemas.termsAgreement,
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords must match',
-    path: ['confirmPassword']
   }),
   
   useCase: z.object({

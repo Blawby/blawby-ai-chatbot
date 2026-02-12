@@ -3,7 +3,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import { updateUser, getClient, getSession } from '@/shared/lib/authClient';
+import { updateUser, getSession } from '@/shared/lib/authClient';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { sanitizeOnboardingPersonalInfo } from '@/shared/types/onboarding';
 import type { OnboardingPreferences, ProductUsage } from '@/shared/types/preferences';
@@ -16,8 +16,6 @@ const createDefaultFormData = (): OnboardingFormData => ({
   personalInfo: {
     fullName: '',
     birthday: '',
-    password: '',
-    confirmPassword: '',
     agreedToTerms: false
   },
   useCase: {
@@ -119,8 +117,6 @@ export const OnboardingFlow = ({
               ...prev.personalInfo,
               fullName: sessionUserName || prev.personalInfo.fullName,
               birthday: prefs?.birthday ?? '',
-              password: '',
-              confirmPassword: '',
               agreedToTerms: prev.personalInfo.agreedToTerms
             },
             useCase: {
@@ -196,16 +192,6 @@ export const OnboardingFlow = ({
       }
       if (sourceData.personalInfo.birthday) {
         updatePayload.dob = sourceData.personalInfo.birthday;
-      }
-
-      const client = getClient();
-      if (sourceData.personalInfo.password) {
-        try {
-          await client.setPassword({ newPassword: sourceData.personalInfo.password });
-        } catch (error) {
-          console.warn('[ONBOARDING][PASSWORD] Failed to set password', error);
-          throw error;
-        }
       }
 
       await updateUser(updatePayload);

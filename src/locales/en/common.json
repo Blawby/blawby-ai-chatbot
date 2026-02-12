@@ -259,5 +259,10 @@
   },
   "chat": {
     "publicIntro": "Ask us anything, or share your feedback."
+  },
+  "intake": {
+    "authTitle": "You're almost done",
+    "authDescription": "Create a free account to continue your intake and get updates from {{practice}}. We'll email you a confirmation link.",
+    "authDescriptionFallback": "Create a free account to continue your intake and get updates. We'll email you a confirmation link."
   }
 }

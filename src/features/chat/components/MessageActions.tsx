@@ -37,6 +37,10 @@ interface MessageActionsProps {
 	showContactFormSubmit?: boolean;
 	intakeStatus?: {
 		step?: string;
+		decision?: string;
+		intakeUuid?: string | null;
+		paymentRequired?: boolean;
+		paymentReceived?: boolean;
 	};
 	paymentRequest?: IntakePaymentRequest;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
@@ -69,6 +73,10 @@ interface MessageActionsProps {
 		status?: 'error' | 'retrying';
 		onRetry?: () => void;
 	};
+	authCta?: {
+		label: string;
+	};
+	onAuthPromptRequest?: () => void;
 	leadReview?: {
 		canReview: boolean;
 		isSubmitting?: boolean;
@@ -93,6 +101,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	onContactFormSubmit,
 	modeSelector,
 	assistantRetry,
+	authCta,
+	onAuthPromptRequest,
 	leadReview,
 	className = ''
 }) => {
@@ -110,6 +120,13 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						disabled={assistantRetry.status === 'retrying'}
 					>
 						{assistantRetry.status === 'retrying' ? t('chat.retrying') : (assistantRetry.label ?? t('chat.retry'))}
+					</Button>
+				</div>
+			)}
+			{authCta?.label && onAuthPromptRequest && (
+				<div className="mt-3">
+					<Button variant="primary" size="sm" onClick={onAuthPromptRequest}>
+						{authCta.label}
 					</Button>
 				</div>
 			)}

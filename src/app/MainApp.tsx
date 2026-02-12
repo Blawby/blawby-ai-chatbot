@@ -22,6 +22,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent } from '@/shared/lib/conversationApi';
@@ -73,6 +74,8 @@ export function MainApp({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
+  const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
   const conversationRestoreAttemptedRef = useRef(false);
 
   // Data & Hooks (Moved up)
@@ -180,6 +183,7 @@ export function MainApp({
     showErrorRef.current = showError;
   }, [showError]);
 
+
   const practiceDetailsId = workspace === 'public'
     ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
     : practiceId;
@@ -231,10 +235,98 @@ export function MainApp({
   const startConsultFlow = realMessageHandling.startConsultFlow;
   const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
   const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
+  const ingestServerMessages = realMessageHandling.ingestServerMessages;
   const messagesReady = realMessageHandling.messagesReady;
   const hasMoreMessages = realMessageHandling.hasMoreMessages;
   const isLoadingMoreMessages = realMessageHandling.isLoadingMoreMessages;
   const loadMoreMessages = realMessageHandling.loadMoreMessages;
+
+  const intakeUuid = intakeStatus?.intakeUuid ?? null;
+  const intakeAuthTarget = useMemo(() => {
+    if (!isPublicWorkspace) return null;
+    if (!intakeUuid) return null;
+    if (intakeStatus?.paymentRequired && !intakeStatus?.paymentReceived) return null;
+    return intakeUuid;
+  }, [
+    intakeUuid,
+    intakeStatus?.paymentReceived,
+    intakeStatus?.paymentRequired,
+    isPublicWorkspace
+  ]);
+
+  const { t } = useTranslation('common');
+  const shouldShowIntakeAuthPrompt = Boolean(
+    intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget
+  );
+  const shouldShowAuthPrompt = shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen;
+
+  const intakeAuthTitle = t('intake.authTitle');
+  const intakeAuthDescription = resolvedPracticeName
+    ? t('intake.authDescription', { practice: resolvedPracticeName })
+    : t('intake.authDescriptionFallback');
+  const awaitingInvitePath = useMemo(() => {
+    if (!isPublicWorkspace || !intakeUuid) return null;
+    const resolvedPracticeSlugLocal = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
+    const params = new URLSearchParams();
+    params.set('intakeUuid', intakeUuid);
+    if (resolvedPracticeSlugLocal) params.set('practiceSlug', resolvedPracticeSlugLocal);
+    if (resolvedPracticeName) params.set('practiceName', resolvedPracticeName);
+    if (activeConversationId) params.set('conversationId', activeConversationId);
+    return `/auth/awaiting-invite?${params.toString()}`;
+  }, [
+    activeConversationId,
+    intakeUuid,
+    isPublicWorkspace,
+    practiceConfig.slug,
+    resolvedPracticeName,
+    resolvedPublicPracticeSlug
+  ]);
+
+  const handleIntakeAuthSuccess = useCallback(async () => {
+    if (!awaitingInvitePath) return;
+
+    if (intakeAuthTarget) {
+      setDismissedIntakeAuthFor(intakeAuthTarget);
+    }
+    navigate(awaitingInvitePath, true);
+  }, [
+    awaitingInvitePath,
+    intakeAuthTarget,
+    navigate
+  ]);
+
+  const handlePaymentAuthRequest = useCallback(() => {
+    setIsPaymentAuthPromptOpen(true);
+  }, []);
+
+  const handleAuthPromptClose = useCallback(() => {
+    if (isPaymentAuthPromptOpen) {
+      setIsPaymentAuthPromptOpen(false);
+    }
+    if (intakeAuthTarget) {
+      setDismissedIntakeAuthFor(intakeAuthTarget);
+    }
+  }, [intakeAuthTarget, isPaymentAuthPromptOpen]);
+
+  const handleAuthPromptSuccess = useCallback(async () => {
+    if (isPaymentAuthPromptOpen) {
+      setIsPaymentAuthPromptOpen(false);
+    }
+    await handleIntakeAuthSuccess();
+  }, [handleIntakeAuthSuccess, isPaymentAuthPromptOpen]);
+
+  useEffect(() => {
+    if (!awaitingInvitePath || !shouldShowAuthPrompt || typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem('intakeAwaitingInvitePath', awaitingInvitePath);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[MainApp] Failed to persist intake awaiting path', error);
+      }
+    }
+  }, [awaitingInvitePath, shouldShowAuthPrompt]);
 
   useEffect(() => {
     clearMessages();
@@ -613,7 +705,7 @@ export function MainApp({
     conversationMode,
     isConsultFlowActive,
     shouldRequireModeSelection,
-    ingestServerMessages: realMessageHandling.ingestServerMessages
+    ingestServerMessages
   });
 
   // Create stable callback references for keyboard handlers
@@ -854,6 +946,13 @@ export function MainApp({
               hasMoreMessages={hasMoreMessages}
               isLoadingMoreMessages={isLoadingMoreMessages}
               onLoadMoreMessages={loadMoreMessages}
+              showAuthPrompt={shouldShowAuthPrompt}
+              authPromptTitle={intakeAuthTitle}
+              authPromptDescription={intakeAuthDescription}
+              authPromptCallbackUrl={awaitingInvitePath ?? undefined}
+              onAuthPromptRequest={isAnonymousUser ? handlePaymentAuthRequest : undefined}
+              onAuthPromptClose={handleAuthPromptClose}
+              onAuthPromptSuccess={handleAuthPromptSuccess}
             />
           </div>
         </>
