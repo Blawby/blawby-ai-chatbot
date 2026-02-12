@@ -45,7 +45,7 @@ export function ServicesList({
   return (
     <div className="space-y-4">
       {services.length === 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400">{emptyMessage}</p>
+        <p className="text-xs text-input-placeholder">{emptyMessage}</p>
       )}
 
       {services.map((service) => (

@@ -29,7 +29,7 @@ export default function PracticeProfile({
 						className="rounded-lg object-cover w-12 h-12"
 					/>
 				) : (
-					<div className="flex items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-hover w-12 h-12">
+					<div className="flex items-center justify-center rounded-lg bg-surface-card w-12 h-12">
 						<FaceSmileIcon className="w-8 h-8" />
 					</div>
 				)}
@@ -37,9 +37,9 @@ export default function PracticeProfile({
 
 			{/* Practice Name with Verified Badge */}
 			<div className="flex items-center justify-center gap-2 w-full">
-				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-gray-900 dark:text-white leading-tight truncate min-w-0" title={name}>{name}</h3>
+				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-input-text leading-tight truncate min-w-0" title={name}>{name}</h3>
 				{showVerified && (
-					<CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900 dark:text-white flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')} />
+					<CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-input-text flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')} />
 				)}
 			</div>
 

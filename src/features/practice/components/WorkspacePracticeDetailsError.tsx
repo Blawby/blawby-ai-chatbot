@@ -33,7 +33,7 @@ export function WorkspacePracticeDetailsError({
       tabIndex={-1}
       ref={dialogRef}
     >
-      <div className="max-w-lg rounded-2xl border border-line-default bg-surface-card p-6 text-center shadow-2xl">
+    <div className="max-w-lg glass-panel p-6 text-center">
         <h1 id="workspace-error-heading" className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           {t('workspace.error.title')}
         </h1>

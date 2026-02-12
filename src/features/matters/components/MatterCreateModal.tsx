@@ -120,7 +120,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
-  <div className="w-6 h-6 rounded-full border border-dashed border-line-default flex items-center justify-center text-gray-400">
+  <div className="w-6 h-6 rounded-full border border-dashed border-line-glass/30 flex items-center justify-center text-input-placeholder">
     {icon}
   </div>
 );
@@ -148,7 +148,7 @@ const StatusPillGroup = ({
               'cursor-pointer rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition-colors',
               isSelected
                 ? 'bg-accent-500 text-gray-900 ring-accent-500'
-                : 'bg-surface-card text-gray-700 ring-line-default hover:bg-surface-card/70 dark:text-gray-300'
+                : 'bg-surface-glass/60 text-input-text ring-line-glass/30 hover:bg-surface-glass/50'
             )}
           >
             <input
@@ -221,7 +221,7 @@ const MatterFormModalInner = ({
       name={name?.trim() || 'User'}
       src={image ?? null}
       size={size}
-      className="bg-surface-card"
+      className="bg-surface-glass/60 backdrop-blur-sm"
     />
   );
 
@@ -382,7 +382,7 @@ const MatterFormModalInner = ({
           onChange={(value) => updateForm('clientId', value)}
         />
 
-        <hr className="h-px border-line-default" />
+        <hr className="h-px border-line-glass/30" />
 
         <div>
           <h2 className="text-lg font-medium text-input-text mb-2">Provide matter details</h2>
@@ -412,7 +412,7 @@ const MatterFormModalInner = ({
           disabled={practiceAreasLoading}
         />
 
-        <div className="border-t border-line-default pt-6 space-y-4">
+        <div className="border-t border-line-glass/30 pt-6 space-y-4">
           <div>
             <h3 className="text-lg font-medium text-input-text">Additional documents</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -437,7 +437,7 @@ const MatterFormModalInner = ({
           </div>
         </div>
 
-        <div className="border-t border-line-default pt-6 space-y-4">
+        <div className="border-t border-line-glass/30 pt-6 space-y-4">
           <h3 className="text-lg font-medium text-input-text">Team Members</h3>
           {isAssigneeOptionsEmpty ? (
             <Input
@@ -475,7 +475,7 @@ const MatterFormModalInner = ({
           )}
         </div>
 
-        <div className="border-t border-line-default pt-6 space-y-4">
+        <div className="border-t border-line-glass/30 pt-6 space-y-4">
           <RadioGroupWithDescriptions
             label="Billing type"
             name="billing-type"
@@ -527,7 +527,7 @@ const MatterFormModalInner = ({
               )}
 
               {formState.paymentFrequency === 'milestone' && (
-                <div className="border-t border-line-default pt-6 space-y-4">
+                <div className="border-t border-line-glass/30 pt-6 space-y-4">
                   <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
 
                   {formState.milestones.length > 0 && (
@@ -640,7 +640,7 @@ const MatterFormModalInner = ({
           )}
         </div>
 
-        <div className="bg-surface-card rounded-lg p-4 flex items-center space-x-3">
+        <div className="bg-surface-glass/60 backdrop-blur-sm rounded-lg p-4 flex items-center space-x-3">
           <div className="shrink-0">
             <div className="p-2 bg-black rounded-full">
               <ShieldCheckIcon className="h-6 w-6 text-white" />
@@ -652,7 +652,7 @@ const MatterFormModalInner = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-card px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-glass/60 backdrop-blur-sm px-4 py-3 text-xs text-input-placeholder">
           {submitError ? (
             <p className="text-red-600 dark:text-red-400">{submitError}</p>
           ) : (

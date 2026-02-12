@@ -234,14 +234,14 @@ export const MFAEnrollmentPage = ({
 
           {/* Instructions */}
           <div className="space-y-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-input-placeholder">
               {t('settings:mfa.instructions')}
             </p>
           </div>
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <div className="p-4 bg-surface-card rounded-lg border border-line-default shadow-card">
+            <div className="glass-panel p-4 rounded-lg">
               {/* Mock QR Code - in real app, you'd use a QR code library */}
               <div className="w-48 h-48 bg-surface-base rounded flex items-center justify-center">
                 <div className="text-center">
@@ -281,7 +281,7 @@ export const MFAEnrollmentPage = ({
               <SectionDivider className="w-full" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-surface-base text-gray-500 dark:text-gray-400">
+              <span className="px-2 bg-surface-base text-input-placeholder">
                 {t('settings:mfa.then')}
               </span>
             </div>
@@ -333,7 +333,7 @@ export const MFAEnrollmentPage = ({
               >
                 {t('settings:mfa.footer.terms')}
               </Button>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <span className="text-input-placeholder">|</span>
               <Button
                 variant="link"
                 size="sm"

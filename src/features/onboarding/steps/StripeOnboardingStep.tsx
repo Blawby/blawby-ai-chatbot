@@ -66,7 +66,7 @@ export function StripeOnboardingStep({
       )}
 
       {showStatus && (
-        <div className="rounded-xl border border-line-default p-4 space-y-2 bg-surface-card shadow-card">
+        <div className="glass-panel p-4 space-y-2 rounded-xl">
           {statusItems.map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">{item.label}</span>

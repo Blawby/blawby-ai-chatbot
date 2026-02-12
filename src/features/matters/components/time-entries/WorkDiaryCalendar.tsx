@@ -93,7 +93,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
   };
 
   return (
-    <div className="rounded-2xl border border-line-default bg-surface-card p-4 shadow-card">
+    <div className="glass-panel p-4">
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
@@ -102,7 +102,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
           icon={<ChevronLeftIcon className="h-4 w-4" />}
           onClick={handlePrevMonth}
         />
-        <div className="text-sm font-semibold text-gray-900 dark:text-white">{monthLabel}</div>
+        <div className="text-sm font-semibold text-input-text">{monthLabel}</div>
         <Button
           variant="ghost"
           size="sm"
@@ -136,8 +136,8 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
               onClick={() => onSelectWeek(day)}
               className={[
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
-                isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500',
-                isSelectedWeek ? 'bg-accent-500/20 text-gray-900 dark:text-white' : 'hover:bg-accent-500/10',
+                isCurrentMonth ? 'text-input-text' : 'text-gray-400 dark:text-gray-500',
+                isSelectedWeek ? 'bg-accent-500/20 text-input-text' : 'hover:bg-accent-500/10',
                 isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
               ].join(' ')}
             >

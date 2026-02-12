@@ -66,7 +66,7 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-md">
-        <div className="bg-surface-card border border-line-default py-8 px-6 shadow-card sm:rounded-lg sm:px-10">
+        <div className="glass-panel py-8 px-6 sm:rounded-lg sm:px-10">
           <Form<PersonalInfoData> 
             onSubmit={async (formData: PersonalInfoData): Promise<void> => {
               await handleSubmit(formData);

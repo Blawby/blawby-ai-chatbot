@@ -85,10 +85,10 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             type="button"
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
-            className="rounded-2xl border border-line-default bg-surface-card px-4 py-4 text-left shadow-card transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+            className="glass-panel px-4 py-4 text-left transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
-            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <div className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
               {t('workspace.home.recentMessage')}
             </div>
             <div className="mt-3 flex items-center gap-3">
@@ -99,15 +99,15 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
                 className="ring-2 ring-white/10"
               />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <div className="flex items-center justify-between gap-3 text-sm font-semibold text-input-text">
                   <span className="truncate">{recentMessage.senderLabel}</span>
                   {recentMessage.timestampLabel && (
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                    <span className="text-xs font-normal text-input-placeholder">
                       {recentMessage.timestampLabel}
                     </span>
                   )}
                 </div>
-                <div className="mt-1 truncate text-sm text-gray-600 dark:text-gray-300">
+                <div className="mt-1 truncate text-sm text-input-placeholder">
                   {recentMessage.preview}
                 </div>
               </div>
@@ -119,7 +119,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="group flex w-full items-center justify-between rounded-2xl border border-line-default bg-surface-card px-5 py-4 text-left text-input-text shadow-card transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+          className="group glass-panel flex w-full items-center justify-between px-5 py-4 text-left text-input-text transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
           <span className="text-base font-semibold">{t('workspace.home.sendMessage')}</span>
@@ -128,9 +128,9 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           </span>
         </button>
 
-        <div className="rounded-3xl border border-line-default bg-surface-card px-5 py-6 shadow-card">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{resolvedConsultationTitle}</h3>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <div className="glass-card px-5 py-6">
+          <h3 className="text-base font-semibold text-input-text">{resolvedConsultationTitle}</h3>
+          <p className="mt-2 text-sm text-input-placeholder">
             {resolvedConsultationDescription}
           </p>
           <div className="mt-4">
@@ -145,7 +145,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
               {resolvedConsultationCta}
             </Button>
           </div>
-          <div className="mt-4 text-center text-xs font-medium text-gray-400 dark:text-gray-500">
+          <div className="mt-4 text-center text-xs font-medium text-input-placeholder">
             {t('workspace.home.poweredBy')} {poweredByLink}
           </div>
         </div>

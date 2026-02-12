@@ -74,7 +74,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
 
   return (
     <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className="h-full w-full rounded-full bg-gray-600 dark:bg-gray-700 ring-2 ring-white/20 flex items-center justify-center overflow-hidden">
+      <div className="h-full w-full rounded-full bg-surface-glass/60 backdrop-blur-sm ring-2 ring-white/20 flex items-center justify-center overflow-hidden">
         {sanitizedImageUrl && !hasImgError ? (
           <img 
             src={sanitizedImageUrl} 

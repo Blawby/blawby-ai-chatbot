@@ -64,12 +64,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   
   const variantClasses: Record<ButtonVariant, string> = {
     primary: 'bg-accent-500 text-gray-900 hover:bg-accent-600 active:bg-accent-700 focus:ring-accent-500 border-accent-500 shadow-sm hover:shadow',
-    secondary: 'bg-transparent text-input-text border-line-default hover:bg-surface-card/70 focus:ring-gray-500',
-    ghost: 'bg-transparent text-input-text border-transparent hover:bg-surface-card/70 focus:ring-gray-500',
-    icon: 'bg-transparent text-input-text border-transparent hover:bg-surface-card/70 focus:ring-gray-500',
-    inverted: 'bg-surface-card text-input-text border-line-default hover:bg-surface-card/80 active:bg-surface-card/70 focus:ring-gray-300 shadow-sm hover:shadow',
+    secondary: 'bg-transparent text-input-text border-line-glass/30 hover:bg-surface-glass/50 focus:ring-gray-500',
+    ghost: 'bg-transparent text-input-text border-transparent hover:bg-surface-glass/50 focus:ring-gray-500',
+    icon: 'bg-transparent text-input-text border-transparent hover:bg-surface-glass/50 focus:ring-gray-500',
+    inverted: 'bg-surface-glass/60 text-input-text border-line-glass/30 hover:bg-surface-glass/50 active:bg-surface-glass/60 focus:ring-gray-300 shadow-sm hover:shadow',
     danger: 'bg-transparent text-red-600 dark:text-red-400 border-red-500/70 dark:border-red-400/70 hover:bg-red-50 dark:hover:bg-red-900/20 focus:ring-red-500',
-    outline: 'bg-transparent text-input-text border-line-default hover:bg-surface-card/70 focus:ring-gray-500',
+    outline: 'bg-transparent text-input-text border-line-glass/30 hover:bg-surface-glass/50 focus:ring-gray-500',
     link: 'bg-transparent text-accent-600 dark:text-accent-400 border-transparent shadow-none hover:text-accent-700 dark:hover:text-accent-300 focus:ring-accent-500'
   };
   

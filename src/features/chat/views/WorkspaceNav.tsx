@@ -39,10 +39,10 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   const profileImage = session?.user?.image ?? null;
 
   const baseClasses = variant === 'bottom'
-    ? 'flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold transition'
-    : 'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition';
-  const activeClasses = 'bg-accent-100 text-accent-700 shadow-sm dark:bg-accent-900/30 dark:text-accent-300';
-  const inactiveClasses = 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200';
+    ? 'flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
+    : 'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+  const activeClasses = 'bg-accent-500 text-gray-900 shadow-sm';
+  const inactiveClasses = 'text-input-text/80 hover:text-input-text hover:bg-surface-glass/40';
 
   const containerClasses = variant === 'bottom'
     ? (showPracticeTabs
@@ -97,15 +97,15 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
     <div
       className={cn(
         variant === 'bottom'
-          ? 'border-t border-line-default bg-surface-card px-4 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.12)]'
-          : 'h-full border-r border-line-default bg-surface-card px-2 py-3 shadow-[0_0_24px_rgba(15,23,42,0.06)]',
+          ? 'rounded-none border-t border-line-glass/30 bg-transparent px-4 py-2'
+          : 'h-full rounded-none border-r border-line-glass/30 bg-transparent px-2 py-3',
         className
       )}
     >
       {variant === 'sidebar' ? (
         <div className="flex h-full flex-col">
           <div className="px-3 pb-4 pt-2">
-            <Logo size="sm" showText className="text-gray-900 dark:text-white" />
+            <Logo size="sm" showText className="text-input-text" />
           </div>
           <nav className="flex min-h-0 flex-1 flex-col px-2 pb-6">
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
@@ -123,7 +123,7 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
               )}
             </div>
             {settingsButton && (
-              <div className="border-t border-line-default pt-3">
+              <div className="border-t border-line-glass/30 pt-3">
                 {settingsButton}
               </div>
             )}

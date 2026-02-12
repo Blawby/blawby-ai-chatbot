@@ -86,7 +86,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
   return (
     <div className={cn('w-full', className)}>
       {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text">
           {label}
           {required && <span className="ml-1 text-red-500">*</span>}
         </label>
@@ -122,7 +122,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           </svg>
         )}
         <div
-          className="absolute inset-1 overflow-hidden rounded-full border border-line-default bg-surface-card"
+          className="absolute inset-1 overflow-hidden rounded-full glass-panel"
           style={{ width: size, height: size, left: 4, top: 4 }}
         >
         {hasImage ? (
@@ -145,7 +145,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
             type="button"
             onClick={handleButtonClick}
             disabled={disabled}
-            className="rounded-full bg-surface-card px-3 py-2 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-default transition hover:bg-surface-card/80 disabled:cursor-not-allowed"
+            className="rounded-full bg-surface-glass/60 px-3 py-2 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-glass/30 transition hover:bg-surface-glass/50 disabled:cursor-not-allowed"
           >
             {buttonLabel}
           </button>

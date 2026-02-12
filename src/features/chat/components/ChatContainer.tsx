@@ -348,14 +348,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const shouldFrame = resolvedLayoutMode !== 'desktop';
   const containerClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col min-h-0 flex-1 h-full w-full m-0 p-0 relative overflow-hidden'
-    : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden bg-surface-base`;
+    : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden glass-panel rounded-none border-0`;
   const mainClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
-    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-surface-base'}`;
+    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
   const frameClassName = !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full'
     : (isPublicWorkspace
-      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-surface-base shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-line-default overflow-hidden'
+      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-3xl bg-surface-glass/40 backdrop-blur-xl shadow-glass border border-line-glass/30 overflow-hidden'
       : 'flex flex-col flex-1 min-h-0 w-full');
 
   const handleReply = (target: ReplyTarget) => {
@@ -382,7 +382,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             ) : null}
             <div className="flex flex-1 min-h-0 flex-col">
               {isPublicWorkspace && filteredMessages.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-start px-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex flex-1 flex-col items-center justify-start px-6 pt-8 text-center text-sm text-input-placeholder">
                   <p className="max-w-[300px]">
                     {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
                       ? practiceConfig.introMessage.trim()
@@ -422,7 +422,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             </div>
 
             {shouldShowContactFormFooter ? (
-              <div className="pl-4 pr-4 pb-3 bg-surface-base h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
+              <div className="pl-4 pr-4 pb-3 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]">
                 <Button
                   type="submit"
                   form={contactFormId}

@@ -28,7 +28,7 @@ export const TierBadge = ({ tier, variant = 'default', className = '' }: TierBad
 
   if (variant === 'enterprise') {
     return (
-      <span className={`px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full flex-shrink-0 ${className}`}>
+      <span className={`px-2 py-1 text-xs font-medium text-input-placeholder glass-panel rounded-full flex-shrink-0 ${className}`}>
         {tierDisplay}
       </span>
     );
@@ -36,10 +36,8 @@ export const TierBadge = ({ tier, variant = 'default', className = '' }: TierBad
 
   // Compact, subtle label with very tight spacing
   return (
-    <span className={`text-xs leading-none text-gray-400 dark:text-gray-400 truncate ${className}`}>
+    <span className={`text-xs leading-none text-input-placeholder truncate ${className}`}>
       {tierDisplay}
     </span>
   );
 };
-
-

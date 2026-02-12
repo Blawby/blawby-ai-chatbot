@@ -10,7 +10,7 @@ export const BottomBar = ({
   children,
   className
 }: BottomBarProps) => (
-  <div className={cn('border-t border-line-default bg-surface-base', className)}>
+  <div className={cn('border-t border-line-glass/30 bg-transparent', className)}>
     {children}
   </div>
 );

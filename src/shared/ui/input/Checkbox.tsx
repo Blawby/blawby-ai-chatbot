@@ -101,11 +101,12 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
   };
 
   const checkboxClasses = cn(
-    'rounded border bg-input-bg text-accent-600',
+    'rounded border text-accent-600',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg border-input-border',
     className
   );
 
@@ -135,7 +136,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
         )}
         
         {displayDescription && !error && (
-          <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
             {displayDescription}
           </p>
         )}

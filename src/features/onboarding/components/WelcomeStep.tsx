@@ -73,7 +73,7 @@ const WelcomeStep = ({ onComplete }: WelcomeStepProps) => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-surface-card border border-line-default py-8 px-4 shadow-card sm:rounded-lg sm:px-10">
+        <div className="glass-panel py-8 px-4 sm:rounded-lg sm:px-10">
           <div className="space-y-6">
             {/* Tips */}
             <div className="space-y-4">

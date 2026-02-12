@@ -20,22 +20,22 @@ export const PlaceholderPage = ({ title, subtitle, sections }: PlaceholderPagePr
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-input-text">{title}</h1>
         {subtitle && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
+          <p className="text-sm text-input-placeholder">{subtitle}</p>
         )}
       </div>
       {sections.map((section) => (
         <div
           key={section.title}
-          className="rounded-xl border border-line-default bg-surface-card p-5 space-y-2"
+          className="glass-panel rounded-xl p-5 space-y-2"
         >
           <div>
             <h2 className="text-lg font-semibold text-input-text">{section.title}</h2>
             {section.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400">{section.description}</p>
+              <p className="text-sm text-input-placeholder">{section.description}</p>
             )}
           </div>
           {section.content ?? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">{placeholderNote}</p>
+            <p className="text-xs text-input-placeholder">{placeholderNote}</p>
           )}
         </div>
       ))}

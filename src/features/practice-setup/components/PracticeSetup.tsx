@@ -47,15 +47,9 @@ export const PracticeSetup = ({
   logoUploadProgress,
   onLogoChange
 }: PracticeSetupProps) => {
-  const glassCardClass = [
-    'rounded-3xl border p-4 shadow-sm sm:p-5',
-    'border-white/40 bg-white/70 backdrop-blur-2xl saturate-150',
-    'shadow-[0_12px_30px_rgba(15,23,42,0.08)]',
-    'dark:border-white/10 dark:bg-white/10',
-    'dark:shadow-[0_18px_40px_rgba(0,0,0,0.35)]',
-  ].join(' ');
+  const glassCardClass = 'glass-card p-4 sm:p-5';
 
-  const inputGlassClass = 'bg-white/60 border-white/40 shadow-[0_8px_20px_rgba(15,23,42,0.05)] dark:bg-white/10 dark:border-white/10 placeholder:text-gray-500/80 dark:placeholder:text-white/50';
+  const inputGlassClass = 'glass-input';
 
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: '',
@@ -210,7 +204,7 @@ export const PracticeSetup = ({
       className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
         complete
           ? 'bg-accent-100 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300'
-          : 'bg-surface-card text-gray-700 dark:text-white/80'
+          : 'bg-surface-card text-input-text/80'
       }`}
     >
       {complete ? 'Done' : 'Action needed'}

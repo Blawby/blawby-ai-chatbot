@@ -124,7 +124,7 @@ const MessageComposer = ({
 
   return (
     <form 
-      className="pl-4 pr-4 pb-2 bg-surface-base h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md" 
+      className="pl-4 pr-4 pb-2 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]" 
       aria-label="Message composition"
       onSubmit={(e) => {
         e.preventDefault();
@@ -133,14 +133,14 @@ const MessageComposer = ({
     >
       <div className="message-composer-container">
         {replyTo && (
-          <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-gray-100/80 px-4 py-1.5 text-sm text-gray-700 backdrop-blur-sm dark:bg-gray-800/70 dark:text-gray-200 -mx-2 -mt-1 border-b border-gray-300/60 dark:border-gray-700/60">
+          <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-glass/70 px-4 py-1.5 text-sm text-input-text backdrop-blur-sm -mx-2 -mt-1 border-b border-line-glass/30">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="text-gray-500 dark:text-gray-400">{t('chat.replyingTo')}</span>
+              <span className="text-input-text/70">{t('chat.replyingTo')}</span>
               <span className="truncate font-semibold text-yellow-400">{replyTo.authorName}</span>
             </div>
             <button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:text-gray-200"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-input-text/60 transition hover:text-input-text"
               aria-label="Cancel reply"
               onClick={() => onCancelReply?.()}
             >
@@ -187,7 +187,7 @@ const MessageComposer = ({
             <textarea
               ref={textareaRef}
               data-testid="message-input"
-              className="w-full min-h-8 py-1 m-0 text-sm sm:text-base leading-6 text-gray-900 dark:text-white bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-gray-500 dark:placeholder:text-gray-400"
+              className="w-full min-h-8 py-1 m-0 text-sm sm:text-base leading-6 text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder"
               placeholder="Type a message..."
               rows={1}
               value={inputValue}
@@ -224,7 +224,7 @@ const MessageComposer = ({
       </div>
 
       {showStatusMessage && (
-        <div className="text-xs text-gray-600 dark:text-gray-400 text-center py-1 opacity-80">
+        <div className="text-xs text-input-text/70 text-center py-1 opacity-80">
           {statusMessage}
         </div>
       )}

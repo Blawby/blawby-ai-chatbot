@@ -160,14 +160,14 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
+                    className="ring-0 outline -outline-offset-1 outline-black/5 bg-surface-glass/60 text-input-text dark:outline-white/10"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-2 ring-white dark:text-white dark:ring-surface-card">
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-glass/60 text-input-text ring-2 ring-white dark:text-white dark:ring-surface-glass/60">
                     <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-0 dark:text-white">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-glass/60 text-input-text ring-0 dark:text-white">
                   {item.type === 'paid' ? (
                     <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-accent-500" />
                   ) : TYPE_ICONS[item.type] ? (
@@ -178,7 +178,7 @@ export const ActivityTimeline = ({
                       ) : null;
                     })()
                   ) : (
-                    <div className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-700" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-input-placeholder/80" />
                   )}
                 </div>
               )}
@@ -188,7 +188,7 @@ export const ActivityTimeline = ({
               <>
                 <div className="flex-auto">
                   <div className="text-sm leading-5 text-gray-500 dark:text-gray-400">
-                    <div className="font-semibold text-gray-900 dark:text-white">{item.person.name}</div>
+                    <div className="font-semibold text-input-text">{item.person.name}</div>
                     <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
                   {editingId === item.id ? (
@@ -209,8 +209,8 @@ export const ActivityTimeline = ({
                           onClick={submitEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id || editValue.trim().length === 0}
                           className={cn(
-                            'rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white',
-                            'hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed'
+                            'rounded-md bg-accent-500 px-2.5 py-1.5 text-xs font-semibold text-gray-900',
+                            'hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed'
                           )}
                         >
                           Save
@@ -220,8 +220,8 @@ export const ActivityTimeline = ({
                           onClick={cancelEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id}
                           className={cn(
-                            'rounded-md border border-line-default px-2.5 py-1.5 text-xs font-semibold text-gray-700',
-                            'hover:bg-surface-card/70 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-200'
+                            'rounded-md border border-line-glass/30 px-2.5 py-1.5 text-xs font-semibold text-input-text',
+                            'hover:bg-surface-glass/50 disabled:opacity-50 disabled:cursor-not-allowed'
                           )}
                         >
                           Cancel
@@ -231,7 +231,7 @@ export const ActivityTimeline = ({
                   ) : (
                     <>
                       {item.comment && (
-                        <p className="mt-2 text-sm leading-6 text-gray-900 dark:text-white">
+                        <p className="mt-2 text-sm leading-6 text-input-text">
                           {item.comment}
                         </p>
                       )}
@@ -243,7 +243,7 @@ export const ActivityTimeline = ({
                               onClick={() => startEdit(item.id, item.comment)}
                               disabled={commentActionsDisabled || actionInFlightId === item.id}
                               className={cn(
-                                'hover:text-gray-900 dark:hover:text-white',
+                                'hover:text-input-text',
                                 (commentActionsDisabled || actionInFlightId === item.id) && 'opacity-50 cursor-not-allowed'
                               )}
                             >
@@ -271,19 +271,19 @@ export const ActivityTimeline = ({
               </>
             ) : (
               <>
-                <p className="flex-auto py-0.5 text-sm leading-5 text-gray-900 dark:text-white">
+                <p className="flex-auto py-0.5 text-sm leading-5 text-input-text">
                   <span className="font-semibold">{item.person.name}</span>{' '}
                   {(() => {
                     const trimmed = actionText.trim();
                     const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
                     if (!match) {
-                      return <span className="text-gray-900 dark:text-white">{trimmed}</span>;
+                      return <span className="text-input-text">{trimmed}</span>;
                     }
                     const [, verb, rest] = match;
                     return (
                       <>
                         <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
-                        <span className="text-gray-900 dark:text-white">{rest}</span>
+                        <span className="text-input-text">{rest}</span>
                       </>
                     );
                   })()}
@@ -307,10 +307,10 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
+          className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-surface-glass/60 text-input-text dark:outline-white/10"
         />
         <form className="relative flex-auto" onSubmit={handleSubmit}>
-          <div className="overflow-hidden rounded-lg pb-12 outline outline-1 -outline-offset-1 outline-line-default/70 bg-surface-card/60 dark:outline-white/10 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent-500">
+          <div className="overflow-hidden rounded-lg pb-12 outline outline-1 -outline-offset-1 outline-line-glass/30 bg-surface-glass/50 dark:outline-white/10 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent-500">
             <label htmlFor="timeline-comment" className="sr-only">
               Add your comment
             </label>
@@ -357,7 +357,7 @@ export const ActivityTimeline = ({
               disabled={isSubmitDisabled}
               className={cn(
                 'rounded-md bg-input-bg px-2.5 py-1.5 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-default',
-                'hover:bg-surface-card/70 dark:shadow-none',
+                'hover:bg-surface-glass/50 dark:shadow-none',
                 isSubmitDisabled && 'opacity-60 cursor-not-allowed'
               )}
             >

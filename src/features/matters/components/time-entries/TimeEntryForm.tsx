@@ -112,7 +112,7 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="w-full">
-          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Date</span>
+          <span className="block text-sm font-medium text-input-text mb-1">Date</span>
           <Select
             value={formState.date}
             options={dateOptions}
@@ -122,8 +122,8 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
           />
         </div>
         <div>
-          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Timezone</span>
-          <div className="min-h-[44px] rounded-lg border border-line-default bg-surface-card px-3 py-2 text-sm text-gray-500 dark:text-gray-300 flex items-center">
+          <span className="block text-sm font-medium text-input-text mb-1">Timezone</span>
+          <div className="min-h-[44px] rounded-lg border border-line-glass/30 bg-surface-glass/60 backdrop-blur-sm px-3 py-2 text-sm text-input-placeholder flex items-center">
             UTC
           </div>
         </div>

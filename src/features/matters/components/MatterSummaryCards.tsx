@@ -16,7 +16,7 @@ interface MatterSummaryCardsProps {
   } | null;
 }
 
-const cardBase = 'rounded-2xl border border-line-default bg-surface-card p-4 sm:p-5 shadow-card';
+const cardBase = 'glass-panel p-4 sm:p-5';
 const gridBase = 'grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {

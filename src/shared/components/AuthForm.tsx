@@ -247,7 +247,7 @@ const AuthForm = ({
         </div>
       )}
 
-      <div className="bg-surface-card border border-line-default py-8 px-4 shadow-card sm:rounded-lg sm:px-10">
+      <div className="glass-panel py-8 px-4 sm:rounded-lg sm:px-10">
         {showGoogleSignIn && (
           <div className="mb-6">
             <Button
@@ -256,7 +256,7 @@ const AuthForm = ({
               size="md"
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full justify-center border-line-default bg-input-bg text-input-text hover:bg-surface-card/70 focus:ring-accent-500"
+              className="w-full justify-center border-line-glass/30 bg-surface-glass/60 text-input-text hover:bg-surface-glass/50 focus:ring-accent-500"
               icon={
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -275,10 +275,10 @@ const AuthForm = ({
         {showGoogleSignIn && (
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-line-default" />
+              <div className="w-full border-t border-line-glass/30" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-surface-card text-gray-500 dark:text-gray-400">{t('common.orContinueWithEmail')}</span>
+              <span className="px-2 bg-surface-glass/60 text-input-placeholder">{t('common.orContinueWithEmail')}</span>
             </div>
           </div>
         )}

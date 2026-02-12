@@ -98,7 +98,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           label={app.name}
           labelNode={(
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-surface-base flex items-center justify-center border border-line-default overflow-hidden">
+              <div className="w-16 h-16 rounded-full bg-surface-glass/60 backdrop-blur-sm flex items-center justify-center border border-line-glass/30 overflow-hidden">
                 {app.logo ? (
                   <img
                     src={app.logo}
@@ -107,7 +107,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <PuzzlePieceIcon className="w-8 h-8 text-gray-700 dark:text-gray-200" aria-hidden="true" />
+                  <PuzzlePieceIcon className="w-8 h-8 text-input-text/80" aria-hidden="true" />
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -210,15 +210,15 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           <div className="space-y-6">
             {app.actions.map((action) => (
               <div key={action.name} className="space-y-2 w-full">
-                <code className="text-sm font-mono font-semibold text-gray-700 dark:text-gray-300 block w-full">
+                <code className="text-sm font-mono font-semibold text-input-text block w-full">
                   {action.name}
                 </code>
                 {action.hasMetadata && (
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-500 block w-full">
+                  <span className="text-xs font-medium text-input-placeholder block w-full">
                     METADATA
                   </span>
                 )}
-                <p className="text-sm text-gray-600 dark:text-gray-400 font-normal w-full">
+                <p className="text-sm text-input-placeholder font-normal w-full">
                   {action.description}
                 </p>
                 {action.visibility && (
@@ -255,7 +255,7 @@ interface InfoRowSimpleProps {
 const InfoRowSimple = ({ label, value }: InfoRowSimpleProps) => {
   return (
     <SettingRow label={label}>
-      <span className="text-sm text-gray-900 dark:text-gray-100 text-right break-all">
+      <span className="text-sm text-input-text text-right break-all">
         {value}
       </span>
     </SettingRow>

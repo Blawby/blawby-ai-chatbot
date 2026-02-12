@@ -65,7 +65,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
           <AccordionContent>
             <div className="flex flex-col items-center justify-center text-center py-6">
               <PhotoIcon className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 dark:text-gray-500 mb-2" />
-              <p className="text-xs sm:text-sm lg:text-base font-medium mb-1 text-gray-900 dark:text-white">No files shared yet</p>
+              <p className="text-xs sm:text-sm lg:text-base font-medium mb-1 text-input-text">No files shared yet</p>
               <p className="text-xs sm:text-sm opacity-70 text-gray-500 dark:text-gray-400">DocumentIcons you share in the conversation will appear here</p>
             </div>
           </AccordionContent>
@@ -129,7 +129,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
                               
                               {/* File info */}
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap overflow-hidden text-ellipsis" title={media.name}>
+                                <div className="text-xs sm:text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={media.name}>
                                   {media.name.length > 20 ? `${media.name.substring(0, 20)}...` : media.name}
                                 </div>
                                 <div className="flex items-center justify-between gap-2">

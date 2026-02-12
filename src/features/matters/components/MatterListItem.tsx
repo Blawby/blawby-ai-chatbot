@@ -18,7 +18,7 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
   const sharedClassName = cn(
     'w-full text-left relative flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8 transition-colors',
     isInteractive
-      ? 'hover:bg-surface-card/70 cursor-pointer'
+      ? 'hover:bg-surface-glass/60 cursor-pointer'
       : 'cursor-default'
   );
 
@@ -27,31 +27,31 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
       <div className="min-w-0 flex-auto">
         <div className="flex items-center gap-x-3">
           <MatterStatusDot status={matter.status} className="flex-none" />
-          <h2 className="min-w-0 text-sm font-semibold leading-6 text-gray-900 dark:text-white">
+          <h2 className="min-w-0 text-sm font-semibold leading-6 text-input-text">
             <span className="flex gap-x-2">
               <span className="truncate">{matter.title}</span>
-              <span className="text-gray-400">/</span>
-              <span className="flex items-center gap-x-2 whitespace-nowrap text-gray-600 dark:text-gray-300">
+              <span className="text-input-text/60">/</span>
+              <span className="flex items-center gap-x-2 whitespace-nowrap text-input-text/70">
                 <Avatar
                   name={matter.clientName}
                   size="xs"
-                  className="bg-gray-200 text-gray-700 dark:bg-gray-700"
+                  className="bg-surface-glass/70 text-input-text ring-1 ring-inset ring-line-glass/40"
                 />
                 <span>{matter.clientName}</span>
               </span>
             </span>
           </h2>
         </div>
-        <div className="mt-3 flex items-center gap-x-2.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
+        <div className="mt-3 flex items-center gap-x-2.5 text-xs leading-5 text-input-text/70">
           <p className="truncate">Practice Area: {matter.practiceArea || 'Not Assigned'}</p>
-          <svg className="h-0.5 w-0.5 flex-none fill-gray-300 dark:fill-white/30" viewBox="0 0 2 2">
+          <svg className="h-0.5 w-0.5 flex-none fill-line-glass/60" viewBox="0 0 2 2">
             <circle cx="1" cy="1" r="1" />
           </svg>
           <p className="whitespace-nowrap">Updated {updatedLabel}</p>
         </div>
       </div>
       <MatterStatusPill status={matter.status} className="flex-none" />
-      <ChevronRightIcon aria-hidden="true" className="h-5 w-5 flex-none text-gray-400" />
+      <ChevronRightIcon aria-hidden="true" className="h-5 w-5 flex-none text-input-placeholder" />
     </>
   );
 

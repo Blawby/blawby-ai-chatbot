@@ -123,7 +123,7 @@ export default function ConfirmationDialog({
               
               {/* Warning Items List */}
               {warningItems.length > 0 && (
-                <div className="bg-surface-card rounded-lg p-3 mb-4">
+                <div className="glass-panel rounded-lg p-3 mb-4">
                   <p className="text-sm text-gray-700 dark:text-gray-300">
                     <strong>This will permanently delete:</strong>
                   </p>
@@ -139,7 +139,7 @@ export default function ConfirmationDialog({
               <div className="space-y-2">
                 <label htmlFor="confirmation-input" className="block text-sm font-medium text-input-text">
                   {confirmationLabel}
-                  <span className="font-mono text-sm bg-surface-card px-2 py-1 rounded ml-2">
+                  <span className="font-mono text-sm bg-surface-glass/60 px-2 py-1 rounded ml-2">
                     {confirmationValue}
                   </span>
                 </label>
@@ -206,7 +206,7 @@ export default function ConfirmationDialog({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-line-default">
+        <div className="flex gap-3 justify-end pt-4 border-t border-line-glass/30">
           <Button
             type="button"
             variant="secondary"

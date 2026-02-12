@@ -203,7 +203,7 @@ export const PracticePricingPage = () => {
   if (loading && !currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">Loading pricing settings...</p>
+        <p className="text-sm text-input-placeholder">Loading pricing settings...</p>
       </div>
     );
   }
@@ -211,7 +211,7 @@ export const PracticePricingPage = () => {
   if (!currentPractice && !loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">Select or create a practice to configure pricing.</p>
+        <p className="text-sm text-input-placeholder">Select or create a practice to configure pricing.</p>
       </div>
     );
   }
@@ -232,7 +232,7 @@ export const PracticePricingPage = () => {
       )}
     >
       <div className="pt-2 pb-6">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-input-placeholder">
           Configure intake payments and billing increments for this practice.
         </p>
       </div>
@@ -255,7 +255,7 @@ export const PracticePricingPage = () => {
           <div className="py-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Amount</div>
+                <div className="text-sm font-semibold text-input-text">Amount</div>
                 <SettingsHelperText className="mt-1">
                   {formattedFee ?? 'Not set'}
                 </SettingsHelperText>
@@ -277,8 +277,8 @@ export const PracticePricingPage = () => {
       <div className="py-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Billing increment</div>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm font-semibold text-input-text">Billing increment</div>
+              <p className="mt-1 text-sm text-input-placeholder">
                 Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
               </p>
             </div>

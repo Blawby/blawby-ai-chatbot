@@ -54,9 +54,9 @@ export const NavigationItem = ({
 }: NavigationItemProps) => {
   const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
   const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
-  const activeClasses = isActive 
-    ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' 
-    : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-dark-hover';
+  const activeClasses = isActive
+    ? 'bg-surface-glass/60 text-input-text'
+    : 'text-input-text hover:bg-surface-glass/50';
   const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
   return (

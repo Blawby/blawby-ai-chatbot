@@ -267,7 +267,7 @@ export const SettingsPage = ({
   );
 
   const mobileHeader = currentPage === 'navigation' ? (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-line-default bg-surface-base">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-line-glass/30 bg-transparent">
       <div className="flex-1" />
       <h1 className="text-lg font-semibold text-input-text">{t('settings:navigation.title')}</h1>
       <div className="flex-1 flex justify-end">
@@ -281,7 +281,7 @@ export const SettingsPage = ({
       </div>
     </div>
   ) : (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-line-default bg-surface-base">
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-line-glass/30 bg-transparent">
       <Button
         variant="icon"
         size="icon"
@@ -306,7 +306,7 @@ export const SettingsPage = ({
 
   const desktopTitle = currentPage === 'navigation' ? t('settings:navigation.title') : mobileTitle;
   const desktopHeader = (
-    <div className="flex items-center justify-between px-6 py-3 border-b border-line-default bg-surface-base">
+    <div className="flex items-center justify-between px-6 py-3 border-b border-line-glass/30 bg-transparent">
       <h1 className="text-lg font-semibold text-input-text">{desktopTitle}</h1>
       <Button
         variant="icon"
@@ -320,26 +320,32 @@ export const SettingsPage = ({
 
   const mobileContent = currentPage === 'navigation'
     ? (
-      <div className="flex-1 overflow-y-auto bg-surface-base">
+      <div className="flex-1 overflow-y-auto bg-surface-glass/40 backdrop-blur-xl">
         <div className="px-4 py-2">
           {navigationList}
         </div>
       </div>
     )
     : (
-      <div className="flex-1 min-h-0">
-        {contentPanel}
+      <div className="flex-1 min-h-0 relative">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-glass/40 via-surface-glass/20 to-surface-base/60" />
+        <div className="pointer-events-none absolute -left-10 top-8 h-40 w-40 rounded-full bg-accent-500/20 blur-3xl" />
+        <div className="relative">{contentPanel}</div>
       </div>
     );
 
   const desktopContent = (
-    <SplitView
-      className="h-full min-h-0"
-      primary={desktopNavigation}
-      secondary={contentPanel}
-      primaryClassName="min-h-0 bg-surface-base"
-      secondaryClassName="min-h-0"
-    />
+    <div className="h-full min-h-0 relative">
+      <div className="relative h-full min-h-0">
+        <SplitView
+          className="h-full min-h-0"
+          primary={desktopNavigation}
+          secondary={contentPanel}
+          primaryClassName="min-h-0 bg-transparent"
+          secondaryClassName="min-h-0"
+        />
+      </div>
+    </div>
   );
 
   const shellKey = isMobile ? 'settings-mobile-shell' : 'settings-desktop-shell';
@@ -357,7 +363,7 @@ export const SettingsPage = ({
 
   return (
     <AppShell
-      className={cn('bg-surface-base', className)}
+      className={cn('bg-transparent', className)}
       header={isMobile ? mobileHeader : desktopHeader}
       main={(
         <AnimatePresence mode="wait" initial={false}>

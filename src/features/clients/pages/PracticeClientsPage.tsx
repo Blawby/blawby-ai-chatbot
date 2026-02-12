@@ -99,10 +99,10 @@ const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-        <UserIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+        <UserIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
       </div>
-      <h3 className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">No clients yet</h3>
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      <h3 className="mt-4 text-sm font-semibold text-input-text">No clients yet</h3>
+      <p className="mt-2 text-sm text-input-placeholder">
         Get started by creating a new client or importing your existing clients.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -126,8 +126,8 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
         : status === 'lead'
           ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
           : status === 'inactive'
-            ? 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-200'
-            : 'bg-slate-200 text-slate-700 dark:bg-slate-900/40 dark:text-slate-200'
+            ? 'bg-surface-card text-input-placeholder border border-line-default'
+            : 'bg-surface-card/70 text-input-placeholder border border-line-default'
     )}
   >
     {STATUS_LABELS[status]}
@@ -185,11 +185,11 @@ const ClientDetailPanel = ({
   paddingClassName?: string;
 }) => (
   <div className="h-full overflow-y-auto">
-    <div className={cn('divide-y divide-gray-200 dark:divide-white/10', paddingClassName)}>
+    <div className={cn('divide-y divide-line-default', paddingClassName)}>
       <div className="pb-6">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{client.name}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{client.email}</p>
+          <h2 className="text-xl font-semibold text-input-text">{client.name}</h2>
+          <p className="text-sm text-input-placeholder">{client.email}</p>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button size="sm" icon={<DocumentTextOutlineIcon className="h-4 w-4" />}>
@@ -230,17 +230,17 @@ const ClientDetailPanel = ({
         </div>
       </div>
       <div className="py-6">
-        <dl className="divide-y divide-gray-200 dark:divide-white/10">
+        <dl className="divide-y divide-line-default">
           <div className="py-4">
-            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
-            <dd className="mt-1 text-sm text-gray-900 dark:text-white">{client.email}</dd>
+            <dt className="text-sm font-medium text-input-placeholder">Email</dt>
+            <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
           </div>
           <div className="py-4">
-            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
-            <dd className="mt-1 text-sm text-gray-900 dark:text-white">{formatPhoneNumber(client.phone)}</dd>
+            <dt className="text-sm font-medium text-input-placeholder">Phone</dt>
+            <dd className="mt-1 text-sm text-input-text">{formatPhoneNumber(client.phone)}</dd>
           </div>
           <div className="py-4">
-            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</dt>
+            <dt className="text-sm font-medium text-input-placeholder">Status</dt>
             <dd className="mt-2">
               <StatusPill status={client.status} />
             </dd>
@@ -248,8 +248,8 @@ const ClientDetailPanel = ({
         </dl>
       </div>
       <div className="pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Activity Feed</h3>
-        <div className="mt-4 rounded-xl border border-line-default bg-surface-card p-4 shadow-card">
+        <h3 className="text-lg font-semibold text-input-text">Activity Feed</h3>
+        <div className="glass-panel p-4 rounded-xl">
           <ActivityTimeline
             items={activity}
             showComposer
@@ -827,7 +827,7 @@ export const PracticeClientsPage = () => {
               subtitle="A unified list of client relationships tied to conversations and matters."
             />
             <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Loading clients...</p>
+              <p className="text-sm text-input-placeholder">Loading clients...</p>
             </Panel>
           </div>
         </Page>
@@ -847,7 +847,7 @@ export const PracticeClientsPage = () => {
               subtitle="A unified list of client relationships tied to conversations and matters."
             />
             <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{clientsError}</p>
+              <p className="text-sm text-input-placeholder">{clientsError}</p>
             </Panel>
           </div>
         </Page>
@@ -914,12 +914,12 @@ export const PracticeClientsPage = () => {
                     ref={listRef}
                     className="h-full overflow-y-auto"
                   >
-                    <ul className="divide-y divide-gray-100 dark:divide-white/10">
+                    <ul className="divide-y divide-line-default">
                       {letters.map((letter) => (
                         <Fragment key={letter}>
                           <li
                             data-letter={letter}
-                            className="sticky top-0 z-10 bg-surface-card px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400"
+                            className="sticky top-0 z-10 bg-surface-card px-4 py-2 text-xs font-semibold text-input-placeholder"
                           >
                             {letter}
                           </li>
@@ -943,10 +943,10 @@ export const PracticeClientsPage = () => {
                                     <Avatar
                                       name={client.name}
                                       size="sm"
-                                      className="bg-gray-200 text-gray-700 dark:bg-gray-700"
+                                      className="bg-surface-card text-input-text"
                                     />
                                     <div className="min-w-0 flex-1 text-left">
-                                      <p className="text-sm text-gray-900 dark:text-white truncate">
+                                      <p className="text-sm text-input-text truncate">
                                         {nameParts.first ? (
                                           <>
                                             <span>{nameParts.first} </span>
@@ -966,7 +966,7 @@ export const PracticeClientsPage = () => {
                       ))}
                       <li
                         ref={loadMoreRef}
-                        className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400"
+                        className="px-4 py-3 text-xs text-input-placeholder"
                       >
                         {clientsLoadingMore
                           ? 'Loading more clients...'
@@ -976,7 +976,7 @@ export const PracticeClientsPage = () => {
                       </li>
                     </ul>
                   </div>
-                  <div className="absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                  <div className="absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder">
                     {letters.map((letter) => (
                       <Button
                         key={letter}
@@ -988,8 +988,8 @@ export const PracticeClientsPage = () => {
                           // Increase interactive hit area to at least 44x44
                           "before:absolute before:-inset-3.5 before:content-['']",
                           currentLetter === letter
-                            ? 'text-gray-900 dark:text-white font-semibold'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                            ? 'text-input-text font-semibold'
+                            : 'text-input-placeholder hover:text-input-text'
                         )}
                       >
                         {letter}
@@ -1014,10 +1014,10 @@ export const PracticeClientsPage = () => {
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-                      <UserIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                      <UserIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
                     </div>
-                    <h3 className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Select a client</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <h3 className="mt-4 text-sm font-semibold text-input-text">Select a client</h3>
+                    <p className="mt-2 text-sm text-input-placeholder">
                       Choose a client from the list to view their details.
                     </p>
                   </div>

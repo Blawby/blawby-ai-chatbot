@@ -120,7 +120,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-2xl">
-        <div className="bg-surface-card border border-line-default py-8 px-6 shadow-card sm:rounded-lg sm:px-10">
+        <div className="glass-panel py-8 px-6 sm:rounded-lg sm:px-10">
           <Form onSubmit={handleSubmit} className="space-y-6">
             {/* Use Case Options */}
             <div

@@ -24,7 +24,7 @@ export const AuthGateOverlay: FunctionComponent<AuthGateOverlayProps> = ({
   return (
     <div className="absolute inset-0 bg-surface-base/95 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="presentation">
       <div 
-        className="max-w-md w-full bg-surface-card border border-line-default rounded-lg shadow-card p-6 text-center" 
+        className="max-w-md w-full glass-panel rounded-lg p-6 text-center" 
         role="dialog" 
         aria-modal="true" 
         aria-labelledby="auth-gate-title"

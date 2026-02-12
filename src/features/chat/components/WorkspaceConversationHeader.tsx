@@ -40,11 +40,11 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
   const resolvedStatus = presenceStatus === 'away' ? 'inactive' : presenceStatus;
 
   return (
-    <header className="flex min-h-[56px] items-center gap-3 border-b border-line-default bg-surface-base px-4 py-3">
+    <header className="flex min-h-[56px] items-center gap-3 border-b border-line-glass/30 bg-surface-glass/60 backdrop-blur-xl px-4 py-3">
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-surface-card/70 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-input-placeholder transition hover:bg-surface-glass/50 hover:text-input-text"
         aria-label={t('workspace.header.back')}
       >
         <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />

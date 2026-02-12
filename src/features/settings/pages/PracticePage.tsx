@@ -298,8 +298,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
-  const modalContentClassName = 'bg-surface-card border-line-default';
-  const modalHeaderClassName = 'bg-surface-card border-line-default';
+  const modalContentClassName = 'bg-surface-glass bg-opacity-70 border-line-glass border-opacity-30 backdrop-blur-2xl';
+  const modalHeaderClassName = 'bg-surface-glass bg-opacity-60 border-line-glass border-opacity-30 backdrop-blur-xl';
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -561,7 +561,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">Loading practice...</p>
+          <p className="text-sm text-input-placeholder">Loading practice...</p>
         </div>
       </div>
     );
@@ -584,7 +584,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center space-y-3">
-          <p className="text-sm text-gray-500">No practice data is available yet.</p>
+          <p className="text-sm text-input-placeholder">No practice data is available yet.</p>
           <div className="flex items-center justify-center gap-2">
             <Button size="sm" variant="secondary" onClick={refetch}>
               Reload
@@ -608,7 +608,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 label="Practice details"
                 labelNode={(
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <h3 className="text-sm font-semibold text-input-text">
                       {practice.name || 'Practice'}
                     </h3>
                     <div className="mt-2 space-y-2">
@@ -651,18 +651,18 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 label="Contact"
                 labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Contact</h3>
+                    <h3 className="text-sm font-semibold text-input-text">Contact</h3>
                     <div className="mt-2 space-y-2">
                       <div className="flex items-start gap-2">
-                        <GlobeAltIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
+                        <GlobeAltIcon className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true" />
                         <SettingsHelperText>{websiteValue || 'Not set'}</SettingsHelperText>
                       </div>
                       <div className="flex items-start gap-2">
-                        <PhoneIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
+                        <PhoneIcon className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true" />
                         <SettingsHelperText>{phoneValue || 'Not set'}</SettingsHelperText>
                       </div>
                       <div className="flex items-start gap-2">
-                        <MapPinIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
+                        <MapPinIcon className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true" />
                         <SettingsHelperText>{addressSummary || 'Not set'}</SettingsHelperText>
                       </div>
                     </div>
@@ -695,7 +695,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 label="Services"
                 labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
+                    <h3 className="text-sm font-semibold text-input-text">Services</h3>
                     {servicesList.length > 0 ? (
                       <div className="mt-2 space-y-1">
                         {servicesList.map((service) => (
@@ -736,7 +736,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 label="Pricing"
                 labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Pricing &amp; Fees</h3>
+                    <h3 className="text-sm font-semibold text-input-text">Pricing &amp; Fees</h3>
                     <SettingsHelperText className="mt-1">
                       Configure consultation fees and billing increments.
                     </SettingsHelperText>
@@ -769,7 +769,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 label="Team"
                 labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <h3 className="text-sm font-semibold text-input-text">
                       Team Members
                     </h3>
                     {members.length > 0 ? (
@@ -832,7 +832,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     label="Delete Practice"
                     labelNode={(
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
+                        <h3 className="text-sm font-semibold text-input-text">Delete Practice</h3>
                         <SettingsHelperText className="mt-1">
                           Permanently delete this practice and all its data
                         </SettingsHelperText>
@@ -994,7 +994,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
           {/* Address Fields */}
           <div className="space-y-4">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
+            <h4 className="text-sm font-medium text-input-text">Address</h4>
             <AddressExperienceForm
               initialValues={{ address: contactDraft.address }}
               fields={['address']}

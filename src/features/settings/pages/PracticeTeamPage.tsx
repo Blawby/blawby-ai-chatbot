@@ -98,7 +98,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   if (currentPractice && !activeMemberRoleLoading && !isMember) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">You are not a member of this practice.</p>
+        <p className="text-sm text-input-placeholder">You are not a member of this practice.</p>
       </div>
     );
   }
@@ -170,7 +170,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">No practice selected.</p>
+        <p className="text-sm text-input-placeholder">No practice selected.</p>
       </div>
     );
   }
@@ -193,7 +193,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
       <div className="pt-2 pb-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-input-placeholder">
               Manage access to your practice workspace.
             </p>
             <SettingsHelperText className="mt-2">
@@ -225,7 +225,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                     returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1'
                   })}
                   disabled={submitting}
-                  className="ml-2 underline text-blue-600 hover:text-blue-700"
+                  className="ml-2 underline text-accent-600 hover:text-accent-700"
                 >
                   {t('settings:account.plan.manage')}
                 </Button>
@@ -241,7 +241,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
             {members.map((member) => (
               <div key={member.userId} className="flex items-center justify-between py-2">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-input-text">
                     {member.name || member.email}
                   </p>
                   <SettingsHelperText>
@@ -261,7 +261,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                       setEditMemberData(member);
                       setIsEditingMember(true);
                     }}
-                    className="text-gray-600 dark:text-gray-400"
+                    className="text-input-placeholder"
                   >
                     {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
                   </Button>
@@ -313,7 +313,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
         {isEditingMember && editMemberData && (
           <div className="mt-6 space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <p className="text-sm font-medium text-input-text mb-2">
                 {editMemberData.name || editMemberData.email}
               </p>
             <SettingsHelperText>
@@ -357,7 +357,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
 
         <SectionDivider className="mt-8" />
         <div className="pt-6">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          <h3 className="text-sm font-semibold text-input-text mb-4">
             Pending Invitations
           </h3>
           {invitations.length > 0 ? (
@@ -365,7 +365,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               {invitations.map(inv => (
                 <div key={inv.id} className="flex items-center justify-between py-2">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <p className="text-sm font-medium text-input-text">
                       {inv.practiceName || inv.practiceId}
                     </p>
                     <SettingsHelperText>

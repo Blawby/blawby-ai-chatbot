@@ -18,7 +18,7 @@ interface TabsProps {
 export const Tabs = ({ items, activeId, onChange, className = '', actions }: TabsProps) => (
   <div className={cn('flex flex-col gap-3', className)}>
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex flex-wrap items-center gap-4 border-b border-line-default" role="tablist">
+    <div className="flex flex-wrap items-center gap-4 border-b border-line-glass/30" role="tablist">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (

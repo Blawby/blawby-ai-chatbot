@@ -120,10 +120,10 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
           {/* APP Section */}
           {appItems.length > 0 && (
             <div>
-              <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 px-4">
+              <h2 className="text-xs font-medium text-input-placeholder uppercase tracking-wide mb-3 px-4">
                 APP
               </h2>
-              <div className="bg-surface-card rounded-lg border border-line-default overflow-hidden">
+              <div className="glass-panel rounded-lg overflow-hidden">
                 <ul className="space-y-0">
                   {appItems.map((item, index) => {
                     const IconComponent = item.icon;
@@ -148,10 +148,10 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                             isAction
                               ? isDanger
                                 ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30'
-                                : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80'
+                                : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60'
                               : isActive
-                                ? 'bg-surface-card/80 text-input-text'
-                                : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80'
+                                ? 'bg-surface-glass/80 text-input-text ring-1 ring-inset ring-accent-500/40'
+                                : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -159,11 +159,11 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                             <span className="text-sm font-medium">{item.label}</span>
                           </div>
                           {!isAction && (
-                          <ChevronRightIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <ChevronRightIcon className="w-5 h-5 text-input-placeholder" />
                         )}
                       </button>
                       {index < appItems.length - 1 && (
-                        <div className="border-t border-line-default" />
+                        <div className="border-t border-line-glass/30" />
                       )}
                       </li>
                     );
@@ -176,10 +176,10 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
           {/* ACCOUNT Section */}
           {accountItems.length > 0 && (
             <div>
-              <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 px-4">
+              <h2 className="text-xs font-medium text-input-placeholder uppercase tracking-wide mb-3 px-4">
                 ACCOUNT
               </h2>
-              <div className="bg-surface-card rounded-lg border border-line-default overflow-hidden">
+              <div className="glass-panel rounded-lg overflow-hidden">
                 <ul className="space-y-0">
                   {accountItems.map((item, index) => {
                     const IconComponent = item.icon;
@@ -204,10 +204,10 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                             isAction
                               ? isDanger
                                 ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30'
-                                : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80'
+                                : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60'
                               : isActive
-                                ? 'bg-surface-card/80 text-input-text'
-                                : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80'
+                                ? 'bg-surface-glass/80 text-input-text ring-1 ring-inset ring-accent-500/40'
+                                : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -215,11 +215,11 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                             <span className="text-sm font-medium">{item.label}</span>
                           </div>
                           {!isAction && (
-                          <ChevronRightIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <ChevronRightIcon className="w-5 h-5 text-input-placeholder" />
                         )}
                       </button>
                       {index < accountItems.length - 1 && (
-                        <div className="border-t border-line-default" />
+                        <div className="border-t border-line-glass/30" />
                       )}
                       </li>
                     );
@@ -231,7 +231,7 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
 
           {/* Other items (like Help, Sign Out) */}
           {otherItems.length > 0 && (
-            <div className="bg-surface-card rounded-lg border border-line-default overflow-hidden">
+            <div className="glass-panel rounded-lg overflow-hidden">
               <ul className="space-y-0">
                 {otherItems.map((item, index) => {
                   const IconComponent = item.icon;
@@ -256,10 +256,10 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                           isAction
                             ? isDanger
                               ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30'
-                              : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80'
+                              : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60'
                             : isActive
-                              ? 'bg-surface-card/80 text-input-text'
-                              : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80'
+                              ? 'bg-surface-glass/80 text-input-text ring-1 ring-inset ring-accent-500/40'
+                              : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60'
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -267,11 +267,11 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                           <span className="text-sm font-medium">{item.label}</span>
                         </div>
                         {!isAction && (
-                          <ChevronRightIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <ChevronRightIcon className="w-5 h-5 text-input-placeholder" />
                         )}
                       </button>
                       {index < otherItems.length - 1 && (
-                        <div className="border-t border-line-default" />
+                        <div className="border-t border-line-glass/30" />
                       )}
                     </li>
                   );
@@ -334,11 +334,11 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                   'w-full flex items-center gap-2 px-2 py-2 text-left transition-colors rounded-lg touch-manipulation',
                   isAction
                     ? isDanger
-                      ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30 focus:bg-red-50 dark:focus:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
-                      : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80 focus:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                      ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30 focus:bg-red-50 dark:focus:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                      : 'text-input-text hover:bg-surface-glass/50 active:bg-surface-glass/60 focus:bg-surface-glass/50 focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
                     : isActive
-                      ? 'bg-surface-card/80 text-input-text focus:bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
-                    : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80 focus:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                      ? 'bg-accent-500 text-gray-900 focus:bg-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                    : 'text-input-text/80 hover:text-input-text hover:bg-surface-glass/40 active:bg-surface-glass/50 focus:bg-surface-glass/40 focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
                 )}
               >
                 <IconComponent className="w-5 h-5 flex-shrink-0" />

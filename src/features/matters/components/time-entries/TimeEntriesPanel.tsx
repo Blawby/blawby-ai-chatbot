@@ -145,11 +145,11 @@ export const TimeEntriesPanel = ({
           selectedWeekStart={selectedWeekStart}
           onSelectWeek={(date) => setSelectedWeekStart(getStartOfWeek(date))}
         />
-        <div className="rounded-2xl border border-line-default bg-surface-card shadow-card overflow-hidden">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
+        <div className="glass-panel overflow-hidden">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="min-w-[220px] text-center">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{weekRangeLabel}</p>
+                <p className="text-sm font-semibold text-input-text">{weekRangeLabel}</p>
               </div>
             </div>
             <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => openNewEntry()}>
@@ -168,7 +168,7 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-card/70 transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-glass/50 transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
                   <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">
@@ -182,7 +182,7 @@ export const TimeEntriesPanel = ({
                           style={{ width: `${day.progressPercentage}%` }}
                         />
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white min-w-[96px] text-right">
+                      <div className="text-sm font-semibold text-input-text min-w-[96px] text-right">
                         {formatDuration(day.totalSeconds)}
                       </div>
                     </div>
