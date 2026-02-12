@@ -1742,7 +1742,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 </Button>
               )}
             />
-            <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-6">
+            <section className="rounded-2xl border border-line-default bg-surface-card p-6 shadow-card">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 We could not find a matter with the ID{' '}
                 <span className="font-mono text-gray-700 dark:text-gray-300">{selectedMatterId}</span>
@@ -1769,14 +1769,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               <div className="flex items-start gap-3">
                 <MatterStatusDot status={resolvedSelectedMatter.status} className="mt-1" />
                 <div>
-                  <h1 className="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-7 text-gray-900 dark:text-white">
+                  <h1 className="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-7 text-input-text">
                     <span>{resolvedSelectedMatter.title}</span>
                     <span className="text-gray-400">/</span>
-                    <span className="flex items-center gap-x-2 font-semibold text-gray-900 dark:text-white">
+                    <span className="flex items-center gap-x-2 font-semibold text-input-text">
                       <Avatar
                         name={resolvedSelectedMatter.clientName}
                         size="xs"
-                        className="bg-gray-200 text-gray-700 dark:bg-gray-700"
+                        className="bg-surface-card text-gray-700 dark:text-gray-200"
                       />
                       {resolvedSelectedMatter.clientName}
                     </span>
@@ -1813,7 +1813,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             )}
 
             {headerMeta && (
-              <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-dark-card-bg/80 p-4">
+              <div className="rounded-2xl border border-line-default bg-surface-card/80 p-4">
                 <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
                   {headerMeta.description ? headerMeta.description : 'No description provided.'}
                 </p>
@@ -1823,8 +1823,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     {headerMeta.clientEntries.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {headerMeta.clientEntries.map((entry) => (
-                          <div key={entry.id} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
-                            <Avatar name={entry.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                          <div key={entry.id} className="flex items-center gap-2 rounded-full border border-line-default px-2 py-1">
+                            <Avatar name={entry.name} size="xs" className="bg-surface-card" />
                             <span className="text-sm text-gray-700 dark:text-gray-200">{entry.name}</span>
                           </div>
                         ))}
@@ -1838,8 +1838,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     {headerMeta.assigneeNames.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {headerMeta.assigneeNames.map((name, i) => (
-                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
-                            <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-line-default px-2 py-1">
+                            <Avatar name={name} size="xs" className="bg-surface-card" />
                             <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
                           </div>
                         ))}
@@ -1861,7 +1861,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             )}
           </div>
 
-          <div className="border-b border-gray-200 dark:border-white/10">
+          <div className="border-b border-line-default">
             <nav className="-mb-px flex flex-wrap items-center gap-6" aria-label="Tabs">
               {DETAIL_TABS.map((tab) => {
                 const isActive = detailTab === tab.id;
@@ -1873,8 +1873,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   className={[
                     'whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors rounded-none',
                     isActive
-                      ? 'border-gray-900 text-gray-900 dark:border-white dark:text-white'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      ? 'border-input-text text-input-text'
+                      : 'border-transparent text-gray-500 hover:border-line-default hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   ].join(' ')}
                 >
                   {tab.label}
@@ -1899,7 +1899,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             {detailTab === 'overview' ? (
               <div className="px-0 space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent activity</h3>
+                  <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
                   <Panel className="mt-4 p-4">
                     {activityLoading && activityItems.length === 0 ? (
                       <LoadingState message="Loading activity..." />
@@ -1967,9 +1967,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   onDeleteExpense={handleDeleteExpense}
                 />
                 <Panel>
-                  <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
+                  <header className="flex items-center justify-between border-b border-line-default px-6 py-4">
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent transactions</h3>
+                      <h3 className="text-sm font-semibold text-input-text">Recent transactions</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         Summary of billed time across recent periods.
                       </p>
@@ -1983,10 +1983,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     ].map((card) => (
                       <div
                         key={card.label}
-                        className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4"
+                        className="rounded-2xl border border-line-default bg-surface-card p-4 shadow-card"
                       >
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-                        <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
+                        <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
                       </div>
                     ))}
                   </div>
@@ -2120,7 +2120,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
         <div className="flex flex-col gap-6">
           <Panel className="overflow-hidden">
-            <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-4 py-4 sm:px-6 lg:px-8">
+            <header className="flex items-center justify-between border-b border-line-default px-4 py-4 sm:px-6 lg:px-8">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{activeTabLabel} Matters</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">

@@ -56,13 +56,13 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   });
 
   return (
-    <div className="flex h-full flex-col bg-light-bg dark:bg-dark-bg">
-      <div className="relative flex min-h-[56px] items-center justify-center border-b border-light-border px-4 py-3 dark:border-dark-border">
+    <div className="flex h-full flex-col bg-surface-base">
+      <div className="relative flex min-h-[56px] items-center justify-center border-b border-line-default px-4 py-3">
         {showBackButton && onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/10"
+            className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-surface-card/70 hover:text-gray-700 dark:text-gray-300"
             aria-label={t('common.back')}
           >
             <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
@@ -132,7 +132,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         )}
       </div>
 
-      <div className="border-t border-light-border px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] dark:border-dark-border">
+      <div className="border-t border-line-default px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)]">
         <Button
           variant="primary"
           size="lg"

@@ -85,10 +85,10 @@ export const ServicesEditor = ({
             {customServices.map((service, index) => (
               <div
                 key={service.id}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"
+                className="border border-line-default rounded-lg p-4 space-y-3 bg-surface-card shadow-card"
               >
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                  <h4 className="text-sm font-medium text-input-text">
                     Custom Service {index + 1}
                   </h4>
                   <Button

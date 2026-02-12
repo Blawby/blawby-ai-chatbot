@@ -118,12 +118,12 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
             options={dateOptions}
             onChange={(value) => setFormState((prev) => ({ ...prev, date: value }))}
             disabled={lockDate}
-            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           />
         </div>
         <div>
           <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Timezone</span>
-          <div className="min-h-[44px] rounded-lg border border-gray-200 dark:border-dark-border bg-gray-100 dark:bg-white/10 px-3 py-2 text-sm text-gray-500 dark:text-gray-300 flex items-center">
+          <div className="min-h-[44px] rounded-lg border border-line-default bg-surface-card px-3 py-2 text-sm text-gray-500 dark:text-gray-300 flex items-center">
             UTC
           </div>
         </div>

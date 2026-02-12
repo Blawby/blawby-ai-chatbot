@@ -54,7 +54,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-light-bg shadow-none dark:bg-dark-bg">
+    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-surface-base shadow-none">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/70"
         aria-hidden="true"
@@ -85,7 +85,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             type="button"
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
-            className="rounded-2xl border border-light-border bg-light-card-bg px-4 py-4 text-left shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg"
+            className="rounded-2xl border border-line-default bg-surface-card px-4 py-4 text-left shadow-card transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -119,7 +119,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="group flex w-full items-center justify-between rounded-2xl border border-light-border bg-light-card-bg px-5 py-4 text-left text-gray-900 shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg dark:text-gray-100"
+          className="group flex w-full items-center justify-between rounded-2xl border border-line-default bg-surface-card px-5 py-4 text-left text-input-text shadow-card transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
           <span className="text-base font-semibold">{t('workspace.home.sendMessage')}</span>
@@ -128,7 +128,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           </span>
         </button>
 
-        <div className="rounded-3xl border border-light-border bg-light-card-bg px-5 py-6 shadow-[0_20px_48px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
+        <div className="rounded-3xl border border-line-default bg-surface-card px-5 py-6 shadow-card">
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{resolvedConsultationTitle}</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
             {resolvedConsultationDescription}

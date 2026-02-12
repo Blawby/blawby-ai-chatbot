@@ -61,10 +61,10 @@ const WelcomeStep = ({ onComplete }: WelcomeStepProps) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-surface-base flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
           {t('onboarding.welcome.title')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
@@ -73,7 +73,7 @@ const WelcomeStep = ({ onComplete }: WelcomeStepProps) => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-surface-card border border-line-default py-8 px-4 shadow-card sm:rounded-lg sm:px-10">
           <div className="space-y-6">
             {/* Tips */}
             <div className="space-y-4">
@@ -86,7 +86,7 @@ const WelcomeStep = ({ onComplete }: WelcomeStepProps) => {
                       <Icon className={`h-5 w-5 ${tip.iconColor}`} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                      <h3 className="text-sm font-medium text-input-text">
                         {t(`onboarding.welcome.tips.${tip.id}.title`)}
                       </h3>
                       <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">

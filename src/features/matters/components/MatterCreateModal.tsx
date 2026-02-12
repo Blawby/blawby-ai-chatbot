@@ -120,7 +120,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
-  <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center text-gray-400">
+  <div className="w-6 h-6 rounded-full border border-dashed border-line-default flex items-center justify-center text-gray-400">
     {icon}
   </div>
 );
@@ -135,7 +135,7 @@ const StatusPillGroup = ({
   options: Array<{ value: MattersSidebarStatus; label: string }>;
 }) => (
   <fieldset>
-    <legend className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Matter Status</legend>
+    <legend className="block text-sm font-medium text-input-text mb-1">Matter Status</legend>
     <div className="flex flex-wrap gap-2">
       {options.map((option) => {
         const inputId = `status-pill-${option.value}`;
@@ -148,7 +148,7 @@ const StatusPillGroup = ({
               'cursor-pointer rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition-colors',
               isSelected
                 ? 'bg-accent-500 text-gray-900 ring-accent-500'
-                : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50 dark:bg-dark-card-bg dark:text-gray-300 dark:ring-white/15'
+                : 'bg-surface-card text-gray-700 ring-line-default hover:bg-surface-card/70 dark:text-gray-300'
             )}
           >
             <input
@@ -221,7 +221,7 @@ const MatterFormModalInner = ({
       name={name?.trim() || 'User'}
       src={image ?? null}
       size={size}
-      className="bg-gray-100 dark:bg-white/10"
+      className="bg-surface-card"
     />
   );
 
@@ -310,8 +310,8 @@ const MatterFormModalInner = ({
       onClose={onClose}
       title={modalTitle}
       type="fullscreen"
-      contentClassName="bg-white dark:bg-dark-card-bg"
-      headerClassName="bg-white dark:bg-dark-card-bg"
+      contentClassName="bg-surface-base"
+      headerClassName="bg-surface-base"
     >
       <form
         className="space-y-6 max-w-3xl mx-auto px-4 py-6 sm:px-6 lg:px-8"
@@ -338,7 +338,7 @@ const MatterFormModalInner = ({
           }
         }}
       >
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        <h1 className="text-3xl font-bold text-input-text">
           {mode === 'edit' ? 'Edit matter' : 'Propose new matter'}
         </h1>
 
@@ -382,10 +382,10 @@ const MatterFormModalInner = ({
           onChange={(value) => updateForm('clientId', value)}
         />
 
-        <hr className="h-px border-gray-200 dark:border-white/10" />
+        <hr className="h-px border-line-default" />
 
         <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Provide matter details</h2>
+          <h2 className="text-lg font-medium text-input-text mb-2">Provide matter details</h2>
           <div className="space-y-2">
             <Textarea
               label="Description"
@@ -412,9 +412,9 @@ const MatterFormModalInner = ({
           disabled={practiceAreasLoading}
         />
 
-        <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
+        <div className="border-t border-line-default pt-6 space-y-4">
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Additional documents</h3>
+            <h3 className="text-lg font-medium text-input-text">Additional documents</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Attach up to 6 files with a max combined size of 25 MB. Use PNG, GIF, PDF, PPT, TXT, or DOC.
             </p>
@@ -437,8 +437,8 @@ const MatterFormModalInner = ({
           </div>
         </div>
 
-        <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Team Members</h3>
+        <div className="border-t border-line-default pt-6 space-y-4">
+          <h3 className="text-lg font-medium text-input-text">Team Members</h3>
           {isAssigneeOptionsEmpty ? (
             <Input
               label="Assignee IDs"
@@ -475,7 +475,7 @@ const MatterFormModalInner = ({
           )}
         </div>
 
-        <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
+        <div className="border-t border-line-default pt-6 space-y-4">
           <RadioGroupWithDescriptions
             label="Billing type"
             name="billing-type"
@@ -527,8 +527,8 @@ const MatterFormModalInner = ({
               )}
 
               {formState.paymentFrequency === 'milestone' && (
-                <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Enter project milestones</h4>
+                <div className="border-t border-line-default pt-6 space-y-4">
+                  <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
 
                   {formState.milestones.length > 0 && (
                     <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-700 dark:text-gray-200">
@@ -640,7 +640,7 @@ const MatterFormModalInner = ({
           )}
         </div>
 
-        <div className="bg-gray-50 dark:bg-white/5 rounded-lg p-4 flex items-center space-x-3">
+        <div className="bg-surface-card rounded-lg p-4 flex items-center space-x-3">
           <div className="shrink-0">
             <div className="p-2 bg-black rounded-full">
               <ShieldCheckIcon className="h-6 w-6 text-white" />
@@ -652,7 +652,7 @@ const MatterFormModalInner = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 dark:bg-white/5 px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-card px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
           {submitError ? (
             <p className="text-red-600 dark:text-red-400">{submitError}</p>
           ) : (

@@ -47,6 +47,16 @@ export const PracticeSetup = ({
   logoUploadProgress,
   onLogoChange
 }: PracticeSetupProps) => {
+  const glassCardClass = [
+    'rounded-3xl border p-4 shadow-sm sm:p-5',
+    'border-white/40 bg-white/70 backdrop-blur-2xl saturate-150',
+    'shadow-[0_12px_30px_rgba(15,23,42,0.08)]',
+    'dark:border-white/10 dark:bg-white/10',
+    'dark:shadow-[0_18px_40px_rgba(0,0,0,0.35)]',
+  ].join(' ');
+
+  const inputGlassClass = 'bg-white/60 border-white/40 shadow-[0_8px_20px_rgba(15,23,42,0.05)] dark:bg-white/10 dark:border-white/10 placeholder:text-gray-500/80 dark:placeholder:text-white/50';
+
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: '',
     slug: '',
@@ -200,7 +210,7 @@ export const PracticeSetup = ({
       className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
         complete
           ? 'bg-accent-100 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300'
-          : 'bg-gray-200 text-gray-700 dark:bg-white/10 dark:text-white/80'
+          : 'bg-surface-card text-gray-700 dark:text-white/80'
       }`}
     >
       {complete ? 'Done' : 'Action needed'}
@@ -222,7 +232,7 @@ export const PracticeSetup = ({
           </p>
         </header>
 
-        <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+        <section className={glassCardClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Profile</p>
@@ -236,12 +246,14 @@ export const PracticeSetup = ({
               value={basicsDraft.name}
               onChange={(value) => setBasicsDraft((prev) => ({ ...prev, name: value }))}
               placeholder="Blawby & Co."
+              className={inputGlassClass}
             />
             <Input
               label="Public slug"
               value={basicsDraft.slug}
               onChange={(value) => setBasicsDraft((prev) => ({ ...prev, slug: value }))}
               placeholder="your-firm"
+              className={inputGlassClass}
             />
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -268,6 +280,7 @@ export const PracticeSetup = ({
                 introLabel="Intro message"
                 introPlaceholder="Welcome to our firm. How can we help?"
                 disabled={isSavingBasics}
+                inputClassName={inputGlassClass}
               />
             </div>
           </div>
@@ -307,7 +320,7 @@ export const PracticeSetup = ({
           )}
         </section>
 
-        <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+        <section className={glassCardClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Contact</p>
@@ -322,6 +335,7 @@ export const PracticeSetup = ({
               value={contactDraft.website}
               onChange={(value) => setContactDraft((prev) => ({ ...prev, website: value }))}
               placeholder="https://example.com"
+              className={inputGlassClass}
             />
             <div className="grid gap-4 lg:grid-cols-2">
               <Input
@@ -330,6 +344,7 @@ export const PracticeSetup = ({
                 value={contactDraft.businessEmail}
                 onChange={(value) => setContactDraft((prev) => ({ ...prev, businessEmail: value }))}
                 placeholder="you@example.com"
+                className={inputGlassClass}
               />
               <Input
                 label="Phone number"
@@ -337,6 +352,7 @@ export const PracticeSetup = ({
                 value={contactDraft.businessPhone}
                 onChange={(value) => setContactDraft((prev) => ({ ...prev, businessPhone: value }))}
                 placeholder="(555) 123-4567"
+                className={inputGlassClass}
               />
             </div>
             <AddressExperienceForm
@@ -354,6 +370,7 @@ export const PracticeSetup = ({
               showSubmitButton={false}
               variant="plain"
               disabled={isSavingContact}
+              inputClassName={inputGlassClass}
             />
           </div>
           <div className="mt-4 flex">
@@ -393,13 +410,13 @@ export const PracticeSetup = ({
         </section>
 
         {servicesSlot && (
-          <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+          <section className={glassCardClass}>
             {servicesSlot}
           </section>
         )}
 
         {payoutsSlot && (
-          <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+          <section className={glassCardClass}>
             {payoutsSlot}
           </section>
         )}

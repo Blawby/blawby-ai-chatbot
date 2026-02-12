@@ -22,14 +22,14 @@ export const AuthGateOverlay: FunctionComponent<AuthGateOverlayProps> = ({
   }, []);
 
   return (
-    <div className="absolute inset-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="presentation">
+    <div className="absolute inset-0 bg-surface-base/95 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="presentation">
       <div 
-        className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center" 
+        className="max-w-md w-full bg-surface-card border border-line-default rounded-lg shadow-card p-6 text-center" 
         role="dialog" 
         aria-modal="true" 
         aria-labelledby="auth-gate-title"
       >
-        <h2 id="auth-gate-title" className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+        <h2 id="auth-gate-title" className="text-xl font-semibold text-input-text mb-2">
           Save Your Conversation
         </h2>
         <p className="text-gray-600 dark:text-gray-300 mb-6">

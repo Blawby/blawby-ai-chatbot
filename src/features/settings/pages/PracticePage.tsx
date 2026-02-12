@@ -298,8 +298,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
-  const modalContentClassName = 'bg-light-card-bg dark:bg-dark-card-bg border-light-border dark:border-dark-border';
-  const modalHeaderClassName = 'bg-light-card-bg dark:bg-dark-card-bg border-light-border dark:border-dark-border';
+  const modalContentClassName = 'bg-surface-card border-line-default';
+  const modalHeaderClassName = 'bg-surface-card border-line-default';
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)

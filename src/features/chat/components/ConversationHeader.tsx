@@ -279,15 +279,15 @@ export const ConversationHeader = ({
   const error = actionError || matterError || conversationError;
 
   return (
-    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+    <div className="px-4 py-3 border-b border-line-default bg-surface-base">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Conversation</h2>
+          <h2 className="text-sm font-semibold text-input-text">Conversation</h2>
           {linkedMatterId && matter && matterLink && (
             <Button
               variant="link"
               size="xs"
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-3 py-1 text-xs text-gray-700 dark:text-gray-200"
+              className="inline-flex items-center gap-2 rounded-full border border-line-default bg-surface-card px-3 py-1 text-xs text-gray-700 dark:text-gray-200"
               onClick={() => navigate(matterLink)}
             >
               <span className="font-medium">{matter.title}</span>
@@ -295,7 +295,7 @@ export const ConversationHeader = ({
             </Button>
           )}
           {linkedMatterId && matter && !matterLink && (
-            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-3 py-1 text-xs text-gray-700 dark:text-gray-200">
+            <span className="inline-flex items-center gap-2 rounded-full border border-line-default bg-surface-card px-3 py-1 text-xs text-gray-700 dark:text-gray-200">
               <span className="font-medium">{matter.title}</span>
               <MatterStatusBadge status={matter.status} />
             </span>
@@ -396,7 +396,7 @@ export const ConversationHeader = ({
                   onChange={(event) => handleStatusChange(event.currentTarget.value as MatterWorkflowStatus)}
                   disabled={actionLoading || !canUpdateMatter}
                   aria-label="Matter status"
-                  className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                  className="text-sm border border-input-border rounded-md px-2 py-1 bg-input-bg text-input-text focus:outline-none focus:ring-2 focus:ring-accent-500"
                 >
                   {availableStatusOptions.map(option => (
                     <option key={option.value} value={option.value}>

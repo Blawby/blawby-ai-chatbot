@@ -50,14 +50,14 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
 
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-surface-base flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mx-auto w-full max-w-md">
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
 
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
           {t('onboarding.step1.title')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
@@ -66,7 +66,7 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-md">
-        <div className="bg-white dark:bg-dark-card-bg py-8 px-6 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-surface-card border border-line-default py-8 px-6 shadow-card sm:rounded-lg sm:px-10">
           <Form<PersonalInfoData> 
             onSubmit={async (formData: PersonalInfoData): Promise<void> => {
               await handleSubmit(formData);

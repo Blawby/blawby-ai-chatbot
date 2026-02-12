@@ -71,9 +71,9 @@ export const RadioGroup = ({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const orientationClasses = {
@@ -84,7 +84,7 @@ export const RadioGroup = ({
   return (
     <div className={cn('space-y-2', className)}>
       {displayLabel && (
-        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+        <label className="block text-sm font-medium text-input-text">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -109,7 +109,7 @@ export const RadioGroup = ({
                 disabled={disabled || option.disabled}
                 required={required}
                 className={cn(
-                  'border bg-white dark:bg-gray-800 text-accent-600',
+                  'border bg-input-bg text-accent-600',
                   'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
                   sizeClasses[size],
                   variantClasses[variant],
@@ -122,7 +122,7 @@ export const RadioGroup = ({
               <label
                 htmlFor={`${instanceId}-${option.value}`}
                 className={cn(
-                  'text-sm font-medium text-gray-900 dark:text-gray-100',
+                  'text-sm font-medium text-input-text',
                   (disabled || option.disabled) && 'opacity-50 cursor-not-allowed'
                 )}
               >

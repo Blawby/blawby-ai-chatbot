@@ -44,9 +44,9 @@ const getStatusStyles = (status?: NextStepsStatus) => {
 };
 
 export const NextStepsCard = ({ title, subtitle, items, action }: NextStepsCardProps) => (
-  <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-6 shadow-sm space-y-4">
+  <div className="rounded-2xl border border-line-default bg-surface-card p-6 shadow-card space-y-4">
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+      <h2 className="text-lg font-semibold text-input-text">{title}</h2>
       {subtitle && (
         <p className="text-sm text-gray-600 dark:text-gray-400">
           {subtitle}
@@ -72,7 +72,7 @@ export const NextStepsCard = ({ title, subtitle, items, action }: NextStepsCardP
             )}
           </span>
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</p>
+            <p className="text-sm font-medium text-input-text">{item.title}</p>
             {item.description && (
               <p className="text-xs text-gray-600 dark:text-gray-400">
                 {item.description}

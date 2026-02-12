@@ -66,11 +66,11 @@ export function StripeOnboardingStep({
       )}
 
       {showStatus && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2 bg-white dark:bg-gray-900/40">
+        <div className="rounded-xl border border-line-default p-4 space-y-2 bg-surface-card shadow-card">
           {statusItems.map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-              <span className="font-semibold text-gray-900 dark:text-gray-100">
+              <span className="font-semibold text-input-text">
                 {item.value}
               </span>
             </div>

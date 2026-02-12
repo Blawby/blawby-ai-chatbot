@@ -200,9 +200,9 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const formatPhoneNumber = useCallback((phone: string) => {
@@ -229,7 +229,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   }, [onChange, formatPhoneNumber]);
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg bg-input-bg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     iconPaddingClasses[size],
@@ -241,7 +241,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -259,7 +259,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="menu"
               aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
               className={cn(
-                "inline-flex items-center border border-gray-300 dark:border-dark-border rounded-l-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-dark-bg focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors",
+                "inline-flex items-center border border-input-border rounded-l-lg bg-input-bg text-input-text hover:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors",
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
@@ -270,7 +270,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             </button>
             
             {isDropdownOpen && (
-              <div className="absolute z-10 bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg w-52 top-full left-0 mt-1">
+              <div className="absolute z-10 bg-surface-overlay border border-line-default rounded-lg shadow-lg w-52 top-full left-0 mt-1">
                 <div 
                   ref={listRef}
                   role="listbox"
@@ -283,8 +283,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                         type="button"
                         onClick={() => handleCountrySelect(country)}
                         className={cn(
-                          "inline-flex w-full px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-dark-bg focus:outline-none focus:bg-gray-100 dark:focus:bg-dark-bg",
-                          index === focusedIndex && "bg-gray-100 dark:bg-dark-bg"
+                          "inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-surface-card/70 focus:outline-none focus:bg-surface-card/70",
+                          index === focusedIndex && "bg-surface-card/70"
                         )}
                         tabIndex={-1}
                       >

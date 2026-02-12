@@ -64,6 +64,7 @@ export interface AddressExperienceFormProps {
     size?: 'sm' | 'md' | 'lg';
   };
   className?: string;
+  inputClassName?: string;
 }
 
 const STATUS_OPTIONS: SelectOption[] = [
@@ -247,6 +248,7 @@ export const AddressExperienceForm = ({
   placeholders = {},
   addressOptions = {},
   className = '',
+  inputClassName = '',
 }: AddressExperienceFormProps) => {
   const normalizedFields = useMemo(() => normalizeFieldList(fields), [fields]);
   const normalizedRequired = useMemo(
@@ -284,7 +286,7 @@ export const AddressExperienceForm = ({
   const containerClasses = cn(
     variant === 'plain'
       ? 'w-full'
-      : 'bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg p-6 shadow-sm',
+      : 'bg-surface-card border border-line-default rounded-lg p-6 shadow-card',
     className
   );
 
@@ -345,6 +347,7 @@ export const AddressExperienceForm = ({
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
                         showValidation={true}
+                        className={inputClassName}
                       />
                     );
                   case 'phone':
@@ -361,6 +364,7 @@ export const AddressExperienceForm = ({
                         format={true}
                         showCountryCode={true}
                         countryCode="+1"
+                        className={inputClassName}
                       />
                     );
                   case 'status':
@@ -372,6 +376,7 @@ export const AddressExperienceForm = ({
                         options={STATUS_OPTIONS}
                         placeholder={getPlaceholder('status')}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'currency':
@@ -383,6 +388,7 @@ export const AddressExperienceForm = ({
                         options={CURRENCY_OPTIONS}
                         placeholder={getPlaceholder('currency')}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'address': {
@@ -414,6 +420,7 @@ export const AddressExperienceForm = ({
                         showCountry={addressOptions.showCountry ?? true}
                         size={addressOptions.size || 'md'}
                         disabled={disabled}
+                        inputClassName={inputClassName}
                       />
                     );
                   }
@@ -428,6 +435,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'description':
@@ -443,6 +451,7 @@ export const AddressExperienceForm = ({
                         rows={4}
                         resize="vertical"
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'name':
@@ -457,6 +466,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                 }
@@ -472,7 +482,7 @@ export const AddressExperienceForm = ({
                 type="button"
                 onClick={onCancel}
                 disabled={disabled}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-input-text bg-input-bg border border-line-default rounded-md hover:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelLabel}
               </button>

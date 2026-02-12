@@ -40,7 +40,7 @@ export function ServiceCard({
           </span>
         )}
         <div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</p>
+          <p className="text-sm font-semibold text-input-text">{title}</p>
           {description && (
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{description}</p>
           )}
@@ -56,7 +56,7 @@ export function ServiceCard({
         onSelect ? 'cursor-pointer focus-within:ring-2 focus-within:ring-accent-500' : ''
       } ${selected
         ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-        : 'border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg'
+        : 'border-line-default bg-surface-card'
       } ${className}`}
     >
       {onSelect ? (

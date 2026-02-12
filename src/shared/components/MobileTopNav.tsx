@@ -18,7 +18,7 @@ const MobileTopNav = ({
     <AnimatePresence>
       {isVisible && (
         <motion.div 
-          className="fixed top-0 left-0 right-0 bg-white dark:bg-dark-bg border-b border-gray-200 dark:border-dark-border lg:hidden z-50 pt-safe"
+          className="fixed top-0 left-0 right-0 bg-surface-base border-b border-line-default lg:hidden z-50 pt-safe"
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -100, opacity: 0 }}

@@ -105,13 +105,13 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
   };
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-surface-base flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h2 id="use-case-title" className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+        <h2 id="use-case-title" className="mt-6 text-center text-3xl font-extrabold text-input-text">
           {t('onboarding.step2.title')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
@@ -120,7 +120,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-2xl">
-        <div className="bg-white dark:bg-dark-card-bg py-8 px-6 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-surface-card border border-line-default py-8 px-6 shadow-card sm:rounded-lg sm:px-10">
           <Form onSubmit={handleSubmit} className="space-y-6">
             {/* Use Case Options */}
             <div
@@ -142,7 +142,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                     className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 ${
                       isSelected
                         ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                        : 'border-line-default hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -152,10 +152,10 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                             ? 'text-accent-600 dark:text-accent-400' 
                             : 'text-gray-400 dark:text-gray-500'
                         }`} />
-                        <span className={`text-sm font-medium ${
+                          <span className={`text-sm font-medium ${
                           isSelected 
                             ? 'text-accent-600 dark:text-accent-400' 
-                            : 'text-gray-900 dark:text-white'
+                            : 'text-input-text'
                         }`}>
                           {t(option.labelKey)}
                         </span>

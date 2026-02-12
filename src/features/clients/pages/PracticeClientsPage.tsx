@@ -249,7 +249,7 @@ const ClientDetailPanel = ({
       </div>
       <div className="pt-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Activity Feed</h3>
-        <div className="mt-4 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
+        <div className="mt-4 rounded-xl border border-line-default bg-surface-card p-4 shadow-card">
           <ActivityTimeline
             items={activity}
             showComposer
@@ -919,7 +919,7 @@ export const PracticeClientsPage = () => {
                         <Fragment key={letter}>
                           <li
                             data-letter={letter}
-                            className="sticky top-0 z-10 bg-white dark:bg-dark-card-bg px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400"
+                            className="sticky top-0 z-10 bg-surface-card px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400"
                           >
                             {letter}
                           </li>
@@ -936,7 +936,7 @@ export const PracticeClientsPage = () => {
                                     'w-full justify-start px-4 py-3 h-auto',
                                     isActive
                                       ? 'bg-light-hover dark:bg-dark-hover border-l-2 border-accent-500'
-                                      : 'hover:bg-gray-50 dark:hover:bg-dark-hover border-l-2 border-transparent'
+                                      : 'hover:bg-surface-card/70 border-l-2 border-transparent'
                                   )}
                                 >
                                   <div className="flex items-center gap-4 w-full">

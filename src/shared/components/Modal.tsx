@@ -90,7 +90,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                     {/* Content */}
                     <motion.div 
                         className={cn(
-                            `shadow-2xl bg-white dark:bg-dark-bg text-gray-900 dark:text-white border border-gray-200 dark:border-dark-border ${
+                            `shadow-2xl bg-surface-overlay text-input-text border border-line-default ${
                             shouldUseDrawer 
                                 ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-2xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
@@ -115,23 +115,23 @@ const Modal: FunctionComponent<ModalProps> = ({
                         {/* Handle for mobile drawer */}
                         {shouldUseDrawer && (
                             <div className="flex justify-center pt-4 pb-2">
-                                <div className="w-12 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                                <div className="w-12 h-1 rounded-full bg-line-default/70" />
                             </div>
                         )}
                         
                         {/* Header */}
                         {(title || showCloseButton) && !shouldUseFullscreen && (
                             <div className={cn(
-                                'flex justify-between items-center p-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg',
+                                'flex justify-between items-center p-4 border-b border-line-default bg-surface-overlay',
                                 headerClassName
                             )}>
-                                {title && <h3 className="text-base sm:text-lg lg:text-xl font-semibold m-0 text-gray-900 dark:text-white">{title}</h3>}
+                                {title && <h3 className="text-base sm:text-lg lg:text-xl font-semibold m-0 text-input-text">{title}</h3>}
                                 {showCloseButton && (
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={onClose}
-                                        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-hover"
+                                        className="text-gray-500 hover:text-gray-700 hover:bg-surface-card/70"
                                         aria-label="Close modal"
                                         icon={
                                             <XMarkIcon className="w-6 h-6" />

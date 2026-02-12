@@ -546,7 +546,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Services & intake</p>
         <p className="text-xl font-semibold">What can clients request?</p>
       </div>
-      <div className="rounded-2xl border border-light-border bg-light-card-bg shadow-sm dark:border-dark-border dark:bg-dark-card-bg">
+      <div className="rounded-2xl border border-line-default bg-surface-card shadow-card">
         <ServicesEditor
           services={servicesDraft}
           onChange={handleServicesEditorChange}
@@ -573,7 +573,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           Verification takes about 5 minutes and unlocks consultation fees.
         </p>
       </div>
-      <div className="rounded-2xl border border-light-border bg-light-card-bg p-4 dark:border-dark-border dark:bg-dark-card-bg">
+      <div className="rounded-2xl border border-line-default bg-surface-card p-4 shadow-card">
         {payoutDetailsSubmitted ? (
           <p className="text-sm text-gray-700 dark:text-gray-200">
             Your Stripe account is connected. Clients can pay consultation fees before intake.
@@ -594,7 +594,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           </>
         )}
         {stripeStatus && !payoutDetailsSubmitted && (
-          <div className="mt-4 rounded-2xl border border-light-border bg-light-card-bg p-3 dark:border-dark-border dark:bg-dark-card-bg">
+          <div className="mt-4 rounded-2xl border border-line-default bg-surface-card p-3 shadow-card">
             <StripeOnboardingStep
               status={stripeStatus}
               loading={isStripeLoading}
@@ -659,9 +659,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return (
         <div className="flex min-h-0 w-full flex-col lg:h-full lg:flex-row lg:overflow-hidden">
           {/* Left column */}
-          <div className="relative flex w-full flex-col bg-white dark:bg-dark-bg lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+          <div className="relative flex w-full flex-col bg-surface-base lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <div
-              className="pointer-events-none absolute inset-0 bg-white dark:bg-black"
+              className="pointer-events-none absolute inset-0 bg-surface-base dark:bg-black"
               aria-hidden="true"
             />
             <div
@@ -699,11 +699,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           </div>
 
           {/* Right: Public Preview */}
-          <div className="flex w-full flex-col items-center gap-5 border-t border-light-border bg-gradient-to-b from-white via-gray-50 to-gray-100 px-4 py-6 dark:border-dark-border dark:from-dark-bg dark:via-dark-bg/80 dark:to-dark-bg lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l">
+          <div className="flex w-full flex-col items-center gap-5 border-t border-line-default bg-gradient-to-b from-surface-base via-surface-card to-surface-base px-4 py-6 dark:border-line-default dark:from-surface-base dark:via-surface-card/80 dark:to-surface-base lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-gray-400">
               Public preview
             </div>
-            <div className="inline-flex gap-1 rounded-full border border-gray-200 bg-white/80 p-1 text-xs font-semibold text-gray-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+            <div className="inline-flex gap-1 rounded-full border border-line-default bg-surface-card/80 p-1 text-xs font-semibold text-gray-600 shadow-sm dark:text-white/70">
               {previewTabOptions.map((option) => {
                 const isActive = previewTab === option.id;
                 return (
@@ -769,14 +769,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'matters':
         return mattersView ?? (
-          <div className="flex flex-1 flex-col rounded-[32px] bg-light-bg dark:bg-dark-bg">
+          <div className="flex flex-1 flex-col rounded-[32px] bg-surface-base">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Matters</h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 Your active matters will appear here once a practice connects them to your account.
               </p>
             </div>
-            <div className="mx-6 mb-6 rounded-2xl border border-light-border bg-light-card-bg p-5 shadow-[0_16px_32px_rgba(15,23,42,0.12)] dark:border-dark-border dark:bg-dark-card-bg">
+            <div className="mx-6 mb-6 rounded-2xl border border-line-default bg-surface-card p-5 shadow-card">
               <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">No matters yet</div>
               <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 Start a conversation to open a new matter with the practice.
@@ -786,7 +786,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'clients':
         return clientsView ?? (
-          <div className="flex flex-1 flex-col rounded-[32px] bg-light-bg dark:bg-dark-bg">
+          <div className="flex flex-1 flex-col rounded-[32px] bg-surface-base">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clients</h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
@@ -909,7 +909,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const mainShell = isPublicShell ? (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">
-      <div className="flex h-full min-h-0 flex-1 flex-col rounded-[32px] border border-light-border bg-light-bg shadow-[0_0_0_1px_rgba(15,23,42,0.18)] dark:border-white/30 dark:bg-dark-bg dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] overflow-hidden">
+      <div className="flex h-full min-h-0 flex-1 flex-col rounded-[32px] border border-line-default bg-surface-base shadow-[0_0_0_1px_rgba(15,23,42,0.18)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] overflow-hidden">
         {header && (
           <div className={cn('w-full', headerClassName)}>
             {header}
@@ -936,7 +936,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   return (
     <AppShell
-      className="bg-light-bg dark:bg-dark-bg h-dvh"
+      className="bg-surface-base h-dvh"
       sidebar={sidebarNav}
       main={mainShell}
       mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}

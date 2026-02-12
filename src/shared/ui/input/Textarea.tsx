@@ -122,9 +122,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const resizeClasses = {
@@ -135,7 +135,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const textareaClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg bg-input-bg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     resizeClasses[resize],
@@ -151,7 +151,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={textareaId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={textareaId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>

@@ -5,6 +5,33 @@
 @layer base {
   :root {
     color-scheme: light dark;
+    --surface-base: 255 255 255;
+    --surface-card: 250 250 250;
+    --surface-glass: 255 255 255;
+    --surface-overlay: 255 255 255;
+    --line-default: 229 231 235;
+    --line-glass: 255 255 255;
+    --input-bg: 255 255 255;
+    --input-border: 209 213 219;
+    --input-text: 17 24 39;
+    --input-placeholder: 107 114 128;
+    --shadow-card: 0 10px 30px rgb(15 23 42 / 8%);
+    --shadow-glass: 0 18px 40px rgb(15 23 42 / 18%);
+  }
+
+  .dark {
+    --surface-base: 3 7 18;
+    --surface-card: 17 24 39;
+    --surface-glass: 255 255 255;
+    --surface-overlay: 10 15 26;
+    --line-default: 16 19 26;
+    --line-glass: 255 255 255;
+    --input-bg: 10 15 26;
+    --input-border: 55 65 81;
+    --input-text: 249 250 251;
+    --input-placeholder: 156 163 175;
+    --shadow-card: 0 14px 32px rgb(0 0 0 / 35%);
+    --shadow-glass: 0 20px 44px rgb(0 0 0 / 50%);
   }
 
   body {
@@ -167,7 +194,7 @@
 
   /* Standardized input styling */
   .input-base {
-    @apply w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors;
+    @apply w-full px-3 py-2 text-sm border border-input-border rounded-lg bg-input-bg text-input-text placeholder-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors;
   }
 
   .input-base.error {
@@ -598,6 +625,7 @@
       opacity: 0;
       transform: translateY(12px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);

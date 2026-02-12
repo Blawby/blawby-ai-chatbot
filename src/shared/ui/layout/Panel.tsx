@@ -10,7 +10,7 @@ export const Panel = ({
   children,
   className
 }: PanelProps) => (
-  <div className={cn('rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg', className)}>
+  <div className={cn('rounded-2xl border border-line-default bg-surface-card shadow-card', className)}>
     {children}
   </div>
 );

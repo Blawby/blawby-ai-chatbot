@@ -13,8 +13,8 @@ export function PracticeNotFound({ practiceId, onRetry }: PracticeNotFoundProps)
   const { navigate } = useNavigation();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-light-bg dark:bg-dark-bg">
-      <div className="text-center max-w-lg p-6 sm:p-8 md:p-12 bg-light-message-bg-ai dark:bg-dark-message-bg-ai rounded-2xl shadow-2xl border border-light-border dark:border-dark-border">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-surface-base">
+      <div className="text-center max-w-lg p-6 sm:p-8 md:p-12 bg-surface-card rounded-2xl shadow-2xl border border-line-default">
         <h1 className="mb-6 text-3xl sm:text-4xl font-bold text-light-text dark:text-dark-text">
           {t('notFound.title')}
         </h1>

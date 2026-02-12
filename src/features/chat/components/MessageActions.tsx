@@ -226,12 +226,12 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{/* Display generated PDF */}
 			{generatedPDF && (
 				<div className="my-2">
-					<div className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-						<div className="w-8 h-8 rounded bg-gray-100 dark:bg-dark-hover flex items-center justify-center flex-shrink-0">
+					<div className="flex items-center gap-2 p-3 rounded-lg bg-surface-card border border-line-default">
+						<div className="w-8 h-8 rounded bg-surface-base flex items-center justify-center flex-shrink-0">
 							<DocumentIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
 						</div>
 						<div className="flex-1 min-w-0">
-							<div className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>
+							<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>
 								{generatedPDF.filename.length > 25 ? `${generatedPDF.filename.substring(0, 25)}...` : generatedPDF.filename}
 							</div>
 							<div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">

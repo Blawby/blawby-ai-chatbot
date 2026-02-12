@@ -26,14 +26,14 @@ export function WorkspacePracticeDetailsError({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-light-bg p-4 dark:bg-dark-bg"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-base p-4"
       role="alertdialog"
       aria-labelledby="workspace-error-heading"
       aria-describedby="workspace-error-desc"
       tabIndex={-1}
       ref={dialogRef}
     >
-      <div className="max-w-lg rounded-2xl border border-light-border bg-light-card-bg p-6 text-center shadow-2xl dark:border-dark-border dark:bg-dark-card-bg">
+      <div className="max-w-lg rounded-2xl border border-line-default bg-surface-card p-6 text-center shadow-2xl">
         <h1 id="workspace-error-heading" className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           {t('workspace.error.title')}
         </h1>

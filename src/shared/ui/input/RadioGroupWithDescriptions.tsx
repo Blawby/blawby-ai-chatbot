@@ -20,8 +20,8 @@ export const RadioGroupWithDescriptions = ({
   className
 }: RadioGroupWithDescriptionsProps) => (
   <fieldset className={className}>
-    <legend className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{label}</legend>
-    <div className="-space-y-px rounded-md bg-white dark:bg-dark-card-bg">
+    <legend className="block text-sm font-medium text-input-text mb-1">{label}</legend>
+    <div className="-space-y-px rounded-md bg-surface-card">
       {options.map((option, index) => {
         const isSelected = value === option.value;
         const isFirst = index === 0;
@@ -38,7 +38,7 @@ export const RadioGroupWithDescriptions = ({
               isLast && 'rounded-b-md',
               isSelected
                 ? 'z-10 border-accent-200 bg-accent-50 text-gray-900 dark:border-accent-500/50 dark:bg-accent-500/10'
-                : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
+                : 'border-line-default hover:bg-surface-card/70'
             )}
           >
             <input
@@ -53,14 +53,14 @@ export const RadioGroupWithDescriptions = ({
             <span
               className={cn(
                 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-                isSelected ? 'border-transparent bg-accent-500' : 'border-gray-300 bg-white dark:border-white/30 dark:bg-dark-card-bg'
+                isSelected ? 'border-transparent bg-accent-500' : 'border-input-border bg-input-bg'
               )}
               aria-hidden="true"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+            <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />
             </span>
             <span className="flex flex-col">
-              <span className={cn('block text-sm font-medium', isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-gray-100')}>
+              <span className={cn('block text-sm font-medium', isSelected ? 'text-gray-900 dark:text-white' : 'text-input-text')}>
                 {option.label}
               </span>
               {option.description && (

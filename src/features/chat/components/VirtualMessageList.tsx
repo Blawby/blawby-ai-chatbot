@@ -554,7 +554,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         >
             {/* Practice Profile Header - Fixed at top of scrollable area */}
             {practiceConfig && showPracticeHeader && (
-                <div className="flex flex-col items-center py-3 px-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-2">
+                <div className="flex flex-col items-center py-3 px-3 border-b border-line-default bg-surface-base mb-2">
                     <PracticeProfile
                         name={practiceConfig.name}
                         profileImage={practiceConfig.profileImage}

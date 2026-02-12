@@ -170,10 +170,10 @@ export const MatterExpensesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Expenses</h3>
+          <h3 className="text-sm font-semibold text-input-text">Expenses</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
           </p>
@@ -196,7 +196,7 @@ export const MatterExpensesPanel = ({
           No expenses yet. Add receipts, filing fees, or other costs tied to this matter.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-white/10">
+        <ul className="divide-y divide-line-default">
           {sortedExpenses.map((expense) => {
             const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
             return (
@@ -212,7 +212,7 @@ export const MatterExpensesPanel = ({
                 >
                   <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm font-semibold text-input-text">
                       {expense.description}
                     </p>
                     <span

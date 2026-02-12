@@ -277,7 +277,7 @@ export const Combobox = ({
               }
             }}
             placeholder={placeholder}
-            className="w-full rounded-md border border-gray-300 dark:border-white/10 bg-white dark:bg-dark-input-bg py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-white/5 dark:disabled:text-gray-500"
+            className="w-full rounded-md border border-input-border bg-input-bg text-input-text placeholder:text-input-placeholder py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm disabled:bg-surface-card/70 disabled:text-gray-500"
           />
           {hasValue ? (
             <button
@@ -310,7 +310,7 @@ export const Combobox = ({
             role="listbox"
             aria-multiselectable={isMultiple}
             tabIndex={-1}
-            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line-default bg-surface-overlay py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
             onMouseDown={(event) => {
               event.preventDefault();
             }}
@@ -342,7 +342,7 @@ export const Combobox = ({
                     'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
                     (isSelected || isFocused)
                       ? 'bg-accent-50 text-gray-900 dark:bg-accent-500/10 dark:text-white'
-                      : 'text-gray-900 dark:text-gray-100 hover:bg-accent-50/70 dark:hover:bg-white/5'
+                      : 'text-input-text hover:bg-surface-card/70'
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-3">

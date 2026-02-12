@@ -249,7 +249,7 @@ export const LinkMatterModal = ({
             id="matter-link-select"
             value={selectedMatterId}
             onChange={(event) => setSelectedMatterId(event.currentTarget.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-card-bg px-3 py-2 text-sm text-gray-900 dark:text-white"
+            className="w-full rounded-lg border border-input-border bg-input-bg px-3 py-2 text-sm text-input-text"
             disabled={loadingState !== 'idle' || saving}
           >
             <option value="">No matter</option>

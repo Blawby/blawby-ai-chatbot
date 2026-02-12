@@ -124,7 +124,7 @@ const MessageComposer = ({
 
   return (
     <form 
-      className="pl-4 pr-4 pb-2 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md" 
+      className="pl-4 pr-4 pb-2 bg-surface-base h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md" 
       aria-label="Message composition"
       onSubmit={(e) => {
         e.preventDefault();

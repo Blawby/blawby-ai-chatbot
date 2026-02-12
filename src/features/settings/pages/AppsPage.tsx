@@ -32,7 +32,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
               label={app.name}
               labelNode={(
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-dark-bg flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-lg bg-surface-card flex items-center justify-center overflow-hidden">
                     {app.logo ? (
                       <img
                         src={app.logo}
@@ -46,7 +46,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-base font-medium text-gray-900 dark:text-gray-100 truncate">{app.name}</p>
+                      <p className="text-base font-medium text-input-text truncate">{app.name}</p>
                       {app.connected && (
                         <SettingsBadge variant="success">
                           <CheckBadgeIcon className="w-4 h-4" aria-hidden="true" />

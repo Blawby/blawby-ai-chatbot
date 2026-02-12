@@ -94,10 +94,10 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const canComplete = requiredCompleted === requiredCount;
 
   return (
-    <div className="bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg p-6 max-w-2xl">
+    <div className="bg-surface-base border border-line-default rounded-lg p-6 max-w-2xl shadow-card">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        <h3 className="text-lg font-semibold text-input-text mb-2">
           Document Checklist for {matterType}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -121,7 +121,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
             className={`border rounded-lg p-4 transition-colors ${
               dragOverId === doc.id 
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                : 'border-gray-200 dark:border-dark-border'
+                : 'border-line-default'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
@@ -134,7 +134,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
               {getStatusIcon(doc.status, doc.required)}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-medium text-gray-900 dark:text-white">
+                  <h4 className="font-medium text-input-text">
                     {doc.name}
                   </h4>
                   {doc.required && (
@@ -147,7 +147,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                       : doc.status === 'pending'
                       ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      : 'bg-surface-card text-gray-600 dark:text-gray-400'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
                   </span>
@@ -215,7 +215,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-dark-border">
+      <div className="flex items-center justify-between pt-4 border-t border-line-default">
         <Button
           variant="ghost"
           onClick={onSkip}

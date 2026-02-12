@@ -146,7 +146,7 @@ function AppShell() {
       } catch (error) {
         try {
           window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-        } catch (innerError) {
+        } catch (_innerError) {
           // Ignore secondary failure
         }
         if (import.meta.env.DEV) {

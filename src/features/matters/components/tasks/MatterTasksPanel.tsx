@@ -89,10 +89,10 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
   const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'completed'), [tasks]);
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-      <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
+      <header className="flex items-center justify-between border-b border-line-default px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Tasks</h3>
+          <h3 className="text-sm font-semibold text-input-text">Tasks</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Manage milestones and to-dos for this matter.
           </p>
@@ -107,7 +107,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
           No tasks yet. Add a task to track milestone progress.
         </div>
       ) : (
-        <div className="divide-y divide-gray-200 dark:divide-white/10">
+        <div className="divide-y divide-line-default">
           {activeTasks.map((task) => {
             const assignee = task.assigneeId
               ? mockAssignees.find((candidate) => candidate.id === task.assigneeId) ?? null
@@ -115,7 +115,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
             return (
               <div
                 key={task.id}
-                className="px-6 py-5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                className="px-6 py-5 hover:bg-surface-card/70 transition-colors"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <button
@@ -125,7 +125,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
-                        <p className="text-sm font-semibold leading-6 text-gray-900 dark:text-white">
+                        <p className="text-sm font-semibold leading-6 text-input-text">
                           {task.title}
                         </p>
                         <span
@@ -149,8 +149,8 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                         <div className="flex flex-wrap items-center gap-2">
                           <span>Assigned:</span>
                           {assignee ? (
-                            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
-                              <Avatar name={assignee.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                            <span className="inline-flex items-center gap-2 rounded-full border border-line-default px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
+                              <Avatar name={assignee.name} size="xs" className="bg-surface-card" />
                               {assignee.name}
                             </span>
                           ) : (
@@ -186,7 +186,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                               onSelect={() => handleAssign(task.id, assigneeOption.id)}
                             >
                               <span className="flex items-center gap-2">
-                                <Avatar name={assigneeOption.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                                <Avatar name={assigneeOption.name} size="xs" className="bg-surface-card" />
                                 {assigneeOption.name}
                               </span>
                             </DropdownMenuItem>
@@ -227,7 +227,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
           })}
 
           {completedTasks.length > 0 && (
-            <div className="border-t border-gray-200 dark:border-white/10">
+            <div className="border-t border-line-default">
               <div className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 Completed
               </div>
@@ -238,7 +238,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                 return (
                   <div
                     key={task.id}
-                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-surface-card/70 transition-colors"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <button
@@ -272,8 +272,8 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                             <div className="flex flex-wrap items-center gap-2">
                               <span>Assigned:</span>
                               {assignee ? (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
-                                  <Avatar name={assignee.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                                <span className="inline-flex items-center gap-2 rounded-full border border-line-default px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
+                                  <Avatar name={assignee.name} size="xs" className="bg-surface-card" />
                                   {assignee.name}
                                 </span>
                               ) : (
@@ -309,7 +309,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                                   onSelect={() => handleAssign(task.id, assigneeOption.id)}
                                 >
                                   <span className="flex items-center gap-2">
-                                    <Avatar name={assigneeOption.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                                    <Avatar name={assigneeOption.name} size="xs" className="bg-surface-card" />
                                     {assigneeOption.name}
                                   </span>
                                 </DropdownMenuItem>

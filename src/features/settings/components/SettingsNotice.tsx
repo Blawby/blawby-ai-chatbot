@@ -20,7 +20,7 @@ export const SettingsNotice = ({
   'aria-live': ariaLive
 }: SettingsNoticeProps) => {
   const variantClasses: Record<SettingsNoticeVariant, string> = {
-    info: 'bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300',
+    info: 'bg-surface-card border border-line-default text-gray-700 dark:text-gray-300',
     warning: 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200',
     danger: 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
   };

@@ -50,7 +50,7 @@ export const SidebarContent = ({
 }: SidebarContentProps) => {
 
   return (
-    <div className={`flex flex-col h-full bg-light-card-bg dark:bg-dark-card-bg transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
+    <div className={`flex flex-col h-full bg-surface-card transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
       {/* Header Section */}
       <SidebarHeader
         practiceConfig={practiceConfig}
