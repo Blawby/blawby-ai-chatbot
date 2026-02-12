@@ -53,14 +53,10 @@ export const PracticeSetup = ({
     'shadow-[0_12px_30px_rgba(15,23,42,0.08)]',
     'dark:border-white/10 dark:bg-white/10',
     'dark:shadow-[0_18px_40px_rgba(0,0,0,0.35)]',
-    '[&_input]:bg-white/60 [&_input]:border-white/40 [&_input]:shadow-[0_8px_20px_rgba(15,23,42,0.05)]',
-    '[&_textarea]:bg-white/60 [&_textarea]:border-white/40 [&_textarea]:shadow-[0_8px_20px_rgba(15,23,42,0.05)]',
-    '[&_select]:bg-white/60 [&_select]:border-white/40',
-    'dark:[&_input]:bg-white/10 dark:[&_textarea]:bg-white/10 dark:[&_select]:bg-white/10',
-    'dark:[&_input]:border-white/10 dark:[&_textarea]:border-white/10 dark:[&_select]:border-white/10',
-    '[&_input::placeholder]:text-gray-500/80 [&_textarea::placeholder]:text-gray-500/80',
-    'dark:[&_input::placeholder]:text-white/50 dark:[&_textarea::placeholder]:text-white/50'
   ].join(' ');
+
+  const inputGlassClass = 'bg-white/60 border-white/40 shadow-[0_8px_20px_rgba(15,23,42,0.05)] dark:bg-white/10 dark:border-white/10 placeholder:text-gray-500/80 dark:placeholder:text-white/50';
+
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: '',
     slug: '',
@@ -250,12 +246,14 @@ export const PracticeSetup = ({
               value={basicsDraft.name}
               onChange={(value) => setBasicsDraft((prev) => ({ ...prev, name: value }))}
               placeholder="Blawby & Co."
+              className={inputGlassClass}
             />
             <Input
               label="Public slug"
               value={basicsDraft.slug}
               onChange={(value) => setBasicsDraft((prev) => ({ ...prev, slug: value }))}
               placeholder="your-firm"
+              className={inputGlassClass}
             />
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -282,6 +280,7 @@ export const PracticeSetup = ({
                 introLabel="Intro message"
                 introPlaceholder="Welcome to our firm. How can we help?"
                 disabled={isSavingBasics}
+                inputClassName={inputGlassClass}
               />
             </div>
           </div>
@@ -336,6 +335,7 @@ export const PracticeSetup = ({
               value={contactDraft.website}
               onChange={(value) => setContactDraft((prev) => ({ ...prev, website: value }))}
               placeholder="https://example.com"
+              className={inputGlassClass}
             />
             <div className="grid gap-4 lg:grid-cols-2">
               <Input
@@ -344,6 +344,7 @@ export const PracticeSetup = ({
                 value={contactDraft.businessEmail}
                 onChange={(value) => setContactDraft((prev) => ({ ...prev, businessEmail: value }))}
                 placeholder="you@example.com"
+                className={inputGlassClass}
               />
               <Input
                 label="Phone number"
@@ -351,6 +352,7 @@ export const PracticeSetup = ({
                 value={contactDraft.businessPhone}
                 onChange={(value) => setContactDraft((prev) => ({ ...prev, businessPhone: value }))}
                 placeholder="(555) 123-4567"
+                className={inputGlassClass}
               />
             </div>
             <AddressExperienceForm
@@ -368,6 +370,7 @@ export const PracticeSetup = ({
               showSubmitButton={false}
               variant="plain"
               disabled={isSavingContact}
+              inputClassName={inputGlassClass}
             />
           </div>
           <div className="mt-4 flex">

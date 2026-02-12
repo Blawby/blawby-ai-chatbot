@@ -64,6 +64,7 @@ export interface AddressExperienceFormProps {
     size?: 'sm' | 'md' | 'lg';
   };
   className?: string;
+  inputClassName?: string;
 }
 
 const STATUS_OPTIONS: SelectOption[] = [
@@ -247,6 +248,7 @@ export const AddressExperienceForm = ({
   placeholders = {},
   addressOptions = {},
   className = '',
+  inputClassName = '',
 }: AddressExperienceFormProps) => {
   const normalizedFields = useMemo(() => normalizeFieldList(fields), [fields]);
   const normalizedRequired = useMemo(
@@ -345,6 +347,7 @@ export const AddressExperienceForm = ({
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
                         showValidation={true}
+                        className={inputClassName}
                       />
                     );
                   case 'phone':
@@ -361,6 +364,7 @@ export const AddressExperienceForm = ({
                         format={true}
                         showCountryCode={true}
                         countryCode="+1"
+                        className={inputClassName}
                       />
                     );
                   case 'status':
@@ -372,6 +376,7 @@ export const AddressExperienceForm = ({
                         options={STATUS_OPTIONS}
                         placeholder={getPlaceholder('status')}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'currency':
@@ -383,6 +388,7 @@ export const AddressExperienceForm = ({
                         options={CURRENCY_OPTIONS}
                         placeholder={getPlaceholder('currency')}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'address': {
@@ -414,6 +420,7 @@ export const AddressExperienceForm = ({
                         showCountry={addressOptions.showCountry ?? true}
                         size={addressOptions.size || 'md'}
                         disabled={disabled}
+                        inputClassName={inputClassName}
                       />
                     );
                   }
@@ -428,6 +435,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'description':
@@ -443,6 +451,7 @@ export const AddressExperienceForm = ({
                         rows={4}
                         resize="vertical"
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'name':
@@ -457,6 +466,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                 }

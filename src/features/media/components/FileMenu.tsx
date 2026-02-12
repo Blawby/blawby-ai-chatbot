@@ -157,7 +157,6 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           bg-surface-card border border-line-default text-input-text
           hover:bg-surface-card/80
           disabled:opacity-60 disabled:cursor-not-allowed
-          dark:text-white
         "
         icon={<PlusIcon className="w-4 h-4" aria-hidden="true" />}
       />

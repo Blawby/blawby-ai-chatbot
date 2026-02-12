@@ -528,7 +528,7 @@ const MatterFormModalInner = ({
 
               {formState.paymentFrequency === 'milestone' && (
                 <div className="border-t border-line-default pt-6 space-y-4">
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Enter project milestones</h4>
+                  <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
 
                   {formState.milestones.length > 0 && (
                     <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-700 dark:text-gray-200">

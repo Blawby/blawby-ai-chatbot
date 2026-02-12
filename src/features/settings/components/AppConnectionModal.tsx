@@ -139,7 +139,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             labelNode={(
               <div className="flex items-center gap-2">
                 <LockClosedIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
-                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <span className="text-sm font-semibold text-input-text">
                   {t('settings:apps.clio.connectModal.control.title')}
                 </span>
               </div>
@@ -166,7 +166,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             labelNode={(
               <div className="flex items-center gap-2">
                 <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <span className="text-sm font-semibold text-input-text">
                   {t('settings:apps.clio.connectModal.risk.title')}
                 </span>
               </div>

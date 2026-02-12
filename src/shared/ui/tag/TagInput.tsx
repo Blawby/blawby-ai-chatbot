@@ -396,8 +396,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus-within:ring-accent-500 focus-within:border-accent-500',
-    error: 'border-red-300 focus-within:ring-red-500 focus-within:border-red-500',
-    success: 'border-green-300 focus-within:ring-green-500 focus-within:border-green-500'
+    error: 'border-red-500 dark:border-red-400 focus-within:ring-red-500 focus-within:border-red-500',
+    success: 'border-green-500 dark:border-green-400 focus-within:ring-green-500 focus-within:border-green-400'
   };
 
   return (

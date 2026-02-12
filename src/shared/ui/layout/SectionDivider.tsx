@@ -10,9 +10,9 @@ export const SectionDivider = ({
   variant = 'default'
 }: SectionDividerProps) => {
   const variantClasses = {
-    default: 'border-line-default',
+    default: 'border-line-default/80',
     subtle: 'border-line-default/50',
-    strong: 'border-line-default/80'
+    strong: 'border-line-default'
   };
 
   return (

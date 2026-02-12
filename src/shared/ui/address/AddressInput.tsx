@@ -23,6 +23,7 @@ export interface AddressInputProps {
   autocompleteUrl?: string;
   limit?: number;
   country?: string;
+  inputClassName?: string;
 }
 
 interface AutocompleteState {
@@ -53,7 +54,8 @@ export const AddressInput = ({
   enableAutocomplete = true,
   autocompleteUrl = '/api/geo/autocomplete',
   limit = 5, // Back to 5 results like Shopify
-  country = 'US' // Default to USA to favor US addresses,
+  country = 'US', // Default to USA to favor US addresses,
+  inputClassName
 }: AddressInputProps) => {
   const [autocompleteState, setAutocompleteState] = useState<AutocompleteState>({
     suggestions: [],
@@ -268,6 +270,7 @@ export const AddressInput = ({
             onSuggestionSelect: handleSuggestionSelect,
             limit,
           }}
+          inputClassName={inputClassName}
         />
       </div>
 

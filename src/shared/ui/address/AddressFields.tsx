@@ -34,6 +34,7 @@ export interface AddressFieldsProps {
     onSuggestionSelect: (suggestion: { id: string; label: string; formatted: string }) => void;
     limit?: number;
   };
+  inputClassName?: string;
 }
 
 // Common country options (ISO-2 codes)
@@ -122,6 +123,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   label,
   placeholder,
   streetAddressProps,
+  inputClassName,
 }, ref) => {
   // Default address value to prevent null issues
   const safeValue = value || { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
@@ -140,7 +142,8 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   const isRequired = (field: keyof Address) => !!required[field];
 
   const getInputClasses = (field: keyof Address) => cn(
-    hasError(field) && 'border-red-300 dark:border-red-600'
+    hasError(field) && 'border-red-300 dark:border-red-600',
+    inputClassName
   );
 
   const containerClasses = cn(

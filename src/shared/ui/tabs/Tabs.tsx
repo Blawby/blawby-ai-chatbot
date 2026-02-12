@@ -33,7 +33,7 @@ export const Tabs = ({ items, activeId, onChange, className = '', actions }: Tab
                 'pb-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'text-input-text border-b-2 border-input-text'
-                  : 'text-gray-500 hover:text-input-text dark:text-gray-400 dark:hover:text-gray-200'
+                  : 'text-gray-500 hover:text-input-text'
               )}
             >
               {item.label}

@@ -162,7 +162,7 @@ export const ActivityTimeline = ({
                     size="md"
                     className="ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-2 ring-white dark:text-white dark:ring-dark-card-bg">
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-2 ring-white dark:text-white dark:ring-surface-card">
                     <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
                   </span>
                 </div>

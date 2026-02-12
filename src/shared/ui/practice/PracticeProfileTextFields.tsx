@@ -18,6 +18,7 @@ interface PracticeProfileTextFieldsProps {
   introLabel?: string;
   introPlaceholder?: string;
   disabled?: boolean;
+  inputClassName?: string;
 }
 
 export const PracticeProfileTextFields = ({
@@ -33,7 +34,8 @@ export const PracticeProfileTextFields = ({
   descriptionPlaceholder = 'Share a brief description of your practice.',
   introLabel = 'Intro Message',
   introPlaceholder = 'Welcome to our firm. How can we help?',
-  disabled = false
+  disabled = false,
+  inputClassName
 }: PracticeProfileTextFieldsProps) => {
   return (
     <div className="space-y-4">
@@ -45,6 +47,7 @@ export const PracticeProfileTextFields = ({
           placeholder={descriptionPlaceholder}
           rows={descriptionRows}
           disabled={disabled}
+          className={inputClassName}
         />
       )}
 
@@ -56,6 +59,7 @@ export const PracticeProfileTextFields = ({
           placeholder={introPlaceholder}
           rows={introRows}
           disabled={disabled}
+          className={inputClassName}
         />
       )}
     </div>
