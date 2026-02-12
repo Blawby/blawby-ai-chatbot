@@ -104,7 +104,7 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
             options={STATUS_OPTIONS}
             onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
             aria-labelledby="matter-task-status-label"
-            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           />
         </div>
       </div>

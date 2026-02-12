@@ -75,7 +75,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 						src={file.url}
 						type={file.type}
 						alt={file.name}
-						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-lg border border-gray-200 dark:border-gray-700"
+						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-lg border border-line-default"
 						onClick={() => handleImageClick(file)}
 					/>
 				</div>
@@ -85,18 +85,18 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 			{documentFiles.map((file, index) => (
 				<div 
 					key={`doc-${index}`}
-					className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer my-2 max-w-[300px]"
+					className="flex items-center gap-2 p-2 rounded-lg bg-surface-card border border-line-default cursor-pointer my-2 max-w-[300px]"
 					onClick={() => handleDocumentClick(file)}
 					onKeyDown={(e) => handleKeyDown(e, file, handleDocumentClick)}
 					role="button"
 					tabIndex={0}
 					aria-label={`Open ${file.name}`}
 				>
-					<div className="w-8 h-8 rounded bg-gray-100 dark:bg-dark-hover flex items-center justify-center flex-shrink-0">
+					<div className="w-8 h-8 rounded bg-surface-base flex items-center justify-center flex-shrink-0">
 						{getDocumentIcon(file)}
 					</div>
 					<div className="flex-1 min-w-0">
-						<div className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
+						<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
 							{file.name.length > 25 ? `${file.name.substring(0, 25)}...` : file.name}
 						</div>
 						<div className="text-xs text-gray-500 dark:text-gray-400">{formatDocumentIconSize(file.size)}</div>

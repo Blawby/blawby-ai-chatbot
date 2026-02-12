@@ -16,7 +16,7 @@ interface MatterSummaryCardsProps {
   } | null;
 }
 
-const cardBase = 'rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4 sm:p-5';
+const cardBase = 'rounded-2xl border border-line-default bg-surface-card p-4 sm:p-5 shadow-card';
 const gridBase = 'grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
@@ -59,7 +59,7 @@ export const MatterSummaryCards = ({
       <section className={gridBase}>
         <div className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Billable time</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{billableDisplay}</p>
+          <p className="mt-2 text-lg font-semibold text-input-text">{billableDisplay}</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Based on recorded billable entries.
           </p>
@@ -79,7 +79,7 @@ export const MatterSummaryCards = ({
         </div>
         <div className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Contract&apos;s rate</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">$125.00 /hr</p>
+          <p className="mt-2 text-lg font-semibold text-input-text">$125.00 /hr</p>
           <button
             type="button"
             className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
@@ -91,12 +91,12 @@ export const MatterSummaryCards = ({
         </div>
         <div className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total time tracked</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{totalDisplay}</p>
+          <p className="mt-2 text-lg font-semibold text-input-text">{totalDisplay}</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Across all logged entries</p>
         </div>
         <div className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Quick actions</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">Time</p>
+          <p className="mt-2 text-lg font-semibold text-input-text">Time</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Add new entries or open the full timesheet.
           </p>
@@ -137,7 +137,7 @@ export const MatterSummaryCards = ({
         {cards.map((card) => (
           <div key={card.label} className={cardBase}>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-            <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
+            <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
             {card.helper ? (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{card.helper}</p>
             ) : null}
@@ -159,7 +159,7 @@ export const MatterSummaryCards = ({
       {messageCards.map((card) => (
         <div key={card.label} className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
+          <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
         </div>
       ))}
     </section>

@@ -122,7 +122,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           </svg>
         )}
         <div
-          className="absolute inset-1 overflow-hidden rounded-full border border-gray-200 bg-gray-100 dark:border-dark-border dark:bg-gray-800"
+          className="absolute inset-1 overflow-hidden rounded-full border border-line-default bg-surface-card"
           style={{ width: size, height: size, left: 4, top: 4 }}
         >
         {hasImage ? (
@@ -145,7 +145,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
             type="button"
             onClick={handleButtonClick}
             disabled={disabled}
-            className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50 disabled:cursor-not-allowed dark:bg-white/10 dark:text-white dark:shadow-none dark:ring-white/10 dark:hover:bg-white/20"
+            className="rounded-full bg-surface-card px-3 py-2 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-default transition hover:bg-surface-card/80 disabled:cursor-not-allowed"
           >
             {buttonLabel}
           </button>

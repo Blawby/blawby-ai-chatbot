@@ -123,7 +123,7 @@ export default function ConfirmationDialog({
               
               {/* Warning Items List */}
               {warningItems.length > 0 && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-4">
+                <div className="bg-surface-card rounded-lg p-3 mb-4">
                   <p className="text-sm text-gray-700 dark:text-gray-300">
                     <strong>This will permanently delete:</strong>
                   </p>
@@ -137,9 +137,9 @@ export default function ConfirmationDialog({
               
               {/* Confirmation Input */}
               <div className="space-y-2">
-                <label htmlFor="confirmation-input" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                <label htmlFor="confirmation-input" className="block text-sm font-medium text-input-text">
                   {confirmationLabel}
-                  <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded ml-2">
+                  <span className="font-mono text-sm bg-surface-card px-2 py-1 rounded ml-2">
                     {confirmationValue}
                   </span>
                 </label>
@@ -152,7 +152,7 @@ export default function ConfirmationDialog({
                   onFocus={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   placeholder={`Type "${confirmationValue}" to confirm`}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                     error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
                   }`}
                   disabled={isLoading}
@@ -175,7 +175,7 @@ export default function ConfirmationDialog({
                 {/* Password Input */}
                 {requirePassword && (
                   <div className="space-y-2 pt-4">
-                    <label htmlFor="confirmation-password" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <label htmlFor="confirmation-password" className="block text-sm font-medium text-input-text">
                       {passwordLabel}
                     </label>
                     <input
@@ -187,7 +187,7 @@ export default function ConfirmationDialog({
                       onFocus={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       placeholder={passwordPlaceholder}
-                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         passwordError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
                       }`}
                       disabled={isLoading}
@@ -206,7 +206,7 @@ export default function ConfirmationDialog({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-3 justify-end pt-4 border-t border-line-default">
           <Button
             type="button"
             variant="secondary"

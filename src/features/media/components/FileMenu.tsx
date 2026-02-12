@@ -154,11 +154,10 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-expanded={isOpen}
         className="
           w-8 h-8 rounded-full shadow
-          bg-light-message-bg-user border border-light-border text-light-text
-          hover:bg-light-hover
+          bg-surface-card border border-line-default text-input-text
+          hover:bg-surface-card/80
           disabled:opacity-60 disabled:cursor-not-allowed
-          dark:bg-dark-message-bg-user dark:border-dark-border dark:text-dark-text
-          dark:hover:bg-dark-hover
+          dark:text-white
         "
         icon={<PlusIcon className="w-4 h-4" aria-hidden="true" />}
       />
@@ -171,8 +170,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
             rounded-lg border p-1 shadow-lg transition-all duration-200
-            bg-light-input-bg border-light-border
-            dark:bg-dark-input-bg dark:border-dark-border
+            bg-surface-overlay border-line-default
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}
@@ -185,8 +183,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             onClick={handleFileClick}
             className="
               file-menu-item w-full px-3 py-3 rounded flex items-center justify-between
-              text-light-text hover:bg-light-hover
-              dark:text-dark-text dark:hover:bg-dark-hover
+              text-input-text hover:bg-surface-card/70
               text-xs sm:text-sm
             "
           >
@@ -201,9 +198,8 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             onClick={openCamera}
             className="
               file-menu-item w-full px-3 py-3 rounded flex items-center justify-between
-              text-light-text hover:bg-light-hover
-              dark:text-dark-text dark:hover:bg-dark-hover
-              border-t border-light-border dark:border-dark-border
+              text-input-text hover:bg-surface-card/70
+              border-t border-line-default
               text-xs sm:text-sm
             "
           >

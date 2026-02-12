@@ -149,7 +149,7 @@ export const ActivityTimeline = ({
             <div className="relative flex w-10 flex-none justify-center pt-0.5">
               <div
                 className={cn(
-                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-gray-200 dark:bg-white/15',
+                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-line-default',
                   isLast ? 'h-6' : '-bottom-6',
                   'top-0'
                 )}
@@ -160,14 +160,14 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-dark-card-bg dark:outline-white/10"
+                    className="ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-gray-700 ring-2 ring-white dark:bg-white/15 dark:text-white dark:ring-dark-card-bg">
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-2 ring-white dark:text-white dark:ring-dark-card-bg">
                     <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-gray-700 ring-0 dark:bg-dark-card-bg dark:text-white">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-0 dark:text-white">
                   {item.type === 'paid' ? (
                     <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-accent-500" />
                   ) : TYPE_ICONS[item.type] ? (
@@ -178,7 +178,7 @@ export const ActivityTimeline = ({
                       ) : null;
                     })()
                   ) : (
-                    <div className="h-1.5 w-1.5 rounded-full bg-gray-500 dark:bg-white/60" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-input-placeholder/80" />
                   )}
                 </div>
               )}
@@ -200,7 +200,7 @@ export const ActivityTimeline = ({
                           const target = event.currentTarget as HTMLTextAreaElement;
                           setEditValue(target?.value ?? '');
                         }}
-                        className="block w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-accent-500 dark:border-white/15 dark:bg-dark-card-bg dark:text-white"
+                        className="block w-full resize-none rounded-md border border-input-border bg-input-bg px-3 py-2 text-sm text-input-text shadow-sm outline-none focus:border-accent-500"
                         disabled={commentActionsDisabled || actionInFlightId === item.id}
                       />
                       <div className="flex gap-2">
@@ -220,8 +220,8 @@ export const ActivityTimeline = ({
                           onClick={cancelEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id}
                           className={cn(
-                            'rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700',
-                            'hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/15 dark:text-gray-200 dark:hover:bg-white/10'
+                            'rounded-md border border-line-default px-2.5 py-1.5 text-xs font-semibold text-gray-700',
+                            'hover:bg-surface-card/70 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-200'
                           )}
                         >
                           Cancel
@@ -307,10 +307,10 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-gray-800 dark:outline-white/10"
+          className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
         />
         <form className="relative flex-auto" onSubmit={handleSubmit}>
-          <div className="overflow-hidden rounded-lg pb-12 outline outline-1 -outline-offset-1 outline-gray-300 dark:bg-white/5 dark:outline-white/10 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent-500">
+          <div className="overflow-hidden rounded-lg pb-12 outline outline-1 -outline-offset-1 outline-line-default/70 bg-surface-card/60 dark:outline-white/10 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent-500">
             <label htmlFor="timeline-comment" className="sr-only">
               Add your comment
             </label>
@@ -320,7 +320,7 @@ export const ActivityTimeline = ({
               rows={2}
               placeholder={composerPlaceholder}
               disabled={composerDisabled || composerSubmitting}
-              className="block w-full resize-none bg-transparent px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm leading-6 dark:text-white dark:placeholder:text-gray-500"
+              className="block w-full resize-none bg-transparent px-3 py-1.5 text-base text-input-text placeholder:text-input-placeholder focus:outline-none sm:text-sm leading-6"
               value={resolvedValue}
               onInput={handleChange}
             />
@@ -356,8 +356,8 @@ export const ActivityTimeline = ({
               type="submit"
               disabled={isSubmitDisabled}
               className={cn(
-                'rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300',
-                'hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:shadow-none dark:ring-white/10 dark:hover:bg-white/20',
+                'rounded-md bg-input-bg px-2.5 py-1.5 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-default',
+                'hover:bg-surface-card/70 dark:shadow-none',
                 isSubmitDisabled && 'opacity-60 cursor-not-allowed'
               )}
             >

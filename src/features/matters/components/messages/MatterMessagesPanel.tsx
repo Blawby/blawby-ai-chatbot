@@ -68,11 +68,11 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
   ).replace(/\/+$/, '');
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
         <div>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Linked conversations</p>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">{matter.title}</h3>
+          <h3 className="text-base font-semibold text-input-text">{matter.title}</h3>
         </div>
         <Button
           variant="secondary"
@@ -95,11 +95,11 @@ export const MatterMessagesPanel = ({ matter, conversationBasePath }: MatterMess
           </div>
         )}
         {!loading && !error && sortedConversations.length > 0 && (
-          <div className="divide-y divide-gray-200 dark:divide-gray-800">
+          <div className="divide-y divide-line-default">
             {sortedConversations.map((conversation) => (
               <div key={conversation.id} className="py-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium text-input-text">
                     Conversation {conversation.id.slice(0, 8)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">

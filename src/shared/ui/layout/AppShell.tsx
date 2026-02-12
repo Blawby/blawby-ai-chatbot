@@ -33,7 +33,7 @@ export const AppShell = ({
     : 'grid-rows-[auto,1fr,auto] md:grid-cols-1 md:grid-rows-[auto,1fr,auto]';
 
   return (
-    <div className={cn('grid min-h-dvh w-full bg-white dark:bg-dark-bg', gridClassName, className)}>
+    <div className={cn('grid min-h-dvh w-full bg-surface-base', gridClassName, className)}>
       {hasHeader && (
         <header className={cn('col-span-full', headerClassName)}>
           {header}
@@ -43,7 +43,7 @@ export const AppShell = ({
       {hasSidebar && (
         <aside
           className={cn(
-            'row-start-2 min-h-0 overflow-y-auto border-r border-gray-200 dark:border-white/10 hidden md:block',
+            'row-start-2 min-h-0 overflow-y-auto border-r border-line-default hidden md:block',
             sidebarClassName
           )}
         >

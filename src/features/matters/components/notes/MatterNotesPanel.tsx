@@ -158,10 +158,10 @@ export const MatterNotesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notes</h3>
+          <h3 className="text-sm font-semibold text-input-text">Notes</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {sortedNotes.length} notes recorded
           </p>
@@ -184,11 +184,11 @@ export const MatterNotesPanel = ({
           No notes yet. Capture internal updates, decisions, or next steps tied to this matter.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-white/10">
+        <ul className="divide-y divide-line-default">
           {sortedNotes.map((note) => (
             <li
               key={note.id}
-              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-surface-card/70 transition-colors"
             >
               <button
                 type="button"
@@ -199,11 +199,11 @@ export const MatterNotesPanel = ({
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm font-semibold text-input-text">
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                      <span className="rounded-full bg-surface-card px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-300">
                         {note.author.role}
                       </span>
                     )}

@@ -91,8 +91,8 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
             {columns.map((column, index) => {
               const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
               const baseHeaderClass = isPrimary
-                ? 'py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 sm:pl-0 dark:text-white'
-                : 'px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white';
+                ? 'py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-input-text sm:pl-0'
+                : 'px-3 py-3.5 text-left text-sm font-semibold text-input-text';
               return (
                 <th
                   key={column.id}
@@ -110,7 +110,7 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 bg-white dark:divide-white/10 dark:bg-dark-bg">
+        <tbody className="divide-y divide-line-default bg-surface-base">
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">
@@ -125,14 +125,14 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
                   key={row.id}
                   className={cn(
                     'h-20',
-                    isClickable && 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5',
+                    isClickable && 'cursor-pointer hover:bg-surface-card/70',
                     row.className
                   )}
                 >
                   {columns.map((column, index) => {
                     const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
                   const baseCellClass = isPrimary
-                    ? 'w-full max-w-0 py-3 pr-3 pl-4 text-sm font-medium text-gray-900 sm:w-auto sm:max-w-none sm:pl-0 dark:text-white'
+                    ? 'w-full max-w-0 py-3 pr-3 pl-4 text-sm font-medium text-input-text sm:w-auto sm:max-w-none sm:pl-0'
                     : 'px-3 py-3 text-sm text-gray-500 dark:text-gray-400';
                     const cellContent = row.isPlaceholder
                       ? '\u00A0'

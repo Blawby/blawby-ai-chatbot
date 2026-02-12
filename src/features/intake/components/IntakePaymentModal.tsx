@@ -146,7 +146,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
           />
         </Elements>
       ) : isValidCheckoutSession ? (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+        <div className="rounded-lg border border-line-default bg-surface-base px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
           <p className="mb-4 text-gray-600 dark:text-gray-300">
             One more step: click below to complete your payment on Stripe&apos;s secure checkout page.
           </p>
@@ -165,7 +165,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
           </Button>
         </div>
       ) : isValidPaymentLink ? (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+        <div className="rounded-lg border border-line-default bg-surface-base px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
           <Button
             variant="primary"
             className="w-full"
@@ -179,11 +179,11 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
           </Button>
         </div>
       ) : !STRIPE_PUBLIC_KEY || !stripePromise ? (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="rounded-lg border border-line-default bg-surface-card px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
           Payments are unavailable right now. Please try again later.
         </div>
       ) : (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="rounded-lg border border-line-default bg-surface-card px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
           Missing payment details. Please return to the intake chat and try again.
         </div>
       )}

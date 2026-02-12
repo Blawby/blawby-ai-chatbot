@@ -97,7 +97,7 @@ export const SettingsLayout = ({
           <motion.div
             key="settings-panel"
             ref={dropdownRef}
-            className={`fixed bg-white dark:bg-dark-bg overflow-hidden rounded-lg shadow-2xl settings-panel ${
+            className={`fixed bg-surface-base overflow-hidden rounded-lg shadow-2xl settings-panel ${
               isMobile 
                 ? 'inset-x-0 bottom-0 top-0' // Full screen on mobile
                 : 'top-8 left-8 right-8 bottom-8 max-w-4xl mx-auto' // Centered modal on desktop

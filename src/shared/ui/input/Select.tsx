@@ -164,14 +164,14 @@ export const Select = ({
           aria-controls={listboxId}
           aria-disabled={disabled}
           className={cn(
-            'w-full flex items-center justify-between px-0 py-0 text-sm text-gray-900 dark:text-gray-100',
+            'w-full flex items-center justify-between px-0 py-0 text-sm text-input-text',
             'hover:bg-transparent focus:outline-none',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
         >
           <div className="flex flex-col items-start">
             {displayLabel && (
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{displayLabel}</span>
+              <span className="text-sm font-medium text-input-text">{displayLabel}</span>
             )}
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {selectedOption?.label || displayPlaceholder}
@@ -189,19 +189,19 @@ export const Select = ({
             id={listboxId}
             role="listbox"
             className={cn(
-              "absolute left-0 right-0 bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg z-50",
+              "absolute left-0 right-0 bg-surface-overlay border border-line-default rounded-lg shadow-lg z-50",
               direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
             )}
           >
             <div className="py-1">
               {searchable && (
-                <div className="px-3 py-2 border-b border-gray-200 dark:border-dark-border">
+                <div className="px-3 py-2 border-b border-line-default">
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                     placeholder="Search..."
-                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-dark-border rounded bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
+                    className="w-full px-2 py-1 text-sm border border-input-border rounded bg-input-bg text-input-text placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500"
                     ref={searchInputRef}
                   />
                 </div>
@@ -221,11 +221,11 @@ export const Select = ({
                     setSearchTerm('');
                   }}
                   className={cn(
-                    'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-                    'hover:bg-gray-50 dark:hover:bg-dark-bg flex items-center justify-between',
-                    'focus:outline-none focus:bg-gray-50 dark:focus:bg-dark-bg',
+                    'w-full text-left px-3 py-2 text-sm text-input-text',
+                    'hover:bg-surface-card/70 flex items-center justify-between',
+                    'focus:outline-none focus:bg-surface-card/70',
                     value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                    focusedIndex === index && 'bg-gray-100 dark:bg-dark-bg'
+                    focusedIndex === index && 'bg-surface-card/70'
                   )}
                 >
                   <span>{option.label}</span>
@@ -251,7 +251,7 @@ export const Select = ({
   return (
     <div className="w-full relative" ref={dropdownRef}>
       {displayLabel && (
-        <label htmlFor={dropdownId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={dropdownId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
         </label>
       )}
@@ -267,8 +267,8 @@ export const Select = ({
         aria-controls={listboxId}
         aria-disabled={disabled}
         className={cn(
-          'w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 rounded-md border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-input-bg',
-          'hover:bg-gray-50 dark:hover:bg-dark-bg focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500',
+          'w-full flex items-center gap-2 px-3 py-2 text-sm text-input-text rounded-md border border-input-border bg-input-bg',
+          'hover:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500',
           'transition-colors',
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -287,19 +287,19 @@ export const Select = ({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute right-0 min-w-48 w-full bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-dark-border rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
+            "absolute right-0 min-w-48 w-full bg-surface-overlay border border-line-default rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >
           <div className="py-1 overflow-y-auto">
             {searchable && (
-              <div className="px-3 py-2 border-b border-gray-200 dark:border-dark-border">
+              <div className="px-3 py-2 border-b border-line-default">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                   placeholder="Search..."
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-dark-border rounded bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
+                  className="w-full px-2 py-1 text-sm border border-input-border rounded bg-input-bg text-input-text placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500"
                   ref={searchInputRef}
                 />
               </div>
@@ -319,11 +319,11 @@ export const Select = ({
                   setSearchTerm('');
                 }}
                 className={cn(
-                  'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-                  'hover:bg-gray-50 dark:hover:bg-dark-bg flex items-center justify-between',
-                  'focus:outline-none focus:bg-gray-50 dark:focus:bg-dark-bg',
+                  'w-full text-left px-3 py-2 text-sm text-input-text',
+                  'hover:bg-surface-card/70 flex items-center justify-between',
+                  'focus:outline-none focus:bg-surface-card/70',
                   value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                  focusedIndex === index && 'bg-gray-100 dark:bg-dark-bg'
+                  focusedIndex === index && 'bg-surface-card/70'
                 )}
               >
                 <span>{option.label}</span>

@@ -45,7 +45,7 @@ export const OrderSummaryCard = ({
   const percentage = vatPercentage * 100;
   const vatPercentageDisplay = `${percentage.toFixed(percentage % 1 === 0 ? 0 : 2)}%`;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
+    <div className="bg-surface-card border border-line-default rounded-lg p-6 shadow-card">
       <h3 className="text-lg font-semibold mb-4">Order Summary</h3>
       
       <div className="space-y-3 mb-6">

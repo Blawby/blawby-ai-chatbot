@@ -12,6 +12,22 @@ export default {
       },
       // Custom color scheme - keeping your custom colors
       colors: {
+        surface: {
+          base: 'rgb(var(--surface-base) / <alpha-value>)',
+          card: 'rgb(var(--surface-card) / <alpha-value>)',
+          glass: 'rgb(var(--surface-glass) / <alpha-value>)',
+          overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
+        },
+        line: {
+          default: 'rgb(var(--line-default) / <alpha-value>)',
+          glass: 'rgb(var(--line-glass) / <alpha-value>)',
+        },
+        input: {
+          bg: 'rgb(var(--input-bg) / <alpha-value>)',
+          border: 'rgb(var(--input-border) / <alpha-value>)',
+          text: 'rgb(var(--input-text) / <alpha-value>)',
+          placeholder: 'rgb(var(--input-placeholder) / <alpha-value>)',
+        },
         // Primary colors (brand colors - dark blue theme)
         primary: {
           50: '#f0f4f8',
@@ -98,6 +114,10 @@ export default {
           'file-type-document': '#3b82f6',
           'file-type-default': '#6b7280',
         },
+      },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        glass: 'var(--shadow-glass)',
       },
 
     },

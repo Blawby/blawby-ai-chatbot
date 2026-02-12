@@ -348,14 +348,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const shouldFrame = resolvedLayoutMode !== 'desktop';
   const containerClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col min-h-0 flex-1 h-full w-full m-0 p-0 relative overflow-hidden'
-    : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;
+    : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-surface-base' : 'bg-surface-base'}`;
   const mainClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
-    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-white dark:bg-dark-bg'}`;
+    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-surface-base'}`;
   const frameClassName = !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full'
     : (isPublicWorkspace
-      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden'
+      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-surface-base shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-line-default overflow-hidden'
       : 'flex flex-col flex-1 min-h-0 w-full');
 
   const handleReply = (target: ReplyTarget) => {
@@ -422,7 +422,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             </div>
 
             {shouldShowContactFormFooter ? (
-              <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
+              <div className="pl-4 pr-4 pb-3 bg-surface-base h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
                 <Button
                   type="submit"
                   form={contactFormId}

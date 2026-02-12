@@ -45,7 +45,7 @@ export const Switch = ({
       <div className="flex-1 min-w-0">
         {label && (
           <div
-            className="text-sm font-medium text-gray-900 dark:text-gray-100"
+            className="text-sm font-medium text-input-text"
             id={id ? `${id}-label` : undefined}
           >
             {label}
@@ -65,7 +65,7 @@ export const Switch = ({
           sizeClasses[size],
           value 
             ? 'bg-accent-600 focus:ring-accent-500' 
-            : 'bg-gray-200 dark:bg-gray-700 focus:ring-gray-500',
+            : 'bg-surface-card focus:ring-gray-500',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
         onClick={() => !disabled && onChange(!value)}
@@ -77,7 +77,7 @@ export const Switch = ({
       >
         <span
           className={cn(
-            'inline-block transform rounded-full bg-white transition-transform duration-200 ease-in-out',
+            'inline-block transform rounded-full bg-input-bg transition-transform duration-200 ease-in-out',
             thumbSizeClasses[size],
             thumbTranslateClasses[size]
           )}

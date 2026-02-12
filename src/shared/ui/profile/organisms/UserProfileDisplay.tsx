@@ -192,7 +192,7 @@ export const UserProfileDisplay = ({
   // Handle session fetch errors
   if (error) {
     return (
-      <div className={`p-2 border-t border-gray-200 dark:border-dark-border`}>
+      <div className={`p-2 border-t border-line-default`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
           <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
             <UserIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
@@ -214,10 +214,10 @@ export const UserProfileDisplay = ({
 
   if (!user) {
     return (
-      <div className={`p-2 border-t border-gray-200 dark:border-dark-border`}>
+      <div className={`p-2 border-t border-line-default`}>
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-gray-700 dark:text-gray-300 hover:bg-surface-card/70 ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'
@@ -233,7 +233,7 @@ export const UserProfileDisplay = ({
   }
 
   return (
-    <div className={`p-2 border-t border-gray-200 dark:border-dark-border w-full overflow-visible`}>
+    <div className={`p-2 border-t border-line-default w-full overflow-visible`}>
       <div className="relative w-full max-w-full" ref={dropdownRef}>
         <ProfileButton
           name={user.name}

@@ -267,9 +267,9 @@ export const SettingsPage = ({
   );
 
   const mobileHeader = currentPage === 'navigation' ? (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-line-default bg-surface-base">
       <div className="flex-1" />
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings:navigation.title')}</h1>
+      <h1 className="text-lg font-semibold text-input-text">{t('settings:navigation.title')}</h1>
       <div className="flex-1 flex justify-end">
         <Button
           variant="icon"
@@ -281,7 +281,7 @@ export const SettingsPage = ({
       </div>
     </div>
   ) : (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-line-default bg-surface-base">
       <Button
         variant="icon"
         size="icon"
@@ -296,7 +296,7 @@ export const SettingsPage = ({
         icon={<ArrowLeftIcon className="w-5 h-5" />}
       />
       <div className="flex-1 flex justify-center">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h1 className="text-lg font-semibold text-input-text">
           {mobileTitle}
         </h1>
       </div>
@@ -306,8 +306,8 @@ export const SettingsPage = ({
 
   const desktopTitle = currentPage === 'navigation' ? t('settings:navigation.title') : mobileTitle;
   const desktopHeader = (
-    <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-white/10 bg-light-bg dark:bg-dark-bg">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{desktopTitle}</h1>
+    <div className="flex items-center justify-between px-6 py-3 border-b border-line-default bg-surface-base">
+      <h1 className="text-lg font-semibold text-input-text">{desktopTitle}</h1>
       <Button
         variant="icon"
         size="icon"
@@ -320,7 +320,7 @@ export const SettingsPage = ({
 
   const mobileContent = currentPage === 'navigation'
     ? (
-      <div className="flex-1 overflow-y-auto bg-light-bg dark:bg-dark-bg">
+      <div className="flex-1 overflow-y-auto bg-surface-base">
         <div className="px-4 py-2">
           {navigationList}
         </div>
@@ -337,7 +337,7 @@ export const SettingsPage = ({
       className="h-full min-h-0"
       primary={desktopNavigation}
       secondary={contentPanel}
-      primaryClassName="min-h-0 bg-light-bg dark:bg-dark-bg"
+      primaryClassName="min-h-0 bg-surface-base"
       secondaryClassName="min-h-0"
     />
   );
@@ -357,7 +357,7 @@ export const SettingsPage = ({
 
   return (
     <AppShell
-      className={cn('bg-light-bg dark:bg-dark-bg', className)}
+      className={cn('bg-surface-base', className)}
       header={isMobile ? mobileHeader : desktopHeader}
       main={(
         <AnimatePresence mode="wait" initial={false}>

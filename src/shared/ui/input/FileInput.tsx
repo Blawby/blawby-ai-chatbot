@@ -89,9 +89,9 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const handleFileChange = useCallback((e: Event) => {
@@ -147,7 +147,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -161,7 +161,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         className={cn(
           'relative border-2 border-dashed rounded-lg transition-colors',
           'hover:border-accent-400 dark:hover:border-accent-500',
-          isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-gray-300 dark:border-gray-600',
+          isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-input-border',
           variantClasses[variant],
           disabled && 'opacity-50 cursor-not-allowed',
           className

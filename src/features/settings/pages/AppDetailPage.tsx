@@ -98,7 +98,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           label={app.name}
           labelNode={(
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-white dark:bg-dark-bg flex items-center justify-center border border-gray-200 dark:border-dark-border overflow-hidden">
+              <div className="w-16 h-16 rounded-full bg-surface-base flex items-center justify-center border border-line-default overflow-hidden">
                 {app.logo ? (
                   <img
                     src={app.logo}
@@ -111,7 +111,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{app.name}</h2>
+                <h2 className="text-2xl font-bold text-input-text">{app.name}</h2>
                 {isComingSoon && (
                   <SettingsBadge variant="warning">
                     {t('settings:apps.comingSoon')}

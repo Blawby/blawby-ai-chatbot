@@ -94,15 +94,15 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="flex flex-col h-full max-h-[90vh] w-full max-w-md mx-auto bg-white dark:bg-dark-bg"
+        className="flex flex-col h-full max-h-[90vh] w-full max-w-md mx-auto bg-surface-base"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-dark-bg flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-surface-card flex items-center justify-center">
               <PuzzlePieceIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" aria-hidden="true" />
             </div>
-            <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 id={titleId} className="text-lg font-semibold text-input-text">
               {t('settings:apps.clio.connectModal.title', { app: app.name })}
             </h2>
           </div>
@@ -124,7 +124,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             labelNode={(
               <div className="flex items-center gap-2">
                 <ShieldCheckIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
-                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <span className="text-sm font-semibold text-input-text">
                   {t('settings:apps.clio.connectModal.permissions.title')}
                 </span>
               </div>

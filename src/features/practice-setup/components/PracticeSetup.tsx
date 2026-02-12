@@ -47,6 +47,20 @@ export const PracticeSetup = ({
   logoUploadProgress,
   onLogoChange
 }: PracticeSetupProps) => {
+  const glassCardClass = [
+    'rounded-3xl border p-4 shadow-sm sm:p-5',
+    'border-white/40 bg-white/70 backdrop-blur-2xl saturate-150',
+    'shadow-[0_12px_30px_rgba(15,23,42,0.08)]',
+    'dark:border-white/10 dark:bg-white/10',
+    'dark:shadow-[0_18px_40px_rgba(0,0,0,0.35)]',
+    '[&_input]:bg-white/60 [&_input]:border-white/40 [&_input]:shadow-[0_8px_20px_rgba(15,23,42,0.05)]',
+    '[&_textarea]:bg-white/60 [&_textarea]:border-white/40 [&_textarea]:shadow-[0_8px_20px_rgba(15,23,42,0.05)]',
+    '[&_select]:bg-white/60 [&_select]:border-white/40',
+    'dark:[&_input]:bg-white/10 dark:[&_textarea]:bg-white/10 dark:[&_select]:bg-white/10',
+    'dark:[&_input]:border-white/10 dark:[&_textarea]:border-white/10 dark:[&_select]:border-white/10',
+    '[&_input::placeholder]:text-gray-500/80 [&_textarea::placeholder]:text-gray-500/80',
+    'dark:[&_input::placeholder]:text-white/50 dark:[&_textarea::placeholder]:text-white/50'
+  ].join(' ');
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: '',
     slug: '',
@@ -200,7 +214,7 @@ export const PracticeSetup = ({
       className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
         complete
           ? 'bg-accent-100 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300'
-          : 'bg-gray-200 text-gray-700 dark:bg-white/10 dark:text-white/80'
+          : 'bg-surface-card text-gray-700 dark:text-white/80'
       }`}
     >
       {complete ? 'Done' : 'Action needed'}
@@ -222,7 +236,7 @@ export const PracticeSetup = ({
           </p>
         </header>
 
-        <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+        <section className={glassCardClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Profile</p>
@@ -307,7 +321,7 @@ export const PracticeSetup = ({
           )}
         </section>
 
-        <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+        <section className={glassCardClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Contact</p>
@@ -393,13 +407,13 @@ export const PracticeSetup = ({
         </section>
 
         {servicesSlot && (
-          <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+          <section className={glassCardClass}>
             {servicesSlot}
           </section>
         )}
 
         {payoutsSlot && (
-          <section className="rounded-3xl border border-light-border bg-light-card-bg p-4 shadow-sm dark:border-dark-border dark:bg-dark-card-bg sm:p-5">
+          <section className={glassCardClass}>
             {payoutsSlot}
           </section>
         )}

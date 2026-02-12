@@ -82,13 +82,13 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg bg-input-bg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     showControls && 'pr-20',
@@ -151,7 +151,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -183,8 +183,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               onClick={handleIncrement}
               disabled={disabled || !canIncrement}
               className={cn(
-                'flex items-center justify-center border-l border-gray-300 dark:border-gray-600 rounded-r-lg',
-                'hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'flex items-center justify-center border-l border-input-border rounded-r-lg',
+                'bg-input-bg hover:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-tr-lg'
@@ -197,8 +197,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               onClick={handleDecrement}
               disabled={disabled || !canDecrement}
               className={cn(
-                'flex items-center justify-center border-l border-t border-gray-300 dark:border-gray-600',
-                'hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'flex items-center justify-center border-l border-t border-input-border',
+                'bg-input-bg hover:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-br-lg'

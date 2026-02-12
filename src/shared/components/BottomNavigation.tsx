@@ -9,7 +9,7 @@ const BottomNavigation = ({
   onGoToChats
 }: BottomNavigationProps) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-bg border-t border-gray-200 dark:border-dark-border lg:hidden z-[1200]">
+    <div className="fixed bottom-0 left-0 right-0 bg-surface-base border-t border-line-default lg:hidden z-[1200]">
       <div className="flex items-center justify-center gap-4 p-3">
         <Button
           variant="primary"
