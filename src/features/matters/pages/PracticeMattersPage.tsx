@@ -1776,7 +1776,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       <Avatar
                         name={resolvedSelectedMatter.clientName}
                         size="xs"
-                        className="bg-surface-card text-gray-700"
+                        className="bg-surface-card text-gray-700 dark:text-gray-200"
                       />
                       {resolvedSelectedMatter.clientName}
                     </span>

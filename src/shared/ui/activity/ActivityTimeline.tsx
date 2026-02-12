@@ -178,7 +178,7 @@ export const ActivityTimeline = ({
                       ) : null;
                     })()
                   ) : (
-                    <div className="h-1.5 w-1.5 rounded-full bg-input-placeholder/80" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-700" />
                   )}
                 </div>
               )}

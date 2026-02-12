@@ -84,8 +84,8 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
+    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
   };
 
   const inputClasses = cn(

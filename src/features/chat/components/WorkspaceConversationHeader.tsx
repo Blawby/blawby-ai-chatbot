@@ -44,7 +44,7 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-surface-card/70 hover:text-gray-900 dark:text-gray-300"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-surface-card/70 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
         aria-label={t('workspace.header.back')}
       >
         <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />

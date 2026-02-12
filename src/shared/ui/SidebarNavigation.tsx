@@ -335,10 +335,10 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                   isAction
                     ? isDanger
                       ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30 focus:bg-red-50 dark:focus:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
-                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-dark-bg active:bg-gray-200 dark:active:bg-dark-bg focus:bg-gray-100 dark:focus:bg-dark-bg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                      : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80 focus:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
                     : isActive
-                      ? 'bg-surface-card/80 text-input-text focus:bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-dark-bg active:bg-gray-200 dark:active:bg-dark-bg focus:bg-gray-100 dark:focus:bg-dark-bg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                      ? 'bg-surface-card/80 text-input-text focus:bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
+                    : 'text-input-text hover:bg-surface-card/70 active:bg-surface-card/80 focus:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-bg'
                 )}
               >
                 <IconComponent className="w-5 h-5 flex-shrink-0" />

@@ -202,7 +202,7 @@ export const MatterExpensesPanel = ({
             return (
               <li
                 key={expense.id}
-                className="flex flex-wrap items-start justify-between gap-4 px-6 py-4 hover:bg-surface-card/70 transition-colors"
+                className="flex flex-wrap items-start justify-between gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
               >
                 <button
                   type="button"
