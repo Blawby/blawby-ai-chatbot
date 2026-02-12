@@ -37,7 +37,11 @@
         "blue": "ブルー",
         "green": "グリーン",
         "purple": "パープル",
-        "red": "レッド"
+        "red": "レッド",
+        "gold": "ゴールド",
+        "yellow": "黄色",
+        "pink": "ピンク",
+        "orange": "オレンジ"
       }
     },
     "language": {

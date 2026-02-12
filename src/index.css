@@ -53,8 +53,8 @@
     background-color: rgb(var(--surface-base));
     /* Subtle radial gradient overlay for depth */
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500) / 0.08), transparent 50%),
-      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600) / 0.05), transparent 50%);
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500) / 8%), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600) / 5%), transparent 50%);
     background-attachment: fixed;
   }
 

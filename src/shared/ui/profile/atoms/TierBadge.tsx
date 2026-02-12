@@ -28,7 +28,7 @@ export const TierBadge = ({ tier, variant = 'default', className = '' }: TierBad
 
   if (variant === 'enterprise') {
     return (
-      <span className={`px-2 py-1 text-xs font-medium text-input-placeholder glass-panel rounded-full flex-shrink-0 ${className}`}>
+      <span className={`px-2 py-1 text-xs font-medium text-input-placeholder bg-white/[0.08] backdrop-blur-2xl saturate-150 shadow-glass border border-white/[0.08] rounded-full flex-shrink-0 ${className}`}>
         {tierDisplay}
       </span>
     );

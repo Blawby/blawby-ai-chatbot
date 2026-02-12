@@ -66,23 +66,23 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     // Primary: Solid accent color for best contrast
     primary: 'bg-accent-600 dark:bg-accent-600 text-white border-accent-600/50 hover:bg-accent-700 hover:border-accent-700 active:bg-accent-800 focus:ring-accent-500/50 shadow-lg shadow-accent-500/20',
     
-    // Secondary: Pure glass with subtle border
-    secondary: 'bg-white/[0.05] text-input-text border-white/10 hover:bg-white/[0.12] hover:border-white/20 active:bg-white/[0.15] focus:ring-white/20 shadow-md',
+    // Secondary: Pure glass with subtle border - Light Mode: dark tint, Dark Mode: light tint
+    secondary: 'bg-black/5 dark:bg-white/[0.05] text-input-text border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/[0.12] hover:border-black/20 dark:hover:border-white/20 active:bg-black/15 dark:active:bg-white/[0.15] focus:ring-black/20 dark:focus:ring-white/20 shadow-md',
     
     // Ghost: Minimal glass, appears on hover
-    ghost: 'bg-transparent text-input-text border-transparent hover:bg-white/[0.08] hover:border-white/10 active:bg-white/[0.12] focus:ring-white/20',
+    ghost: 'bg-transparent text-input-text border-transparent hover:bg-black/5 dark:hover:bg-white/[0.08] hover:border-black/10 dark:hover:border-white/10 active:bg-black/10 dark:active:bg-white/[0.12] focus:ring-black/20 dark:focus:ring-white/20',
     
     // Icon: Same as ghost for icon buttons
-    icon: 'bg-transparent text-input-text border-transparent hover:bg-white/[0.08] hover:border-white/10 active:bg-white/[0.12] focus:ring-white/20',
+    icon: 'bg-transparent text-input-text border-transparent hover:bg-black/5 dark:hover:bg-white/[0.08] hover:border-black/10 dark:hover:border-white/10 active:bg-black/10 dark:active:bg-white/[0.12] focus:ring-black/20 dark:focus:ring-white/20',
     
-    // Inverted: Lighter glass for dark backgrounds
+    // Inverted: Lighter glass for dark backgrounds - kept mostly white-based as 'inverted' usually implies dark bg context, but adding fallback
     inverted: 'bg-white/10 text-white border-white/20 hover:bg-white/[0.15] hover:border-white/30 active:bg-white/20 focus:ring-white/30 shadow-md',
     
     // Danger: Higher opacity/solid fallback for red text visibility
     danger: 'bg-red-500/10 dark:bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200 hover:border-red-500/30 active:bg-red-500/30 focus:ring-red-500/50 shadow-sm',
     
     // Outline: Glass with defined border
-    outline: 'bg-white/[0.05] text-input-text border-input-border hover:bg-white/[0.12] hover:border-white/30 active:bg-white/[0.15] focus:ring-white/20 shadow-sm',
+    outline: 'bg-black/5 dark:bg-white/[0.05] text-input-text border-input-border hover:bg-black/10 dark:hover:bg-white/[0.12] hover:border-black/20 dark:hover:border-white/30 active:bg-black/15 dark:active:bg-white/[0.15] focus:ring-black/20 dark:focus:ring-white/20 shadow-sm',
     
     // Link: No glass, just text with accent color
     link: 'bg-transparent text-accent-600 dark:text-accent-400 border-transparent shadow-none hover:text-accent-700 dark:hover:text-accent-300 active:text-accent-500 focus:ring-accent-500/50 hover:underline'

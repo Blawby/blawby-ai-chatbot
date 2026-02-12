@@ -330,18 +330,16 @@ export const ActivityTimeline = ({
                 size="icon"
                 aria-label="Attach a file"
                 disabled={composerDisabled || composerSubmitting}
-              >
-                <PaperClipIcon aria-hidden="true" className="h-5 w-5" />
-              </Button>
+                icon={<PaperClipIcon aria-hidden="true" className="h-5 w-5" />}
+              />
               <Button
                 type="button"
                 variant="icon"
                 size="icon"
                 aria-label="Add a mood"
                 disabled={composerDisabled || composerSubmitting}
-              >
-                <FaceSmileIcon aria-hidden="true" className="h-5 w-5" />
-              </Button>
+                icon={<FaceSmileIcon aria-hidden="true" className="h-5 w-5" />}
+              />
             </div>
             <Button
               type="submit"

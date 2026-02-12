@@ -261,7 +261,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                       setEditMemberData(member);
                       setIsEditingMember(true);
                     }}
-                    className="text-input-placeholder"
+                    className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
                   >
                     {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
                   </Button>
