@@ -8,7 +8,7 @@ import { SettingSelect } from '@/features/settings/components/SettingSelect';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
-import { applyAccentColor, type AccentColor } from '@/shared/utils/accentColors';
+import { applyAccentColor, ACCENT_COLORS, type AccentColor } from '@/shared/utils/accentColors';
 
 export interface GeneralPageProps {
   isMobile?: boolean;
@@ -48,7 +48,10 @@ export const GeneralPage = ({
         const prefs = await getPreferencesCategory<GeneralPreferences>('general');
         if (!isMounted) return;
 
-        const savedAccentColor = (prefs?.accent_color as AccentColor) || 'gold';
+        // Validate against known accent colors
+        const savedAccentColor = (prefs?.accent_color && prefs.accent_color in ACCENT_COLORS) 
+          ? (prefs.accent_color as AccentColor) 
+          : 'gold';
         
         setSettings({
           theme: (prefs?.theme as 'light' | 'dark' | 'system') || 'system',

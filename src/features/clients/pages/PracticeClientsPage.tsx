@@ -126,8 +126,8 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
         : status === 'lead'
           ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
           : status === 'inactive'
-            ? 'bg-white/5 text-input-placeholder border border-white/10'
-            : 'bg-white/[0.02] text-input-placeholder border border-white/5'
+            ? 'bg-gray-100 text-slate-600 border border-gray-200 dark:bg-white/5 dark:text-input-placeholder dark:border-white/10'
+            : 'bg-gray-50 text-slate-500 border border-gray-100 dark:bg-white/[0.02] dark:text-input-placeholder dark:border-white/5'
     )}
   >
     {STATUS_LABELS[status]}
@@ -919,7 +919,7 @@ export const PracticeClientsPage = () => {
                         <Fragment key={letter}>
                           <li
                             data-letter={letter}
-                            className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder border-b border-line-glass/15"
+                            className="sticky top-0 z-10 bg-white/90 dark:bg-[#1a1b1e]/90 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-input-placeholder border-b border-line-glass/15"
                           >
                             {letter}
                           </li>

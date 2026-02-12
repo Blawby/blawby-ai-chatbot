@@ -327,7 +327,7 @@ export const SettingsPage = ({
       </div>
     )
     : (
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-glass/40 via-surface-glass/20 to-surface-base/60" />
         <div className="pointer-events-none absolute -left-10 top-8 h-40 w-40 rounded-full bg-accent-500/20 blur-3xl" />
         <div className="relative">{contentPanel}</div>

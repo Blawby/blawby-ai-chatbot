@@ -111,6 +111,7 @@ export const ACCENT_COLORS: Record<AccentColor, Record<string, string>> = {
  * @param color - The accent color to apply
  */
 export function applyAccentColor(color: AccentColor): void {
+  if (typeof document === 'undefined' || !document.documentElement) return;
   const colorValues = ACCENT_COLORS[color];
   const root = document.documentElement;
 

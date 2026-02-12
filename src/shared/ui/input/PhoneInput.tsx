@@ -235,7 +235,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
     iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg border-input-border',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 

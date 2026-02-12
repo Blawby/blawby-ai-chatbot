@@ -63,8 +63,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const baseClasses = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border backdrop-blur-xl';
   
   const variantClasses: Record<ButtonVariant, string> = {
-    // Primary: Glass with accent border and subtle accent glow
-    primary: 'bg-white/[0.08] text-white border-accent-500/50 hover:bg-accent-500/20 hover:border-accent-500 active:bg-accent-500/30 focus:ring-accent-500/50 shadow-lg hover:shadow-accent-500/20',
+    // Primary: Solid accent color for best contrast
+    primary: 'bg-accent-600 dark:bg-accent-600 text-white border-accent-600/50 hover:bg-accent-700 hover:border-accent-700 active:bg-accent-800 focus:ring-accent-500/50 shadow-lg shadow-accent-500/20',
     
     // Secondary: Pure glass with subtle border
     secondary: 'bg-white/[0.05] text-input-text border-white/10 hover:bg-white/[0.12] hover:border-white/20 active:bg-white/[0.15] focus:ring-white/20 shadow-md',
@@ -78,14 +78,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     // Inverted: Lighter glass for dark backgrounds
     inverted: 'bg-white/10 text-white border-white/20 hover:bg-white/[0.15] hover:border-white/30 active:bg-white/20 focus:ring-white/30 shadow-md',
     
-    // Danger: Glass with red accent
-    danger: 'bg-white/[0.05] text-red-400 border-red-500/50 hover:bg-red-500/20 hover:border-red-500 active:bg-red-500/30 focus:ring-red-500/50 shadow-md hover:shadow-red-500/20',
+    // Danger: Higher opacity/solid fallback for red text visibility
+    danger: 'bg-red-500/10 dark:bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200 hover:border-red-500/30 active:bg-red-500/30 focus:ring-red-500/50 shadow-sm',
     
     // Outline: Glass with defined border
-    outline: 'bg-white/[0.05] text-input-text border-white/20 hover:bg-white/[0.12] hover:border-white/30 active:bg-white/[0.15] focus:ring-white/20 shadow-sm',
+    outline: 'bg-white/[0.05] text-input-text border-input-border hover:bg-white/[0.12] hover:border-white/30 active:bg-white/[0.15] focus:ring-white/20 shadow-sm',
     
     // Link: No glass, just text with accent color
-    link: 'bg-transparent text-accent-400 border-transparent shadow-none hover:text-accent-300 active:text-accent-500 focus:ring-accent-500/50 hover:underline'
+    link: 'bg-transparent text-accent-600 dark:text-accent-400 border-transparent shadow-none hover:text-accent-700 dark:hover:text-accent-300 active:text-accent-500 focus:ring-accent-500/50 hover:underline'
   };
   
   const sizeClasses: Record<ButtonSize, string> = {

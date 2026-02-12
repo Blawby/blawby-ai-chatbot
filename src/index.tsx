@@ -844,13 +844,27 @@ async function mountClientApp() {
   }
 
   // Initialize accent color from user preferences
-  try {
-    const prefs = await getPreferencesCategory<GeneralPreferences>('general');
-    initializeAccentColor(prefs?.accent_color);
-  } catch (error) {
-    // If preferences fail to load, use default gold color
-    console.warn('Failed to load accent color preference, using default:', error);
-    initializeAccentColor('gold');
+  // Initialize default accent color first
+  initializeAccentColor('gold');
+
+  // Check for potential session (heuristic based on localStorage)
+  const hasAuthToken = typeof localStorage !== 'undefined' && 
+    Object.keys(localStorage).some(k => k.startsWith('better-auth'));
+
+  // If we might have a session, fetch preferences in parallel
+  if (hasAuthToken) {
+    getPreferencesCategory<GeneralPreferences>('general')
+      .then((prefs) => {
+        if (prefs?.accent_color) {
+          initializeAccentColor(prefs.accent_color);
+        }
+      })
+      .catch((error) => {
+        // Silent fail or low-level log for unauthenticated/network issues
+        if (import.meta.env.DEV) {
+          console.debug('Failed to load accent color preference:', error);
+        }
+      });
   }
 
   initI18n()
