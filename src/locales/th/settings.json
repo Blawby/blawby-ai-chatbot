@@ -33,11 +33,11 @@
     "accent": {
       "label": "[NEEDS TRANSLATION] Accent color",
       "options": {
-        "default": "[NEEDS TRANSLATION] Default",
-        "blue": "[NEEDS TRANSLATION] Blue",
-        "green": "[NEEDS TRANSLATION] Green",
-        "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red",
+        "default": "ค่าเริ่มต้น",
+        "blue": "น้ำเงิน",
+        "green": "เขียว",
+        "purple": "ม่วง",
+        "red": "แดง",
         "gold": "ทอง",
         "yellow": "เหลือง",
         "pink": "ชมพู",

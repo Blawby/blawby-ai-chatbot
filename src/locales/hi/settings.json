@@ -33,11 +33,11 @@
     "accent": {
       "label": "[NEEDS TRANSLATION] Accent color",
       "options": {
-        "default": "[NEEDS TRANSLATION] Default",
-        "blue": "[NEEDS TRANSLATION] Blue",
-        "green": "[NEEDS TRANSLATION] Green",
-        "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red",
+        "default": "डिफ़ॉल्ट",
+        "blue": "नीला",
+        "green": "हरा",
+        "purple": "बैंगनी",
+        "red": "लाल",
         "gold": "सुनहरा",
         "yellow": "पीला",
         "pink": "गुलाबी",
