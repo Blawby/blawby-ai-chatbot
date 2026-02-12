@@ -42,8 +42,8 @@ const ClientHomePage = () => {
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-input-text">Welcome, {name}</h1>
-          <p className="mt-2 text-sm text-input-placeholder">
+          <h1 className="text-2xl text-heading">Welcome, {name}</h1>
+          <p className="mt-2 text-sm text-secondary">
             Your client workspace is ready. Keep track of your conversations and return to active matters any time.
           </p>
         </div>
@@ -56,8 +56,8 @@ const ClientHomePage = () => {
 
         <div className="glass-card p-6 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-input-text">Manage your account</h2>
-            <p className="text-sm text-input-placeholder">
+            <h2 className="text-lg text-heading">Manage your account</h2>
+            <p className="text-sm text-secondary">
               Update your preferences, notifications, and security settings.
             </p>
           </div>

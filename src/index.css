@@ -270,6 +270,32 @@
     @apply inline-block align-middle ml-2 h-2.5 w-2.5 rounded-full bg-accent-500/80 animate-pulse;
   }
 
+  /* Semantic Typography Tokens */
+  .text-heading {
+    @apply text-input-text font-bold;
+  }
+
+  .text-primary {
+    @apply text-input-text;
+  }
+
+  .text-secondary {
+    @apply text-input-placeholder;
+  }
+
+  .text-body {
+    @apply text-input-text;
+  }
+
+  /* Semantic Surface & Border Tokens */
+  .surface-subtle {
+    @apply bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-xl;
+  }
+
+  .surface-hover {
+    @apply hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20 transition-all duration-200;
+  }
+
 }
 
 @layer utilities {

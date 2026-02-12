@@ -88,7 +88,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         <div className="ml-4 flex-shrink-0">
           <button
             onClick={handleRemove}
-            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200"
+            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm focus:outline-none"
           >
             <XMarkIcon className="h-4 w-4" />
           </button>
