@@ -26,7 +26,7 @@ export const PlaceholderPage = ({ title, subtitle, sections }: PlaceholderPagePr
       {sections.map((section) => (
         <div
           key={section.title}
-          className="glass-panel rounded-xl p-5 space-y-2"
+          className="glass-card p-5 space-y-2"
         >
           <div>
             <h2 className="text-lg font-semibold text-input-text">{section.title}</h2>

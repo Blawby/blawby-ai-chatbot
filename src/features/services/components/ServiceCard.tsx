@@ -54,11 +54,11 @@ export function ServiceCard({
   return (
     <div
       className={cn(
-        'rounded-3xl border border-line-glass/40 bg-transparent p-4 transition',
-        onSelect ? 'cursor-pointer focus-within:ring-2 focus-within:ring-accent-500/50' : '',
+        'rounded-3xl border transition-all duration-300 p-4',
+        onSelect ? 'cursor-pointer' : '',
         selected
-          ? 'ring-1 ring-accent-500/60 border-line-glass/60 bg-transparent'
-          : 'hover:bg-surface-glass/30',
+          ? 'bg-accent-500/10 border-accent-500/40 shadow-lg shadow-accent-500/5'
+          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20',
         className
       )}
     >

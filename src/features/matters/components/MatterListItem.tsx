@@ -18,7 +18,7 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
   const sharedClassName = cn(
     'w-full text-left relative flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8 transition-colors',
     isInteractive
-      ? 'hover:bg-white/[0.05] cursor-pointer'
+      ? 'hover:bg-white/10 cursor-pointer'
       : 'cursor-default'
   );
 

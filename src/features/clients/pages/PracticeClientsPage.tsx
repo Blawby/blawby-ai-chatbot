@@ -98,8 +98,8 @@ const splitName = (fullName: string) => {
 const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-        <UserIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/5 border border-white/10">
+        <UserIcon className="h-6 w-6 text-input-placeholder" aria-hidden="true" />
       </div>
       <h3 className="mt-4 text-sm font-semibold text-input-text">No clients yet</h3>
       <p className="mt-2 text-sm text-input-placeholder">
@@ -122,12 +122,12 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
     className={cn(
       'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
       status === 'active'
-        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
+        ? 'bg-emerald-500/10 text-emerald-400'
         : status === 'lead'
-          ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+          ? 'bg-amber-500/10 text-amber-400'
           : status === 'inactive'
-            ? 'bg-gray-100 text-slate-600 border border-gray-200 dark:bg-white/5 dark:text-input-placeholder dark:border-white/10'
-            : 'bg-gray-50 text-slate-500 border border-gray-100 dark:bg-white/[0.02] dark:text-input-placeholder dark:border-white/5'
+            ? 'glass-panel text-input-placeholder px-2 py-0.5'
+            : 'glass-panel opacity-60 text-input-placeholder px-2 py-0.5'
     )}
   >
     {STATUS_LABELS[status]}
@@ -766,7 +766,7 @@ export const PracticeClientsPage = () => {
     >
       <div className="space-y-4">
         {addClientError && (
-          <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+          <div className="glass-panel p-3 border-red-500/20 text-sm text-red-200">
             {addClientError}
           </div>
         )}
@@ -796,7 +796,7 @@ export const PracticeClientsPage = () => {
     >
       <div className="space-y-4">
         {editClientError && (
-          <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+          <div className="glass-panel p-3 border-red-500/20 text-sm text-red-200">
             {editClientError}
           </div>
         )}

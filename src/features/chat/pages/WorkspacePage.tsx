@@ -296,17 +296,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     const introSource = setupDetails?.introMessage ?? currentPractice?.introMessage ?? '';
     const introChanged = trimmedIntro !== introSource;
+    const accentSource = setupDetails?.accentColor ?? currentPractice?.accentColor ?? 'grey';
+    const accentChanged = values.accentColor !== accentSource;
 
     try {
       if (Object.keys(practiceUpdates).length > 0) {
         await updatePractice(currentPractice.id, practiceUpdates);
       }
-      if (introChanged) {
+      if (introChanged || accentChanged) {
         await updateSetupDetails({
-          introMessage: trimmedIntro.length > 0 ? trimmedIntro : null
+          ...(introChanged ? { introMessage: trimmedIntro.length > 0 ? trimmedIntro : null } : {}),
+          ...(accentChanged ? { accentColor: values.accentColor } : {})
         });
       }
-      if (Object.keys(practiceUpdates).length > 0 || introChanged) {
+      if (Object.keys(practiceUpdates).length > 0 || introChanged || accentChanged) {
         showSuccess('Basics updated', 'Your public profile reflects the newest info.');
         forcePreviewReload();
       } else {
@@ -635,7 +638,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const renderPreviewContent = () => {
         if (previewTab === 'intake') {
           return (
-            <div className="flex h-full w-full flex-col overflow-y-auto bg-surface-base p-4">
+            <div className="flex h-full w-full flex-col overflow-y-auto bg-transparent p-4">
               <ContactForm
                 onSubmit={handleIntakePreviewSubmit}
                 message="Tell us about your matter and we will follow up shortly."
@@ -657,7 +660,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return (
         <div className="flex min-h-0 w-full flex-col lg:h-full lg:flex-row lg:overflow-hidden">
           {/* Left column */}
-          <div className="relative flex w-full flex-col bg-surface-base lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+          <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <div
               className="pointer-events-none absolute -right-32 top-4 h-96 w-96 rounded-full bg-accent-500/50 blur-[170px] dark:bg-accent-500/45"
               aria-hidden="true"

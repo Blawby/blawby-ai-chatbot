@@ -80,6 +80,23 @@ function AppShell() {
   const lastActivePracticeRef = useRef<string | null>(null);
   const routeTransitionRef = useRef(0);
 
+  // 1. Initialize accent color from preferences
+  useEffect(() => {
+    if (sessionPending) return;
+    
+    void (async () => {
+      try {
+        const prefs = await getPreferencesCategory<GeneralPreferences>('general');
+        initializeAccentColor(prefs?.accent_color);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[AppShell] Failed to initialize accent color', error);
+        }
+        initializeAccentColor('grey');
+      }
+    })();
+  }, [sessionPending]);
+
   if (session?.user?.primaryWorkspace && lastWorkspaceRef.current !== session.user.primaryWorkspace) {
     lastWorkspaceRef.current = session.user.primaryWorkspace;
   }

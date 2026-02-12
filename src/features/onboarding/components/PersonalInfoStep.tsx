@@ -50,7 +50,7 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
 
 
   return (
-    <div className="min-h-screen bg-surface-base flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mx-auto w-full max-w-md">
         <div className="flex justify-center mb-6">
@@ -60,13 +60,13 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
         <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
           {t('onboarding.step1.title')}
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-center text-sm text-input-placeholder">
           {t('onboarding.step1.subtitle')}
         </p>
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-md">
-        <div className="glass-panel py-8 px-6 sm:rounded-lg sm:px-10">
+        <div className="glass-card py-8 px-6 sm:px-10">
           <Form<PersonalInfoData> 
             onSubmit={async (formData: PersonalInfoData): Promise<void> => {
               await handleSubmit(formData);
@@ -87,7 +87,7 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
                         value={(value as string) || ''}
                         onChange={(value) => onChange(value)}
                         placeholder={t('onboarding.step1.fullNamePlaceholder')}
-                        icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                        icon={<UserIcon className="h-5 w-5 text-input-placeholder" />}
                         error={error?.message}
                       />
                     </FormControl>

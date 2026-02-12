@@ -82,7 +82,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                 >
                     {/* Backdrop */}
                     <div 
-                        className="absolute inset-0 bg-black bg-opacity-50"
+                        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
                         onClick={disableBackdropClick ? undefined : onClose}
                         onKeyDown={disableBackdropClick ? undefined : () => {}}
                     />
@@ -90,7 +90,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                     {/* Content */}
                     <motion.div 
                         className={cn(
-                            `shadow-glass bg-surface-glass bg-opacity-70 backdrop-blur-2xl text-input-text border border-line-glass border-opacity-30 ${
+                            `shadow-glass glass-panel text-input-text border-opacity-30 ${
                             shouldUseDrawer 
                                 ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-3xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
@@ -115,14 +115,14 @@ const Modal: FunctionComponent<ModalProps> = ({
                         {/* Handle for mobile drawer */}
                         {shouldUseDrawer && (
                             <div className="flex justify-center pt-4 pb-2">
-                                <div className="w-12 h-1 rounded-full bg-line-default/70" />
+                                <div className="w-12 h-1 rounded-full bg-white/10" />
                             </div>
                         )}
                         
                         {/* Header */}
                         {(title || showCloseButton) && !shouldUseFullscreen && (
                             <div className={cn(
-                                'flex justify-between items-center p-4 border-b border-line-glass border-opacity-30 bg-surface-glass bg-opacity-60 backdrop-blur-xl',
+                                'flex justify-between items-center p-4 border-b border-line-glass/30 bg-white/5 backdrop-blur-xl',
                                 headerClassName
                             )}>
                                 {title && <h3 className="text-base sm:text-lg lg:text-xl font-semibold m-0 text-input-text">{title}</h3>}
@@ -131,7 +131,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                                         variant="ghost"
                                         size="icon"
                                         onClick={onClose}
-                                        className="text-input-placeholder hover:text-input-text hover:bg-surface-glass/50"
+                                        className="text-input-placeholder hover:text-input-text hover:bg-white/5"
                                         aria-label="Close modal"
                                         icon={
                                             <XMarkIcon className="w-6 h-6" />

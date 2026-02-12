@@ -49,9 +49,7 @@ export const FileCard = ({
     return (
       <div className={cn(
         'relative rounded-2xl overflow-hidden flex-shrink-0',
-        'bg-light-file-bg dark:bg-dark-file-bg',
-        'border border-light-file-border dark:border-dark-file-border',
-        'transition-all duration-200',
+        'glass-panel transition-all duration-200',
         // Make images square, matching the height of file cards
         size === 'sm' ? 'w-14 h-14' : size === 'md' ? 'w-16 h-16' : 'w-20 h-20',
         className

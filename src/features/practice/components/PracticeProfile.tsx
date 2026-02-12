@@ -29,8 +29,8 @@ export default function PracticeProfile({
 						className="rounded-lg object-cover w-12 h-12"
 					/>
 				) : (
-					<div className="flex items-center justify-center rounded-lg bg-surface-card w-12 h-12">
-						<FaceSmileIcon className="w-8 h-8" />
+					<div className="flex items-center justify-center rounded-lg bg-white/5 border border-white/10 w-12 h-12">
+						<FaceSmileIcon className="w-8 h-8 text-input-placeholder" />
 					</div>
 				)}
 			</div>
@@ -39,14 +39,14 @@ export default function PracticeProfile({
 			<div className="flex items-center justify-center gap-2 w-full">
 				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-input-text leading-tight truncate min-w-0" title={name}>{name}</h3>
 				{showVerified && (
-					<CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-input-text flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')} />
+					<CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-accent-500 flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')} />
 				)}
 			</div>
 
 			{/* Practice ID */}
 			{practiceSlug && (
 				<div className="text-center w-full">
-					<span className="text-sm font-medium text-[#d4af37] truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
+					<span className="text-sm font-medium text-accent-500 truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
 				</div>
 			)}
 
@@ -56,7 +56,7 @@ export default function PracticeProfile({
 			{description && (
 				<div className="text-center">
 					<p
-						className="text-gray-700 dark:text-gray-400 text-center leading-relaxed max-w-xs mx-auto line-clamp-3 text-sm"
+						className="text-input-placeholder text-center leading-relaxed max-w-xs mx-auto line-clamp-3 text-sm"
 					>
 						{description}
 					</p>

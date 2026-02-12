@@ -138,14 +138,15 @@ const MessageComposer = ({
               <span className="text-input-text/70">{t('chat.replyingTo')}</span>
               <span className="truncate font-semibold text-yellow-400">{replyTo.authorName}</span>
             </div>
-            <button
+            <Button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-input-text/60 transition hover:text-input-text"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full"
               aria-label="Cancel reply"
               onClick={() => onCancelReply?.()}
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
+              icon={<XMarkIcon className="h-4 w-4" />}
+            />
           </div>
         )}
         {/* Show all files (uploading + preview) in one horizontal container */}

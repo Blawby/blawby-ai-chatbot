@@ -54,7 +54,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-surface-base shadow-none">
+    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/70"
         aria-hidden="true"
@@ -85,7 +85,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             type="button"
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
-            className="glass-panel px-4 py-4 text-left transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+            className="glass-card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-white/10 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
@@ -119,13 +119,17 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="group glass-panel flex w-full items-center justify-between px-5 py-4 text-left text-input-text transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+          className="group relative overflow-hidden glass-card flex w-full items-center justify-between px-6 py-5 text-left text-input-text transition-all duration-300 hover:scale-[1.01] hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
-          <span className="text-base font-semibold">{t('workspace.home.sendMessage')}</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.12] border border-accent-500/50 text-white shadow-lg shadow-accent-500/20 backdrop-blur-xl transition group-hover:scale-[1.02] group-hover:bg-accent-500/30 group-hover:border-accent-500">
-            <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
-          </span>
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent-500/50 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
+          <Button
+            variant="primary"
+            size="icon"
+            className="w-10 h-10 pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
+            icon={<PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />}
+          />
         </button>
 
         <div className="glass-card px-5 py-6">

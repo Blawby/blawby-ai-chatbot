@@ -1,7 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState, useRef } from 'preact/hooks';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, LogoUploadInput } from '@/shared/ui/input';
+import { cn } from '@/shared/utils/cn';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import type { Address } from '@/shared/types/address';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
@@ -13,6 +15,7 @@ export interface BasicsFormValues {
   name: string;
   slug: string;
   introMessage: string;
+  accentColor: string;
 }
 
 export interface ContactFormValues {
@@ -47,6 +50,7 @@ export const PracticeSetup = ({
   logoUploadProgress,
   onLogoChange
 }: PracticeSetupProps) => {
+  const { t } = useTranslation(['settings', 'common']);
   const glassCardClass = 'glass-card p-4 sm:p-5';
 
   const inputGlassClass = 'glass-input';
@@ -54,7 +58,8 @@ export const PracticeSetup = ({
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: '',
     slug: '',
-    introMessage: ''
+    introMessage: '',
+    accentColor: 'grey'
   });
   const [contactDraft, setContactDraft] = useState<ContactFormValues>({
     website: '',
@@ -77,8 +82,9 @@ export const PracticeSetup = ({
   const currentBasicsFromProps = useMemo(() => ({
     name: practice?.name ?? '',
     slug: practice?.slug ?? '',
-    introMessage: details?.introMessage ?? practice?.introMessage ?? ''
-  }), [practice?.name, practice?.slug, practice?.introMessage, details?.introMessage]);
+    introMessage: details?.introMessage ?? practice?.introMessage ?? '',
+    accentColor: details?.accentColor ?? practice?.accentColor ?? 'grey'
+  }), [practice?.name, practice?.slug, practice?.introMessage, details?.introMessage, details?.accentColor, practice?.accentColor]);
 
   const currentContactFromProps = useMemo(() => ({
     website: details?.website ?? practice?.website ?? '',
@@ -199,29 +205,19 @@ export const PracticeSetup = ({
     ? 'Finish these essentials to unlock AI chat and your public intake flow.'
     : 'Your workspace essentials are complete. You can update any section at any time.';
 
-  const SectionStatus = ({ complete }: { complete: boolean }) => (
-    <span
-      className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-        complete
-          ? 'bg-accent-100 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300'
-          : 'bg-surface-card text-input-text/80'
-      }`}
-    >
-      {complete ? 'Done' : 'Action needed'}
-    </span>
-  );
+
 
   return (
-    <div className="space-y-8 text-gray-900 dark:text-white">
+    <div className="space-y-8 text-input-text">
       <div className="space-y-8">
         <header className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.45em] text-gray-500 dark:text-white/70">
+          <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-input-placeholder">
             Let&apos;s get started
           </p>
-          <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
             {bannerTitle}
           </h2>
-          <p className="text-sm text-gray-600 dark:text-white/80">
+          <p className="text-sm text-input-placeholder">
             {bannerDescription}
           </p>
         </header>
@@ -229,10 +225,9 @@ export const PracticeSetup = ({
         <section className={glassCardClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Profile</p>
-              <p className="text-lg font-semibold">Firm basics</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-input-placeholder">Profile</p>
+              <p className="text-lg font-bold">Firm basics</p>
             </div>
-            <SectionStatus complete={status.basicsComplete} />
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <Input
@@ -249,6 +244,27 @@ export const PracticeSetup = ({
               placeholder="your-firm"
               className={inputGlassClass}
             />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-input-text">Brand accent color</label>
+              <select
+                value={basicsDraft.accentColor}
+                onChange={(e) => setBasicsDraft((prev) => ({ ...prev, accentColor: (e.target as HTMLSelectElement).value }))}
+                className={cn(
+                  'w-full h-10 px-3 py-2 text-sm bg-surface-base border border-line-glass rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-500/50 transition-all',
+                  inputGlassClass
+                )}
+              >
+                <option value="grey">{t('settings:general.accent.options.grey')}</option>
+                <option value="gold">{t('settings:general.accent.options.gold')}</option>
+                <option value="blue">{t('settings:general.accent.options.blue')}</option>
+                <option value="green">{t('settings:general.accent.options.green')}</option>
+                <option value="yellow">{t('settings:general.accent.options.yellow')}</option>
+                <option value="pink">{t('settings:general.accent.options.pink')}</option>
+                <option value="orange">{t('settings:general.accent.options.orange')}</option>
+                <option value="purple">{t('settings:general.accent.options.purple')}</option>
+              </select>
+              <p className="text-[10px] text-input-placeholder">This color appears on your public profile and client portal.</p>
+            </div>
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="space-y-3">
@@ -315,10 +331,9 @@ export const PracticeSetup = ({
         <section className={glassCardClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Contact</p>
-              <p className="text-lg font-semibold">Where can clients reach you?</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-input-placeholder">Contact</p>
+              <p className="text-lg font-bold">Where can clients reach you?</p>
             </div>
-            <SectionStatus complete={status.contactComplete} />
           </div>
           <div className="mt-4 space-y-4">
             <Input

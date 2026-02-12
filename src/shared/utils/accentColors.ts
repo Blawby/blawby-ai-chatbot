@@ -5,13 +5,26 @@
  * Colors are applied via CSS variables and can be changed at runtime.
  */
 
-export type AccentColor = 'gold' | 'blue' | 'green' | 'yellow' | 'pink' | 'orange' | 'purple';
+export type AccentColor = 'grey' | 'gold' | 'blue' | 'green' | 'yellow' | 'pink' | 'orange' | 'purple';
 
 /**
  * Accent color definitions in RGB format for CSS variables
  * Each color has shades from 50 (lightest) to 950 (darkest)
  */
 export const ACCENT_COLORS: Record<AccentColor, Record<string, string>> = {
+  grey: {
+    '50': '250 250 250',   // Neutral 50
+    '100': '245 245 245',  // Neutral 100
+    '200': '229 229 229',  // Neutral 200
+    '300': '212 212 212',  // Neutral 300
+    '400': '163 163 163',  // Neutral 400
+    '500': '115 115 115',  // Neutral 500
+    '600': '82 82 82',     // Neutral 600
+    '700': '64 64 64',     // Neutral 700
+    '800': '38 38 38',     // Neutral 800
+    '900': '23 23 23',     // Neutral 900
+    '950': '10 10 10',     // Neutral 950
+  },
   gold: {
     '50': '254 252 232',   // #fefce8
     '100': '254 249 195',  // #fef9c3
@@ -127,7 +140,7 @@ export function applyAccentColor(color: AccentColor): void {
  * @returns The current accent color, or 'gold' as default
  */
 export function getCurrentAccentColor(): AccentColor {
-  if (typeof window === 'undefined') return 'gold';
+  if (typeof window === 'undefined') return 'grey';
   
   const root = document.documentElement;
   const accent500 = getComputedStyle(root).getPropertyValue('--accent-500').trim();
@@ -139,7 +152,7 @@ export function getCurrentAccentColor(): AccentColor {
     }
   }
   
-  return 'gold'; // Default fallback
+  return 'grey'; // Default fallback
 }
 
 /**
@@ -147,13 +160,13 @@ export function getCurrentAccentColor(): AccentColor {
  * Should be called on app startup
  */
 export function initializeAccentColor(savedColor?: string | null): void {
-  const color = (savedColor as AccentColor) || 'gold';
+  const color = (savedColor as AccentColor) || 'grey';
   
   // Validate the color
   if (color in ACCENT_COLORS) {
     applyAccentColor(color);
   } else {
-    applyAccentColor('gold');
+    applyAccentColor('grey');
   }
 }
 
@@ -162,6 +175,7 @@ export function initializeAccentColor(savedColor?: string | null): void {
  */
 export function getAccentColorDisplayName(color: AccentColor): string {
   const names: Record<AccentColor, string> = {
+    grey: 'Grey (Default)',
     gold: 'Gold',
     blue: 'Blue',
     green: 'Green',
@@ -171,5 +185,5 @@ export function getAccentColorDisplayName(color: AccentColor): string {
     purple: 'Purple',
   };
   
-  return names[color] || 'Gold';
+  return names[color] || 'Grey (Default)';
 }

@@ -105,7 +105,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
   };
 
   return (
-    <div className="min-h-screen bg-surface-base flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex justify-center mb-6">
@@ -114,13 +114,13 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
         <h2 id="use-case-title" className="mt-6 text-center text-3xl font-extrabold text-input-text">
           {t('onboarding.step2.title')}
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-center text-sm text-input-placeholder">
           {t('onboarding.step2.subtitle')}
         </p>
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-2xl">
-        <div className="glass-panel py-8 px-6 sm:rounded-lg sm:px-10">
+        <div className="glass-card py-8 px-6 sm:px-10">
           <Form onSubmit={handleSubmit} className="space-y-6">
             {/* Use Case Options */}
             <div
@@ -139,18 +139,18 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                     role="checkbox"
                     aria-checked={isSelected}
                     onClick={() => handleUseCaseSelect(option.id)}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 ${
+                    className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 backdrop-blur-xl ${
                       isSelected
-                        ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                        : 'border-line-default hover:border-gray-400 dark:hover:border-gray-500'
+                        ? 'border-accent-500/50 bg-accent-500/10 shadow-lg shadow-accent-500/10'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Icon className={`h-6 w-6 ${
                           isSelected 
-                            ? 'text-accent-600 dark:text-accent-400' 
-                            : 'text-gray-400 dark:text-gray-500'
+                            ? 'text-accent-500' 
+                            : 'text-input-placeholder'
                         }`} />
                           <span className={`text-sm font-medium ${
                           isSelected 
@@ -161,7 +161,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                         </span>
                       </div>
                       {isSelected && (
-                        <CheckIcon className="h-5 w-5 text-accent-600 dark:text-accent-400" />
+                        <CheckIcon className="h-5 w-5 text-accent-500" />
                       )}
                     </div>
                   </button>

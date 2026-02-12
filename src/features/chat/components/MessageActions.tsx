@@ -166,7 +166,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							</Button>
 						</div>
 					) : (
-						<div className="text-xs text-gray-500 dark:text-gray-400">
+						<div className="text-xs text-input-placeholder">
 							{t('leadReview.noPermission')}
 						</div>
 					)}
@@ -227,14 +227,14 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{generatedPDF && (
 				<div className="my-2">
 					<div className="flex items-center gap-2 p-3 rounded-lg glass-panel">
-						<div className="w-8 h-8 rounded bg-surface-base flex items-center justify-center flex-shrink-0">
-							<DocumentIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+						<div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center flex-shrink-0">
+							<DocumentIcon className="w-4 h-4 text-input-text" />
 						</div>
 						<div className="flex-1 min-w-0">
 							<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>
 								{generatedPDF.filename.length > 25 ? `${generatedPDF.filename.substring(0, 25)}...` : generatedPDF.filename}
 							</div>
-							<div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+							<div className="flex items-center gap-2 text-xs text-input-placeholder">
 								<span>{formatDocumentIconSize(generatedPDF.size)}</span>
 								{generatedPDF.generatedAt && (
 									<span>• {new Date(generatedPDF.generatedAt).toLocaleDateString()}</span>
@@ -242,24 +242,26 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							</div>
 						</div>
 							{generatedPDF.storageKey && (
-								<button
+								<Button
+									variant="secondary"
+									size="sm"
+									className="text-[10px] h-7 px-3 uppercase tracking-wider font-bold"
 									onClick={() => {
 										const storageKey = generatedPDF.storageKey;
 										if (!storageKey) return;
 										const downloadUrl = storageKey.startsWith('http') 
 											? storageKey 
 											: `/api/files/${storageKey}`;
-									const link = globalThis.document.createElement('a');
-									link.href = downloadUrl;
-									link.download = generatedPDF.filename;
-									link.click();
-								}}
-								className="px-3 py-1 text-xs font-medium text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-								aria-label={`Download ${generatedPDF.filename}`}
-							>
-								Download
-							</button>
-						)}
+										const link = globalThis.document.createElement('a');
+										link.href = downloadUrl;
+										link.download = generatedPDF.filename;
+										link.click();
+									}}
+									aria-label={`Download ${generatedPDF.filename}`}
+								>
+									Download
+								</Button>
+							)}
 					</div>
 				</div>
 			)}

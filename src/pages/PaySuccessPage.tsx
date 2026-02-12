@@ -124,10 +124,10 @@ export const PaySuccessPage: FunctionComponent = () => {
   }, [intakeUuid, isAnonymous, isPending, sessionId]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
+    <div className="min-h-screen bg-transparent px-6 py-12">
+      <div className="mx-auto max-w-xl glass-card p-6 text-sm text-input-text">
         <div className="flex flex-col items-center gap-4 text-center">
-          <p>{message}</p>
+          <p className="text-input-text">{message}</p>
           {canRetry && (
             <Button
               variant="secondary"

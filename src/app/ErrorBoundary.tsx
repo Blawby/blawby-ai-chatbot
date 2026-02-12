@@ -31,11 +31,11 @@ export class ErrorBoundary extends Component<Props, State> {
     render() {
         if (this.state.hasError) {
             return this.props.fallback || (
-                <div className="p-4 m-4 border border-light-border dark:border-dark-border rounded-lg bg-light-input-bg dark:bg-dark-input-bg">
-                    <h2 className="text-red-600 mb-4">Something went wrong</h2>
+                <div className="p-6 m-4 glass-panel border-red-500/20 shadow-xl">
+                    <h2 className="text-xl font-bold text-red-400 mb-4">Something went wrong</h2>
                     <details className="my-4">
-                        <summary className="cursor-pointer text-accent">Error details</summary>
-                        <pre className="mt-2 p-2 bg-light-bg dark:bg-dark-bg rounded overflow-x-auto">{this.state.error?.message}</pre>
+                        <summary className="cursor-pointer text-accent-500 font-medium hover:text-accent-400 transition-colors">Error details</summary>
+                        <pre className="mt-2 p-4 bg-white/5 border border-white/10 rounded-xl overflow-x-auto text-sm text-red-200/80">{this.state.error?.message}</pre>
                     </details>
                     <Button 
                         variant="primary"

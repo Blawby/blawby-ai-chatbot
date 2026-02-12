@@ -64,9 +64,9 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
           <AccordionTrigger>Media, DocumentIcons, and Links</AccordionTrigger>
           <AccordionContent>
             <div className="flex flex-col items-center justify-center text-center py-6">
-              <PhotoIcon className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 dark:text-gray-500 mb-2" />
-              <p className="text-xs sm:text-sm lg:text-base font-medium mb-1 text-input-text">No files shared yet</p>
-              <p className="text-xs sm:text-sm opacity-70 text-gray-500 dark:text-gray-400">DocumentIcons you share in the conversation will appear here</p>
+              <PhotoIcon className="w-6 h-6 sm:w-8 sm:h-8 text-input-placeholder/50 mb-2" />
+              <p className="text-sm font-medium mb-1 text-input-text">No files shared yet</p>
+              <p className="text-xs text-input-placeholder">Files you share in the conversation will appear here</p>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -84,7 +84,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
               <div className="flex flex-col gap-3 pt-2">
                 {mediaGroups.map((group) => (
                   <div key={group.category} className="flex flex-col gap-2">
-                    <h5 className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    <h5 className="text-[10px] font-bold text-input-placeholder uppercase tracking-[0.2em]">
                       {categoryLabels[group.category]} ({group.files.length})
                     </h5>
                     <div className="flex flex-col gap-2">
@@ -107,7 +107,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
                             key={media.id} 
                             role="button"
                             tabIndex={0}
-                            className="cursor-pointer transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 rounded-lg"
+                            className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent-500/50 rounded-xl"
                             onClick={() => handleMediaClick(media)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
@@ -139,9 +139,9 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
                                     size="sm"
                                     onClick={(e) => handleDownload(media, e)}
                                     title="Download file"
-                                    className="p-1 hover:bg-gray-200 dark:hover:bg-dark-hover rounded transition-colors duration-200"
+                                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors duration-200 text-input-placeholder hover:text-input-text"
                                   >
-                                    <ArrowDownTrayIcon className="w-3 h-3" />
+                                    <ArrowDownTrayIcon className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
                               </div>

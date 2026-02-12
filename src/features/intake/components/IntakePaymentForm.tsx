@@ -362,42 +362,42 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="rounded-lg border border-line-default bg-surface-card px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="rounded-xl border border-line-glass/30 bg-white/5 px-4 py-3 text-sm text-input-placeholder backdrop-blur-md">
           Loading secure payment form…
         </div>
       )}
-      <div className="rounded-xl border border-line-default bg-surface-base p-5 shadow-card">
+      <div className="glass-panel p-5">
         <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100 backdrop-blur-xl">
           {errorMessage}
         </div>
       )}
 
       {callbackWarning && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 backdrop-blur-xl">
           {callbackWarning}
         </div>
       )}
 
       {status === 'succeeded' && (
-        <div className="rounded-xl border border-green-200 dark:border-green-900/60 bg-green-50 dark:bg-green-950/40 p-6 text-center">
+        <div className="glass-card p-6 text-center border-emerald-500/30">
           <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-green-100 dark:bg-green-900/40 p-3">
-              <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="rounded-full bg-emerald-500/20 p-3 shadow-lg shadow-emerald-500/20">
+              <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-1">
+          <h3 className="text-lg font-semibold text-input-text mb-1">
             Payment successful
           </h3>
-          <p className="text-green-700 dark:text-green-300">
+          <p className="text-input-placeholder">
             {formattedAmount ? `Thank you for your payment of ${formattedAmount}.` : 'Thank you for your payment.'}
           </p>
-          <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-900/40 text-xs text-green-600 dark:text-green-400">
+          <div className="mt-4 pt-4 border-t border-line-glass/30 text-xs text-emerald-400">
             Payment processed successfully. You will receive confirmation if an email is on file.
           </div>
         </div>

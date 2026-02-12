@@ -25,7 +25,7 @@ export const GeneralPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const [settings, setSettings] = useState({
     theme: 'system' as 'light' | 'dark' | 'system',
-    accentColor: 'gold' as AccentColor,
+    accentColor: 'grey' as AccentColor,
     language: 'auto-detect' as 'auto-detect' | Language,
     spokenLanguage: 'auto-detect' as 'auto-detect' | Language
   });
@@ -51,7 +51,7 @@ export const GeneralPage = ({
         // Validate against known accent colors
         const savedAccentColor = (prefs?.accent_color && prefs.accent_color in ACCENT_COLORS) 
           ? (prefs.accent_color as AccentColor) 
-          : 'gold';
+          : 'grey';
         
         setSettings({
           theme: (prefs?.theme as 'light' | 'dark' | 'system') || 'system',
@@ -213,6 +213,7 @@ export const GeneralPage = ({
         label={t('settings:general.accent.label')}
         value={settings.accentColor}
         options={[
+          { value: 'grey', label: t('settings:general.accent.options.grey') },
           { value: 'gold', label: t('settings:general.accent.options.gold') },
           { value: 'blue', label: t('settings:general.accent.options.blue') },
           { value: 'green', label: t('settings:general.accent.options.green') },

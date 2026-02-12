@@ -7,7 +7,7 @@ import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow'
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 const LoadingScreen = () => (
-  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+  <div className="flex h-screen items-center justify-center text-sm text-input-placeholder">
     Loading…
   </div>
 );
@@ -94,7 +94,7 @@ const OnboardingPage = () => {
 
   return (
     <SetupShell>
-      <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
+      <div className="min-h-screen bg-transparent flex flex-col">
         <OnboardingFlow
           onClose={() => navigate(fallbackPath, true)}
           onComplete={() => navigate(fallbackPath, true)}

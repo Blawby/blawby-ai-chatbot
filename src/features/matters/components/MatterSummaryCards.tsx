@@ -16,7 +16,7 @@ interface MatterSummaryCardsProps {
   } | null;
 }
 
-const cardBase = 'glass-panel p-4 sm:p-5';
+const cardBase = 'glass-card p-4 sm:p-5';
 const gridBase = 'grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
@@ -58,31 +58,31 @@ export const MatterSummaryCards = ({
     return (
       <section className={gridBase}>
         <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Billable time</p>
+          <p className="text-xs font-medium text-input-placeholder">Billable time</p>
           <p className="mt-2 text-lg font-semibold text-input-text">{billableDisplay}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs text-input-placeholder">
             Based on recorded billable entries.
           </p>
           {onLearnMore ? (
             <button
               type="button"
-              className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400"
+              className="mt-2 text-xs font-medium text-accent-500 hover:underline"
               onClick={onLearnMore}
             >
               Learn more
             </button>
           ) : (
-            <span className="mt-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+            <span className="mt-2 text-xs font-medium text-input-placeholder/60">
               Learn more (coming soon)
             </span>
           )}
         </div>
         <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Contract&apos;s rate</p>
+          <p className="text-xs font-medium text-input-placeholder">Contract&apos;s rate</p>
           <p className="mt-2 text-lg font-semibold text-input-text">$125.00 /hr</p>
           <button
             type="button"
-            className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 text-xs font-medium text-accent-500 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => onChangeRate?.()}
             disabled={!onChangeRate}
           >
@@ -90,14 +90,14 @@ export const MatterSummaryCards = ({
           </button>
         </div>
         <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total time tracked</p>
+          <p className="text-xs font-medium text-input-placeholder">Total time tracked</p>
           <p className="mt-2 text-lg font-semibold text-input-text">{totalDisplay}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Across all logged entries</p>
+          <p className="mt-1 text-xs text-input-placeholder">Across all logged entries</p>
         </div>
         <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Quick actions</p>
+          <p className="text-xs font-medium text-input-placeholder">Quick actions</p>
           <p className="mt-2 text-lg font-semibold text-input-text">Time</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs text-input-placeholder">
             Add new entries or open the full timesheet.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -136,10 +136,10 @@ export const MatterSummaryCards = ({
       <section className={gridBase}>
         {cards.map((card) => (
           <div key={card.label} className={cardBase}>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
+            <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
             <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
             {card.helper ? (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{card.helper}</p>
+              <p className="mt-1 text-xs text-input-placeholder">{card.helper}</p>
             ) : null}
           </div>
         ))}
@@ -158,7 +158,7 @@ export const MatterSummaryCards = ({
     <section className={gridBase}>
       {messageCards.map((card) => (
         <div key={card.label} className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
+          <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
           <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
         </div>
       ))}

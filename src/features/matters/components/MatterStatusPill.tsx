@@ -8,7 +8,7 @@ const STATUS_LABELS: Record<MattersSidebarStatus, string> = {
 
 const STATUS_CLASSES: Record<MattersSidebarStatus, string> = {
   draft: 'text-amber-400 bg-amber-400/10 ring-amber-400/20',
-  active: 'text-blue-400 bg-blue-400/10 ring-blue-400/30'
+  active: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/30'
 };
 
 interface MatterStatusPillProps {

@@ -59,14 +59,17 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
     <div className="flex h-full flex-col glass-panel rounded-3xl">
       <div className="relative flex min-h-[56px] items-center justify-center border-b border-line-glass/30 bg-transparent px-4 py-3">
         {showBackButton && onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-input-placeholder transition hover:bg-surface-glass/40 hover:text-input-text"
-            aria-label={t('common.back')}
-          >
-            <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+            <Button
+              type="button"
+              variant="icon"
+              size="icon"
+              onClick={onClose}
+              className="text-input-placeholder hover:text-input-text h-8 w-8"
+              aria-label={t('common.back')}
+              icon={<ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />}
+            />
+          </div>
         )}
         <div className="text-sm font-semibold text-input-text">{t('workspace.conversationList.title')}</div>
       </div>
@@ -96,7 +99,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 <button
                   key={conversation.id}
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-2 py-4 text-left transition hover:bg-surface-glass/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white/30"
+                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-4 text-left transition-all duration-300 hover:bg-white/10 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <Avatar

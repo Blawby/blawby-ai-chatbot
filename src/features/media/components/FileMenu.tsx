@@ -153,9 +153,9 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-controls="attachment-menu"
         aria-expanded={isOpen}
         className="
-          w-8 h-8 rounded-full shadow
-          bg-surface-card border border-line-default text-input-text
-          hover:bg-surface-card/80
+          w-8 h-8 rounded-full shadow-lg transition-all duration-200
+          bg-white/10 border border-white/20 text-input-text
+          hover:bg-white/20 hover:scale-105
           disabled:opacity-60 disabled:cursor-not-allowed
         "
         icon={<PlusIcon className="w-4 h-4" aria-hidden="true" />}
@@ -168,8 +168,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           aria-labelledby="attachment-menu-button"
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
-            rounded-lg border p-1 shadow-lg transition-all duration-200
-            bg-surface-overlay border-line-default
+            p-1 glass-card transition-all duration-200
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}
@@ -181,8 +180,8 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             ref={firstMenuItemRef}
             onClick={handleFileClick}
             className="
-              file-menu-item w-full px-3 py-3 rounded flex items-center justify-between
-              text-input-text hover:bg-surface-card/70
+              file-menu-item w-full px-3 py-3 rounded-xl flex items-center justify-between
+              text-input-text hover:bg-white/10 transition-colors
               text-xs sm:text-sm
             "
           >
@@ -196,9 +195,9 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             role="menuitem"
             onClick={openCamera}
             className="
-              file-menu-item w-full px-3 py-3 rounded flex items-center justify-between
-              text-input-text hover:bg-surface-card/70
-              border-t border-line-default
+              file-menu-item w-full px-3 py-3 rounded-xl flex items-center justify-between
+              text-input-text hover:bg-white/10 transition-colors
+              border-t border-white/10
               text-xs sm:text-sm
             "
           >
@@ -212,13 +211,11 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       {errorMessage && (
         <div
           role="alert" aria-live="polite"
-          className="absolute bottom-full left-0 mb-2 min-w-[250px] rounded-lg p-3 shadow-lg
-                     bg-red-50 border border-red-200 text-red-700
-                     dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
+          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-red-500/30 bg-red-500/10"
           style={{ zIndex: THEME.zIndex.fileMenu + 1 }}
         >
           <div className="flex items-start gap-2">
-            <div className="flex-1 text-sm">{errorMessage}</div>
+            <div className="flex-1 text-sm text-red-200">{errorMessage}</div>
             <button
               onClick={() => setErrorMessage(null)}
               className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 transition-colors"

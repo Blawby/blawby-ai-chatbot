@@ -14,17 +14,16 @@ export default {
       colors: {
         surface: {
           base: 'rgb(var(--surface-base) / <alpha-value>)',
-          card: 'rgb(var(--surface-card) / <alpha-value>)',
+
           glass: 'rgb(var(--surface-glass) / <alpha-value>)',
           overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
         },
         line: {
-          default: 'rgb(var(--line-default) / <alpha-value>)',
+
           glass: 'rgb(var(--line-glass) / <alpha-value>)',
         },
         input: {
-          bg: 'rgb(var(--input-bg) / <alpha-value>)',
-          border: 'rgb(var(--input-border) / <alpha-value>)',
+
           text: 'rgb(var(--input-text) / <alpha-value>)',
           placeholder: 'rgb(var(--input-placeholder) / <alpha-value>)',
         },
@@ -57,66 +56,12 @@ export default {
           950: 'rgb(var(--accent-950) / <alpha-value>)',
         },
         // Light theme colors
-        light: {
-          bg: '#ffffff',
-          text: '#1a1a1a',
-          'message-bg-user': '#f0f0f0',
-          'message-bg-ai': '#ffffff',
-          border: '#e5e5e5',
-          'input-bg': '#ffffff',
-          hover: '#f5f5f5',
-          accent: '#d4af37',
-          'card-bg': '#fafafa',
-          'file-bg': '#f9fafb',
-          'file-border': '#e5e7eb',
-          'file-text': '#111827',
-          'file-text-secondary': '#6b7280',
-          'file-remove-bg': '#1f2937',
-          'file-remove-hover': '#111827',
-          'file-progress-bg': 'rgba(255, 255, 255, 0.3)',
-          'file-progress-fill': '#6b7280',
-          'file-type-pdf': '#ef4444',
-          'file-type-image': '#ec4899',
-          'file-type-video': '#eab308',
-          'file-type-audio': '#14b8a6',
-          'file-type-code': '#a855f7',
-          'file-type-archive': '#6b7280',
-          'file-type-spreadsheet': '#22c55e',
-          'file-type-document': '#3b82f6',
-          'file-type-default': '#6b7280',
-        },
+
         // Dark theme colors
-        dark: {
-          bg: '#030712',
-          text: '#ffffff',
-          'message-bg-user': '#111827',
-          'message-bg-ai': '#0a0f1a',
-          border: '#10131a',
-          'input-bg': '#0a0f1a',
-          hover: '#111827',
-          accent: '#d4af37',
-          'card-bg': '#111827',
-          'file-bg': '#1f2937',
-          'file-border': '#374151',
-          'file-text': '#f9fafb',
-          'file-text-secondary': '#9ca3af',
-          'file-remove-bg': '#4b5563',
-          'file-remove-hover': '#374151',
-          'file-progress-bg': 'rgba(255, 255, 255, 0.3)',
-          'file-progress-fill': '#ffffff',
-          'file-type-pdf': '#ef4444',
-          'file-type-image': '#ec4899',
-          'file-type-video': '#eab308',
-          'file-type-audio': '#14b8a6',
-          'file-type-code': '#a855f7',
-          'file-type-archive': '#6b7280',
-          'file-type-spreadsheet': '#22c55e',
-          'file-type-document': '#3b82f6',
-          'file-type-default': '#6b7280',
-        },
+
       },
       boxShadow: {
-        card: 'var(--shadow-card)',
+
         glass: 'var(--shadow-glass)',
       },
 

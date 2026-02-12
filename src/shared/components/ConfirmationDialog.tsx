@@ -117,17 +117,17 @@ export default function ConfirmationDialog({
               <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-sm text-input-placeholder mb-4">
                 {description}
               </p>
               
               {/* Warning Items List */}
               {warningItems.length > 0 && (
-                <div className="glass-panel rounded-lg p-3 mb-4">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="glass-card p-3 mb-4 border-red-500/20">
+                  <p className="text-sm text-input-text">
                     <strong>This will permanently delete:</strong>
                   </p>
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 mt-2 space-y-1">
+                  <ul className="text-sm text-input-placeholder mt-2 space-y-1">
                     {warningItems.map((item, idx) => (
                       <li key={idx}>• {item}</li>
                     ))}
@@ -139,7 +139,7 @@ export default function ConfirmationDialog({
               <div className="space-y-2">
                 <label htmlFor="confirmation-input" className="block text-sm font-medium text-input-text">
                   {confirmationLabel}
-                  <span className="font-mono text-sm bg-surface-glass/60 px-2 py-1 rounded ml-2">
+                  <span className="font-mono text-sm bg-white/5 border border-line-glass/30 px-2 py-1 rounded ml-2">
                     {confirmationValue}
                   </span>
                 </label>
@@ -165,8 +165,8 @@ export default function ConfirmationDialog({
 
                 {/* Success Message */}
                 {showSuccessMessage && successMessage && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg backdrop-blur-md">
+                    <p className="text-sm text-blue-100">
                       {successMessage.body}
                     </p>
                   </div>

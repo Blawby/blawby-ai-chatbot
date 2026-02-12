@@ -64,20 +64,20 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-8">
-        <h2 className="text-2xl font-bold mb-4">{t('businessWelcome.title')}</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
+        <h2 className="text-2xl font-bold mb-4 text-input-text">{t('businessWelcome.title')}</h2>
+        <p className="text-input-placeholder mb-8">
           {t('businessWelcome.subtitle')}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           {features.map((feature) => (
             <div key={feature.id} className="flex space-x-4">
-              <div className={`flex-shrink-0 w-12 h-12 rounded-xl ${feature.color.bg} flex items-center justify-center`}>
+              <div className={`flex-shrink-0 w-12 h-12 rounded-xl ${feature.color.bg} flex items-center justify-center shadow-lg shadow-${feature.id === 'intake' ? 'blue' : feature.id === 'messaging' ? 'green' : feature.id === 'matters' ? 'purple' : 'orange'}-500/10`}>
                 <div className={`h-6 w-6 ${feature.color.text}`}>{feature.icon}</div>
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">{feature.title}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{feature.text}</p>
+                <h3 className="font-bold text-input-text">{feature.title}</h3>
+                <p className="text-sm text-input-placeholder mt-1">{feature.text}</p>
               </div>
             </div>
           ))}

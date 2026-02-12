@@ -28,7 +28,7 @@ export const SettingRow = ({
           typeof description === 'string' ? (
             <SettingDescription text={description} />
           ) : (
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <div className="text-xs text-input-placeholder mt-1">
               {description}
             </div>
           )
