@@ -37,11 +37,15 @@
     "accent": {
       "label": "Accent color",
       "options": {
-        "default": "Default",
+        "gold": "Gold",
         "blue": "Blue",
         "green": "Green",
+        "yellow": "Yellow",
+        "pink": "Pink",
+        "orange": "Orange",
         "purple": "Purple",
-        "red": "Red"
+        "red": "Red",
+        "cyan": "Cyan"
       }
     },
     "language": {

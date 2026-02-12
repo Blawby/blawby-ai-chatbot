@@ -107,7 +107,7 @@ export const onboardingSchemas = {
 export const settingsSchemas = {
   general: z.object({
     theme: z.enum(['light', 'dark', 'system']),
-    accentColor: z.enum(['default', 'blue', 'green', 'purple', 'red']),
+    accentColor: z.enum(['gold', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple']),
     language: z.string(),
     spokenLanguage: z.string(),
   }),

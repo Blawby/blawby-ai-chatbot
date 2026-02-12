@@ -1,4 +1,4 @@
-import { CheckIcon } from '@heroicons/react/24/outline';
+
 import type { ComponentChildren, ComponentType, JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
@@ -27,11 +27,8 @@ export function ServiceCard({
   const rightContent = headerActions ? (
     <div className="flex items-center gap-2">
       {headerActions}
-      {selected && <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />}
     </div>
-  ) : (
-    selected && <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />
-  );
+  ) : null;
   const content = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-start gap-3">

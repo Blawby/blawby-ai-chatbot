@@ -60,7 +60,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
         aria-hidden="true"
       />
       <div className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-accent-500/30 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/12 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/[0.12] blur-3xl" aria-hidden="true" />
 
       <section className="relative z-10 px-6 pb-12 pt-8 text-white">
         <div className="flex items-center gap-3">
@@ -123,7 +123,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           aria-label={t('workspace.home.sendMessage')}
         >
           <span className="text-base font-semibold">{t('workspace.home.sendMessage')}</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-500 text-gray-900 shadow-sm transition group-hover:scale-[1.02] group-hover:bg-accent-600">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.12] border border-accent-500/50 text-white shadow-lg shadow-accent-500/20 backdrop-blur-xl transition group-hover:scale-[1.02] group-hover:bg-accent-500/30 group-hover:border-accent-500">
             <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
           </span>
         </button>

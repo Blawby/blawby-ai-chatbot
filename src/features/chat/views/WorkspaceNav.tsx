@@ -41,9 +41,8 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   const baseClasses = variant === 'bottom'
     ? 'flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
     : 'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
-  const activeClasses = 'bg-accent-500 text-gray-900 shadow-sm';
-  const inactiveClasses = 'text-input-text/80 hover:text-input-text hover:bg-surface-glass/40';
-
+  const activeClasses = 'bg-white/[0.12] text-white border-accent-500/50 shadow-lg shadow-accent-500/10 backdrop-blur-xl';
+  const inactiveClasses = 'bg-transparent text-input-text/70 border-transparent hover:bg-white/[0.08] hover:text-input-text backdrop-blur-xl';
   const containerClasses = variant === 'bottom'
     ? (showPracticeTabs
       ? 'grid grid-cols-5 gap-2'

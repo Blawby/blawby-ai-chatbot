@@ -39,7 +39,6 @@ export interface ChatContainerProps {
     slug?: string | null;
     introMessage?: string | null;
   };
-  showPracticeHeader?: boolean;
   heightClassName?: string;
   headerContent?: ComponentChildren;
   useFrame?: boolean;
@@ -106,7 +105,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAddMessage: _onAddMessage,
   isPublicWorkspace = false,
   practiceConfig,
-  showPracticeHeader = true,
   heightClassName,
   headerContent,
   useFrame = true,
@@ -394,7 +392,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   messages={messagesReady ? filteredMessages : []}
                   conversationTitle={conversationTitle}
                   practiceConfig={practiceConfig}
-                  showPracticeHeader={showPracticeHeader && !isPublicWorkspace}
                   isPublicWorkspace={isPublicWorkspace}
                   onOpenSidebar={onOpenSidebar}
                   onContactFormSubmit={onContactFormSubmit}

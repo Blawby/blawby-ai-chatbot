@@ -17,6 +17,19 @@
     --input-placeholder: 107 114 128;
     --shadow-card: 0 10px 30px rgb(15 23 42 / 8%);
     --shadow-glass: 0 18px 40px rgb(15 23 42 / 18%);
+
+    /* Default accent color: Gold */
+    --accent-50: 254 252 232;
+    --accent-100: 254 249 195;
+    --accent-200: 254 240 138;
+    --accent-300: 253 224 71;
+    --accent-400: 250 204 21;
+    --accent-500: 212 175 55;
+    --accent-600: 202 138 4;
+    --accent-700: 161 98 7;
+    --accent-800: 133 77 14;
+    --accent-900: 113 63 18;
+    --accent-950: 66 32 6;
   }
 
   .dark {
@@ -36,6 +49,13 @@
 
   body {
     @apply min-h-screen m-0;
+    /* Base background color */
+    background-color: rgb(var(--surface-base));
+    /* Subtle radial gradient overlay for depth */
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500) / 0.08), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600) / 0.05), transparent 50%);
+    background-attachment: fixed;
   }
 
   /* Hide scrollbars globally to prevent overlay on content */
@@ -116,19 +136,22 @@
     @apply whitespace-pre-wrap break-words;
   }
 
+  /* Apple-style glassmorphism card - heavy blur, translucent */
   .glass-card {
-    @apply rounded-3xl border border-line-glass border-opacity-35 bg-surface-glass bg-opacity-80 backdrop-blur-2xl saturate-150 shadow-glass;
-    @apply dark:border-line-glass dark:border-opacity-30 dark:bg-surface-glass dark:bg-opacity-30;
+    @apply rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl saturate-150 shadow-glass;
+    @apply dark:border-white/10 dark:bg-white/5;
   }
 
+  /* Apple-style glassmorphism panel - medium blur */
   .glass-panel {
-    @apply rounded-2xl border border-line-glass border-opacity-30 bg-surface-glass bg-opacity-75 backdrop-blur-xl saturate-150 shadow-glass;
-    @apply dark:border-line-glass dark:border-opacity-25 dark:bg-surface-glass dark:bg-opacity-25;
+    @apply rounded-2xl border border-white/[0.08] bg-white/[0.08] backdrop-blur-2xl saturate-150 shadow-glass;
+    @apply dark:border-white/10 dark:bg-white/[0.08];
   }
 
+  /* Apple-style glassmorphism input */
   .glass-input {
-    @apply border border-line-glass border-opacity-35 bg-surface-glass bg-opacity-70 text-input-text placeholder:text-input-placeholder/80 shadow-card;
-    @apply dark:border-line-glass dark:border-opacity-25 dark:bg-surface-glass dark:bg-opacity-25;
+    @apply border border-white/10 bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 shadow-card backdrop-blur-xl;
+    @apply dark:border-white/10 dark:bg-white/[0.08];
   }
 
   .chat-markdown p {
@@ -207,19 +230,6 @@
     @apply flex items-center gap-3 w-full;
   }
 
-  /* Standardized input styling */
-  .input-base {
-    @apply w-full px-3 py-2 text-sm border border-input-border rounded-lg bg-input-bg text-input-text placeholder-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors;
-  }
-
-  .input-base.error {
-    @apply border-red-500 focus:ring-red-500 focus:border-red-500;
-  }
-
-  .input-with-icon {
-    @apply pl-10;
-  }
-
   .chat-markdown ul,
   .chat-markdown ol {
     @apply my-3 pl-6;
@@ -272,6 +282,7 @@
   .chat-markdown .chat-cursor {
     @apply inline-block align-middle ml-2 h-2.5 w-2.5 rounded-full bg-accent-500/80 animate-pulse;
   }
+
 }
 
 @layer utilities {
@@ -342,12 +353,6 @@
   [dir="rtl"] .chat-markdown .chat-cursor {
     margin-left: 0;
     margin-right: 0.5rem;
-  }
-
-  /* Flip icon positions in inputs for RTL */
-  [dir="rtl"] .input-with-icon {
-    padding-left: 0.75rem;
-    padding-right: 2.5rem;
   }
 
   /* Comprehensive margin RTL rules */

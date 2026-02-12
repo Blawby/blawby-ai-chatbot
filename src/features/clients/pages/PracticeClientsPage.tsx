@@ -126,8 +126,8 @@ const StatusPill = ({ status }: { status: UserDetailStatus }) => (
         : status === 'lead'
           ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
           : status === 'inactive'
-            ? 'bg-surface-card text-input-placeholder border border-line-default'
-            : 'bg-surface-card/70 text-input-placeholder border border-line-default'
+            ? 'bg-white/5 text-input-placeholder border border-white/10'
+            : 'bg-white/[0.02] text-input-placeholder border border-white/5'
     )}
   >
     {STATUS_LABELS[status]}
@@ -171,7 +171,7 @@ const ClientDetailPanel = ({
   memoActionId,
   onEditClient,
   onDeleteClient,
-  paddingClassName = 'px-6 py-6'
+  paddingClassName = ''
 }: {
   client: ClientRecord;
   activity: TimelineItem[];
@@ -184,8 +184,8 @@ const ClientDetailPanel = ({
   onDeleteClient?: () => void;
   paddingClassName?: string;
 }) => (
-  <div className="h-full overflow-y-auto">
-    <div className={cn('divide-y divide-line-default', paddingClassName)}>
+  <div className={cn('h-full overflow-y-auto px-6 py-6', paddingClassName)}>
+    <div className="divide-y divide-line-default">
       <div className="pb-6">
         <div>
           <h2 className="text-xl font-semibold text-input-text">{client.name}</h2>
@@ -248,16 +248,16 @@ const ClientDetailPanel = ({
         </dl>
       </div>
       <div className="pt-6">
-        <h3 className="text-lg font-semibold text-input-text">Activity Feed</h3>
-        <div className="glass-panel p-4 rounded-xl">
+        <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
+        <div className="mt-4">
           <ActivityTimeline
             items={activity}
             showComposer
             composerDisabled={!onAddMemo}
             composerSubmitting={memoSubmitting}
             onComposerSubmit={onAddMemo}
-            composerLabel="Add memo"
-            composerPlaceholder="Add a memo..."
+            composerLabel="Comment"
+            composerPlaceholder="Add your comment..."
             onEditComment={onEditMemo}
             onDeleteComment={onDeleteMemo}
             commentActionsDisabled={memoSubmitting || Boolean(memoActionId)}
@@ -914,12 +914,12 @@ export const PracticeClientsPage = () => {
                     ref={listRef}
                     className="h-full overflow-y-auto"
                   >
-                    <ul className="divide-y divide-line-default">
+                    <ul className="divide-y divide-line-glass/30">
                       {letters.map((letter) => (
                         <Fragment key={letter}>
                           <li
                             data-letter={letter}
-                            className="sticky top-0 z-10 bg-surface-card px-4 py-2 text-xs font-semibold text-input-placeholder"
+                            className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder border-b border-line-glass/15"
                           >
                             {letter}
                           </li>
@@ -933,17 +933,17 @@ export const PracticeClientsPage = () => {
                                   onClick={() => handleSelectClient(client.id)}
                                   aria-current={isActive ? 'true' : undefined}
                                   className={cn(
-                                    'w-full justify-start px-4 py-3 h-auto',
+                                    'w-full justify-start px-4 py-3 h-auto rounded-none transition-all duration-200',
                                     isActive
-                                      ? 'bg-light-hover dark:bg-dark-hover border-l-2 border-accent-500'
-                                      : 'hover:bg-surface-card/70 border-l-2 border-transparent'
+                                      ? 'bg-accent-500/10 border-l-2 border-accent-500'
+                                      : 'hover:bg-white/[0.05] border-l-2 border-transparent'
                                   )}
                                 >
                                   <div className="flex items-center gap-4 w-full">
                                     <Avatar
                                       name={client.name}
                                       size="sm"
-                                      className="bg-surface-card text-input-text"
+                                      className="bg-white/10 text-input-text ring-1 ring-white/20"
                                     />
                                     <div className="min-w-0 flex-1 text-left">
                                       <p className="text-sm text-input-text truncate">
@@ -966,7 +966,7 @@ export const PracticeClientsPage = () => {
                       ))}
                       <li
                         ref={loadMoreRef}
-                        className="px-4 py-3 text-xs text-input-placeholder"
+                        className="px-4 py-3 text-xs text-input-placeholder text-center"
                       >
                         {clientsLoadingMore
                           ? 'Loading more clients...'
@@ -984,12 +984,12 @@ export const PracticeClientsPage = () => {
                         size="sm"
                         onClick={() => scrollToLetter(letter)}
                         className={cn(
-                          'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center',
+                          'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
                           // Increase interactive hit area to at least 44x44
                           "before:absolute before:-inset-3.5 before:content-['']",
                           currentLetter === letter
-                            ? 'text-input-text font-semibold'
-                            : 'text-input-placeholder hover:text-input-text'
+                            ? 'text-accent-500 font-bold bg-accent-500/10'
+                            : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
                         )}
                       >
                         {letter}

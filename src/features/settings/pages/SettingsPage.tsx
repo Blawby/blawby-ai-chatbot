@@ -320,7 +320,7 @@ export const SettingsPage = ({
 
   const mobileContent = currentPage === 'navigation'
     ? (
-      <div className="flex-1 overflow-y-auto bg-surface-glass/40 backdrop-blur-xl">
+      <div className="flex-1 overflow-y-auto bg-transparent">
         <div className="px-4 py-2">
           {navigationList}
         </div>

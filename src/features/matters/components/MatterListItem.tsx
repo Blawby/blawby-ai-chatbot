@@ -18,7 +18,7 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
   const sharedClassName = cn(
     'w-full text-left relative flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8 transition-colors',
     isInteractive
-      ? 'hover:bg-surface-glass/60 cursor-pointer'
+      ? 'hover:bg-white/[0.05] cursor-pointer'
       : 'cursor-default'
   );
 
@@ -35,7 +35,7 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
                 <Avatar
                   name={matter.clientName}
                   size="xs"
-                  className="bg-surface-glass/70 text-input-text ring-1 ring-inset ring-line-glass/40"
+                  className="bg-white/10 text-input-text ring-1 ring-white/20"
                 />
                 <span>{matter.clientName}</span>
               </span>

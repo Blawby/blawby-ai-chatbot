@@ -27,6 +27,9 @@ import { PracticeNotFound } from '@/features/practice/components/PracticeNotFoun
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { GeneralPreferences } from '@/shared/types/preferences';
 
 const LoadingScreen = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -838,6 +841,16 @@ async function mountClientApp() {
 
   if (shouldBeDark) {
     document.documentElement.classList.add('dark');
+  }
+
+  // Initialize accent color from user preferences
+  try {
+    const prefs = await getPreferencesCategory<GeneralPreferences>('general');
+    initializeAccentColor(prefs?.accent_color);
+  } catch (error) {
+    // If preferences fail to load, use default gold color
+    console.warn('Failed to load accent color preference, using default:', error);
+    initializeAccentColor('gold');
   }
 
   initI18n()

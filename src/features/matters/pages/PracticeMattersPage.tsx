@@ -523,7 +523,7 @@ const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestone
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <div className="flex h-full items-center justify-center p-8">
     <div className="max-w-md text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.12]">
         <FolderIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
       </div>
       <h3 className="mt-4 text-sm font-semibold text-input-text">No matters yet</h3>
@@ -1776,7 +1776,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       <Avatar
                         name={resolvedSelectedMatter.clientName}
                         size="xs"
-                        className="bg-surface-glass/60 text-input-text"
+                        className="bg-white/10 text-input-text ring-1 ring-white/20"
                       />
                       {resolvedSelectedMatter.clientName}
                     </span>
@@ -1824,7 +1824,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {headerMeta.clientEntries.map((entry) => (
                           <div key={entry.id} className="flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-1">
-                            <Avatar name={entry.name} size="xs" className="bg-surface-glass/60" />
+                            <Avatar name={entry.name} size="xs" className="bg-white/10 ring-1 ring-white/10" />
                             <span className="text-sm text-input-text">{entry.name}</span>
                           </div>
                         ))}
@@ -1839,7 +1839,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {headerMeta.assigneeNames.map((name, i) => (
                           <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-1">
-                            <Avatar name={name} size="xs" className="bg-surface-glass/60" />
+                            <Avatar name={name} size="xs" className="bg-white/10 ring-1 ring-white/10" />
                             <span className="text-sm text-input-text">{name}</span>
                           </div>
                         ))}

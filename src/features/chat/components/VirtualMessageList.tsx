@@ -1,7 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
-import PracticeProfile from '@/features/practice/components/PracticeProfile';
 import { memo } from 'preact/compat';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
@@ -25,7 +24,6 @@ interface VirtualMessageListProps {
         description?: string | null;
         slug?: string | null;
     };
-    showPracticeHeader?: boolean;
     isPublicWorkspace?: boolean;
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
@@ -72,7 +70,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
     conversationTitle,
     practiceConfig,
-    showPracticeHeader = true,
     isPublicWorkspace = false,
     onOpenSidebar,
     onContactFormSubmit,
@@ -552,19 +549,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             className={`flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
         >
-            {/* Practice Profile Header - Fixed at top of scrollable area */}
-            {practiceConfig && showPracticeHeader && (
-                <div className="flex flex-col items-center py-3 px-3 border-b border-line-glass/30 bg-surface-glass/60 backdrop-blur-xl mb-2">
-                    <PracticeProfile
-                        name={practiceConfig.name}
-                        profileImage={practiceConfig.profileImage}
-                        practiceSlug={practiceConfig.slug ?? practiceConfig.practiceId}
-                        description={practiceConfig.description}
-                        showVerified={true}
-                    />
-                </div>
-            )}
-
             {startIndex > 0 && (
                 <div className="flex justify-center items-center py-4">
                     <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm lg:text-base">Loading more messages...</div>

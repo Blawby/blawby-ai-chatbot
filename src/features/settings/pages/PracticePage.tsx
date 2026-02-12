@@ -248,9 +248,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const introMessageValue = typeof onboardingData.introMessage === 'string'
     ? onboardingData.introMessage.trim()
     : '';
-  const descriptionValue = typeof onboardingData.description === 'string'
-    ? onboardingData.description.trim()
-    : '';
+  const introPreview = introMessageValue ? truncateText(introMessageValue, 140) : 'Not set';
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
     : false;
@@ -278,7 +276,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return `${protocol}//${practiceHost}${practicePath}`;
   }, [practiceHost, practicePath]);
   const hasSavedLogo = editPracticeForm.logo.trim().length > 0;
-  const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
     () => members.map((member) => ({
       id: member.userId,
@@ -297,7 +294,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     address: undefined,
   });
   const [introDraft, setIntroDraft] = useState('');
-  const [descriptionDraft, setDescriptionDraft] = useState('');
   const modalContentClassName = 'bg-surface-glass bg-opacity-70 border-line-glass border-opacity-30 backdrop-blur-2xl';
   const modalHeaderClassName = 'bg-surface-glass bg-opacity-60 border-line-glass border-opacity-30 backdrop-blur-xl';
 
@@ -369,7 +365,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       slug: practice.slug || '',
       logo: practice.logo || ''
     });
-    setDescriptionDraft(descriptionValue);
     setIntroDraft(introMessageValue);
     setIsEditPracticeModalOpen(true);
   };
@@ -411,19 +406,16 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
     setIsSettingsSaving(true);
     try {
-      const trimmedDescription = descriptionDraft.trim();
       const trimmedIntro = introDraft.trim();
       const comparison = {
         name: practice.name,
         slug: practice.slug ?? null,
         logo: practice.logo ?? null,
-        description: practiceDetails?.description ?? practice.description ?? null,
         introMessage: practiceDetails?.introMessage ?? practice.introMessage ?? null
       };
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
         name: editPracticeForm.name,
         logo: trimmedLogo ? trimmedLogo : undefined,
-        description: trimmedDescription ? trimmedDescription : undefined,
         introMessage: trimmedIntro ? trimmedIntro : undefined
       }, { compareTo: comparison });
 
@@ -613,8 +605,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     </h3>
                     <div className="mt-2 space-y-2">
                       <div className="flex items-start gap-3">
-                        <SettingsSubheader className="w-20 text-[10px]">Description</SettingsSubheader>
-                        <SettingsHelperText>{descriptionPreview}</SettingsHelperText>
+                        <SettingsSubheader className="w-20 text-[10px]">Intro</SettingsSubheader>
+                        <SettingsHelperText>{introPreview}</SettingsHelperText>
                       </div>
                     </div>
                   </div>
@@ -926,15 +918,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
           <div>
             <PracticeProfileTextFields
-              description={descriptionDraft}
-              onDescriptionChange={setDescriptionDraft}
               introMessage={introDraft}
               onIntroChange={setIntroDraft}
-              showIntro
-              showDescription={false}
-              descriptionRows={4}
-              descriptionLabel="Business description"
-              descriptionPlaceholder="Tell us about your business..."
+              introRows={4}
+              introLabel="Intro Message"
+              introPlaceholder="Welcome to our firm. How can we help?"
               disabled={isSettingsSaving}
             />
           </div>

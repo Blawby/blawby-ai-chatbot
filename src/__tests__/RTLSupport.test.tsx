@@ -265,7 +265,8 @@ describe('RTL (Right-to-Left) Support', () => {
 
     it('should verify input fields have RTL support', () => {
       const rtlInputRules = [
-        '[dir="rtl"] .input-with-icon'
+        '[dir="rtl"] .ml-auto',
+        '[dir="rtl"] .mr-auto'
       ];
       
       expect(rtlInputRules.length).toBeGreaterThan(0);

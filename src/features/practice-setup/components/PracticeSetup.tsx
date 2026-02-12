@@ -268,8 +268,6 @@ export const PracticeSetup = ({
               <PracticeProfileTextFields
                 introMessage={basicsDraft.introMessage}
                 onIntroChange={(value) => setBasicsDraft((prev) => ({ ...prev, introMessage: value }))}
-                showDescription={false}
-                showIntro
                 introRows={3}
                 introLabel="Intro message"
                 introPlaceholder="Welcome to our firm. How can we help?"

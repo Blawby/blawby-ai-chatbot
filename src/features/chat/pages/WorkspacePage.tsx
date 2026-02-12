@@ -704,10 +704,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                     type="button"
                     onClick={() => setPreviewTab(option.id)}
                     className={cn(
-                      'rounded-full px-3 py-1 transition',
+                      'rounded-full px-3 py-1 transition backdrop-blur-xl',
                       isActive
-                        ? 'bg-accent-500 text-gray-900 shadow-sm'
-                        : 'text-input-placeholder hover:text-input-text'
+                        ? 'bg-white/[0.12] text-white border border-accent-500/50 shadow-lg shadow-accent-500/10'
+                        : 'text-input-placeholder hover:text-input-text hover:bg-white/[0.08] border border-transparent'
                     )}
                     aria-pressed={isActive}
                   >
@@ -762,7 +762,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'matters':
         return mattersView ?? (
-          <div className="flex flex-1 flex-col rounded-3xl bg-surface-glass/40 backdrop-blur-xl border border-line-glass/30">
+          <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-input-text">Matters</h2>
               <p className="mt-2 text-sm text-input-placeholder">
@@ -779,7 +779,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'clients':
         return clientsView ?? (
-          <div className="flex flex-1 flex-col rounded-3xl bg-surface-glass/40 backdrop-blur-xl border border-line-glass/30">
+          <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-input-text">Clients</h2>
               <p className="mt-2 text-sm text-input-placeholder">
