@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { DatePicker, Input, NumberInput, Select, Textarea } from '@/shared/ui/input';
-import type { MatterTask } from '@/features/matters/data/mockMatters';
+import type { MatterTask } from '@/features/matters/data/matterTypes';
 
 const buildDateString = (date: Date) => {
   const year = date.getUTCFullYear();

@@ -3,7 +3,7 @@ import { Button } from '@/shared/ui/Button';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Select } from '@/shared/ui/input/Select';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 
 const buildDateString = (date: Date) => formatDateOnlyStringUtc(date);

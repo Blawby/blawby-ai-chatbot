@@ -1,18 +1,29 @@
-import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
+import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import { cn } from '@/shared/utils/cn';
 
-const STATUS_LABELS: Record<MattersSidebarStatus, string> = {
-  draft: 'Draft',
-  active: 'Active'
-};
-
-const STATUS_CLASSES: Record<MattersSidebarStatus, string> = {
-  draft: 'text-amber-400 bg-amber-400/10 ring-amber-400/20',
-  active: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/30'
+const STATUS_CLASSES: Record<MatterStatus, string> = {
+  first_contact: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+  intake_pending: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+  conflict_check: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  conflicted: 'text-rose-600 bg-rose-500/10 ring-rose-500/30',
+  eligibility: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+  referred: 'text-slate-500 bg-slate-500/10 ring-slate-500/30',
+  consultation_scheduled: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+  declined: 'text-rose-600 bg-rose-500/10 ring-rose-500/30',
+  engagement_pending: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+  active: 'text-emerald-600 bg-emerald-500/10 ring-emerald-500/30',
+  pleadings_filed: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  discovery: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  mediation: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  pre_trial: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  trial: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  order_entered: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  appeal_pending: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+  closed: 'text-slate-500 bg-slate-500/10 ring-slate-500/30'
 };
 
 interface MatterStatusPillProps {
-  status: MattersSidebarStatus;
+  status: MatterStatus;
   className?: string;
 }
 
@@ -24,6 +35,6 @@ export const MatterStatusPill = ({ status, className = '' }: MatterStatusPillPro
       className
     )}
   >
-    {STATUS_LABELS[status]}
+    {MATTER_STATUS_LABELS[status]}
   </span>
 );

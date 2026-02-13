@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
-import type { MatterDetail, MatterNote } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterNote } from '@/features/matters/data/matterTypes';
 import { NoteForm, type NoteFormValues } from './NoteForm';
 
 const formatNoteDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy h:mm a');

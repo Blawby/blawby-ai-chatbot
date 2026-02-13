@@ -2,7 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
-import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 import { WorkDiaryCalendar } from './WorkDiaryCalendar';

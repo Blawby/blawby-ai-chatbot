@@ -87,6 +87,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 }) => {
   const { navigate } = useNavigation();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
+  const [, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const isPracticeWorkspace = workspace === 'practice';
 

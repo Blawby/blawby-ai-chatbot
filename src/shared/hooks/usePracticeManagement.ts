@@ -1448,7 +1448,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Refetch when session changes
   useEffect(() => {
-    if (!autoFetchPractices || sessionLoading || isAnonymous) {
+    if (!autoFetchPractices || sessionLoading) {
       return;
     }
 

@@ -1,4 +1,4 @@
-import type { MatterSummary } from '@/features/matters/data/mockMatters';
+import type { MatterSummary } from '@/features/matters/data/matterTypes';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/shared/utils/cn';
 import { Avatar } from '@/shared/ui/profile';

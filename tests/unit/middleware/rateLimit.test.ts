@@ -25,7 +25,6 @@ const createMockEnv = (): {
     NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
     CHAT_COUNTER: {} as Env['CHAT_COUNTER'],
     CHAT_ROOM: {} as Env['CHAT_ROOM'],
-    MATTER_DIFFS: {} as Env['MATTER_DIFFS'],
     MATTER_PROGRESS: {} as Env['MATTER_PROGRESS'],
     ONESIGNAL_APP_ID: 'test-app',
     ONESIGNAL_REST_API_KEY: 'test-key',

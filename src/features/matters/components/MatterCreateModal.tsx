@@ -6,10 +6,11 @@ import { Textarea } from '@/shared/ui/input/Textarea';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { FileInput } from '@/shared/ui/input/FileInput';
 import { Combobox } from '@/shared/ui/input/Combobox';
+import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { Avatar } from '@/shared/ui/profile';
-import type { MatterOption } from '@/features/matters/data/mockMatters';
-import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
+import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
+import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outline';
@@ -39,28 +40,35 @@ interface MatterEditModalProps extends Omit<MatterFormModalProps, 'mode'> {
   initialValues: Partial<MatterFormState>;
 }
 
-export type BillingType = 'hourly' | 'fixed' | 'contingency';
+export type BillingType = 'hourly' | 'fixed' | 'contingency' | 'pro_bono';
 
 export type PaymentFrequency = 'project' | 'milestone';
 
-export type MatterMilestone = {
-  description: string;
-  dueDate: string;
-  amount?: MajorAmount;
-};
 
 export type MatterFormState = {
   title: string;
   clientId: string;
   practiceAreaId: string;
   assigneeIds: string[];
-  status: MattersSidebarStatus;
+  status: MatterStatus;
+  caseNumber: string;
+  matterType: string;
+  urgency: 'routine' | 'time_sensitive' | 'emergency' | '';
+  responsibleAttorneyId: string;
+  originatingAttorneyId: string;
+  court: string;
+  judge: string;
+  opposingParty: string;
+  opposingCounsel: string;
+  openDate: string;
+  closeDate: string;
   billingType: BillingType;
   attorneyHourlyRate?: MajorAmount;
   adminHourlyRate?: MajorAmount;
   paymentFrequency?: PaymentFrequency;
   totalFixedPrice?: MajorAmount;
-  milestones: MatterMilestone[];
+  settlementAmount?: MajorAmount;
+  milestones: MatterMilestoneFormInput[];
   contingencyPercent?: number;
   description: string;
   files: File[];
@@ -81,13 +89,20 @@ const BILLING_OPTIONS = [
     value: 'contingency',
     label: 'Contingency',
     description: 'Set a percentage fee based on the outcome'
+  },
+  {
+    value: 'pro_bono',
+    label: 'Pro bono',
+    description: 'Provide services without charge'
   }
 ];
 
-const STATUS_OPTIONS: Array<{ value: MattersSidebarStatus; label: string }> = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'active', label: 'Active' }
-];
+const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WORKFLOW_STATUSES.map(
+  (status) => ({
+    value: status,
+    label: MATTER_STATUS_LABELS[status]
+  })
+);
 
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
   {
@@ -107,12 +122,24 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
   clientId: initialValues?.clientId ?? '',
   practiceAreaId: initialValues?.practiceAreaId ?? '',
   assigneeIds: initialValues?.assigneeIds ?? [],
-  status: initialValues?.status ?? 'draft',
+  status: initialValues?.status ?? 'first_contact',
+  caseNumber: initialValues?.caseNumber ?? '',
+  matterType: initialValues?.matterType ?? '',
+  urgency: initialValues?.urgency ?? '',
+  responsibleAttorneyId: initialValues?.responsibleAttorneyId ?? '',
+  originatingAttorneyId: initialValues?.originatingAttorneyId ?? '',
+  court: initialValues?.court ?? '',
+  judge: initialValues?.judge ?? '',
+  opposingParty: initialValues?.opposingParty ?? '',
+  opposingCounsel: initialValues?.opposingCounsel ?? '',
+  openDate: initialValues?.openDate ?? '',
+  closeDate: initialValues?.closeDate ?? '',
   billingType: initialValues?.billingType ?? 'hourly',
   attorneyHourlyRate: initialValues?.attorneyHourlyRate,
   adminHourlyRate: initialValues?.adminHourlyRate,
   paymentFrequency: initialValues?.paymentFrequency,
   totalFixedPrice: initialValues?.totalFixedPrice,
+  settlementAmount: initialValues?.settlementAmount,
   milestones: initialValues?.milestones ?? [],
   contingencyPercent: initialValues?.contingencyPercent,
   description: initialValues?.description ?? '',
@@ -130,9 +157,9 @@ const StatusPillGroup = ({
   onChange,
   options
 }: {
-  value: MattersSidebarStatus;
-  onChange: (value: MattersSidebarStatus) => void;
-  options: Array<{ value: MattersSidebarStatus; label: string }>;
+  value: MatterStatus;
+  onChange: (value: MatterStatus) => void;
+  options: Array<{ value: MatterStatus; label: string }>;
 }) => (
   <fieldset>
     <legend className="block text-sm font-medium text-input-text mb-1">Matter Status</legend>
@@ -157,7 +184,7 @@ const StatusPillGroup = ({
               name="matter-status"
               value={option.value}
               checked={isSelected}
-              onChange={() => onChange(option.value)}
+              onChange={() => onChange(option.value as MatterStatus)}
               className="sr-only"
             />
             {option.label}
@@ -185,6 +212,7 @@ const MatterFormModalInner = ({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof MatterFormState, string>>>({});
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({
@@ -233,11 +261,32 @@ const MatterFormModalInner = ({
   });
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const canSubmit = Boolean(formState.title && formState.clientId);
+  const hasFormErrors = Object.keys(formErrors).length > 0;
+  const canSubmit = Boolean(formState.title && formState.clientId) && !hasFormErrors;
   const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
-    setFormState((prev) => ({ ...prev, [key]: value }));
+    setFormState((prev) => {
+      const next = { ...prev, [key]: value };
+
+      if (key === 'openDate' || key === 'closeDate') {
+        const { openDate, closeDate } = next;
+        if (openDate && closeDate && new Date(closeDate) < new Date(openDate)) {
+          setFormErrors((prevErrors) => ({
+            ...prevErrors,
+            closeDate: 'Close date cannot be earlier than open date'
+          }));
+        } else {
+          setFormErrors((prevErrors) => {
+            const nextErrors = { ...prevErrors };
+            delete nextErrors.closeDate;
+            return nextErrors;
+          });
+        }
+      }
+
+      return next;
+    });
   };
 
   const parseAssigneeInput = (value: string) =>
@@ -412,6 +461,90 @@ const MatterFormModalInner = ({
           disabled={practiceAreasLoading}
         />
 
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-input-text">Matter specifics</h3>
+          <FormGrid>
+            <Input
+              label="Case number"
+              value={formState.caseNumber}
+              onChange={(value) => updateForm('caseNumber', value)}
+              placeholder="e.g. 24-CV-1029"
+            />
+            <Input
+              label="Matter type"
+              value={formState.matterType}
+              onChange={(value) => updateForm('matterType', value)}
+              placeholder="e.g. Contract dispute"
+            />
+          </FormGrid>
+          <FormGrid>
+            <div className="w-full">
+              <Select
+                label="Urgency"
+                value={formState.urgency}
+                options={[
+                  { value: '', label: 'Select urgency' },
+                  { value: 'routine', label: 'Routine' },
+                  { value: 'time_sensitive', label: 'Time sensitive' },
+                  { value: 'emergency', label: 'Emergency' }
+                ]}
+                onChange={(value) => updateForm('urgency', value as MatterFormState['urgency'])}
+                className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+              />
+            </div>
+            <Input
+              label="Court"
+              value={formState.court}
+              onChange={(value) => updateForm('court', value)}
+              placeholder="e.g. Superior Court of CA"
+            />
+          </FormGrid>
+          <FormGrid>
+            <Input
+              label="Judge"
+              value={formState.judge}
+              onChange={(value) => updateForm('judge', value)}
+              placeholder="e.g. Hon. A. Smith"
+            />
+            <Input
+              label="Opposing party"
+              value={formState.opposingParty}
+              onChange={(value) => updateForm('opposingParty', value)}
+            />
+          </FormGrid>
+          <FormGrid>
+            <Input
+              label="Opposing counsel"
+              value={formState.opposingCounsel}
+              onChange={(value) => updateForm('opposingCounsel', value)}
+            />
+            <Input
+              label="Open date"
+              type="date"
+              value={formState.openDate}
+              onChange={(value) => updateForm('openDate', value)}
+            />
+          </FormGrid>
+          <FormGrid>
+            <Input
+              label="Close date"
+              type="date"
+              value={formState.closeDate}
+              onChange={(value) => updateForm('closeDate', value)}
+              error={formErrors.closeDate}
+              variant={formErrors.closeDate ? 'error' : 'default'}
+            />
+            <CurrencyInput
+              label="Settlement amount"
+              value={formState.settlementAmount}
+              onChange={(value) =>
+                updateForm('settlementAmount', typeof value === 'number' ? asMajor(value) : undefined)
+              }
+              placeholder="0"
+            />
+          </FormGrid>
+        </div>
+
         <div className="border-t border-line-glass/30 pt-6 space-y-4">
           <div>
             <h3 className="text-lg font-medium text-input-text">Additional documents</h3>
@@ -473,6 +606,40 @@ const MatterFormModalInner = ({
               onChange={(value) => updateForm('assigneeIds', value)}
             />
           )}
+        </div>
+
+        <div className="border-t border-line-glass/30 pt-6 space-y-4">
+          <h3 className="text-lg font-medium text-input-text">Attorney assignments</h3>
+          <FormGrid>
+            <Combobox
+              label="Responsible attorney"
+              placeholder="Select attorney"
+              value={formState.responsibleAttorneyId}
+              options={assigneeOptions}
+              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              optionLeading={(option) => {
+                const assignee = assigneeById.get(option.value);
+                if (!assignee) return null;
+                return renderUserAvatar(assignee.name, assignee.image, 'sm');
+              }}
+              optionMeta={(option) => option.meta}
+              onChange={(value) => updateForm('responsibleAttorneyId', value)}
+            />
+            <Combobox
+              label="Originating attorney"
+              placeholder="Select attorney"
+              value={formState.originatingAttorneyId}
+              options={assigneeOptions}
+              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              optionLeading={(option) => {
+                const assignee = assigneeById.get(option.value);
+                if (!assignee) return null;
+                return renderUserAvatar(assignee.name, assignee.image, 'sm');
+              }}
+              optionMeta={(option) => option.meta}
+              onChange={(value) => updateForm('originatingAttorneyId', value)}
+            />
+          </FormGrid>
         </div>
 
         <div className="border-t border-line-glass/30 pt-6 space-y-4">

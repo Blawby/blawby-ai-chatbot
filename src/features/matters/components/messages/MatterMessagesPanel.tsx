@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listMatterConversations } from '@/shared/lib/apiClient';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
-import type { MatterDetail } from '@/features/matters/data/mockMatters';
+import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Conversation } from '@/shared/types/conversation';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
