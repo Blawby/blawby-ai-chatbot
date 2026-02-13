@@ -1200,7 +1200,7 @@ export const useMessageHandling = ({
     });
   }, [currentUserId, sendFrame, waitForSessionReady, waitForSocketReady]);
 
-  const pendingIntakeInitRef = useRef(false);
+  const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
 
   // Main message sending function
   const sendMessage = useCallback(async (
@@ -1221,14 +1221,18 @@ export const useMessageHandling = ({
 
     if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
       if (pendingIntakeInitRef.current) {
-         // Wait for initialization if another call is already handling it, or just proceed knowing it's started
-         // For now, allow proceed but ensure we don't double-init
+         try {
+           await pendingIntakeInitRef.current;
+         } catch (error) {
+           console.error('Failed to await pending intake init', error);
+         }
       } else {
-        pendingIntakeInitRef.current = true;
+        const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState });
+        pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
         try {
-          await updateConversationMetadata({ intakeConversationState: initialIntakeState });
+          await initPromise;
         } finally {
-          pendingIntakeInitRef.current = false;
+          pendingIntakeInitRef.current = null;
         }
       }
     }
