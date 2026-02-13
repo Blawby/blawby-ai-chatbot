@@ -487,7 +487,10 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
             rawReplyType: typeof rawReply,
             violations
           });
-          if (!isIntakeMode) {
+          // If the violation is a missing disclaimer, always fallback regardless of intake mode.
+          if (violations.includes('missing_disclaimer')) {
+            reply = EMPTY_REPLY_FALLBACK;
+          } else if (!isIntakeMode) {
             reply = EMPTY_REPLY_FALLBACK;
           }
         }

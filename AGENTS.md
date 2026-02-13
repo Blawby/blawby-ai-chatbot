@@ -1,4 +1,4 @@
-Check for lint/ts errors and resolve BEFORE commit request NEVER after every code change (only when writing code, not documentation)
+Check for lint/TS errors and resolve them before creating a commit request; do not rely on fixing them after every code change. This guidance applies to code changes, not documentation.
 Don’t use useEffect for React-internal logic (derived state, data transforms, “when X changes set Y”, or user events). Use it only for external synchronization (DOM/Browser APIs, subscriptions, timers, fetch with cleanup).
 System boundaries and sources of truth:
 Frontend (Cloudflare Pages): Preact app in src/ built by Vite. Use src/config/urls.ts for API routing rules and env variable behavior.

@@ -80,7 +80,7 @@ interface MessageActionsProps {
 
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
-	intakeStatus: _intakeStatus,
+	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -191,9 +191,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			{quickReplies && quickReplies.length > 0 && onQuickReply && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-					{quickReplies.map((reply) => (
+					{quickReplies.map((reply, idx) => (
 						<Button
-							key={reply}
+							key={`${reply}-${idx}`}
 							variant="secondary"
 							size="sm"
 							className="shrink-0"

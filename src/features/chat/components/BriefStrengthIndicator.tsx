@@ -15,7 +15,7 @@ const resolveStrengthTier = (state: IntakeConversationState | null): StrengthTie
 const resolveStrengthLabel = (tier: StrengthTier): string => {
   switch (tier) {
     case 'weak':
-      return 'Weak brief';
+      return 'Weak Brief';
     case 'basic':
       return 'Basic Brief';
     case 'good':

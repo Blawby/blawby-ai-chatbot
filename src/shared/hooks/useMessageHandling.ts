@@ -1812,7 +1812,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
   const buildContactData = useCallback((draft: SlimContactDraft, intake: IntakeConversationState | null): ContactData => {
     const mergedDescription = intake?.description?.trim() || draft.description?.trim() || '';
-    const mergedOpposingParty = draft.opposingParty?.trim() || intake?.opposingParty?.trim() || '';
+    const mergedOpposingParty = intake?.opposingParty?.trim() || draft.opposingParty?.trim() || '';
     return {
       name: draft.name,
       email: draft.email,

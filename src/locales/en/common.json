@@ -258,7 +258,13 @@
     }
   },
   "chat": {
-    "publicIntro": "Ask us anything, or share your feedback."
+    "publicIntro": "Ask us anything, or share your feedback.",
+    "continue": "Continue",
+    "submitRequest": "Submit request"
+  },
+  "contact": {
+    "city": "City",
+    "state": "State"
   },
   "intake": {
     "authTitle": "You're almost done",

@@ -210,7 +210,7 @@ const buildSchema = (fields: AddressExperienceField[], required: AddressExperien
         break;
       case 'state':
         shape.state = isRequired('state')
-          ? z.string().trim().min(2, 'State is required')
+          ? z.string().trim().min(1, 'State is required')
           : optionalString;
         break;
       case 'status':

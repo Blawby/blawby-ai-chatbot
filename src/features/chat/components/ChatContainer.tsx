@@ -476,7 +476,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   initialValues={slimContactDraft ?? undefined}
                   variant="plain"
                   showSubmitButton={true}
-                  submitLabel="Continue"
+                  submitLabel={t('chat.continue')}
                 />
               </div>
             ) : (
@@ -522,7 +522,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           onIntakeCtaResponse?.('ready');
                         }}
                       >
-                        Submit request
+                        {t('chat.submitRequest')}
                       </Button>
                     </div>
                   );
