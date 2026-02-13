@@ -479,10 +479,8 @@ const MatterFormModalInner = ({
           </FormGrid>
           <FormGrid>
             <div className="w-full">
-              <span className="block text-sm font-medium text-input-text mb-1" id="matter-urgency-label">
-                Urgency
-              </span>
               <Select
+                label="Urgency"
                 value={formState.urgency}
                 options={[
                   { value: '', label: 'Select urgency' },
@@ -491,7 +489,6 @@ const MatterFormModalInner = ({
                   { value: 'emergency', label: 'Emergency' }
                 ]}
                 onChange={(value) => updateForm('urgency', value as MatterFormState['urgency'])}
-                aria-labelledby="matter-urgency-label"
                 className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
               />
             </div>
