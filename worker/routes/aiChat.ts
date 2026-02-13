@@ -11,6 +11,7 @@ import { Logger } from '../utils/logger.js';
 const DEFAULT_AI_MODEL = 'gpt-4o-mini';
 const LEGAL_DISCLAIMER = 'I’m not a lawyer and can’t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
+const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the necessary details for the firm.";
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
@@ -489,7 +490,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
           });
           // If the violation is a missing disclaimer, always fallback regardless of intake mode.
           if (violations.includes('missing_disclaimer')) {
-            reply = EMPTY_REPLY_FALLBACK;
+            reply = isIntakeMode ? INTRO_INTAKE_DISCLAIMER_FALLBACK : EMPTY_REPLY_FALLBACK;
           } else if (!isIntakeMode) {
             reply = EMPTY_REPLY_FALLBACK;
           }

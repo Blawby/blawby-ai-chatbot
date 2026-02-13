@@ -227,9 +227,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const lastMessage = filteredMessages[filteredMessages.length - 1];
     const hasIntakeCta = Boolean(lastMessage?.metadata?.intakeReadyCta);
     const canHandleCta = hasIntakeCta && intakeConversationState?.ctaResponse !== 'ready';
-    const normalized = message.toLowerCase();
-    const isAffirmative = /^(y|yea|yeah|yep|yup|yes|sure|ok|okay|ready|submit)\b/.test(normalized);
-    const isNegative = /^(n|no|nope|not yet|later|wait)\b/.test(normalized);
+    const normalized = message.trim().toLowerCase();
+    const isAffirmative = /^(y|yea|yeah|yep|yup|yes|sure|ok|okay|ready|submit)$/.test(normalized);
+    const isNegative = /^(n|no|nope|not yet|later|wait)$/.test(normalized);
     if (canHandleCta && onIntakeCtaResponse) {
       if (isAffirmative) {
         if (onSubmitNow) {

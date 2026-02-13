@@ -114,17 +114,17 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
 	const canShowNotYet = (intakeConversationState?.notYetCount ?? 0) < 2;
 	const ctaPrimaryLabel = strengthTier === 'strong'
-		? 'Submit request'
+		? t('chat.cta.submit')
 		: strengthTier === 'good'
-			? 'Review & submit'
+			? t('chat.cta.reviewSubmit')
 			: strengthTier === 'basic'
-				? 'Keep answering'
-				: 'Continue';
+				? t('chat.cta.keepAnswering')
+				: t('chat.cta.continue');
 	const ctaSecondaryLabel = strengthTier === 'strong'
-		? 'Add more'
+		? t('chat.cta.addMore')
 		: strengthTier === 'good'
-			? 'Add more'
-			: 'Not yet';
+			? t('chat.cta.addMore')
+			: t('chat.cta.notYet');
 
 	return (
 		<div className={className}>

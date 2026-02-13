@@ -1415,7 +1415,7 @@ export const useMessageHandling = ({
       intakeAiBriefActive: false
     });
 
-    const practiceContextId = (practiceId ?? practiceSlug ?? '').trim();
+    const practiceContextId = (practiceId ?? '').trim();
     if (!conversationId || !practiceContextId) {
       return;
     }
