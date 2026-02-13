@@ -15,7 +15,7 @@ export type BackendMatter = {
   client_id?: string | null;
   title?: string | null;
   description?: string | null;
-  billing_type?: 'hourly' | 'fixed' | 'contingency' | string | null;
+  billing_type?: 'hourly' | 'fixed' | 'contingency' | 'pro_bono' | string | null;
   total_fixed_price?: MajorAmount | null;
   contingency_percentage?: number | null;
   settlement_amount?: MajorAmount | null;
@@ -23,6 +23,17 @@ export type BackendMatter = {
   admin_hourly_rate?: MajorAmount | null;
   attorney_hourly_rate?: MajorAmount | null;
   payment_frequency?: 'project' | 'milestone' | string | null;
+  case_number?: string | null;
+  matter_type?: string | null;
+  urgency?: 'routine' | 'time_sensitive' | 'emergency' | string | null;
+  responsible_attorney_id?: string | null;
+  originating_attorney_id?: string | null;
+  court?: string | null;
+  judge?: string | null;
+  opposing_party?: string | null;
+  opposing_counsel?: string | null;
+  open_date?: string | null;
+  close_date?: string | null;
   status?: string | null;
   deleted_at?: string | null;
   deleted_by?: string | null;

@@ -50,14 +50,6 @@ class_name = "MatterProgressRoom"
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
 
-[[durable_objects.bindings]]
-name = "MATTER_DIFFS"
-class_name = "MatterDiffStore"
-
-[[migrations]]
-tag = "v6"
-new_classes = ["MatterDiffStore"]
-
 
 [env.dev]
 name = "blawby-ai-chatbot-dev"
@@ -97,14 +89,6 @@ new_classes = ["ChatRoom"]
 [[env.dev.migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
-
-[[env.dev.durable_objects.bindings]]
-name = "MATTER_DIFFS"
-class_name = "MatterDiffStore"
-
-[[env.dev.migrations]]
-tag = "v6"
-new_classes = ["MatterDiffStore"]
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -166,14 +150,6 @@ new_classes = ["ChatRoom"]
 [[env.staging.migrations]]
 tag = "v5"
 new_classes = ["MatterProgressRoom"]
-
-[[env.staging.durable_objects.bindings]]
-name = "MATTER_DIFFS"
-class_name = "MatterDiffStore"
-
-[[env.staging.migrations]]
-tag = "v6"
-new_classes = ["MatterDiffStore"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -264,14 +240,6 @@ RATE_LIMIT_BURST_SIZE = "10"
 [[env.production.routes]]
 pattern = "ai.blawby.com/api/*"
 zone_name = "blawby.com"
-
-[[env.production.durable_objects.bindings]]
-name = "MATTER_DIFFS"
-class_name = "MatterDiffStore"
-
-[[env.production.migrations]]
-tag = "v6"
-new_classes = ["MatterDiffStore"]
 
 [observability]
 [observability.logs]

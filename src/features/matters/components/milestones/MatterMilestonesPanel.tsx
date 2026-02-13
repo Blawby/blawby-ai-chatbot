@@ -9,7 +9,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
-import type { MatterDetail, MatterMilestone } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterMilestone } from '@/features/matters/data/matterTypes';
 
 type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
 

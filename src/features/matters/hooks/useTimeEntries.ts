@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { ulid } from 'ulid';
-import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import type { TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 
 type UseTimeEntriesOptions = {

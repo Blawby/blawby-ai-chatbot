@@ -25,6 +25,11 @@ export type TimelineItem = {
   dateTime?: string;
   comment?: string;
   action?: string;
+  actionMeta?: {
+    type: 'status_change';
+    from: string;
+    to: string;
+  };
 };
 
 export interface ActivityTimelineProps {
@@ -270,20 +275,30 @@ export const ActivityTimeline = ({
               <>
                 <p className="flex-auto py-0.5 text-sm leading-5 text-input-text">
                   <span className="font-semibold">{item.person.name}</span>{' '}
-                  {(() => {
-                    const trimmed = actionText.trim();
-                    const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
-                    if (!match) {
-                      return <span className="text-input-text">{trimmed}</span>;
-                    }
-                    const [, verb, rest] = match;
-                    return (
-                      <>
-                        <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
-                        <span className="text-input-text">{rest}</span>
-                      </>
-                    );
-                  })()}
+                  {item.actionMeta?.type === 'status_change' ? (
+                    <>
+                      <span className="text-gray-500 dark:text-gray-400">updated the status</span>{' '}
+                      <span className="text-gray-500 dark:text-gray-400">from</span>{' '}
+                      <span className="font-semibold text-input-text">{item.actionMeta.from}</span>{' '}
+                      <span className="text-gray-500 dark:text-gray-400">to</span>{' '}
+                      <span className="font-semibold text-input-text">{item.actionMeta.to}</span>
+                    </>
+                  ) : (
+                    (() => {
+                      const trimmed = actionText.trim();
+                      const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
+                      if (!match) {
+                        return <span className="text-input-text">{trimmed}</span>;
+                      }
+                      const [, verb, rest] = match;
+                      return (
+                        <>
+                          <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
+                          <span className="text-input-text">{rest}</span>
+                        </>
+                      );
+                    })()
+                  )}
                 </p>
                 <time
                   dateTime={item.dateTime ?? item.date}

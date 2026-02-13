@@ -17,12 +17,18 @@ import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import {
+  MATTER_STATUS_LABELS,
+  MATTER_WORKFLOW_STATUSES,
+  isMatterStatus,
+  type MatterStatus
+} from '@/shared/types/matterStatus';
+import {
   type MatterDetail,
   type MatterExpense,
   type MatterOption,
   type MatterSummary,
   type TimeEntry
-} from '@/features/matters/data/mockMatters';
+} from '@/features/matters/data/matterTypes';
 import { MatterCreateModal, MatterEditModal, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
@@ -39,7 +45,8 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, toMajorUnits, type MajorAmount } from '@/shared/utils/money';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import {
   createMatter,
   getMatter,
@@ -72,12 +79,11 @@ import {
 } from '@/features/matters/services/mattersApi';
 import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 
-const statusOrder: Record<MattersSidebarStatus, number> = {
-  active: 0,
-  draft: 1
-};
+const statusOrder = Object.fromEntries(
+  MATTER_WORKFLOW_STATUSES.map((status, index) => [status, index])
+) as Record<MatterStatus, number>;
 
-type MatterTabId = 'all' | MattersSidebarStatus;
+type MatterTabId = 'all' | 'open' | 'closed';
 type DetailTabId = 'overview' | 'time' | 'messages';
 
 type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
@@ -91,16 +97,20 @@ const SORT_LABELS: Record<SortOption, string> = {
   practice_area: 'Practice area'
 };
 
-const buildTabs = (counts: Record<MattersSidebarStatus, number>): TabItem[] => [
-  { id: 'all', label: 'All', count: Object.values(counts).reduce((sum, value) => sum + value, 0) },
-  { id: 'active', label: 'Active', count: counts.active },
-  { id: 'draft', label: 'Drafts', count: counts.draft }
+const CLOSED_STATUSES: MatterStatus[] = ['closed', 'declined', 'conflicted', 'referred'];
+
+const isClosedStatus = (status: MatterStatus) => CLOSED_STATUSES.includes(status);
+
+const buildTabs = (counts: { open: number; closed: number; all: number }): TabItem[] => [
+  { id: 'all', label: 'All', count: counts.all },
+  { id: 'open', label: 'Open', count: counts.open },
+  { id: 'closed', label: 'Closed', count: counts.closed }
 ];
 
 const TAB_HEADINGS: Record<MatterTabId, string> = {
   all: 'All',
-  active: 'Active',
-  draft: 'Draft'
+  open: 'Open',
+  closed: 'Closed'
 };
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
@@ -127,6 +137,15 @@ const formatLongDate = (value?: string | null) => {
   });
 };
 
+const formatMinorCurrency = (value: unknown): string | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const major = toMajorUnits(value);
+  if (typeof major !== 'number' || !Number.isFinite(major)) return null;
+  return formatCurrency(major);
+};
+
+const formatUrgencyLabel = (value: string) => value.replace(/_/g, ' ');
+
 const resolveClientLabel = (clientId?: string | null, fallback?: string) => {
   if (fallback) return fallback;
   return clientId ? `Client ${clientId.slice(0, 8)}` : 'Unassigned client';
@@ -137,16 +156,17 @@ const resolvePracticeServiceLabel = (serviceId?: string | null, fallback?: strin
   return serviceId ? `Service ${serviceId.slice(0, 8)}` : 'Not specified';
 };
 
-const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => {
-  const normalized = status?.toLowerCase().replace(/\s+/g, '_');
-  if (normalized === 'draft') return 'draft';
-  if (normalized === 'active') return 'active';
-  // Fallback for any legacy statuses if they persist
-  if (normalized === 'lead') return 'draft';
-  return 'active';
+const resolveOptionLabel = (options: MatterOption[], id: string, fallback: string) =>
+  options.find((option) => option.id === id)?.name ?? fallback;
+
+const normalizeMatterStatus = (status?: string | null): MatterStatus => {
+  const normalized = status?.toLowerCase().replace(/\s+/g, '_') ?? '';
+  if (normalized === 'draft' || normalized === 'lead') return 'first_contact';
+  if (isMatterStatus(normalized)) return normalized;
+  return 'first_contact';
 };
 
-const mapStatusToBackend = (status: MattersSidebarStatus): 'draft' | 'active' => status;
+const mapStatusToBackend = (status: MattersSidebarStatus): MatterStatus => status;
 
 const prunePayload = (payload: Record<string, unknown>) =>
   Object.fromEntries(
@@ -234,6 +254,17 @@ const toMatterDetail = (
   practiceAreaId: matter.practice_service_id || '',
   assigneeIds: extractAssigneeIds(matter),
   description: matter.description || '',
+  caseNumber: matter.case_number ?? undefined,
+  matterType: matter.matter_type ?? undefined,
+  urgency: (matter.urgency as MatterDetail['urgency']) ?? undefined,
+  responsibleAttorneyId: matter.responsible_attorney_id ?? undefined,
+  originatingAttorneyId: matter.originating_attorney_id ?? undefined,
+  court: matter.court ?? undefined,
+  judge: matter.judge ?? undefined,
+  opposingParty: matter.opposing_party ?? undefined,
+  opposingCounsel: matter.opposing_counsel ?? undefined,
+  openDate: matter.open_date ?? undefined,
+  closeDate: matter.close_date ?? undefined,
   billingType: (matter.billing_type as MatterDetail['billingType']) || 'hourly',
   attorneyHourlyRate: typeof matter.attorney_hourly_rate === 'number'
     ? asMajor(matter.attorney_hourly_rate)
@@ -244,6 +275,9 @@ const toMatterDetail = (
   paymentFrequency: (matter.payment_frequency as MatterDetail['paymentFrequency']) ?? undefined,
   totalFixedPrice: typeof matter.total_fixed_price === 'number'
     ? asMajor(matter.total_fixed_price)
+    : undefined,
+  settlementAmount: typeof matter.settlement_amount === 'number'
+    ? asMajor(matter.settlement_amount)
     : undefined,
   milestones: mapMilestones(matter.milestones),
   contingencyPercent: matter.contingency_percentage ?? undefined,
@@ -288,6 +322,17 @@ const FIELD_LABELS: Record<string, string> = {
   client_id: 'client',
   practice_service_id: 'practice area',
   billing_type: 'billing type',
+  case_number: 'case number',
+  matter_type: 'matter type',
+  urgency: 'urgency',
+  responsible_attorney_id: 'responsible attorney',
+  originating_attorney_id: 'originating attorney',
+  court: 'court',
+  judge: 'judge',
+  opposing_party: 'opposing party',
+  opposing_counsel: 'opposing counsel',
+  open_date: 'open date',
+  close_date: 'close date',
   admin_hourly_rate: 'admin rate',
   attorney_hourly_rate: 'attorney rate',
   status: 'status',
@@ -307,126 +352,19 @@ const normalizeFieldLabel = (field: string): string => {
 
 const isEmailLike = (value: string): boolean => value.includes('@');
 
-const isDifferentValue = (left: unknown, right: unknown): boolean => {
-  if (Object.is(left, right)) return false;
-  const leftType = typeof left;
-  const rightType = typeof right;
-  if (leftType !== rightType) return true;
-  if (leftType === 'function' || rightType === 'function') {
-    return left !== right;
-  }
-  if (left && right && leftType === 'object') {
-    try {
-      return JSON.stringify(left) !== JSON.stringify(right);
-    } catch {
-      return true;
-    }
-  }
-  return true;
-};
-
 const extractChangedFields = (metadata: Record<string, unknown>): string[] => {
-  const detailed: string[] = [];
-  const pushIfChanged = (field: string, fromValue: unknown, toValue: unknown) => {
-    if (!field) return;
-    if (isDifferentValue(fromValue, toValue)) {
-      detailed.push(field);
-    }
-  };
-
-  const changes = metadata.changes;
-  if (Array.isArray(changes)) {
-    changes.forEach((item) => {
-      if (item && typeof item === 'object') {
-        const field = (item as { field?: unknown; key?: unknown; name?: unknown }).field
-          ?? (item as { key?: unknown }).key
-          ?? (item as { name?: unknown }).name;
-        const fromValue = (item as { from?: unknown; old?: unknown; previous?: unknown }).from
-          ?? (item as { old?: unknown }).old
-          ?? (item as { previous?: unknown }).previous;
-        const toValue = (item as { to?: unknown; new?: unknown; current?: unknown }).to
-          ?? (item as { new?: unknown }).new
-          ?? (item as { current?: unknown }).current;
-        if (typeof field === 'string') {
-          if (fromValue !== undefined || toValue !== undefined) {
-            pushIfChanged(field, fromValue, toValue);
-          } else {
-            detailed.push(field);
-          }
-        }
-      } else if (typeof item === 'string') {
-        detailed.push(item);
-      }
-    });
-  } else if (changes && typeof changes === 'object') {
-    Object.entries(changes).forEach(([field, payload]) => {
-      if (payload && typeof payload === 'object') {
-        const fromValue = (payload as { from?: unknown; old?: unknown; previous?: unknown }).from
-          ?? (payload as { old?: unknown }).old
-          ?? (payload as { previous?: unknown }).previous;
-        const toValue = (payload as { to?: unknown; new?: unknown; current?: unknown }).to
-          ?? (payload as { new?: unknown }).new
-          ?? (payload as { current?: unknown }).current;
-        if (fromValue !== undefined || toValue !== undefined) {
-          pushIfChanged(field, fromValue, toValue);
-        } else {
-          detailed.push(field);
-        }
-      } else {
-        detailed.push(field);
-      }
-    });
+  const raw = metadata.changed_fields;
+  if (!Array.isArray(raw)) {
+    console.error('[PracticeMattersPage] Missing metadata.changed_fields for update activity', metadata);
+    throw new Error('Missing metadata.changed_fields for update activity');
   }
-
-  const diff = metadata.diff;
-  if (diff && typeof diff === 'object' && !Array.isArray(diff)) {
-    Object.entries(diff).forEach(([field, payload]) => {
-      if (payload && typeof payload === 'object') {
-        const fromValue = (payload as { from?: unknown; old?: unknown; previous?: unknown }).from
-          ?? (payload as { old?: unknown }).old
-          ?? (payload as { previous?: unknown }).previous;
-        const toValue = (payload as { to?: unknown; new?: unknown; current?: unknown }).to
-          ?? (payload as { new?: unknown }).new
-          ?? (payload as { current?: unknown }).current;
-        if (fromValue !== undefined || toValue !== undefined) {
-          pushIfChanged(field, fromValue, toValue);
-        } else {
-          detailed.push(field);
-        }
-      } else {
-        detailed.push(field);
-      }
-    });
-  }
-
-  if (detailed.length === 0) {
-    const candidates = [
-      metadata.changed_fields,
-      metadata.changedFields,
-      metadata.updated_fields,
-      metadata.updatedFields,
-      metadata.fields
-    ];
-    for (const candidate of candidates) {
-      if (Array.isArray(candidate)) {
-        candidate.forEach((item) => {
-          if (typeof item === 'string') detailed.push(item);
-          if (item && typeof item === 'object') {
-            const field = (item as { field?: unknown; key?: unknown; name?: unknown }).field
-              ?? (item as { key?: unknown }).key
-              ?? (item as { name?: unknown }).name;
-            if (typeof field === 'string') detailed.push(field);
-          }
-        });
-      }
-    }
-  }
-
-  const normalized = detailed
+  const normalized = raw
+    .filter((item): item is string => typeof item === 'string')
     .map(normalizeFieldLabel)
     .filter((value) => value && value.length > 0);
   return Array.from(new Set(normalized));
 };
+
 
 const formatFieldList = (fields: string[]): string | null => {
   if (fields.length === 0) return null;
@@ -435,7 +373,10 @@ const formatFieldList = (fields: string[]): string | null => {
   return `${fields.slice(0, -1).join(', ')}, and ${fields[fields.length - 1]}`;
 };
 
-const resolveStatusLabel = (value: string): string => value.replace(/_/g, ' ');
+const resolveStatusLabel = (value: string): string => {
+  if (isMatterStatus(value)) return MATTER_STATUS_LABELS[value];
+  return value.replace(/_/g, ' ');
+};
 
 const buildMatterCreatedLabel = (context: {
   title?: string | null;
@@ -459,11 +400,101 @@ const buildMatterCreatedLabel = (context: {
 };
 
 const resolveStatusChangeLabel = (metadata: Record<string, unknown>): string | null => {
-  const candidate = metadata.status ?? metadata.new_status ?? metadata.to_status ?? metadata.to;
-  if (typeof candidate === 'string' && candidate.trim()) {
-    return `updated the status to ${resolveStatusLabel(candidate)}.`;
+  const rawOld = metadata.oldStatus ?? metadata.old_status ?? metadata.from_status ?? metadata.from;
+  const rawNew = metadata.newStatus ?? metadata.new_status ?? metadata.to_status ?? metadata.to ?? metadata.status;
+  const oldValue = typeof rawOld === 'string' ? rawOld.trim() : '';
+  const newValue = typeof rawNew === 'string' ? rawNew.trim() : '';
+
+  if (oldValue && newValue) {
+    return `updated the status from ${resolveStatusLabel(oldValue)} to ${resolveStatusLabel(newValue)}.`;
+  }
+  if (newValue) {
+    return `updated the status to ${resolveStatusLabel(newValue)}.`;
   }
   return null;
+};
+
+const buildStatusChangeMeta = (metadata: Record<string, unknown>): TimelineItem['actionMeta'] | null => {
+  const rawOld = metadata.oldStatus ?? metadata.old_status ?? metadata.from_status ?? metadata.from;
+  const rawNew = metadata.newStatus ?? metadata.new_status ?? metadata.to_status ?? metadata.to ?? metadata.status;
+  const oldValue = typeof rawOld === 'string' ? rawOld.trim() : '';
+  const newValue = typeof rawNew === 'string' ? rawNew.trim() : '';
+  if (!oldValue || !newValue) return null;
+  return {
+    type: 'status_change',
+    from: resolveStatusLabel(oldValue),
+    to: resolveStatusLabel(newValue)
+  };
+};
+
+const buildSingleFieldUpdateAction = (
+  field: string,
+  metadata: Record<string, unknown>,
+  options: {
+    clientNameById: Map<string, string>;
+    serviceNameById: Map<string, string>;
+    assigneeNameById: Map<string, string>;
+  }
+): string | null => {
+  const changes = metadata.changes;
+  const changeRecord = changes && typeof changes === 'object' ? (changes as Record<string, unknown>) : {};
+  const value = changeRecord[field];
+
+  if (field === 'client_id' && typeof value === 'string' && value.trim()) {
+    const clientName = options.clientNameById.get(value) ?? `Client ${value.slice(0, 6)}`;
+    return `updated client to ${clientName}.`;
+  }
+  if (field === 'practice_service_id' && typeof value === 'string' && value.trim()) {
+    const serviceName = options.serviceNameById.get(value) ?? `Service ${value.slice(0, 6)}`;
+    return `updated practice area to ${serviceName}.`;
+  }
+  if ((field === 'responsible_attorney_id' || field === 'originating_attorney_id') && typeof value === 'string' && value.trim()) {
+    const name = options.assigneeNameById.get(value) ?? `User ${value.slice(0, 6)}`;
+    const label = field === 'responsible_attorney_id' ? 'responsible attorney' : 'originating attorney';
+    return `updated ${label} to ${name}.`;
+  }
+  if (field === 'urgency' && typeof value === 'string' && value.trim()) {
+    return `updated urgency to ${formatUrgencyLabel(value)}.`;
+  }
+  if (field === 'open_date' || field === 'close_date') {
+    const label = field === 'open_date' ? 'open date' : 'close date';
+    const formatted = typeof value === 'string' ? formatLongDate(value) : null;
+    return formatted ? `updated ${label} to ${formatted}.` : `updated ${label}.`;
+  }
+  if (field === 'billing_type' && typeof value === 'string' && value.trim()) {
+    return `updated billing type to ${value.replace(/_/g, ' ')}.`;
+  }
+  if (field === 'admin_hourly_rate' || field === 'attorney_hourly_rate' || field === 'total_fixed_price' || field === 'settlement_amount') {
+    const formatted = formatMinorCurrency(value);
+    const label = normalizeFieldLabel(field);
+    return formatted ? `updated ${label} to ${formatted}.` : `updated ${label}.`;
+  }
+  if (field === 'contingency_percentage' && typeof value === 'number') {
+    return `updated contingency percentage to ${value}%.`;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return `updated ${normalizeFieldLabel(field)} to ${value}.`;
+  }
+  return `updated ${normalizeFieldLabel(field)}.`;
+};
+
+const findStatusChangeMeta = (
+  activity: BackendMatterActivity,
+  activities: BackendMatterActivity[]
+): TimelineItem['actionMeta'] | null => {
+  if (!activity.created_at) return null;
+  const activityTime = new Date(activity.created_at).getTime();
+  if (!Number.isFinite(activityTime)) return null;
+  const match = activities.find((candidate) => {
+    if (candidate.action !== 'matter_status_changed') return false;
+    if (candidate.user_id !== activity.user_id) return false;
+    if (!candidate.created_at) return false;
+    const candidateTime = new Date(candidate.created_at).getTime();
+    if (!Number.isFinite(candidateTime)) return false;
+    return Math.abs(candidateTime - activityTime) <= 1000;
+  });
+  if (!match) return null;
+  return buildStatusChangeMeta(match.metadata as Record<string, unknown>);
 };
 
 const formatDuration = (seconds?: number | null): string | null => {
@@ -511,7 +542,7 @@ const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestone
   amount: asMajor(milestone.amount ?? 0),
   dueDate: milestone.due_date ?? '',
   status: ((): MatterDetail['milestones'][number]['status'] => {
-    const status = milestone.status ?? undefined;
+    const status = typeof milestone.status === 'string' ? milestone.status : undefined;
     if (!status) return undefined;
     if (status === 'pending' || status === 'in_progress' || status === 'completed' || status === 'overdue') {
       return status;
@@ -748,7 +779,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   );
 
   const toActivityTimelineItem = useCallback(
-    (activity: BackendMatterActivity): TimelineItem => {
+    (activity: BackendMatterActivity, activities: BackendMatterActivity[]): TimelineItem => {
       const createdAt = activity.created_at ?? new Date().toISOString();
       const actionKey = activity.action ?? '';
       const mapped = activityActionMap[actionKey];
@@ -766,6 +797,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         ? (metadata as Record<string, unknown>).description as string
         : undefined;
       const cleanedDescription = description ? stripActorPrefix(description, person.name) : undefined;
+      let actionMeta = actionKey === 'matter_status_changed'
+        ? buildStatusChangeMeta(metadata as Record<string, unknown>)
+        : null;
       const action = (() => {
         if (type === 'commented') return undefined;
         if (actionKey === 'matter_created') {
@@ -773,14 +807,48 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         }
         if (actionKey === 'matter_updated') {
           const fields = extractChangedFields(metadata as Record<string, unknown>);
+          if (fields.length === 1 && fields[0] === 'client') {
+            const changes = (metadata as Record<string, unknown>).changes;
+            if (changes && typeof changes === 'object') {
+              const clientId = (changes as Record<string, unknown>).client_id;
+              if (typeof clientId === 'string' && clientId.trim()) {
+                const clientName = clientNameById.get(clientId);
+                if (clientName) {
+                  return `updated client to ${clientName}.`;
+                }
+              }
+            }
+          }
+          if (fields.length === 1 && fields[0] === 'status') {
+            const statusMeta = findStatusChangeMeta(activity, activities);
+            if (!statusMeta) {
+              console.error('[PracticeMattersPage] Missing status change metadata for status-only update', activity);
+              throw new Error('Missing status change metadata for status-only update');
+            }
+            actionMeta = statusMeta;
+            return undefined;
+          }
+          if (fields.length === 1) {
+            return buildSingleFieldUpdateAction(fields[0], metadata as Record<string, unknown>, {
+              clientNameById,
+              serviceNameById,
+              assigneeNameById
+            });
+          }
           const formatted = formatFieldList(fields);
           if (formatted) return `updated ${formatted}.`;
           return cleanedDescription ?? 'updated matter details.';
         }
         if (actionKey === 'matter_status_changed') {
+          extractChangedFields(metadata as Record<string, unknown>);
           return resolveStatusChangeLabel(metadata as Record<string, unknown>) ?? 'updated the status.';
         }
         if (actionKey.startsWith('time_entry_')) {
+          if (actionKey === 'time_entry_updated') {
+            const fields = extractChangedFields(metadata as Record<string, unknown>);
+            const formatted = formatFieldList(fields);
+            if (formatted) return `updated ${formatted}.`;
+          }
           if (actionKey === 'time_entry_deleted') {
             return cleanedDescription ?? 'deleted a time entry.';
           }
@@ -793,6 +861,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           return cleanedDescription ?? 'logged time entry.';
         }
         if (actionKey.startsWith('milestone_')) {
+          if (actionKey === 'milestone_updated') {
+            const fields = extractChangedFields(metadata as Record<string, unknown>);
+            const formatted = formatFieldList(fields);
+            if (formatted) return `updated ${formatted}.`;
+          }
           if (cleanedDescription) {
             return cleanedDescription;
           }
@@ -804,6 +877,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 ? 'updated a milestone.'
                 : 'added a milestone.';
         }
+        if (actionKey === 'expense_updated' || actionKey === 'note_updated') {
+          const fields = extractChangedFields(metadata as Record<string, unknown>);
+          const formatted = formatFieldList(fields);
+          if (formatted) return `updated ${formatted}.`;
+        }
         return mapped?.label ?? cleanedDescription ?? humanizeAction(actionKey);
       })();
       return {
@@ -813,10 +891,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         date: date || 'Just now',
         dateTime: createdAt,
         comment: type === 'commented' ? description : undefined,
-        action
+        action,
+        actionMeta: actionMeta ?? undefined
       };
     },
-    [matterContext, resolveTimelinePerson]
+    [assigneeNameById, clientNameById, matterContext, resolveTimelinePerson, serviceNameById]
   );
 
   const toNoteTimelineItem = useCallback(
@@ -1068,7 +1147,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             const bTime = getTimestamp(b);
             return aTime - bTime;
           })
-          .map(toActivityTimelineItem);
+          .map((item) => toActivityTimelineItem(item, items));
         setActivityItems(nextItems);
       })
       .catch((error: unknown) => {
@@ -1491,9 +1570,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       title: values.title.trim(),
       client_id: values.clientId || undefined,
       description: values.description || undefined,
+      case_number: values.caseNumber || undefined,
+      matter_type: values.matterType || undefined,
+      urgency: values.urgency || undefined,
+      responsible_attorney_id: values.responsibleAttorneyId || undefined,
+      originating_attorney_id: values.originatingAttorneyId || undefined,
+      court: values.court || undefined,
+      judge: values.judge || undefined,
+      opposing_party: values.opposingParty || undefined,
+      opposing_counsel: values.opposingCounsel || undefined,
+      open_date: values.openDate || undefined,
+      close_date: values.closeDate || undefined,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? undefined,
       contingency_percentage: values.contingencyPercent ?? undefined,
+      settlement_amount: values.settlementAmount ?? undefined,
       practice_service_id: values.practiceAreaId || undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
@@ -1533,7 +1624,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           };
           return getTimestamp(a.created_at) - getTimestamp(b.created_at);
         })
-        .map(toActivityTimelineItem);
+        .map((item) => toActivityTimelineItem(item, activities ?? []));
       
       setActivityItems(nextItems);
     } catch (error) {
@@ -1567,12 +1658,28 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
       description: values.description !== undefined ? values.description.trim() : undefined,
-      client_id: values.clientId || (values.clientId === '' ? null : undefined),
-      practice_service_id: values.practiceAreaId || (values.practiceAreaId === '' ? null : undefined),
+      client_id: values.clientId || undefined,
+      practice_service_id: values.practiceAreaId || undefined,
+      case_number: values.caseNumber || undefined,
+      matter_type: values.matterType || undefined,
+      urgency: values.urgency || undefined,
+      responsible_attorney_id: values.responsibleAttorneyId && isUuid(values.responsibleAttorneyId)
+        ? values.responsibleAttorneyId
+        : undefined,
+      originating_attorney_id: values.originatingAttorneyId && isUuid(values.originatingAttorneyId)
+        ? values.originatingAttorneyId
+        : undefined,
+      court: values.court || undefined,
+      judge: values.judge || undefined,
+      opposing_party: values.opposingParty || undefined,
+      opposing_counsel: values.opposingCounsel || undefined,
+      open_date: values.openDate || undefined,
+      close_date: values.closeDate || undefined,
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
-      status: mapStatusToBackend(values.status),
+      settlement_amount: values.settlementAmount ?? undefined,
+      status: values.status !== selectedMatterDetail?.status ? mapStatusToBackend(values.status) : undefined,
       assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : null
     };
 
@@ -1582,6 +1689,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   }, [
     activePracticeId,
     refreshMatters,
+    selectedMatterDetail?.status,
     selectedMatterId,
     refreshSelectedMatter
   ]);
@@ -1601,23 +1709,32 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const matterSummaries = useMemo(() => matterEntries.map((entry) => entry.summary), [matterEntries]);
 
   const counts = useMemo(() => {
-    return matterSummaries.reduce<Record<MattersSidebarStatus, number>>(
-      (acc, matter) => {
-        acc[matter.status] = (acc[matter.status] ?? 0) + 1;
-        return acc;
-      },
-      {
-        draft: 0,
-        active: 0
-      }
-    );
+    const countsByStatus = MATTER_WORKFLOW_STATUSES.reduce<Record<MatterStatus, number>>((acc, status) => {
+      acc[status] = 0;
+      return acc;
+    }, {} as Record<MatterStatus, number>);
+    for (const matter of matterSummaries) {
+      countsByStatus[matter.status] = (countsByStatus[matter.status] ?? 0) + 1;
+    }
+    const all = Object.values(countsByStatus).reduce((sum, value) => sum + value, 0);
+    const closed = Object.entries(countsByStatus)
+      .filter(([status]) => isClosedStatus(status as MatterStatus))
+      .reduce((sum, [, value]) => sum + value, 0);
+    return {
+      all,
+      closed,
+      open: all - closed
+    };
   }, [matterSummaries]);
 
   const tabs = useMemo(() => buildTabs(counts), [counts]);
 
   const filteredMatters = useMemo(() => {
     if (activeTab === 'all') return matterEntries;
-    return matterEntries.filter((entry) => entry.summary.status === activeTab);
+    if (activeTab === 'open') {
+      return matterEntries.filter((entry) => !isClosedStatus(entry.summary.status));
+    }
+    return matterEntries.filter((entry) => isClosedStatus(entry.summary.status));
   }, [activeTab, matterEntries]);
 
   const sortedMatters = useMemo(() => {
@@ -1668,9 +1785,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
   const headerMeta = useMemo(() => {
     if (!selectedMatterDetail || !resolvedSelectedMatter) return null;
-
-    const resolveOptionLabel = (options: MatterOption[], id: string, fallback: string) =>
-      options.find((option) => option.id === id)?.name ?? fallback;
 
     const clientIds = [
       selectedMatterDetail.clientId,
@@ -1898,6 +2012,91 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           <section>
             {detailTab === 'overview' ? (
               <div className="px-0 space-y-6">
+                {selectedMatterDetail && (
+                  <Panel className="p-4">
+                    <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Case number</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.caseNumber || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Matter type</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.matterType || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Urgency</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Responsible attorney</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.responsibleAttorneyId
+                            ? resolveOptionLabel(assigneeOptions, selectedMatterDetail.responsibleAttorneyId, `User ${selectedMatterDetail.responsibleAttorneyId.slice(0, 6)}`)
+                            : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Originating attorney</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.originatingAttorneyId
+                            ? resolveOptionLabel(assigneeOptions, selectedMatterDetail.originatingAttorneyId, `User ${selectedMatterDetail.originatingAttorneyId.slice(0, 6)}`)
+                            : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Court</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.court || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Judge</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.judge || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Opposing party</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.opposingParty || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Opposing counsel</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.opposingCounsel || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Open date</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {formatLongDate(selectedMatterDetail.openDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Close date</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {formatLongDate(selectedMatterDetail.closeDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Settlement amount</p>
+                        <p className="mt-1 text-sm text-input-text">
+                          {selectedMatterDetail.settlementAmount !== undefined
+                            ? `$${selectedMatterDetail.settlementAmount.toFixed(2)}`
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </Panel>
+                )}
                 <div>
                   <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
                   <Panel className="mt-4 p-4">
@@ -2024,11 +2223,23 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               practiceAreaId: selectedMatterDetail.practiceAreaId,
               assigneeIds: selectedMatterDetail.assigneeIds,
               status: selectedMatterDetail.status,
+              caseNumber: selectedMatterDetail.caseNumber ?? '',
+              matterType: selectedMatterDetail.matterType ?? '',
+              urgency: selectedMatterDetail.urgency ?? '',
+              responsibleAttorneyId: selectedMatterDetail.responsibleAttorneyId ?? '',
+              originatingAttorneyId: selectedMatterDetail.originatingAttorneyId ?? '',
+              court: selectedMatterDetail.court ?? '',
+              judge: selectedMatterDetail.judge ?? '',
+              opposingParty: selectedMatterDetail.opposingParty ?? '',
+              opposingCounsel: selectedMatterDetail.opposingCounsel ?? '',
+              openDate: selectedMatterDetail.openDate ?? '',
+              closeDate: selectedMatterDetail.closeDate ?? '',
               billingType: selectedMatterDetail.billingType,
               attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
               adminHourlyRate: selectedMatterDetail.adminHourlyRate,
               paymentFrequency: selectedMatterDetail.paymentFrequency,
               totalFixedPrice: selectedMatterDetail.totalFixedPrice,
+              settlementAmount: selectedMatterDetail.settlementAmount,
               milestones: selectedMatterDetail.milestones ?? [],
               contingencyPercent: selectedMatterDetail.contingencyPercent,
               description: selectedMatterDetail.description

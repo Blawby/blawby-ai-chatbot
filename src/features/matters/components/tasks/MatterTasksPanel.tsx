@@ -9,8 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
-import type { MatterDetail, MatterTask } from '@/features/matters/data/mockMatters';
-import { mockAssignees } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterOption, MatterTask } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { MatterTaskForm, type MatterTaskFormValues } from './MatterTaskForm';
 import { Avatar } from '@/shared/ui/profile';
@@ -26,9 +25,10 @@ type MatterTaskWithAssignee = MatterTask & { assigneeId?: string | null };
 
 interface MatterTasksPanelProps {
   matter: MatterDetail;
+  assignees?: MatterOption[];
 }
 
-export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
+export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelProps) => {
   const [tasks, setTasks] = useState<MatterTaskWithAssignee[]>(() => matter.tasks ?? []);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<MatterTask | null>(null);
@@ -110,7 +110,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
         <div className="divide-y divide-line-default">
           {activeTasks.map((task) => {
             const assignee = task.assigneeId
-              ? mockAssignees.find((candidate) => candidate.id === task.assigneeId) ?? null
+              ? assignees.find((candidate) => candidate.id === task.assigneeId) ?? null
               : null;
             return (
               <div
@@ -180,7 +180,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                           <DropdownMenuItem onSelect={() => handleAssign(task.id, null)}>
                             Unassigned
                           </DropdownMenuItem>
-                          {mockAssignees.map((assigneeOption) => (
+                          {assignees.map((assigneeOption) => (
                             <DropdownMenuItem
                               key={assigneeOption.id}
                               onSelect={() => handleAssign(task.id, assigneeOption.id)}
@@ -233,7 +233,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
               </div>
               {completedTasks.map((task) => {
                 const assignee = task.assigneeId
-                  ? mockAssignees.find((candidate) => candidate.id === task.assigneeId) ?? null
+                  ? assignees.find((candidate) => candidate.id === task.assigneeId) ?? null
                   : null;
                 return (
                   <div
@@ -303,7 +303,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                               <DropdownMenuItem onSelect={() => handleAssign(task.id, null)}>
                                 Unassigned
                               </DropdownMenuItem>
-                              {mockAssignees.map((assigneeOption) => (
+                              {assignees.map((assigneeOption) => (
                                 <DropdownMenuItem
                                   key={assigneeOption.id}
                                   onSelect={() => handleAssign(task.id, assigneeOption.id)}

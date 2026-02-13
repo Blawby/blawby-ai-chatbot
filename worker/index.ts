@@ -80,7 +80,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     if (path.startsWith('/api/intakes')) {
       response = await handleIntakes(request, env);
     } else if (path.startsWith('/api/matters')) {
-      response = await handleMatters(request, env, _ctx);
+      response = await handleMatters(request, env);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
     } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {
@@ -191,4 +191,3 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
-export { MatterDiffStore } from './durable-objects/MatterDiffStore';

@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import type { MatterNote } from '@/features/matters/data/mockMatters';
+import type { MatterNote } from '@/features/matters/data/matterTypes';
 
 export type NoteFormValues = {
   content: string;

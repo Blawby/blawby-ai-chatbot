@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import type { MatterDetail, MatterExpense } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterExpense } from '@/features/matters/data/matterTypes';
 import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 
 const formatExpenseDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy');

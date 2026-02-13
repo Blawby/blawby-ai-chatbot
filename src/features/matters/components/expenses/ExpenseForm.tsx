@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Checkbox, CurrencyInput, DatePicker, Input } from '@/shared/ui/input';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
-import type { MatterExpense } from '@/features/matters/data/mockMatters';
+import type { MatterExpense } from '@/features/matters/data/matterTypes';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 export type ExpenseFormValues = {

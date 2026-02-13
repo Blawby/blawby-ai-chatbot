@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import {
+  MATTER_WORKFLOW_STATUSES,
+  type MatterStatus
+} from '@/shared/types/matterStatus';
 
-export type MattersSidebarStatus = 'draft' | 'active';
+export type MattersSidebarStatus = MatterStatus;
 
 export interface MattersSidebarItem {
   id: string;
@@ -57,7 +61,7 @@ const defaultLogger: Logger = {
   }
 };
 
-const VALID_STATUSES: MattersSidebarStatus[] = ['draft', 'active'];
+const VALID_STATUSES: MattersSidebarStatus[] = [...MATTER_WORKFLOW_STATUSES];
 
 export function normalizeMattersResponse(
   payload: FetchResponsePayload,
@@ -129,10 +133,11 @@ export function normalizeMattersResponse(
     }
 
     // Validate status against allowed values
-    let normalizedStatus: MattersSidebarStatus = 'draft';
+    let normalizedStatus: MattersSidebarStatus = 'first_contact';
     if (typeof item.status === 'string') {
-      if (VALID_STATUSES.includes(item.status as MattersSidebarStatus)) {
-        normalizedStatus = item.status as MattersSidebarStatus;
+      const normalized = item.status.toLowerCase().replace(/\s+/g, '_');
+      if (VALID_STATUSES.includes(normalized as MattersSidebarStatus)) {
+        normalizedStatus = normalized as MattersSidebarStatus;
       } else {
         logger.warn('Invalid status value', {
           itemId,
@@ -140,7 +145,7 @@ export function normalizeMattersResponse(
           value: item.status,
           allowedValues: VALID_STATUSES
         });
-        normalizedStatus = 'draft';
+        normalizedStatus = 'first_contact';
       }
     } else if (item.status !== undefined && item.status !== null) {
       logger.warn('Invalid status type', {
@@ -210,7 +215,7 @@ export function normalizeMattersResponse(
 export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMattersSidebarResult {
   const {
     practiceId,
-    initialStatus = 'active',
+    initialStatus = 'first_contact',
     pageSize = 25,
     autoFetch = true,
     searchDelayMs = 300
