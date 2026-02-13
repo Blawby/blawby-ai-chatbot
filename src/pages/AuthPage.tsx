@@ -111,7 +111,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
   return (
     <SetupShell>
-      <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-transparent flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         {/* Header with back button */}
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex items-center justify-center mb-6">
@@ -119,7 +119,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               variant="ghost"
               size="sm"
               onClick={handleBackToHome}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              className="text-sm text-input-placeholder hover:text-input-text"
               icon={<ArrowLeftIcon className="h-4 w-4" />}
               iconPosition="left"
             >
@@ -130,10 +130,10 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           <div className="flex justify-center mb-6">
             <Logo size="lg" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
             {authMode === 'signup' ? t('signup.title') : t('signin.title')}
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-center text-sm text-input-placeholder">
             {authMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
           </p>
         </div>

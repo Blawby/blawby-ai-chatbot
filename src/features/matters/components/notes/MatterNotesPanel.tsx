@@ -158,8 +158,8 @@ export const MatterNotesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Notes</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -188,7 +188,7 @@ export const MatterNotesPanel = ({
           {sortedNotes.map((note) => (
             <li
               key={note.id}
-              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-surface-glass/50 transition-colors"
             >
               <button
                 type="button"
@@ -203,7 +203,7 @@ export const MatterNotesPanel = ({
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+                      <span className="rounded-full bg-surface-glass/60 px-2 py-0.5 text-xs font-medium text-input-placeholder">
                         {note.author.role}
                       </span>
                     )}

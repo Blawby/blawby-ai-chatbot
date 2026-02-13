@@ -3,7 +3,7 @@ import { cn } from '@/shared/utils/cn';
 
 const STATUS_DOT_STYLES: Record<MattersSidebarStatus, string> = {
   draft: 'text-amber-400',
-  active: 'text-blue-400'
+  active: 'text-emerald-400'
 };
 
 interface MatterStatusDotProps {

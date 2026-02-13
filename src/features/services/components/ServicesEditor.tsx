@@ -40,12 +40,12 @@ export const ServicesEditor = ({
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          <h3 className="text-lg font-medium text-input-text">
             Practice Areas & Services
           </h3>
         </div>
 
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-input-placeholder">
           Select the legal services you offer. We&apos;ll prefill descriptions and you can edit them later in settings.
         </p>
 
@@ -66,8 +66,8 @@ export const ServicesEditor = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Custom Services</h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <h4 className="text-sm font-semibold text-input-text">Custom Services</h4>
+            <p className="mt-1 text-xs text-input-placeholder">
               Add anything not listed above. You can edit these now.
             </p>
           </div>
@@ -77,7 +77,7 @@ export const ServicesEditor = ({
         </div>
 
         {customServices.length === 0 ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-input-placeholder">
             No custom services added yet.
           </p>
         ) : (
@@ -85,7 +85,7 @@ export const ServicesEditor = ({
             {customServices.map((service, index) => (
               <div
                 key={service.id}
-                className="border border-line-default rounded-lg p-4 space-y-3 bg-surface-card shadow-card"
+                className="glass-panel rounded-lg p-4 space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium text-input-text">

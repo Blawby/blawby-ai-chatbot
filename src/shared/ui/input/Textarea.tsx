@@ -135,12 +135,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const textareaClasses = cn(
-    'w-full border rounded-lg bg-input-bg text-input-text placeholder:text-input-placeholder',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     resizeClasses[resize],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input border-input-border' : 'bg-input-bg',
     className
   );
 

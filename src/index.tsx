@@ -27,6 +27,9 @@ import { PracticeNotFound } from '@/features/practice/components/PracticeNotFoun
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { GeneralPreferences } from '@/shared/types/preferences';
 
 const LoadingScreen = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -44,7 +47,7 @@ const NotFoundRoute = () => {
       <button
         type="button"
         onClick={() => navigate('/')}
-        className="text-primary hover:underline font-medium"
+        className="text-body-primary hover:underline font-medium"
       >
         Return to Home
       </button>
@@ -76,6 +79,8 @@ function AppShell() {
   const lastWorkspaceRef = useRef<'client' | 'practice' | null>(null);
   const lastActivePracticeRef = useRef<string | null>(null);
   const routeTransitionRef = useRef(0);
+
+
 
   if (session?.user?.primaryWorkspace && lastWorkspaceRef.current !== session.user.primaryWorkspace) {
     lastWorkspaceRef.current = session.user.primaryWorkspace;
@@ -838,6 +843,30 @@ async function mountClientApp() {
 
   if (shouldBeDark) {
     document.documentElement.classList.add('dark');
+  }
+
+  // Initialize accent color from user preferences
+  // Initialize default accent color first
+  initializeAccentColor('grey');
+
+  // Check for potential session (heuristic based on localStorage)
+  const hasAuthToken = typeof localStorage !== 'undefined' && 
+    Object.keys(localStorage).some(k => k.startsWith('better-auth'));
+
+  // If we might have a session, fetch preferences in parallel
+  if (hasAuthToken) {
+    getPreferencesCategory<GeneralPreferences>('general')
+      .then((prefs) => {
+        if (prefs?.accent_color) {
+          initializeAccentColor(prefs.accent_color);
+        }
+      })
+      .catch((error) => {
+        // Silent fail or low-level log for unauthenticated/network issues
+        if (import.meta.env.DEV) {
+          console.debug('Failed to load accent color preference:', error);
+        }
+      });
   }
 
   initI18n()

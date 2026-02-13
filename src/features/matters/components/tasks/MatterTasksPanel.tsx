@@ -89,8 +89,8 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
   const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'completed'), [tasks]);
 
   return (
-    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
-      <header className="flex items-center justify-between border-b border-line-default px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Tasks</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -115,7 +115,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
             return (
               <div
                 key={task.id}
-                className="px-6 py-5 hover:bg-surface-card/70 transition-colors"
+                className="px-6 py-5 hover:bg-surface-glass/50 transition-colors"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <button
@@ -149,8 +149,8 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                         <div className="flex flex-wrap items-center gap-2">
                           <span>Assigned:</span>
                           {assignee ? (
-                            <span className="inline-flex items-center gap-2 rounded-full border border-line-default px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
-                              <Avatar name={assignee.name} size="xs" className="bg-surface-card" />
+                            <span className="inline-flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-0.5 text-xs text-input-text">
+                              <Avatar name={assignee.name} size="xs" className="bg-surface-glass/60" />
                               {assignee.name}
                             </span>
                           ) : (
@@ -186,7 +186,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                               onSelect={() => handleAssign(task.id, assigneeOption.id)}
                             >
                               <span className="flex items-center gap-2">
-                                <Avatar name={assigneeOption.name} size="xs" className="bg-surface-card" />
+                                <Avatar name={assigneeOption.name} size="xs" className="bg-surface-glass/60" />
                                 {assigneeOption.name}
                               </span>
                             </DropdownMenuItem>
@@ -227,7 +227,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
           })}
 
           {completedTasks.length > 0 && (
-            <div className="border-t border-line-default">
+            <div className="border-t border-line-glass/30">
               <div className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 Completed
               </div>
@@ -238,7 +238,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                 return (
                   <div
                     key={task.id}
-                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-surface-card/70 transition-colors"
+                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-surface-glass/50 transition-colors"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <button
@@ -248,7 +248,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-3">
-                            <p className="text-sm font-semibold leading-6 text-gray-900 dark:text-white line-through">
+                            <p className="text-sm font-semibold leading-6 text-input-text line-through">
                               {task.title}
                             </p>
                             <span
@@ -272,8 +272,8 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                             <div className="flex flex-wrap items-center gap-2">
                               <span>Assigned:</span>
                               {assignee ? (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-line-default px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
-                                  <Avatar name={assignee.name} size="xs" className="bg-surface-card" />
+                                <span className="inline-flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-0.5 text-xs text-input-text">
+                                  <Avatar name={assignee.name} size="xs" className="bg-surface-glass/60" />
                                   {assignee.name}
                                 </span>
                               ) : (
@@ -309,7 +309,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                                   onSelect={() => handleAssign(task.id, assigneeOption.id)}
                                 >
                                   <span className="flex items-center gap-2">
-                                    <Avatar name={assigneeOption.name} size="xs" className="bg-surface-card" />
+                                    <Avatar name={assigneeOption.name} size="xs" className="bg-surface-glass/60" />
                                     {assigneeOption.name}
                                   </span>
                                 </DropdownMenuItem>

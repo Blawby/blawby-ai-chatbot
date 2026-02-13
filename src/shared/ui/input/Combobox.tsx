@@ -138,7 +138,7 @@ export const Combobox = ({
 
   return (
     <div className={cn('relative', className, disabled && 'opacity-50 pointer-events-none')}>
-      <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+      <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
         {label}
       </label>
       <div className="relative mt-1">
@@ -277,7 +277,7 @@ export const Combobox = ({
               }
             }}
             placeholder={placeholder}
-            className="w-full rounded-md border border-input-border bg-input-bg text-input-text placeholder:text-input-placeholder py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm disabled:bg-surface-card/70 disabled:text-gray-500"
+            className="w-full rounded-md text-input-text placeholder:text-input-placeholder py-3 pl-12 pr-10 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm disabled:bg-surface-glass/40 disabled:text-input-placeholder glass-input"
           />
           {hasValue ? (
             <button
@@ -310,7 +310,7 @@ export const Combobox = ({
             role="listbox"
             aria-multiselectable={isMultiple}
             tabIndex={-1}
-            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line-default bg-surface-overlay py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line-glass border-opacity-30 bg-surface-glass bg-opacity-80 py-1 text-base shadow-glass backdrop-blur-xl focus:outline-none sm:text-sm"
             onMouseDown={(event) => {
               event.preventDefault();
             }}
@@ -342,7 +342,7 @@ export const Combobox = ({
                     'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
                     (isSelected || isFocused)
                       ? 'bg-accent-50 text-gray-900 dark:bg-accent-500/10 dark:text-white'
-                      : 'text-input-text hover:bg-surface-card/70'
+                      : 'text-input-text hover:bg-surface-glass/50'
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -350,7 +350,7 @@ export const Combobox = ({
                     <span className={cn('block truncate', isSelected && 'font-semibold')}>{option.label}</span>
                   </span>
                   {optionMetaContent && (
-                    <span className="ml-3 max-w-[45%] truncate text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200">
+                    <span className="ml-3 max-w-[45%] truncate text-sm text-input-placeholder group-hover:text-input-text">
                       {optionMetaContent}
                     </span>
                   )}

@@ -41,9 +41,8 @@ export const RemoveButton = ({
       className={cn(
         'flex-shrink-0 rounded-full',
         'flex items-center justify-center',
-        'bg-light-file-remove-bg dark:bg-dark-file-remove-bg',
-        'hover:bg-light-file-remove-hover dark:hover:bg-dark-file-remove-hover',
-        'transition-colors',
+        'bg-red-500/40 hover:bg-red-500/50',
+        'transition-colors duration-200',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         sizeClasses[size],
         className

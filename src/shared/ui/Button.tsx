@@ -60,17 +60,31 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     }
   }
   
-  const baseClasses = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border';
-  
+  const baseClasses = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border backdrop-blur-xl';
   const variantClasses: Record<ButtonVariant, string> = {
-    primary: 'bg-accent-500 text-gray-900 hover:bg-accent-600 active:bg-accent-700 focus:ring-accent-500 border-accent-500 shadow-sm hover:shadow',
-    secondary: 'bg-transparent text-input-text border-line-default hover:bg-surface-card/70 focus:ring-gray-500',
-    ghost: 'bg-transparent text-input-text border-transparent hover:bg-surface-card/70 focus:ring-gray-500',
-    icon: 'bg-transparent text-input-text border-transparent hover:bg-surface-card/70 focus:ring-gray-500',
-    inverted: 'bg-surface-card text-input-text border-line-default hover:bg-surface-card/80 active:bg-surface-card/70 focus:ring-gray-300 shadow-sm hover:shadow',
-    danger: 'bg-transparent text-red-600 dark:text-red-400 border-red-500/70 dark:border-red-400/70 hover:bg-red-50 dark:hover:bg-red-900/20 focus:ring-red-500',
-    outline: 'bg-transparent text-input-text border-line-default hover:bg-surface-card/70 focus:ring-gray-500',
-    link: 'bg-transparent text-accent-600 dark:text-accent-400 border-transparent shadow-none hover:text-accent-700 dark:hover:text-accent-300 focus:ring-accent-500'
+    // Primary: Glass Accent
+    primary: 'bg-accent-500/25 backdrop-blur-2xl text-white border-accent-500/40 shadow-lg shadow-accent-500/10 hover:bg-accent-500/40 hover:border-accent-500/60 active:scale-[0.98] transition-all duration-300',
+    
+    // Secondary: Pure glass with subtle border
+    secondary: 'bg-white/5 backdrop-blur-xl text-input-text border-white/10 hover:bg-white/15 hover:border-white/20 active:bg-white/20 shadow-md transition-all duration-300',
+    
+    // Ghost: Minimal glass, appears on hover
+    ghost: 'bg-transparent text-input-text border-transparent hover:bg-white/10 hover:border-white/10 active:bg-white/15 focus:ring-white/20',
+    
+    // Icon: Same as ghost for icon buttons
+    icon: 'bg-transparent text-input-text border-transparent hover:bg-white/10 hover:border-white/10 active:bg-white/15 focus:ring-white/20',
+    
+    // Inverted: Lighter glass for dark backgrounds
+    inverted: 'bg-white/20 backdrop-blur-2xl text-white border-white/30 hover:bg-white/30 hover:border-white/40 active:bg-white/40 focus:ring-white/30 shadow-lg',
+    
+    // Danger: Translucent red glass
+    danger: 'bg-red-500/10 backdrop-blur-xl text-red-400 border-red-500/20 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 active:bg-red-500/30 focus:ring-red-500/50 shadow-sm',
+    
+    // Outline: Glass with defined border
+    outline: 'bg-transparent backdrop-blur-sm text-input-text border-white/20 hover:bg-white/5 hover:border-white/40 active:bg-white/10 focus:ring-white/20 shadow-sm',
+    
+    // Link: No glass, just text with accent color
+    link: 'bg-transparent text-accent-500 border-transparent shadow-none hover:text-accent-400 active:text-accent-600 focus:ring-accent-500/50 hover:underline'
   };
   
   const sizeClasses: Record<ButtonSize, string> = {

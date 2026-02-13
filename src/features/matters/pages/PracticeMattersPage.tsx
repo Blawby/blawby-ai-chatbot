@@ -523,11 +523,11 @@ const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestone
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <div className="flex h-full items-center justify-center p-8">
     <div className="max-w-md text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-        <FolderIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.12]">
+        <FolderIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
       </div>
-      <h3 className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">No matters yet</h3>
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      <h3 className="mt-4 text-sm font-semibold text-input-text">No matters yet</h3>
+      <p className="mt-2 text-sm text-input-placeholder">
         Create your first matter to start tracking progress and milestones.
       </p>
       <div className="mt-6 flex justify-center">
@@ -540,7 +540,7 @@ const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disabl
 );
 
 const LoadingState = ({ message }: { message: string }) => (
-  <div className="flex h-full items-center justify-center p-8 text-sm text-gray-500 dark:text-gray-400">
+  <div className="flex h-full items-center justify-center p-8 text-sm text-input-placeholder">
     {message}
   </div>
 );
@@ -1742,10 +1742,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 </Button>
               )}
             />
-            <section className="rounded-2xl border border-line-default bg-surface-card p-6 shadow-card">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+            <section className="glass-panel p-6">
+              <p className="text-sm text-input-placeholder">
                 We could not find a matter with the ID{' '}
-                <span className="font-mono text-gray-700 dark:text-gray-300">{selectedMatterId}</span>
+                <span className="font-mono text-input-text">{selectedMatterId}</span>
                 {' '}in this workspace.
               </p>
             </section>
@@ -1771,19 +1771,19 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 <div>
                   <h1 className="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-7 text-input-text">
                     <span>{resolvedSelectedMatter.title}</span>
-                    <span className="text-gray-400">/</span>
+                    <span className="text-input-placeholder">/</span>
                     <span className="flex items-center gap-x-2 font-semibold text-input-text">
                       <Avatar
                         name={resolvedSelectedMatter.clientName}
                         size="xs"
-                        className="bg-surface-card text-gray-700 dark:text-gray-200"
+                        className="bg-white/10 text-input-text ring-1 ring-white/20"
                       />
                       {resolvedSelectedMatter.clientName}
                     </span>
                   </h1>
-                  <div className="mt-2 flex items-center gap-x-2.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                  <div className="mt-2 flex items-center gap-x-2.5 text-xs leading-5 text-input-placeholder">
                     <p className="truncate">Practice Area: {resolvedSelectedMatter.practiceArea || 'Not Assigned'}</p>
-                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 flex-none fill-gray-300 dark:fill-white/30">
+                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 flex-none fill-line-default">
                       <circle cx="1" cy="1" r="1" />
                     </svg>
                     <p className="whitespace-nowrap">Updated {formatRelativeTime(resolvedSelectedMatter.updatedAt)}</p>
@@ -1813,55 +1813,55 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             )}
 
             {headerMeta && (
-              <div className="rounded-2xl border border-line-default bg-surface-card/80 p-4">
-                <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
+              <div className="glass-panel p-4">
+                <p className="text-sm leading-6 text-input-text">
                   {headerMeta.description ? headerMeta.description : 'No description provided.'}
                 </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Client</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Client</p>
                     {headerMeta.clientEntries.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {headerMeta.clientEntries.map((entry) => (
-                          <div key={entry.id} className="flex items-center gap-2 rounded-full border border-line-default px-2 py-1">
-                            <Avatar name={entry.name} size="xs" className="bg-surface-card" />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">{entry.name}</span>
+                          <div key={entry.id} className="flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-1">
+                            <Avatar name={entry.name} size="xs" className="bg-white/10 ring-1 ring-white/10" />
+                            <span className="text-sm text-input-text">{entry.name}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No client assigned</p>
+                      <p className="mt-1 text-sm text-input-placeholder">No client assigned</p>
                     )}
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Assigned</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Assigned</p>
                     {headerMeta.assigneeNames.length > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {headerMeta.assigneeNames.map((name, i) => (
-                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-line-default px-2 py-1">
-                            <Avatar name={name} size="xs" className="bg-surface-card" />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
+                          <div key={`${name}-${i}`} className="flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-1">
+                            <Avatar name={name} size="xs" className="bg-white/10 ring-1 ring-white/10" />
+                            <span className="text-sm text-input-text">{name}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No assignee</p>
+                      <p className="mt-1 text-sm text-input-placeholder">No assignee</p>
                     )}
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Billing</p>
-                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">{headerMeta.billingLabel}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Billing</p>
+                    <p className="mt-1 text-sm text-input-text">{headerMeta.billingLabel}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Created</p>
-                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">{headerMeta.createdLabel}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Created</p>
+                    <p className="mt-1 text-sm text-input-text">{headerMeta.createdLabel}</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="border-b border-line-default">
+          <div className="border-b border-line-glass/30">
             <nav className="-mb-px flex flex-wrap items-center gap-6" aria-label="Tabs">
               {DETAIL_TABS.map((tab) => {
                 const isActive = detailTab === tab.id;
@@ -1874,7 +1874,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     'whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors rounded-none',
                     isActive
                       ? 'border-input-text text-input-text'
-                      : 'border-transparent text-gray-500 hover:border-line-default hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      : 'border-transparent text-input-placeholder hover:border-line-glass/30 hover:text-input-text'
                   ].join(' ')}
                 >
                   {tab.label}
@@ -1967,10 +1967,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   onDeleteExpense={handleDeleteExpense}
                 />
                 <Panel>
-                  <header className="flex items-center justify-between border-b border-line-default px-6 py-4">
+                  <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">
                     <div>
                       <h3 className="text-sm font-semibold text-input-text">Recent transactions</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-input-placeholder">
                         Summary of billed time across recent periods.
                       </p>
                     </div>
@@ -1983,9 +1983,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     ].map((card) => (
                       <div
                         key={card.label}
-                        className="rounded-2xl border border-line-default bg-surface-card p-4 shadow-card"
+                        className="glass-panel p-4"
                       >
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
+                        <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
                         <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
                       </div>
                     ))}
@@ -2001,7 +2001,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 />
               </div>
             ) : (
-              <div className="px-0 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-0 text-sm text-input-placeholder">
                 We will add the {DETAIL_TABS.find((tab) => tab.id === detailTab)?.label ?? 'tab'} details next.
               </div>
             )}
@@ -2101,7 +2101,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     <DropdownMenuItem
                       key={option}
                       onSelect={() => setSortOption(option)}
-                      className={option === sortOption ? 'font-semibold text-gray-900 dark:text-white' : ''}
+                      className={option === sortOption ? 'font-semibold text-input-text' : ''}
                     >
                       {SORT_LABELS[option]}
                     </DropdownMenuItem>
@@ -2120,10 +2120,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
         <div className="flex flex-col gap-6">
           <Panel className="overflow-hidden">
-            <header className="flex items-center justify-between border-b border-line-default px-4 py-4 sm:px-6 lg:px-8">
+            <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-4 sm:px-6 lg:px-8">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{activeTabLabel} Matters</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <h2 className="text-sm font-semibold text-input-text">{activeTabLabel} Matters</h2>
+                <p className="text-xs text-input-placeholder">
                   {sortedMatterSummaries.length} showing
                 </p>
               </div>
@@ -2139,7 +2139,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 disableCreate={!activePracticeId}
               />
             ) : (
-              <ul className="divide-y divide-gray-200 dark:divide-white/10">
+              <ul className="divide-y divide-line-default">
                 {sortedMatterSummaries.map((matter) => (
                   <MatterListItem
                     key={matter.id}
@@ -2153,7 +2153,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               <div ref={loadMoreRef} className="h-10" />
             )}
             {mattersLoadingMore && (
-              <div className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-6 py-4 text-sm text-input-placeholder">
                 Loading more matters...
               </div>
             )}

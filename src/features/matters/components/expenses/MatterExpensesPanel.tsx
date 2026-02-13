@@ -170,8 +170,8 @@ export const MatterExpensesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Expenses</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">

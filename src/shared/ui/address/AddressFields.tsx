@@ -142,7 +142,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
   const isRequired = (field: keyof Address) => !!required[field];
 
   const getInputClasses = (field: keyof Address) => cn(
-    hasError(field) && 'border-red-300 dark:border-red-600',
+    hasError(field) && 'border-red-500 dark:border-red-400',
     inputClassName
   );
 
@@ -192,7 +192,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         {/* Loading indicator */}
         {streetAddressProps?.isLoading && (
           <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-line-default border-t-blue-600" />
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-line-glass/30 border-t-blue-600" />
           </div>
         )}
 
@@ -203,7 +203,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             id={listboxId}
             aria-label="Address suggestions"
             data-testid="autocomplete-dropdown"
-            className="absolute z-50 w-full mt-1 bg-surface-overlay border border-line-default rounded-lg shadow-lg max-h-60 overflow-y-auto"
+            className="absolute z-50 w-full mt-1 bg-surface-glass bg-opacity-80 border border-line-glass border-opacity-30 rounded-lg shadow-glass backdrop-blur-xl max-h-60 overflow-y-auto"
           >
             {streetAddressProps.suggestions.length > 0 ? (
               <ul className="py-1">
@@ -217,7 +217,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
                       id={`address-suggestion-${suggestion.id}`}
                       aria-selected={index === streetAddressProps.selectedIndex}
                       className={cn(
-                        'w-full text-left px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-surface-card/70',
+                        'w-full text-left px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-surface-glass/50',
                         index === streetAddressProps.selectedIndex && 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                       )}
                       onClick={() => streetAddressProps.onSuggestionSelect(suggestion)}
@@ -290,7 +290,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
                   options={STATE_OPTIONS}
                   className={cn(
                     getInputClasses('state'),
-                    hasError('state') && 'border-red-300 dark:border-red-600'
+                    hasError('state') && 'border-red-500 dark:border-red-400'
                   )}
                 />
                 {hasError('state') && (

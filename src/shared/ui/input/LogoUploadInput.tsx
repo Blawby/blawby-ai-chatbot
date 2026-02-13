@@ -2,6 +2,7 @@ import { forwardRef } from 'preact/compat';
 import { useRef } from 'preact/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { cn } from '@/shared/utils/cn';
+import { Button } from '@/shared/ui/Button';
 
 export interface LogoUploadInputProps {
   imageUrl?: string | null;
@@ -86,13 +87,13 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
   return (
     <div className={cn('w-full', className)}>
       {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text">
           {label}
           {required && <span className="ml-1 text-red-500">*</span>}
         </label>
       )}
       {description && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-xs text-input-placeholder">
           {description}
         </p>
       )}
@@ -122,7 +123,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           </svg>
         )}
         <div
-          className="absolute inset-1 overflow-hidden rounded-full border border-line-default bg-surface-card"
+          className="absolute inset-1 overflow-hidden rounded-full glass-panel border-white/10"
           style={{ width: size, height: size, left: 4, top: 4 }}
         >
         {hasImage ? (
@@ -132,8 +133,8 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">
+          <div className="flex h-full w-full items-center justify-center bg-white/5">
+            <span className="text-xs font-semibold text-input-placeholder">
               {initials || 'Logo'}
             </span>
           </div>
@@ -141,14 +142,15 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
         </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={handleButtonClick}
             disabled={disabled}
-            className="rounded-full bg-surface-card px-3 py-2 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-default transition hover:bg-surface-card/80 disabled:cursor-not-allowed"
           >
             {buttonLabel}
-          </button>
+          </Button>
           <input
             ref={setInputRef}
             id={inputId}

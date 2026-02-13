@@ -40,7 +40,7 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
-  accentColor: '#000000',
+  accentColor: 'grey',
   voice: {
     enabled: false,
     provider: 'cloudflare',
@@ -50,6 +50,7 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   },
   ...overrides
 });
+
 
 interface UsePracticeConfigOptions {
   onError?: (error: string) => void;
@@ -160,6 +161,7 @@ export const usePracticeConfig = ({
             profileImage: publicDetails.logo ?? null,
             introMessage: details?.introMessage ?? '',
             description: details?.description ?? '',
+            accentColor: details?.accentColor ?? 'grey',
             isPublic: details?.isPublic
           });
 
@@ -205,7 +207,7 @@ export const usePracticeConfig = ({
         // Parse config safely - config is Record<string, unknown> from API
         const cfg = practice.config as Partial<PracticeConfig> || {};
 
-        const config: UIPracticeConfig = {
+          const config: UIPracticeConfig = {
           id: practice.id,
           slug: practice.slug,
           name: practice.name || '',
@@ -216,7 +218,7 @@ export const usePracticeConfig = ({
           serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
-          accentColor: cfg.accentColor ?? '#000000',
+          accentColor: cfg.accentColor ?? 'grey',
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',
@@ -225,6 +227,7 @@ export const usePracticeConfig = ({
             previewUrl: cfg.voice?.previewUrl ?? null
           }
         };
+
         setPracticeConfig(config);
         if (practice.id && practice.id !== currentPracticeId) {
           fetchedPracticeIds.current.add(practice.id);
@@ -286,7 +289,6 @@ export const usePracticeConfig = ({
     if (!practiceId) return;
     if (refreshKey === undefined) return;
     if (refreshKeyRef.current === refreshKey) return;
-    refreshKeyRef.current = refreshKey;
     fetchedPracticeIds.current.delete(practiceId);
     fetchPracticeConfig(practiceId);
   }, [fetchPracticeConfig, practiceId, refreshKey]);

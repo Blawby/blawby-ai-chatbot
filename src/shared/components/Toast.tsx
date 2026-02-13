@@ -52,14 +52,14 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const getBackgroundColor = () => {
     switch (toast.type) {
       case 'success':
-        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
+        return 'bg-emerald-500/10 border-emerald-500/30 backdrop-blur-xl shadow-lg shadow-emerald-500/10';
       case 'error':
-        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
+        return 'bg-red-500/10 border-red-500/30 backdrop-blur-xl shadow-lg shadow-red-500/10';
       case 'warning':
-        return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800';
+        return 'bg-amber-500/10 border-amber-500/30 backdrop-blur-xl shadow-lg shadow-amber-500/10';
       case 'info':
       default:
-        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
+        return 'bg-blue-500/10 border-blue-500/30 backdrop-blur-xl shadow-lg shadow-blue-500/10';
     }
   };
 
@@ -76,11 +76,11 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
           {getIcon()}
         </div>
         <div className="ml-3 flex-1">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          <h3 className="text-sm font-medium text-input-text">
             {toast.title}
           </h3>
           {toast.message && (
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+            <p className="mt-1 text-sm text-input-placeholder">
               {toast.message}
             </p>
           )}
@@ -88,7 +88,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         <div className="ml-4 flex-shrink-0">
           <button
             onClick={handleRemove}
-            className="inline-flex text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 rounded-md"
+            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm focus:outline-none"
           >
             <XMarkIcon className="h-4 w-4" />
           </button>

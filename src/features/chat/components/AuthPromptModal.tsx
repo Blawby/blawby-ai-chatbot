@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import AuthForm from '@/shared/components/AuthForm';
 
@@ -45,7 +46,7 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
     >
       <div className="w-full max-w-xl mx-auto space-y-4">
         <div className="space-y-2">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
+          <p className="text-sm text-input-placeholder">
             {resolvedDescription}
             {shouldAppendPractice && ' '}
             {shouldAppendPractice && t('authPrompt.notificationWithPractice', { practiceName })}
@@ -67,14 +68,14 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
         />
 
         <div className="flex justify-center">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={onClose}
-            className="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
             aria-label={t('authPrompt.secondaryCta')}
           >
             {t('authPrompt.secondaryCta')}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

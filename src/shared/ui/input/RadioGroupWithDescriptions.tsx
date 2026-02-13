@@ -21,7 +21,7 @@ export const RadioGroupWithDescriptions = ({
 }: RadioGroupWithDescriptionsProps) => (
   <fieldset className={className}>
     <legend className="block text-sm font-medium text-input-text mb-1">{label}</legend>
-    <div className="-space-y-px rounded-md bg-surface-card">
+    <div className="-space-y-px rounded-md bg-surface-glass/40 backdrop-blur-sm">
       {options.map((option, index) => {
         const isSelected = value === option.value;
         const isFirst = index === 0;
@@ -38,7 +38,7 @@ export const RadioGroupWithDescriptions = ({
               isLast && 'rounded-b-md',
               isSelected
                 ? 'z-10 border-accent-200 bg-accent-50 text-gray-900 dark:border-accent-500/50 dark:bg-accent-500/10'
-                : 'border-line-default hover:bg-surface-card/70'
+                : 'border-line-glass/30 hover:bg-surface-glass/50'
             )}
           >
             <input
@@ -53,7 +53,7 @@ export const RadioGroupWithDescriptions = ({
             <span
               className={cn(
                 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-                isSelected ? 'border-transparent bg-accent-500' : 'border-input-border bg-input-bg'
+                isSelected ? 'border-transparent bg-accent-500' : 'border-line-glass/30 bg-surface-glass/60'
               )}
               aria-hidden="true"
             >
@@ -64,7 +64,7 @@ export const RadioGroupWithDescriptions = ({
                 {option.label}
               </span>
               {option.description && (
-                <span className={cn('block text-sm', isSelected ? 'text-accent-700 dark:text-accent-300' : 'text-gray-500 dark:text-gray-400')}>
+                <span className={cn('block text-sm', isSelected ? 'text-accent-700 dark:text-accent-300' : 'text-input-placeholder')}>
                   {option.description}
                 </span>
               )}

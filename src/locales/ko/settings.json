@@ -37,7 +37,11 @@
         "blue": "[NEEDS TRANSLATION] Blue",
         "green": "[NEEDS TRANSLATION] Green",
         "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red"
+        "red": "[NEEDS TRANSLATION] Red",
+        "gold": "골드",
+        "yellow": "노랑",
+        "pink": "분홍",
+        "orange": "주황"
       }
     },
     "language": {

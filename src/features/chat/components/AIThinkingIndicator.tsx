@@ -60,8 +60,8 @@ export function AIThinkingIndicator({
       aria-atomic="true"
     >
       <span className="relative flex h-2.5 w-2.5">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-gray-400/60 dark:bg-gray-500/60 animate-ping" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gray-500 dark:bg-gray-300" />
+        <span className="absolute inline-flex h-full w-full rounded-full bg-accent-500/30 animate-ping" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-500 shadow-lg shadow-accent-500/20" />
       </span>
       <span className="sr-only">{displayMessage}</span>
     </div>

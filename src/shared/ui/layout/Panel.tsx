@@ -10,7 +10,7 @@ export const Panel = ({
   children,
   className
 }: PanelProps) => (
-  <div className={cn('rounded-2xl border border-line-default bg-surface-card shadow-card', className)}>
+  <div className={cn('glass-panel', className)}>
     {children}
   </div>
 );

@@ -94,21 +94,21 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const canComplete = requiredCompleted === requiredCount;
 
   return (
-    <div className="bg-surface-base border border-line-default rounded-lg p-6 max-w-2xl shadow-card">
+    <div className="glass-card p-6 max-w-2xl">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-input-text mb-2">
           Document Checklist for {matterType}
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-input-placeholder">
           Please upload the documents listed below. Required documents are marked with a red icon.
         </p>
-        <div className="mt-3 flex items-center gap-4 text-sm">
-          <span className="text-gray-600 dark:text-gray-400">
-            Progress: {completedCount}/{documents.length} documents
+        <div className="mt-3 flex items-center gap-4 text-xs font-medium">
+          <span className="text-input-placeholder">
+            Progress: {completedCount}/{documents.length}
           </span>
-          <span className="text-gray-600 dark:text-gray-400">
-            Required: {requiredCompleted}/{requiredCount} completed
+          <span className="text-accent-500">
+            Required: {requiredCompleted}/{requiredCount}
           </span>
         </div>
       </div>
@@ -118,10 +118,10 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         {documents.map((doc) => (
           <div
             key={doc.id}
-            className={`border rounded-lg p-4 transition-colors ${
+            className={`border rounded-xl p-4 transition-all duration-300 ${
               dragOverId === doc.id 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                : 'border-line-default'
+                ? 'border-accent-500 bg-accent-500/10 scale-[1.02]' 
+                : 'border-white/10 bg-white/5'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
@@ -142,18 +142,18 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       Required
                     </span>
                   )}
-                  <span className={`text-xs px-2 py-1 rounded ${
+                  <span className={`text-xs px-2 py-1 rounded-md font-medium ${
                     doc.status === 'uploaded' 
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                      ? 'bg-emerald-500/10 text-emerald-400'
                       : doc.status === 'pending'
-                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                      : 'bg-surface-card text-gray-600 dark:text-gray-400'
+                      ? 'bg-amber-500/10 text-amber-400'
+                      : 'bg-white/5 text-input-placeholder'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
                   </span>
                 </div>
                 {doc.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  <p className="text-sm text-input-placeholder mb-3">
                     {doc.description}
                   </p>
                 )}
@@ -173,10 +173,10 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                         size="sm"
                         icon={<CloudArrowUpIcon className="w-4 h-4" />}
                       >
-                        Choose DocumentIcon
+                        Choose Document
                       </Button>
                     </label>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-input-placeholder">
                       or drag and drop
                     </span>
                   </div>
@@ -185,8 +185,8 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                 {/* Uploaded DocumentIcon Display */}
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
-                    <DocumentIcon className="w-4 h-4 text-green-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                    <DocumentIcon className="w-4 h-4 text-emerald-400" />
+                    <span className="text-sm text-input-text">
                       {doc.file.name}
                     </span>
                     <Button

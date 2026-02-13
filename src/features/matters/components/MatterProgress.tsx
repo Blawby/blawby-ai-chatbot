@@ -130,7 +130,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-surface-card border border-line-default rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="glass-panel rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
           <div>
@@ -200,7 +200,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
               {/* Checklist */}
               {progressData.checklist && progressData.checklist.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Progress Checklist</h3>
+                  <h3 className="font-semibold text-input-text mb-3">Progress Checklist</h3>
                   <div className="space-y-2">
                     {progressData.checklist.map((item) => (
                       <div key={item.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
@@ -227,7 +227,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
               {/* Next Actions */}
               {progressData.nextActions && progressData.nextActions.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Next Steps</h3>
+                  <h3 className="font-semibold text-input-text mb-3">Next Steps</h3>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <ul className="list-disc list-inside space-y-1">
                       {progressData.nextActions.map((action, index) => (
@@ -241,7 +241,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
               {/* Missing Items */}
               {progressData.missing && progressData.missing.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Still Needed</h3>
+                  <h3 className="font-semibold text-input-text mb-3">Still Needed</h3>
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                     <ul className="list-disc list-inside space-y-1">
                       {progressData.missing.map((item, index) => (

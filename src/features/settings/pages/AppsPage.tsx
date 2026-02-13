@@ -17,7 +17,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
 
   return (
     <SettingsPageLayout title={t('settings:apps.title')} className={className}>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+      <p className="text-sm text-input-placeholder mb-4">
         {t('settings:apps.description')}
       </p>
 
@@ -32,7 +32,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
               label={app.name}
               labelNode={(
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-surface-card flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-lg glass-panel flex items-center justify-center overflow-hidden">
                     {app.logo ? (
                       <img
                         src={app.logo}
@@ -41,7 +41,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                         loading="lazy"
                       />
                     ) : (
-                      <PuzzlePieceIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                      <PuzzlePieceIcon className="w-6 h-6 text-input-text/70" aria-hidden="true" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -63,7 +63,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                 </div>
               )}
             >
-              <ChevronRightIcon className="w-5 h-5 text-gray-400" aria-hidden="true" />
+              <ChevronRightIcon className="w-5 h-5 text-input-placeholder" aria-hidden="true" />
             </SettingRow>
           </button>
           {index < apps.length - 1 && <SectionDivider />}

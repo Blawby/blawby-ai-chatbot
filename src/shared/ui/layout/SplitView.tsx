@@ -32,7 +32,7 @@ export const SplitView = ({
     <div className={cn('grid h-full min-h-0 w-full', gridClassName, className)}>
       <aside
         className={cn(
-          'min-h-0 border-b border-line-default md:border-b-0 md:border-r md:overflow-y-auto',
+          'min-h-0 border-b border-line-glass/30 md:border-b-0 md:border-r md:overflow-y-auto',
           primaryClassName
         )}
       >
@@ -44,7 +44,7 @@ export const SplitView = ({
       {hasTertiary && (
         <aside
           className={cn(
-            'hidden min-h-0 border-t border-line-default md:border-t-0 md:border-l md:overflow-y-auto xl:block',
+            'hidden min-h-0 border-t border-line-glass/30 md:border-t-0 md:border-l md:overflow-y-auto xl:block',
             tertiaryClassName
           )}
         >

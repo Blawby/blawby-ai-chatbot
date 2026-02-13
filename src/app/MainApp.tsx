@@ -34,6 +34,8 @@ import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
+import type { GeneralPreferences } from '@/shared/types/preferences';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 export type LayoutMode = 'embed' | 'mobile' | 'desktop';
@@ -139,6 +141,26 @@ export function MainApp({
   }, [routeConversationId]);
 
   const activeConversationId = normalizedRouteConversationId ?? conversationId;
+
+  // Synchronize Accent Color based on workspace and config/preferences
+  useEffect(() => {
+    if (workspace === 'public' || workspace === 'client') {
+      initializeAccentColor(practiceConfig.accentColor);
+    } else if (workspace === 'practice') {
+      // In practice view, try to get from general preferences
+      void (async () => {
+        try {
+          const prefs = await getPreferencesCategory<GeneralPreferences>('general');
+          initializeAccentColor(prefs?.accent_color);
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.warn('[MainApp] Failed to load accent color preferences', error);
+          }
+          // No fallback - let it fail visibly
+        }
+      })();
+    }
+  }, [workspace, practiceConfig.accentColor]);
 
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
@@ -877,7 +899,7 @@ export function MainApp({
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {shouldShowChatPlaceholder ? (
-        <div className="flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex-1 flex items-center justify-center text-sm text-input-placeholder">
           {workspace === 'practice'
             ? 'Select a conversation to view the thread.'
             : 'Open a practice link to start chatting.'}

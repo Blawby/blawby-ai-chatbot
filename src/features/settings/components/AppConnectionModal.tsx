@@ -99,7 +99,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-surface-card flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-surface-glass/60 backdrop-blur-sm flex items-center justify-center">
               <PuzzlePieceIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" aria-hidden="true" />
             </div>
             <h2 id={titleId} className="text-lg font-semibold text-input-text">

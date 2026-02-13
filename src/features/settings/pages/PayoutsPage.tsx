@@ -143,7 +143,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
     <SettingsPageLayout title="Payouts" className={className} contentClassName="pb-8">
       <SettingSection title="External payout accounts">
         {detailsSubmitted ? (
-          <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex items-start gap-3 text-sm text-input-placeholder">
             <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
               <CheckCircleIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </span>
@@ -153,25 +153,25 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <ShieldCheckIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                <ShieldCheckIcon className="h-5 w-5 text-input-placeholder" />
               </span>
               <p>
                 Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
               </p>
             </div>
-            <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <UserCircleIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                <UserCircleIcon className="h-5 w-5 text-input-placeholder" />
               </span>
               <p>
                 It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
               </p>
             </div>
-            <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <LockClosedIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                <LockClosedIcon className="h-5 w-5 text-input-placeholder" />
               </span>
               <p>
                 Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.

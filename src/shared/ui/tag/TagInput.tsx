@@ -486,18 +486,18 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             id={listboxId}
             role="listbox"
             className={cn(
-              'absolute z-50 w-full mt-1 bg-surface-overlay',
-              'border border-line-default rounded-lg shadow-lg',
+              'absolute z-50 w-full mt-1 bg-surface-glass/80 backdrop-blur-xl',
+              'border border-line-glass/30 rounded-lg shadow-glass',
               'max-h-60 overflow-y-auto'
             )}
           >
             {isLoadingSuggestions && (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-3 py-2 text-sm text-input-placeholder">
                 Loading suggestions...
               </div>
             )}
             {!isLoadingSuggestions && filteredSuggestions.length === 0 && inputValue.trim() && (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-3 py-2 text-sm text-input-placeholder">
                 No suggestions found
               </div>
             )}
@@ -511,8 +511,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
                 onClick={() => addTag(suggestion)}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm text-input-text',
-                  'hover:bg-surface-card/70',
-                  'focus:outline-none focus:bg-surface-card/70',
+                  'hover:bg-surface-glass/50',
+                  'focus:outline-none focus:bg-surface-glass/50',
                   focusedSuggestionIndex === index && 'bg-accent-50 dark:bg-accent-900/20'
                 )}
               >
@@ -539,7 +539,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
       )}
 
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
           {displayDescription}
         </p>
       )}

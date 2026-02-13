@@ -308,7 +308,7 @@ export const SecurityPage = ({
   if (!settings) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
-        <p className="text-gray-500 dark:text-gray-400">{t('settings:security.fallback')}</p>
+        <p className="text-input-placeholder">{t('settings:security.fallback')}</p>
       </div>
     );
   }
@@ -428,10 +428,10 @@ export const SecurityPage = ({
                   <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  <h3 className="text-lg font-semibold text-input-text mb-2">
                     {t('settings:security.mfa.disable.heading')}
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-input-placeholder">
                     {t('settings:security.mfa.disable.description')}
                   </p>
                 </div>

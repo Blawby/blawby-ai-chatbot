@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { FaceSmileIcon, PaperClipIcon } from '@heroicons/react/20/solid';
 import { Avatar } from '@/shared/ui/profile';
+import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { useCallback, useState } from 'preact/hooks';
 
@@ -160,25 +161,25 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
+                    className="ring-1 ring-black/10 bg-white/10 text-input-text dark:ring-white/20"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-2 ring-white dark:text-white dark:ring-surface-card">
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                     <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-card text-gray-700 ring-0 dark:text-white">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                   {item.type === 'paid' ? (
-                    <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-accent-500" />
+                    <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-emerald-500" />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];
                       return Icon ? (
-                        <Icon className="h-4 w-4 text-gray-600 dark:text-gray-200" />
+                        <Icon className="h-4 w-4 text-input-placeholder dark:text-gray-200" />
                       ) : null;
                     })()
                   ) : (
-                    <div className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-700" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-input-placeholder/80" />
                   )}
                 </div>
               )}
@@ -188,7 +189,7 @@ export const ActivityTimeline = ({
               <>
                 <div className="flex-auto">
                   <div className="text-sm leading-5 text-gray-500 dark:text-gray-400">
-                    <div className="font-semibold text-gray-900 dark:text-white">{item.person.name}</div>
+                    <div className="font-semibold text-input-text">{item.person.name}</div>
                     <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
                   {editingId === item.id ? (
@@ -204,34 +205,30 @@ export const ActivityTimeline = ({
                         disabled={commentActionsDisabled || actionInFlightId === item.id}
                       />
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           type="button"
+                          size="xs"
+                          variant="primary"
                           onClick={submitEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id || editValue.trim().length === 0}
-                          className={cn(
-                            'rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white',
-                            'hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed'
-                          )}
                         >
                           Save
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="xs"
+                          variant="secondary"
                           onClick={cancelEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id}
-                          className={cn(
-                            'rounded-md border border-line-default px-2.5 py-1.5 text-xs font-semibold text-gray-700',
-                            'hover:bg-surface-card/70 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-200'
-                          )}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
                     <>
                       {item.comment && (
-                        <p className="mt-2 text-sm leading-6 text-gray-900 dark:text-white">
+                        <p className="mt-2 text-sm leading-6 text-input-text">
                           {item.comment}
                         </p>
                       )}
@@ -243,7 +240,7 @@ export const ActivityTimeline = ({
                               onClick={() => startEdit(item.id, item.comment)}
                               disabled={commentActionsDisabled || actionInFlightId === item.id}
                               className={cn(
-                                'hover:text-gray-900 dark:hover:text-white',
+                                'hover:text-input-text',
                                 (commentActionsDisabled || actionInFlightId === item.id) && 'opacity-50 cursor-not-allowed'
                               )}
                             >
@@ -271,19 +268,19 @@ export const ActivityTimeline = ({
               </>
             ) : (
               <>
-                <p className="flex-auto py-0.5 text-sm leading-5 text-gray-900 dark:text-white">
+                <p className="flex-auto py-0.5 text-sm leading-5 text-input-text">
                   <span className="font-semibold">{item.person.name}</span>{' '}
                   {(() => {
                     const trimmed = actionText.trim();
                     const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
                     if (!match) {
-                      return <span className="text-gray-900 dark:text-white">{trimmed}</span>;
+                      return <span className="text-input-text">{trimmed}</span>;
                     }
                     const [, verb, rest] = match;
                     return (
                       <>
                         <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
-                        <span className="text-gray-900 dark:text-white">{rest}</span>
+                        <span className="text-input-text">{rest}</span>
                       </>
                     );
                   })()}
@@ -307,10 +304,10 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-surface-card text-gray-700 dark:outline-white/10"
+          className="mt-1 ring-1 ring-white/15 bg-white/10 text-input-text dark:ring-white/10"
         />
         <form className="relative flex-auto" onSubmit={handleSubmit}>
-          <div className="overflow-hidden rounded-lg pb-12 outline outline-1 -outline-offset-1 outline-line-default/70 bg-surface-card/60 dark:outline-white/10 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent-500">
+          <div className="glass-panel overflow-hidden pb-12 focus-within:ring-1 focus-within:ring-accent-500/60 focus-within:ring-offset-2 focus-within:ring-offset-transparent">
             <label htmlFor="timeline-comment" className="sr-only">
               Add your comment
             </label>
@@ -326,43 +323,33 @@ export const ActivityTimeline = ({
             />
           </div>
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between py-2 pr-2 pl-3">
-            <div className="flex items-center space-x-3">
-              <button
+            <div className="flex items-center space-x-2">
+              <Button
                 type="button"
-                disabled={composerDisabled || composerSubmitting}
-                className={cn(
-                  '-m-2.5 flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-500',
-                  'dark:text-gray-500 dark:hover:text-white',
-                  (composerDisabled || composerSubmitting) && 'opacity-60 cursor-not-allowed'
-                )}
+                variant="icon"
+                size="icon"
                 aria-label="Attach a file"
-              >
-                <PaperClipIcon aria-hidden="true" className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
                 disabled={composerDisabled || composerSubmitting}
-                className={cn(
-                  '-m-2.5 flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-500',
-                  'dark:text-gray-500 dark:hover:text-white',
-                  (composerDisabled || composerSubmitting) && 'opacity-60 cursor-not-allowed'
-                )}
+                icon={<PaperClipIcon aria-hidden="true" className="h-5 w-5" />}
+              />
+              <Button
+                type="button"
+                variant="icon"
+                size="icon"
                 aria-label="Add a mood"
-              >
-                <FaceSmileIcon aria-hidden="true" className="h-5 w-5" />
-              </button>
+                disabled={composerDisabled || composerSubmitting}
+                icon={<FaceSmileIcon aria-hidden="true" className="h-5 w-5" />}
+              />
             </div>
-            <button
+            <Button
               type="submit"
+              variant="primary"
+              size="sm"
+              className="rounded-full px-4 py-1.5"
               disabled={isSubmitDisabled}
-              className={cn(
-                'rounded-md bg-input-bg px-2.5 py-1.5 text-sm font-semibold text-input-text shadow-sm ring-1 ring-inset ring-line-default',
-                'hover:bg-surface-card/70 dark:shadow-none',
-                isSubmitDisabled && 'opacity-60 cursor-not-allowed'
-              )}
             >
               {composerLabel}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

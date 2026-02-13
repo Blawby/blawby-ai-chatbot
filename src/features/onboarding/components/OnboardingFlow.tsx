@@ -255,7 +255,7 @@ export const OnboardingFlow = ({
 
   return (
     <div
-      className={`h-full bg-surface-base flex flex-col ${className}`}
+      className={`h-full bg-transparent flex flex-col ${className}`}
       data-testid={resolvedTestId}
     >
       {renderStep()}

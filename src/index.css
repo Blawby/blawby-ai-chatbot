@@ -6,36 +6,35 @@
   :root {
     color-scheme: light dark;
     --surface-base: 255 255 255;
-    --surface-card: 250 250 250;
     --surface-glass: 255 255 255;
     --surface-overlay: 255 255 255;
-    --line-default: 229 231 235;
     --line-glass: 255 255 255;
-    --input-bg: 255 255 255;
-    --input-border: 209 213 219;
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
-    --shadow-card: 0 10px 30px rgb(15 23 42 / 8%);
-    --shadow-glass: 0 18px 40px rgb(15 23 42 / 18%);
+    --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
+
+
   }
 
   .dark {
     --surface-base: 3 7 18;
-    --surface-card: 17 24 39;
     --surface-glass: 255 255 255;
     --surface-overlay: 10 15 26;
-    --line-default: 16 19 26;
     --line-glass: 255 255 255;
-    --input-bg: 10 15 26;
-    --input-border: 55 65 81;
     --input-text: 249 250 251;
     --input-placeholder: 156 163 175;
-    --shadow-card: 0 14px 32px rgb(0 0 0 / 35%);
-    --shadow-glass: 0 20px 44px rgb(0 0 0 / 50%);
+    --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
   }
 
   body {
     @apply min-h-screen m-0;
+    /* Base background color */
+    background-color: rgb(var(--surface-base));
+    /* Subtle radial gradient overlay for depth */
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500) / 8%), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600) / 5%), transparent 50%);
+    background-attachment: fixed;
   }
 
   /* Hide scrollbars globally to prevent overlay on content */
@@ -116,6 +115,30 @@
     @apply whitespace-pre-wrap break-words;
   }
 
+  /* Apple-style glassmorphism card - heavy blur, translucent */
+  .glass-card {
+    @apply rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl saturate-150 shadow-glass transition-all duration-300;
+    @apply dark:border-white/10 dark:bg-white/5;
+  }
+
+  .glass-card-hover {
+    @apply hover:bg-white/10 hover:border-white/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300;
+  }
+
+  /* Apple-style glassmorphism panel - medium blur */
+
+  .glass-panel {
+    @apply rounded-2xl border border-white/[0.08] bg-white/[0.08] backdrop-blur-2xl saturate-150 shadow-sm transition-all duration-300;
+    @apply dark:border-white/10 dark:bg-white/[0.08];
+  }
+
+  /* Apple-style glassmorphism input */
+
+  .glass-input {
+    @apply border border-white/10 bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 shadow-glass backdrop-blur-xl;
+    @apply dark:border-white/10 dark:bg-white/[0.08];
+  }
+
   .chat-markdown p {
     @apply mt-0 mb-3;
   }
@@ -142,10 +165,7 @@
 
   /* File display styling */
   .file-display {
-    @apply flex items-center gap-2 p-2 rounded-2xl;
-    @apply bg-light-file-bg dark:bg-dark-file-bg;
-    @apply border border-light-file-border dark:border-dark-file-border;
-    @apply transition-all duration-200;
+    @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200;
   }
 
   .file-display-icon {
@@ -157,31 +177,27 @@
   }
 
   .file-display-name {
-    @apply text-sm font-medium text-light-file-text dark:text-dark-file-text truncate;
+    @apply text-sm font-medium text-input-text truncate;
   }
 
   .file-display-type {
-    @apply text-xs text-light-file-text-secondary dark:text-dark-file-text-secondary;
+    @apply text-xs text-input-placeholder;
   }
 
   .file-display-remove {
     @apply flex-shrink-0 w-6 h-6 rounded-full;
     @apply flex items-center justify-center;
-    @apply bg-light-file-remove-bg dark:bg-dark-file-remove-bg;
-    @apply hover:bg-light-file-remove-hover dark:hover:bg-dark-file-remove-hover;
-    @apply transition-colors;
+    @apply bg-red-500/20 hover:bg-red-500/30 transition-colors;
   }
 
   .file-display-remove-icon {
     @apply w-3.5 h-3.5 text-white;
   }
 
-  /* Message composer styling */
   .message-composer-container {
     @apply flex flex-col w-full relative;
-    @apply bg-gray-200 dark:bg-gray-900;
-    @apply border border-gray-300 dark:border-gray-700;
-    @apply rounded-2xl p-2 min-h-[48px] gap-2 h-auto overflow-visible;
+    @apply p-2 min-h-[48px] gap-2 h-auto overflow-visible;
+    @apply glass-panel;
   }
 
   .message-composer-preview-container {
@@ -190,19 +206,6 @@
 
   .message-composer-input-row {
     @apply flex items-center gap-3 w-full;
-  }
-
-  /* Standardized input styling */
-  .input-base {
-    @apply w-full px-3 py-2 text-sm border border-input-border rounded-lg bg-input-bg text-input-text placeholder-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors;
-  }
-
-  .input-base.error {
-    @apply border-red-500 focus:ring-red-500 focus:border-red-500;
-  }
-
-  .input-with-icon {
-    @apply pl-10;
   }
 
   .chat-markdown ul,
@@ -257,6 +260,33 @@
   .chat-markdown .chat-cursor {
     @apply inline-block align-middle ml-2 h-2.5 w-2.5 rounded-full bg-accent-500/80 animate-pulse;
   }
+
+  /* Semantic Typography Tokens */
+  .text-heading {
+    @apply text-input-text font-bold;
+  }
+
+  .text-body-primary {
+    @apply text-input-text;
+  }
+
+  .text-secondary {
+    @apply text-input-placeholder;
+  }
+
+  .text-body {
+    @apply text-input-text;
+  }
+
+  /* Semantic Surface & Border Tokens */
+  .surface-subtle {
+    @apply bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-xl;
+  }
+
+  .surface-hover {
+    @apply hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20 transition-all duration-200;
+  }
+
 }
 
 @layer utilities {
@@ -327,12 +357,6 @@
   [dir="rtl"] .chat-markdown .chat-cursor {
     margin-left: 0;
     margin-right: 0.5rem;
-  }
-
-  /* Flip icon positions in inputs for RTL */
-  [dir="rtl"] .input-with-icon {
-    padding-left: 0.75rem;
-    padding-right: 2.5rem;
   }
 
   /* Comprehensive margin RTL rules */

@@ -37,7 +37,11 @@
         "blue": "Xanh dương",
         "green": "Xanh lá",
         "purple": "Tím",
-        "red": "Đỏ"
+        "red": "Đỏ",
+        "gold": "Vàng kim",
+        "yellow": "Vàng",
+        "pink": "Hồng",
+        "orange": "Cam"
       }
     },
     "language": {

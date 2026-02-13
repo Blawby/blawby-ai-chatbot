@@ -119,12 +119,13 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-input-bg text-input-text placeholder:text-input-placeholder',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 

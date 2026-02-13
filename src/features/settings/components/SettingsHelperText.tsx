@@ -13,7 +13,7 @@ export const SettingsHelperText = ({
   ...rest
 }: SettingsHelperTextProps) => {
   return (
-    <span className={cn('text-xs text-gray-500 dark:text-gray-400', className)} {...rest}>
+    <span className={cn('text-xs text-input-placeholder', className)} {...rest}>
       {children}
     </span>
   );

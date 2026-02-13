@@ -37,7 +37,11 @@
         "blue": "[NEEDS TRANSLATION] Blue",
         "green": "[NEEDS TRANSLATION] Green",
         "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red"
+        "red": "[NEEDS TRANSLATION] Red",
+        "gold": "Altın",
+        "yellow": "Sarı",
+        "pink": "Pembe",
+        "orange": "Turuncu"
       }
     },
     "language": {

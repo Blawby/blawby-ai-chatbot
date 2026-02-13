@@ -297,7 +297,7 @@ export const NotificationsPage = ({
   if (error || !settings) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
-        <p className="text-gray-500 dark:text-gray-400">
+        <p className="text-input-placeholder">
           {t('settings:notifications.loadError', { defaultValue: 'Failed to load notification settings' })}
         </p>
       </div>
@@ -334,7 +334,7 @@ export const NotificationsPage = ({
           ? (
             <>
               <span>{baseDescription}</span>
-              <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">
+              <span className="mt-1 block text-[11px] text-input-placeholder">
                 {t('settings:notifications.systemRequiredHint', { defaultValue: 'System notifications are required for all members.' })}
               </span>
             </>

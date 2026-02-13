@@ -119,18 +119,18 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                   <div key={event.id} className="relative flex items-start gap-3">
                     {/* Timeline line */}
                     {index < events.length - 1 && (
-                      <div className="absolute left-3 top-8 bottom-0 w-px bg-gray-200 dark:bg-gray-700" />
+                      <div className="absolute left-3 top-8 bottom-0 w-px bg-line-default" />
                     )}
                     
                     {/* Icon */}
-                    <div className="relative flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <div className="relative flex-shrink-0 w-6 h-6 rounded-full bg-surface-glass/60 flex items-center justify-center">
                       <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                     </div>
                     
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                        <h5 className="text-xs sm:text-sm font-medium text-input-text">
                           {event.title}
                         </h5>
                         <span className="text-xs text-gray-500 dark:text-gray-400">

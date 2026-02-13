@@ -125,7 +125,7 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
                   key={row.id}
                   className={cn(
                     'h-20',
-                    isClickable && 'cursor-pointer hover:bg-surface-card/70',
+                    isClickable && 'cursor-pointer hover:bg-surface-glass/50',
                     row.className
                   )}
                 >

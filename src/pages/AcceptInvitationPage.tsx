@@ -10,6 +10,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import AuthForm from '@/shared/components/AuthForm';
+import { cn } from '@/shared/utils/cn';
 
 type InvitationDetails = {
   id: string;
@@ -60,7 +61,7 @@ type PayloadParseResult = {
 };
 
 const LoadingScreen = ({ message = 'Loading…' }: { message?: string }) => (
-  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+  <div className="flex h-screen items-center justify-center text-sm text-input-placeholder">
     {message}
   </div>
 );
@@ -156,13 +157,14 @@ const buildRedirectTarget = (invitationId: string, dataParam: string) => {
 };
 
 const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; children: ComponentChildren }) => (
-  <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
+  <div className="min-h-screen bg-transparent px-6 py-12">
     <div
-      className={`mx-auto max-w-xl rounded-2xl border p-6 text-sm ${
+      className={cn(
+        "mx-auto max-w-xl rounded-2xl border p-6 text-sm",
         tone === 'error'
-          ? 'border-red-200 dark:border-red-900/60 bg-white dark:bg-dark-bg text-red-700 dark:text-red-200'
-          : 'border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg text-gray-700 dark:text-gray-200'
-      }`}
+          ? "border-red-500/30 bg-red-500/5 text-red-100 backdrop-blur-xl"
+          : "glass-card text-input-text"
+      )}
     >
       {children}
     </div>
@@ -457,8 +459,8 @@ export const AcceptInvitationPage = () => {
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Unable to load invitation</h1>
-        <p className="mt-2 text-sm text-red-700 dark:text-red-200">{preAuthError}</p>
+        <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
+        <p className="mt-2 text-sm text-red-400">{preAuthError}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="ghost" onClick={() => navigate('/auth', true)}>
             Back to sign in
@@ -480,10 +482,10 @@ export const AcceptInvitationPage = () => {
           <Logo size="lg" />
         </div>
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-semibold text-input-text">
             Accept your invitation to sign up{organizationName ? ` | ${organizationName}` : ''}
           </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          <p className="mt-2 text-sm text-input-placeholder">
             {subtitle}
           </p>
         </div>
@@ -507,25 +509,25 @@ export const AcceptInvitationPage = () => {
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">You’re signed in</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <h1 className="text-xl font-semibold text-input-text">You’re signed in</h1>
+        <p className="mt-2 text-sm text-input-placeholder">
           Continue to {organizationName || organizationSlug} to finish your intake.
         </p>
-        <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+        <div className="mt-4 space-y-2 text-sm text-input-placeholder">
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {organizationName || organizationSlug}
+            <span className="font-medium text-input-text">Practice:</span> {organizationName || organizationSlug}
           </div>
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Email:</span> {invitedEmail}
+            <span className="font-medium text-input-text">Email:</span> {invitedEmail}
           </div>
           {sessionEmail && (
             <div>
-              <span className="font-medium text-gray-900 dark:text-white">Signed in as:</span> {sessionEmail}
+              <span className="font-medium text-input-text">Signed in as:</span> {sessionEmail}
             </div>
           )}
         </div>
         {hasEmailMismatch && (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
             You’re signed in with a different email. Switch accounts to continue with the invited email.
           </div>
         )}
@@ -560,8 +562,8 @@ export const AcceptInvitationPage = () => {
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Unable to load invitation</h1>
-        <p className="mt-2 text-sm text-red-700 dark:text-red-200">{inviteState.message}</p>
+        <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
+        <p className="mt-2 text-sm text-red-400">{inviteState.message}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={fetchInvitation}>
             Try again
@@ -595,37 +597,37 @@ export const AcceptInvitationPage = () => {
       <div className="flex justify-center mb-6">
         <Logo size="lg" />
       </div>
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Accept invitation</h1>
-      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      <h1 className="text-xl font-semibold text-input-text">Accept invitation</h1>
+      <p className="mt-2 text-sm text-input-placeholder">
         You&apos;ve been invited to join {invitation.organizationName ?? 'this practice'}.
       </p>
-      <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+      <div className="mt-4 space-y-2 text-sm text-input-placeholder">
         {invitation.organizationSlug && (
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {invitation.organizationName || invitation.organizationSlug}
+            <span className="font-medium text-input-text">Practice:</span> {invitation.organizationName || invitation.organizationSlug}
           </div>
         )}
         {(invitation.inviterName || invitation.inviterEmail) && (
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Invited by:</span> {invitation.inviterName ?? invitation.inviterEmail}
+            <span className="font-medium text-input-text">Invited by:</span> {invitation.inviterName ?? invitation.inviterEmail}
           </div>
         )}
         <div>
-          <span className="font-medium text-gray-900 dark:text-white">Role:</span> {roleLabel}
+          <span className="font-medium text-input-text">Role:</span> {roleLabel}
         </div>
         {invitation.expiresAt && (
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
+            <span className="font-medium text-input-text">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
           </div>
         )}
         {effectiveInvitedEmail && (
           <div>
-            <span className="font-medium text-gray-900 dark:text-white">Invited email:</span> {effectiveInvitedEmail}
+            <span className="font-medium text-input-text">Invited email:</span> {effectiveInvitedEmail}
           </div>
         )}
       </div>
       {hasEmailMismatch && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
           You’re signed in with {sessionEmail}. Switch accounts to accept with {effectiveInvitedEmail}.
         </div>
       )}

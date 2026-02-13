@@ -54,13 +54,13 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-surface-base shadow-none">
+    <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/70"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-accent-600/95 via-accent-700/80 to-transparent dark:from-accent-700/95 dark:via-accent-800/70"
         aria-hidden="true"
       />
       <div className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-accent-500/30 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/12 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/[0.12] blur-3xl" aria-hidden="true" />
 
       <section className="relative z-10 px-6 pb-12 pt-8 text-white">
         <div className="flex items-center gap-3">
@@ -85,10 +85,10 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             type="button"
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
-            className="rounded-2xl border border-line-default bg-surface-card px-4 py-4 text-left shadow-card transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+            className="glass-card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-white/10 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
-            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <div className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
               {t('workspace.home.recentMessage')}
             </div>
             <div className="mt-3 flex items-center gap-3">
@@ -99,15 +99,15 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
                 className="ring-2 ring-white/10"
               />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <div className="flex items-center justify-between gap-3 text-sm font-semibold text-input-text">
                   <span className="truncate">{recentMessage.senderLabel}</span>
                   {recentMessage.timestampLabel && (
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                    <span className="text-xs font-normal text-input-placeholder">
                       {recentMessage.timestampLabel}
                     </span>
                   )}
                 </div>
-                <div className="mt-1 truncate text-sm text-gray-600 dark:text-gray-300">
+                <div className="mt-1 truncate text-sm text-input-placeholder">
                   {recentMessage.preview}
                 </div>
               </div>
@@ -119,18 +119,22 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="group flex w-full items-center justify-between rounded-2xl border border-line-default bg-surface-card px-5 py-4 text-left text-input-text shadow-card transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+          className="group relative overflow-hidden glass-card flex w-full items-center justify-between px-6 py-5 text-left text-input-text transition-all duration-300 hover:scale-[1.01] hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
-          <span className="text-base font-semibold">{t('workspace.home.sendMessage')}</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-500 text-gray-900 shadow-sm transition group-hover:scale-[1.02] group-hover:bg-accent-600">
-            <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
-          </span>
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent-500/50 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
+          <Button
+            variant="primary"
+            size="icon"
+            className="w-10 h-10 pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
+            icon={<PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />}
+          />
         </button>
 
-        <div className="rounded-3xl border border-line-default bg-surface-card px-5 py-6 shadow-card">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{resolvedConsultationTitle}</h3>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <div className="glass-card px-5 py-6">
+          <h3 className="text-base font-semibold text-input-text">{resolvedConsultationTitle}</h3>
+          <p className="mt-2 text-sm text-input-placeholder">
             {resolvedConsultationDescription}
           </p>
           <div className="mt-4">
@@ -145,7 +149,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
               {resolvedConsultationCta}
             </Button>
           </div>
-          <div className="mt-4 text-center text-xs font-medium text-gray-400 dark:text-gray-500">
+          <div className="mt-4 text-center text-xs font-medium text-input-placeholder">
             {t('workspace.home.poweredBy')} {poweredByLink}
           </div>
         </div>

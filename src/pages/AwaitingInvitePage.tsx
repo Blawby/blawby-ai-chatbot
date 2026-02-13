@@ -125,16 +125,16 @@ export const AwaitingInvitePage: FunctionComponent = () => {
         : 'We just sent a confirmation link to your email. Open it to continue your intake.');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
+    <div className="min-h-screen bg-transparent px-6 py-12">
+      <div className="mx-auto max-w-xl glass-card p-6 text-sm text-input-text">
         <div className="flex flex-col items-center gap-4 text-center">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{heading}</h1>
-          <p>{description}</p>
+          <h1 className="text-xl font-semibold text-input-text">{heading}</h1>
+          <p className="text-input-placeholder">{description}</p>
           {status === 'loading' && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">Sending invite…</p>
+            <p className="text-xs text-input-placeholder">Sending invite…</p>
           )}
           {status === 'error' && (
-            <p className="text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
+            <p className="text-xs text-red-500">{errorMessage}</p>
           )}
           <div className="flex flex-col gap-2 w-full">
             <Button
@@ -153,7 +153,7 @@ export const AwaitingInvitePage: FunctionComponent = () => {
               </Button>
             )}
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-input-placeholder">
             Once you confirm your email, you will return to your intake automatically.
           </p>
         </div>

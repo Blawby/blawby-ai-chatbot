@@ -178,8 +178,8 @@ export const MatterMilestonesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-line-default bg-surface-card shadow-card">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-default px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Milestones</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -223,7 +223,7 @@ export const MatterMilestonesPanel = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <div className="text-sm font-semibold text-input-text">
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
                   <div className="flex items-center gap-1">
@@ -307,7 +307,7 @@ export const MatterMilestonesPanel = ({
               required
             />
             <div>
-              <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Status</span>
+              <span className="block text-sm font-medium text-input-text mb-1">Status</span>
               <Select
                 value={formState.status}
                 options={statusOptions}

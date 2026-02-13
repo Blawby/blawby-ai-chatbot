@@ -33,11 +33,14 @@
     "accent": {
       "label": "Color de acento",
       "options": {
-        "default": "Predeterminado",
+        "grey": "Gris (Predeterminado)",
+        "gold": "Oro",
         "blue": "Azul",
         "green": "Verde",
-        "purple": "Morado",
-        "red": "Rojo"
+        "yellow": "Amarillo",
+        "pink": "Rosa",
+        "orange": "Naranja",
+        "purple": "Morado"
       }
     },
     "language": {

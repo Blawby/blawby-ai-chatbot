@@ -183,8 +183,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />}
+        <div className="w-8 h-8 bg-surface-glass/60 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="w-20 h-4 bg-surface-glass/60 rounded animate-pulse" />}
       </div>
     );
   }
@@ -192,7 +192,7 @@ export const UserProfileDisplay = ({
   // Handle session fetch errors
   if (error) {
     return (
-      <div className={`p-2 border-t border-line-default`}>
+      <div className={`p-2 border-t border-line-glass/30`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
           <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
             <UserIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
@@ -202,7 +202,7 @@ export const UserProfileDisplay = ({
               <p className="text-sm font-medium text-red-600 dark:text-red-400">
                 Failed to load session
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-input-placeholder">
                 Please try refreshing the page
               </p>
             </div>
@@ -214,10 +214,10 @@ export const UserProfileDisplay = ({
 
   if (!user) {
     return (
-      <div className={`p-2 border-t border-line-default`}>
+      <div className={`p-2 border-t border-line-glass/30`}>
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-gray-700 dark:text-gray-300 hover:bg-surface-card/70 ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-surface-glass/50 ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'
@@ -233,7 +233,7 @@ export const UserProfileDisplay = ({
   }
 
   return (
-    <div className={`p-2 border-t border-line-default w-full overflow-visible`}>
+    <div className={`p-2 border-t border-line-glass/30 w-full overflow-visible`}>
       <div className="relative w-full max-w-full" ref={dropdownRef}>
         <ProfileButton
           name={user.name}

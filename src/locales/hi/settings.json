@@ -21,23 +21,27 @@
     "team": "टीम के सदस्य"
   },
   "general": {
-    "title": "[NEEDS TRANSLATION] General",
+    "title": "सामान्य",
     "theme": {
-      "label": "[NEEDS TRANSLATION] Theme",
+      "label": "थीम",
       "options": {
-        "light": "[NEEDS TRANSLATION] Light",
-        "dark": "[NEEDS TRANSLATION] Dark",
-        "system": "[NEEDS TRANSLATION] System"
+        "light": "लाइट",
+        "dark": "डार्क",
+        "system": "सिस्टम"
       }
     },
     "accent": {
-      "label": "[NEEDS TRANSLATION] Accent color",
+      "label": "मुख्य रंग",
       "options": {
-        "default": "[NEEDS TRANSLATION] Default",
-        "blue": "[NEEDS TRANSLATION] Blue",
-        "green": "[NEEDS TRANSLATION] Green",
-        "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red"
+        "default": "डिफ़ॉल्ट",
+        "blue": "नीला",
+        "green": "हरा",
+        "purple": "बैंगनी",
+        "red": "लाल",
+        "gold": "सुनहरा",
+        "yellow": "पीला",
+        "pink": "गुलाबी",
+        "orange": "नारंगी"
       }
     },
     "language": {

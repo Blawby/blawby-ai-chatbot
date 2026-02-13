@@ -29,7 +29,7 @@ export const Tag = ({
   'aria-label': ariaLabel
 }: TagProps) => {
   const variantClasses = {
-    default: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    default: 'bg-surface-glass/60 text-input-text',
     primary: 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-300',
     success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
@@ -74,4 +74,3 @@ export const Tag = ({
     </span>
   );
 };
-

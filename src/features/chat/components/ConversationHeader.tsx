@@ -279,7 +279,7 @@ export const ConversationHeader = ({
   const error = actionError || matterError || conversationError;
 
   return (
-    <div className="px-4 py-3 border-b border-line-default bg-surface-base">
+    <div className="px-4 py-3 border-b border-line-glass/30 bg-surface-glass/60 backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-input-text">Conversation</h2>
@@ -287,7 +287,7 @@ export const ConversationHeader = ({
             <Button
               variant="link"
               size="xs"
-              className="inline-flex items-center gap-2 rounded-full border border-line-default bg-surface-card px-3 py-1 text-xs text-gray-700 dark:text-gray-200"
+              className="inline-flex items-center gap-2 rounded-full glass-panel px-3 py-1 text-xs text-input-text"
               onClick={() => navigate(matterLink)}
             >
               <span className="font-medium">{matter.title}</span>
@@ -295,7 +295,7 @@ export const ConversationHeader = ({
             </Button>
           )}
           {linkedMatterId && matter && !matterLink && (
-            <span className="inline-flex items-center gap-2 rounded-full border border-line-default bg-surface-card px-3 py-1 text-xs text-gray-700 dark:text-gray-200">
+            <span className="inline-flex items-center gap-2 rounded-full glass-panel px-3 py-1 text-xs text-input-text">
               <span className="font-medium">{matter.title}</span>
               <MatterStatusBadge status={matter.status} />
             </span>

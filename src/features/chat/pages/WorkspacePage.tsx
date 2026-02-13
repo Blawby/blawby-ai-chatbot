@@ -296,17 +296,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     const introSource = setupDetails?.introMessage ?? currentPractice?.introMessage ?? '';
     const introChanged = trimmedIntro !== introSource;
+    const accentSource = setupDetails?.accentColor ?? currentPractice?.accentColor ?? 'grey';
+    const accentChanged = values.accentColor !== accentSource;
 
     try {
       if (Object.keys(practiceUpdates).length > 0) {
         await updatePractice(currentPractice.id, practiceUpdates);
       }
-      if (introChanged) {
+      if (introChanged || accentChanged) {
         await updateSetupDetails({
-          introMessage: trimmedIntro.length > 0 ? trimmedIntro : null
+          ...(introChanged ? { introMessage: trimmedIntro.length > 0 ? trimmedIntro : null } : {}),
+          ...(accentChanged ? { accentColor: values.accentColor } : {})
         });
       }
-      if (Object.keys(practiceUpdates).length > 0 || introChanged) {
+      if (Object.keys(practiceUpdates).length > 0 || introChanged || accentChanged) {
         showSuccess('Basics updated', 'Your public profile reflects the newest info.');
         forcePreviewReload();
       } else {
@@ -516,24 +519,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       setIsStripeSubmitting(false);
     }
 
-    // Start polling or visibility-based refresh
-    const pollInterval = setInterval(() => {
-      void refreshStripeStatus();
-    }, 5000);
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void refreshStripeStatus();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    // Stop polling after 5 minutes or if status becomes complete
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    }, 5 * 60 * 1000);
-  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError, refreshStripeStatus]);
+  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
@@ -541,22 +527,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [showSuccess, forcePreviewReload]);
 
   const servicesSlot = (
-    <div className="space-y-4 text-gray-900 dark:text-white">
+    <div className="space-y-4 text-input-text">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Services & intake</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">Services & intake</p>
         <p className="text-xl font-semibold">What can clients request?</p>
       </div>
-      <div className="rounded-2xl border border-line-default bg-surface-card shadow-card">
-        <ServicesEditor
-          services={servicesDraft}
-          onChange={handleServicesEditorChange}
-          catalog={SERVICE_CATALOG}
-        />
-      </div>
+      <ServicesEditor
+        services={servicesDraft}
+        onChange={handleServicesEditorChange}
+        catalog={SERVICE_CATALOG}
+      />
       {servicesError ? (
         <p className="text-sm text-red-600 dark:text-red-300">{servicesError}</p>
       ) : (
-        <p className="text-xs text-gray-600 dark:text-gray-400">
+        <p className="text-xs text-input-placeholder">
           {servicesSaving ? 'Saving changes…' : 'Updates apply automatically to your public intake form.'}
         </p>
       )}
@@ -565,17 +549,17 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const payoutDetailsSubmitted = stripeStatus?.details_submitted === true;
   const payoutsSlot = (
-    <div className="space-y-4 text-gray-900 dark:text-white">
+    <div className="space-y-4 text-input-text">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-white/70">Payouts</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">Payouts</p>
         <p className="text-xl font-semibold">Connect Stripe to accept payments</p>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm text-input-placeholder">
           Verification takes about 5 minutes and unlocks consultation fees.
         </p>
       </div>
-      <div className="rounded-2xl border border-line-default bg-surface-card p-4 shadow-card">
+      <div className="glass-panel p-4">
         {payoutDetailsSubmitted ? (
-          <p className="text-sm text-gray-700 dark:text-gray-200">
+          <p className="text-sm text-input-text">
             Your Stripe account is connected. Clients can pay consultation fees before intake.
           </p>
         ) : (
@@ -588,13 +572,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             >
               {isStripeSubmitting ? 'Preparing Stripe…' : 'Start Stripe onboarding'}
             </Button>
-            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+            <p className="mt-2 text-xs text-input-placeholder">
               We’ll open Stripe’s secure verification flow in a new tab.
             </p>
           </>
         )}
         {stripeStatus && !payoutDetailsSubmitted && (
-          <div className="mt-4 rounded-2xl border border-line-default bg-surface-card p-3 shadow-card">
+          <div className="mt-4 glass-panel p-3">
             <StripeOnboardingStep
               status={stripeStatus}
               loading={isStripeLoading}
@@ -637,7 +621,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const renderPreviewContent = () => {
         if (previewTab === 'intake') {
           return (
-            <div className="flex h-full w-full flex-col overflow-y-auto bg-gradient-to-b from-white via-gray-50 to-white p-4 dark:from-dark-bg dark:via-dark-bg/80 dark:to-dark-bg">
+            <div className="flex h-full w-full flex-col overflow-y-auto bg-transparent p-4">
               <ContactForm
                 onSubmit={handleIntakePreviewSubmit}
                 message="Tell us about your matter and we will follow up shortly."
@@ -645,6 +629,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             </div>
           );
         }
+
         return (
           <iframe
             key={`${previewTab}-${previewReloadKey}`}
@@ -659,15 +644,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return (
         <div className="flex min-h-0 w-full flex-col lg:h-full lg:flex-row lg:overflow-hidden">
           {/* Left column */}
-          <div className="relative flex w-full flex-col bg-surface-base lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-            <div
-              className="pointer-events-none absolute inset-0 bg-surface-base dark:bg-black"
-              aria-hidden="true"
-            />
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 h-[65%] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/80"
-              aria-hidden="true"
-            />
+          <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <div
               className="pointer-events-none absolute -right-32 top-4 h-96 w-96 rounded-full bg-accent-500/50 blur-[170px] dark:bg-accent-500/45"
               aria-hidden="true"
@@ -693,17 +670,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                   logoUploading={logoUploading}
                   logoUploadProgress={logoUploadProgress}
                   onLogoChange={handleLogoChange}
+                  onBasicsDraftChange={setDraftBasics}
                 />
               </Page>
             </div>
           </div>
 
           {/* Right: Public Preview */}
-          <div className="flex w-full flex-col items-center gap-5 border-t border-line-default bg-gradient-to-b from-surface-base via-surface-card to-surface-base px-4 py-6 dark:border-line-default dark:from-surface-base dark:via-surface-card/80 dark:to-surface-base lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l">
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-500 dark:text-gray-400">
+          <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
+            <div className="pointer-events-none absolute -top-12 right-6 h-28 w-28 rounded-full bg-accent-500/20 blur-3xl" />
+            <div className="relative flex w-full flex-col items-center gap-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
               Public preview
             </div>
-            <div className="inline-flex gap-1 rounded-full border border-line-default bg-surface-card/80 p-1 text-xs font-semibold text-gray-600 shadow-sm dark:text-white/70">
+            <div className="inline-flex gap-1 rounded-full glass-panel p-1 text-xs font-semibold text-input-placeholder shadow-sm">
               {previewTabOptions.map((option) => {
                 const isActive = previewTab === option.id;
                 return (
@@ -712,10 +692,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                     type="button"
                     onClick={() => setPreviewTab(option.id)}
                     className={cn(
-                      'rounded-full px-3 py-1 transition',
+                      'rounded-full px-3 py-1 transition backdrop-blur-xl',
                       isActive
-                        ? 'bg-gray-900 text-white shadow-sm dark:bg-white dark:text-gray-900'
-                        : 'text-gray-600 hover:text-gray-900 dark:text-white/70 dark:hover:text-white'
+                        ? 'bg-white/[0.12] text-white border border-accent-500/50 shadow-lg shadow-accent-500/10'
+                        : 'text-input-placeholder hover:text-input-text hover:bg-white/[0.08] border border-transparent'
                     )}
                     aria-pressed={isActive}
                   >
@@ -724,13 +704,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                 );
               })}
             </div>
-            <div className="relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden rounded-[36px] border border-gray-900/70 bg-black shadow-[0_40px_80px_rgba(15,23,42,0.55)] dark:border-white/10">
+            <div className="relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden glass-card shadow-glass">
               {renderPreviewContent()}
-              <div className="pointer-events-none absolute inset-0 rounded-[36px] ring-1 ring-white/10" aria-hidden="true" />
+              <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" aria-hidden="true" />
             </div>
-            <p className="max-w-xs text-center text-xs text-gray-500 dark:text-gray-400">
+            <p className="max-w-xs text-center text-xs text-input-placeholder">
               This live preview matches exactly what clients see on your public link.
             </p>
+            </div>
           </div>
         </div>
       );
@@ -769,16 +750,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'matters':
         return mattersView ?? (
-          <div className="flex flex-1 flex-col rounded-[32px] bg-surface-base">
+          <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Matters</h2>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              <h2 className="text-lg font-semibold text-input-text">Matters</h2>
+              <p className="mt-2 text-sm text-input-placeholder">
                 Your active matters will appear here once a practice connects them to your account.
               </p>
             </div>
-            <div className="mx-6 mb-6 rounded-2xl border border-line-default bg-surface-card p-5 shadow-card">
-              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">No matters yet</div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            <div className="mx-6 mb-6 glass-panel p-5">
+              <div className="text-sm font-semibold text-input-text">No matters yet</div>
+              <div className="mt-2 text-sm text-input-placeholder">
                 Start a conversation to open a new matter with the practice.
               </div>
             </div>
@@ -786,10 +767,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'clients':
         return clientsView ?? (
-          <div className="flex flex-1 flex-col rounded-[32px] bg-surface-base">
+          <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clients</h2>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              <h2 className="text-lg font-semibold text-input-text">Clients</h2>
+              <p className="mt-2 text-sm text-input-placeholder">
                 Manage your practice clients here.
               </p>
             </div>
@@ -907,9 +888,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const isPublicShell = layoutMode !== 'desktop';
 
+  const publicShellFrameClass = workspace === 'public' || workspace === 'client'
+    ? 'bg-transparent border-line-glass/30'
+    : 'bg-surface-glass/40 border-line-glass/30 backdrop-blur-xl shadow-glass';
+
   const mainShell = isPublicShell ? (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">
-      <div className="flex h-full min-h-0 flex-1 flex-col rounded-[32px] border border-line-default bg-surface-base shadow-[0_0_0_1px_rgba(15,23,42,0.18)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] overflow-hidden">
+      <div className={cn(
+        'flex h-full min-h-0 flex-1 flex-col rounded-3xl border overflow-hidden',
+        publicShellFrameClass
+      )}>
         {header && (
           <div className={cn('w-full', headerClassName)}>
             {header}
@@ -941,7 +929,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       main={mainShell}
       mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
       bottomBar={isPublicShell ? undefined : bottomNav}
-      bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40' : undefined}
+      bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
     />
   );
 };

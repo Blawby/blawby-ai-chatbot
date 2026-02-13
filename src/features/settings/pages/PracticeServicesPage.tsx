@@ -69,7 +69,7 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">No practice selected.</p>
+        <p className="text-sm text-input-placeholder">No practice selected.</p>
       </div>
     );
   }
@@ -90,7 +90,7 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
       )}
     >
       <div className="pt-2 pb-6">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-input-placeholder">
           Manage the legal services shown to clients during intake.
         </p>
       </div>

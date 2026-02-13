@@ -26,18 +26,18 @@ export function WorkspacePracticeDetailsError({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-base p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-transparent backdrop-blur-sm p-4"
       role="alertdialog"
       aria-labelledby="workspace-error-heading"
       aria-describedby="workspace-error-desc"
       tabIndex={-1}
       ref={dialogRef}
     >
-      <div className="max-w-lg rounded-2xl border border-line-default bg-surface-card p-6 text-center shadow-2xl">
-        <h1 id="workspace-error-heading" className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+    <div className="max-w-lg glass-panel p-6 text-center">
+        <h1 id="workspace-error-heading" className="text-2xl font-semibold text-input-text">
           {t('workspace.error.title')}
         </h1>
-        <p id="workspace-error-desc" className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+        <p id="workspace-error-desc" className="mt-3 text-sm text-input-placeholder">
           {t('workspace.error.description', { slug: slugLabel })}
         </p>
         {onRetry ? (

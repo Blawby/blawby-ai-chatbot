@@ -173,12 +173,12 @@ export const Select = ({
             {displayLabel && (
               <span className="text-sm font-medium text-input-text">{displayLabel}</span>
             )}
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-input-placeholder">
               {selectedOption?.label || displayPlaceholder}
             </span>
           </div>
           <ChevronDownIcon className={cn(
-            'w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform',
+            'w-5 h-5 text-input-text transition-transform',
             isOpen && 'rotate-180'
           )} />
         </button>
@@ -189,19 +189,19 @@ export const Select = ({
             id={listboxId}
             role="listbox"
             className={cn(
-              "absolute left-0 right-0 bg-surface-overlay border border-line-default rounded-lg shadow-lg z-50",
+              "absolute left-0 right-0 bg-surface-glass bg-opacity-80 border border-line-glass border-opacity-30 backdrop-blur-xl rounded-lg shadow-glass z-50",
               direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
             )}
           >
             <div className="py-1">
               {searchable && (
-                <div className="px-3 py-2 border-b border-line-default">
+                <div className="px-3 py-2 border-b border-line-glass border-opacity-30">
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                     placeholder="Search..."
-                    className="w-full px-2 py-1 text-sm border border-input-border rounded bg-input-bg text-input-text placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500"
+                    className="w-full px-2 py-1 text-sm rounded glass-input focus:outline-none focus:ring-2 focus:ring-accent-500"
                     ref={searchInputRef}
                   />
                 </div>
@@ -222,10 +222,10 @@ export const Select = ({
                   }}
                   className={cn(
                     'w-full text-left px-3 py-2 text-sm text-input-text',
-                    'hover:bg-surface-card/70 flex items-center justify-between',
-                    'focus:outline-none focus:bg-surface-card/70',
+                    'hover:bg-surface-glass/50 flex items-center justify-between',
+                    'focus:outline-none focus:bg-surface-glass/50',
                     value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                    focusedIndex === index && 'bg-surface-card/70'
+                    focusedIndex === index && 'bg-surface-glass/50'
                   )}
                 >
                   <span>{option.label}</span>
@@ -239,7 +239,7 @@ export const Select = ({
         )}
 
         {displayDescription && (
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-2 text-xs text-input-placeholder">
             {displayDescription}
           </p>
         )}
@@ -267,8 +267,8 @@ export const Select = ({
         aria-controls={listboxId}
         aria-disabled={disabled}
         className={cn(
-          'w-full flex items-center gap-2 px-3 py-2 text-sm text-input-text rounded-md border border-input-border bg-input-bg',
-          'hover:bg-surface-card/70 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500',
+          'w-full flex items-center gap-2 px-3 py-2 text-sm text-input-text rounded-md',
+          'glass-input hover:bg-surface-glass/50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500',
           'transition-colors',
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -276,7 +276,7 @@ export const Select = ({
       >
         <span className="flex-1 text-left">{selectedOption?.label || displayPlaceholder}</span>
         <ChevronDownIcon className={cn(
-          'w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform flex-shrink-0',
+          'w-4 h-4 text-input-text transition-transform flex-shrink-0',
           isOpen && 'rotate-180'
         )} />
       </button>
@@ -287,19 +287,19 @@ export const Select = ({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute right-0 min-w-48 w-full bg-surface-overlay border border-line-default rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
+            "absolute right-0 min-w-48 w-full bg-surface-glass bg-opacity-80 border border-line-glass border-opacity-30 backdrop-blur-xl rounded-lg shadow-glass z-50 max-h-96 overflow-hidden flex flex-col",
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >
           <div className="py-1 overflow-y-auto">
             {searchable && (
-              <div className="px-3 py-2 border-b border-line-default">
+              <div className="px-3 py-2 border-b border-line-glass border-opacity-30">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                   placeholder="Search..."
-                  className="w-full px-2 py-1 text-sm border border-input-border rounded bg-input-bg text-input-text placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-accent-500"
+                  className="w-full px-2 py-1 text-sm rounded glass-input focus:outline-none focus:ring-2 focus:ring-accent-500"
                   ref={searchInputRef}
                 />
               </div>
@@ -320,10 +320,10 @@ export const Select = ({
                 }}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm text-input-text',
-                  'hover:bg-surface-card/70 flex items-center justify-between',
-                  'focus:outline-none focus:bg-surface-card/70',
+                  'hover:bg-surface-glass/50 flex items-center justify-between',
+                  'focus:outline-none focus:bg-surface-glass/50',
                   value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                  focusedIndex === index && 'bg-surface-card/70'
+                  focusedIndex === index && 'bg-surface-glass/50'
                 )}
               >
                 <span>{option.label}</span>
@@ -337,7 +337,7 @@ export const Select = ({
       )}
       
       {displayDescription && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-xs text-input-placeholder">
           {displayDescription}
         </p>
       )}

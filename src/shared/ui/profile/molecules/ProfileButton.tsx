@@ -32,7 +32,7 @@ export const ProfileButton = ({
     return (
       <button
         onClick={onClick}
-        className={`w-8 h-8 rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mx-auto ${className}`}
+        className={`w-8 h-8 rounded-full bg-surface-glass/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 mx-auto ${className}`}
         title={name}
         aria-label={`User profile for ${name}`}
       >
@@ -50,7 +50,7 @@ export const ProfileButton = ({
       >
         <Avatar src={image} name={name} size="md" />
         <div className="flex-1 min-w-0 overflow-hidden text-left">
-          <p className="text-sm font-medium leading-none text-gray-900 dark:text-white truncate" title={name}>
+          <p className="text-sm font-medium leading-none text-input-text truncate" title={name}>
             {name}
           </p>
           <div className="-mt-0.5">
