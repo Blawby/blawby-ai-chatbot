@@ -23,10 +23,6 @@ const hasSystemMessage = (messages: ChatMessageUI[], key: string): boolean => (
   messages.some((message) => message.metadata?.systemMessageKey === key)
 );
 
-const hasContactFormMessage = (messages: ChatMessageUI[]): boolean => (
-  messages.some((message) => Boolean(message.contactForm || message.metadata?.contactForm))
-);
-
 interface ConversationSystemMessagesOptions {
   conversationId?: string | null;
   practiceId?: string;
@@ -124,38 +120,4 @@ export const useConversationSystemMessages = ({
     shouldRequireModeSelection
   ]);
 
-  useEffect(() => {
-    if (!messagesReady || !conversationId || !practiceId) {
-      return;
-    }
-    if (!shouldRequireModeSelection) {
-      return;
-    }
-    if (conversationMode !== 'REQUEST_CONSULTATION') {
-      return;
-    }
-    if (hasContactFormMessage(messages)) {
-      return;
-    }
-    void persistSystemMessage(
-      'system-contact-form',
-      '',
-      {
-        systemMessageKey: 'contact_form',
-        contactForm: {
-          fields: ['name', 'email', 'phone', 'address', 'opposingParty', 'description'],
-          required: ['name', 'email'],
-          message: undefined
-        }
-      }
-    );
-  }, [
-    conversationId,
-    conversationMode,
-    messages,
-    messagesReady,
-    practiceId,
-    persistSystemMessage,
-    shouldRequireModeSelection
-  ]);
 };

@@ -12,6 +12,7 @@ import { SessionAuditService } from '../services/SessionAuditService.js';
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
   'system-ask-question-help',
+  'system-intake-decision',
   'system-contact-form',
   'system-submission-confirm',
   'system-lead-accepted',

@@ -41,6 +41,7 @@ interface MessageComposerProps {
   showStatusMessage?: boolean;
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
+  footerActions?: preact.ComponentChildren;
 }
 
 const MessageComposer = ({
@@ -65,7 +66,8 @@ const MessageComposer = ({
   disabled,
   showStatusMessage = true,
   replyTo,
-  onCancelReply
+  onCancelReply,
+  footerActions
 }: MessageComposerProps) => {
   const { t } = useTranslation('auth');
   const intakeStep = intakeStatus?.step;
@@ -229,6 +231,7 @@ const MessageComposer = ({
           {statusMessage}
         </div>
       )}
+      {footerActions}
     </form>
   );
 };

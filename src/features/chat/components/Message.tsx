@@ -1,8 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
-import type { Address } from '@/shared/types/address';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
 import { MessageBubble } from './MessageBubble';
@@ -14,6 +12,7 @@ import type { ReplyTarget } from '@/features/chat/types';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
+import type { IntakeConversationState } from '@/shared/types/intake';
 
 interface MessageProps {
 	content: string;
@@ -38,21 +37,6 @@ interface MessageProps {
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
 	};
-	contactForm?: {
-		fields: string[];
-		required: string[];
-		message?: string;
-		initialValues?: {
-			name?: string;
-			email?: string;
-			phone?: string;
-			address?: Partial<Address>;
-			opposingParty?: string;
-		};
-	};
-	contactFormVariant?: 'card' | 'plain';
-	contactFormFormId?: string;
-	showContactFormSubmit?: boolean;
 	paymentRequest?: IntakePaymentRequest;
 	documentChecklist?: {
 		matterType: string;
@@ -104,7 +88,6 @@ interface MessageProps {
 		practiceId: string;
 	};
 	onOpenSidebar?: () => void;
-	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	isLoading?: boolean;
 	toolMessage?: string;
@@ -117,6 +100,14 @@ interface MessageProps {
 		paymentRequired?: boolean;
 		paymentReceived?: boolean;
 	};
+	intakeConversationState?: IntakeConversationState | null;
+	showIntakeCta?: boolean;
+	onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
+	onSubmitNow?: () => void | Promise<void>;
+	showIntakeDecisionPrompt?: boolean;
+	onBuildBrief?: () => void;
+	quickReplies?: string[];
+	onQuickReply?: (text: string) => void;
 	// Styling
 	className?: string;
 }
@@ -131,17 +122,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	variant = 'default',
 	size = 'md',
 	matterCanvas,
-	contactForm,
-	contactFormVariant,
-	contactFormFormId,
-	showContactFormSubmit,
 	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
 	practiceConfig: _practiceConfig,
 	onOpenSidebar: _onOpenSidebar,
-	onContactFormSubmit,
 	onOpenPayment,
 	modeSelector,
 	assistantRetry,
@@ -157,7 +143,15 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	toolMessage,
 	id: _id,
 	practiceId: _practiceId,
-	className = ''
+	className = '',
+	intakeConversationState,
+	showIntakeCta,
+	onIntakeCtaResponse,
+	onSubmitNow,
+	showIntakeDecisionPrompt,
+	onBuildBrief,
+	quickReplies,
+	onQuickReply
 }) => {
 	const hasContent = Boolean(content);
 	const isStreaming = false; // No streaming for user-to-user chat
@@ -169,10 +163,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 		file.type.startsWith('audio/')
 	);
 
-	const isContactFormMessage = Boolean(contactForm);
-	// Avatar is resolved by the message list to keep sender rules in one place.
-	const messageAvatar = isContactFormMessage ? undefined : avatar;
-	const showHeader = !isContactFormMessage && Boolean(authorName || timestamp);
+	const messageAvatar = avatar;
+	const showHeader = Boolean(authorName || timestamp);
 	const contentClassName = showHeader ? 'mt-1' : '';
 	const formattedTime = timestamp
 		? formatRelativeTime(new Date(timestamp).toISOString())
@@ -181,12 +173,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const showActions = !isContactFormMessage && Boolean(onReply || onToggleReaction);
-	const hasReactions = !isContactFormMessage && reactions.length > 0;
-	const hasReplyPreview = !isContactFormMessage && Boolean(replyPreview);
+	const showActions = Boolean(onReply || onToggleReaction);
+	const hasReactions = reactions.length > 0;
+	const hasReplyPreview = Boolean(replyPreview);
 	const wrapperClassName = [
 		'relative flex items-start gap-3 mb-2 last:mb-0',
-		isContactFormMessage ? 'px-0 py-0' : 'px-3 py-2 rounded-md group transition-colors duration-150 hover:bg-white/5',
+		'px-3 py-2 rounded-md group transition-colors duration-150 hover:bg-white/5',
 		className
 	].filter(Boolean).join(' ');
 
@@ -297,24 +289,27 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				)}
 				
 				{/* Actions (matter canvas, forms, etc.) */}
-				<MessageActions
+			<MessageActions
 					matterCanvas={matterCanvas}
-					contactForm={contactForm}
-					contactFormVariant={contactFormVariant}
-					contactFormFormId={contactFormFormId}
-					showContactFormSubmit={showContactFormSubmit}
 					intakeStatus={intakeStatus}
 					documentChecklist={documentChecklist}
 					generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
 					onOpenPayment={onOpenPayment}
-					onContactFormSubmit={onContactFormSubmit}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
 					leadReview={leadReview}
-				/>
+				intakeConversationState={intakeConversationState}
+				quickReplies={quickReplies}
+				onQuickReply={onQuickReply}
+				showIntakeCta={showIntakeCta}
+				onIntakeCtaResponse={onIntakeCtaResponse}
+				onSubmitNow={onSubmitNow}
+				showIntakeDecisionPrompt={showIntakeDecisionPrompt}
+				onBuildBrief={onBuildBrief}
+			/>
 				
 				{/* Attachments */}
 				{files.length > 0 && (

@@ -1,11 +1,11 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
-import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
+import { ContactData, ContactForm } from '@/features/intake/components/ContactForm';
 import { IntakePaymentModal } from '@/features/intake/components/IntakePaymentModal';
 import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
@@ -19,12 +19,12 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 import type { LayoutMode } from '@/app/MainApp';
+import type { IntakeConversationState } from '@/shared/types/intake';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
   onSendMessage: (message: string, attachments: FileAttachment[], replyToMessageId?: string | null) => void;
-  onContactFormSubmit?: (data: ContactData) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
@@ -67,7 +67,20 @@ export interface ChatContainerProps {
     paymentRequired?: boolean;
     paymentReceived?: boolean;
   };
-  conversationId?: string | null;
+  intakeConversationState?: IntakeConversationState | null;
+  onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
+  onSlimFormContinue?: (data: ContactData) => void | Promise<void>;
+  onBuildBrief?: () => void;
+  onSubmitNow?: () => void | Promise<void>;
+  slimContactDraft?: {
+    name: string;
+    email: string;
+    phone: string;
+    city: string;
+    state: string;
+    opposingParty?: string;
+    description?: string;
+  } | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
   hasMoreMessages?: boolean;
@@ -101,7 +114,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messages,
   conversationTitle,
   onSendMessage,
-  onContactFormSubmit,
   onAddMessage: _onAddMessage,
   isPublicWorkspace = false,
   practiceConfig,
@@ -127,8 +139,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isSessionReady,
   isSocketReady,
   intakeStatus,
+  intakeConversationState,
+  onIntakeCtaResponse,
+  onSlimFormContinue,
+  onBuildBrief,
+  onSubmitNow,
+  slimContactDraft,
   clearInput,
-  conversationId,
   isAnonymousUser,
   canChat = true,
   onSelectMode,
@@ -163,16 +180,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = hasNonSystemMessages
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
-  const contactFormMessage = filteredMessages.find((message) => Boolean(message.contactForm));
-  const shouldShowContactFormFooter = Boolean(
-    contactFormMessage &&
-    onContactFormSubmit &&
-    intakeStatus?.step === 'contact_form'
-  );
-  const contactFormId = useMemo(() => (
-    conversationId ? `contact-form-${conversationId}` : 'contact-form'
-  ), [conversationId]);
-  const contactFormVariant = isPublicWorkspace ? 'plain' : 'card';
+  const shouldShowSlimForm = intakeStatus?.step === 'contact_form_slim';
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -216,6 +224,37 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
+    const lastMessage = filteredMessages[filteredMessages.length - 1];
+    const hasIntakeCta = Boolean(lastMessage?.metadata?.intakeReadyCta);
+    const canHandleCta = hasIntakeCta && intakeConversationState?.ctaResponse !== 'ready';
+    const normalized = message.toLowerCase();
+    const isAffirmative = /^(y|yea|yeah|yep|yup|yes|sure|ok|okay|ready|submit)\b/.test(normalized);
+    const isNegative = /^(n|no|nope|not yet|later|wait)\b/.test(normalized);
+    if (canHandleCta && onIntakeCtaResponse) {
+      if (isAffirmative) {
+        if (onSubmitNow) {
+          void onSubmitNow();
+        } else {
+          onIntakeCtaResponse('ready');
+        }
+        setInputValue('');
+        setReplyTarget(null);
+        if (textareaRef.current && isMobile) {
+          textareaRef.current.blur();
+        }
+        return;
+      }
+      if (isNegative) {
+        onIntakeCtaResponse('not_yet');
+        setInputValue('');
+        setReplyTarget(null);
+        if (textareaRef.current && isMobile) {
+          textareaRef.current.blur();
+        }
+        return;
+      }
+    }
+
     // Send message to API
     onSendMessage(message, attachments, replyToMessageId);
 
@@ -229,6 +268,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     // Only blur on mobile devices to collapse virtual keyboard
     if (textareaRef.current && isMobile) {
       textareaRef.current.blur();
+    }
+  };
+
+  const handleQuickReply = (text: string) => {
+    setInputValue(text);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
 
@@ -265,7 +311,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     onAuthPromptClose?.();
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
     let modalOpened = false;
     if (pendingPaymentRequest) {
       modalOpened = openPayment(pendingPaymentRequest);
@@ -388,59 +434,50 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   </p>
                 </div>
               ) : (
-                <VirtualMessageList
-                  messages={messagesReady ? filteredMessages : []}
-                  conversationTitle={conversationTitle}
-                  practiceConfig={practiceConfig}
-                  isPublicWorkspace={isPublicWorkspace}
-                  onOpenSidebar={onOpenSidebar}
-                  onContactFormSubmit={onContactFormSubmit}
-                  onOpenPayment={handleOpenPayment}
-                  practiceId={practiceId}
-                  onReply={handleReply}
-                  onToggleReaction={onToggleReaction}
-                  onRequestReactions={onRequestReactions}
-                  onAuthPromptRequest={onAuthPromptRequest}
-                  intakeStatus={intakeStatus}
-                  modeSelectorActions={onSelectMode ? {
-                    onAskQuestion: handleAskQuestion,
-                    onRequestConsultation: handleRequestConsultation
-                  } : undefined}
-                  leadReviewActions={leadReviewActions}
-                  hasMoreMessages={hasMoreMessages}
-                  isLoadingMoreMessages={isLoadingMoreMessages}
-                  onLoadMoreMessages={onLoadMoreMessages}
-                  showSkeleton={!messagesReady}
-                  contactFormVariant={contactFormVariant}
-                  contactFormFormId={contactFormId}
-                  showContactFormSubmit={false} // Never show internal submit button
-                />
+                <>
+                  <VirtualMessageList
+                    messages={messagesReady ? filteredMessages : []}
+                    conversationTitle={conversationTitle}
+                    practiceConfig={practiceConfig}
+                    isPublicWorkspace={isPublicWorkspace}
+                    onOpenSidebar={onOpenSidebar}
+                    onOpenPayment={handleOpenPayment}
+                    practiceId={practiceId}
+                    onReply={handleReply}
+                    onToggleReaction={onToggleReaction}
+                    onRequestReactions={onRequestReactions}
+                    onAuthPromptRequest={onAuthPromptRequest}
+                    intakeStatus={intakeStatus}
+                    intakeConversationState={intakeConversationState}
+                    onQuickReply={handleQuickReply}
+                    onIntakeCtaResponse={onIntakeCtaResponse}
+                    onSubmitNow={onSubmitNow}
+                    onBuildBrief={onBuildBrief}
+                    modeSelectorActions={onSelectMode ? {
+                      onAskQuestion: handleAskQuestion,
+                      onRequestConsultation: handleRequestConsultation
+                    } : undefined}
+                    leadReviewActions={leadReviewActions}
+                    hasMoreMessages={hasMoreMessages}
+                    isLoadingMoreMessages={isLoadingMoreMessages}
+                    onLoadMoreMessages={onLoadMoreMessages}
+                    showSkeleton={!messagesReady}
+                  />
+                </>
               )}
             </div>
 
-            {shouldShowContactFormFooter ? (
+            {shouldShowSlimForm && onSlimFormContinue ? (
               <div className="pl-4 pr-4 pb-3 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]">
-                <Button
-                  type="submit"
-                  form={contactFormId}
-                  variant="primary"
-                  className="w-full"
-                  disabled={!onContactFormSubmit}
-                  data-testid="contact-form-submit-footer"
-                  onClick={() => {
-                    // Rely on native button type="submit" and form attribute.
-                    // If any fallback is needed, it would go here, but preferred
-                    // is native behavior. We'll add a log for debugging.
-                    if (import.meta.env.DEV) {
-                      const form = document.getElementById(contactFormId);
-                      if (!form) {
-                        console.error('[ChatContainer] Form not found with id:', contactFormId);
-                      }
-                    }
-                  }}
-                >
-                  {t('forms.contactForm.submit')}
-                </Button>
+                <ContactForm
+                  onSubmit={onSlimFormContinue}
+                  fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}
+                  required={['name', 'email', 'phone', 'city', 'state']}
+                  initialValues={slimContactDraft ?? undefined}
+                  variant="plain"
+                  showSubmitButton={true}
+                  submitLabel="Continue"
+                />
               </div>
             ) : (
               <MessageComposer
@@ -466,6 +503,30 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 showStatusMessage={!isPublicWorkspace}
                 replyTo={replyTarget}
                 onCancelReply={handleCancelReply}
+                footerActions={(() => {
+                  if (!isPublicWorkspace) return null;
+                  if (!intakeConversationState) return null;
+                  if (intakeConversationState.ctaResponse === 'ready') return null;
+                  if ((intakeConversationState.notYetCount ?? 0) < 2) return null;
+                  return (
+                    <div className="mt-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          if (onSubmitNow) {
+                            void onSubmitNow();
+                            return;
+                          }
+                          onIntakeCtaResponse?.('ready');
+                        }}
+                      >
+                        Submit request
+                      </Button>
+                    </div>
+                  );
+                })()}
               />
             )}
           </div>
