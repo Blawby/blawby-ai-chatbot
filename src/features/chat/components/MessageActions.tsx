@@ -101,7 +101,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
-	const { t } = useTranslation('auth');
+	const { t } = useTranslation('common');
 
 	const strength = intakeConversationState?.caseStrength ?? null;
 	const strengthTier = (() => {
@@ -217,10 +217,10 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							onIntakeCtaResponse?.('ready');
 						}}
 					>
-						Submit now
+						{t('chat.submitNow')}
 					</Button>
 					<Button variant="secondary" size="sm" onClick={() => onBuildBrief?.()}>
-						Build stronger brief
+						{t('chat.buildStrongerBrief')}
 					</Button>
 				</div>
 			)}
@@ -234,7 +234,13 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					{canShowNotYet ? (
 						<div className="flex flex-col gap-2 sm:flex-row">
 							{strengthTier === 'basic' ? (
-								<Button variant="primary" size="sm" onClick={() => onIntakeCtaResponse?.('not_yet')}>
+								<Button variant="primary" size="sm" onClick={() => {
+                  if (onSubmitNow) {
+                    void onSubmitNow();
+                    return;
+                  }
+                  onIntakeCtaResponse?.('ready');
+                }}>
 									{ctaPrimaryLabel}
 								</Button>
 							) : (
@@ -260,7 +266,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							}
 							onIntakeCtaResponse?.('ready');
 						}}>
-							Submit consultation request
+							{t('chat.cta.submitConsultationRequest')}
 						</Button>
 					)}
 				</div>

@@ -63,8 +63,9 @@ test('public intake prompts auth and lands on holding page', async ({
   await messageInput.fill('I need help with a divorce and custody issue. I am in Austin, TX.');
   await anonPage.getByRole('button', { name: /send message/i }).click();
 
-  await expect(aiMessages).toHaveCount(initialAiCount + 1, { timeout: 30000 });
-  const latestAiText = await aiMessages.nth((await aiMessages.count()) - 1).innerText();
+  const expectedCount = initialAiCount + 1;
+  await expect(aiMessages).toHaveCount(expectedCount, { timeout: 30000 });
+  const latestAiText = await aiMessages.nth(expectedCount - 1).innerText();
   if (latestAiText.includes('I wasn\'t able to generate a response')) {
     await testInfo.attach('ai-fallback', { body: latestAiText, contentType: 'text/plain' });
     if (consoleLogs.length) {

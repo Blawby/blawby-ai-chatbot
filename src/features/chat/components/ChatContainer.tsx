@@ -228,15 +228,25 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const hasIntakeCta = Boolean(lastMessage?.metadata?.intakeReadyCta);
     const canHandleCta = hasIntakeCta && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim().toLowerCase();
-    const isAffirmative = /^(y|yea|yeah|yep|yup|yes|sure|ok|okay|ready|submit)$/.test(normalized);
-    const isNegative = /^(n|no|nope|not yet|later|wait)$/.test(normalized);
+    const affirmativePattern = t('chat.affirmativePatterns', { defaultValue: '^(y|yea|yeah|yep|yup|yes|sure|ok|okay|ready|submit)$' });
+    const negativePattern = t('chat.negativePatterns', { defaultValue: '^(n|no|nope|not yet|later|wait)$' });
+    const isAffirmative = new RegExp(affirmativePattern, 'i').test(normalized);
+    const isNegative = new RegExp(negativePattern, 'i').test(normalized);
+
     if (canHandleCta && onIntakeCtaResponse) {
       if (isAffirmative) {
-        if (onSubmitNow) {
-          void onSubmitNow();
-        } else {
-          onIntakeCtaResponse('ready');
-        }
+        (async () => {
+          if (onSubmitNow) {
+            try {
+              await onSubmitNow();
+            } catch (error) {
+              console.error('Failed to submit via chat shortcut', error);
+              // Fallback or retry logic could go here
+            }
+          } else {
+            onIntakeCtaResponse('ready');
+          }
+        })();
         setInputValue('');
         setReplyTarget(null);
         if (textareaRef.current && isMobile) {
@@ -507,16 +517,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   if (!isPublicWorkspace) return null;
                   if (!intakeConversationState) return null;
                   if (intakeConversationState.ctaResponse === 'ready') return null;
-                  if ((intakeConversationState.notYetCount ?? 0) < 2) return null;
+                  const MIN_NOT_YET_COUNT_FOR_CTA = 2;
+                  if ((intakeConversationState.notYetCount ?? 0) < MIN_NOT_YET_COUNT_FOR_CTA) return null;
                   return (
                     <div className="mt-2">
                       <Button
                         variant="secondary"
                         size="sm"
                         className="w-full"
-                        onClick={() => {
+                        onClick={async () => {
                           if (onSubmitNow) {
-                            void onSubmitNow();
+                            try {
+                              await onSubmitNow();
+                            } catch (error) {
+                              console.error('Failed to submit via footer CTA', error);
+                            }
                             return;
                           }
                           onIntakeCtaResponse?.('ready');

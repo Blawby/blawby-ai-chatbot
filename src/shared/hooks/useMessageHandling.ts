@@ -1200,6 +1200,8 @@ export const useMessageHandling = ({
     });
   }, [currentUserId, sendFrame, waitForSessionReady, waitForSocketReady]);
 
+  const pendingIntakeInitRef = useRef(false);
+
   // Main message sending function
   const sendMessage = useCallback(async (
     message: string,
@@ -1216,8 +1218,13 @@ export const useMessageHandling = ({
     const shouldClassifyIntent = activeMode === 'ASK_QUESTION';
     const hasUserMessages = messages.some((msg) => msg.isUser);
     const trimmedMessage = message.trim();
-    if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
-      void updateConversationMetadata({ intakeConversationState: initialIntakeState });
+
+    if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState && !pendingIntakeInitRef.current) {
+      pendingIntakeInitRef.current = true;
+      updateConversationMetadata({ intakeConversationState: initialIntakeState })
+        .finally(() => {
+          pendingIntakeInitRef.current = false;
+        });
     }
 
     try {
