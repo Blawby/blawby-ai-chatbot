@@ -259,8 +259,11 @@ export const PracticeSetup = ({
               className={inputGlassClass}
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-input-text">Brand accent color</label>
+              <label className="text-sm font-medium text-input-text" htmlFor="practice-setup-accent-color">
+                Brand accent color
+              </label>
               <select
+                id="practice-setup-accent-color"
                 value={basicsDraft.accentColor}
                 onChange={(e) => setBasicsDraft((prev) => ({ ...prev, accentColor: (e.target as HTMLSelectElement).value }))}
                 className={cn(

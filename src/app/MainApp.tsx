@@ -34,7 +34,7 @@ import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { applyAccentColor, initializeAccentColor, type AccentColor } from '@/shared/utils/accentColors';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';

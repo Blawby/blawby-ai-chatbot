@@ -272,7 +272,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [logoUploading, setLogoUploading] = useState(false);
   const [justSavedServices, setJustSavedServices] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
-  const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
 
   const forcePreviewReload = useCallback(() => {
     setPreviewReloadKey(prev => prev + 1);
@@ -520,24 +519,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       setIsStripeSubmitting(false);
     }
 
-    // Start polling or visibility-based refresh
-    const pollInterval = setInterval(() => {
-      void refreshStripeStatus();
-    }, 5000);
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void refreshStripeStatus();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    // Stop polling after 5 minutes or if status becomes complete
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    }, 5 * 60 * 1000);
-  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError, refreshStripeStatus]);
+  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
