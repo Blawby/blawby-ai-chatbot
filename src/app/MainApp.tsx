@@ -33,6 +33,7 @@ import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPag
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
+import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import type { GeneralPreferences } from '@/shared/types/preferences';
@@ -254,6 +255,12 @@ export function MainApp({
   const toggleMessageReaction = realMessageHandling.toggleMessageReaction;
   const conversationMetadata = realMessageHandling.conversationMetadata;
   const intakeStatus = realMessageHandling.intakeStatus;
+  const intakeConversationState = realMessageHandling.intakeConversationState;
+  const handleIntakeCtaResponse = realMessageHandling.handleIntakeCtaResponse;
+  const slimContactDraft = realMessageHandling.slimContactDraft;
+  const handleSlimFormContinue = realMessageHandling.handleSlimFormContinue;
+  const handleBuildBrief = realMessageHandling.handleBuildBrief;
+  const handleSubmitNow = realMessageHandling.handleSubmitNow;
   const startConsultFlow = realMessageHandling.startConsultFlow;
   const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
   const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
@@ -536,7 +543,6 @@ export function MainApp({
 
     await realMessageHandling.sendMessage(message, attachments, replyToMessageId ?? null);
   }, [activeConversationId, isCreatingConversation, createConversation, realMessageHandling]);
-  const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
 
   const {
     previewFiles,
@@ -621,7 +627,7 @@ export function MainApp({
   const isAuthReady = Boolean(session?.user) && !sessionIsPending;
   const isSessionReady = isConversationReady && isAuthReady;
   const isSocketReady = isConversationReady && isAuthReady ? realMessageHandling.isSocketReady : false;
-  const isComposerDisabled = (shouldRequireModeSelection && !conversationMode) || isConsultFlowActive;
+  const isComposerDisabled = shouldRequireModeSelection && !conversationMode;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
@@ -870,6 +876,7 @@ export function MainApp({
   }, [isPublicWorkspace, publicFilteredMessages, publicPresenceStatus]);
   const publicHeaderContent = useMemo(() => {
     if (!isPublicWorkspace || !publicConversationsBasePath) return undefined;
+    const showBriefStrength = conversationMode === 'REQUEST_CONSULTATION';
     return (
       <WorkspaceConversationHeader
         practiceName={resolvedPracticeName}
@@ -877,6 +884,9 @@ export function MainApp({
         activeLabel={publicActiveTimeLabel}
         presenceStatus={publicPresenceStatus}
         onBack={() => navigate(publicConversationsBasePath)}
+        rightSlot={showBriefStrength ? (
+          <BriefStrengthIndicator intakeConversationState={intakeConversationState} />
+        ) : undefined}
       />
     );
   }, [
@@ -886,7 +896,9 @@ export function MainApp({
     publicConversationsBasePath,
     publicPresenceStatus,
     resolvedPracticeLogo,
-    resolvedPracticeName
+    resolvedPracticeName,
+    conversationMode,
+    intakeConversationState
   ]);
 
   // Handle navigation to chats - removed since bottom nav is disabled
@@ -922,7 +934,6 @@ export function MainApp({
               messages={messages}
               conversationTitle={conversationMetadata?.title ?? null}
               onSendMessage={handleSendMessage}
-              onContactFormSubmit={handleContactFormSubmit}
               onAddMessage={addMessage}
               onSelectMode={handleModeSelection}
               onToggleReaction={toggleMessageReaction}
@@ -962,7 +973,12 @@ export function MainApp({
               isSessionReady={isSessionReady}
               isSocketReady={isSocketReady}
               intakeStatus={intakeStatus}
-              conversationId={activeConversationId}
+              intakeConversationState={intakeConversationState}
+              onIntakeCtaResponse={handleIntakeCtaResponse}
+              slimContactDraft={slimContactDraft}
+              onSlimFormContinue={handleSlimFormContinue}
+              onBuildBrief={handleBuildBrief}
+              onSubmitNow={handleSubmitNow}
               isAnonymousUser={isAnonymousUser}
               canChat={canChat}
               hasMoreMessages={hasMoreMessages}

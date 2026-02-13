@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
-import type { Address } from '@/shared/types/address';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
@@ -10,6 +9,12 @@ import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
+import {
+  initialIntakeState,
+  type IntakeConversationState,
+  type SlimContactDraft,
+  type IntakeStep
+} from '@/shared/types/intake';
 import {
   updateConversationMetadata as patchConversationMetadata,
   fetchMessageReactions,
@@ -31,74 +36,6 @@ const buildFileUrl = (value: string): string => {
   }
   return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
 };
-
-// Greenfield address validation utilities
-function validateAddressObject(addressValue: unknown): Address | null {
-  // Normalize input to a processing object
-  let obj: Record<string, unknown>;
-  if (typeof addressValue === 'string') {
-    // If it's a string, we treat it as the primary address line.
-    // However, it will fail the required fields check below unless it's a full object.
-    obj = { address: addressValue };
-  } else if (addressValue && typeof addressValue === 'object' && !Array.isArray(addressValue)) {
-    obj = addressValue as Record<string, unknown>;
-  } else {
-    return null;
-  }
-
-  // Map various field names to the Address interface with defensive type checks
-  // Candidates include backend (line1) and frontend (address, street, streetAddress) variants
-  const rawStreet = obj.line1 || obj.streetAddress || obj.street || obj.address;
-  const streetPart = typeof rawStreet === 'string' ? rawStreet : undefined;
-  
-  const rawApartment = obj.line2 || obj.apartment;
-  const apartmentPart = typeof rawApartment === 'string' ? rawApartment : undefined;
-  
-  const rawPostal = obj.postal_code || obj.postalCode;
-  const postalPart = typeof rawPostal === 'string' ? rawPostal : undefined;
-  
-  const normalized: Partial<Address> = {
-    address: streetPart?.trim() || '',
-    apartment: apartmentPart?.trim() || undefined,
-    city: typeof obj.city === 'string' ? obj.city.trim() : '',
-    state: typeof obj.state === 'string' ? obj.state.trim() : '',
-    postalCode: postalPart?.trim() || '',
-    country: typeof obj.country === 'string' ? obj.country.trim() : '',
-  };
-
-  const requiredFields = ['address', 'city', 'state', 'postalCode', 'country'] as const;
-  
-  // Validate normalized fields against presence and minimal length
-  // This ensures string-only inputs (which lack city/state/etc) return null
-  for (const field of requiredFields) {
-    const value = normalized[field];
-    
-    if (typeof value !== 'string') {
-      return null;
-    }
-    
-    const trimmedValue = value.trim();
-    if (trimmedValue === '') {
-      return null; // Missing required field
-    }
-    
-    // Basic length validation (at least 2 chars for codes/names, 2 for address)
-    if (trimmedValue.length < 2) {
-      return null;
-    }
-
-    // Simplified field-specific validation (relying on backend for complex patterns)
-    if (field === 'postalCode') {
-      // Very basic check: just digits or letters, no specific country-dependent patterns here
-      // to avoid over-validating and rejecting international formats the backend might accept.
-      if (!/^(?=.*[A-Za-z0-9])[A-Za-z0-9\s-]{3,12}$/.test(trimmedValue)) {
-        return null;
-      }
-    }
-  }
-  
-  return normalized as Address;
-}
 
 // Global interface for window API base override and debug properties
 declare global {
@@ -130,16 +67,45 @@ const RECONNECT_BASE_DELAY_MS = 800;
 const RECONNECT_MAX_DELAY_MS = 12000;
 const RECONNECT_MAX_ATTEMPTS = 5;
 
-type ContactFormMetadata = {
-  fields: string[];
-  required: string[];
-  message?: string;
-  initialValues?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    address?: Address;
-    opposingParty?: string;
+type IntakeFieldsPayload = {
+  practiceArea?: string;
+  practiceAreaName?: string;
+  description?: string;
+  urgency?: 'routine' | 'time_sensitive' | 'emergency';
+  opposingParty?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  desiredOutcome?: string;
+  courtDate?: string;
+  hasDocuments?: boolean;
+  eligibilitySignals?: string[];
+  caseStrength?: 'needs_more_info' | 'developing' | 'strong';
+  missingSummary?: string | null;
+};
+
+const normalizeSlimContactDraft = (value: unknown): SlimContactDraft | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const draft = value as Record<string, unknown>;
+  const name = typeof draft.name === 'string' ? draft.name.trim() : '';
+  const email = typeof draft.email === 'string' ? draft.email.trim() : '';
+  const phone = typeof draft.phone === 'string' ? draft.phone.trim() : '';
+  const city = typeof draft.city === 'string' ? draft.city.trim() : '';
+  const state = typeof draft.state === 'string' ? draft.state.trim() : '';
+  if (!name || !email || !phone || !city || !state) return null;
+  const opposingParty = typeof draft.opposingParty === 'string' ? draft.opposingParty.trim() : '';
+  const description = typeof draft.description === 'string' ? draft.description.trim() : '';
+  return {
+    name,
+    email,
+    phone,
+    city,
+    state,
+    ...(opposingParty ? { opposingParty } : {}),
+    ...(description ? { description } : {})
   };
 };
 
@@ -155,65 +121,6 @@ const isTempMessageId = (messageId: string): boolean => messageId.startsWith('te
 const getMessageCacheKey = (practiceId: string, conversationId: string): string => (
   `chat:messages:${practiceId}:${conversationId}`
 );
-
-const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | undefined => {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return undefined;
-  }
-  const contactForm = (metadata as { contactForm?: unknown }).contactForm;
-  if (!contactForm || typeof contactForm !== 'object' || Array.isArray(contactForm)) {
-    return undefined;
-  }
-  const { fields, required, message, initialValues } = contactForm as Record<string, unknown>;
-  if (!Array.isArray(fields) || !fields.every((field) => typeof field === 'string')) {
-    return undefined;
-  }
-  if (!Array.isArray(required) || !required.every((field) => typeof field === 'string')) {
-    return undefined;
-  }
-  if (message !== undefined && typeof message !== 'string') {
-    return undefined;
-  }
-  const normalizedMessage = typeof message === 'string' ? message : undefined;
-  let normalizedInitialValues: ContactFormMetadata['initialValues'] | undefined;
-  if (initialValues !== undefined) {
-    if (!initialValues || typeof initialValues !== 'object' || Array.isArray(initialValues)) {
-      return undefined;
-    }
-    const rawInitialValues = initialValues as Record<string, unknown>;
-    const allowedKeys = ['name', 'email', 'phone', 'opposingParty'] as const;
-    normalizedInitialValues = {};
-    for (const key of allowedKeys) {
-      const value = rawInitialValues[key];
-      if (value === undefined) {
-        continue;
-      }
-      if (typeof value !== 'string') {
-        return undefined;
-      }
-      normalizedInitialValues[key] = value;
-    }
-    // Handle address field separately since it's an object
-    const addressValue = rawInitialValues['address'];
-    if (addressValue !== undefined) {
-      const validatedAddress = validateAddressObject(addressValue);
-      if (validatedAddress) {
-        normalizedInitialValues.address = validatedAddress;
-      } else {
-        return undefined; // Invalid address
-      }
-    }
-    if (Object.keys(normalizedInitialValues).length === 0) {
-      normalizedInitialValues = undefined;
-    }
-  }
-  return {
-    fields,
-    required,
-    message: normalizedMessage,
-    initialValues: normalizedInitialValues
-  };
-};
 
 const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | undefined => {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
@@ -503,6 +410,55 @@ export const useMessageHandling = ({
     return queued;
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
+  const intakeConversationState = useMemo(
+    () => conversationMetadata?.intakeConversationState ?? null,
+    [conversationMetadata]
+  );
+  const slimContactDraft = useMemo(
+    () => normalizeSlimContactDraft(conversationMetadata?.intakeSlimContactDraft),
+    [conversationMetadata?.intakeSlimContactDraft]
+  );
+  const isAiBriefActive = conversationMetadata?.intakeAiBriefActive === true;
+
+  const applyIntakeFields = useCallback(async (fields: IntakeFieldsPayload) => {
+    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+    const next: IntakeConversationState = { ...current };
+    if (typeof fields.practiceArea === 'string') next.practiceArea = fields.practiceArea;
+    if (typeof fields.practiceAreaName === 'string') next.practiceAreaName = fields.practiceAreaName;
+    if (typeof fields.description === 'string') next.description = fields.description;
+    if (typeof fields.urgency === 'string') next.urgency = fields.urgency;
+    if (typeof fields.opposingParty === 'string') next.opposingParty = fields.opposingParty;
+    if (typeof fields.city === 'string') next.city = fields.city;
+    if (typeof fields.state === 'string') next.state = fields.state;
+    if (typeof fields.postalCode === 'string') next.postalCode = fields.postalCode;
+    if (typeof fields.country === 'string') next.country = fields.country;
+    if (typeof fields.addressLine1 === 'string') next.addressLine1 = fields.addressLine1;
+    if (typeof fields.addressLine2 === 'string') next.addressLine2 = fields.addressLine2;
+    if (typeof fields.desiredOutcome === 'string') next.desiredOutcome = fields.desiredOutcome;
+    if (typeof fields.courtDate === 'string') next.courtDate = fields.courtDate;
+    if (typeof fields.hasDocuments === 'boolean') next.hasDocuments = fields.hasDocuments;
+    if (Array.isArray(fields.eligibilitySignals)) {
+      next.eligibilitySignals = fields.eligibilitySignals.filter((value): value is string => typeof value === 'string');
+    }
+    if (fields.caseStrength === 'needs_more_info' || fields.caseStrength === 'developing' || fields.caseStrength === 'strong') {
+      next.caseStrength = fields.caseStrength;
+    }
+    if (fields.missingSummary !== undefined) {
+      next.missingSummary = fields.missingSummary ?? null;
+    }
+    next.turnCount = (current.turnCount ?? 0) + 1;
+    if (next.caseStrength === 'developing' || next.caseStrength === 'strong') {
+      next.ctaShown = true;
+    }
+    if (current.ctaResponse === 'not_yet') {
+      next.ctaResponse = null;
+    }
+
+    await updateConversationMetadata({
+      intakeConversationState: next
+    });
+  }, [updateConversationMetadata]);
+
   const fetchConversationMetadata = useCallback(async (
     signal?: AbortSignal,
     targetConversationId?: string
@@ -543,7 +499,6 @@ export const useMessageHandling = ({
         : 'user';
     const isUser = normalizedRole === 'user'
       && Boolean(senderId && currentUserId && senderId === currentUserId);
-    const contactForm = parseContactFormMetadata(msg.metadata);
     const paymentRequest = parsePaymentRequestMetadata(msg.metadata);
 
     return {
@@ -561,7 +516,6 @@ export const useMessageHandling = ({
         type: 'application/octet-stream',
         url: buildFileUrl(fileId),
       })) : undefined,
-      contactForm,
       paymentRequest,
       isUser
     };
@@ -1246,6 +1200,8 @@ export const useMessageHandling = ({
     });
   }, [currentUserId, sendFrame, waitForSessionReady, waitForSocketReady]);
 
+  const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
+
   // Main message sending function
   const sendMessage = useCallback(async (
     message: string,
@@ -1257,9 +1213,29 @@ export const useMessageHandling = ({
       window.__DEBUG_SEND_MESSAGE__(message, attachments);
     }
 
-    const shouldUseAi = mode === 'ASK_QUESTION';
+    const activeMode = conversationMetadataRef.current?.mode ?? mode;
+    const shouldUseAi = activeMode === 'ASK_QUESTION' || activeMode === 'REQUEST_CONSULTATION';
+    const shouldClassifyIntent = activeMode === 'ASK_QUESTION';
     const hasUserMessages = messages.some((msg) => msg.isUser);
     const trimmedMessage = message.trim();
+
+    if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
+      if (pendingIntakeInitRef.current) {
+         try {
+           await pendingIntakeInitRef.current;
+         } catch (error) {
+           console.error('Failed to await pending intake init', error);
+         }
+      } else {
+        const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState });
+        pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
+        try {
+          await initPromise;
+        } finally {
+          pendingIntakeInitRef.current = null;
+        }
+      }
+    }
 
     try {
       await sendMessageOverWs(message, attachments, undefined, replyToMessageId ?? null);
@@ -1273,7 +1249,7 @@ export const useMessageHandling = ({
         return;
       }
 
-      if (!hasLoggedIntentRef.current && !hasUserMessages) {
+      if (shouldClassifyIntent && !hasLoggedIntentRef.current && !hasUserMessages) {
         intentAbortRef.current?.abort();
         const intentController = new AbortController();
         intentAbortRef.current = intentController;
@@ -1343,6 +1319,7 @@ export const useMessageHandling = ({
       ];
 
       const resolvedPracticeSlug = (practiceSlug ?? '').trim() || undefined;
+      const intakeSubmitted = messages.some((msg) => msg.isUser && msg.metadata?.isContactFormSubmission);
       const aiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -1353,6 +1330,8 @@ export const useMessageHandling = ({
           conversationId,
           practiceId: resolvedPracticeId,
           practiceSlug: resolvedPracticeSlug,
+          mode: activeMode,
+          intakeSubmitted,
           messages: aiMessages
         })
       });
@@ -1362,7 +1341,10 @@ export const useMessageHandling = ({
         throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
       }
 
-      const aiData = await aiResponse.json() as { reply?: string; message?: ConversationMessage };
+      const aiData = await aiResponse.json() as { reply?: string; message?: ConversationMessage; intakeFields?: IntakeFieldsPayload | null };
+      if (aiData.intakeFields) {
+        await applyIntakeFields(aiData.intakeFields);
+      }
       if (aiData.message) {
         applyServerMessages([aiData.message]);
         return;
@@ -1390,6 +1372,7 @@ export const useMessageHandling = ({
     }
   }, [
     applyServerMessages,
+    applyIntakeFields,
     conversationId,
     messages,
     mode,
@@ -1399,6 +1382,137 @@ export const useMessageHandling = ({
     sendMessageOverWs,
     updateConversationMetadata
   ]);
+
+  const handleIntakeCtaResponse = useCallback(async (response: 'ready' | 'not_yet') => {
+    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+    const next: IntakeConversationState = {
+      ...current,
+      ctaResponse: response,
+      ctaShown: true,
+      notYetCount: response === 'not_yet' ? (current.notYetCount ?? 0) + 1 : (current.notYetCount ?? 0)
+    };
+
+    await updateConversationMetadata({
+      intakeConversationState: next
+    });
+
+    if (response === 'ready') return;
+    try {
+      await sendMessage('Not yet', []);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[Intake] Failed to send "Not yet" response', error);
+      }
+    }
+  }, [sendMessage, updateConversationMetadata]);
+
+  const resetIntakeCta = useCallback(async () => {
+    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+    const next: IntakeConversationState = {
+      ...current,
+      ctaResponse: null
+    };
+    await updateConversationMetadata({
+      intakeConversationState: next
+    });
+  }, [updateConversationMetadata]);
+
+  const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
+    const nextDraft: SlimContactDraft = {
+      name: (draft.name ?? '').trim(),
+      email: (draft.email ?? '').trim(),
+      phone: (draft.phone ?? '').trim(),
+      city: (draft.city ?? '').trim(),
+      state: (draft.state ?? '').trim(),
+      ...(draft.opposingParty?.trim() ? { opposingParty: draft.opposingParty.trim() } : {}),
+      ...(draft.description?.trim() ? { description: draft.description.trim() } : {})
+    };
+    await updateConversationMetadata({
+      intakeSlimContactDraft: nextDraft,
+      intakeAiBriefActive: false
+    });
+
+    const practiceContextId = (practiceId ?? '').trim();
+    if (!conversationId || !practiceContextId) {
+      return;
+    }
+    const alreadyPosted = messagesRef.current.some((message) => message.metadata?.intakeDecisionPrompt === true);
+    if (alreadyPosted) {
+      return;
+    }
+
+    const lines = [
+      'Great — I received your contact info.',
+      `Name: ${nextDraft.name}`,
+      `Email: ${nextDraft.email}`,
+      `Phone: ${nextDraft.phone}`,
+      `Location: ${nextDraft.city}, ${nextDraft.state}`
+    ];
+    if (nextDraft.opposingParty) {
+      lines.push(`Opposing party: ${nextDraft.opposingParty}`);
+    }
+    if (nextDraft.description) {
+      lines.push(`Description: ${nextDraft.description}`);
+    }
+    lines.push('Would you like to submit now, or build a stronger brief first so we can match you with the right attorney?');
+
+    try {
+      const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {
+        clientId: 'system-intake-decision',
+        content: lines.join('\n'),
+        metadata: {
+          systemMessageKey: 'intake_decision_prompt',
+          intakeDecisionPrompt: true
+        }
+      });
+      if (persistedMessage) {
+        applyServerMessages([persistedMessage]);
+      }
+    } catch (error) {
+      console.error('[Intake] Failed to persist decision prompt message', {
+        conversationId,
+        practiceContextId,
+        error
+      });
+    }
+  }, [applyServerMessages, conversationId, practiceId, updateConversationMetadata]);
+
+  const handleBuildBrief = useCallback(async () => {
+    const patch: ConversationMetadata = {
+      intakeAiBriefActive: true
+    };
+    if (conversationMetadataRef.current?.mode !== 'REQUEST_CONSULTATION') {
+      patch.mode = 'REQUEST_CONSULTATION';
+    }
+    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+    if (current.ctaResponse !== null) {
+      patch.intakeConversationState = {
+        ...current,
+        ctaResponse: null
+      };
+    }
+    await updateConversationMetadata(patch);
+    const locationParts = [slimContactDraft?.city, slimContactDraft?.state]
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter((value) => value.length > 0);
+    const kickoffParts = [
+      'I want to build a stronger brief.'
+    ];
+    if (locationParts.length > 0) {
+      kickoffParts.push(`My location is ${locationParts.join(', ')}.`);
+    }
+    if (slimContactDraft?.opposingParty?.trim()) {
+      kickoffParts.push(`Opposing party: ${slimContactDraft.opposingParty.trim()}.`);
+    }
+    if (slimContactDraft?.description?.trim()) {
+      kickoffParts.push(`My current description: ${slimContactDraft.description.trim()}.`);
+    }
+    try {
+      await sendMessage(kickoffParts.join(' '), []);
+    } catch (error) {
+      console.error('[Intake] Failed to start brief-building conversation', error);
+    }
+  }, [sendMessage, slimContactDraft, updateConversationMetadata]);
 
   const confirmIntakeLead = useCallback(async (intakeUuid: string) => {
     if (!intakeUuid || !conversationId) return;
@@ -1713,6 +1827,33 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     isAnonymous
   ]);
 
+  const buildContactData = useCallback((draft: SlimContactDraft, intake: IntakeConversationState | null): ContactData => {
+    const mergedDescription = intake?.description?.trim() || draft.description?.trim() || '';
+    const mergedOpposingParty = intake?.opposingParty?.trim() || draft.opposingParty?.trim() || '';
+    return {
+      name: draft.name,
+      email: draft.email,
+      phone: draft.phone,
+      city: draft.city,
+      state: draft.state,
+      opposingParty: mergedOpposingParty || undefined,
+      description: mergedDescription || undefined,
+      address: {
+        city: draft.city,
+        state: draft.state
+      }
+    };
+  }, []);
+
+  const handleSubmitNow = useCallback(async () => {
+    if (!slimContactDraft) return;
+    const merged = buildContactData(
+      slimContactDraft,
+      conversationMetadataRef.current?.intakeConversationState ?? null
+    );
+    await handleContactFormSubmit(merged);
+  }, [buildContactData, handleContactFormSubmit, slimContactDraft]);
+
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
     setMessages(prev => [...prev, message]);
@@ -1934,6 +2075,11 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     if (!targetConversationId || !practiceId) {
       return;
     }
+    void updateConversationMetadata({
+      intakeConversationState: initialIntakeState,
+      intakeSlimContactDraft: null,
+      intakeAiBriefActive: false
+    }, targetConversationId);
     consultFlowAbortRef.current?.abort();
     const controller = new AbortController();
     consultFlowAbortRef.current = controller;
@@ -1946,7 +2092,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
     });
     connectChatRoom(targetConversationId);
-  }, [connectChatRoom, fetchConversationMetadata, fetchMessages, practiceId, sessionReady]);
+  }, [connectChatRoom, fetchConversationMetadata, fetchMessages, practiceId, sessionReady, updateConversationMetadata]);
 
   // Fetch messages and connect realtime socket when conversation is ready
   useEffect(() => {
@@ -2127,7 +2273,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     return decision === 'accepted' || decision === 'rejected';
   })?.metadata?.intakeDecision as 'accepted' | 'rejected' | undefined;
 
-  const intakeStep = useCallback(() => {
+  const currentStep = useMemo((): IntakeStep => {
     if (!isAnonymous) return 'completed';
 
     if (intakeDecision === 'accepted') return 'accepted';
@@ -2135,10 +2281,14 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
     if (!isConsultFlowActive) return 'ready';
     if (hasSubmittedContactForm) return 'pending_review';
-    return 'contact_form';
-  }, [isAnonymous, intakeDecision, hasSubmittedContactForm, isConsultFlowActive]);
-
-  const currentStep = intakeStep();
+    if (!slimContactDraft) {
+      return 'contact_form_slim';
+    }
+    if (isAiBriefActive) {
+      return 'ai_brief';
+    }
+    return 'contact_form_decision';
+  }, [hasSubmittedContactForm, intakeDecision, isAiBriefActive, isAnonymous, isConsultFlowActive, slimContactDraft]);
   
   // Memoize logging to prevent excessive console output
   useEffect(() => {
@@ -2321,6 +2471,13 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     loadMoreMessages,
     requestMessageReactions,
     toggleMessageReaction,
+    intakeConversationState,
+    handleIntakeCtaResponse,
+    resetIntakeCta,
+    slimContactDraft,
+    handleSlimFormContinue,
+    handleBuildBrief,
+    handleSubmitNow,
     intakeStatus: {
       step: currentStep,
       decision: intakeDecision,

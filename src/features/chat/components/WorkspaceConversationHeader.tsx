@@ -1,4 +1,4 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
@@ -9,6 +9,7 @@ interface WorkspaceConversationHeaderProps {
   activeLabel?: string;
   presenceStatus?: 'active' | 'inactive' | 'away';
   onBack?: () => void;
+  rightSlot?: ComponentChildren;
 }
 
 const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeaderProps> = ({
@@ -16,7 +17,8 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
   practiceLogo,
   activeLabel,
   presenceStatus,
-  onBack
+  onBack,
+  rightSlot
 }) => {
   const { t } = useTranslation();
   const resolvedName = typeof practiceName === 'string'
@@ -62,6 +64,11 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
         </div>
         <div className="truncate text-xs text-gray-500 dark:text-gray-400">{resolvedActive}</div>
       </div>
+      {rightSlot && (
+        <div className="ml-auto">
+          {rightSlot}
+        </div>
+      )}
     </header>
   );
 };

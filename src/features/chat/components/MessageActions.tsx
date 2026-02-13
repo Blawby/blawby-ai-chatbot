@@ -1,8 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { ContactForm, ContactData } from '@/features/intake/components/ContactForm';
-import type { Address } from '@/shared/types/address';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
@@ -10,6 +8,7 @@ import MatterCanvas from '@/features/matters/components/MatterCanvas';
 import { DocumentIcon } from "@heroicons/react/24/outline";
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { Button } from '@/shared/ui/Button';
+import type { IntakeConversationState } from '@/shared/types/intake';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -20,21 +19,6 @@ interface MessageActionsProps {
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
 	};
-	contactForm?: {
-		fields: string[];
-		required: string[];
-		message?: string;
-		initialValues?: {
-			name?: string;
-			email?: string;
-			phone?: string;
-			address?: Partial<Address>;
-			opposingParty?: string;
-		};
-	};
-	contactFormVariant?: 'card' | 'plain';
-	contactFormFormId?: string;
-	showContactFormSubmit?: boolean;
 	intakeStatus?: {
 		step?: string;
 		decision?: string;
@@ -83,31 +67,64 @@ interface MessageActionsProps {
 		onAccept: () => void;
 		onReject: () => void;
 	};
-	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
+	intakeConversationState?: IntakeConversationState | null;
+	quickReplies?: string[];
+	onQuickReply?: (text: string) => void;
+	showIntakeCta?: boolean;
+	onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
+	onSubmitNow?: () => void | Promise<void>;
+	showIntakeDecisionPrompt?: boolean;
+	onBuildBrief?: () => void;
 	className?: string;
 }
 
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
-	contactForm,
-	contactFormVariant,
-	contactFormFormId,
-	showContactFormSubmit,
 	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
 	onOpenPayment,
-	onContactFormSubmit,
 	modeSelector,
 	assistantRetry,
 	authCta,
 	onAuthPromptRequest,
 	leadReview,
+	intakeConversationState,
+	quickReplies,
+	onQuickReply,
+	showIntakeCta,
+	onIntakeCtaResponse,
+	onSubmitNow,
+	showIntakeDecisionPrompt,
+	onBuildBrief,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
-	const { t } = useTranslation('auth');
+	const { t } = useTranslation('common');
+
+	const strength = intakeConversationState?.caseStrength ?? null;
+	const strengthTier = (() => {
+		if (!strength) return 'none';
+		if (strength === 'needs_more_info') return 'weak';
+		if (strength === 'strong') return 'strong';
+		if (intakeConversationState?.missingSummary) return 'basic';
+		return 'good';
+	})() as 'none' | 'weak' | 'basic' | 'good' | 'strong';
+	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
+	const canShowNotYet = (intakeConversationState?.notYetCount ?? 0) < 2;
+	const ctaPrimaryLabel = strengthTier === 'strong'
+		? t('chat.cta.submit')
+		: strengthTier === 'good'
+			? t('chat.cta.reviewSubmit')
+			: strengthTier === 'basic'
+				? t('chat.cta.keepAnswering')
+				: t('chat.cta.continue');
+	const ctaSecondaryLabel = strengthTier === 'strong'
+		? t('chat.cta.addMore')
+		: strengthTier === 'good'
+			? t('chat.cta.addMore')
+			: t('chat.cta.notYet');
 
 	return (
 		<div className={className}>
@@ -172,6 +189,88 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					)}
 				</div>
 			)}
+			{quickReplies && quickReplies.length > 0 && onQuickReply && (
+				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+					{quickReplies.map((reply, idx) => (
+						<Button
+							key={`${reply}-${idx}`}
+							variant="secondary"
+							size="sm"
+							className="shrink-0"
+							onClick={() => onQuickReply(reply)}
+						>
+							{reply}
+						</Button>
+					))}
+				</div>
+			)}
+			{showIntakeDecisionPrompt && (
+				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
+					<Button
+						variant="primary"
+						size="sm"
+						onClick={() => {
+							if (onSubmitNow) {
+								void onSubmitNow();
+								return;
+							}
+							onIntakeCtaResponse?.('ready');
+						}}
+					>
+						{t('chat.submitNow')}
+					</Button>
+					<Button variant="secondary" size="sm" onClick={() => onBuildBrief?.()}>
+						{t('chat.buildStrongerBrief')}
+					</Button>
+				</div>
+			)}
+			{showCtaButtons && (
+				<div className="mt-3 space-y-3">
+					{intakeConversationState?.missingSummary && strength === 'developing' && (
+						<p className="text-xs text-input-placeholder">
+							{intakeConversationState.missingSummary}
+						</p>
+					)}
+					{canShowNotYet ? (
+						<div className="flex flex-col gap-2 sm:flex-row">
+							{strengthTier === 'basic' ? (
+								<Button variant="primary" size="sm" onClick={() => {
+                  if (onSubmitNow) {
+                    void onSubmitNow();
+                    return;
+                  }
+                  onIntakeCtaResponse?.('ready');
+                }}>
+									{ctaPrimaryLabel}
+								</Button>
+							) : (
+								<Button variant="primary" size="sm" onClick={() => {
+									if (onSubmitNow) {
+										void onSubmitNow();
+										return;
+									}
+									onIntakeCtaResponse?.('ready');
+								}}>
+									{ctaPrimaryLabel}
+								</Button>
+							)}
+							<Button variant="secondary" size="sm" onClick={() => onIntakeCtaResponse?.('not_yet')}>
+								{ctaSecondaryLabel}
+							</Button>
+						</div>
+					) : (
+						<Button variant="primary" size="sm" onClick={() => {
+							if (onSubmitNow) {
+								void onSubmitNow();
+								return;
+							}
+							onIntakeCtaResponse?.('ready');
+						}}>
+							{t('chat.cta.submitConsultationRequest')}
+						</Button>
+					)}
+				</div>
+			)}
 			{/* Display matter canvas */}
 			{matterCanvas && (
 				<MatterCanvas
@@ -183,20 +282,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				/>
 			)}
 			
-			{/* Display contact form only if intake is still in contact_form step */}
-			{contactForm && onContactFormSubmit && !paymentRequest && (!intakeStatus || intakeStatus.step === 'contact_form') && (
-				<ContactForm
-					fields={contactForm.fields}
-					required={contactForm.required}
-					message={contactForm.message}
-					initialValues={contactForm.initialValues}
-					onSubmit={onContactFormSubmit}
-					variant={contactFormVariant}
-					formId={contactFormFormId}
-					showSubmitButton={showContactFormSubmit}
-				/>
-			)}
-
 			{paymentRequest && (
 				<IntakePaymentCard paymentRequest={paymentRequest} onOpenPayment={onOpenPayment} />
 			)}

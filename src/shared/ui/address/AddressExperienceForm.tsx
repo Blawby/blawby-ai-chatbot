@@ -17,6 +17,8 @@ export const ADDRESS_EXPERIENCE_FIELDS = [
   'name',
   'email',
   'phone',
+  'city',
+  'state',
   'status',
   'currency',
   'address',
@@ -30,6 +32,8 @@ export interface AddressExperienceData extends Record<string, unknown> {
   name?: string;
   email?: string;
   phone?: string;
+  city?: string;
+  state?: string;
   status?: string;
   currency?: string;
   address?: Partial<Address>;
@@ -85,6 +89,8 @@ const DEFAULT_LABELS: Record<AddressExperienceField, string> = {
   name: 'Name',
   email: 'Email',
   phone: 'Phone',
+  city: 'City',
+  state: 'State',
   status: 'Status',
   currency: 'Currency',
   address: 'Address',
@@ -96,6 +102,8 @@ const DEFAULT_PLACEHOLDERS: Partial<Record<AddressExperienceField, string>> = {
   name: 'Enter your name',
   email: 'your.email@example.com',
   phone: '+1 (555) 123-4567',
+  city: 'City',
+  state: 'State',
   address: '',
   opposingParty: 'Enter opposing party name',
   description: 'Describe your case',
@@ -195,6 +203,16 @@ const buildSchema = (fields: AddressExperienceField[], required: AddressExperien
       case 'phone':
         shape.phone = isRequired('phone') ? commonSchemas.phone : optionalPhone;
         break;
+      case 'city':
+        shape.city = isRequired('city')
+          ? z.string().trim().min(1, 'City is required')
+          : optionalString;
+        break;
+      case 'state':
+        shape.state = isRequired('state')
+          ? z.string().trim().min(1, 'State is required')
+          : optionalString;
+        break;
       case 'status':
         shape.status = isRequired('status')
           ? z.string().min(1, 'Status is required')
@@ -261,21 +279,28 @@ export const AddressExperienceForm = ({
     [normalizedFields, normalizedRequired]
   );
 
-  const normalizedInitialValues = useMemo<Partial<AddressExperienceData>>(() => ({
-    name: trimOrUndefined(initialValues?.name),
-    email: trimOrUndefined(initialValues?.email),
-    phone: trimOrUndefined(initialValues?.phone),
-    status: trimOrUndefined(initialValues?.status),
-    currency: trimOrUndefined(initialValues?.currency),
-    address: normalizeAddressInitialValue(initialValues?.address),
-    opposingParty: trimOrUndefined(initialValues?.opposingParty),
-    description: trimOrUndefined(initialValues?.description),
-  }), [initialValues]);
+  const normalizedInitialValues = useMemo<Partial<AddressExperienceData>>(() => {
+    const normalizedAddress = normalizeAddressInitialValue(initialValues?.address);
+    return {
+      name: trimOrUndefined(initialValues?.name),
+      email: trimOrUndefined(initialValues?.email),
+      phone: trimOrUndefined(initialValues?.phone),
+      city: trimOrUndefined(initialValues?.city) ?? trimOrUndefined(normalizedAddress?.city),
+      state: trimOrUndefined(initialValues?.state) ?? trimOrUndefined(normalizedAddress?.state),
+      status: trimOrUndefined(initialValues?.status),
+      currency: trimOrUndefined(initialValues?.currency),
+      address: normalizedAddress,
+      opposingParty: trimOrUndefined(initialValues?.opposingParty),
+      description: trimOrUndefined(initialValues?.description),
+    };
+  }, [initialValues]);
 
   const initialData: AddressExperienceData = {
     name: normalizedInitialValues.name ?? '',
     email: normalizedInitialValues.email ?? '',
     phone: normalizedInitialValues.phone ?? '',
+    city: normalizedInitialValues.city ?? '',
+    state: normalizedInitialValues.state ?? '',
     status: normalizedInitialValues.status ?? '',
     currency: normalizedInitialValues.currency ?? '',
     address: normalizedInitialValues.address,
@@ -311,6 +336,8 @@ export const AddressExperienceForm = ({
             name: trimOrUndefined(formData.name as string),
             email: trimOrUndefined(formData.email as string),
             phone: trimOrUndefined(formData.phone as string),
+            city: trimOrUndefined(formData.city as string),
+            state: trimOrUndefined(formData.state as string),
             status: trimOrUndefined(formData.status as string),
             currency: trimOrUndefined(formData.currency as string),
             address: normalizeAddressInput(formData.address) as Partial<Address> | undefined,
@@ -364,6 +391,34 @@ export const AddressExperienceForm = ({
                         format={true}
                         showCountryCode={true}
                         countryCode="+1"
+                        className={inputClassName}
+                      />
+                    );
+                  case 'city':
+                    return (
+                      <Input
+                        value={(value as string) || ''}
+                        onChange={handleChange}
+                        label={getLabel('city')}
+                        placeholder={getPlaceholder('city')}
+                        required={isFieldRequired('city')}
+                        error={error?.message}
+                        variant={error ? 'error' : 'default'}
+                        disabled={disabled}
+                        className={inputClassName}
+                      />
+                    );
+                  case 'state':
+                    return (
+                      <Input
+                        value={(value as string) || ''}
+                        onChange={handleChange}
+                        label={getLabel('state')}
+                        placeholder={getPlaceholder('state')}
+                        required={isFieldRequired('state')}
+                        error={error?.message}
+                        variant={error ? 'error' : 'default'}
+                        disabled={disabled}
                         className={inputClassName}
                       />
                     );
@@ -489,6 +544,7 @@ export const AddressExperienceForm = ({
             )}
             <button
               type="submit"
+              data-testid="contact-form-submit-footer"
               disabled={disabled}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >

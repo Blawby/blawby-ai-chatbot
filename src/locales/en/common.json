@@ -258,7 +258,24 @@
     }
   },
   "chat": {
-    "publicIntro": "Ask us anything, or share your feedback."
+    "publicIntro": "Ask us anything, or share your feedback.",
+    "continue": "Continue",
+    "submitRequest": "Submit request",
+    "submitNow": "Submit now",
+    "buildStrongerBrief": "Build stronger brief",
+    "cta": {
+      "submit": "Submit request",
+      "submitConsultationRequest": "Submit consultation request",
+      "reviewSubmit": "Review & submit",
+      "keepAnswering": "Keep answering",
+      "continue": "Continue",
+      "addMore": "Add more",
+      "notYet": "Not yet"
+    }
+  },
+  "contact": {
+    "city": "City",
+    "state": "State"
   },
   "intake": {
     "authTitle": "You're almost done",

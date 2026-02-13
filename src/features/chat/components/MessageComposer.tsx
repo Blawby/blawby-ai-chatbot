@@ -41,6 +41,7 @@ interface MessageComposerProps {
   showStatusMessage?: boolean;
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
+  footerActions?: preact.ComponentChildren;
 }
 
 const MessageComposer = ({
@@ -65,7 +66,8 @@ const MessageComposer = ({
   disabled,
   showStatusMessage = true,
   replyTo,
-  onCancelReply
+  onCancelReply,
+  footerActions
 }: MessageComposerProps) => {
   const { t } = useTranslation('auth');
   const intakeStep = intakeStatus?.step;
@@ -123,113 +125,116 @@ const MessageComposer = ({
   );
 
   return (
-    <form 
-      className="pl-4 pr-4 pb-2 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]" 
-      aria-label="Message composition"
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSubmit();
-      }}
-    >
-      <div className="message-composer-container">
-        {replyTo && (
-          <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-glass/70 px-4 py-1.5 text-sm text-input-text backdrop-blur-sm -mx-2 -mt-1 border-b border-line-glass/30">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="text-input-text/70">{t('chat.replyingTo')}</span>
-              <span className="truncate font-semibold text-yellow-400">{replyTo.authorName}</span>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-full"
-              aria-label="Cancel reply"
-              onClick={() => onCancelReply?.()}
-              icon={<XMarkIcon className="h-4 w-4" />}
-            />
-          </div>
-        )}
-        {/* Show all files (uploading + preview) in one horizontal container */}
-        {(uploadingFiles.length > 0 || previewFiles.length > 0) && (
-          <div className="message-composer-preview-container" role="list" aria-label="File attachments">
-            {/* Uploading files - newest first */}
-            {uploadingFiles.slice().reverse().map(file => (
-              <FileUploadStatus
-                key={file.id}
-                file={file}
-                onCancel={() => cancelUpload(file.id)}
-              />
-            ))}
-            
-            {/* Preview files - newest first */}
-            {previewFiles.slice().reverse().map((file, index) => (
-              <FileDisplay
-                key={file.url || `${file.name}-${index}`}
-                file={file}
-                status="preview"
-                onRemove={() => removePreviewFile(previewFiles.length - 1 - index)}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="message-composer-input-row">
-          {!isRecording && (
-            <div className="flex-shrink-0">
-              <FileMenu
-                onFileSelect={handleFileSelect}
-                onCameraCapture={handleCameraCapture}
-                isReadyToUpload={isComposerDisabled ? false : isReadyToUpload}
+    <div className="pl-4 pr-4 pb-2 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]">
+      <form 
+        className="w-full flex flex-col"
+        aria-label="Message composition"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        <div className="message-composer-container">
+          {replyTo && (
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-glass/70 px-4 py-1.5 text-sm text-input-text backdrop-blur-sm -mx-2 -mt-1 border-b border-line-glass/30">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="text-input-text/70">{t('chat.replyingTo')}</span>
+                <span className="truncate font-semibold text-yellow-400">{replyTo.authorName}</span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full"
+                aria-label="Cancel reply"
+                onClick={() => onCancelReply?.()}
+                icon={<XMarkIcon className="h-4 w-4" />}
               />
             </div>
           )}
+          {/* Show all files (uploading + preview) in one horizontal container */}
+          {(uploadingFiles.length > 0 || previewFiles.length > 0) && (
+            <div className="message-composer-preview-container" role="list" aria-label="File attachments">
+              {/* Uploading files - newest first */}
+              {uploadingFiles.slice().reverse().map(file => (
+                <FileUploadStatus
+                  key={file.id}
+                  file={file}
+                  onCancel={() => cancelUpload(file.id)}
+                />
+              ))}
+              
+              {/* Preview files - newest first */}
+              {previewFiles.slice().reverse().map((file, index) => (
+                <FileDisplay
+                  key={file.url || `${file.name}-${index}`}
+                  file={file}
+                  status="preview"
+                  onRemove={() => removePreviewFile(previewFiles.length - 1 - index)}
+                />
+              ))}
+            </div>
+          )}
 
-          <div className="flex-1 flex items-center">
-            <textarea
-              ref={textareaRef}
-              data-testid="message-input"
-              className="w-full min-h-8 py-1 m-0 text-sm sm:text-base leading-6 text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder"
-              placeholder="Type a message..."
-              rows={1}
-              value={inputValue}
-              onInput={handleInput}
-              onKeyDown={onKeyDown}
-              aria-label="Message input"
-              disabled={isComposerDisabled}
-            />
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {features.enableAudioRecording && (
-              <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
+          <div className="message-composer-input-row">
+            {!isRecording && (
+              <div className="flex-shrink-0">
+                <FileMenu
+                  onFileSelect={handleFileSelect}
+                  onCameraCapture={handleCameraCapture}
+                  isReadyToUpload={isComposerDisabled ? false : isReadyToUpload}
+                />
+              </div>
             )}
-            <Button
-              type="submit"
-              variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
-              size="sm"
-              disabled={sendDisabled}
-              aria-label={
-                isSessionReady === false
-                  ? 'Send message (waiting for secure session)'
-                  : isSocketReady === false
-                  ? 'Send message (connecting to chat)'
-                  : (!inputValue.trim() && previewFiles.length === 0
-                  ? 'Send message (disabled)'
-                  : 'Send message')}
-              className="w-8 h-8 p-0 rounded-full"
-              icon={<ArrowUpIcon className="w-3.5 h-3.5" aria-hidden="true" />}
-              data-testid="message-send-button"
-            />
+
+            <div className="flex-1 flex items-center">
+              <textarea
+                ref={textareaRef}
+                data-testid="message-input"
+                className="w-full min-h-8 py-1 m-0 text-sm sm:text-base leading-6 text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder"
+                placeholder="Type a message..."
+                rows={1}
+                value={inputValue}
+                onInput={handleInput}
+                onKeyDown={onKeyDown}
+                aria-label="Message input"
+                disabled={isComposerDisabled}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {features.enableAudioRecording && (
+                <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
+              )}
+              <Button
+                type="submit"
+                variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
+                size="sm"
+                disabled={sendDisabled}
+                aria-label={
+                  isSessionReady === false
+                    ? 'Send message (waiting for secure session)'
+                    : isSocketReady === false
+                    ? 'Send message (connecting to chat)'
+                    : (!inputValue.trim() && previewFiles.length === 0
+                    ? 'Send message (disabled)'
+                    : 'Send message')}
+                className="w-8 h-8 p-0 rounded-full"
+                icon={<ArrowUpIcon className="w-3.5 h-3.5" aria-hidden="true" />}
+                data-testid="message-send-button"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {showStatusMessage && (
-        <div className="text-xs text-input-text/70 text-center py-1 opacity-80">
-          {statusMessage}
-        </div>
-      )}
-    </form>
+        {showStatusMessage && (
+          <div className="text-xs text-input-text/70 text-center py-1 opacity-80">
+            {statusMessage}
+          </div>
+        )}
+      </form>
+      {footerActions}
+    </div>
   );
 };
 

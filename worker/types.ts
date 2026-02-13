@@ -512,19 +512,6 @@ export interface UIMessageExtras {
     matterType: string;
     storageKey?: string;
   };
-  contactForm?: {
-    fields: string[];
-    required: string[];
-    message?: string;
-    initialValues?: {
-      name?: string;
-      email?: string;
-      phone?: string;
-      address?: string | { line1?: string; line2?: string; street?: string; streetAddress?: string; city?: string; state?: string; postalCode?: string; postal_code?: string; country?: string };
-      opposingParty?: string;
-      description?: string;
-    };
-  };
   paymentRequest?: {
     intakeUuid?: string;
     clientSecret?: string;
