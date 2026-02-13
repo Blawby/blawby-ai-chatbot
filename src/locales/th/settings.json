@@ -33,15 +33,14 @@
     "accent": {
       "label": "สีเน้น",
       "options": {
-        "default": "ค่าเริ่มต้น",
+        "grey": "ค่าเริ่มต้น",
+        "gold": "ทอง",
         "blue": "น้ำเงิน",
         "green": "เขียว",
-        "purple": "ม่วง",
-        "red": "แดง",
-        "gold": "ทอง",
         "yellow": "เหลือง",
         "pink": "ชมพู",
-        "orange": "ส้ม"
+        "orange": "ส้ม",
+        "purple": "ม่วง"
       }
     },
     "language": {

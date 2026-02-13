@@ -137,7 +137,7 @@ export function applyAccentColor(color: AccentColor): void {
 
 /**
  * Get the current accent color from CSS variables
- * @returns The current accent color, or 'gold' as default
+ * @returns The current accent color, or null if not found (default null)
  */
 export function getCurrentAccentColor(): AccentColor | null {
   if (typeof window === 'undefined') return null;

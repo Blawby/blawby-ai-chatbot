@@ -647,20 +647,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             </div>
           );
         }
-        const currentAccent = draftBasics?.accentColor || setupDetails?.accentColor || currentPractice?.accentColor;
-        const buildUrl = (baseUrl: string) => {
-          const url = new URL(baseUrl);
-          if (currentAccent) {
-            url.searchParams.set('accentColor', currentAccent);
-          }
-          return url.toString();
-        };
 
         return (
           <iframe
-            key={`${previewTab}-${previewReloadKey}-${currentAccent}`}
+            key={`${previewTab}-${previewReloadKey}`}
             title="Public workspace preview"
-            src={buildUrl(previewTab === 'messages' ? previewUrls.messages : previewUrls.home)}
+            src={previewTab === 'messages' ? previewUrls.messages : previewUrls.home}
             className="h-full w-full border-0"
             loading="lazy"
           />
