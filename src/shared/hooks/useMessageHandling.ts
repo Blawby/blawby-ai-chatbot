@@ -1475,7 +1475,7 @@ export const useMessageHandling = ({
         error
       });
     }
-  }, [applyServerMessages, conversationId, practiceId, practiceSlug, updateConversationMetadata]);
+  }, [applyServerMessages, conversationId, practiceId, updateConversationMetadata]);
 
   const handleBuildBrief = useCallback(async () => {
     const patch: ConversationMetadata = {
