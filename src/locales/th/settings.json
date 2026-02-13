@@ -23,15 +23,15 @@
   "general": {
     "title": "การตั้งค่าทั่วไป",
     "theme": {
-      "label": "[NEEDS TRANSLATION] Theme",
+      "label": "ธีม",
       "options": {
-        "light": "[NEEDS TRANSLATION] Light",
-        "dark": "[NEEDS TRANSLATION] Dark",
-        "system": "[NEEDS TRANSLATION] System"
+        "light": "สว่าง",
+        "dark": "มืด",
+        "system": "ระบบ"
       }
     },
     "accent": {
-      "label": "[NEEDS TRANSLATION] Accent color",
+      "label": "สีเน้น",
       "options": {
         "default": "ค่าเริ่มต้น",
         "blue": "น้ำเงิน",

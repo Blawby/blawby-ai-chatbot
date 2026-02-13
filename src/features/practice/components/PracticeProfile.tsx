@@ -29,7 +29,7 @@ export default function PracticeProfile({
 						className="rounded-lg object-cover w-12 h-12"
 					/>
 				) : (
-					<div className="flex items-center justify-center rounded-lg bg-white/5 border border-white/10 w-12 h-12">
+					<div className="flex items-center justify-center rounded-lg bg-surface-subtle border border-line-glass/30 w-12 h-12">
 						<FaceSmileIcon className="w-8 h-8 text-input-placeholder" />
 					</div>
 				)}

@@ -166,7 +166,7 @@ export default function ConfirmationDialog({
                 {/* Success Message */}
                 {showSuccessMessage && successMessage && (
                   <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg backdrop-blur-md">
-                    <p className="text-sm text-blue-100">
+                    <p className="text-sm text-blue-900 dark:text-blue-100">
                       {successMessage.body}
                     </p>
                   </div>

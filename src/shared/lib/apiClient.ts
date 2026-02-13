@@ -1530,10 +1530,10 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     postalCode: getOptionalNullableString(address, ['postal_code', 'postalCode'])
       ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
-    primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
-    accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
-  };
-}
+     primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
+     accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
+   };
+ }
 
 export async function requestBillingPortalSession(
   payload: BillingPortalPayload

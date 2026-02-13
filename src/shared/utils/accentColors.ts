@@ -139,12 +139,14 @@ export function applyAccentColor(color: AccentColor): void {
  * Get the current accent color from CSS variables
  * @returns The current accent color, or 'gold' as default
  */
-export function getCurrentAccentColor(): AccentColor {
-  if (typeof window === 'undefined') return 'grey';
+export function getCurrentAccentColor(): AccentColor | null {
+  if (typeof window === 'undefined') return null;
   
   const root = document.documentElement;
   const accent500 = getComputedStyle(root).getPropertyValue('--accent-500').trim();
   
+  if (!accent500) return null;
+
   // Match against known colors
   for (const [colorName, shades] of Object.entries(ACCENT_COLORS)) {
     if (shades['500'] === accent500) {
@@ -152,7 +154,7 @@ export function getCurrentAccentColor(): AccentColor {
     }
   }
   
-  return 'grey'; // Default fallback
+  return null;
 }
 
 /**
@@ -160,13 +162,12 @@ export function getCurrentAccentColor(): AccentColor {
  * Should be called on app startup
  */
 export function initializeAccentColor(savedColor?: string | null): void {
-  const color = (savedColor as AccentColor) || 'grey';
+  if (!savedColor) return;
+  const color = savedColor as AccentColor;
   
   // Validate the color
   if (color in ACCENT_COLORS) {
     applyAccentColor(color);
-  } else {
-    applyAccentColor('grey');
   }
 }
 

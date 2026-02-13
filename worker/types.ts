@@ -309,6 +309,7 @@ export interface Practice {
   name: string;
   slug: string;
   domain?: string;
+  accentColor?: string;
   metadata?: Record<string, unknown>;
   conversationConfig: ConversationConfig; // Extracted from practice.metadata.conversationConfig in remote API
   betterAuthOrgId?: string;
@@ -331,6 +332,7 @@ export interface Workspace {
   name: string;
   slug: string;
   domain?: string;
+  accentColor?: string;
   metadata?: Record<string, unknown>;
   conversationConfig: ConversationConfig; // Hardcoded defaults
   betterAuthOrgId?: string;

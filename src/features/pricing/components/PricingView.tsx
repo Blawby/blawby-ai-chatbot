@@ -177,7 +177,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
             <div className="flex items-center gap-2">
               <UserGroupIcon className="w-4 h-4 text-input-placeholder" />
               <span className="text-sm text-input-placeholder">{t('footer.enterprise.question')}</span>
-              <Button variant="link" size="sm" className="px-0 py-0 h-auto" onClick={() => { window.open('/enterprise', '_blank', 'noopener,noreferrer'); }}>
+              <Button variant="link" size="sm" className="px-0 py-0 h-auto" onClick={() => navigate('/enterprise')}>
                 {t('footer.enterprise.link')}
               </Button>
             </div>

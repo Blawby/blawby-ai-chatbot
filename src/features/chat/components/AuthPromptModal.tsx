@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import AuthForm from '@/shared/components/AuthForm';
 
@@ -13,8 +14,6 @@ interface AuthPromptModalProps {
   description?: string;
   callbackURL?: string;
 }
-
-import { Button } from '@/shared/ui/Button';
 
 const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
   isOpen,

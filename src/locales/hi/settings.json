@@ -21,17 +21,17 @@
     "team": "टीम के सदस्य"
   },
   "general": {
-    "title": "[NEEDS TRANSLATION] General",
+    "title": "सामान्य",
     "theme": {
-      "label": "[NEEDS TRANSLATION] Theme",
+      "label": "थीम",
       "options": {
-        "light": "[NEEDS TRANSLATION] Light",
-        "dark": "[NEEDS TRANSLATION] Dark",
-        "system": "[NEEDS TRANSLATION] System"
+        "light": "लाइट",
+        "dark": "डार्क",
+        "system": "सिस्टम"
       }
     },
     "accent": {
-      "label": "[NEEDS TRANSLATION] Accent color",
+      "label": "मुख्य रंग",
       "options": {
         "default": "डिफ़ॉल्ट",
         "blue": "नीला",

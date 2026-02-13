@@ -272,6 +272,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [logoUploading, setLogoUploading] = useState(false);
   const [justSavedServices, setJustSavedServices] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
 
   const forcePreviewReload = useCallback(() => {
     setPreviewReloadKey(prev => prev + 1);
@@ -646,11 +647,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             </div>
           );
         }
+        const currentAccent = draftBasics?.accentColor || setupDetails?.accentColor || currentPractice?.accentColor;
+        const buildUrl = (baseUrl: string) => {
+          const url = new URL(baseUrl);
+          if (currentAccent) {
+            url.searchParams.set('accentColor', currentAccent);
+          }
+          return url.toString();
+        };
+
         return (
           <iframe
-            key={`${previewTab}-${previewReloadKey}`}
+            key={`${previewTab}-${previewReloadKey}-${currentAccent}`}
             title="Public workspace preview"
-            src={previewTab === 'messages' ? previewUrls.messages : previewUrls.home}
+            src={buildUrl(previewTab === 'messages' ? previewUrls.messages : previewUrls.home)}
             className="h-full w-full border-0"
             loading="lazy"
           />
@@ -686,6 +696,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                   logoUploading={logoUploading}
                   logoUploadProgress={logoUploadProgress}
                   onLogoChange={handleLogoChange}
+                  onBasicsDraftChange={setDraftBasics}
                 />
               </Page>
             </div>

@@ -7,6 +7,7 @@ import { cn } from '@/shared/utils/cn';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import type { Address } from '@/shared/types/address';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
 import type { PracticeSetupStatus } from '../utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
@@ -36,6 +37,7 @@ interface PracticeSetupProps {
   logoUploading: boolean;
   logoUploadProgress: number | null;
   onLogoChange: (files: FileList | File[]) => void;
+  onBasicsDraftChange?: (values: BasicsFormValues) => void;
 }
 
 export const PracticeSetup = ({
@@ -48,7 +50,8 @@ export const PracticeSetup = ({
   payoutsSlot,
   logoUploading,
   logoUploadProgress,
-  onLogoChange
+  onLogoChange,
+  onBasicsDraftChange
 }: PracticeSetupProps) => {
   const { t } = useTranslation(['settings', 'common']);
   const glassCardClass = 'glass-card p-4 sm:p-5';
@@ -145,6 +148,10 @@ export const PracticeSetup = ({
   }, [contactDraft, initialContact]);
 
   useEffect(() => {
+    onBasicsDraftChange?.(basicsDraft);
+  }, [basicsDraft, onBasicsDraftChange]);
+
+  useEffect(() => {
     if (justSavedBasics) {
       if (
         initialBasics &&
@@ -199,6 +206,13 @@ export const PracticeSetup = ({
       if (contactTimerRef.current) clearTimeout(contactTimerRef.current);
     };
   }, []);
+
+  // Live preview of accent color changes
+  useEffect(() => {
+    if (basicsDraft.accentColor) {
+      initializeAccentColor(basicsDraft.accentColor);
+    }
+  }, [basicsDraft.accentColor]);
 
   const bannerTitle = status.needsSetup ? 'Almost ready to go' : 'All set';
   const bannerDescription = status.needsSetup

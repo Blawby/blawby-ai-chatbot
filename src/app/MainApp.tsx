@@ -34,7 +34,7 @@ import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { applyAccentColor, type AccentColor } from '@/shared/utils/accentColors';
+import { applyAccentColor, initializeAccentColor, type AccentColor } from '@/shared/utils/accentColors';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
@@ -145,22 +145,18 @@ export function MainApp({
   // Synchronize Accent Color based on workspace and config/preferences
   useEffect(() => {
     if (workspace === 'public' || workspace === 'client') {
-      const color = (practiceConfig.accentColor as AccentColor) || 'grey';
-      applyAccentColor(color);
+      initializeAccentColor(practiceConfig.accentColor);
     } else if (workspace === 'practice') {
       // In practice view, try to get from general preferences
       void (async () => {
         try {
           const prefs = await getPreferencesCategory<GeneralPreferences>('general');
-          if (prefs?.accent_color) {
-            applyAccentColor(prefs.accent_color as AccentColor);
-          } else {
-            // Check if we already have it in :root, if not default to grey
-            applyAccentColor('grey');
-          }
+          initializeAccentColor(prefs?.accent_color);
         } catch (error) {
-          console.warn('[MainApp] Failed to load accent color preferences', error);
-          applyAccentColor('grey');
+          if (import.meta.env.DEV) {
+            console.warn('[MainApp] Failed to load accent color preferences', error);
+          }
+          // No fallback - let it fail visibly
         }
       })();
     }

@@ -161,21 +161,21 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-1 ring-white/15 bg-white/10 text-input-text dark:ring-white/10"
+                    className="ring-1 ring-black/10 bg-white/10 text-input-text dark:ring-white/20"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-input-text ring-1 ring-white/20 dark:text-white">
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                     <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-input-text ring-1 ring-white/20 dark:text-white">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                   {item.type === 'paid' ? (
-                    <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-accent-500" />
+                    <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-emerald-500" />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];
                       return Icon ? (
-                        <Icon className="h-4 w-4 text-gray-600 dark:text-gray-200" />
+                        <Icon className="h-4 w-4 text-input-placeholder dark:text-gray-200" />
                       ) : null;
                     })()
                   ) : (

@@ -13,18 +13,7 @@
     --input-placeholder: 107 114 128;
     --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
 
-    /* Default accent color: Grey (Neutral) */
-    --accent-50: 250 250 250;
-    --accent-100: 245 245 245;
-    --accent-200: 229 229 229;
-    --accent-300: 212 212 212;
-    --accent-400: 163 163 163;
-    --accent-500: 115 115 115;
-    --accent-600: 82 82 82;
-    --accent-700: 64 64 64;
-    --accent-800: 38 38 38;
-    --accent-900: 23 23 23;
-    --accent-950: 10 10 10;
+
   }
 
   .dark {
@@ -137,12 +126,14 @@
   }
 
   /* Apple-style glassmorphism panel - medium blur */
+
   .glass-panel {
     @apply rounded-2xl border border-white/[0.08] bg-white/[0.08] backdrop-blur-2xl saturate-150 shadow-sm transition-all duration-300;
     @apply dark:border-white/10 dark:bg-white/[0.08];
   }
 
   /* Apple-style glassmorphism input */
+
   .glass-input {
     @apply border border-white/10 bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 shadow-glass backdrop-blur-xl;
     @apply dark:border-white/10 dark:bg-white/[0.08];
@@ -275,7 +266,7 @@
     @apply text-input-text font-bold;
   }
 
-  .text-primary {
+  .text-body-primary {
     @apply text-input-text;
   }
 
