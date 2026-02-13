@@ -20,6 +20,7 @@ import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
+import { getChatPatterns } from '../config/chatPatterns';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -227,11 +228,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const lastMessage = filteredMessages[filteredMessages.length - 1];
     const hasIntakeCta = Boolean(lastMessage?.metadata?.intakeReadyCta);
     const canHandleCta = hasIntakeCta && intakeConversationState?.ctaResponse !== 'ready';
-    const normalized = message.trim().toLowerCase();
-    const affirmativePattern = t('chat.affirmativePatterns', { defaultValue: '^(y|yea|yeah|yep|yup|yes|sure|ok|okay|ready|submit)$' });
-    const negativePattern = t('chat.negativePatterns', { defaultValue: '^(n|no|nope|not yet|later|wait)$' });
-    const isAffirmative = new RegExp(affirmativePattern, 'i').test(normalized);
-    const isNegative = new RegExp(negativePattern, 'i').test(normalized);
+    const normalized = message.trim();
+    const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
+    const isAffirmative = affirmative.test(normalized);
+    const isNegative = negative.test(normalized);
 
     if (canHandleCta && onIntakeCtaResponse) {
       if (isAffirmative) {
@@ -241,7 +241,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               await onSubmitNow();
             } catch (error) {
               console.error('Failed to submit via chat shortcut', error);
-              // Fallback or retry logic could go here
+              onIntakeCtaResponse('ready');
             }
           } else {
             onIntakeCtaResponse('ready');
@@ -531,6 +531,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                               await onSubmitNow();
                             } catch (error) {
                               console.error('Failed to submit via footer CTA', error);
+                              onIntakeCtaResponse?.('ready');
                             }
                             return;
                           }

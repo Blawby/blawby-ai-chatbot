@@ -1219,12 +1219,18 @@ export const useMessageHandling = ({
     const hasUserMessages = messages.some((msg) => msg.isUser);
     const trimmedMessage = message.trim();
 
-    if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState && !pendingIntakeInitRef.current) {
-      pendingIntakeInitRef.current = true;
-      updateConversationMetadata({ intakeConversationState: initialIntakeState })
-        .finally(() => {
+    if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
+      if (pendingIntakeInitRef.current) {
+         // Wait for initialization if another call is already handling it, or just proceed knowing it's started
+         // For now, allow proceed but ensure we don't double-init
+      } else {
+        pendingIntakeInitRef.current = true;
+        try {
+          await updateConversationMetadata({ intakeConversationState: initialIntakeState });
+        } finally {
           pendingIntakeInitRef.current = false;
-        });
+        }
+      }
     }
 
     try {
