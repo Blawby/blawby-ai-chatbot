@@ -355,8 +355,8 @@ const isEmailLike = (value: string): boolean => value.includes('@');
 const extractChangedFields = (metadata: Record<string, unknown>): string[] => {
   const raw = metadata.changed_fields;
   if (!Array.isArray(raw)) {
-    console.error('[PracticeMattersPage] Missing metadata.changed_fields for update activity', metadata);
-    throw new Error('Missing metadata.changed_fields for update activity');
+    console.warn('[PracticeMattersPage] Missing or invalid metadata.changed_fields for update activity', metadata);
+    return [];
   }
   const normalized = raw
     .filter((item): item is string => typeof item === 'string')
@@ -822,10 +822,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           if (fields.length === 1 && fields[0] === 'status') {
             const statusMeta = findStatusChangeMeta(activity, activities);
             if (!statusMeta) {
-              console.error('[PracticeMattersPage] Missing status change metadata for status-only update', activity);
-              throw new Error('Missing status change metadata for status-only update');
+              console.warn('[PracticeMattersPage] Missing status change metadata for status-only update', activity);
+            } else {
+              actionMeta = statusMeta;
             }
-            actionMeta = statusMeta;
             return undefined;
           }
           if (fields.length === 1) {
@@ -840,7 +840,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           return cleanedDescription ?? 'updated matter details.';
         }
         if (actionKey === 'matter_status_changed') {
-          extractChangedFields(metadata as Record<string, unknown>);
           return resolveStatusChangeLabel(metadata as Record<string, unknown>) ?? 'updated the status.';
         }
         if (actionKey.startsWith('time_entry_')) {

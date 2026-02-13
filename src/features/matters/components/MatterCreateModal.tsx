@@ -218,6 +218,7 @@ const MatterFormModalInner = ({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof MatterFormState, string>>>({});
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({
@@ -266,11 +267,32 @@ const MatterFormModalInner = ({
   });
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const canSubmit = Boolean(formState.title && formState.clientId);
+  const hasFormErrors = Object.keys(formErrors).length > 0;
+  const canSubmit = Boolean(formState.title && formState.clientId) && !hasFormErrors;
   const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
-    setFormState((prev) => ({ ...prev, [key]: value }));
+    setFormState((prev) => {
+      const next = { ...prev, [key]: value };
+
+      if (key === 'openDate' || key === 'closeDate') {
+        const { openDate, closeDate } = next;
+        if (openDate && closeDate && new Date(closeDate) < new Date(openDate)) {
+          setFormErrors((prevErrors) => ({
+            ...prevErrors,
+            closeDate: 'Close date cannot be earlier than open date'
+          }));
+        } else {
+          setFormErrors((prevErrors) => {
+            const nextErrors = { ...prevErrors };
+            delete nextErrors.closeDate;
+            return nextErrors;
+          });
+        }
+      }
+
+      return next;
+    });
   };
 
   const parseAssigneeInput = (value: string) =>
@@ -518,6 +540,8 @@ const MatterFormModalInner = ({
               type="date"
               value={formState.closeDate}
               onChange={(value) => updateForm('closeDate', value)}
+              error={formErrors.closeDate}
+              variant={formErrors.closeDate ? 'error' : 'default'}
             />
             <CurrencyInput
               label="Settlement amount"
