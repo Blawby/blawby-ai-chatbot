@@ -9,7 +9,7 @@ import { Combobox } from '@/shared/ui/input/Combobox';
 import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { Avatar } from '@/shared/ui/profile';
-import type { MatterOption } from '@/features/matters/data/matterTypes';
+import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
@@ -44,11 +44,6 @@ export type BillingType = 'hourly' | 'fixed' | 'contingency' | 'pro_bono';
 
 export type PaymentFrequency = 'project' | 'milestone';
 
-export type MatterMilestone = {
-  description: string;
-  dueDate: string;
-  amount?: MajorAmount;
-};
 
 export type MatterFormState = {
   title: string;
@@ -73,7 +68,7 @@ export type MatterFormState = {
   paymentFrequency?: PaymentFrequency;
   totalFixedPrice?: MajorAmount;
   settlementAmount?: MajorAmount;
-  milestones: MatterMilestone[];
+  milestones: MatterMilestoneFormInput[];
   contingencyPercent?: number;
   description: string;
   files: File[];
@@ -102,7 +97,7 @@ const BILLING_OPTIONS = [
   }
 ];
 
-const STATUS_OPTIONS: Array<{ value: MattersSidebarStatus; label: string }> = MATTER_WORKFLOW_STATUSES.map(
+const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WORKFLOW_STATUSES.map(
   (status) => ({
     value: status,
     label: MATTER_STATUS_LABELS[status]

@@ -20,6 +20,12 @@ export type MatterMilestone = {
   status?: 'pending' | 'in_progress' | 'completed' | 'overdue';
 };
 
+export type MatterMilestoneFormInput = {
+  description: string;
+  dueDate: string;
+  amount?: MajorAmount;
+};
+
 export type MatterTask = {
   id: string;
   title: string;
