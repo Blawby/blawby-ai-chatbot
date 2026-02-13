@@ -15,7 +15,6 @@ import {
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
-import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import {
   MATTER_STATUS_LABELS,
   MATTER_WORKFLOW_STATUSES,
@@ -166,7 +165,7 @@ const normalizeMatterStatus = (status?: string | null): MatterStatus => {
   return 'first_contact';
 };
 
-const mapStatusToBackend = (status: MattersSidebarStatus): MatterStatus => status;
+const mapStatusToBackend = (status: MatterStatus): MatterStatus => status;
 
 const prunePayload = (payload: Record<string, unknown>) =>
   Object.fromEntries(
@@ -1657,23 +1656,27 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     const payload: Partial<BackendMatter> = {
       title: values.title.trim(),
       description: values.description !== undefined ? values.description.trim() : undefined,
-      client_id: values.clientId || undefined,
-      practice_service_id: values.practiceAreaId || undefined,
-      case_number: values.caseNumber || undefined,
-      matter_type: values.matterType || undefined,
-      urgency: values.urgency || undefined,
-      responsible_attorney_id: values.responsibleAttorneyId && isUuid(values.responsibleAttorneyId)
-        ? values.responsibleAttorneyId
-        : undefined,
-      originating_attorney_id: values.originatingAttorneyId && isUuid(values.originatingAttorneyId)
-        ? values.originatingAttorneyId
-        : undefined,
-      court: values.court || undefined,
-      judge: values.judge || undefined,
-      opposing_party: values.opposingParty || undefined,
-      opposing_counsel: values.opposingCounsel || undefined,
-      open_date: values.openDate || undefined,
-      close_date: values.closeDate || undefined,
+      client_id: values.clientId === '' ? null : (values.clientId || undefined),
+      practice_service_id: values.practiceAreaId === '' ? null : (values.practiceAreaId || undefined),
+      case_number: values.caseNumber === '' ? null : (values.caseNumber || undefined),
+      matter_type: values.matterType === '' ? null : (values.matterType || undefined),
+      urgency: values.urgency === '' ? null : (values.urgency || undefined),
+      responsible_attorney_id: values.responsibleAttorneyId === ''
+        ? null
+        : values.responsibleAttorneyId && isUuid(values.responsibleAttorneyId)
+          ? values.responsibleAttorneyId
+          : undefined,
+      originating_attorney_id: values.originatingAttorneyId === ''
+        ? null
+        : values.originatingAttorneyId && isUuid(values.originatingAttorneyId)
+          ? values.originatingAttorneyId
+          : undefined,
+      court: values.court === '' ? null : (values.court || undefined),
+      judge: values.judge === '' ? null : (values.judge || undefined),
+      opposing_party: values.opposingParty === '' ? null : (values.opposingParty || undefined),
+      opposing_counsel: values.opposingCounsel === '' ? null : (values.opposingCounsel || undefined),
+      open_date: values.openDate === '' ? null : (values.openDate || undefined),
+      close_date: values.closeDate === '' ? null : (values.closeDate || undefined),
       admin_hourly_rate: values.adminHourlyRate ?? undefined,
       attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
       payment_frequency: values.paymentFrequency ?? undefined,
@@ -2088,8 +2091,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Settlement amount</p>
                         <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.settlementAmount !== undefined
-                            ? `$${selectedMatterDetail.settlementAmount.toFixed(2)}`
+                          {selectedMatterDetail.settlementAmount !== undefined && selectedMatterDetail.settlementAmount !== null
+                            ? formatCurrency(selectedMatterDetail.settlementAmount)
                             : '—'}
                         </p>
                       </div>

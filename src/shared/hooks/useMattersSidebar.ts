@@ -135,7 +135,7 @@ export function normalizeMattersResponse(
     // Validate status against allowed values
     let normalizedStatus: MattersSidebarStatus = 'first_contact';
     if (typeof item.status === 'string') {
-      const normalized = item.status.toLowerCase().replace(/\s+/g, '_');
+      const normalized = item.status.toLowerCase().replace(/[\s-]+/g, '_');
       if (VALID_STATUSES.includes(normalized as MattersSidebarStatus)) {
         normalizedStatus = normalized as MattersSidebarStatus;
       } else {

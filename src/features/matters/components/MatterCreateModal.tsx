@@ -10,8 +10,7 @@ import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { Avatar } from '@/shared/ui/profile';
 import type { MatterOption } from '@/features/matters/data/matterTypes';
-import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
-import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES } from '@/shared/types/matterStatus';
+import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outline';
@@ -56,7 +55,7 @@ export type MatterFormState = {
   clientId: string;
   practiceAreaId: string;
   assigneeIds: string[];
-  status: MattersSidebarStatus;
+  status: MatterStatus;
   caseNumber: string;
   matterType: string;
   urgency: 'routine' | 'time_sensitive' | 'emergency' | '';
@@ -163,9 +162,9 @@ const StatusPillGroup = ({
   onChange,
   options
 }: {
-  value: MattersSidebarStatus;
-  onChange: (value: MattersSidebarStatus) => void;
-  options: Array<{ value: MattersSidebarStatus; label: string }>;
+  value: MatterStatus;
+  onChange: (value: MatterStatus) => void;
+  options: Array<{ value: MatterStatus; label: string }>;
 }) => (
   <fieldset>
     <legend className="block text-sm font-medium text-input-text mb-1">Matter Status</legend>
@@ -190,7 +189,7 @@ const StatusPillGroup = ({
               name="matter-status"
               value={option.value}
               checked={isSelected}
-              onChange={() => onChange(option.value)}
+              onChange={() => onChange(option.value as MatterStatus)}
               className="sr-only"
             />
             {option.label}

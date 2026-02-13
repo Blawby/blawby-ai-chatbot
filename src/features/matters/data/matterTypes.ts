@@ -1,4 +1,4 @@
-import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
+import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { type MajorAmount } from '@/shared/utils/money';
 
@@ -7,7 +7,7 @@ export type MatterSummary = {
   title: string;
   clientName: string;
   practiceArea?: string | null;
-  status: MattersSidebarStatus;
+  status: MatterStatus;
   updatedAt: string;
   createdAt: string;
 };
