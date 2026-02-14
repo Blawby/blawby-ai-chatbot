@@ -308,7 +308,7 @@ export const PracticeSetup = ({
                     setBasicsDraft((prev) => ({ ...prev, accentColor: value }))
                   }
                   onBlur={(event) => {
-                    const value = event.target.value;
+                    const value = (event.target as HTMLInputElement).value;
                     const normalized = normalizeAccentColor(value);
                     setBasicsDraft((prev) => ({
                       ...prev,

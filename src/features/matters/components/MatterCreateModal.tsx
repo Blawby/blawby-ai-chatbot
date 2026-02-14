@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'preact/hooks';
-import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Textarea } from '@/shared/ui/input/Textarea';
@@ -19,11 +18,11 @@ import { cn } from '@/shared/utils/cn';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
+import { Panel } from '@/shared/ui/layout/Panel';
 
 type MatterFormMode = 'create' | 'edit';
 
 interface MatterFormModalProps {
-  isOpen: boolean;
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
   clients: MatterOption[];
@@ -196,7 +195,6 @@ const StatusPillGroup = ({
 );
 
 const MatterFormModalInner = ({
-  isOpen,
   onClose,
   onSubmit,
   clients,
@@ -354,16 +352,9 @@ const MatterFormModalInner = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={modalTitle}
-      type="fullscreen"
-      contentClassName="bg-surface-base"
-      headerClassName="bg-surface-base"
-    >
+    <Panel className="p-4 sm:p-6 lg:p-8">
       <form
-        className="space-y-6 max-w-3xl mx-auto px-4 py-6 sm:px-6 lg:px-8"
+        className="space-y-6 max-w-4xl mx-auto"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!canSubmit) return;
@@ -387,9 +378,7 @@ const MatterFormModalInner = ({
           }
         }}
       >
-        <h1 className="text-3xl font-bold text-input-text">
-          {mode === 'edit' ? 'Edit matter' : 'Propose new matter'}
-        </h1>
+        <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
 
         <Input
           label="Matter Title"
@@ -835,7 +824,7 @@ const MatterFormModalInner = ({
           </div>
         </div>
       </form>
-    </Modal>
+    </Panel>
   );
 };
 
@@ -856,3 +845,6 @@ export const MatterCreateModal = (props: MatterCreateModalProps) => (
 export const MatterEditModal = (props: MatterEditModalProps) => (
   <MatterFormModal {...props} mode="edit" />
 );
+
+export const MatterCreateForm = MatterCreateModal;
+export const MatterEditForm = MatterEditModal;

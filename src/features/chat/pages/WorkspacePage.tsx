@@ -653,18 +653,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         <div className="flex min-h-0 w-full flex-col lg:h-full lg:flex-row lg:overflow-hidden">
           {/* Left column */}
           <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-            <div
-              className="pointer-events-none absolute -right-32 top-4 h-96 w-96 rounded-full bg-accent-500/50 blur-[170px] dark:bg-accent-500/45"
-              aria-hidden="true"
-            />
-            <div
-              className="pointer-events-none absolute -left-24 top-36 h-72 w-72 rounded-full bg-primary-500/25 blur-[160px] dark:bg-primary-600/30"
-              aria-hidden="true"
-            />
-            <div
-              className="pointer-events-none absolute bottom-0 left-1/3 h-56 w-56 rounded-full bg-amber-500/25 blur-[150px] dark:bg-amber-400/30"
-              aria-hidden="true"
-            />
             <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
               <Page className="mx-auto w-full max-w-3xl flex-1">
                 <PracticeSetup
@@ -686,7 +674,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
           {/* Right: Public Preview */}
           <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
-            <div className="pointer-events-none absolute -top-12 right-6 h-28 w-28 rounded-full bg-accent-500/20 blur-3xl" />
             <div className="relative flex w-full flex-col items-center gap-5">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
               Public preview
@@ -932,7 +919,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   return (
     <AppShell
-      className="bg-surface-base h-dvh"
+      className="bg-transparent h-dvh"
+      accentBackdropVariant={workspace === 'practice' ? 'workspace' : 'none'}
       sidebar={sidebarNav}
       main={mainShell}
       mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}

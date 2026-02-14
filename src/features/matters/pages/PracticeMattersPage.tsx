@@ -28,7 +28,7 @@ import {
   type MatterSummary,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
-import { MatterCreateModal, MatterEditModal, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import { MatterCreateForm, MatterEditForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
@@ -580,8 +580,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const pathSuffix = location.path.startsWith(basePath)
     ? location.path.slice(basePath.length)
     : '';
-  const firstSegment = pathSuffix.replace(/^\/+/, '').split('/')[0] ?? '';
-  const selectedMatterId = firstSegment && firstSegment !== 'activity'
+  const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
+  const firstSegment = pathSegments[0] ?? '';
+  const secondSegment = pathSegments[1] ?? '';
+  const isCreateRoute = firstSegment === 'new';
+  const isEditRoute = Boolean(firstSegment) && secondSegment === 'edit';
+  const selectedMatterId = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
   const conversationBasePath = basePath.endsWith('/matters')
@@ -648,13 +652,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
   const [activeTab, setActiveTab] = useState<MatterTabId>('all');
   const [sortOption, setSortOption] = useState<SortOption>('updated');
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [modalKey, setModalKey] = useState(0);
   const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
   const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
   const refreshRequestIdRef = useRef(0);
+  const createdMatterIdRef = useRef<string | null>(null);
 
   const refreshMatters = useCallback(() => {
     setMattersRefreshKey((prev) => prev + 1);
@@ -1599,10 +1601,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     const created = await createMatter(activePracticeId, prunePayload(payload));
     refreshMatters();
-    if (created?.id) {
-      location.route(`${basePath}/${encodeURIComponent(created.id)}`);
-    }
-  }, [activePracticeId, basePath, location, refreshMatters]);
+    createdMatterIdRef.current = created?.id ?? null;
+  }, [activePracticeId, refreshMatters]);
 
   const refreshSelectedMatter = useCallback(async () => {
     if (!activePracticeId || !selectedMatterId) return;
@@ -1818,7 +1818,173 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     };
   }, [assigneeOptions, clientOptions, resolvedSelectedMatter, selectedMatterDetail]);
 
-  if (selectedMatterId) {
+  if (isCreateRoute) {
+    return (
+      <Page className="min-h-full">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+          <Breadcrumbs
+            items={[
+              { label: 'Matters', href: basePath },
+              { label: 'Create matter' }
+            ]}
+            onNavigate={(href) => location.route(href)}
+          />
+          <PageHeader
+            title="Create Matter"
+            subtitle="Capture matter details, billing structure, and assignment in one place."
+            actions={(
+              <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
+                Back to matters
+              </Button>
+            )}
+          />
+          <MatterCreateForm
+            onClose={() => {
+              const createdMatterId = createdMatterIdRef.current;
+              createdMatterIdRef.current = null;
+              if (createdMatterId) {
+                location.route(`${basePath}/${encodeURIComponent(createdMatterId)}`);
+                return;
+              }
+              location.route(basePath);
+            }}
+            onSubmit={handleCreateMatter}
+            clients={clientOptions}
+            practiceAreas={practiceAreaOptions}
+            practiceAreasLoading={servicesLoading}
+            assignees={assigneeOptions}
+          />
+        </div>
+      </Page>
+    );
+  }
+
+  if (isEditRoute && selectedMatterId) {
+    if (detailLoading && !resolvedSelectedMatter) {
+      return (
+        <Page className="h-full">
+          <LoadingState message="Loading matter details..." />
+        </Page>
+      );
+    }
+
+    if (detailError && !resolvedSelectedMatter) {
+      return (
+        <Page className="h-full">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <PageHeader
+              title="Unable to load matter"
+              subtitle={detailError}
+              actions={(
+                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
+                  Back to matters
+                </Button>
+              )}
+            />
+          </div>
+        </Page>
+      );
+    }
+
+    if (!resolvedSelectedMatter) {
+      return (
+        <Page className="h-full">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <PageHeader
+              title="Matter not found"
+              subtitle="This matter may have been removed or is no longer available."
+              actions={(
+                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
+                  Back to matters
+                </Button>
+              )}
+            />
+            <section className="glass-panel p-6">
+              <p className="text-sm text-input-placeholder">
+                We could not find a matter with the ID{' '}
+                <span className="font-mono text-input-text">{selectedMatterId}</span>
+                {' '}in this workspace.
+              </p>
+            </section>
+          </div>
+        </Page>
+      );
+    }
+
+    if (!selectedMatterDetail) {
+      return (
+        <Page className="h-full">
+          <LoadingState message="Loading matter details..." />
+        </Page>
+      );
+    }
+
+    return (
+      <Page className="min-h-full">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+          <Breadcrumbs
+            items={[
+              { label: 'Matters', href: basePath },
+              { label: resolvedSelectedMatter.title, href: `${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}` },
+              { label: 'Edit' }
+            ]}
+            onNavigate={(href) => location.route(href)}
+          />
+          <PageHeader
+            title="Edit Matter"
+            subtitle={`Update details for ${resolvedSelectedMatter.title}.`}
+            actions={(
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}`)}
+              >
+                Back to matter
+              </Button>
+            )}
+          />
+          <MatterEditForm
+            key={`edit-${selectedMatterId}`}
+            onClose={() => location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}`)}
+            onSubmit={handleUpdateMatter}
+            clients={clientOptions}
+            practiceAreas={practiceAreaOptions}
+            practiceAreasLoading={servicesLoading}
+            assignees={assigneeOptions}
+            initialValues={{
+              title: selectedMatterDetail.title,
+              clientId: selectedMatterDetail.clientId,
+              practiceAreaId: selectedMatterDetail.practiceAreaId,
+              assigneeIds: selectedMatterDetail.assigneeIds,
+              status: selectedMatterDetail.status,
+              caseNumber: selectedMatterDetail.caseNumber ?? '',
+              matterType: selectedMatterDetail.matterType ?? '',
+              urgency: selectedMatterDetail.urgency ?? '',
+              responsibleAttorneyId: selectedMatterDetail.responsibleAttorneyId ?? '',
+              originatingAttorneyId: selectedMatterDetail.originatingAttorneyId ?? '',
+              court: selectedMatterDetail.court ?? '',
+              judge: selectedMatterDetail.judge ?? '',
+              opposingParty: selectedMatterDetail.opposingParty ?? '',
+              opposingCounsel: selectedMatterDetail.opposingCounsel ?? '',
+              openDate: selectedMatterDetail.openDate ?? '',
+              closeDate: selectedMatterDetail.closeDate ?? '',
+              billingType: selectedMatterDetail.billingType,
+              attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
+              adminHourlyRate: selectedMatterDetail.adminHourlyRate,
+              paymentFrequency: selectedMatterDetail.paymentFrequency,
+              totalFixedPrice: selectedMatterDetail.totalFixedPrice,
+              settlementAmount: selectedMatterDetail.settlementAmount,
+              milestones: selectedMatterDetail.milestones ?? [],
+              contingencyPercent: selectedMatterDetail.contingencyPercent,
+              description: selectedMatterDetail.description
+            }}
+          />
+        </div>
+      </Page>
+    );
+  }
+
+  if (selectedMatterId && !isEditRoute) {
     if (detailLoading && !resolvedSelectedMatter) {
       return (
         <Page className="h-full">
@@ -1913,8 +2079,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   size="sm"
                   disabled={!selectedMatterDetail}
                   onClick={() => {
-                    setModalKey((prev) => prev + 1);
-                    setIsEditOpen(true);
+                    location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}/edit`);
                   }}
                 >
                   Edit Matter
@@ -2209,46 +2374,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           </section>
         </div>
         
-        {isEditOpen && selectedMatterDetail && (
-          <MatterEditModal
-            key={modalKey}
-            isOpen={isEditOpen}
-            onClose={() => setIsEditOpen(false)}
-            onSubmit={handleUpdateMatter}
-            clients={clientOptions}
-            practiceAreas={practiceAreaOptions}
-            practiceAreasLoading={servicesLoading}
-            assignees={assigneeOptions}
-            initialValues={{
-              title: selectedMatterDetail.title,
-              clientId: selectedMatterDetail.clientId,
-              practiceAreaId: selectedMatterDetail.practiceAreaId,
-              assigneeIds: selectedMatterDetail.assigneeIds,
-              status: selectedMatterDetail.status,
-              caseNumber: selectedMatterDetail.caseNumber ?? '',
-              matterType: selectedMatterDetail.matterType ?? '',
-              urgency: selectedMatterDetail.urgency ?? '',
-              responsibleAttorneyId: selectedMatterDetail.responsibleAttorneyId ?? '',
-              originatingAttorneyId: selectedMatterDetail.originatingAttorneyId ?? '',
-              court: selectedMatterDetail.court ?? '',
-              judge: selectedMatterDetail.judge ?? '',
-              opposingParty: selectedMatterDetail.opposingParty ?? '',
-              opposingCounsel: selectedMatterDetail.opposingCounsel ?? '',
-              openDate: selectedMatterDetail.openDate ?? '',
-              closeDate: selectedMatterDetail.closeDate ?? '',
-              billingType: selectedMatterDetail.billingType,
-              attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
-              adminHourlyRate: selectedMatterDetail.adminHourlyRate,
-              paymentFrequency: selectedMatterDetail.paymentFrequency,
-              totalFixedPrice: selectedMatterDetail.totalFixedPrice,
-              settlementAmount: selectedMatterDetail.settlementAmount,
-              milestones: selectedMatterDetail.milestones ?? [],
-              contingencyPercent: selectedMatterDetail.contingencyPercent,
-              description: selectedMatterDetail.description
-            }}
-          />
-        )}
-
         {isQuickTimeEntryOpen && (
           <Modal
             isOpen={isQuickTimeEntryOpen}
@@ -2275,10 +2400,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           subtitle="Track matter progress, client updates, and case milestones."
           actions={(
             <div className="flex items-center gap-2">
-              <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => {
-                setModalKey((prev) => prev + 1);
-                setIsCreateOpen(true);
-              }} disabled={!activePracticeId}>
+              <Button
+                size="sm"
+                icon={<PlusIcon className="h-4 w-4" />}
+                onClick={() => location.route(`${basePath}/new`)}
+                disabled={!activePracticeId}
+              >
                 Create Matter
               </Button>
             </div>
@@ -2345,10 +2472,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               <LoadingState message="Loading matters..." />
             ) : sortedMatterSummaries.length === 0 ? (
               <EmptyState
-                onCreate={() => {
-                  setModalKey((prev) => prev + 1);
-                  setIsCreateOpen(true);
-                }}
+                onCreate={() => location.route(`${basePath}/new`)}
                 disableCreate={!activePracticeId}
               />
             ) : (
@@ -2375,18 +2499,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         </div>
       </div>
 
-      {isCreateOpen && (
-        <MatterCreateModal
-          key={modalKey}
-          isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
-          onSubmit={handleCreateMatter}
-          clients={clientOptions}
-          practiceAreas={practiceAreaOptions}
-          practiceAreasLoading={servicesLoading}
-          assignees={assigneeOptions}
-        />
-      )}
     </Page>
   );
 };
