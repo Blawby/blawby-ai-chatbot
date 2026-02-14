@@ -32,6 +32,7 @@ import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { createConnectedAccount, getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
+import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
@@ -287,6 +288,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     const trimmedName = values.name.trim();
     const trimmedSlug = values.slug.trim();
     const trimmedIntro = values.introMessage.trim();
+    const normalizedAccentColor = normalizeAccentColor(values.accentColor);
+    if (!normalizedAccentColor) {
+      const error = new Error('Accent color must be a valid hex value (for example #3B82F6).');
+      showError('Invalid accent color', error.message);
+      throw error;
+    }
     const practiceUpdates: Record<string, string> = {};
 
     if (trimmedName && trimmedName !== (currentPractice.name ?? '')) {
@@ -297,8 +304,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     const introSource = setupDetails?.introMessage ?? currentPractice?.introMessage ?? '';
     const introChanged = trimmedIntro !== introSource;
-    const accentSource = setupDetails?.accentColor ?? currentPractice?.accentColor ?? 'grey';
-    const accentChanged = values.accentColor !== accentSource;
+    const accentSource = normalizeAccentColor(setupDetails?.accentColor ?? currentPractice?.accentColor);
+    const accentChanged = normalizedAccentColor !== accentSource;
 
     try {
       if (Object.keys(practiceUpdates).length > 0) {
@@ -307,7 +314,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       if (introChanged || accentChanged) {
         await updateSetupDetails({
           ...(introChanged ? { introMessage: trimmedIntro.length > 0 ? trimmedIntro : null } : {}),
-          ...(accentChanged ? { accentColor: values.accentColor } : {})
+          ...(accentChanged ? { accentColor: normalizedAccentColor } : {})
         });
       }
       if (Object.keys(practiceUpdates).length > 0 || introChanged || accentChanged) {

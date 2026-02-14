@@ -118,14 +118,99 @@ export const ACCENT_COLORS: Record<AccentColor, Record<string, string>> = {
   },
 };
 
+const DEFAULT_ACCENT_COLOR: AccentColor = 'grey';
+const HEX_COLOR_PATTERN = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+const rgbStringToHex = (value: string): string | null => {
+  const parts = value.split(/\s+/).filter(Boolean).map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return null;
+  }
+  return `#${parts.map((part) => part.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+};
+
+const normalizeHexColor = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!HEX_COLOR_PATTERN.test(trimmed)) return null;
+  if (trimmed.length === 4) {
+    const [hash, r, g, b] = trimmed;
+    return `${hash}${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  return trimmed.toUpperCase();
+};
+
+const mixChannel = (base: number, target: number, ratio: number): number =>
+  Math.round(base + (target - base) * ratio);
+
+const mixRgb = (
+  rgb: [number, number, number],
+  target: [number, number, number],
+  ratio: number
+): [number, number, number] => [
+  mixChannel(rgb[0], target[0], ratio),
+  mixChannel(rgb[1], target[1], ratio),
+  mixChannel(rgb[2], target[2], ratio)
+];
+
+const rgbTupleToCss = (rgb: [number, number, number]): string => `${rgb[0]} ${rgb[1]} ${rgb[2]}`;
+
+const hexToRgbTuple = (hex: string): [number, number, number] => [
+  Number.parseInt(hex.slice(1, 3), 16),
+  Number.parseInt(hex.slice(3, 5), 16),
+  Number.parseInt(hex.slice(5, 7), 16)
+];
+
+const buildPaletteFromHex = (hex: string): Record<string, string> => {
+  const base = hexToRgbTuple(hex);
+  const white: [number, number, number] = [255, 255, 255];
+  const black: [number, number, number] = [0, 0, 0];
+
+  return {
+    '50': rgbTupleToCss(mixRgb(base, white, 0.94)),
+    '100': rgbTupleToCss(mixRgb(base, white, 0.88)),
+    '200': rgbTupleToCss(mixRgb(base, white, 0.72)),
+    '300': rgbTupleToCss(mixRgb(base, white, 0.54)),
+    '400': rgbTupleToCss(mixRgb(base, white, 0.24)),
+    '500': rgbTupleToCss(base),
+    '600': rgbTupleToCss(mixRgb(base, black, 0.14)),
+    '700': rgbTupleToCss(mixRgb(base, black, 0.28)),
+    '800': rgbTupleToCss(mixRgb(base, black, 0.42)),
+    '900': rgbTupleToCss(mixRgb(base, black, 0.56)),
+    '950': rgbTupleToCss(mixRgb(base, black, 0.68))
+  };
+};
+
+const resolveAccentPalette = (value?: string | null): Record<string, string> | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed in ACCENT_COLORS) {
+    return ACCENT_COLORS[trimmed as AccentColor];
+  }
+  const normalizedHex = normalizeHexColor(trimmed);
+  if (!normalizedHex) return null;
+  return buildPaletteFromHex(normalizedHex);
+};
+
+export function normalizeAccentColor(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed in ACCENT_COLORS) {
+    return rgbStringToHex(ACCENT_COLORS[trimmed as AccentColor]['500']);
+  }
+  return normalizeHexColor(trimmed);
+}
+
 /**
  * Apply an accent color to the document root
  * Updates all accent color shades which are used in gradients and UI elements
  * @param color - The accent color to apply
  */
-export function applyAccentColor(color: AccentColor): void {
+export function applyAccentColor(color: AccentColor | string): void {
   if (typeof document === 'undefined' || !document.documentElement) return;
-  const colorValues = ACCENT_COLORS[color];
+  const colorValues = resolveAccentPalette(color);
+  if (!colorValues) return;
   const root = document.documentElement;
 
   // Apply accent color shades - these are used throughout the app
@@ -133,6 +218,7 @@ export function applyAccentColor(color: AccentColor): void {
   Object.entries(colorValues).forEach(([shade, rgb]) => {
     root.style.setProperty(`--accent-${shade}`, rgb);
   });
+  root.style.setProperty('--accent-color', `rgb(${colorValues['500']})`);
 }
 
 /**
@@ -158,17 +244,16 @@ export function getCurrentAccentColor(): AccentColor | null {
 }
 
 /**
- * Initialize accent color from user preferences
+ * Initialize accent color from a saved setting (practice details or legacy values)
  * Should be called on app startup
  */
 export function initializeAccentColor(savedColor?: string | null): void {
-  if (!savedColor) return;
-  const color = savedColor as AccentColor;
-  
-  // Validate the color
-  if (color in ACCENT_COLORS) {
-    applyAccentColor(color);
+  const requested = savedColor?.trim();
+  if (requested && resolveAccentPalette(requested)) {
+    applyAccentColor(requested);
+    return;
   }
+  applyAccentColor(DEFAULT_ACCENT_COLOR);
 }
 
 /**

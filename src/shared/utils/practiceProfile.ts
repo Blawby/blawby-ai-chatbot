@@ -17,6 +17,7 @@ export type PracticeProfileInput = {
   postalCode?: string | null;
   country?: string | null;
   introMessage?: string | null;
+  accentColor?: string | null;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
 };
@@ -130,6 +131,11 @@ export const buildPracticeProfilePayloads = (
   const introMessage = normalizeOptionalText(input.introMessage);
   if (introMessage !== undefined && shouldInclude(introMessage, normalizeOptionalText(compareTo.introMessage))) {
     detailsPayload.introMessage = introMessage;
+  }
+
+  const accentColor = normalizeOptionalText(input.accentColor);
+  if (accentColor !== undefined && shouldInclude(accentColor, normalizeOptionalText(compareTo.accentColor))) {
+    detailsPayload.accentColor = accentColor;
   }
 
   const description = normalizeOptionalText(input.description);

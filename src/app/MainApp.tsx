@@ -36,7 +36,6 @@ import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceCon
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-import type { GeneralPreferences } from '@/shared/types/preferences';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
 export type LayoutMode = 'embed' | 'mobile' | 'desktop';
@@ -143,26 +142,6 @@ export function MainApp({
 
   const activeConversationId = normalizedRouteConversationId ?? conversationId;
 
-  // Synchronize Accent Color based on workspace and config/preferences
-  useEffect(() => {
-    if (workspace === 'public' || workspace === 'client') {
-      initializeAccentColor(practiceConfig.accentColor);
-    } else if (workspace === 'practice') {
-      // In practice view, try to get from general preferences
-      void (async () => {
-        try {
-          const prefs = await getPreferencesCategory<GeneralPreferences>('general');
-          initializeAccentColor(prefs?.accent_color);
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.warn('[MainApp] Failed to load accent color preferences', error);
-          }
-          // No fallback - let it fail visibly
-        }
-      })();
-    }
-  }, [workspace, practiceConfig.accentColor]);
-
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
   const isAuthenticatedClient = Boolean(
@@ -210,16 +189,37 @@ export function MainApp({
   const practiceDetailsId = workspace === 'public'
     ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
     : practiceId;
+  const practiceDetailsSlug = workspace === 'public'
+    ? resolvedPublicPracticeSlug
+    : workspace === 'client'
+      ? resolvedClientPracticeSlug
+      : (currentPractice?.slug ?? practiceConfig.slug ?? null);
   const {
     details: practiceDetails,
     fetchDetails: fetchPracticeDetails,
     hasDetails: hasPracticeDetails
-  } = usePracticeDetails(practiceDetailsId);
+  } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug);
 
   useEffect(() => {
     if (!practiceDetailsId || hasPracticeDetails) return;
     void fetchPracticeDetails();
   }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
+
+  useEffect(() => {
+    if (workspace === 'public' || workspace === 'client') {
+      initializeAccentColor(practiceConfig.accentColor);
+      return;
+    }
+    const practiceAccentColor = practiceDetails?.accentColor
+      ?? currentPractice?.accentColor
+      ?? practiceConfig.accentColor;
+    initializeAccentColor(practiceAccentColor);
+  }, [
+    currentPractice?.accentColor,
+    practiceConfig.accentColor,
+    practiceDetails?.accentColor,
+    workspace
+  ]);
 
 
 
