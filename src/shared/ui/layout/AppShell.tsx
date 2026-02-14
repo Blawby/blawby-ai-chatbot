@@ -55,7 +55,7 @@ export const AppShell = ({
     }
     if (accentBackdropVariant === 'workspace') {
       return {
-        gradientClassName: 'absolute left-0 top-0 h-[420px] w-[78%] bg-gradient-to-br from-accent-600/30 via-accent-700/10 to-transparent',
+        gradientClassName: 'absolute inset-0 bg-[radial-gradient(120%_90%_at_0%_0%,rgb(var(--accent-500)_/_0.22)_0%,rgb(var(--accent-600)_/_0.12)_35%,transparent_72%)]',
         leftOrbClassName: 'absolute -left-24 -top-20 h-72 w-72 rounded-full bg-accent-500/25 blur-3xl',
         rightOrbClassName: 'absolute right-8 top-20 h-28 w-28 rounded-full bg-white/[0.08] blur-3xl'
       };
