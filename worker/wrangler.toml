@@ -144,10 +144,6 @@ name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
 [[env.staging.migrations]]
-tag = "v2"
-new_classes = ["ChatRoom"]
-
-[[env.staging.migrations]]
 tag = "v5"
 new_classes = ["MatterProgressRoom"]
 
