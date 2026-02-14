@@ -400,16 +400,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'embed');
   const shouldFrame = resolvedLayoutMode !== 'desktop';
-  const containerClassName = isPublicWorkspace && !shouldFrame
-    ? 'flex flex-col min-h-0 flex-1 h-full w-full m-0 p-0 relative overflow-hidden'
-    : `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden glass-panel rounded-none border-0`;
+  const containerClassName = `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden bg-transparent border-0 rounded-none shadow-none`;
   const mainClassName = isPublicWorkspace && !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
     : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
   const frameClassName = !shouldFrame
     ? 'flex flex-col flex-1 min-h-0 w-full'
     : (isPublicWorkspace
-      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-3xl bg-surface-glass/40 backdrop-blur-xl shadow-glass border border-line-glass/30 overflow-hidden'
+      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
       : 'flex flex-col flex-1 min-h-0 w-full');
 
   const handleReply = (target: ReplyTarget) => {
@@ -477,74 +475,76 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               )}
             </div>
 
-            {shouldShowSlimForm && onSlimFormContinue ? (
-              <div className="pl-4 pr-4 pb-3 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]">
-                <ContactForm
-                  onSubmit={onSlimFormContinue}
-                  fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}
-                  required={['name', 'email', 'phone', 'city', 'state']}
-                  initialValues={slimContactDraft ?? undefined}
-                  variant="plain"
-                  showSubmitButton={true}
-                  submitLabel={t('chat.continue')}
-                />
-              </div>
-            ) : (
-              <MessageComposer
-                inputValue={inputValue}
-                setInputValue={setInputValue}
-                previewFiles={previewFiles}
-                uploadingFiles={uploadingFiles}
-                removePreviewFile={removePreviewFile}
-                handleFileSelect={handleFileSelect}
-                handleCameraCapture={handleCameraCapture}
-                cancelUpload={cancelUpload}
-                isRecording={isRecording}
-                handleMediaCapture={handleMediaCapture}
-                setIsRecording={setIsRecording}
-                onSubmit={handleSubmit}
-                onKeyDown={handleKeyDown}
-                textareaRef={textareaRef}
-                isReadyToUpload={isReadyToUpload}
-                isSessionReady={isSessionReady}
-                isSocketReady={isSocketReady}
-                intakeStatus={intakeStatus}
-                disabled={composerDisabled}
-                showStatusMessage={!isPublicWorkspace}
-                replyTo={replyTarget}
-                onCancelReply={handleCancelReply}
-                footerActions={(() => {
-                  if (!isPublicWorkspace) return null;
-                  if (!intakeConversationState) return null;
-                  if (intakeConversationState.ctaResponse === 'ready') return null;
-                  const MIN_NOT_YET_COUNT_FOR_CTA = 2;
-                  if ((intakeConversationState.notYetCount ?? 0) < MIN_NOT_YET_COUNT_FOR_CTA) return null;
-                  return (
-                    <div className="mt-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full"
-                        onClick={async () => {
-                          if (onSubmitNow) {
-                            try {
-                              await onSubmitNow();
-                            } catch (error) {
-                              console.error('Failed to submit via footer CTA', error);
-                              onIntakeCtaResponse?.('ready');
+            <div className="sticky bottom-0 z-[1000] w-full">
+              {shouldShowSlimForm && onSlimFormContinue ? (
+                <div className="pl-4 pr-4 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
+                  <ContactForm
+                    onSubmit={onSlimFormContinue}
+                    fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}
+                    required={['name', 'email', 'phone', 'city', 'state']}
+                    initialValues={slimContactDraft ?? undefined}
+                    variant="plain"
+                    showSubmitButton={true}
+                    submitLabel={t('chat.continue')}
+                  />
+                </div>
+              ) : (
+                <MessageComposer
+                  inputValue={inputValue}
+                  setInputValue={setInputValue}
+                  previewFiles={previewFiles}
+                  uploadingFiles={uploadingFiles}
+                  removePreviewFile={removePreviewFile}
+                  handleFileSelect={handleFileSelect}
+                  handleCameraCapture={handleCameraCapture}
+                  cancelUpload={cancelUpload}
+                  isRecording={isRecording}
+                  handleMediaCapture={handleMediaCapture}
+                  setIsRecording={setIsRecording}
+                  onSubmit={handleSubmit}
+                  onKeyDown={handleKeyDown}
+                  textareaRef={textareaRef}
+                  isReadyToUpload={isReadyToUpload}
+                  isSessionReady={isSessionReady}
+                  isSocketReady={isSocketReady}
+                  intakeStatus={intakeStatus}
+                  disabled={composerDisabled}
+                  showStatusMessage={!isPublicWorkspace}
+                  replyTo={replyTarget}
+                  onCancelReply={handleCancelReply}
+                  footerActions={(() => {
+                    if (!isPublicWorkspace) return null;
+                    if (!intakeConversationState) return null;
+                    if (intakeConversationState.ctaResponse === 'ready') return null;
+                    const MIN_NOT_YET_COUNT_FOR_CTA = 2;
+                    if ((intakeConversationState.notYetCount ?? 0) < MIN_NOT_YET_COUNT_FOR_CTA) return null;
+                    return (
+                      <div className="mt-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full"
+                          onClick={async () => {
+                            if (onSubmitNow) {
+                              try {
+                                await onSubmitNow();
+                              } catch (error) {
+                                console.error('Failed to submit via footer CTA', error);
+                                onIntakeCtaResponse?.('ready');
+                              }
+                              return;
                             }
-                            return;
-                          }
-                          onIntakeCtaResponse?.('ready');
-                        }}
-                      >
-                        {t('chat.submitRequest')}
-                      </Button>
-                    </div>
-                  );
-                })()}
-              />
-            )}
+                            onIntakeCtaResponse?.('ready');
+                          }}
+                        >
+                          {t('chat.submitRequest')}
+                        </Button>
+                      </div>
+                    );
+                  })()}
+                />
+              )}
+            </div>
           </div>
         ) : null}
       </main>

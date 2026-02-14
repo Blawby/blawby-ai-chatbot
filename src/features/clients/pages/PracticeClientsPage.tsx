@@ -905,7 +905,7 @@ export const PracticeClientsPage = () => {
               </div>
             )}
           />
-          <Panel className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden bg-transparent">
             <SplitView
               className="h-full min-h-[560px]"
               primary={(
@@ -914,18 +914,20 @@ export const PracticeClientsPage = () => {
                     ref={listRef}
                     className="h-full overflow-y-auto"
                   >
-                    <ul className="divide-y divide-line-glass/30">
+                    <ul>
                       {letters.map((letter) => (
                         <Fragment key={letter}>
                           <li
                             data-letter={letter}
-                            className="sticky top-0 z-10 bg-white/90 dark:bg-[#1a1b1e]/90 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-input-placeholder border-b border-line-glass/15"
+                            className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder"
                           >
                             {letter}
                           </li>
-                          {groupedClients[letter].map((client) => {
+                          <li aria-hidden="true" className="border-b border-line-glass/20" />
+                          {groupedClients[letter].map((client, index) => {
                             const isActive = client.id === selectedClient?.id;
                             const nameParts = splitName(client.name);
+                            const isLastInLetterGroup = index === groupedClients[letter].length - 1;
                             return (
                               <li key={client.id}>
                                 <Button
@@ -933,17 +935,17 @@ export const PracticeClientsPage = () => {
                                   onClick={() => handleSelectClient(client.id)}
                                   aria-current={isActive ? 'true' : undefined}
                                   className={cn(
-                                    'w-full justify-start px-4 py-3 h-auto rounded-none transition-all duration-200',
+                                    'w-full justify-start px-4 py-3.5 h-auto rounded-none transition-colors duration-150',
                                     isActive
-                                      ? 'bg-accent-500/10 border-l-2 border-accent-500'
-                                      : 'hover:bg-white/[0.05] border-l-2 border-transparent'
+                                      ? 'bg-transparent'
+                                      : 'hover:bg-white/[0.03]'
                                   )}
                                 >
                                   <div className="flex items-center gap-4 w-full">
                                     <Avatar
                                       name={client.name}
                                       size="sm"
-                                      className="bg-white/10 text-input-text ring-1 ring-white/20"
+                                      className="text-input-text"
                                     />
                                     <div className="min-w-0 flex-1 text-left">
                                       <p className="text-sm text-input-text truncate">
@@ -959,6 +961,9 @@ export const PracticeClientsPage = () => {
                                     </div>
                                   </div>
                                 </Button>
+                                {!isLastInLetterGroup && (
+                                  <div aria-hidden="true" className="border-b border-line-glass/20" />
+                                )}
                               </li>
                             );
                           })}
@@ -1025,7 +1030,7 @@ export const PracticeClientsPage = () => {
               )}
               secondaryClassName="hidden md:block"
             />
-          </Panel>
+          </div>
         </div>
 
         {selectedClient && (

@@ -56,7 +56,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   });
 
   return (
-    <div className="flex h-full flex-col glass-panel rounded-3xl">
+    <div className="flex h-full flex-col bg-transparent">
       <div className="relative flex min-h-[56px] items-center justify-center border-b border-line-glass/30 bg-transparent px-4 py-3">
         {showBackButton && onClose && (
           <div className="absolute left-3 top-1/2 -translate-y-1/2">
@@ -74,7 +74,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         <div className="text-sm font-semibold text-input-text">{t('workspace.conversationList.title')}</div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
         ) : error ? (
@@ -84,7 +84,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         ) : sorted.length === 0 ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.empty')}</div>
         ) : (
-          <div className="divide-y divide-line-glass/30">
+          <div className="divide-y divide-line-glass/20">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
               const title = resolveConversationTitle(conversation, fallbackName);
@@ -99,7 +99,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 <button
                   key={conversation.id}
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-4 text-left transition-all duration-300 hover:bg-white/10 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+                  className="flex w-full items-center gap-3 px-2 py-4 text-left transition-colors duration-150 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <Avatar

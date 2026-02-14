@@ -507,7 +507,10 @@ export const useMessageHandling = ({
       content: msg.content,
       reply_to_message_id: msg.reply_to_message_id ?? null,
       timestamp: new Date(msg.created_at).getTime(),
-      metadata: msg.metadata || undefined,
+      metadata: {
+        ...(msg.metadata || {}),
+        __client_id: msg.client_id
+      },
       userId: senderId,
       files: msg.metadata?.attachments ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
         id: fileId,
@@ -574,6 +577,8 @@ export const useMessageHandling = ({
           }
           return {
             ...replacement,
+            // Keep optimistic timestamp to avoid reorder flicker when server ts arrives.
+            timestamp: message.timestamp,
             files: replacement.files ?? message.files,
             reactions: replacement.reactions ?? message.reactions
           } as ChatMessageUI;
@@ -627,8 +632,7 @@ export const useMessageHandling = ({
       }
       return {
         ...message,
-        id: messageId,
-        timestamp: new Date(serverTs).getTime()
+        id: messageId
       } as ChatMessageUI;
     }));
     sendReadUpdate(lastSeqRef.current);
@@ -1130,7 +1134,10 @@ export const useMessageHandling = ({
       timestamp: Date.now(),
       userId: currentUserId,
       reply_to_message_id: replyToMessageId ?? null,
-      metadata: metadata ?? undefined,
+      metadata: {
+        ...(metadata || {}),
+        __client_id: clientId
+      },
       files: attachments
     };
 

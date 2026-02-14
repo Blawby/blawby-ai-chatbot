@@ -177,8 +177,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	const hasReactions = reactions.length > 0;
 	const hasReplyPreview = Boolean(replyPreview);
 	const wrapperClassName = [
-		'relative flex items-start gap-3 mb-2 last:mb-0',
-		'px-3 py-2 rounded-md group transition-colors duration-150 hover:bg-white/5',
+		'relative flex items-start gap-3 px-4 py-3 group message-list-item',
 		className
 	].filter(Boolean).join(' ');
 

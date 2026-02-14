@@ -80,7 +80,7 @@ interface MessageActionsProps {
 
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
-	intakeStatus,
+	intakeStatus: _intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,

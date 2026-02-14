@@ -488,7 +488,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
     return (
         <div
-            className={`flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
+            className={`message-list flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
         >
             {startIndex > 0 && (
@@ -557,10 +557,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const quickReplies = Array.isArray(message.metadata?.quickReplies)
                         ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
                         : undefined;
+                    const stableClientId = typeof message.metadata?.__client_id === 'string'
+                        ? message.metadata.__client_id
+                        : null;
+                    const renderKey = stableClientId ? `client-${stableClientId}` : message.id;
 
                     return (
                             <Message
-                                key={message.id}
+                                key={renderKey}
                                 content={message.content}
                                 isUser={message.isUser}
                                 files={message.files}
