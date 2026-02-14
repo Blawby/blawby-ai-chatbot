@@ -71,6 +71,10 @@ export const MarkdownUploadTextarea = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorId = useUniqueId('markdown-upload-textarea');
 
+  // Mutable ref to always have the latest value
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   const isUploading = useMemo(
     () => uploadItems.some((item) => item.status === 'uploading'),
     [uploadItems]
@@ -78,67 +82,90 @@ export const MarkdownUploadTextarea = ({
 
   const insertAtCursor = (textToInsert: string) => {
     const textarea = textareaRef.current;
+    const currentValue = valueRef.current;
     if (!textarea) {
-      const withSpacing = value.trim().length > 0 ? `${value}\n\n${textToInsert}` : textToInsert;
-      onChange(withSpacing);
+      const withSpacing = currentValue.trim().length > 0 ? `${currentValue}\n\n${textToInsert}` : textToInsert;
+      onChange(prev => prev.trim().length > 0 ? `${prev}\n\n${textToInsert}` : textToInsert);
       return;
     }
 
-    const selectionStart = textarea.selectionStart ?? value.length;
-    const selectionEnd = textarea.selectionEnd ?? value.length;
-    const before = value.slice(0, selectionStart);
-    const after = value.slice(selectionEnd);
+    const selectionStart = textarea.selectionStart ?? currentValue.length;
+    const selectionEnd = textarea.selectionEnd ?? currentValue.length;
+    const before = currentValue.slice(0, selectionStart);
+    const after = currentValue.slice(selectionEnd);
     const prefix = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
     const suffix = after.length > 0 && !after.startsWith('\n') ? '\n' : '';
     const nextValue = `${before}${prefix}${textToInsert}${suffix}${after}`;
 
-    onChange(nextValue);
+    onChange(prev => {
+      // If value changed since this function was called, re-calculate
+      const v = valueRef.current;
+      const b = v.slice(0, selectionStart);
+      const a = v.slice(selectionEnd);
+      const pre = b.length > 0 && !b.endsWith('\n') ? '\n' : '';
+      const suf = a.length > 0 && !a.startsWith('\n') ? '\n' : '';
+      return `${b}${pre}${textToInsert}${suf}${a}`;
+    });
   };
 
   const replaceSelection = (prefix: string, suffix = '', placeholder = '') => {
     const textarea = textareaRef.current;
+    const currentValue = valueRef.current;
     if (!textarea) {
       const fallback = `${prefix}${placeholder}${suffix}`;
       insertAtCursor(fallback);
       return;
     }
 
-    const selectionStart = textarea.selectionStart ?? value.length;
-    const selectionEnd = textarea.selectionEnd ?? value.length;
-    const selected = value.slice(selectionStart, selectionEnd);
+    const selectionStart = textarea.selectionStart ?? currentValue.length;
+    const selectionEnd = textarea.selectionEnd ?? currentValue.length;
+    const selected = currentValue.slice(selectionStart, selectionEnd);
     const insertText = selected || placeholder;
-    const before = value.slice(0, selectionStart);
-    const after = value.slice(selectionEnd);
+    const before = currentValue.slice(0, selectionStart);
+    const after = currentValue.slice(selectionEnd);
     const nextValue = `${before}${prefix}${insertText}${suffix}${after}`;
-    onChange(nextValue);
+    onChange(prev => {
+      const v = valueRef.current;
+      const b = v.slice(0, selectionStart);
+      const a = v.slice(selectionEnd);
+      const sel = v.slice(selectionStart, selectionEnd);
+      const ins = sel || placeholder;
+      return `${b}${prefix}${ins}${suffix}${a}`;
+    });
   };
 
   const prependToLine = (prefix: string, fallback = '') => {
     const textarea = textareaRef.current;
+    const currentValue = valueRef.current;
     if (!textarea) {
       insertAtCursor(`${prefix}${fallback}`);
       return;
     }
 
-    const selectionStart = textarea.selectionStart ?? value.length;
-    const selectionEnd = textarea.selectionEnd ?? value.length;
-    const selected = value.slice(selectionStart, selectionEnd);
+    const selectionStart = textarea.selectionStart ?? currentValue.length;
+    const selectionEnd = textarea.selectionEnd ?? currentValue.length;
+    const selected = currentValue.slice(selectionStart, selectionEnd);
     if (selected) {
-      const nextValue = `${value.slice(0, selectionStart)}${selected
-        .split('\n')
-        .map((line) => `${prefix}${line}`)
-        .join('\n')}${value.slice(selectionEnd)}`;
-      onChange(nextValue);
+      onChange(prev => {
+        const v = valueRef.current;
+        const b = v.slice(0, selectionStart);
+        const a = v.slice(selectionEnd);
+        const sel = v.slice(selectionStart, selectionEnd);
+        const lines = sel.split('\n').map((line) => `${prefix}${line}`).join('\n');
+        return `${b}${lines}${a}`;
+      });
       return;
     }
 
-    const lineStart = value.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
-    const nextValue = `${value.slice(0, lineStart)}${prefix}${value.slice(lineStart)}`;
-    if (value.length === 0 && fallback) {
-      onChange(`${prefix}${fallback}`);
-      return;
-    }
-    onChange(nextValue);
+    const lineStart = currentValue.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
+    onChange(prev => {
+      const v = valueRef.current;
+      const ls = v.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
+      if (v.length === 0 && fallback) {
+        return `${prefix}${fallback}`;
+      }
+      return `${v.slice(0, ls)}${prefix}${v.slice(ls)}`;
+    });
   };
 
   const handleFiles = async (incoming: FileList | File[]) => {
