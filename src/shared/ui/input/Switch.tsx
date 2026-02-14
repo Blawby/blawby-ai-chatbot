@@ -52,7 +52,7 @@ export const Switch = ({
           </div>
         )}
         {description && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <div className="mt-1 text-xs text-input-placeholder">
             {description}
           </div>
         )}
@@ -61,11 +61,11 @@ export const Switch = ({
       <button
         type="button"
         className={cn(
-          'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
+          'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent',
           sizeClasses[size],
           value 
-            ? 'bg-accent-600 focus:ring-accent-500' 
-            : 'bg-line-default/80 focus:ring-gray-400',
+            ? 'bg-accent-500 focus:ring-accent-500' 
+            : 'bg-zinc-400/70 dark:bg-zinc-600/80 focus:ring-zinc-400',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
         onClick={() => !disabled && onChange(!value)}
@@ -77,7 +77,7 @@ export const Switch = ({
       >
         <span
           className={cn(
-            'inline-block transform rounded-full bg-input-bg shadow-sm transition-transform duration-200 ease-in-out',
+            'inline-block transform rounded-full bg-zinc-900 dark:bg-white shadow-sm transition-transform duration-200 ease-in-out',
             thumbSizeClasses[size],
             thumbTranslateClasses[size]
           )}

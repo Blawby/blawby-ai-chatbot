@@ -310,7 +310,7 @@ export const Combobox = ({
             role="listbox"
             aria-multiselectable={isMultiple}
             tabIndex={-1}
-            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line-glass border-opacity-30 bg-surface-glass bg-opacity-80 py-1 text-base shadow-glass backdrop-blur-xl focus:outline-none sm:text-sm"
+            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line-glass border-opacity-30 bg-[rgb(var(--surface-overlay)/0.94)] py-1 text-base shadow-glass backdrop-blur-xl focus:outline-none sm:text-sm"
             onMouseDown={(event) => {
               event.preventDefault();
             }}
@@ -341,8 +341,8 @@ export const Combobox = ({
                   className={cn(
                     'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
                     (isSelected || isFocused)
-                      ? 'bg-accent-50 text-gray-900 dark:bg-accent-500/10 dark:text-white'
-                      : 'text-input-text hover:bg-surface-glass/50'
+                      ? 'bg-[rgb(var(--accent-500)/0.18)] text-input-text'
+                      : 'text-input-text hover:bg-[rgb(var(--surface-overlay)/0.78)]'
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -355,7 +355,7 @@ export const Combobox = ({
                     </span>
                   )}
                   {isSelected && (
-                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-accent-600 dark:text-accent-300">
+                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-accent-400">
                       <CheckIcon className="h-4 w-4" aria-hidden="true" />
                     </span>
                   )}

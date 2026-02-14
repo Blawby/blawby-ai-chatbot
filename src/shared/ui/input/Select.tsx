@@ -188,10 +188,10 @@ export const Select = ({
           <div 
             id={listboxId}
             role="listbox"
-            className={cn(
-              "absolute left-0 right-0 bg-surface-glass bg-opacity-80 border border-line-glass border-opacity-30 backdrop-blur-xl rounded-lg shadow-glass z-50",
-              direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
-            )}
+          className={cn(
+            "absolute left-0 right-0 bg-surface-overlay/90 border border-line-glass border-opacity-30 backdrop-blur-xl rounded-lg shadow-glass z-50",
+            direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          )}
           >
             <div className="py-1">
               {searchable && (
@@ -222,15 +222,15 @@ export const Select = ({
                   }}
                   className={cn(
                     'w-full text-left px-3 py-2 text-sm text-input-text',
-                    'hover:bg-surface-glass/50 flex items-center justify-between',
-                    'focus:outline-none focus:bg-surface-glass/50',
-                    value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                    focusedIndex === index && 'bg-surface-glass/50'
+                    'hover:bg-surface-overlay/65 flex items-center justify-between',
+                    'focus:outline-none focus:bg-surface-overlay/65',
+                    value === option.value && 'bg-accent-500/15 text-input-text',
+                    focusedIndex === index && 'bg-surface-overlay/65'
                   )}
                 >
                   <span>{option.label}</span>
                   {value === option.value && (
-                    <CheckIcon className="w-4 h-4 text-accent-600 dark:text-accent-400" />
+                    <CheckIcon className="w-4 h-4 text-accent-400" />
                   )}
                 </button>
               ))}
@@ -287,7 +287,7 @@ export const Select = ({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute right-0 min-w-48 w-full bg-surface-glass bg-opacity-80 border border-line-glass border-opacity-30 backdrop-blur-xl rounded-lg shadow-glass z-50 max-h-96 overflow-hidden flex flex-col",
+            "absolute right-0 min-w-48 w-full bg-surface-overlay/90 border border-line-glass border-opacity-30 backdrop-blur-xl rounded-lg shadow-glass z-50 max-h-96 overflow-hidden flex flex-col",
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >
@@ -320,15 +320,15 @@ export const Select = ({
                 }}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm text-input-text',
-                  'hover:bg-surface-glass/50 flex items-center justify-between',
-                  'focus:outline-none focus:bg-surface-glass/50',
-                  value === option.value && 'bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400',
-                  focusedIndex === index && 'bg-surface-glass/50'
+                  'hover:bg-surface-overlay/65 flex items-center justify-between',
+                  'focus:outline-none focus:bg-surface-overlay/65',
+                  value === option.value && 'bg-accent-500/15 text-input-text',
+                  focusedIndex === index && 'bg-surface-overlay/65'
                 )}
               >
                 <span>{option.label}</span>
                 {value === option.value && (
-                  <CheckIcon className="w-4 h-4 text-accent-600 dark:text-accent-400" />
+                  <CheckIcon className="w-4 h-4 text-accent-400" />
                 )}
               </button>
             ))}
