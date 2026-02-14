@@ -72,15 +72,21 @@ jobs:
         run: |
           set -euxo pipefail
           npx wrangler --version
-          npx wrangler deploy --env "${DEPLOY_ENV}" --config worker/wrangler.toml --verbose
+          npx wrangler deploy --env "${DEPLOY_ENV}" --config worker/wrangler.toml
 
       - name: Check wrangler logs
         if: always()
         run: |
           echo "📋 Wrangler logs:"
-          ls -la ~/.wrangler 2>/dev/null || true
+          ls -la ~/.config/.wrangler/logs 2>/dev/null || true
           ls -la ~/.wrangler/logs 2>/dev/null || true
-          find ~ -maxdepth 4 -type f -name "wrangler-*.log" 2>/dev/null | head -20 || true
+          LATEST_LOG="$(ls -t ~/.config/.wrangler/logs/wrangler-*.log ~/.wrangler/logs/wrangler-*.log 2>/dev/null | head -1)"
+          if [[ -n "$LATEST_LOG" ]]; then
+            echo "Showing latest log: $LATEST_LOG"
+            tail -300 "$LATEST_LOG"
+          else
+            echo "No wrangler logs found"
+          fi
 
       - name: Deployment summary
         if: success()
