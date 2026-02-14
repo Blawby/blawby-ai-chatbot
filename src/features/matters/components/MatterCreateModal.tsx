@@ -3,7 +3,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
-import { FileInput } from '@/shared/ui/input/FileInput';
+import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
@@ -38,6 +38,7 @@ type MatterFormMode = 'create' | 'edit';
 interface MatterFormModalProps {
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
+  practiceId?: string | null;
   clients: MatterOption[];
   practiceAreas: MatterOption[];
   practiceAreasLoading?: boolean;
@@ -83,7 +84,6 @@ export type MatterFormState = {
   milestones: MatterMilestoneFormInput[];
   contingencyPercent?: number;
   description: string;
-  files: File[];
 };
 
 const BILLING_OPTIONS = [
@@ -175,8 +175,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
   settlementAmount: initialValues?.settlementAmount,
   milestones: initialValues?.milestones ?? [],
   contingencyPercent: initialValues?.contingencyPercent,
-  description: initialValues?.description ?? '',
-  files: initialValues?.files ?? []
+  description: initialValues?.description ?? ''
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
@@ -188,6 +187,7 @@ const buildLeadingIcon = (icon: ComponentChildren) => (
 const MatterFormModalInner = ({
   onClose,
   onSubmit,
+  practiceId,
   clients,
   practiceAreas,
   practiceAreasLoading = false,
@@ -245,8 +245,6 @@ const MatterFormModalInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
-  const [fileError, setFileError] = useState<string | null>(null);
-
   const hasFormErrors = Object.keys(formErrors).length > 0;
   const canSubmit = Boolean(formState.title && formState.clientId) && !hasFormErrors;
 
@@ -276,33 +274,6 @@ const MatterFormModalInner = ({
 
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
   const modalTitle = mode === 'edit' ? 'Edit Matter' : 'Propose new matter';
-
-  const handleFilesChange = (incoming: FileList | File[]) => {
-    const nextFiles = Array.isArray(incoming) ? incoming : Array.from(incoming);
-    const maxTotalSize = 25 * 1024 * 1024;
-    const limited = [...formState.files];
-    let totalSize = limited.reduce((sum, file) => sum + file.size, 0);
-    let droppedAny = false;
-    for (const file of nextFiles) {
-      if (limited.length >= 6 || totalSize + file.size > maxTotalSize) {
-        droppedAny = true;
-        continue;
-      }
-      limited.push(file);
-      totalSize += file.size;
-    }
-    if (droppedAny) {
-      setFileError('Some files were not added: exceeds count or size limits.');
-    } else {
-      setFileError(null);
-    }
-    updateForm('files', limited);
-  };
-
-  const removeFile = (index: number) => {
-    updateForm('files', formState.files.filter((_, fileIndex) => fileIndex !== index));
-    setFileError(null);
-  };
 
   const canAddMilestone =
     milestoneDraft.description.trim().length > 0 &&
@@ -361,20 +332,15 @@ const MatterFormModalInner = ({
 
         <div>
           <h2 className="text-lg font-medium text-input-text mb-2">Description</h2>
-          <div className="space-y-2">
-            <Textarea
-              label="Description"
-              value={formState.description}
-              onChange={(value) => updateForm('description', value)}
-              placeholder="Let the client know how you'd approach the project or include a cover letter about your experience"
-              rows={4}
-              maxLength={5000}
-              enforceMaxLength="hard"
-            />
-            <p className="text-sm text-input-placeholder">
-              {formState.description.length}/5000 characters
-            </p>
-          </div>
+          <MarkdownUploadTextarea
+            label="Description"
+            value={formState.description}
+            onChange={(value) => updateForm('description', value)}
+            practiceId={practiceId}
+            placeholder="Let the client know how you'd approach the project and drop supporting files directly into the description."
+            rows={8}
+            maxLength={5000}
+          />
         </div>
 
         <hr className="h-px border-line-glass/30" />
@@ -522,31 +488,6 @@ const MatterFormModalInner = ({
               placeholder="0"
             />
           </FormGrid>
-        </div>
-
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
-          <div>
-            <h3 className="text-lg font-medium text-input-text">Additional documents</h3>
-            <p className="mt-1 text-sm text-input-placeholder">
-              Attach up to 6 files with a max combined size of 25 MB. Use PNG, GIF, PDF, PPT, TXT, or DOC.
-            </p>
-          </div>
-
-          <div>
-            <FileInput
-              accept=".png,.gif,.pdf,.ppt,.pptx,.txt,.doc,.docx"
-              multiple
-              value={formState.files}
-              onChange={handleFilesChange}
-              maxTotalSize={25 * 1024 * 1024}
-              maxFiles={6}
-              showAcceptText={false}
-              onRemove={removeFile}
-            />
-            {fileError && (
-              <p className="mt-2 text-sm text-red-400">{fileError}</p>
-            )}
-          </div>
         </div>
 
         <div className="border-t border-line-glass/30 pt-6 space-y-4">

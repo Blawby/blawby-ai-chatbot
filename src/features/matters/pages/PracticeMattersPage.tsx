@@ -1849,6 +1849,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               location.route(basePath);
             }}
             onSubmit={handleCreateMatter}
+            practiceId={activePracticeId}
             clients={clientOptions}
             practiceAreas={practiceAreaOptions}
             practiceAreasLoading={servicesLoading}
@@ -1947,6 +1948,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             key={`edit-${selectedMatterId}`}
             onClose={() => location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}`)}
             onSubmit={handleUpdateMatter}
+            practiceId={activePracticeId}
             clients={clientOptions}
             practiceAreas={practiceAreaOptions}
             practiceAreasLoading={servicesLoading}
@@ -2276,6 +2278,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                         composerDisabled={activityLoading || !selectedMatterDetail}
                         composerLabel="Comment"
                         composerPlaceholder="Add your comment..."
+                        composerPracticeId={activePracticeId}
                         composerPerson={{
                           name: session?.user?.name ?? session?.user?.email ?? 'You',
                           imageUrl: session?.user?.image ?? null
