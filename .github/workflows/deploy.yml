@@ -78,7 +78,14 @@ jobs:
         if: always()
         run: |
           echo "📋 Wrangler logs:"
-          cat ~/.config/.wrangler/logs/*.log 2>/dev/null | tail -100 || echo "No wrangler logs found"
+          ls -la ~/.wrangler/logs 2>/dev/null || true
+          LATEST_LOG="$(ls -t ~/.wrangler/logs/wrangler-*.log 2>/dev/null | head -1)"
+          if [[ -n "$LATEST_LOG" ]]; then
+            echo "Showing latest log: $LATEST_LOG"
+            tail -300 "$LATEST_LOG"
+          else
+            echo "No wrangler logs found"
+          fi
 
       - name: Deployment summary
         if: success()
