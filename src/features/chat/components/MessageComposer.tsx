@@ -125,7 +125,7 @@ const MessageComposer = ({
   );
 
   return (
-    <div className="pl-4 pr-4 pb-2 glass-panel rounded-none border-x-0 border-b-0 h-auto flex flex-col w-full sticky bottom-0 z-[1000]">
+    <div className="pl-4 pr-4 pb-2 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
       <form 
         className="w-full flex flex-col"
         aria-label="Message composition"
@@ -187,11 +187,11 @@ const MessageComposer = ({
               </div>
             )}
 
-            <div className="flex-1 flex items-center">
+            <div className="flex-1 flex items-center gap-2 rounded-full glass-input min-h-12 px-3">
               <textarea
                 ref={textareaRef}
                 data-testid="message-input"
-                className="w-full min-h-8 py-1 m-0 text-sm sm:text-base leading-6 text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder"
+                className="w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-6 text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder"
                 placeholder="Type a message..."
                 rows={1}
                 value={inputValue}
@@ -200,12 +200,6 @@ const MessageComposer = ({
                 aria-label="Message input"
                 disabled={isComposerDisabled}
               />
-            </div>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {features.enableAudioRecording && (
-                <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
-              )}
               <Button
                 type="submit"
                 variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
@@ -215,14 +209,20 @@ const MessageComposer = ({
                   isSessionReady === false
                     ? 'Send message (waiting for secure session)'
                     : isSocketReady === false
-                    ? 'Send message (connecting to chat)'
-                    : (!inputValue.trim() && previewFiles.length === 0
-                    ? 'Send message (disabled)'
-                    : 'Send message')}
-                className="w-8 h-8 p-0 rounded-full"
+                      ? 'Send message (connecting to chat)'
+                      : (!inputValue.trim() && previewFiles.length === 0
+                        ? 'Send message (disabled)'
+                        : 'Send message')}
+                className="w-8 h-8 p-0 rounded-full shrink-0"
                 icon={<ArrowUpIcon className="w-3.5 h-3.5" aria-hidden="true" />}
                 data-testid="message-send-button"
               />
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {features.enableAudioRecording && (
+                <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
+              )}
             </div>
           </div>
         </div>
