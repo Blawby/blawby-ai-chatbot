@@ -51,7 +51,7 @@ const resolveStrengthStyle = (tier: StrengthTier): { percent: number; ringClass:
 };
 
 const resolveStrengthDescription = (tier: StrengthTier, state: IntakeConversationState | null): string => {
-  if (state?.missingSummary) {
+  if ((tier === 'weak' || tier === 'basic') && state?.missingSummary) {
     return state.missingSummary;
   }
   switch (tier) {
