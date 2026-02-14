@@ -64,28 +64,23 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
+      - name: Deploy Worker (direct wrangler)
         env:
           WRANGLER_LOG: debug
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: '.'
-          command: deploy --env ${{ env.DEPLOY_ENV }} --config worker/wrangler.toml
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euxo pipefail
+          npx wrangler --version
+          npx wrangler deploy --env "${DEPLOY_ENV}" --config worker/wrangler.toml --verbose
 
       - name: Check wrangler logs
         if: always()
         run: |
           echo "📋 Wrangler logs:"
+          ls -la ~/.wrangler 2>/dev/null || true
           ls -la ~/.wrangler/logs 2>/dev/null || true
-          LATEST_LOG="$(ls -t ~/.wrangler/logs/wrangler-*.log 2>/dev/null | head -1)"
-          if [[ -n "$LATEST_LOG" ]]; then
-            echo "Showing latest log: $LATEST_LOG"
-            tail -300 "$LATEST_LOG"
-          else
-            echo "No wrangler logs found"
-          fi
+          find ~ -maxdepth 4 -type f -name "wrangler-*.log" 2>/dev/null | head -20 || true
 
       - name: Deployment summary
         if: success()
