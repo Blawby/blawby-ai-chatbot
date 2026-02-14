@@ -60,7 +60,7 @@ export const RadioGroupWithDescriptions = ({
             <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />
             </span>
             <span className="flex flex-col">
-              <span className={cn('block text-sm font-medium', isSelected ? 'text-input-text' : 'text-input-text')}>
+              <span className={cn('block text-sm font-medium text-input-text')}>
                 {option.label}
               </span>
               {option.description && (

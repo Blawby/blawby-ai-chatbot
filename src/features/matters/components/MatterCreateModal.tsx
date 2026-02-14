@@ -331,7 +331,6 @@ const MatterFormModalInner = ({
         />
 
         <div>
-          <h2 className="text-lg font-medium text-input-text mb-2">Description</h2>
           <MarkdownUploadTextarea
             label="Description"
             value={formState.description}
@@ -697,7 +696,14 @@ const MatterFormModalInner = ({
           </div>
           <p className="text-sm text-input-text">
             Payments are built for securing IOLTA compliance.{' '}
-            <span className="font-medium underline">Learn more</span>
+            <a
+              href="https://blawby.com/compliance/iolta-compliance"
+              className="font-medium underline text-brand-600 hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn more
+            </a>
           </p>
         </div>
 

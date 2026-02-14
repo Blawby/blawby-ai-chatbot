@@ -38,11 +38,13 @@ export interface MarkdownUploadTextareaProps {
 }
 
 const createMarkdownForUpload = (file: File, url: string): string => {
-  const safeName = file.name.replace(/\]/g, '');
+  // Escape [ and ] in the filename, and ) in the url
+  const safeName = file.name.replace(/([\[\]])/g, '\\$1');
+  const safeUrl = url.replace(/\)/g, '\\)');
   if (file.type.startsWith('image/')) {
-    return `![${safeName}](${url})`;
+    return `![${safeName}](${safeUrl})`;
   }
-  return `[${safeName}](${url})`;
+  return `[${safeName}](${safeUrl})`;
 };
 
 export const MarkdownUploadTextarea = ({
