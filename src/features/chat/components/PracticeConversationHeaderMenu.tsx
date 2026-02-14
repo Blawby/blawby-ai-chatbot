@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 
 interface PracticeConversationHeaderMenuProps {
   practiceId?: string;
@@ -19,7 +20,13 @@ const PracticeConversationHeaderMenu: FunctionComponent<PracticeConversationHead
   conversationId
 }) => {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const { showSuccess } = useToastContext();
   const canLinkMatter = Boolean(practiceId && conversationId);
+
+  const handleMatterUpdated = () => {
+    setIsLinkModalOpen(false);
+    showSuccess('Matter linked successfully');
+  };
 
   return (
     <Fragment>
@@ -45,7 +52,7 @@ const PracticeConversationHeaderMenu: FunctionComponent<PracticeConversationHead
           onClose={() => setIsLinkModalOpen(false)}
           practiceId={practiceId!}
           conversationId={conversationId!}
-          onMatterUpdated={() => {}}
+          onMatterUpdated={handleMatterUpdated}
         />
       ) : null}
     </Fragment>

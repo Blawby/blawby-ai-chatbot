@@ -12,6 +12,7 @@ import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import { useNavigation } from '@/shared/utils/navigation';
+import { getWorkspaceConversationsPath, getWorkspaceMattersPath } from '@/shared/utils/workspace';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -872,10 +873,10 @@ export function MainApp({
   }, [filteredMessagesForHeader, headerPresenceStatus]);
   const conversationsBasePath = useMemo(() => {
     if (workspace === 'practice') {
-      return resolvedPracticeSlug ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}/conversations` : null;
+      return getWorkspaceConversationsPath('practice', resolvedPracticeSlug);
     }
     if (workspace === 'client') {
-      return resolvedClientPracticeSlug ? `/client/${encodeURIComponent(resolvedClientPracticeSlug)}/conversations` : null;
+      return getWorkspaceConversationsPath('client', resolvedClientPracticeSlug);
     }
     return publicConversationsBasePath;
   }, [publicConversationsBasePath, resolvedClientPracticeSlug, resolvedPracticeSlug, workspace]);
@@ -1054,6 +1055,9 @@ export function MainApp({
     return practiceWorkspaceView;
   }, [activeConversationId, practiceWorkspaceView, workspace]);
   const effectivePracticeSlug = practiceSlug ?? resolvedPracticeSlug ?? null;
+  const practiceMattersPath = useMemo(() => {
+    return getWorkspaceMattersPath('practice', effectivePracticeSlug);
+  }, [effectivePracticeSlug]);
   const practiceWorkspaceContent = workspace === 'practice' ? (
     <WorkspacePage
       view={resolvedPracticeWorkspaceView ?? 'home'}
@@ -1069,9 +1073,7 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         <PracticeMattersPage
-          basePath={effectivePracticeSlug
-            ? `/practice/${encodeURIComponent(effectivePracticeSlug)}/matters`
-            : '/practice/matters'}
+          basePath={practiceMattersPath ?? '/practice/matters'}
         />
       }
       clientsView={<PracticeClientsPage />}
