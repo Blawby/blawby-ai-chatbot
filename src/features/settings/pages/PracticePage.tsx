@@ -987,6 +987,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 />
               </div>
               <Input
+                id="practice-accent-color-text"
+                aria-label="Accent color (hex)"
                 value={accentColorDraft}
                 onChange={(value) => setAccentColorDraft(normalizeAccentColor(value) ?? value.toUpperCase())}
                 placeholder="#3B82F6"

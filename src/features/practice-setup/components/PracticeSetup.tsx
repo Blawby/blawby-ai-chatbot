@@ -305,10 +305,19 @@ export const PracticeSetup = ({
                 <Input
                   value={basicsDraft.accentColor}
                   onChange={(value) =>
-                    setBasicsDraft((prev) => ({ ...prev, accentColor: (normalizeAccentColor(value) ?? value.toUpperCase()) }))
+                    setBasicsDraft((prev) => ({ ...prev, accentColor: value }))
                   }
+                  onBlur={(event) => {
+                    const value = event.target.value;
+                    const normalized = normalizeAccentColor(value);
+                    setBasicsDraft((prev) => ({
+                      ...prev,
+                      accentColor: normalized ? normalized : (prev.accentColor && normalizeAccentColor(prev.accentColor)) ? prev.accentColor : '#737373'
+                    }));
+                  }}
                   placeholder="#3B82F6"
                   className={inputGlassClass}
+                  aria-label="Accent color (hex)"
                 />
               </div>
             </div>
@@ -323,9 +332,18 @@ export const PracticeSetup = ({
                 if (!basicsDirty || isSavingBasics) return;
                 setIsSavingBasics(true);
                 setBasicsSaveError(null);
+                // Validate accentColor before saving
+                let accentColorToSave = basicsDraft.accentColor;
+                const normalized = normalizeAccentColor(accentColorToSave);
+                if (!normalized) {
+                  setBasicsSaveError('Accent color must be a valid hex color (e.g. #3B82F6)');
+                  setIsSavingBasics(false);
+                  return;
+                }
+                accentColorToSave = normalized;
                 try {
-                  await onSaveBasics(basicsDraft);
-                  setInitialBasics(basicsDraft);
+                  await onSaveBasics({ ...basicsDraft, accentColor: accentColorToSave });
+                  setInitialBasics({ ...basicsDraft, accentColor: accentColorToSave });
                   setJustSavedBasics(true);
                   if (basicsTimerRef.current) clearTimeout(basicsTimerRef.current);
                   basicsTimerRef.current = setTimeout(() => {
