@@ -560,7 +560,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const stableClientId = typeof message.metadata?.__client_id === 'string'
                         ? message.metadata.__client_id
                         : null;
-                    const renderKey = stableClientId ? `client-${stableClientId}` : message.id;
+                    // Provide a guaranteed fallback key when both stableClientId and message.id are missing.
+                    // Use the visible list index + startIndex so the fallback is stable across re-renders
+                    // as long as the slice window doesn't change. This avoids undefined/null keys.
+                    const fallbackIndexKey = `idx-${startIndex + _index}`;
+                    const renderKey = stableClientId
+                        ? `client-${stableClientId}`
+                        : (message.id ? `message-${message.id}` : fallbackIndexKey);
 
                     return (
                             <Message

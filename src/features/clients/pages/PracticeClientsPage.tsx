@@ -919,7 +919,7 @@ export const PracticeClientsPage = () => {
                         <Fragment key={letter}>
                           <li
                             data-letter={letter}
-                            className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder"
+                            className="sticky top-0 z-10 bg-surface-base px-4 py-2 text-xs font-semibold text-input-placeholder"
                           >
                             {letter}
                           </li>
@@ -937,7 +937,7 @@ export const PracticeClientsPage = () => {
                                   className={cn(
                                     'w-full justify-start px-4 py-3.5 h-auto rounded-none transition-colors duration-150',
                                     isActive
-                                      ? 'bg-transparent'
+                                      ? 'bg-white/5'
                                       : 'hover:bg-white/[0.03]'
                                   )}
                                 >
