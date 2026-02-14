@@ -83,89 +83,62 @@ export const MarkdownUploadTextarea = ({
   const insertAtCursor = (textToInsert: string) => {
     const textarea = textareaRef.current;
     const currentValue = valueRef.current;
-    if (!textarea) {
-      const withSpacing = currentValue.trim().length > 0 ? `${currentValue}\n\n${textToInsert}` : textToInsert;
-      onChange(prev => prev.trim().length > 0 ? `${prev}\n\n${textToInsert}` : textToInsert);
-      return;
+    let selectionStart = currentValue.length;
+    let selectionEnd = currentValue.length;
+    if (textarea) {
+      selectionStart = textarea.selectionStart ?? currentValue.length;
+      selectionEnd = textarea.selectionEnd ?? currentValue.length;
     }
-
-    const selectionStart = textarea.selectionStart ?? currentValue.length;
-    const selectionEnd = textarea.selectionEnd ?? currentValue.length;
     const before = currentValue.slice(0, selectionStart);
     const after = currentValue.slice(selectionEnd);
     const prefix = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
     const suffix = after.length > 0 && !after.startsWith('\n') ? '\n' : '';
-    const nextValue = `${before}${prefix}${textToInsert}${suffix}${after}`;
-
-    onChange(prev => {
-      // If value changed since this function was called, re-calculate
-      const v = valueRef.current;
-      const b = v.slice(0, selectionStart);
-      const a = v.slice(selectionEnd);
-      const pre = b.length > 0 && !b.endsWith('\n') ? '\n' : '';
-      const suf = a.length > 0 && !a.startsWith('\n') ? '\n' : '';
-      return `${b}${pre}${textToInsert}${suf}${a}`;
-    });
+    const finalString = `${before}${prefix}${textToInsert}${suffix}${after}`;
+    onChange(finalString);
   };
 
   const replaceSelection = (prefix: string, suffix = '', placeholder = '') => {
     const textarea = textareaRef.current;
     const currentValue = valueRef.current;
-    if (!textarea) {
-      const fallback = `${prefix}${placeholder}${suffix}`;
-      insertAtCursor(fallback);
-      return;
+    let selectionStart = currentValue.length;
+    let selectionEnd = currentValue.length;
+    if (textarea) {
+      selectionStart = textarea.selectionStart ?? currentValue.length;
+      selectionEnd = textarea.selectionEnd ?? currentValue.length;
     }
-
-    const selectionStart = textarea.selectionStart ?? currentValue.length;
-    const selectionEnd = textarea.selectionEnd ?? currentValue.length;
     const selected = currentValue.slice(selectionStart, selectionEnd);
     const insertText = selected || placeholder;
     const before = currentValue.slice(0, selectionStart);
     const after = currentValue.slice(selectionEnd);
-    const nextValue = `${before}${prefix}${insertText}${suffix}${after}`;
-    onChange(prev => {
-      const v = valueRef.current;
-      const b = v.slice(0, selectionStart);
-      const a = v.slice(selectionEnd);
-      const sel = v.slice(selectionStart, selectionEnd);
-      const ins = sel || placeholder;
-      return `${b}${prefix}${ins}${suffix}${a}`;
-    });
+    const finalString = `${before}${prefix}${insertText}${suffix}${after}`;
+    onChange(finalString);
   };
 
   const prependToLine = (prefix: string, fallback = '') => {
     const textarea = textareaRef.current;
     const currentValue = valueRef.current;
-    if (!textarea) {
-      insertAtCursor(`${prefix}${fallback}`);
-      return;
+    let selectionStart = currentValue.length;
+    let selectionEnd = currentValue.length;
+    if (textarea) {
+      selectionStart = textarea.selectionStart ?? currentValue.length;
+      selectionEnd = textarea.selectionEnd ?? currentValue.length;
     }
-
-    const selectionStart = textarea.selectionStart ?? currentValue.length;
-    const selectionEnd = textarea.selectionEnd ?? currentValue.length;
     const selected = currentValue.slice(selectionStart, selectionEnd);
     if (selected) {
-      onChange(prev => {
-        const v = valueRef.current;
-        const b = v.slice(0, selectionStart);
-        const a = v.slice(selectionEnd);
-        const sel = v.slice(selectionStart, selectionEnd);
-        const lines = sel.split('\n').map((line) => `${prefix}${line}`).join('\n');
-        return `${b}${lines}${a}`;
-      });
+      const before = currentValue.slice(0, selectionStart);
+      const after = currentValue.slice(selectionEnd);
+      const lines = selected.split('\n').map((line) => `${prefix}${line}`).join('\n');
+      const finalString = `${before}${lines}${after}`;
+      onChange(finalString);
       return;
     }
-
     const lineStart = currentValue.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
-    onChange(prev => {
-      const v = valueRef.current;
-      const ls = v.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
-      if (v.length === 0 && fallback) {
-        return `${prefix}${fallback}`;
-      }
-      return `${v.slice(0, ls)}${prefix}${v.slice(ls)}`;
-    });
+    if (currentValue.length === 0 && fallback) {
+      onChange(`${prefix}${fallback}`);
+      return;
+    }
+    const finalString = `${currentValue.slice(0, lineStart)}${prefix}${currentValue.slice(lineStart)}`;
+    onChange(finalString);
   };
 
   const handleFiles = async (incoming: FileList | File[]) => {
