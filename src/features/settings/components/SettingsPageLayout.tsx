@@ -26,21 +26,23 @@ export const SettingsPageLayout = ({
   headerTrailing
 }: SettingsPageLayoutProps) => {
   return (
-    <div className={cn('h-full flex flex-col', className)}>
-      <SettingHeader
-        title={title}
-        className={headerClassName}
-        leading={headerLeading}
-        trailing={headerTrailing}
-      />
-      <div className={cn('flex-1 overflow-y-auto px-6', contentClassName)}>
-        {wrapChildren ? (
-          <div className={cn('space-y-0', listClassName)}>
-            {children}
-          </div>
-        ) : (
-          children
-        )}
+    <div className={cn('h-full overflow-y-auto', className)}>
+      <div className="flex flex-col">
+        <SettingHeader
+          title={title}
+          className={headerClassName}
+          leading={headerLeading}
+          trailing={headerTrailing}
+        />
+        <div className={cn('px-6', contentClassName)}>
+          {wrapChildren ? (
+            <div className={cn('space-y-0', listClassName)}>
+              {children}
+            </div>
+          ) : (
+            children
+          )}
+        </div>
       </div>
     </div>
   );

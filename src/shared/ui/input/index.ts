@@ -15,6 +15,7 @@ export { PhoneInput } from './PhoneInput';
 export { NumberInput } from './NumberInput';
 export { CurrencyInput } from './CurrencyInput';
 export { URLInput } from './URLInput';
+export { MarkdownUploadTextarea } from './MarkdownUploadTextarea';
 
 export type { SwitchProps } from './Switch';
 export type { SelectProps, SelectOption } from './Select';
@@ -33,3 +34,4 @@ export type { PhoneInputProps } from './PhoneInput';
 export type { NumberInputProps } from './NumberInput';
 export type { CurrencyInputProps } from './CurrencyInput';
 export type { URLInputProps } from './URLInput';
+export type { MarkdownUploadTextareaProps } from './MarkdownUploadTextarea';

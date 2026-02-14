@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Textarea } from '@/shared/ui/input/Textarea';
+import { MarkdownUploadTextarea } from '@/shared/ui/input';
 import type { MatterNote } from '@/features/matters/data/matterTypes';
 
 export type NoteFormValues = {
@@ -10,13 +10,14 @@ export type NoteFormValues = {
 
 interface NoteFormProps {
   initialNote?: MatterNote;
+  practiceId?: string | null;
   onSubmit: (values: NoteFormValues) => void;
   onCancel: () => void;
   onDelete?: () => void;
   isSubmitting?: boolean;
 }
 
-export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete, isSubmitting = false }: NoteFormProps) => {
+export const NoteForm = ({ initialNote, practiceId, onSubmit, onCancel, onDelete, isSubmitting = false }: NoteFormProps) => {
   const [content, setContent] = useState(initialNote?.content ?? '');
   const [error, setError] = useState('');
 
@@ -33,7 +34,7 @@ export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete, isSubmitti
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      <Textarea
+      <MarkdownUploadTextarea
         label="Content"
         value={content}
         onChange={(value) => {
@@ -42,11 +43,12 @@ export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete, isSubmitti
             setError('');
           }
         }}
+        practiceId={practiceId}
         rows={5}
-        required
-        error={error}
+        maxLength={5000}
         placeholder="Capture key updates, decisions, or follow-ups for this matter."
       />
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
       <div className="flex flex-wrap items-center justify-end gap-3">
         {onDelete && (
         <Button type="button" variant="danger" size="sm" onClick={onDelete} className="mr-auto" disabled={isSubmitting}>

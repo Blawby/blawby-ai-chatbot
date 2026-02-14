@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'preact/hooks';
-import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
-import { FileInput } from '@/shared/ui/input/FileInput';
+import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
@@ -13,19 +12,33 @@ import { type MatterOption, type MatterMilestoneFormInput } from '@/features/mat
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
-import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outline';
+import {
+  ScaleIcon,
+  ShieldCheckIcon,
+  UserIcon,
+  ChatBubbleLeftRightIcon,
+  MagnifyingGlassIcon,
+  ShieldExclamationIcon,
+  DocumentCheckIcon,
+  BriefcaseIcon,
+  PauseCircleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowUturnRightIcon
+} from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
-import { cn } from '@/shared/utils/cn';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
+import { Panel } from '@/shared/ui/layout/Panel';
 
 type MatterFormMode = 'create' | 'edit';
 
 interface MatterFormModalProps {
-  isOpen: boolean;
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
+  practiceId?: string | null;
   clients: MatterOption[];
   practiceAreas: MatterOption[];
   practiceAreasLoading?: boolean;
@@ -71,7 +84,6 @@ export type MatterFormState = {
   milestones: MatterMilestoneFormInput[];
   contingencyPercent?: number;
   description: string;
-  files: File[];
 };
 
 const BILLING_OPTIONS = [
@@ -103,6 +115,27 @@ const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WOR
     label: MATTER_STATUS_LABELS[status]
   })
 );
+
+const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>> = {
+  first_contact: ChatBubbleLeftRightIcon,
+  intake_pending: MagnifyingGlassIcon,
+  conflict_check: ShieldExclamationIcon,
+  conflicted: ExclamationTriangleIcon,
+  eligibility: ScaleIcon,
+  referred: ArrowUturnRightIcon,
+  consultation_scheduled: DocumentCheckIcon,
+  declined: XCircleIcon,
+  engagement_pending: PauseCircleIcon,
+  active: BriefcaseIcon,
+  pleadings_filed: DocumentCheckIcon,
+  discovery: MagnifyingGlassIcon,
+  mediation: ScaleIcon,
+  pre_trial: ShieldExclamationIcon,
+  trial: ExclamationTriangleIcon,
+  order_entered: CheckCircleIcon,
+  appeal_pending: ArrowUturnRightIcon,
+  closed: CheckCircleIcon
+};
 
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
   {
@@ -142,8 +175,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
   settlementAmount: initialValues?.settlementAmount,
   milestones: initialValues?.milestones ?? [],
   contingencyPercent: initialValues?.contingencyPercent,
-  description: initialValues?.description ?? '',
-  files: initialValues?.files ?? []
+  description: initialValues?.description ?? ''
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
@@ -152,53 +184,10 @@ const buildLeadingIcon = (icon: ComponentChildren) => (
   </div>
 );
 
-const StatusPillGroup = ({
-  value,
-  onChange,
-  options
-}: {
-  value: MatterStatus;
-  onChange: (value: MatterStatus) => void;
-  options: Array<{ value: MatterStatus; label: string }>;
-}) => (
-  <fieldset>
-    <legend className="block text-sm font-medium text-input-text mb-1">Matter Status</legend>
-    <div className="flex flex-wrap gap-2">
-      {options.map((option) => {
-        const inputId = `status-pill-${option.value}`;
-        const isSelected = option.value === value;
-        return (
-          <label
-            key={option.value}
-            htmlFor={inputId}
-            className={cn(
-              'cursor-pointer rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition-colors',
-              isSelected
-                ? 'bg-accent-500 text-gray-900 ring-accent-500'
-                : 'bg-surface-glass/60 text-input-text ring-line-glass/30 hover:bg-surface-glass/50'
-            )}
-          >
-            <input
-              id={inputId}
-              type="radio"
-              name="matter-status"
-              value={option.value}
-              checked={isSelected}
-              onChange={() => onChange(option.value as MatterStatus)}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        );
-      })}
-    </div>
-  </fieldset>
-);
-
 const MatterFormModalInner = ({
-  isOpen,
   onClose,
   onSubmit,
+  practiceId,
   clients,
   practiceAreas,
   practiceAreasLoading = false,
@@ -207,9 +196,6 @@ const MatterFormModalInner = ({
   initialValues
 }: MatterFormModalProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
-  const [assigneeInput, setAssigneeInput] = useState(
-    () => (initialValues?.assigneeIds ?? []).join(', ')
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof MatterFormState, string>>>({});
@@ -259,11 +245,8 @@ const MatterFormModalInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
-  const [fileError, setFileError] = useState<string | null>(null);
-
   const hasFormErrors = Object.keys(formErrors).length > 0;
   const canSubmit = Boolean(formState.title && formState.clientId) && !hasFormErrors;
-  const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
     setFormState((prev) => {
@@ -289,48 +272,8 @@ const MatterFormModalInner = ({
     });
   };
 
-  const parseAssigneeInput = (value: string) =>
-    value
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-  const applyAssigneeInput = (value: string) => {
-    const parsed = parseAssigneeInput(value);
-    updateForm('assigneeIds', parsed);
-    setAssigneeInput(parsed.join(', '));
-    return parsed;
-  };
-
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
   const modalTitle = mode === 'edit' ? 'Edit Matter' : 'Propose new matter';
-
-  const handleFilesChange = (incoming: FileList | File[]) => {
-    const nextFiles = Array.isArray(incoming) ? incoming : Array.from(incoming);
-    const maxTotalSize = 25 * 1024 * 1024;
-    const limited = [...formState.files];
-    let totalSize = limited.reduce((sum, file) => sum + file.size, 0);
-    let droppedAny = false;
-    for (const file of nextFiles) {
-      if (limited.length >= 6 || totalSize + file.size > maxTotalSize) {
-        droppedAny = true;
-        continue;
-      }
-      limited.push(file);
-      totalSize += file.size;
-    }
-    if (droppedAny) {
-      setFileError('Some files were not added: exceeds count or size limits.');
-    } else {
-      setFileError(null);
-    }
-    updateForm('files', limited);
-  };
-
-  const removeFile = (index: number) => {
-    updateForm('files', formState.files.filter((_, fileIndex) => fileIndex !== index));
-    setFileError(null);
-  };
 
   const canAddMilestone =
     milestoneDraft.description.trim().length > 0 &&
@@ -354,16 +297,9 @@ const MatterFormModalInner = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={modalTitle}
-      type="fullscreen"
-      contentClassName="bg-surface-base"
-      headerClassName="bg-surface-base"
-    >
+    <Panel className="p-4 sm:p-6 lg:p-8">
       <form
-        className="space-y-6 max-w-3xl mx-auto px-4 py-6 sm:px-6 lg:px-8"
+        className="space-y-6 max-w-4xl mx-auto"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!canSubmit) return;
@@ -374,10 +310,7 @@ const MatterFormModalInner = ({
           }
           setIsSubmitting(true);
           try {
-            const resolvedAssignees = isAssigneeOptionsEmpty
-              ? parseAssigneeInput(assigneeInput)
-              : formState.assigneeIds;
-            await onSubmit({ ...formState, assigneeIds: resolvedAssignees });
+            await onSubmit({ ...formState });
             setIsSubmitting(false);
             onClose();
           } catch (error) {
@@ -387,9 +320,7 @@ const MatterFormModalInner = ({
           }
         }}
       >
-        <h1 className="text-3xl font-bold text-input-text">
-          {mode === 'edit' ? 'Edit matter' : 'Propose new matter'}
-        </h1>
+        <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
 
         <Input
           label="Matter Title"
@@ -399,67 +330,80 @@ const MatterFormModalInner = ({
           required
         />
 
-        <StatusPillGroup
-          value={formState.status}
-          options={STATUS_OPTIONS}
-          onChange={(value) => updateForm('status', value)}
-        />
-
-        <Combobox
-          label="Client *"
-          placeholder="Select customer"
-          value={formState.clientId}
-          options={clientOptions}
-          leading={(selectedOption) => {
-            if (selectedOption) {
-              const client = clientById.get(selectedOption.value);
-              if (client) {
-                return renderUserAvatar(client.name, client.image, 'sm');
-              }
-            }
-            return buildLeadingIcon(<UserIcon className="h-4 w-4" />);
-          }}
-          optionLeading={(option) => {
-            const client = clientById.get(option.value);
-            if (!client) return null;
-            return renderUserAvatar(client.name, client.image, 'sm');
-          }}
-          optionMeta={(option) => {
-            const client = clientById.get(option.value);
-            return client?.email || option.meta;
-          }}
-          onChange={(value) => updateForm('clientId', value)}
-        />
+        <div>
+          <MarkdownUploadTextarea
+            label="Description"
+            value={formState.description}
+            onChange={(value) => updateForm('description', value)}
+            practiceId={practiceId}
+            placeholder="Let the client know how you'd approach the project and drop supporting files directly into the description."
+            rows={8}
+            maxLength={5000}
+          />
+        </div>
 
         <hr className="h-px border-line-glass/30" />
 
-        <div>
-          <h2 className="text-lg font-medium text-input-text mb-2">Provide matter details</h2>
-          <div className="space-y-2">
-            <Textarea
-              label="Description"
-              value={formState.description}
-              onChange={(value) => updateForm('description', value)}
-              placeholder="Let the client know how you'd approach the project or include a cover letter about your experience"
-              rows={4}
-              maxLength={5000}
-              enforceMaxLength="hard"
-            />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {formState.description.length}/5000 characters
-            </p>
-          </div>
-        </div>
+        <div className="space-y-4">
+          <h2 className="text-lg font-medium text-input-text">Provide matter details</h2>
+          <Combobox
+            label="Matter Status"
+            placeholder="Select status"
+            value={formState.status}
+            options={STATUS_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label
+            }))}
+            leading={(selectedOption) => {
+              const selectedStatus = (selectedOption?.value ?? formState.status) as MatterStatus;
+              const StatusIcon = STATUS_ICON[selectedStatus] ?? ScaleIcon;
+              return (
+                <StatusIcon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />
+              );
+            }}
+            optionLeading={(option) => {
+              const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? ScaleIcon;
+              return <StatusIcon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />;
+            }}
+            onChange={(value) => updateForm('status', value as MatterStatus)}
+          />
 
-        <Combobox
-          label="Practice Area"
-          placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
-          value={formState.practiceAreaId}
-          options={practiceAreaOptions}
-          leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
-          onChange={(value) => updateForm('practiceAreaId', value)}
-          disabled={practiceAreasLoading}
-        />
+          <Combobox
+            label="Client *"
+            placeholder="Select customer"
+            value={formState.clientId}
+            options={clientOptions}
+            leading={(selectedOption) => {
+              if (selectedOption) {
+                const client = clientById.get(selectedOption.value);
+                if (client) {
+                  return renderUserAvatar(client.name, client.image, 'sm');
+                }
+              }
+              return buildLeadingIcon(<UserIcon className="h-4 w-4" />);
+            }}
+            optionLeading={(option) => {
+              const client = clientById.get(option.value);
+              if (!client) return null;
+              return renderUserAvatar(client.name, client.image, 'sm');
+            }}
+            optionMeta={(option) => {
+              const client = clientById.get(option.value);
+              return client?.email || option.meta;
+            }}
+            onChange={(value) => updateForm('clientId', value)}
+          />
+
+          <Combobox
+            label="Practice Area"
+            placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
+            value={formState.practiceAreaId}
+            options={practiceAreaOptions}
+            leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+            onChange={(value) => updateForm('practiceAreaId', value)}
+            disabled={practiceAreasLoading}
+          />
+        </div>
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-input-text">Matter specifics</h3>
@@ -543,69 +487,6 @@ const MatterFormModalInner = ({
               placeholder="0"
             />
           </FormGrid>
-        </div>
-
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
-          <div>
-            <h3 className="text-lg font-medium text-input-text">Additional documents</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Attach up to 6 files with a max combined size of 25 MB. Use PNG, GIF, PDF, PPT, TXT, or DOC.
-            </p>
-          </div>
-
-          <div>
-            <FileInput
-              accept=".png,.gif,.pdf,.ppt,.pptx,.txt,.doc,.docx"
-              multiple
-              value={formState.files}
-              onChange={handleFilesChange}
-              maxTotalSize={25 * 1024 * 1024}
-              maxFiles={6}
-              showAcceptText={false}
-              onRemove={removeFile}
-            />
-            {fileError && (
-              <p className="mt-2 text-sm text-red-500">{fileError}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
-          <h3 className="text-lg font-medium text-input-text">Team Members</h3>
-          {isAssigneeOptionsEmpty ? (
-            <Input
-              label="Assignee IDs"
-              placeholder="Comma-separated user IDs (optional)"
-              value={assigneeInput}
-              onChange={(value) => setAssigneeInput(value)}
-              onBlur={() => applyAssigneeInput(assigneeInput)}
-            />
-          ) : (
-            <Combobox
-              label="Select Assignees"
-              placeholder="Select Assignees"
-              value={formState.assigneeIds}
-              options={assigneeOptions}
-              multiple
-              leading={(selectedOption, selectedOptions) => {
-                const first = selectedOptions?.[0] ?? selectedOption;
-                if (first) {
-                  const assignee = assigneeById.get(first.value);
-                  if (assignee) {
-                    return renderUserAvatar(assignee.name, assignee.image, 'sm');
-                  }
-                }
-                return buildLeadingIcon(<UserIcon className="h-4 w-4" />);
-              }}
-              optionLeading={(option) => {
-                const assignee = assigneeById.get(option.value);
-                if (!assignee) return null;
-                return renderUserAvatar(assignee.name, assignee.image, 'sm');
-              }}
-              optionMeta={(option) => option.meta}
-              onChange={(value) => updateForm('assigneeIds', value)}
-            />
-          )}
         </div>
 
         <div className="border-t border-line-glass/30 pt-6 space-y-4">
@@ -698,7 +579,7 @@ const MatterFormModalInner = ({
                   <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
 
                   {formState.milestones.length > 0 && (
-                    <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                    <ol className="list-decimal pl-4 space-y-2 text-sm text-input-text">
                       {formState.milestones.map((milestone, index) => (
                         <li
                           key={`${milestone.description}-${index}`}
@@ -708,7 +589,7 @@ const MatterFormModalInner = ({
                           <span className="text-left sm:text-right tabular-nums">
                             {milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}
                           </span>
-                          <span className="text-left sm:text-right tabular-nums text-gray-500 dark:text-gray-400">
+                          <span className="text-left sm:text-right tabular-nums text-input-placeholder">
                             {milestone.dueDate ? formatDateOnlyUtc(milestone.dueDate) : ''}
                           </span>
                         </li>
@@ -733,7 +614,7 @@ const MatterFormModalInner = ({
                           enforceMaxLength="hard"
                           placeholder="Enter a description of your deliverable"
                         />
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <p className="mt-1 text-sm text-input-placeholder">
                           {milestoneDraft.description.length}/100
                         </p>
                       </div>
@@ -800,28 +681,35 @@ const MatterFormModalInner = ({
                 max={100}
                 step={0.1}
                 inputMode="decimal"
-                icon={<span className="text-xs font-semibold text-gray-400">%</span>}
+                icon={<span className="text-xs font-semibold text-input-placeholder">%</span>}
                 iconPosition="right"
               />
             </div>
           )}
         </div>
 
-        <div className="bg-surface-glass/60 backdrop-blur-sm rounded-lg p-4 flex items-center space-x-3">
+        <div className="rounded-2xl border border-line-glass/30 bg-surface-overlay/55 backdrop-blur-xl p-4 flex items-center space-x-3">
           <div className="shrink-0">
-            <div className="p-2 bg-black rounded-full">
-              <ShieldCheckIcon className="h-6 w-6 text-white" />
+            <div className="p-2 rounded-full bg-surface-overlay/70 border border-line-glass/30">
+              <ShieldCheckIcon className="h-6 w-6 text-input-text" />
             </div>
           </div>
-          <p className="text-sm text-gray-700 dark:text-gray-200">
+          <p className="text-sm text-input-text">
             Payments are built for securing IOLTA compliance.{' '}
-            <span className="font-medium underline">Learn more</span>
+            <a
+              href="https://blawby.com/compliance/iolta-compliance"
+              className="font-medium underline text-brand-600 hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn more
+            </a>
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-glass/60 backdrop-blur-sm px-4 py-3 text-xs text-input-placeholder">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line-glass/30 bg-surface-overlay/55 backdrop-blur-xl px-4 py-3 text-xs text-input-placeholder">
           {submitError ? (
-            <p className="text-red-600 dark:text-red-400">{submitError}</p>
+            <p className="text-red-400">{submitError}</p>
           ) : (
             <p>Ready to save this matter to the practice workspace.</p>
           )}
@@ -835,7 +723,7 @@ const MatterFormModalInner = ({
           </div>
         </div>
       </form>
-    </Modal>
+    </Panel>
   );
 };
 
@@ -856,3 +744,6 @@ export const MatterCreateModal = (props: MatterCreateModalProps) => (
 export const MatterEditModal = (props: MatterEditModalProps) => (
   <MatterFormModal {...props} mode="edit" />
 );
+
+export const MatterCreateForm = MatterCreateModal;
+export const MatterEditForm = MatterEditModal;

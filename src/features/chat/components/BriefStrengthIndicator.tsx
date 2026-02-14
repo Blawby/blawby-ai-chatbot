@@ -65,8 +65,8 @@ const BriefStrengthIndicator: FunctionComponent<BriefStrengthIndicatorProps> = (
           className={`h-1 rounded-full transition-all duration-300 ${barClass}`}
           style={{ width }}
           role="progressbar"
-          aria-valuemin="0"
-          aria-valuemax="100"
+          aria-valuemin={0}
+          aria-valuemax={100}
           aria-valuenow={parseInt(width, 10)}
           aria-label={label}
         />

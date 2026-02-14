@@ -164,6 +164,7 @@ const ClientForm = ({
 const ClientDetailPanel = ({
   client,
   activity,
+  practiceId,
   onAddMemo,
   memoSubmitting = false,
   onEditMemo,
@@ -175,6 +176,7 @@ const ClientDetailPanel = ({
 }: {
   client: ClientRecord;
   activity: TimelineItem[];
+  practiceId?: string | null;
   onAddMemo?: (value: string) => void | Promise<void>;
   memoSubmitting?: boolean;
   onEditMemo?: (memoId: string, value: string) => void | Promise<void>;
@@ -258,6 +260,7 @@ const ClientDetailPanel = ({
             onComposerSubmit={onAddMemo}
             composerLabel="Comment"
             composerPlaceholder="Add your comment..."
+            composerPracticeId={practiceId}
             onEditComment={onEditMemo}
             onDeleteComment={onDeleteMemo}
             commentActionsDisabled={memoSubmitting || Boolean(memoActionId)}
@@ -1007,6 +1010,7 @@ export const PracticeClientsPage = () => {
                 <ClientDetailPanel
                   client={selectedClient}
                   activity={selectedClientActivity}
+                  practiceId={currentPractice?.id}
                   onAddMemo={handleMemoSubmit}
                   memoSubmitting={memoSubmitting}
                   onEditMemo={handleMemoEdit}
@@ -1043,6 +1047,7 @@ export const PracticeClientsPage = () => {
             <ClientDetailPanel
               client={selectedClient}
               activity={selectedClientActivity}
+              practiceId={currentPractice?.id}
               onAddMemo={handleMemoSubmit}
               memoSubmitting={memoSubmitting}
               onEditMemo={handleMemoEdit}

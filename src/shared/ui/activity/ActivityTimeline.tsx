@@ -6,11 +6,11 @@ import {
   PlusCircleIcon,
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
-import { FaceSmileIcon, PaperClipIcon } from '@heroicons/react/20/solid';
 import { Avatar } from '@/shared/ui/profile';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { useCallback, useState } from 'preact/hooks';
+import { MarkdownUploadTextarea } from '@/shared/ui/input';
 
 export type TimelinePerson = {
   name: string;
@@ -42,6 +42,8 @@ export interface ActivityTimelineProps {
   composerLabel?: string;
   composerValue?: string;
   composerPerson?: TimelinePerson;
+  composerPracticeId?: string | null;
+  composerConversationId?: string;
   onComposerChange?: (value: string) => void;
   onComposerSubmit?: (value: string) => void | Promise<void>;
   onEditComment?: (id: string, value: string) => void | Promise<void>;
@@ -75,6 +77,8 @@ export const ActivityTimeline = ({
   composerLabel = 'Comment',
   composerValue,
   composerPerson,
+  composerPracticeId,
+  composerConversationId,
   onComposerChange,
   onComposerSubmit,
   onEditComment,
@@ -86,9 +90,7 @@ export const ActivityTimeline = ({
   const resolvedValue = isControlled ? composerValue : draft;
   const isSubmitDisabled = composerDisabled || composerSubmitting || resolvedValue.trim().length === 0;
 
-  const handleChange = useCallback((event: Event) => {
-    const target = event.currentTarget as HTMLTextAreaElement;
-    const nextValue = target?.value ?? '';
+  const handleChange = useCallback((nextValue: string) => {
     if (!isControlled) {
       setDraft(nextValue);
     }
@@ -199,14 +201,16 @@ export const ActivityTimeline = ({
                   </div>
                   {editingId === item.id ? (
                     <div className="mt-2 space-y-2">
-                      <textarea
-                        rows={3}
+                      <MarkdownUploadTextarea
+                        showLabel={false}
+                        showTabs={false}
                         value={editValue}
-                        onInput={(event) => {
-                          const target = event.currentTarget as HTMLTextAreaElement;
-                          setEditValue(target?.value ?? '');
-                        }}
-                        className="block w-full resize-none rounded-md border border-input-border bg-input-bg px-3 py-2 text-sm text-input-text shadow-sm outline-none focus:border-accent-500"
+                        onChange={(next) => setEditValue(next)}
+                        placeholder="Edit comment..."
+                        rows={3}
+                        maxLength={5000}
+                        practiceId={composerPracticeId}
+                        conversationId={composerConversationId}
                         disabled={commentActionsDisabled || actionInFlightId === item.id}
                       />
                       <div className="flex gap-2">
@@ -321,41 +325,19 @@ export const ActivityTimeline = ({
           size="sm"
           className="mt-1 ring-1 ring-white/15 bg-white/10 text-input-text dark:ring-white/10"
         />
-        <form className="relative flex-auto" onSubmit={handleSubmit}>
-          <div className="glass-panel overflow-hidden pb-12 focus-within:ring-1 focus-within:ring-accent-500/60 focus-within:ring-offset-2 focus-within:ring-offset-transparent">
-            <label htmlFor="timeline-comment" className="sr-only">
-              Add your comment
-            </label>
-            <textarea
-              id="timeline-comment"
-              name="comment"
-              rows={2}
-              placeholder={composerPlaceholder}
-              disabled={composerDisabled || composerSubmitting}
-              className="block w-full resize-none bg-transparent px-3 py-1.5 text-base text-input-text placeholder:text-input-placeholder focus:outline-none sm:text-sm leading-6"
-              value={resolvedValue}
-              onInput={handleChange}
-            />
-          </div>
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between py-2 pr-2 pl-3">
-            <div className="flex items-center space-x-2">
-              <Button
-                type="button"
-                variant="icon"
-                size="icon"
-                aria-label="Attach a file"
-                disabled={composerDisabled || composerSubmitting}
-                icon={<PaperClipIcon aria-hidden="true" className="h-5 w-5" />}
-              />
-              <Button
-                type="button"
-                variant="icon"
-                size="icon"
-                aria-label="Add a mood"
-                disabled={composerDisabled || composerSubmitting}
-                icon={<FaceSmileIcon aria-hidden="true" className="h-5 w-5" />}
-              />
-            </div>
+        <form className="flex-auto space-y-2" onSubmit={handleSubmit}>
+          <MarkdownUploadTextarea
+            showLabel={false}
+            value={resolvedValue}
+            onChange={handleChange}
+            placeholder={composerPlaceholder}
+            rows={3}
+            maxLength={5000}
+            practiceId={composerPracticeId}
+            conversationId={composerConversationId}
+            disabled={composerDisabled || composerSubmitting}
+          />
+          <div className="flex items-center justify-end">
             <Button
               type="submit"
               variant="primary"

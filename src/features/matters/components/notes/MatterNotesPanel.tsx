@@ -23,6 +23,7 @@ const defaultAuthor: MatterNote['author'] = {
 
 interface MatterNotesPanelProps {
   matter: MatterDetail;
+  practiceId?: string | null;
   notes?: MatterNote[];
   loading?: boolean;
   error?: string | null;
@@ -34,6 +35,7 @@ interface MatterNotesPanelProps {
 
 export const MatterNotesPanel = ({
   matter,
+  practiceId,
   notes,
   loading = false,
   error = null,
@@ -268,6 +270,7 @@ export const MatterNotesPanel = ({
           <NoteForm
             key={`${editingNote?.id ?? 'new'}-${formKey}`}
             initialNote={editingNote ?? undefined}
+            practiceId={practiceId}
             onSubmit={handleSave}
             onCancel={closeForm}
             onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
