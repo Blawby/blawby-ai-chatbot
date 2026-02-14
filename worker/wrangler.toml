@@ -143,10 +143,6 @@ class_name = "ChatRoom"
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
-[[env.staging.migrations]]
-tag = "v5"
-new_classes = ["MatterProgressRoom"]
-
 [env.staging.vars]
 NODE_ENV = "staging"
 LOG_LEVEL = "warn"
