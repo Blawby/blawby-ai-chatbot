@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks'
 import type { ComponentChildren } from 'preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
-import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -34,6 +33,7 @@ import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
+import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeConversationHeaderMenu';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
@@ -85,8 +85,7 @@ export function MainApp({
   const {
     currentPractice,
     acceptMatter,
-    rejectMatter,
-    updateMatterStatus
+    rejectMatter
   } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
     fetchInvitations: workspace !== 'public'
@@ -629,7 +628,6 @@ export function MainApp({
   const isSocketReady = isConversationReady && isAuthReady ? realMessageHandling.isSocketReady : false;
   const isComposerDisabled = shouldRequireModeSelection && !conversationMode;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
-  const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
   useEffect(() => {
     if (isPublicWorkspace) return;
@@ -849,23 +847,21 @@ export function MainApp({
     ?? currentPractice?.description
     ?? practiceConfig?.description
     ?? '';
-  const publicFilteredMessages = useMemo(() => {
-    if (!isPublicWorkspace) return [];
+  const filteredMessagesForHeader = useMemo(() => {
     const base = messages.filter((message) =>
       message.metadata?.systemMessageKey !== 'ask_question_help'
     );
     const hasNonSystemMessages = base.some((message) => message.role !== 'system');
     return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
-  }, [isPublicWorkspace, messages]);
-  const publicPresenceStatus = typeof isSocketReady === 'boolean'
+  }, [messages]);
+  const headerPresenceStatus = typeof isSocketReady === 'boolean'
     ? (isSocketReady ? 'active' : 'inactive')
     : undefined;
-  const publicActiveTimeLabel = useMemo(() => {
-    if (!isPublicWorkspace) return '';
-    if (publicPresenceStatus === 'active') {
+  const headerActiveTimeLabel = useMemo(() => {
+    if (headerPresenceStatus === 'active') {
       return 'Active';
     }
-    const lastTimestamp = [...publicFilteredMessages]
+    const lastTimestamp = [...filteredMessagesForHeader]
       .reverse()
       .find((message) => typeof message.timestamp === 'number')?.timestamp;
     if (!lastTimestamp) {
@@ -873,32 +869,51 @@ export function MainApp({
     }
     const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
     return relative ? `Active ${relative}` : 'Inactive';
-  }, [isPublicWorkspace, publicFilteredMessages, publicPresenceStatus]);
-  const publicHeaderContent = useMemo(() => {
-    if (!isPublicWorkspace || !publicConversationsBasePath) return undefined;
-    const showBriefStrength = conversationMode === 'REQUEST_CONSULTATION';
+  }, [filteredMessagesForHeader, headerPresenceStatus]);
+  const conversationsBasePath = useMemo(() => {
+    if (workspace === 'practice') {
+      return resolvedPracticeSlug ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}/conversations` : null;
+    }
+    if (workspace === 'client') {
+      return resolvedClientPracticeSlug ? `/client/${encodeURIComponent(resolvedClientPracticeSlug)}/conversations` : null;
+    }
+    return publicConversationsBasePath;
+  }, [publicConversationsBasePath, resolvedClientPracticeSlug, resolvedPracticeSlug, workspace]);
+  const headerRightSlot = useMemo(() => {
+    if (workspace === 'practice') {
+      return (
+        <PracticeConversationHeaderMenu
+          practiceId={practiceId}
+          conversationId={activeConversationId ?? undefined}
+        />
+      );
+    }
+    if (conversationMode === 'REQUEST_CONSULTATION') {
+      return <BriefStrengthIndicator intakeConversationState={intakeConversationState} />;
+    }
+    return undefined;
+  }, [workspace, practiceId, activeConversationId, conversationMode, intakeConversationState]);
+  const conversationHeaderContent = useMemo(() => {
+    if (!conversationsBasePath || !activeConversationId) return undefined;
     return (
       <WorkspaceConversationHeader
         practiceName={resolvedPracticeName}
         practiceLogo={resolvedPracticeLogo}
-        activeLabel={publicActiveTimeLabel}
-        presenceStatus={publicPresenceStatus}
-        onBack={() => navigate(publicConversationsBasePath)}
-        rightSlot={showBriefStrength ? (
-          <BriefStrengthIndicator intakeConversationState={intakeConversationState} />
-        ) : undefined}
+        activeLabel={headerActiveTimeLabel}
+        presenceStatus={headerPresenceStatus}
+        onBack={() => navigate(conversationsBasePath)}
+        rightSlot={headerRightSlot}
       />
     );
   }, [
-    isPublicWorkspace,
+    activeConversationId,
+    conversationsBasePath,
+    headerActiveTimeLabel,
+    headerPresenceStatus,
+    headerRightSlot,
     navigate,
-    publicActiveTimeLabel,
-    publicConversationsBasePath,
-    publicPresenceStatus,
     resolvedPracticeLogo,
-    resolvedPracticeName,
-    conversationMode,
-    intakeConversationState
+    resolvedPracticeName
   ]);
 
   // Handle navigation to chats - removed since bottom nav is disabled
@@ -918,17 +933,6 @@ export function MainApp({
         </div>
       ) : (
         <>
-          {showMatterControls && (
-            <ConversationHeader
-              practiceId={practiceId}
-              practiceSlug={resolvedPracticeSlug ?? null}
-              conversationId={activeConversationId ?? undefined}
-              canReviewLeads={canReviewLeads}
-              acceptMatter={acceptMatter}
-              rejectMatter={rejectMatter}
-              updateMatterStatus={updateMatterStatus}
-            />
-          )}
           <div className="flex-1 min-h-0">
             <ChatContainer
               messages={messages}
@@ -942,7 +946,7 @@ export function MainApp({
               isPublicWorkspace={workspace === 'public'}
               leadReviewActions={leadReviewActions}
               messagesReady={messagesReady}
-              headerContent={workspace === 'public' ? publicHeaderContent : undefined}
+              headerContent={conversationHeaderContent}
               heightClassName={layoutMode === 'desktop' ? undefined : 'h-full'}
               useFrame={layoutMode === 'desktop'}
               layoutMode={layoutMode}

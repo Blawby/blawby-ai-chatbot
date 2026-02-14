@@ -136,10 +136,10 @@ const MessageComposer = ({
       >
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-glass/70 px-4 py-1.5 text-sm text-input-text backdrop-blur-sm -mx-2 -mt-1 border-b border-line-glass/30">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-overlay/80 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-input-text/70">{t('chat.replyingTo')}</span>
-                <span className="truncate font-semibold text-yellow-400">{replyTo.authorName}</span>
+                <span className="truncate font-semibold text-accent-500">{replyTo.authorName}</span>
               </div>
               <Button
                 type="button"
