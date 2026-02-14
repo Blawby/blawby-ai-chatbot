@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
-import ReactMarkdown from 'react-markdown';
+import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
 import {
   Bars3BottomLeftIcon,
   CloudArrowUpIcon,
@@ -12,6 +11,46 @@ import {
 import { cn } from '@/shared/utils/cn';
 import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
+
+// Custom hook to dynamically import react-markdown on client
+function useReactMarkdown() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadMarkdown = async () => {
+      try {
+        const mod = await import('react-markdown');
+        if (mounted) {
+          setReactMarkdown(() => mod.default);
+          setError(null);
+        }
+      } catch (err) {
+        if (mounted) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to load markdown preview';
+          setError(errorMsg);
+          setReactMarkdown(null);
+        }
+      }
+    };
+
+    void loadMarkdown();
+
+    return () => {
+      mounted = false;
+    };
+  }, [retryCount]);
+
+  const retry = () => {
+    setRetryCount((prev) => prev + 1);
+  };
+
+  return { component: ReactMarkdown, error, retry };
+}
 
 type UploadState = {
   id: string;
@@ -38,8 +77,8 @@ export interface MarkdownUploadTextareaProps {
 }
 
 const createMarkdownForUpload = (file: File, url: string): string => {
-  // Escape [ and ] in the filename, and ) in the url
-  const safeName = file.name.replace(/([\[\]])/g, '\\$1');
+  // Escape [ ] ( ) in filenames for markdown
+  const safeName = file.name.replace(/[[]()]/g, '$&');
   const safeUrl = url.replace(/\)/g, '\\)');
   if (file.type.startsWith('image/')) {
     return `![${safeName}](${safeUrl})`;
@@ -60,20 +99,20 @@ export const MarkdownUploadTextarea = ({
   rows = 8,
   maxLength = 5000,
   disabled = false,
-  className
+  className = ''
 }: MarkdownUploadTextareaProps) => {
-  const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
-  const [isDragActive, setIsDragActive] = useState(false);
-  const [uploadItems, setUploadItems] = useState<UploadState[]>([]);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const { component: ReactMarkdown, error: markdownError, retry: retryMarkdown } = useReactMarkdown();
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorId = useUniqueId('markdown-upload-textarea');
-
-  // Mutable ref to always have the latest value
   const valueRef = useRef(value);
   valueRef.current = value;
+
+  const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [uploadItems, setUploadItems] = useState<UploadState[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const isUploading = useMemo(
     () => uploadItems.some((item) => item.status === 'uploading'),
@@ -209,7 +248,6 @@ export const MarkdownUploadTextarea = ({
       }
     }
   };
-
   return (
     <div className={cn('space-y-2', className)}>
       {showLabel ? (
@@ -341,7 +379,24 @@ export const MarkdownUploadTextarea = ({
           <div className="min-h-[220px] px-4 py-3">
             {value.trim().length > 0 ? (
               <div className="chat-markdown">
-                <ReactMarkdown>{value}</ReactMarkdown>
+                {markdownError ? (
+                  <div className="mt-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-600 dark:bg-red-900/20 dark:text-red-300">
+                    <div className="mb-2">Failed to load markdown preview: {markdownError}</div>
+                    <button
+                      type="button"
+                      onClick={retryMarkdown}
+                      className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : ReactMarkdown ? (
+                  <ReactMarkdown>{value}</ReactMarkdown>
+                ) : (
+                  <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500">
+                    Loading preview…
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-input-placeholder">Nothing to preview yet.</p>
