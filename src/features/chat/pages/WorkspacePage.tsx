@@ -91,6 +91,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const isPracticeWorkspace = workspace === 'practice';
+  const isClientFacingWorkspace = workspace === 'public' || workspace === 'client';
 
   const workspaceBasePath = useMemo(() => {
     if (workspace === 'practice') {
@@ -741,6 +742,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
             }}
             onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+            showSendMessageButton={isClientFacingWorkspace}
           />
         );
       case 'matters':
@@ -781,8 +783,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
-  const isPublicOrClientWorkspace = workspace === 'public' || workspace === 'client';
-  const hideBottomNav = isPublicOrClientWorkspace && (view === 'list' || view === 'conversation');
+  const hideBottomNav = isClientFacingWorkspace && (view === 'list' || view === 'conversation');
   const showBottomNav = workspace !== 'practice'
     ? !hideBottomNav
     : (showClientTabs || showPracticeTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'clients');
@@ -849,6 +850,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         }}
         onSendMessage={() => handleStartConversation('ASK_QUESTION')}
         showBackButton={false}
+        showSendMessageButton={isClientFacingWorkspace}
       />
     </div>
   );

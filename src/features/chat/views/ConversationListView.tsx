@@ -25,6 +25,7 @@ interface ConversationListViewProps {
   onSelectConversation: (conversationId: string) => void;
   onSendMessage: () => void;
   showBackButton?: boolean;
+  showSendMessageButton?: boolean;
 }
 
 const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
@@ -45,7 +46,8 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   onClose,
   onSelectConversation,
   onSendMessage,
-  showBackButton = true
+  showBackButton = true,
+  showSendMessageButton = true
 }) => {
   const { t } = useTranslation();
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
@@ -135,18 +137,20 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         )}
       </div>
 
-      <div className="border-t border-line-glass/30 bg-transparent px-4 py-4">
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full"
-          icon={<PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />}
-          iconPosition="right"
-          onClick={onSendMessage}
-        >
-          {t('workspace.conversationList.sendMessage')}
-        </Button>
-      </div>
+      {showSendMessageButton ? (
+        <div className="border-t border-line-glass/30 bg-transparent px-4 py-4">
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            icon={<PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />}
+            iconPosition="right"
+            onClick={onSendMessage}
+          >
+            {t('workspace.conversationList.sendMessage')}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 };
