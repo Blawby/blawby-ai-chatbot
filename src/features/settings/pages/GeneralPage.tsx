@@ -8,7 +8,6 @@ import { SettingSelect } from '@/features/settings/components/SettingSelect';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
-import { applyAccentColor, ACCENT_COLORS, type AccentColor } from '@/shared/utils/accentColors';
 
 export interface GeneralPageProps {
   isMobile?: boolean;
@@ -25,7 +24,6 @@ export const GeneralPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const [settings, setSettings] = useState({
     theme: 'system' as 'light' | 'dark' | 'system',
-    accentColor: 'grey' as AccentColor,
     language: 'auto-detect' as 'auto-detect' | Language,
     spokenLanguage: 'auto-detect' as 'auto-detect' | Language
   });
@@ -47,21 +45,12 @@ export const GeneralPage = ({
         setIsLoading(true);
         const prefs = await getPreferencesCategory<GeneralPreferences>('general');
         if (!isMounted) return;
-
-        // Validate against known accent colors
-        const savedAccentColor = (prefs?.accent_color && prefs.accent_color in ACCENT_COLORS) 
-          ? (prefs.accent_color as AccentColor) 
-          : 'grey';
         
         setSettings({
           theme: (prefs?.theme as 'light' | 'dark' | 'system') || 'system',
-          accentColor: savedAccentColor,
           language: getValidLanguage(prefs?.language),
           spokenLanguage: getValidLanguage(prefs?.spoken_language)
         });
-
-        // Apply the saved accent color
-        applyAccentColor(savedAccentColor);
 
         const validatedLanguage = getValidLanguage(prefs?.language);
         if (validatedLanguage !== 'auto-detect') {
@@ -122,10 +111,6 @@ export const GeneralPage = ({
       const updatePayload: GeneralPreferences = {};
       if (key === 'theme') {
         updatePayload.theme = value as GeneralPreferences['theme'];
-      } else if (key === 'accentColor') {
-        updatePayload.accent_color = value as string;
-        // Apply the accent color immediately
-        applyAccentColor(value as AccentColor);
       } else if (key === 'language') {
         updatePayload.language = value as string;
       } else if (key === 'spokenLanguage') {
@@ -152,9 +137,6 @@ export const GeneralPage = ({
           }
           localStorage.removeItem('theme');
         }
-        
-        // Reapply accent color to update gradients for new theme
-        applyAccentColor(settings.accentColor);
       }
       
       if (key === 'language') {
@@ -176,11 +158,6 @@ export const GeneralPage = ({
       
       // Revert the local state on error
       setSettings(prev => ({ ...prev, [key]: previousValue }));
-      
-      // Revert accent color if it failed
-      if (key === 'accentColor') {
-        applyAccentColor(previousValue as AccentColor);
-      }
     }
   };
 
@@ -205,24 +182,6 @@ export const GeneralPage = ({
           { value: 'system', label: t('settings:general.theme.options.system') }
         ]}
         onChange={(value) => handleSettingChange('theme', value)}
-      />
-
-      <SectionDivider />
-
-      <SettingSelect
-        label={t('settings:general.accent.label')}
-        value={settings.accentColor}
-        options={[
-          { value: 'grey', label: t('settings:general.accent.options.grey') },
-          { value: 'gold', label: t('settings:general.accent.options.gold') },
-          { value: 'blue', label: t('settings:general.accent.options.blue') },
-          { value: 'green', label: t('settings:general.accent.options.green') },
-          { value: 'yellow', label: t('settings:general.accent.options.yellow') },
-          { value: 'pink', label: t('settings:general.accent.options.pink') },
-          { value: 'orange', label: t('settings:general.accent.options.orange') },
-          { value: 'purple', label: t('settings:general.accent.options.purple') }
-        ]}
-        onChange={(value) => handleSettingChange('accentColor', value)}
       />
 
       <SectionDivider />

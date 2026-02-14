@@ -10,7 +10,7 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     ? Object.prototype.hasOwnProperty.call(detailsMap, practiceId)
     : false;
   const details =
-    practiceId && hasCachedDetails && detailsMap[practiceId]?.services !== undefined
+    practiceId && hasCachedDetails
       ? detailsMap[practiceId] ?? null
       : null;
   const { updatePracticeDetails } = usePracticeManagement({
@@ -25,8 +25,8 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
       return null;
     }
     const cached = hasCachedDetails ? detailsMap[practiceId] : undefined;
-    if (cached && cached.services !== undefined) {
-      return cached;
+    if (cached !== undefined) {
+      return cached ?? null;
     }
     if (isLikelyUuid(practiceId)) {
       const details = await getPracticeDetails(practiceId);
@@ -64,7 +64,7 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
 
   return {
     details,
-    hasDetails: Boolean(practiceId && hasCachedDetails && detailsMap[practiceId]?.services !== undefined),
+    hasDetails: Boolean(practiceId && hasCachedDetails),
     fetchDetails,
     updateDetails,
     setDetails

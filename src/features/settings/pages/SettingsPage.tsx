@@ -328,14 +328,18 @@ export const SettingsPage = ({
     )
     : (
       <div className="flex-1 min-h-0 relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-glass/40 via-surface-glass/20 to-surface-base/60" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-gradient-to-b from-accent-600/25 via-accent-700/10 to-transparent" />
         <div className="pointer-events-none absolute -left-10 top-8 h-40 w-40 rounded-full bg-accent-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute right-4 top-20 h-28 w-28 rounded-full bg-white/[0.08] blur-3xl" />
         <div className="relative">{contentPanel}</div>
       </div>
     );
 
   const desktopContent = (
     <div className="h-full min-h-0 relative">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-accent-600/25 via-accent-700/10 to-transparent" />
+      <div className="pointer-events-none absolute -left-12 top-10 h-44 w-44 rounded-full bg-accent-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute right-8 top-20 h-28 w-28 rounded-full bg-white/[0.08] blur-3xl" />
       <div className="relative h-full min-h-0">
         <SplitView
           className="h-full min-h-0"

@@ -1,13 +1,11 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState, useRef } from 'preact/hooks';
-import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, LogoUploadInput } from '@/shared/ui/input';
-import { cn } from '@/shared/utils/cn';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import type { Address } from '@/shared/types/address';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { initializeAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
 import type { PracticeSetupStatus } from '../utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
@@ -53,7 +51,6 @@ export const PracticeSetup = ({
   onLogoChange,
   onBasicsDraftChange
 }: PracticeSetupProps) => {
-  const { t } = useTranslation(['settings', 'common']);
   const glassCardClass = 'glass-card p-4 sm:p-5';
 
   const inputGlassClass = 'glass-input';
@@ -62,7 +59,7 @@ export const PracticeSetup = ({
     name: '',
     slug: '',
     introMessage: '',
-    accentColor: 'grey'
+    accentColor: '#737373'
   });
   const [contactDraft, setContactDraft] = useState<ContactFormValues>({
     website: '',
@@ -86,7 +83,7 @@ export const PracticeSetup = ({
     name: practice?.name ?? '',
     slug: practice?.slug ?? '',
     introMessage: details?.introMessage ?? practice?.introMessage ?? '',
-    accentColor: details?.accentColor ?? practice?.accentColor ?? 'grey'
+    accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#737373'
   }), [practice?.name, practice?.slug, practice?.introMessage, details?.introMessage, details?.accentColor, practice?.accentColor]);
 
   const currentContactFromProps = useMemo(() => ({
@@ -127,7 +124,8 @@ export const PracticeSetup = ({
     return (
       basicsDraft.name !== initialBasics.name ||
       basicsDraft.slug !== initialBasics.slug ||
-      basicsDraft.introMessage !== initialBasics.introMessage
+      basicsDraft.introMessage !== initialBasics.introMessage ||
+      basicsDraft.accentColor !== initialBasics.accentColor
     );
   }, [basicsDraft, initialBasics]);
 
@@ -157,7 +155,8 @@ export const PracticeSetup = ({
         initialBasics &&
         currentBasicsFromProps.name === initialBasics.name &&
         currentBasicsFromProps.slug === initialBasics.slug &&
-        currentBasicsFromProps.introMessage === initialBasics.introMessage
+        currentBasicsFromProps.introMessage === initialBasics.introMessage &&
+        currentBasicsFromProps.accentColor === initialBasics.accentColor
       ) {
         if (basicsTimerRef.current) {
           clearTimeout(basicsTimerRef.current);
@@ -258,30 +257,17 @@ export const PracticeSetup = ({
               placeholder="your-firm"
               className={inputGlassClass}
             />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-input-text" htmlFor="practice-setup-accent-color">
-                Brand accent color
-              </label>
-              <select
-                id="practice-setup-accent-color"
-                value={basicsDraft.accentColor}
-                onChange={(e) => setBasicsDraft((prev) => ({ ...prev, accentColor: (e.target as HTMLSelectElement).value }))}
-                className={cn(
-                  'w-full h-10 px-3 py-2 text-sm bg-surface-base border border-line-glass rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-500/50 transition-all',
-                  inputGlassClass
-                )}
-              >
-                <option value="grey">{t('settings:general.accent.options.grey')}</option>
-                <option value="gold">{t('settings:general.accent.options.gold')}</option>
-                <option value="blue">{t('settings:general.accent.options.blue')}</option>
-                <option value="green">{t('settings:general.accent.options.green')}</option>
-                <option value="yellow">{t('settings:general.accent.options.yellow')}</option>
-                <option value="pink">{t('settings:general.accent.options.pink')}</option>
-                <option value="orange">{t('settings:general.accent.options.orange')}</option>
-                <option value="purple">{t('settings:general.accent.options.purple')}</option>
-              </select>
-              <p className="text-[10px] text-input-placeholder">This color appears on your public profile and client portal.</p>
-            </div>
+          </div>
+          <div className="mt-4">
+            <PracticeProfileTextFields
+              introMessage={basicsDraft.introMessage}
+              onIntroChange={(value) => setBasicsDraft((prev) => ({ ...prev, introMessage: value }))}
+              introRows={3}
+              introLabel="Intro message"
+              introPlaceholder="Welcome to our firm. How can we help?"
+              disabled={isSavingBasics}
+              inputClassName={inputGlassClass}
+            />
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="space-y-3">
@@ -289,7 +275,6 @@ export const PracticeSetup = ({
                 imageUrl={practice?.logo ?? null}
                 name={practice?.name ?? 'Practice'}
                 label="Logo"
-                description="Upload a square logo (max 5 MB)."
                 accept="image/*"
                 multiple={false}
                 onChange={onLogoChange}
@@ -297,16 +282,35 @@ export const PracticeSetup = ({
                 progress={logoUploading ? logoUploadProgress : null}
               />
             </div>
-            <div>
-              <PracticeProfileTextFields
-                introMessage={basicsDraft.introMessage}
-                onIntroChange={(value) => setBasicsDraft((prev) => ({ ...prev, introMessage: value }))}
-                introRows={3}
-                introLabel="Intro message"
-                introPlaceholder="Welcome to our firm. How can we help?"
-                disabled={isSavingBasics}
-                inputClassName={inputGlassClass}
-              />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-input-text" htmlFor="practice-setup-accent-color">
+                Brand accent color
+              </label>
+              <div className="flex items-center gap-2">
+                <div
+                  className="relative h-12 w-12 min-h-12 min-w-12 max-h-12 max-w-12 shrink-0 overflow-hidden rounded-full aspect-square"
+                  style={{ backgroundColor: normalizeAccentColor(basicsDraft.accentColor) ?? '#737373' }}
+                >
+                  <input
+                    id="practice-setup-accent-color"
+                    type="color"
+                    value={normalizeAccentColor(basicsDraft.accentColor) ?? '#737373'}
+                    onChange={(e) => {
+                      const value = (e.target as HTMLInputElement).value;
+                      setBasicsDraft((prev) => ({ ...prev, accentColor: normalizeAccentColor(value) ?? '#737373' }));
+                    }}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </div>
+                <Input
+                  value={basicsDraft.accentColor}
+                  onChange={(value) =>
+                    setBasicsDraft((prev) => ({ ...prev, accentColor: (normalizeAccentColor(value) ?? value.toUpperCase()) }))
+                  }
+                  placeholder="#3B82F6"
+                  className={inputGlassClass}
+                />
+              </div>
             </div>
           </div>
           <div className="mt-4 flex">
