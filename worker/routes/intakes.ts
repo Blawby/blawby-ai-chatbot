@@ -3,7 +3,6 @@ import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { calculateFPL } from '../utils/calculateFPL.js';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -18,8 +17,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * - conversation_id passed through from body
  * - urgency + courtDate prepended to description as readable prefixes
  * - income, household_size, desiredOutcome, caseStrength appended as JSON blob
- * - fpl_percentage + fee_tier calculated and included in JSON blob if income
- *   and household_size are both present
  * - opposing_party mapped from intakeFields.opposingParty if not already in body
  *
  * When backend ships typed fields (Change 3), replace the description
@@ -89,12 +86,6 @@ export async function handlePracticeIntakeCreate(request: Request, env: Env): Pr
         if (!isNaN(householdSize)) extraData.household_size = householdSize;
         if (intakeFields.desiredOutcome) extraData.desired_outcome = intakeFields.desiredOutcome;
         if (intakeFields.caseStrength) extraData.case_strength = intakeFields.caseStrength;
-
-        if (!isNaN(income) && !isNaN(householdSize)) {
-          const { percentage, tier } = calculateFPL(income, householdSize);
-          extraData.fpl_percentage = percentage;
-          extraData.fee_tier = tier;
-        }
 
         if (Object.keys(extraData).length > 0) {
           description = `${description}${description ? '\n\n' : ''}JSON_DATA: ${JSON.stringify(extraData)}`;
