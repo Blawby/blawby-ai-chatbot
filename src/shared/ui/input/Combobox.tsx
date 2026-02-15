@@ -156,7 +156,6 @@ export const Combobox = ({
 
   const closeDropdown = () => {
     setIsOpen(false);
-    setQuery(resolvedDisplayValue);
     setFocusedIndex(-1);
   };
 
@@ -353,7 +352,7 @@ export const Combobox = ({
             }}
             onFocus={() => {
               if (!disabled) {
-                if (!isMultiple && query === resolvedDisplayValue) {
+                if (!isMultiple) {
                   setQuery('');
                 }
                 setUserTyped(false);
@@ -385,8 +384,8 @@ export const Combobox = ({
                 } else if (allowCustomValues && trimmed) {
                   emitChange(trimmed);
                 }
-                // If no match and no allowCustomValues, revert to previous display value
-                // (handled by the useEffect resetting query on isOpen=false)
+                // If no match and no allowCustomValues, the input implicitly reverts
+                // to showing resolvedDisplayValue when closed via closeDropdown().
               }
 
               setUserTyped(false);
