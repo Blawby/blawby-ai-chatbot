@@ -102,6 +102,7 @@ const statusOrder = Object.fromEntries(
   MATTER_WORKFLOW_STATUSES.map((status, index) => [status, index])
 ) as Record<MatterStatus, number>;
 
+import { debounce } from '@/shared/utils/debounce';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 
 type MatterTabId = 'all' | 'open' | 'closed';
@@ -712,7 +713,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       id: detail.id,
       name,
       email: detail.user?.email ?? undefined,
-      role: 'client'
+      role: 'client',
+      status: detail.status
     };
   }, []);
   const clientNameById = useMemo(
@@ -1797,6 +1799,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     });
   }, [activityItems, noteItems]);
 
+  const debouncedUpdateMatter = useMemo(
+    () => debounce((values: MatterFormState) => handleUpdateMatter(values), 1000),
+    [handleUpdateMatter]
+  );
+
+  useEffect(() => {
+    return () => debouncedUpdateMatter.cancel();
+  }, [debouncedUpdateMatter]);
+
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
   const headerMeta = useMemo(() => {
     if (!resolvedSelectedMatter) return null;
@@ -1806,13 +1817,23 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       ? [detail.clientId, ...((detail as { clientIds?: string[] }).clientIds ?? [])].filter(Boolean) as string[]
       : [];
     
-    const clientEntries = clientIds.map((id) => ({
-      id,
-      name: resolveOptionLabel(clientOptions, id, resolveClientLabel(id))
-    }));
+    const clientEntries = clientIds.map((id) => {
+      const option = clientOptions.find((opt) => opt.id === id);
+      return {
+        id,
+        name: option?.name ?? resolveOptionLabel(clientOptions, id, resolveClientLabel(id)),
+        status: option?.status,
+        location: option?.location
+      };
+    });
     
     if (clientEntries.length === 0 && resolvedSelectedMatter.clientName) {
-      clientEntries.push({ id: 'client-name-fallback', name: resolvedSelectedMatter.clientName });
+      clientEntries.push({ 
+        id: 'client-name-fallback', 
+        name: resolvedSelectedMatter.clientName,
+        status: undefined,
+        location: undefined
+      });
     }
 
     const assigneeNames = detail?.assigneeIds
@@ -2123,7 +2144,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 value={selectedMatterDetail.description}
                 onChange={(value) => {
                   if (!selectedMatterDetail || !activePracticeId) return;
-                  handleUpdateMatter({
+                  debouncedUpdateMatter({
                     title: selectedMatterDetail.title,
                     clientId: selectedMatterDetail.clientId,
                     practiceAreaId: selectedMatterDetail.practiceAreaId,

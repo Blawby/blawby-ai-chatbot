@@ -52,7 +52,7 @@ interface MatterDetailHeaderProps {
   matter: MatterSummary;
   detail: MatterDetail | null;
   headerMeta: {
-    clientEntries: { id: string; name: string }[];
+    clientEntries: { id: string; name: string; status?: string; location?: string }[];
     description?: string;
     assigneeNames: string[];
     billingLabel: string;
@@ -130,12 +130,22 @@ export const MatterDetailHeader = ({
             <Avatar 
               name={headerMeta.clientEntries[0].name} 
               size="md" 
-              status="active"
+              status={
+                headerMeta.clientEntries[0].status === 'active' || headerMeta.clientEntries[0].status === 'lead'
+                  ? 'active'
+                  : headerMeta.clientEntries[0].status === 'inactive' || headerMeta.clientEntries[0].status === 'archived'
+                    ? 'inactive'
+                    : undefined
+              }
               className="bg-white/10 ring-1 ring-white/10" 
             />
             <div>
               <p className="text-sm font-medium text-input-text">{headerMeta.clientEntries[0].name}</p>
-              <p className="text-xs text-input-placeholder">United States · Active now</p>
+              <p className="text-xs text-input-placeholder">
+                {[headerMeta.clientEntries[0].location, headerMeta.clientEntries[0].status]
+                  .filter(Boolean)
+                  .join(' · ') || 'No status available'}
+              </p>
             </div>
           </div>
         ) : (

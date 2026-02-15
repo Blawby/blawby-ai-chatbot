@@ -99,4 +99,6 @@ export type MatterOption = {
   email?: string;
   image?: string | null;
   role?: string;
+  status?: string;
+  location?: string;
 };
