@@ -414,11 +414,15 @@ const MatterFormModalInner = ({
               onChange={(value) => updateForm('caseNumber', value)}
               placeholder="e.g. 24-CV-1029"
             />
-            <Input
+            <Combobox
               label="Matter type"
               value={formState.matterType}
               onChange={(value) => updateForm('matterType', value)}
               placeholder="e.g. Contract dispute"
+              options={[]}
+              leading={buildLeadingIcon(<BriefcaseIcon className="h-4 w-4" />)}
+              allowCustomValues
+              addNewLabel="Add matter type"
             />
           </FormGrid>
           <FormGrid>
@@ -436,31 +440,49 @@ const MatterFormModalInner = ({
                 className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
               />
             </div>
-            <Input
+            <Combobox
               label="Court"
               value={formState.court}
               onChange={(value) => updateForm('court', value)}
               placeholder="e.g. Superior Court of CA"
+              options={[]}
+              leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+              allowCustomValues
+              addNewLabel="Add court"
             />
           </FormGrid>
           <FormGrid>
-            <Input
+            <Combobox
               label="Judge"
               value={formState.judge}
               onChange={(value) => updateForm('judge', value)}
               placeholder="e.g. Hon. A. Smith"
+              options={[]}
+              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              allowCustomValues
+              addNewLabel="Add judge"
             />
-            <Input
+            <Combobox
               label="Opposing party"
               value={formState.opposingParty}
               onChange={(value) => updateForm('opposingParty', value)}
+              placeholder="Enter opposing party"
+              options={[]}
+              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              allowCustomValues
+              addNewLabel="Add opposing party"
             />
           </FormGrid>
           <FormGrid>
-            <Input
+            <Combobox
               label="Opposing counsel"
               value={formState.opposingCounsel}
               onChange={(value) => updateForm('opposingCounsel', value)}
+              placeholder="Enter opposing counsel"
+              options={[]}
+              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              allowCustomValues
+              addNewLabel="Add opposing counsel"
             />
             <Input
               label="Open date"
