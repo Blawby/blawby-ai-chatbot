@@ -25,7 +25,9 @@ export interface IntakeStatusResponse {
 
 export async function getIntakeStatus(intakeUuid: string) {
   // This endpoint currently exists
-  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`);
+  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+    credentials: 'include'
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch intake status');
   }
@@ -35,7 +37,8 @@ export async function getIntakeStatus(intakeUuid: string) {
 
 export async function triggerIntakeInvite(intakeUuid: string) {
   const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`, {
-    method: 'POST'
+    method: 'POST',
+    credentials: 'include'
   });
   if (!response.ok) {
     throw new Error('Failed to trigger invite');

@@ -36,7 +36,10 @@ export async function handlePracticeIntakeCreate(request: Request, env: Env): Pr
   if (conversationId) {
     try {
       const conversationService = new ConversationService(env);
-      const result = await conversationService.getMessages(conversationId, '', { limit: 50 });
+      // Fetch conversation first to get the correct practiceId for message retrieval
+      const conversation = await conversationService.getConversationById(conversationId);
+      const practiceId = conversation.practice_id;
+      const result = await conversationService.getMessages(conversationId, practiceId, { limit: 50 });
 
       const latestIntakeMessage = [...result.messages]
         .reverse()
@@ -61,19 +64,33 @@ export async function handlePracticeIntakeCreate(request: Request, env: Env): Pr
         // TODO: replace with typed fields once backend Change 3 ships
         const extraData: Record<string, unknown> = {};
 
-        const income = intakeFields.income != null && intakeFields.income !== ''
-          ? Number(intakeFields.income)
-          : NaN;
-        const householdSize = intakeFields.householdSize != null && intakeFields.householdSize !== ''
-          ? Number(intakeFields.householdSize)
-          : NaN;
+        let income = NaN;
+        if (intakeFields.income != null && intakeFields.income !== '') {
+          const rawIncome = String(intakeFields.income);
+          // Sanitize: strip currency symbols, commas, and common non-numeric text
+          const sanitizedIncome = rawIncome.replace(/[$,\s]/g, '').replace(/[^0-9.]/g, '');
+          income = parseFloat(sanitizedIncome);
+          
+          if (isNaN(income)) {
+            console.warn('[Intake] Failed to parse income', { rawValue: intakeFields.income });
+          }
+        }
+
+        let householdSize = NaN;
+        if (intakeFields.householdSize != null && intakeFields.householdSize !== '') {
+          const parsedSize = parseFloat(String(intakeFields.householdSize));
+          if (!isNaN(parsedSize)) {
+            // Round to nearest integer and ensure at least 1
+            householdSize = Math.max(1, Math.round(parsedSize));
+          }
+        }
 
         if (!isNaN(income)) extraData.income = income;
         if (!isNaN(householdSize)) extraData.household_size = householdSize;
         if (intakeFields.desiredOutcome) extraData.desired_outcome = intakeFields.desiredOutcome;
         if (intakeFields.caseStrength) extraData.case_strength = intakeFields.caseStrength;
 
-        if (!isNaN(income) && !isNaN(householdSize) && householdSize > 0) {
+        if (!isNaN(income) && !isNaN(householdSize)) {
           const { percentage, tier } = calculateFPL(income, householdSize);
           extraData.fpl_percentage = percentage;
           extraData.fee_tier = tier;
