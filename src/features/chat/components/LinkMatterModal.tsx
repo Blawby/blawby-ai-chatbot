@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
-import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { Combobox } from '@/shared/ui/input/Combobox';
+import { FolderIcon } from '@heroicons/react/24/outline';
+import { listMatters, getMatter } from '@/features/matters/services/mattersApi';
 import { updateConversationMatter } from '@/shared/lib/apiClient';
 import type { Conversation } from '@/shared/types/conversation';
 
@@ -57,23 +59,15 @@ export const LinkMatterModal = ({
       setCurrentMatter(null);
       const fetchCurrent = async () => {
         try {
-          const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}`;
-          const response = await fetch(endpoint, {
-            method: 'GET',
-            credentials: 'include',
-            signal: controller.signal,
-            headers: { 'Accept': 'application/json' }
-          });
-          if (response.ok) {
-            const payload = await response.json() as { data?: { matter?: Record<string, unknown> } };
-            const m = payload.data?.matter;
-            if (m && !controller.signal.aborted) {
-              setCurrentMatter({
-                id: typeof m.id === 'string' ? m.id : String(m.id ?? ''),
-                title: typeof m.title === 'string' ? m.title : 'Untitled Matter',
-                clientName: typeof m.clientName === 'string' ? m.clientName : null
-              });
-            }
+          const m = await getMatter(practiceId, matterId, { signal: controller.signal });
+          if (m && !controller.signal.aborted) {
+            setCurrentMatter({
+              id: m.id,
+              title: m.title ?? 'Untitled Matter',
+              clientName: m.client_id ? `Client ${m.client_id.slice(0, 8)}` : null,
+              matterType: m.matter_type ?? null,
+              status: m.status ?? null
+            });
           }
         } catch (err) {
           if ((err as DOMException).name === 'AbortError' || controller.signal.aborted) {
@@ -108,53 +102,22 @@ export const LinkMatterModal = ({
     setLoadingState(append ? 'loading-more' : 'loading');
     setError(null);
     try {
-      const params = new URLSearchParams({
-        limit: String(pageSize),
-        page: String(pageToLoad)
-      });
-      const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}?${params.toString()}`;
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        credentials: 'include',
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
+      const results = await listMatters(practiceId, {
+        page: pageToLoad,
+        limit: pageSize,
+        signal: controller.signal
       });
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error || `Failed to load matters (${response.status})`);
-      }
+      const normalized = results.map((m) => ({
+        id: m.id,
+        title: m.title ?? 'Untitled Matter',
+        clientName: m.client_id ? `Client ${m.client_id.slice(0, 8)}` : null,
+        matterType: m.matter_type ?? null,
+        status: m.status ?? null
+      }));
 
-      const payload = await response.json() as { success?: boolean; error?: string; data?: unknown };
-      if (payload.success === false) {
-        throw new Error(payload.error || 'Failed to load matters');
-      }
-
-      const data = (payload && typeof payload === 'object' && 'data' in payload)
-        ? (payload as { data?: unknown }).data
-        : payload;
-
-      const record = (data && typeof data === 'object') ? data as Record<string, unknown> : null;
-      const items = Array.isArray(record?.items)
-        ? record?.items
-        : Array.isArray(record?.matters)
-          ? record?.matters
-          : [];
-
-      const normalized = items
-        .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
-        .map((item) => ({
-          id: typeof item.id === 'string' ? item.id : String(item.id ?? ''),
-          title: typeof item.title === 'string' ? item.title : 'Untitled Matter',
-          clientName: typeof item.clientName === 'string' ? item.clientName : null,
-          matterType: typeof item.matterType === 'string' ? item.matterType : null,
-          status: typeof item.status === 'string' ? item.status : null
-        }))
-        .filter((item) => item.id.trim().length > 0);
-
-      const nextHasMore = typeof record?.hasMore === 'boolean'
-        ? record.hasMore
-        : normalized.length === pageSize;
+      // If we got fewer items than pageSize, we likely reached the end
+      const nextHasMore = results.length === pageSize;
 
       setMatters((prev) => append ? [...prev, ...normalized] : normalized);
       setHasMore(nextHasMore);
@@ -228,6 +191,25 @@ export const LinkMatterModal = ({
 
   const isUnchanged = (currentMatterId ?? '') === selectedMatterId;
 
+  const matterOptions = useMemo(() => {
+    const list = matters.map((m) => ({
+      value: m.id,
+      label: m.title,
+      meta: m.clientName ?? undefined
+    }));
+
+    // Ensure current matter is always an option even if not in the first page of results
+    if (currentMatter && !matters.some((m) => m.id === currentMatter.id)) {
+      list.unshift({
+        value: currentMatter.id,
+        label: currentMatter.title,
+        meta: currentMatter.clientName ?? undefined
+      });
+    }
+
+    return list;
+  }, [matters, currentMatter]);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -241,30 +223,17 @@ export const LinkMatterModal = ({
           conversation.
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="matter-link-select">
-            Matter
-          </label>
-          <select
-            id="matter-link-select"
+        <div className="space-y-4">
+          <Combobox
+            label="Matter"
+            placeholder={loadingState === 'loading' ? 'Loading matters...' : 'Select matter'}
             value={selectedMatterId}
-            onChange={(event) => setSelectedMatterId(event.currentTarget.value)}
-            className="w-full rounded-lg border border-input-border bg-input-bg px-3 py-2 text-sm text-input-text"
-            disabled={loadingState !== 'idle' || saving}
-          >
-            <option value="">No matter</option>
-            {/* Ensure current matter is always an option even if not in the first page of results */}
-            {currentMatter && !matters.some(m => m.id === currentMatter.id) && (
-              <option value={currentMatter.id}>
-                {currentMatter.title}{currentMatter.clientName ? ` (${currentMatter.clientName})` : ''}
-              </option>
-            )}
-            {matters.map((matter) => (
-              <option key={matter.id} value={matter.id}>
-                {matter.title}{matter.clientName ? ` (${matter.clientName})` : ''}
-              </option>
-            ))}
-          </select>
+            options={matterOptions}
+            onChange={setSelectedMatterId}
+            disabled={saving}
+            leading={() => <FolderIcon className="h-4 w-4 text-input-placeholder" />}
+            optionLeading={() => <FolderIcon className="h-4 w-4 text-input-placeholder" />}
+          />
           {loadingState === 'loading' && (
             <div className="text-xs text-gray-500 dark:text-gray-400">Loading matters…</div>
           )}

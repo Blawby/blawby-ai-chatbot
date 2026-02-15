@@ -491,7 +491,7 @@ export const getMatterActivity = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/activity`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/activity`,
       { signal: options.signal }
     ),
     'Failed to load activity'
@@ -510,7 +510,7 @@ export const listMatterNotes = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/notes`,
       { signal: options.signal }
     ),
     'Failed to load notes'
@@ -532,7 +532,7 @@ export const createMatterNote = async (
   }
   const payload = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/notes`,
       { content },
       { signal: options.signal }
     ),
@@ -562,7 +562,7 @@ export const updateMatterNote = async (
   }
   const payload = await requestData(
     apiClient.patch(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/update/${encodeURIComponent(noteId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/notes/update/${encodeURIComponent(noteId)}`,
       { content },
       { signal: options.signal }
     ),
@@ -588,7 +588,7 @@ export const deleteMatterNote = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/delete/${encodeURIComponent(noteId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/notes/delete/${encodeURIComponent(noteId)}`,
       { signal: options.signal }
     ),
     'Failed to delete note'
@@ -606,7 +606,7 @@ export const listMatterTimeEntries = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries`,
       { signal: options.signal }
     ),
     'Failed to load time entries'
@@ -633,7 +633,7 @@ export const createMatterTimeEntry = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries`,
       payload,
       { signal: options.signal }
     ),
@@ -668,7 +668,7 @@ export const updateMatterTimeEntry = async (
   }
   const json = await requestData(
     apiClient.patch(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/update/${encodeURIComponent(timeEntryId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries/update/${encodeURIComponent(timeEntryId)}`,
       payload,
       { signal: options.signal }
     ),
@@ -694,7 +694,7 @@ export const deleteMatterTimeEntry = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/delete/${encodeURIComponent(timeEntryId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries/delete/${encodeURIComponent(timeEntryId)}`,
       { signal: options.signal }
     ),
     'Failed to delete time entry'
@@ -712,7 +712,7 @@ export const getMatterTimeEntryStats = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/stats`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries/stats`,
       { signal: options.signal }
     ),
     'Failed to load time stats'
@@ -734,7 +734,7 @@ export const listMatterExpenses = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses`,
       { signal: options.signal }
     ),
     'Failed to load expenses'
@@ -767,7 +767,7 @@ export const createMatterExpense = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses`,
       normalizeExpensePayload(payload),
       { signal: options.signal }
     ),
@@ -809,7 +809,7 @@ export const updateMatterExpense = async (
   }
   const json = await requestData(
     apiClient.patch(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/update/${encodeURIComponent(expenseId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses/update/${encodeURIComponent(expenseId)}`,
       normalizeExpensePayload(payload),
       { signal: options.signal }
     ),
@@ -836,7 +836,7 @@ export const deleteMatterExpense = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/delete/${encodeURIComponent(expenseId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses/delete/${encodeURIComponent(expenseId)}`,
       { signal: options.signal }
     ),
     'Failed to delete expense'
@@ -854,7 +854,7 @@ export const listMatterMilestones = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/milestones`,
       { signal: options.signal }
     ),
     'Failed to load milestones'
@@ -888,7 +888,7 @@ export const createMatterMilestone = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/milestones`,
       normalizeMilestonePayload(payload),
       { signal: options.signal }
     ),
@@ -931,7 +931,7 @@ export const updateMatterMilestone = async (
   }
   const json = await requestData(
     apiClient.patch(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/update/${encodeURIComponent(milestoneId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/milestones/update/${encodeURIComponent(milestoneId)}`,
       normalizeMilestonePayload(payload),
       { signal: options.signal }
     ),
@@ -958,7 +958,7 @@ export const deleteMatterMilestone = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/delete/${encodeURIComponent(milestoneId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/milestones/delete/${encodeURIComponent(milestoneId)}`,
       { signal: options.signal }
     ),
     'Failed to delete milestone'
@@ -973,7 +973,7 @@ export const reorderMatterMilestones = async (
 ): Promise<boolean> => {
   await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/reorder`,
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/milestones/reorder`,
       { milestones },
       { signal: options.signal }
     ),
