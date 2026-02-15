@@ -34,6 +34,8 @@ export interface IntakeConversationState {
   addressLine2: string | null;
   desiredOutcome: string | null;
   courtDate: string | null;
+  income: string | null;
+  householdSize: number | null;
   hasDocuments: boolean | null;
   eligibilitySignals: string[] | null;
   caseStrength: IntakeCaseStrength | null;
@@ -58,6 +60,8 @@ export const initialIntakeState: IntakeConversationState = {
   addressLine2: null,
   desiredOutcome: null,
   courtDate: null,
+  income: null,
+  householdSize: null,
   hasDocuments: null,
   eligibilitySignals: null,
   caseStrength: null,

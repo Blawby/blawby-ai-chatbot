@@ -190,6 +190,14 @@ const INTAKE_TOOL = {
           type: 'string',
           description: 'Any known court date or deadline in plain text'
         },
+        income: {
+          type: 'string',
+          description: 'Monthly or yearly income if mentioned'
+        },
+        householdSize: {
+          type: 'number',
+          description: 'Number of people in the household'
+        },
         hasDocuments: {
           type: 'boolean',
           description: 'Whether the user has mentioned having relevant documents'

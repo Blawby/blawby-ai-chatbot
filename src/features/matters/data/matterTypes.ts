@@ -52,6 +52,7 @@ export type MatterDetail = MatterSummary & {
   practiceAreaId: string;
   assigneeIds: string[];
   description: string;
+  conversationId?: string | null;
   caseNumber?: string;
   matterType?: string;
   urgency?: 'routine' | 'time_sensitive' | 'emergency';

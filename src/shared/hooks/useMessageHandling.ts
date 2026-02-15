@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks'
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
 import type { ContactData } from '@/features/intake/components/ContactForm';
-import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
+import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { submitContactForm } from '@/shared/utils/forms';
 import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
@@ -81,6 +81,8 @@ type IntakeFieldsPayload = {
   addressLine2?: string;
   desiredOutcome?: string;
   courtDate?: string;
+  income?: string;
+  householdSize?: number;
   hasDocuments?: boolean;
   eligibilitySignals?: string[];
   caseStrength?: 'needs_more_info' | 'developing' | 'strong';
@@ -436,6 +438,8 @@ export const useMessageHandling = ({
     if (typeof fields.addressLine2 === 'string') next.addressLine2 = fields.addressLine2;
     if (typeof fields.desiredOutcome === 'string') next.desiredOutcome = fields.desiredOutcome;
     if (typeof fields.courtDate === 'string') next.courtDate = fields.courtDate;
+    if (typeof fields.income === 'string') next.income = fields.income;
+    if (typeof fields.householdSize === 'number') next.householdSize = fields.householdSize;
     if (typeof fields.hasDocuments === 'boolean') next.hasDocuments = fields.hasDocuments;
     if (Array.isArray(fields.eligibilitySignals)) {
       next.eligibilitySignals = fields.eligibilitySignals.filter((value): value is string => typeof value === 'string');
@@ -1521,34 +1525,6 @@ export const useMessageHandling = ({
     }
   }, [sendMessage, slimContactDraft, updateConversationMetadata]);
 
-  const confirmIntakeLead = useCallback(async (intakeUuid: string) => {
-    if (!intakeUuid || !conversationId) return;
-    const practiceContextId = (practiceId ?? '').trim();
-    if (!practiceContextId) return;
-
-    try {
-      const params = new URLSearchParams({ practiceId: practiceContextId });
-      const response = await fetch(`${getIntakeConfirmEndpoint()}?${params.toString()}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          intakeUuid,
-          conversationId
-        })
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { error?: string } | null;
-        const detail = payload?.error ? ` (${payload.error})` : '';
-        console.warn(`[Intake] Lead confirmation failed: ${response.status}${detail}`);
-      }
-    } catch (error) {
-      console.warn('[Intake] Lead confirmation failed', error);
-    }
-  }, [conversationId, practiceId]);
-
   // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {
     logDev('[useMessageHandling] handleContactFormSubmit called with:', {
@@ -1812,7 +1788,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
           }
         }
       } else if (!paymentRequired && paymentDetails?.uuid) {
-        void confirmIntakeLead(paymentDetails.uuid);
+        // confirmIntakeLead removed - Worker handles conversion after payment
+
       }
     } catch (error) {
       console.error('Error submitting contact form:', error);
@@ -1826,7 +1803,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     onError,
     logDev,
     messages,
-    confirmIntakeLead,
     applyServerMessages,
     sendMessageOverWs,
     updateConversationMetadata,
@@ -2388,7 +2364,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         if (persistedMessage) {
           applyServerMessages([persistedMessage]);
           setPaymentRetryNotice(null);
-          void confirmIntakeLead(uuid);
+          // confirmIntakeLead removed - Worker handles conversion after payment
+
         } else {
           throw new Error('Payment confirmation message could not be saved.');
         }
@@ -2450,7 +2427,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     };
   }, [
     isAnonymous,
-    confirmIntakeLead,
     conversationId,
     onError,
     practiceId,

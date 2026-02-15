@@ -1,371 +1,124 @@
 import { parseJsonBody } from '../utils.js';
-import { HttpErrors, createSuccessResponse } from '../errorHandler.js';
+import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
-import { HttpError } from '../types.js';
-import { optionalAuth } from '../middleware/auth.js';
-import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { NotificationService } from '../services/NotificationService.js';
-import { enqueueNotification, getAdminRecipients } from '../services/NotificationPublisher.js';
-import { warnIfNotMinorUnits } from '../utils/money.js';
-
-const PAID_STATUSES = new Set(['succeeded', 'paid', 'complete', 'completed']);
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const readString = (source: Record<string, unknown> | null, keys: string[]): string | null => {
-  if (!source) return null;
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return null;
-};
-
-const normalizeStatus = (value: unknown): string | null => {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed.toLowerCase() : null;
-};
-
-const resolvePracticeId = async (
-  env: Env,
-  request: Request,
-  practiceId: string,
-  practiceSlug: string | null
-): Promise<{ practiceId: string; practiceSlug: string | null }> => {
-  const trimmedPracticeId = practiceId.trim();
-  if (UUID_PATTERN.test(trimmedPracticeId)) {
-    return { practiceId: trimmedPracticeId, practiceSlug };
+/**
+ * Proxy for POST /api/practice/client-intakes/create
+ *
+ * Enriches the intake payload with AI-collected fields from the conversation
+ * before forwarding to the backend API. No local state is written.
+ *
+ * Enrichments applied (W1 + W2 + W4):
+ * - conversation_id passed through from body
+ * - urgency + courtDate prepended to description as readable prefixes
+ * - income, household_size, desiredOutcome, caseStrength appended as JSON blob
+ * - opposing_party mapped from intakeFields.opposingParty if not already in body
+ *
+ * When backend ships typed fields (Change 3), replace the description
+ * stuffing with direct field mapping and remove the JSON blob.
+ */
+export async function handlePracticeIntakeCreate(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') {
+    throw HttpErrors.methodNotAllowed('Method not allowed');
   }
 
-  const slug = practiceSlug || trimmedPracticeId;
-  const response = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
-  const rawText = await response.text().catch(() => '');
+  const body = await parseJsonBody(request) as Record<string, unknown>;
+  const conversationId = typeof body.conversation_id === 'string' ? body.conversation_id.trim() : '';
 
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw HttpErrors.notFound(`Practice not found: ${slug}`);
-    }
-    if (response.status === 401 || response.status === 403) {
-      throw HttpErrors.unauthorized('Authentication required');
-    }
-    throw HttpErrors.badGateway(`Failed to load practice details (${response.status})`);
-  }
-
-  let payload: Record<string, unknown> | null = null;
-  if (rawText) {
+  if (conversationId) {
     try {
-      payload = JSON.parse(rawText) as Record<string, unknown>;
-    } catch {
-      payload = null;
-    }
-  }
+      const conversationService = new ConversationService(env);
+      // Fetch conversation first to get the correct practiceId for message retrieval
+      const conversation = await conversationService.getConversationById(conversationId);
+      const practiceId = conversation.practice_id;
+      const result = await conversationService.getMessages(conversationId, practiceId, { limit: 50 });
 
-  let resolvedPracticeId = typeof payload?.practiceId === 'string'
-    ? payload.practiceId
-    : typeof payload?.practice_id === 'string'
-      ? payload.practice_id
-      : undefined;
+      const latestIntakeMessage = [...result.messages]
+        .reverse()
+        .find((msg) => msg.role === 'system' && isRecord(msg.metadata) && msg.metadata.intakeFields);
 
-  if (!resolvedPracticeId) {
-    const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request);
-    resolvedPracticeId = intakeSettings?.organization?.id;
-  }
+      if (latestIntakeMessage && isRecord(latestIntakeMessage.metadata)) {
+        const intakeFields = latestIntakeMessage.metadata.intakeFields as Record<string, unknown>;
+        let description = typeof body.description === 'string' ? body.description.trim() : '';
 
-  if (!resolvedPracticeId) {
-    throw HttpErrors.notFound(`Practice not found: ${slug}`);
-  }
+        // Prefix urgency and court date onto description
+        const urgency = typeof intakeFields.urgency === 'string' ? intakeFields.urgency.trim() : '';
+        const courtDate = typeof intakeFields.courtDate === 'string' ? intakeFields.courtDate.trim() : '';
 
-  return { practiceId: resolvedPracticeId, practiceSlug: slug };
-};
+        const prefixes: string[] = [];
+        if (urgency) prefixes.push(`[Urgency: ${urgency}]`);
+        if (courtDate) prefixes.push(`[Court Date: ${courtDate}]`);
+        if (prefixes.length > 0) {
+          description = `${prefixes.join(' ')}${description ? ' ' + description : ''}`;
+        }
 
-const generateMatterNumber = async (env: Env, practiceId: string): Promise<string> => {
-  const year = new Date().getFullYear().toString();
-  const counterName = `matter_number_${year}`;
-  const row = await env.DB.prepare(
-    `INSERT INTO counters (practice_id, name, next_value)
-       VALUES (?, ?, 1)
-       ON CONFLICT(practice_id, name)
-       DO UPDATE SET next_value = counters.next_value + 1
-       RETURNING next_value`
-  ).bind(practiceId, counterName).first<{ next_value?: number } | null>();
+        // Append structured data as JSON blob
+        // TODO: replace with typed fields once backend Change 3 ships
+        const extraData: Record<string, unknown> = {};
 
-  const seq = Number(row?.next_value ?? 1);
-  return `MAT-${year}-${seq.toString().padStart(3, '0')}`;
-};
-
-const createSystemMessage = (options: {
-  practiceName: string;
-  paymentRequired: boolean;
-}): string => {
-  if (options.paymentRequired) {
-    return `Payment received. ${options.practiceName} will review your intake and follow up here shortly.`;
-  }
-  return `Your intake has been received. ${options.practiceName} will review your request and follow up here shortly.`;
-};
-
-export async function handleIntakes(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  const segments = url.pathname.split('/').filter(Boolean);
-
-  if (segments[0] !== 'api' || segments[1] !== 'intakes') {
-    throw HttpErrors.notFound('Intake route not found');
-  }
-
-  if (segments.length === 3 && segments[2] === 'confirm' && request.method === 'POST') {
-    const authContext = await optionalAuth(request, env);
-    if (!authContext) {
-      throw HttpErrors.unauthorized('Authentication required');
-    }
-
-    const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
-    });
-    const practiceId = getPracticeId(requestWithContext);
-    const practiceSlug = url.searchParams.get('practiceSlug')?.trim() || null;
-    const resolvedPractice = await resolvePracticeId(env, request, practiceId, practiceSlug);
-    const resolvedPracticeId = resolvedPractice.practiceId;
-    const resolvedPracticeSlug = resolvedPractice.practiceSlug;
-
-    const body = await parseJsonBody(request) as Record<string, unknown>;
-    const intakeUuid = typeof body.intakeUuid === 'string' ? body.intakeUuid.trim() : '';
-    const conversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : '';
-
-    if (!intakeUuid || !conversationId) {
-      throw HttpErrors.badRequest('intakeUuid and conversationId are required');
-    }
-
-    const conversationService = new ConversationService(env);
-    await conversationService.validateParticipantAccess(conversationId, resolvedPracticeId, authContext.user.id);
-
-    const intakeStatus = await RemoteApiService.getPracticeClientIntakeStatus(env, intakeUuid, request);
-    if (!intakeStatus) {
-      throw HttpErrors.notFound('Intake not found');
-    }
-
-    let practice = null;
-    try {
-      practice = await RemoteApiService.getPractice(env, resolvedPracticeId, request);
-    } catch (error) {
-      if (error instanceof HttpError) {
-        console.warn('[Intake] Practice lookup failed; continuing with intake settings only', {
-          practiceId: resolvedPracticeId,
-          status: error.status,
-          message: error.message
-        });
-      } else {
-        throw error;
-      }
-    }
-
-    const settingsSlug = resolvedPracticeSlug ?? practice?.slug ?? null;
-    const settings = settingsSlug
-      ? await RemoteApiService.getPracticeClientIntakeSettings(env, settingsSlug, request)
-      : null;
-    const paymentRequired = settings?.paymentLinkEnabled === true;
-    const status = normalizeStatus(intakeStatus.status);
-
-    if (paymentRequired && !status) {
-      throw HttpErrors.paymentRequired('Payment status not available');
-    }
-
-    if (paymentRequired && status && !PAID_STATUSES.has(status)) {
-      throw HttpErrors.paymentRequired('Payment not completed', { status });
-    }
-
-    const existing = await env.DB.prepare(
-      `SELECT id
-         FROM matters
-        WHERE practice_id = ?
-          AND json_extract(custom_fields, '$.intakeUuid') = ?
-        LIMIT 1`
-    ).bind(resolvedPracticeId, intakeUuid).first<{ id: string } | null>();
-
-    if (existing?.id) {
-      return createSuccessResponse({ matterId: existing.id, reused: true });
-    }
-
-    const metadata = isRecord(intakeStatus.metadata) ? intakeStatus.metadata : null;
-    const clientName = readString(metadata, ['name']) ?? 'New Lead';
-    const clientEmail = readString(metadata, ['email']);
-    const clientPhone = readString(metadata, ['phone']);
-    const description = readString(metadata, ['description']);
-    const matterType = 'Consultation';
-    const title = clientName ? `Intake from ${clientName}` : 'New Intake';
-
-    try {
-      const conversation = await conversationService.getConversation(conversationId, resolvedPracticeId);
-      const existingMetadata = conversation.user_info ?? {};
-      const existingTitle = typeof existingMetadata.title === 'string' ? existingMetadata.title.trim() : '';
-      if (!existingTitle) {
-        await conversationService.updateConversation(conversationId, resolvedPracticeId, {
-          metadata: {
-            ...existingMetadata,
-            title: clientName || 'New Lead'
+        let income = NaN;
+        if (intakeFields.income != null && intakeFields.income !== '') {
+          const rawIncome = String(intakeFields.income);
+          // Sanitize: strip currency symbols, commas, and common non-numeric text
+          const sanitizedIncome = rawIncome.replace(/[$,\s]/g, '').replace(/[^0-9.]/g, '');
+          income = parseFloat(sanitizedIncome);
+          
+          if (isNaN(income)) {
+            console.warn('[Intake] Failed to parse income', { rawValue: intakeFields.income });
           }
-        });
-      }
-    } catch (error) {
-      console.warn('[Intake] Failed to set conversation title from intake metadata', error);
-    }
-
-    const amount = typeof intakeStatus.amount === 'number' ? intakeStatus.amount : null;
-    if (amount !== null) {
-      warnIfNotMinorUnits(amount, 'intake.status.amount');
-    }
-    const currency = typeof intakeStatus.currency === 'string' ? intakeStatus.currency : null;
-
-    const matterId = crypto.randomUUID();
-    const matterNumber = await generateMatterNumber(env, resolvedPracticeId);
-    const now = new Date().toISOString();
-
-    const customFields = {
-      intakeUuid,
-      sessionId: conversationId,
-      source: 'intake',
-      payment: {
-        status: status ?? null,
-        amount: amount ?? null,
-        currency: currency ?? null
-      }
-    };
-
-    await env.DB.prepare(`
-      INSERT INTO matters (
-        id,
-        practice_id,
-        user_id,
-        client_name,
-        client_email,
-        client_phone,
-        matter_type,
-        title,
-        description,
-        status,
-        priority,
-        lead_source,
-        matter_number,
-        custom_fields,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'lead', ?, ?, ?, ?, ?, ?)
-    `).bind(
-      matterId,
-      resolvedPracticeId,
-      null,
-      clientName,
-      clientEmail ?? null,
-      clientPhone ?? null,
-      matterType,
-      title,
-      description ?? null,
-      'normal',
-      'intake',
-      matterNumber,
-      JSON.stringify(customFields),
-      now,
-      now
-    ).run();
-
-    try {
-      await conversationService.attachMatter(conversationId, resolvedPracticeId, matterId);
-    } catch (error) {
-      console.warn('[Intake] Failed to attach matter to conversation', error);
-    }
-
-    const practiceName = practice?.name ?? settings?.organization?.name ?? 'the practice';
-    try {
-      await conversationService.sendSystemMessage({
-        conversationId,
-        practiceId: resolvedPracticeId,
-        content: createSystemMessage({ practiceName, paymentRequired }),
-        role: 'system',
-        metadata: {
-          systemMessageKey: 'intake_summary',
-          intakeUuid,
-          leadId: matterId,
-          matterId,
-          leadStatus: 'lead',
-          paymentStatus: status ?? null,
-          paymentRequired
-        },
-        recipientUserId: authContext.user.id,
-        request
-      });
-    } catch (error) {
-      console.warn('[Intake] Failed to send intake confirmation message', error);
-    }
-
-    try {
-      const notifier = new NotificationService(env);
-      await notifier.sendMatterCreatedNotification({
-        type: 'matter_created',
-        practiceConfig: practice ?? undefined,
-        matterInfo: {
-          type: matterType,
-          description: description ?? undefined
-        },
-        clientInfo: {
-          name: clientName,
-          email: clientEmail ?? undefined,
-          phone: clientPhone ?? undefined
         }
-      });
-    } catch (error) {
-      void error;
-    }
 
-    if (practice) {
-      try {
-        const recipients = await getAdminRecipients(env, resolvedPracticeId, request, {
-          actorUserId: authContext.user.id,
-          category: 'intake'
-        });
-        if (recipients.length > 0) {
-          await enqueueNotification(env, {
-            eventId: crypto.randomUUID(),
-            dedupeKey: `intake:${intakeUuid}`,
-            dedupeWindow: 'permanent',
-            practiceId: resolvedPracticeId,
-            conversationId,
-            category: 'intake',
-            entityType: 'matter',
-            entityId: matterId,
-            title: paymentRequired ? 'Consultation fee received' : 'New intake submitted',
-            body: `${clientName} submitted an intake for ${matterType}.`,
-            link: resolvedPracticeSlug
-              ? `/practice/${encodeURIComponent(resolvedPracticeSlug)}/conversations`
-              : '/practice/leads',
-            metadata: {
-              matterId,
-              conversationId,
-              intakeUuid,
-              paymentStatus: status ?? null
-            },
-            recipients
-          });
+        let householdSize = NaN;
+        if (intakeFields.householdSize != null && intakeFields.householdSize !== '') {
+          const parsedSize = parseFloat(String(intakeFields.householdSize));
+          if (!isNaN(parsedSize)) {
+            // Round to nearest integer and ensure at least 1
+            householdSize = Math.max(1, Math.round(parsedSize));
+          }
         }
-      } catch (error) {
-        void error;
-      }
-    } else {
-      console.warn('[Intake] Skipping admin notifications because practice lookup failed.');
-    }
 
-    return createSuccessResponse({
-      matterId,
-      conversationId,
-      intakeUuid,
-      paymentRequired,
-      paymentStatus: status ?? null
-    });
+        if (!isNaN(income)) extraData.income = income;
+        if (!isNaN(householdSize)) extraData.household_size = householdSize;
+        if (intakeFields.desiredOutcome) extraData.desired_outcome = intakeFields.desiredOutcome;
+        if (intakeFields.caseStrength) extraData.case_strength = intakeFields.caseStrength;
+
+        if (Object.keys(extraData).length > 0) {
+          description = `${description}${description ? '\n\n' : ''}JSON_DATA: ${JSON.stringify(extraData)}`;
+        }
+
+        body.description = description;
+
+        // Map opposing_party from AI fields if not already provided
+        if (
+          !body.opposing_party &&
+          typeof intakeFields.opposingParty === 'string' &&
+          intakeFields.opposingParty.trim()
+        ) {
+          body.opposing_party = intakeFields.opposingParty.trim();
+        }
+      }
+    } catch (error) {
+      // Log but do not block — intake creation proceeds without enrichment
+      console.warn('[Intake] Failed to enrich payload with AI fields', error);
+    }
   }
 
-  throw HttpErrors.methodNotAllowed('Unsupported method for intake endpoint');
+  return RemoteApiService.createIntake(env, body, request);
 }
+
+/**
+ * Confirm handler — intentionally removed.
+ *
+ * Previously created matters in local D1 after payment confirmation.
+ * This is now handled by the backend /convert endpoint (backend Change 2).
+ * The Worker no longer owns matter creation or local matter state.
+ *
+ * When backend Change 2 ships, add handlePracticeIntakeConfirm here that
+ * calls POST /api/practice/client-intakes/{uuid}/convert with the
+ * AI-generated description as the matter description.
+ */
