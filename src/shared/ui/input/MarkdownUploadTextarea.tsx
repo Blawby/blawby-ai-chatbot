@@ -74,6 +74,7 @@ export interface MarkdownUploadTextareaProps {
   maxLength?: number;
   disabled?: boolean;
   className?: string;
+  defaultTab?: 'write' | 'preview';
 }
 
 const createMarkdownForUpload = (file: File, url: string): string => {
@@ -99,7 +100,8 @@ export const MarkdownUploadTextarea = ({
   rows = 8,
   maxLength = 5000,
   disabled = false,
-  className = ''
+  className = '',
+  defaultTab = 'write'
 }: MarkdownUploadTextareaProps) => {
   const { component: ReactMarkdown, error: markdownError, retry: retryMarkdown } = useReactMarkdown();
 
@@ -109,7 +111,7 @@ export const MarkdownUploadTextarea = ({
   const valueRef = useRef(value);
   valueRef.current = value;
 
-  const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'preview'>(defaultTab);
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadState[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
