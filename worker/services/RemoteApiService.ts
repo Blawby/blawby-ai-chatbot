@@ -552,6 +552,25 @@ export class RemoteApiService {
     }
   }
 
+  /**
+   * Create a client intake in the remote API.
+   */
+  static async createIntake(
+    env: Env,
+    payload: Record<string, unknown>,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(
+      env,
+      '/api/practice/client-intakes/create',
+      request,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }
+    );
+  }
+
   static async getPracticeClientIntakeStatus(
     env: Env,
     intakeUuid: string,

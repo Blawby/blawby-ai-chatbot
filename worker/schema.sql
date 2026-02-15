@@ -61,7 +61,6 @@ CREATE TABLE IF NOT EXISTS matters (
   opposing_party TEXT,
   matter_number TEXT, -- Changed from case_number to matter_number
   tags JSON, -- Array of tags for categorization
-  internal_notes TEXT, -- Internal notes for practice members
   custom_fields JSON, -- Flexible metadata storage
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

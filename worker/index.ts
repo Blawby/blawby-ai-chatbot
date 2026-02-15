@@ -1,5 +1,3 @@
-// Removed shim - trying to identify the actual caller
-
 import {
   handleHealth,
   handleRoot,
@@ -14,9 +12,8 @@ import {
   handlePractices,
   handleAuthProxy,
   handleBackendProxy,
-  handleIntakes,
+  handlePracticeIntakeCreate,
   handleParalegal,
-  handleMatters,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
@@ -29,24 +26,17 @@ import { withCORS, getCorsConfig } from './middleware/cors';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 import { handleNotificationQueue } from './queues/notificationProcessor.js';
 
-// Basic request validation
 function validateRequest(request: Request): boolean {
-  const url = new URL(request.url);
-  const _path = url.pathname;
-
-  // Check for reasonable request size (10MB limit)
   const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
     return false;
   }
 
-  // Check for valid content type on POST requests
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type');
     if (!contentType) {
       return false;
     }
-    // Allow both JSON and multipart/form-data for file uploads
     if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
       return false;
     }
@@ -59,7 +49,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // Basic request validation
   if (!validateRequest(request)) {
     return new Response(JSON.stringify({
       success: false,
@@ -72,21 +61,18 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   }
 
   try {
-    // Route handling with enhanced error context
     let response: Response;
 
-    console.log('🔍 Route matching for path:', path);
-
-    if (path.startsWith('/api/intakes')) {
-      response = await handleIntakes(request, env);
-    } else if (path.startsWith('/api/matters')) {
-      response = await handleMatters(request, env);
+    if (path === '/api/practice/client-intakes/create' && request.method === 'POST') {
+      // Enrichment proxy — augments payload with AI fields before forwarding to backend
+      response = await handlePracticeIntakeCreate(request, env);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
     } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {
       response = await handleBackendProxy(request, env);
     } else if (
       path.startsWith('/api/onboarding') ||
+      path.startsWith('/api/matters') ||
       path.startsWith('/api/practice/client-intakes') ||
       path.startsWith('/api/user-details') ||
       ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
@@ -128,21 +114,11 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleAiIntent(request, env);
     } else if (path.startsWith('/api/ai/chat')) {
       response = await handleAiChat(request, env);
-    } else if (path.startsWith('/api/agent')) {
-      // REMOVED: AI agent endpoints - AI functionality removed, will be replaced with user-to-user chat
-      response = new Response(JSON.stringify({
-        error: 'AI agent endpoints have been removed. User-to-user chat will be available in a future update.',
-        errorCode: 'AI_REMOVED'
-      }), {
-        status: 410, // 410 Gone - indicates the resource is permanently removed
-        headers: { 'Content-Type': 'application/json' }
-      });
     } else if (path === '/api/health') {
       response = await handleHealth(request, env);
     } else if (path === '/') {
       response = await handleRoot(request, env);
     } else if (path.startsWith('/api/')) {
-      // Return 404 for unmatched API routes
       response = new Response(JSON.stringify({
         error: 'API endpoint not found',
         errorCode: 'NOT_FOUND'
@@ -161,7 +137,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   }
 }
 
-// Main request handler with CORS middleware
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
 export default {
@@ -169,12 +144,9 @@ export default {
   queue: handleNotificationQueue
 };
 
-// Scheduled event for cleanup (runs daily)
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-  // Import StatusService
   const { StatusService } = await import('./services/StatusService');
 
-  // Create cleanup promise with error handling
   const cleanupPromise = StatusService.cleanupExpiredStatuses(env)
     .then(count => {
       console.log(`Scheduled cleanup: removed ${count} expired status entries`);
@@ -183,11 +155,9 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
       console.error('Scheduled cleanup failed:', error);
     });
 
-  // Use ctx.waitUntil to ensure cleanup completes after handler returns
   ctx.waitUntil(cleanupPromise);
 }
 
-// Export Durable Object classes
 export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
