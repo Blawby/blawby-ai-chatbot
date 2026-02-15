@@ -112,7 +112,7 @@ export const Combobox = ({
     const normalizedQuery = normalize(query);
     if (!normalizedQuery) return options;
     return options.filter((o) => {
-      const normalized = normalize(`${o.label} ${o.meta ?? ''}`);
+      const normalized = normalize(`${o.label} ${o.value} ${o.meta ?? ''}`);
       return normalized.includes(normalizedQuery);
     });
   }, [options, query]);
@@ -121,7 +121,13 @@ export const Combobox = ({
   const trimmedQuery = query.trim();
   const queryMatchesExisting =
     trimmedQuery === '' ||
-    options.some((o) => o.label.trim().toLowerCase() === trimmedQuery.toLowerCase());
+    mergedOptions.some((o) => {
+      const normalizedQuery = trimmedQuery.toLowerCase();
+      return (
+        o.label.trim().toLowerCase() === normalizedQuery ||
+        o.value.trim().toLowerCase() === normalizedQuery
+      );
+    });
   const queryAlreadySelected = valueList
     .map((v) => v.toLowerCase())
     .includes(trimmedQuery.toLowerCase());
@@ -143,6 +149,17 @@ export const Combobox = ({
     typeof leading === 'function' ? leading(selectedOption, selectedOptions) : leading;
   const hasValue = valueList.length > 0;
 
+  const openDropdown = () => {
+    if (disabled) return;
+    setIsOpen(true);
+  };
+
+  const closeDropdown = () => {
+    setIsOpen(false);
+    setQuery(resolvedDisplayValue);
+    setFocusedIndex(-1);
+  };
+
   const commitValue = (val: string) => {
     if (isMultiple) {
       if (!valueList.includes(val)) {
@@ -150,13 +167,13 @@ export const Combobox = ({
       }
       setQuery('');
       setUserTyped(false);
-      setIsOpen(true);
+      openDropdown();
     } else {
       emitChange(val);
       const matchedOption = mergedOptions.find((o) => o.value === val);
       setQuery(matchedOption ? (displayValue?.(matchedOption) ?? matchedOption.label) : val);
       setUserTyped(false);
-      setIsOpen(false);
+      closeDropdown();
     }
   };
 
@@ -168,7 +185,7 @@ export const Combobox = ({
     emitChange(next);
     setQuery('');
     setUserTyped(false);
-    setIsOpen(true);
+    openDropdown();
   };
 
   const removeValue = (optionValue: string) => {
@@ -176,12 +193,7 @@ export const Combobox = ({
     emitChange(valueList.filter((v) => v !== optionValue));
   };
 
-  useEffect(() => {
-    if (!isOpen) {
-      setQuery(resolvedDisplayValue);
-      setFocusedIndex(-1);
-    }
-  }, [resolvedDisplayValue, isOpen]);
+  // Removed Effect - sync handled in open/close handlers
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (disabled) return;
@@ -189,7 +201,7 @@ export const Combobox = ({
     if (!isOpen) {
       if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
         event.preventDefault();
-        setIsOpen(true);
+        openDropdown();
         setFocusedIndex(0);
       }
       return;
@@ -198,16 +210,21 @@ export const Combobox = ({
     if (totalRows === 0) {
       if (event.key === 'Enter') {
         event.preventDefault();
-        const matchedOption = queryMatchesExisting && trimmedQuery !== ''
-          ? options.find((o) => o.label.trim().toLowerCase() === trimmedQuery.toLowerCase())
-          : null;
+        const matchedOption =
+          queryMatchesExisting && trimmedQuery !== ''
+            ? mergedOptions.find(
+                (o) =>
+                  o.label.trim().toLowerCase() === trimmedQuery.toLowerCase() ||
+                  o.value.trim().toLowerCase() === trimmedQuery.toLowerCase()
+              )
+            : null;
 
         if (matchedOption) {
           commitValue(matchedOption.value);
         } else if (allowCustomValues && trimmedQuery) {
           commitValue(trimmedQuery);
         } else {
-          setIsOpen(false);
+          closeDropdown();
         }
       }
       setFocusedIndex(-1);
@@ -236,7 +253,7 @@ export const Combobox = ({
           if (allowCustomValues && trimmedQuery && !queryMatchesExisting) {
             commitValue(trimmedQuery);
           } else {
-            setIsOpen(false);
+            closeDropdown();
           }
           break;
         }
@@ -267,7 +284,7 @@ export const Combobox = ({
       }
       case 'Escape':
         event.preventDefault();
-        setIsOpen(false);
+        closeDropdown();
         break;
     }
   };
@@ -331,7 +348,7 @@ export const Combobox = ({
               const nextValue = (event.target as HTMLInputElement).value;
               setQuery(nextValue);
               setUserTyped(true);
-              setIsOpen(true);
+              openDropdown();
               setFocusedIndex(0);
             }}
             onFocus={() => {
@@ -340,19 +357,21 @@ export const Combobox = ({
                   setQuery('');
                 }
                 setUserTyped(false);
-                setIsOpen(true);
+                openDropdown();
               }
             }}
             onBlur={() => {
-              setIsOpen(false);
+              closeDropdown();
 
               if (!userTyped) return;
 
               const trimmed = query.trim();
               if (!trimmed) return;
 
-              const exactMatch = options.find(
-                (o) => o.label.trim().toLowerCase() === trimmed.toLowerCase()
+              const exactMatch = mergedOptions.find(
+                (o) =>
+                  o.label.trim().toLowerCase() === trimmed.toLowerCase() ||
+                  o.value.trim().toLowerCase() === trimmed.toLowerCase()
               );
 
               if (isMultiple) {
@@ -390,7 +409,7 @@ export const Combobox = ({
               onClick={() => {
                 emitChange('');
                 setQuery('');
-                setIsOpen(false);
+                closeDropdown();
               }}
               aria-label={`Clear ${label}`}
             >
