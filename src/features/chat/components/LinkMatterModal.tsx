@@ -230,7 +230,7 @@ export const LinkMatterModal = ({
             value={selectedMatterId}
             options={matterOptions}
             onChange={setSelectedMatterId}
-            disabled={saving}
+            disabled={saving || loadingState === 'loading'}
             leading={() => <FolderIcon className="h-4 w-4 text-input-placeholder" />}
             optionLeading={() => <FolderIcon className="h-4 w-4 text-input-placeholder" />}
           />

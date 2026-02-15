@@ -198,8 +198,13 @@ export const Combobox = ({
     if (totalRows === 0) {
       if (event.key === 'Enter') {
         event.preventDefault();
-        // If allowCustomValues and user typed something, commit it directly
-        if (allowCustomValues && trimmedQuery) {
+        const matchedOption = queryMatchesExisting && trimmedQuery !== ''
+          ? options.find((o) => o.label.trim().toLowerCase() === trimmedQuery.toLowerCase())
+          : null;
+
+        if (matchedOption) {
+          commitValue(matchedOption.value);
+        } else if (allowCustomValues && trimmedQuery) {
           commitValue(trimmedQuery);
         } else {
           setIsOpen(false);
