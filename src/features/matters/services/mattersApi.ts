@@ -297,6 +297,10 @@ const extractActivityArray = (payload: unknown): BackendMatterActivity[] => {
   }
   if (!payload || typeof payload !== 'object') return [];
   const record = payload as Record<string, unknown>;
+  // New: backend now wraps activity in 'activities' key
+  if (Array.isArray(record.activities)) {
+    return record.activities.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
+  }
   if (Array.isArray(record.activity)) {
     return record.activity.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
   }
@@ -407,7 +411,15 @@ export const getMatter = async (
     }),
     'Failed to load matter'
   );
-  const matter = extractMatter(payload);
+  
+  // Extract matters array - backend should return single matter but may return array until PR #85 is deployed
+  const matters = extractMatterArray(payload);
+  
+  // If backend filtered correctly, we'll get one matter. If not, filter client-side.
+  const matter = matters.length === 1 
+    ? matters[0] 
+    : matters.find(m => m.id === matterId) ?? null;
+    
   return matter ? normalizeMatter(matter) : null;
 };
 
@@ -549,8 +561,8 @@ export const updateMatterNote = async (
     throw new Error('content is required');
   }
   const payload = await requestData(
-    apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`,
+    apiClient.patch(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/update/${encodeURIComponent(noteId)}`,
       { content },
       { signal: options.signal }
     ),
@@ -576,7 +588,7 @@ export const deleteMatterNote = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/delete/${encodeURIComponent(noteId)}`,
       { signal: options.signal }
     ),
     'Failed to delete note'
@@ -655,8 +667,8 @@ export const updateMatterTimeEntry = async (
     throw new Error('start_time and end_time are required');
   }
   const json = await requestData(
-    apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`,
+    apiClient.patch(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/update/${encodeURIComponent(timeEntryId)}`,
       payload,
       { signal: options.signal }
     ),
@@ -682,7 +694,7 @@ export const deleteMatterTimeEntry = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/delete/${encodeURIComponent(timeEntryId)}`,
       { signal: options.signal }
     ),
     'Failed to delete time entry'
@@ -796,8 +808,8 @@ export const updateMatterExpense = async (
     throw new Error('date is required');
   }
   const json = await requestData(
-    apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`,
+    apiClient.patch(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/update/${encodeURIComponent(expenseId)}`,
       normalizeExpensePayload(payload),
       { signal: options.signal }
     ),
@@ -824,7 +836,7 @@ export const deleteMatterExpense = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/delete/${encodeURIComponent(expenseId)}`,
       { signal: options.signal }
     ),
     'Failed to delete expense'
@@ -918,8 +930,8 @@ export const updateMatterMilestone = async (
     throw new Error('due_date is required');
   }
   const json = await requestData(
-    apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`,
+    apiClient.patch(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/update/${encodeURIComponent(milestoneId)}`,
       normalizeMilestonePayload(payload),
       { signal: options.signal }
     ),
@@ -946,7 +958,7 @@ export const deleteMatterMilestone = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`,
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/delete/${encodeURIComponent(milestoneId)}`,
       { signal: options.signal }
     ),
     'Failed to delete milestone'

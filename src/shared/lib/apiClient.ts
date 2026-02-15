@@ -734,6 +734,7 @@ export async function listUserDetails(
     status?: UserDetailStatus;
     limit?: number;
     offset?: number;
+    client_id?: string;
     signal?: AbortSignal;
   }
 ): Promise<UserDetailListResponse> {
@@ -742,7 +743,7 @@ export async function listUserDetails(
   }
   const { signal, ...queryParams } = params ?? {};
   const response = await apiClient.get(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
+    `/api/user-details/${encodeURIComponent(practiceId)}`,
     { params: queryParams, signal }
   );
   const payload = response.data;
@@ -766,9 +767,13 @@ export async function getUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`
+    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    { params: { client_id: userDetailId } }
   );
   const payload = response.data;
+  if (isRecord(payload) && Array.isArray(payload.data) && payload.data.length > 0) {
+    return payload.data[0] as UserDetailRecord;
+  }
   if (isRecord(payload) && isRecord(payload.data)) {
     return payload.data as UserDetailRecord;
   }
@@ -895,8 +900,8 @@ export async function updateUserDetail(
   }
   const { address, name, email, phone, status, currency, event_name, ...rest } = payload;
   const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
-  const response = await apiClient.put(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`,
+  const response = await apiClient.patch(
+    `/api/user-details/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(userDetailId)}`,
     { ...rest, ...normalized }
   );
   const data = response.data;
@@ -914,7 +919,7 @@ export async function deleteUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   await apiClient.delete(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`
+    `/api/user-details/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(userDetailId)}`
   );
 }
 
@@ -941,7 +946,7 @@ export async function listUserDetailMemos(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos`
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data)) {
@@ -962,7 +967,7 @@ export async function createUserDetailMemo(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.post(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos`,
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`,
     payload
   );
   const data = response.data;
@@ -981,8 +986,8 @@ export async function updateUserDetailMemo(
   if (!practiceId || !userDetailId || !memoId) {
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
-  const response = await apiClient.put(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`,
+  const response = await apiClient.patch(
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/update/${encodeURIComponent(memoId)}`,
     payload
   );
   const data = response.data;
@@ -1001,7 +1006,7 @@ export async function deleteUserDetailMemo(
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
   await apiClient.delete(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/delete/${encodeURIComponent(memoId)}`
   );
 }
 
