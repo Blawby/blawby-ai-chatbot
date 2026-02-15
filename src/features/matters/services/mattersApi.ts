@@ -411,7 +411,15 @@ export const getMatter = async (
     }),
     'Failed to load matter'
   );
-  const matter = extractMatter(payload);
+  
+  // Extract matters array - backend should return single matter but may return array until PR #85 is deployed
+  const matters = extractMatterArray(payload);
+  
+  // If backend filtered correctly, we'll get one matter. If not, filter client-side.
+  const matter = matters.length === 1 
+    ? matters[0] 
+    : matters.find(m => m.id === matterId) ?? null;
+    
   return matter ? normalizeMatter(matter) : null;
 };
 
