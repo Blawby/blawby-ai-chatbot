@@ -36,7 +36,7 @@ export async function handlePracticeIntakeCreate(request: Request, env: Env): Pr
   if (conversationId) {
     try {
       const conversationService = new ConversationService(env);
-      const result = await conversationService.getMessages(conversationId, '', { limit: 10 });
+      const result = await conversationService.getMessages(conversationId, '', { limit: 50 });
 
       const latestIntakeMessage = [...result.messages]
         .reverse()
