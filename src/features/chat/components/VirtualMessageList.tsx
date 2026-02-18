@@ -66,7 +66,7 @@ interface VirtualMessageListProps {
 const BATCH_SIZE = 20;
 const SCROLL_THRESHOLD = 100;
 const DEBOUNCE_DELAY = 50;
-const DEBUG_PAGINATION = true;
+const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
@@ -289,7 +289,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         }
                     );
                 } catch (msgErr) {
-                    console.error('[VirtualMessageList] Failed to post system message', msgErr);
+                    if (DEBUG_PAGINATION) {
+                        console.error('[VirtualMessageList] Failed to post system message', msgErr);
+                    }
                     systemMessageFailed = true;
                 }
 
@@ -410,7 +412,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     });
                 })
                 .catch((error) => {
-                    console.error('[VirtualMessageList] Failed to load more messages', error);
+                    if (DEBUG_PAGINATION) {
+                        console.error('[VirtualMessageList] Failed to load more messages', error);
+                    }
                 })
                 .finally(() => {
                     isLoadingRef.current = false;

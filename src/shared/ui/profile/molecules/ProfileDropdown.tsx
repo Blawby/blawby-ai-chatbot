@@ -13,10 +13,9 @@ import {
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { type SubscriptionTier } from '@/shared/types/user';
 
 interface ProfileDropdownProps {
-  tier: SubscriptionTier;
+  subscriptionActive: boolean;
   onUpgrade: () => void;
   onSettings: () => void;
   onHelp: () => void;
@@ -26,7 +25,7 @@ interface ProfileDropdownProps {
 }
 
 export const ProfileDropdown = ({ 
-  tier, 
+  subscriptionActive,
   onUpgrade, 
   onSettings, 
   onHelp, 
@@ -43,8 +42,7 @@ export const ProfileDropdown = ({
       aria-label="Profile menu"
       className={`absolute bottom-full right-0 mb-2 w-full max-w-xs bg-surface-glass/80 backdrop-blur-xl rounded-lg shadow-glass border border-line-glass/30 py-2 z-50 ${className}`}
     >
-      {/* Upgrade Plan - only for free tier */}
-      {tier === 'free' && (
+      {!subscriptionActive && (
         <ProfileMenuItem
           icon={<SparklesIcon />}
           label={t('profile:menu.upgrade')}

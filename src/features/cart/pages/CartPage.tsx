@@ -8,20 +8,15 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { PricingSummary } from '@/shared/ui/cards/PricingSummary';
 import { Button } from '@/shared/ui/Button';
-import {
-  hasManagedSubscription,
-} from '@/shared/utils/subscription';
-import { isForcePaidEnabled } from '@/shared/utils/devFlags';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
-import { getCurrentSubscription } from '@/shared/lib/apiClient';
 
 
 export const CartPage = () => {
   const location = useLocation();
   const { navigate, navigateToAuth } = useNavigation();
   const { session, isPending: isSessionPending } = useSessionContext();
-  const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
+  const { submitUpgrade, submitting } = usePaymentUpgrade();
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
   const { i18n, t } = useTranslation(['settings']);
@@ -35,8 +30,6 @@ export const CartPage = () => {
   const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [currentSubscriptionPlanLabel, setCurrentSubscriptionPlanLabel] = useState<string | null>(null);
-  const [currentSubscriptionStatus, setCurrentSubscriptionStatus] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Refs for radio buttons to manage focus programmatically
@@ -61,10 +54,7 @@ export const CartPage = () => {
       );
       
       if (publicPlans.length === 0) {
-        const errorMsg = 'No subscription plans available';
-        setLoadError(errorMsg);
-        showError('No Plans Available', errorMsg);
-        return;
+        throw new Error('No subscription plans available from /api/subscriptions/plans');
       }
       
       // Select query-param plan, configured business plan, or first available plan
@@ -107,48 +97,6 @@ export const CartPage = () => {
     loadPlans();
   }, [isSessionPending, session?.user, loadPlans, navigateToAuth]);
 
-  useEffect(() => {
-    if (isSessionPending || !session?.user) return;
-    const controller = new AbortController();
-    void getCurrentSubscription({ signal: controller.signal })
-      .then((subscription) => {
-        const planLabel = subscription?.plan?.displayName ?? subscription?.plan?.name ?? null;
-        setCurrentSubscriptionPlanLabel(planLabel);
-        setCurrentSubscriptionStatus(subscription?.status ?? null);
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        console.error('[CART][SUBSCRIPTION] Failed to load current subscription', error);
-        setLoadError(error instanceof Error ? error.message : 'Failed to load current subscription');
-      });
-    return () => controller.abort();
-  }, [isSessionPending, session?.user]);
-
-  // Dev/test-only override to force paid UI in deterministic E2E runs
-  const devForcePaid = isForcePaidEnabled();
-  const managedSubscription = hasManagedSubscription(
-    currentPractice?.kind,
-    currentSubscriptionStatus ?? currentPractice?.subscriptionStatus,
-    currentPractice?.isPersonal ?? null
-  );
-  const isPaidTier = devForcePaid || managedSubscription;
-  const displayPlanLabel = devForcePaid
-    ? 'Paid Plan (dev)'
-    : (currentSubscriptionPlanLabel ?? 'Active');
-
-  const handleManageBilling = useCallback(async () => {
-    if (!currentPractice?.id) return;
-    try {
-      await openBillingPortal({ practiceId: currentPractice.id });
-    } catch (error) {
-      console.error('[CART][BILLING_PORTAL] Failed to open billing portal', {
-        practiceId: currentPractice?.id,
-        error
-      });
-      showError('Error', 'Could not open billing portal');
-    }
-  }, [currentPractice?.id, openBillingPortal, showError]);
-
   // All hooks must be called before any conditional returns
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -156,8 +104,6 @@ export const CartPage = () => {
         console.debug('[CART][DEBUG]', {
           path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
           search: typeof window !== 'undefined' ? window.location.search : 'n/a',
-          devForcePaid,
-          status: currentSubscriptionStatus ?? currentPractice?.subscriptionStatus,
           practiceId: currentPractice?.id,
         });
       } catch (e) {
@@ -165,7 +111,7 @@ export const CartPage = () => {
         console.warn('[CART][DEBUG] log failed:', e);
       }
     }
-  }, [devForcePaid, currentSubscriptionStatus, currentPractice?.subscriptionStatus, currentPractice?.id]);
+  }, [currentPractice?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -185,36 +131,6 @@ export const CartPage = () => {
       console.warn('❌ Cart Page - Unable to read stored cart preferences:', error);
     }
   }, [setQuantity]);
-
-  // If practice is already on paid tier, define paid UI state and return early (after all hooks)
-  const paidState = isPaidTier ? (
-      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
-        <header className="py-4">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
-            <img src="/blawby-favicon-iframe.png" alt="Blawby" className="h-8 w-8" />
-          </div>
-        </header>
-        <main className="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 py-12">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
-            <div className="flex items-center justify-center mb-4">
-              <svg className="w-12 h-12 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
-            <p className="text-gray-300 mb-6">Your practice &quot;{currentPractice?.name}&quot; is currently subscribed{typeof currentPractice?.seats === 'number' ? ` with ${currentPractice?.seats} seat(s)` : ''}.</p>
-            <div className="flex gap-3 justify-center">
-              <Button size="md" onClick={handleManageBilling}>
-                {t('settings:account.plan.manage')}
-              </Button>
-              <Button size="md" variant="secondary" onClick={() => navigate('/')}>
-                Go to Dashboard
-              </Button>
-            </div>
-          </div>
-        </main>
-      </div>
-    ) : null;
 
   // Determine if annual is selected based on selected price ID
   const isAnnual = Boolean(selectedPlan?.stripeYearlyPriceId)
@@ -266,27 +182,8 @@ export const CartPage = () => {
     }
   }, [selectedPriceId, selectedPlan]);
 
-  if (isPaidTier) {
-    return (
-      <SetupShell>
-        {paidState}
-      </SetupShell>
-    );
-  }
-
   if (loadError) {
-    return (
-      <SetupShell>
-        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-red-400 mb-4">{loadError}</p>
-            <Button size="md" onClick={loadPlans}>
-              Retry
-            </Button>
-          </div>
-        </div>
-      </SetupShell>
-    );
+    throw new Error(loadError);
   }
 
   if (!selectedPlan) {

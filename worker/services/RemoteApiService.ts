@@ -464,8 +464,8 @@ export class RemoteApiService {
   }
 
   /**
-   * Get practice metadata (tier, kind, subscription status) for usage/quota purposes
-   * 
+   * Get practice metadata (kind and subscription status) for usage/quota purposes
+   *
    * @throws {HttpError} If practice is not found or remote API is unavailable
    * @throws {Error} If practice data is invalid
    */
@@ -476,7 +476,6 @@ export class RemoteApiService {
   ): Promise<{
     id: string;
     slug: string | null;
-    tier: 'free' | 'plus' | 'business' | 'enterprise';
     kind: 'practice' | 'workspace';
     subscriptionStatus: SubscriptionLifecycleStatus;
   }> {
@@ -490,7 +489,6 @@ export class RemoteApiService {
     return {
       id: practice.id,
       slug: practice.slug || null,
-      tier: practice.subscriptionTier || 'free',
       kind: practice.kind,
       subscriptionStatus: practice.subscriptionStatus || 'none',
     };

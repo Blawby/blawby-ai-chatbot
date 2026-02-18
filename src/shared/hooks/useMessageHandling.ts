@@ -23,7 +23,7 @@ import {
   postSystemMessage
 } from '@/shared/lib/conversationApi';
 
-const DEBUG_MESSAGE_PAGINATION = true;
+const DEBUG_MESSAGE_PAGINATION = import.meta.env.DEV;
 
 const sanitizeMarkdown = (text: string): string => {
   if (typeof text !== 'string') return '';
@@ -1658,12 +1658,16 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       if (intakeUuid && isAnonymous) {
         try {
           const payload = { intakeUuid, practiceSlug: resolvedPracticeSlug, conversationId };
-          console.info('[Intake] Triggering invite pre-auth', payload);
+          if (import.meta.env.DEV) {
+            console.info('[Intake] Triggering invite pre-auth', payload);
+          }
           const result = await triggerIntakeInvitation(intakeUuid);
-          console.info('[Intake] Invite triggered pre-auth', {
-            payload,
-            result
-          });
+          if (import.meta.env.DEV) {
+            console.info('[Intake] Invite triggered pre-auth', {
+              payload,
+              result
+            });
+          }
           if (typeof window !== 'undefined') {
             window.sessionStorage.setItem(`intakeInviteSent:${intakeUuid}`, 'true');
           }

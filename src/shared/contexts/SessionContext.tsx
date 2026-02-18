@@ -7,12 +7,11 @@ export interface SessionContextValue {
   isPending: boolean;
   error: unknown;
   isAnonymous: boolean;
+  stripeCustomerId: string | null;
   activeOrganizationId: string | null;
   activePracticeId: string | null;
   activeMemberRole: string | null;
   activeMemberRoleLoading: boolean;
-  primaryWorkspace: 'client' | 'practice' | null;
-  preferredPracticeId: string | null;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -42,11 +41,16 @@ const buildSessionContextValue = ({
   error: unknown;
   activeMemberRoleState?: ActiveMemberRoleState;
 }): SessionContextValue => {
+  const userRecord = (sessionData?.user as unknown as Record<string, unknown> | undefined) ?? undefined;
   const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
+  const stripeCustomerId =
+    (typeof userRecord?.stripeCustomerId === 'string'
+      ? userRecord.stripeCustomerId
+      : typeof userRecord?.stripe_customer_id === 'string'
+        ? userRecord.stripe_customer_id
+        : null) ?? null;
   const activeOrganizationId = getActiveOrganizationId(sessionData);
   const activePracticeId = activeOrganizationId;
-  const primaryWorkspace = sessionData?.user?.primaryWorkspace ?? null;
-  const preferredPracticeId = sessionData?.user?.preferredPracticeId ?? null;
   const activeMemberRole = activeMemberRoleState?.data?.role ?? null;
   const activeMemberRoleLoading = activeMemberRoleState?.isPending ?? false;
 
@@ -55,12 +59,11 @@ const buildSessionContextValue = ({
     isPending,
     error,
     isAnonymous,
+    stripeCustomerId,
     activeOrganizationId,
     activePracticeId,
     activeMemberRole,
     activeMemberRoleLoading,
-    primaryWorkspace,
-    preferredPracticeId,
   };
 };
 

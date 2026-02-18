@@ -1,18 +1,17 @@
 /**
  * ProfileButton - Molecule Component
- * Main profile trigger combining avatar, name, and tier.
+ * Main profile trigger combining avatar, name, and subscription summary.
  * Styled to match original main look/feel.
  */
 
 import { Avatar } from '../atoms/Avatar';
-import { TierBadge } from '../atoms/TierBadge';
 import { UpgradeButton } from '../atoms/UpgradeButton';
-import { type SubscriptionTier } from '@/shared/types/user';
 
 interface ProfileButtonProps {
   name: string;
   image?: string | null;
-  tier: SubscriptionTier;
+  planLabel: string;
+  subscriptionActive: boolean;
   isCollapsed: boolean;
   onClick: () => void;
   onUpgrade?: () => void;
@@ -22,7 +21,8 @@ interface ProfileButtonProps {
 export const ProfileButton = ({
   name,
   image,
-  tier,
+  planLabel,
+  subscriptionActive,
   isCollapsed,
   onClick,
   onUpgrade,
@@ -54,17 +54,16 @@ export const ProfileButton = ({
             {name}
           </p>
           <div className="-mt-0.5">
-            {tier !== 'enterprise' && <TierBadge tier={tier} />}
+            <span className="text-xs leading-none text-input-placeholder truncate">
+              {planLabel}
+            </span>
           </div>
         </div>
       </button>
 
-      {/* Upgrade Button - only for free tier */}
-      {tier === 'free' && onUpgrade && (
+      {!subscriptionActive && onUpgrade && (
         <UpgradeButton onClick={onUpgrade} variant="short" />
       )}
-
-      {tier === 'enterprise' && <TierBadge tier={tier} variant="enterprise" />}
     </div>
   );
 };

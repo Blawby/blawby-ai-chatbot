@@ -313,7 +313,6 @@ export interface Practice {
   conversationConfig: ConversationConfig; // Extracted from practice.metadata.conversationConfig in remote API
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
-  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   kind: 'practice';
   subscriptionStatus: SubscriptionLifecycleStatus;
@@ -336,7 +335,6 @@ export interface Workspace {
   conversationConfig: ConversationConfig; // Hardcoded defaults
   betterAuthOrgId?: string;
   stripeCustomerId: null;
-  subscriptionTier: 'free';
   seats: 1;
   kind: 'workspace';
   subscriptionStatus: 'none';

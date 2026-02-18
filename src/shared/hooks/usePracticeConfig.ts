@@ -16,7 +16,6 @@ const PracticeSchema = z.object({
   createdAt: z.union([z.number(), z.string()]).optional(),
   updatedAt: z.union([z.number(), z.string()]).nullable().optional(), // API can return null or string
   stripeCustomerId: z.string().nullable().optional(), // API can return null
-  subscriptionTier: z.string().optional(),
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()

@@ -15,15 +15,15 @@ import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { type SubscriptionTier } from '@/shared/types/user';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { hasManagedSubscription } from '@/shared/utils/subscription';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
   currentPractice?: {
     id: string;
-    subscriptionTier?: SubscriptionTier;
+    kind?: 'personal' | 'business' | 'practice';
+    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+    isPersonal?: boolean | null;
   } | null;
 }
 
@@ -32,20 +32,17 @@ export const UserProfileDisplay = ({
   currentPractice 
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { session, isPending, error } = useSessionContext();
+  const { session, isPending, error, stripeCustomerId } = useSessionContext();
   const { showError } = useToastContext();
   const { currentPractice: managedPractice } = usePracticeManagement();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { navigateToAuth, navigate } = useNavigation();
+  const { navigateToAuth, navigate, navigateToPricing } = useNavigation();
   const isMobile = useMobileDetection();
-  const practiceForTier = currentPractice ?? managedPractice ?? null;
-  const resolvedSubscriptionTier: SubscriptionTier = hasManagedSubscription(
-    managedPractice?.kind,
-    managedPractice?.subscriptionStatus,
-    managedPractice?.isPersonal ?? null
-  ) ? 'business' : 'free';
+  const practiceForSubscription = currentPractice ?? managedPractice ?? null;
+  const subscriptionActive = Boolean(stripeCustomerId);
+  const subscriptionLabel = subscriptionActive ? 'Active Subscription' : 'No Active Subscription';
 
   // Derive user data from session and practice
   const user = session?.user ? {
@@ -53,10 +50,11 @@ export const UserProfileDisplay = ({
     name: session.user.name || session.user.email || 'User',
     email: session.user.email,
     image: session.user.image,
-    practiceId: practiceForTier?.id || null,
+    practiceId: practiceForSubscription?.id || null,
     role: 'user',
     phone: null,
-    subscriptionTier: resolvedSubscriptionTier
+    subscriptionActive,
+    subscriptionLabel
   } : null;
 
 
@@ -92,7 +90,7 @@ export const UserProfileDisplay = ({
   };
 
   const handleUpgrade = () => {
-    navigate('/pricing');
+    navigateToPricing();
   };
 
   const handleProfileClick = () => {
@@ -118,7 +116,7 @@ export const UserProfileDisplay = ({
 
   const handleUpgradeClick = () => {
     setShowDropdown(false);
-    navigate('/pricing');
+    navigateToPricing();
   };
 
   const handleHelpClick = () => {
@@ -209,7 +207,8 @@ export const UserProfileDisplay = ({
         <ProfileButton
           name={user.name}
           image={user.image}
-          tier={user.subscriptionTier}
+          planLabel={user.subscriptionLabel}
+          subscriptionActive={user.subscriptionActive}
           isCollapsed={isCollapsed}
           onClick={handleProfileClick}
           onUpgrade={handleUpgrade}
@@ -218,7 +217,7 @@ export const UserProfileDisplay = ({
         {/* Dropdown - only show on desktop */}
         {showDropdown && !isMobile && (
           <ProfileDropdown
-            tier={user.subscriptionTier}
+            subscriptionActive={user.subscriptionActive}
             onUpgrade={handleUpgradeClick}
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}

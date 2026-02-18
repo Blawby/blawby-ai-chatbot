@@ -8,8 +8,6 @@ import {
 
 interface UseWorkspaceResult {
   workspaceFromPath: WorkspaceType | null;
-  preferredWorkspace: WorkspacePreference | null;
-  preferredPracticeId: string | null;
   activePracticeId: string | null;
   defaultWorkspace: WorkspacePreference;
   isPracticeEnabled: boolean;
@@ -20,10 +18,9 @@ interface UseWorkspaceResult {
 export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
   const {
-    primaryWorkspace,
-    preferredPracticeId,
     activePracticeId,
     activeOrganizationId,
+    stripeCustomerId,
     isPending
   } = useSessionContext();
 
@@ -32,23 +29,19 @@ export function useWorkspace(): UseWorkspaceResult {
     [location.path]
   );
 
-  const preferredWorkspace = primaryWorkspace ?? null;
-  const hasActivePractice = Boolean(activeOrganizationId || activePracticeId);
+  const hasActiveOrganization = Boolean(activeOrganizationId || activePracticeId);
+  const isSubscribed = Boolean(stripeCustomerId);
+  const hasPracticeAccess = hasActiveOrganization && isSubscribed;
   const isPracticeLoading = isPending;
-  const canAccessPractice = isPending ? true : hasActivePractice;
-  const isPracticeEnabled = hasActivePractice;
+  const canAccessPractice = isPending ? true : hasPracticeAccess;
+  const isPracticeEnabled = hasPracticeAccess;
   const defaultWorkspace: WorkspacePreference = useMemo(() => {
     if (!canAccessPractice) return 'client';
-    if (preferredWorkspace === 'client') return 'client';
-    if (preferredWorkspace === 'practice') return 'practice';
-    if (activePracticeId) return 'practice';
-    return 'client';
-  }, [activePracticeId, canAccessPractice, preferredWorkspace]);
+    return 'practice';
+  }, [canAccessPractice]);
 
   return {
     workspaceFromPath,
-    preferredWorkspace,
-    preferredPracticeId,
     activePracticeId,
     defaultWorkspace,
     isPracticeEnabled,

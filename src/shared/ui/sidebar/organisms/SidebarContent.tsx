@@ -10,7 +10,6 @@ import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
 import UserProfile from '@/shared/components/UserProfile';
 import type { ComponentChildren } from 'preact';
-import type { SubscriptionTier } from '@/shared/types/user';
 import type { MatterStatus } from '@/shared/types/matter';
 
 export interface SidebarNavItem {
@@ -34,7 +33,9 @@ interface SidebarContentProps {
   onClose?: () => void;
   currentPractice?: {
     id: string;
-    subscriptionTier?: SubscriptionTier;
+    kind?: 'personal' | 'business' | 'practice';
+    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+    isPersonal?: boolean | null;
   } | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;

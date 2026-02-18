@@ -136,7 +136,6 @@ export interface Practice {
   // Subscription and practice management properties
   kind?: 'personal' | 'business' | 'practice';
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
-  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   config?: {
     ownerEmail?: string;
@@ -1602,41 +1601,35 @@ export async function getCurrentSubscription(
   const response = await apiClient.get('/api/subscriptions/current', {
     signal: config?.signal
   });
-  const payload = response.data as Record<string, unknown>;
-  const container = (() => {
-    if (isRecord(payload) && 'subscription' in payload) {
-      return payload.subscription;
-    }
-    if (isRecord(payload) && 'data' in payload && isRecord(payload.data) && 'subscription' in payload.data) {
-      return payload.data.subscription;
-    }
-    return null;
-  })();
+  const payload = response.data;
+  if (!isRecord(payload) || !('subscription' in payload)) {
+    throw new Error('Invalid /api/subscriptions/current payload: missing subscription.');
+  }
 
-  if (!isRecord(container)) {
+  const container = payload.subscription;
+  if (container === null) {
     return null;
+  }
+  if (!isRecord(container)) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription must be an object or null.');
   }
 
   const plan = isRecord(container.plan)
     ? {
       id: toNullableString(container.plan.id),
       name: toNullableString(container.plan.name),
-      displayName: toNullableString(container.plan.displayName ?? container.plan.display_name),
+      displayName: toNullableString(container.plan.display_name),
       description: toNullableString(container.plan.description),
-      stripeProductId: toNullableString(container.plan.stripeProductId ?? container.plan.stripe_product_id),
-      stripeMonthlyPriceId: toNullableString(container.plan.stripeMonthlyPriceId ?? container.plan.stripe_monthly_price_id),
-      stripeYearlyPriceId: toNullableString(container.plan.stripeYearlyPriceId ?? container.plan.stripe_yearly_price_id),
-      monthlyPrice: toNullableString(container.plan.monthlyPrice ?? container.plan.monthly_price),
-      yearlyPrice: toNullableString(container.plan.yearlyPrice ?? container.plan.yearly_price),
+      stripeProductId: toNullableString(container.plan.stripe_product_id),
+      stripeMonthlyPriceId: toNullableString(container.plan.stripe_monthly_price_id),
+      stripeYearlyPriceId: toNullableString(container.plan.stripe_yearly_price_id),
+      monthlyPrice: toNullableString(container.plan.monthly_price),
+      yearlyPrice: toNullableString(container.plan.yearly_price),
       currency: toNullableString(container.plan.currency),
       features: Array.isArray(container.plan.features)
         ? container.plan.features.filter((feature): feature is string => typeof feature === 'string')
         : null,
-      isActive: typeof container.plan.isActive === 'boolean'
-        ? container.plan.isActive
-        : typeof container.plan.is_active === 'boolean'
-          ? container.plan.is_active
-          : null
+      isActive: typeof container.plan.is_active === 'boolean' ? container.plan.is_active : null
     }
     : null;
 
@@ -1644,12 +1637,8 @@ export async function getCurrentSubscription(
     id: toNullableString(container.id),
     status: toNullableString(container.status),
     plan,
-    cancelAtPeriodEnd: typeof container.cancelAtPeriodEnd === 'boolean'
-      ? container.cancelAtPeriodEnd
-      : typeof container.cancel_at_period_end === 'boolean'
-        ? container.cancel_at_period_end
-        : null,
-    currentPeriodEnd: toNullableString(container.currentPeriodEnd ?? container.current_period_end)
+    cancelAtPeriodEnd: typeof container.cancel_at_period_end === 'boolean' ? container.cancel_at_period_end : null,
+    currentPeriodEnd: toNullableString(container.current_period_end)
   };
 }
 

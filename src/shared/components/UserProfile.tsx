@@ -1,5 +1,4 @@
 import { UserProfileDisplay } from '@/shared/ui/profile/organisms/UserProfileDisplay';
-import type { SubscriptionTier } from '@/shared/types/user';
 
 
 interface UserProfileProps {
@@ -7,7 +6,9 @@ interface UserProfileProps {
   isMobile?: boolean;
   currentPractice?: {
     id: string;
-    subscriptionTier?: SubscriptionTier;
+    kind?: 'personal' | 'business' | 'practice';
+    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+    isPersonal?: boolean | null;
   } | null;
 }
 

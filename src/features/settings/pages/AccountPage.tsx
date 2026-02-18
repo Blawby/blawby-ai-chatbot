@@ -12,13 +12,12 @@ import { signOut } from '@/shared/utils/auth';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { displayPlan, hasManagedSubscription } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
 import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
 import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
-import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
+import type { UserLinks, EmailSettings } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
@@ -45,15 +44,14 @@ export const AccountPage = ({
   className = ''
 }: AccountPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const { navigate } = useNavigation();
+  const { navigate, navigateToPricing } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
-  const { session, isPending, activeMemberRole } = useSessionContext();
+  const { session, isPending, activeMemberRole, stripeCustomerId } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -68,23 +66,25 @@ export const AccountPage = ({
   const avatarObjectUrlRef = useRef<string | null>(null);
   
 
-  const hasSubscription = hasManagedSubscription(
-    currentPractice?.kind,
-    currentSubscription?.status ?? currentPractice?.subscriptionStatus,
-    currentPractice?.isPersonal ?? null
-  );
+  const hasSubscription = Boolean(stripeCustomerId);
   
   // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {
     if (!hasSubscription) return null;
-    const fromSubscription = currentSubscription?.currentPeriodEnd
-      ? new Date(Number(currentSubscription.currentPeriodEnd) * 1000)
-      : null;
-    if (fromSubscription && !isNaN(fromSubscription.getTime())) {
-      return fromSubscription;
+    if (currentSubscription?.currentPeriodEnd) {
+      const numeric = Number(currentSubscription.currentPeriodEnd);
+      if (Number.isFinite(numeric)) {
+        const d = new Date(numeric * 1000);
+        if (!isNaN(d.getTime())) return d;
+      }
+      const parsed = new Date(currentSubscription.currentPeriodEnd);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
     }
     if (currentPractice?.subscriptionPeriodEnd) {
-      return new Date(currentPractice.subscriptionPeriodEnd * 1000);
+      const d = new Date(currentPractice.subscriptionPeriodEnd * 1000);
+      if (!isNaN(d.getTime())) return d;
     }
     return null;
   }, [hasSubscription, currentSubscription?.currentPeriodEnd, currentPractice?.subscriptionPeriodEnd]);
@@ -163,7 +163,7 @@ export const AccountPage = ({
   const isOwner = activeMemberRole === 'owner';
   const canManageBilling = isOwner;
 
-  const subscriptionStatus = (currentSubscription?.status ?? currentPractice?.subscriptionStatus ?? 'none').toLowerCase();
+  const subscriptionStatus = (currentSubscription?.status ?? 'none').toLowerCase();
   const subscriptionEnd = (() => {
     if (currentSubscription?.currentPeriodEnd) {
       const numeric = Number(currentSubscription.currentPeriodEnd);
@@ -202,29 +202,12 @@ export const AccountPage = ({
     ? window.location.origin
     : '';
 
-  const resolveTierFromSubscription = useCallback((subscription: CurrentSubscription | null): SubscriptionTier => {
-    if (!subscription) {
-      return 'free';
-    }
-    const planName = (subscription.plan?.name ?? subscription.plan?.displayName ?? '').toLowerCase();
-    if (!planName) {
-      throw new Error('Subscription plan name/displayName is missing in /api/subscriptions/current response.');
-    }
-    if (planName.includes('enterprise')) return 'enterprise';
-    if (planName.includes('business')) return 'business';
-    if (planName.includes('plus')) return 'plus';
-    if (planName.includes('free')) return 'free';
-    throw new Error(`Cannot map subscription plan "${planName}" to a supported tier.`);
-  }, []);
-
   const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
     if (!session?.user) return;
     setSubscriptionLoading(true);
     try {
       const subscription = await getCurrentSubscription({ signal });
-      const resolvedTier = resolveTierFromSubscription(subscription);
       setCurrentSubscription(subscription);
-      setCurrentTier(resolvedTier);
       setError(null);
     } catch (fetchError) {
       if (signal?.aborted) {
@@ -233,16 +216,14 @@ export const AccountPage = ({
       console.error('[Account] Failed to load subscription state', fetchError);
       setError('Unable to load subscription state from API.');
       setCurrentSubscription(null);
-      setCurrentTier(null);
     } finally {
       setSubscriptionLoading(false);
     }
-  }, [resolveTierFromSubscription, session?.user]);
+  }, [session?.user]);
 
   useEffect(() => {
     if (!session?.user) {
       setCurrentSubscription(null);
-      setCurrentTier(null);
       setSubscriptionLoading(false);
       return;
     }
@@ -256,22 +237,28 @@ export const AccountPage = ({
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
-      refetch()
-        .then(() => {
+      void (async () => {
+        try {
+          await refreshSubscription();
+        } catch (error) {
+          console.error('Failed to refresh current subscription:', error);
+        }
+
+        try {
+          await refetch();
           showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error('Failed to refresh subscription:', error);
           // Don't show error toast - refetch failure is not critical
-        })
-        .finally(() => {
+        } finally {
           // Remove sync param to prevent re-trigger (URL hygiene)
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('sync');
           window.history.replaceState({}, '', newUrl.toString());
-        });
+        }
+      })();
     }
-  }, [currentPractice?.id, refetch, showSuccess]);
+  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
@@ -288,11 +275,8 @@ export const AccountPage = ({
 
   // Simple computed values for demo - only compute when currentTier is available
   const currentPlanFeatures = (() => {
-    if (!currentTier) {
-      if (subscriptionLoading || isPending || practiceLoading || error) {
-        return null;
-      }
-      throw new Error('Subscription tier is required to render plan features.');
+    if (subscriptionLoading || isPending || practiceLoading || error) {
+      return null;
     }
     const backendFeatures = currentSubscription?.plan?.features;
     if (!Array.isArray(backendFeatures)) {
@@ -704,44 +688,24 @@ export const AccountPage = ({
   }
 
   if (loadingTimeout || error) {
-    const errorMessage = loadingTimeout 
-      ? 'Loading timed out. Please check your connection and try again.'
-      : error || 'An error occurred while loading your account information.';
-    
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 mb-4">
-            <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <p className="text-sm font-medium">{t('settings:account.loadingError')}</p>
-            <SettingsHelperText className="mt-1">{errorMessage}</SettingsHelperText>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setLoadingTimeout(false);
-              setError(null);
-              refetch().then(() => {
-                if (session?.user && currentPractice !== undefined) {
-                  loadAccountData();
-                  void refreshSubscription();
-                }
-              });
-            }}
-          >
-            {t('settings:account.retry')}
-          </Button>
-        </div>
-      </div>
+    throw new Error(
+      loadingTimeout
+        ? 'Loading timed out. Please check your connection and try again.'
+        : (error || 'An error occurred while loading your account information.')
     );
   }
 
   if (!currentPlanFeatures) {
-    throw new Error('Subscription tier is required to render plan features.');
+    throw new Error('Subscription plan features could not be loaded.');
   }
+
+  if (hasSubscription && !currentSubscription?.plan?.displayName && !currentSubscription?.plan?.name) {
+    throw new Error('Current subscription is active but plan display name is missing from API response.');
+  }
+
+  const currentPlanLabel = hasSubscription
+    ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || '')
+    : 'No Active Subscription';
 
   return (
     <SettingsPageLayout title={t('settings:account.title')} className={className}>
@@ -768,7 +732,7 @@ export const AccountPage = ({
 
           {/* Subscription Plan Section */}
           <SettingRow
-            label={displayPlan(currentTier)}
+            label={currentPlanLabel}
             labelClassName="text-input-text font-semibold"
             description={
               hasSubscription && renewalDate
@@ -813,7 +777,7 @@ export const AccountPage = ({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => navigate('/pricing')}
+                  onClick={() => navigateToPricing()}
                 >
                   {t('settings:account.plan.upgrade')}
                 </Button>
