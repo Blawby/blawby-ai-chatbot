@@ -1341,9 +1341,9 @@ export class ConversationService {
     // Reverse to return oldest first (for display)
     messages.reverse();
 
-    // Generate cursor from last message's created_at if there are more
-    const cursor = hasMore && messages.length > 0 
-      ? messages[messages.length - 1].created_at 
+    // Generate cursor from the oldest displayed message so the next page is strictly older.
+    const cursor = hasMore && messages.length > 0
+      ? messages[0].created_at
       : undefined;
 
     return {

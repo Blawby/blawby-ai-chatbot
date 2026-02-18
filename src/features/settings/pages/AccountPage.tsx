@@ -126,11 +126,13 @@ export const AccountPage = ({
       };
       
       const practiceTier = currentPractice?.subscriptionTier;
-      const displayTier = practiceTier ?? (hasSubscription ? 'business' : 'free');
+      if (!practiceTier) {
+        throw new Error('Subscription tier is missing from practice API response.');
+      }
       
       setLinks(linksData);
       setEmailSettings(emailData);
-      setCurrentTier(displayTier as SubscriptionTier);
+      setCurrentTier(practiceTier as SubscriptionTier);
     } catch (error) {
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
@@ -235,9 +237,14 @@ export const AccountPage = ({
     try {
       const subscription = await getCurrentSubscription({ signal });
       setCurrentSubscription(subscription);
+      setError(null);
     } catch (fetchError) {
+      if (signal?.aborted) {
+        return;
+      }
       console.warn('[Account] Failed to load current subscription', fetchError);
       setSubscriptionError('Unable to verify subscription status.');
+      setError('Unable to load subscription status from API.');
       setCurrentSubscription(null);
     } finally {
       setSubscriptionLoading(false);
@@ -701,6 +708,7 @@ export const AccountPage = ({
               refetch().then(() => {
                 if (session?.user && currentPractice !== undefined) {
                   loadAccountData();
+                  void refreshSubscription();
                 }
               });
             }}
@@ -737,7 +745,7 @@ export const AccountPage = ({
 
           {/* Subscription Plan Section */}
           <SettingRow
-            label={displayPlan((currentTier || 'free'))}
+            label={displayPlan(currentTier)}
             labelClassName="text-input-text font-semibold"
             description={
               hasSubscription && renewalDate

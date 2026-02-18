@@ -18,8 +18,28 @@ import {
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
+// In-flight deduplicator: prevents concurrent duplicate requests for the same slug.
 const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
+// Persistent result cache: once a slug resolves, reuse the result for the entire session.
+// This is the primary fix for the "Too Many Requests" issue — previously every caller
+// (usePracticeConfig, usePracticeDetails, AwaitingInvitePage, forms.ts) would fire
+// independent HTTP requests because the in-flight map was cleared after each request.
+const publicPracticeDetailsCache = new Map<string, PublicPracticeDetails | null>();
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+/**
+ * Clear the public practice details cache for a specific slug (or all slugs).
+ * Call this on logout or when practice data is known to have changed.
+ */
+export const clearPublicPracticeDetailsCache = (slug?: string) => {
+  if (slug) {
+    publicPracticeDetailsCache.delete(slug.trim());
+    publicPracticeDetailsInFlight.delete(slug.trim());
+  } else {
+    publicPracticeDetailsCache.clear();
+    publicPracticeDetailsInFlight.clear();
+  }
+};
 
 const normalizePublicFileUrl = (value?: string | null): string | null => {
   if (!value) return null;
@@ -1137,6 +1157,13 @@ export async function getPublicPracticeDetails(
     throw new Error('practice slug is required');
   }
   const normalizedSlug = slug.trim();
+
+  // 1. Return from persistent cache if already resolved (primary dedup across all callers).
+  if (publicPracticeDetailsCache.has(normalizedSlug)) {
+    return publicPracticeDetailsCache.get(normalizedSlug) ?? null;
+  }
+
+  // 2. Return in-flight promise if a request is already underway (concurrent dedup).
   const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
   if (existing) {
     return existing;
@@ -1160,21 +1187,28 @@ export async function getPublicPracticeDetails(
       const displayDetails = extractPublicPracticeDisplayDetails(response.data);
       const practiceId = extractPublicPracticeId(response.data);
       if (!details) {
+        // Cache null so we don't keep retrying a practice that returned no details.
+        publicPracticeDetailsCache.set(normalizedSlug, null);
         return null;
       }
-      return {
+      const result: PublicPracticeDetails = {
         practiceId: practiceId ?? undefined,
         slug: normalizedSlug,
         details,
         name: displayDetails.name,
         logo: displayDetails.logo
       };
+      publicPracticeDetailsCache.set(normalizedSlug, result);
+      return result;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
+          // Cache null for 404 — the practice doesn't exist, no point retrying.
+          publicPracticeDetailsCache.set(normalizedSlug, null);
           return null;
         }
       }
+      // Do NOT cache transient errors (rate limit, network failure) so callers can retry.
       throw error;
     }
   })();

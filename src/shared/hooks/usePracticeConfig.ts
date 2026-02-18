@@ -73,6 +73,12 @@ export const usePracticeConfig = ({
   const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>(() => buildDefaultPracticeConfig());
   const refreshKeyRef = useRef<string | number | null | undefined>(refreshKey);
 
+  // Store onError in a ref so it never appears in useCallback deps.
+  // This prevents fetchPracticeConfig from being recreated every render when
+  // callers pass inline arrow functions (which is the common pattern in route components).
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
   // Use ref to track if we've already fetched for this practiceId
   const fetchedPracticeIds = useRef<Set<string>>(new Set());
   
@@ -248,7 +254,7 @@ export const usePracticeConfig = ({
       }
       console.warn('Failed to fetch practice config:', error);
       setPracticeNotFound(true);
-      onError?.('Failed to load practice configuration');
+      onErrorRef.current?.('Failed to load practice configuration');
     } finally {
       // Clear the current request ref and reset loading state
       if (currentRequestRef.current?.practiceId === currentPracticeId) {
@@ -257,7 +263,9 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  }, [allowUnauthenticated, onError]);
+  // onError intentionally omitted — stored in onErrorRef to keep this callback stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowUnauthenticated]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {
@@ -289,6 +297,7 @@ export const usePracticeConfig = ({
     if (!practiceId) return;
     if (refreshKey === undefined) return;
     if (refreshKeyRef.current === refreshKey) return;
+    refreshKeyRef.current = refreshKey;
     fetchedPracticeIds.current.delete(practiceId);
     fetchPracticeConfig(practiceId);
   }, [fetchPracticeConfig, practiceId, refreshKey]);

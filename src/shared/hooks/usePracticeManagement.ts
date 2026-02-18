@@ -21,7 +21,8 @@ import {
   respondToPracticeInvitation,
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
-  deletePracticeMember as apiDeletePracticeMember
+  deletePracticeMember as apiDeletePracticeMember,
+  clearPublicPracticeDetailsCache
 } from '@/shared/lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
@@ -734,6 +735,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         practicesFetchedRef.current = false;
         resetSharedPracticeCache();
         resetPracticeDetailsStore();
+        clearPublicPracticeDetailsCache();
         return;
       }
 

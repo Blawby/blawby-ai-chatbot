@@ -176,7 +176,7 @@ export const TimeEntriesPanel = ({
                   </div>
                   <div className="sm:col-span-9">
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 rounded-full bg-line-default/60">
+                      <div className="flex-1 h-2 rounded-full bg-line-glass/60">
                         <div
                           className="h-2 rounded-full bg-accent-500"
                           style={{ width: `${day.progressPercentage}%` }}

@@ -477,13 +477,23 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         });
     }, [dedupedMessages]);
 
+    // Track which message IDs we've already dispatched a reactions request for.
+    // This is separate from the reactionLoadedRef in useMessageHandling — it prevents
+    // the effect below from firing duplicate requests during the window between calling
+    // onRequestReactions and the reactions state update propagating back to this component.
+    const reactionRequestedRef = useRef(new Set<string>());
+
     useEffect(() => {
         if (!onRequestReactions || visibleMessages.length === 0) {
             return;
         }
         visibleMessages.forEach((message) => {
             if (!message.id) return;
+            // Skip if reactions are already loaded on the message object.
             if (message.reactions !== undefined) return;
+            // Skip if we've already dispatched a request for this message ID.
+            if (reactionRequestedRef.current.has(message.id)) return;
+            reactionRequestedRef.current.add(message.id);
             void onRequestReactions(message.id);
         });
     }, [onRequestReactions, visibleMessages]);
