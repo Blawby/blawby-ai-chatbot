@@ -8,9 +8,22 @@
  * @returns Normalized tier name for display (e.g., 'Business', 'Free')
  */
 export function displayPlan(tier?: string | null): string {
-  if (!tier || tier === 'free') return 'Free';
-  const normalized = tier.replace(/-annual$/i, '');
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1) || 'Free';
+  if (!tier || tier.trim().length === 0) {
+    throw new Error('Subscription tier is required for display.');
+  }
+  const normalized = tier.replace(/-annual$/i, '').toLowerCase();
+  switch (normalized) {
+    case 'free':
+      return 'Free';
+    case 'plus':
+      return 'Plus';
+    case 'business':
+      return 'Business';
+    case 'enterprise':
+      return 'Enterprise';
+    default:
+      throw new Error(`Unknown subscription tier: ${tier}`);
+  }
 }
 
 /**

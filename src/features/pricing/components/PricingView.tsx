@@ -1,91 +1,112 @@
 import { FunctionComponent } from 'preact';
-import { useState } from 'preact/hooks';
-import { useTranslation, i18n } from '@/shared/i18n/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
-import { UserGroupIcon } from '@heroicons/react/24/outline';
-import BadgeRecommended from '@/features/modals/components/BadgeRecommended';
-import { getBusinessPrices, TIER_FEATURES } from '@/shared/utils/stripe-products';
-import type { SubscriptionTier } from '@/shared/types/user';
+import { PlusIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
-import { features } from '@/config/features';
+import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
+import { getCurrentSubscription } from '@/shared/lib/apiClient';
 
 interface PricingViewProps {
-  currentTier?: SubscriptionTier;
-  onUpgrade?: (tier: SubscriptionTier) => Promise<boolean | void> | boolean | void;
+  onUpgrade?: (tier: 'business') => Promise<boolean | void> | boolean | void;
   className?: string;
 }
 
-const PricingView: FunctionComponent<PricingViewProps> = ({
-  currentTier = 'free',
-  onUpgrade,
-  className
-}) => {
+const MANAGED_STATUSES = new Set(['active', 'trialing', 'paused', 'past_due', 'unpaid']);
+
+const formatPlanPrice = (plan: SubscriptionPlan): string => {
+  const monthly = plan.monthlyPrice ? `$${plan.monthlyPrice}/mo` : null;
+  const yearly = plan.yearlyPrice ? `$${plan.yearlyPrice}/yr` : null;
+  if (monthly && yearly) return `${monthly} or ${yearly}`;
+  if (monthly) return monthly;
+  if (yearly) return yearly;
+  return 'Pricing unavailable';
+};
+
+const mapFeatures = (plan: SubscriptionPlan): PlanFeature[] => {
+  if (!Array.isArray(plan.features)) return [];
+  return plan.features
+    .filter((feature): feature is string => typeof feature === 'string' && feature.trim().length > 0)
+    .map((feature) => ({ icon: PlusIcon, text: feature }));
+};
+
+const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
   const { currentPractice } = usePracticeManagement();
   const { openBillingPortal } = usePaymentUpgrade();
   const { showError } = useToastContext();
+
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string>('none');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isBillingLoading, setIsBillingLoading] = useState(false);
 
-  const userLocale = i18n.language;
-  const prices = getBusinessPrices(userLocale);
-  const getFeaturesForTier = (tier: SubscriptionTier) => {
-    if (tier === 'business' || tier === 'plus' || tier === 'enterprise') return TIER_FEATURES.business;
-    return TIER_FEATURES.free;
-  };
-  const allPlans = [
-    { id: 'free' as SubscriptionTier, name: t('plans.free.name'), price: t('plans.free.price'), description: t('plans.free.description'), features: getFeaturesForTier('free'), buttonText: t('plans.free.buttonText'), isRecommended: currentTier === 'free' },
-    { id: 'plus' as SubscriptionTier, name: t('plans.plus.name'), price: t('plans.plus.price'), description: t('plans.plus.description'), features: getFeaturesForTier('plus'), buttonText: t('plans.plus.buttonText'), isRecommended: currentTier === 'free' },
-    { id: 'business' as SubscriptionTier, name: t('plans.business.name'), price: prices.monthly, description: t('plans.business.description'), features: getFeaturesForTier('business'), buttonText: t('plans.business.buttonText'), isRecommended: currentTier === 'free' || currentTier === 'plus' },
-    { id: 'enterprise' as SubscriptionTier, name: t('plans.enterprise.name'), price: t('plans.enterprise.price'), description: t('plans.enterprise.description'), features: getFeaturesForTier('enterprise'), buttonText: t('plans.enterprise.buttonText'), isRecommended: currentTier === 'business' },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const controller = new AbortController();
 
-  const visiblePlans = features.enablePlusTier
-    ? allPlans
-    : allPlans.filter(p => p.id !== 'plus');
+    (async () => {
+      try {
+        const [availablePlans, subscription] = await Promise.all([
+          fetchPlans(),
+          getCurrentSubscription({ signal: controller.signal })
+        ]);
 
-  const upgradeTiers: Record<SubscriptionTier, SubscriptionTier[]> = features.enablePlusTier ? {
-    free: ['free', 'plus', 'business'],
-    plus: ['plus', 'business'],
-    business: ['business', 'enterprise'],
-    enterprise: ['enterprise'],
-  } : {
-    free: ['free', 'business'],
-    plus: ['business'],
-    business: ['business', 'enterprise'],
-    enterprise: ['enterprise'],
-  };
+        if (!mounted) return;
 
-  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: PlanFeature[]; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
+        const visiblePlans = availablePlans.filter((plan) => plan.isActive && plan.isPublic);
+        if (visiblePlans.length === 0) {
+          throw new Error('No active public subscription plans were returned by /api/subscriptions/plans.');
+        }
 
-  const mainPlans: SimplePlan[] = (() => {
-    const availableTiers = (upgradeTiers[currentTier] || []) as SubscriptionTier[];
-    return visiblePlans
-      .filter(p => availableTiers.includes(p.id))
-      .map(p => ({
-        ...p,
-        isCurrent: p.id === currentTier,
-        buttonText: (p.id === currentTier) ? t('modal.currentPlan') : p.buttonText,
-        isRecommended: p.id !== currentTier && p.id === 'business' && (currentTier === 'free' || currentTier === 'plus')
-      }));
-  })();
+        if (subscription && !subscription.plan?.id) {
+          throw new Error('Current subscription exists but is missing plan.id in /api/subscriptions/current response.');
+        }
 
-  const handleUpgrade = async (tier: SubscriptionTier) => {
-    let shouldNavigateToCart = true;
-    try {
-      if (onUpgrade) {
-        const result = await onUpgrade(tier);
-        if (result === false) {
-          shouldNavigateToCart = false;
+        setPlans(visiblePlans);
+        setCurrentPlanId(subscription?.plan?.id ?? null);
+        setCurrentStatus((subscription?.status ?? 'none').toLowerCase());
+        setLoadError(null);
+      } catch (error) {
+        if (controller.signal.aborted || !mounted) return;
+        setLoadError(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (mounted) {
+          setLoading(false);
         }
       }
-      if (shouldNavigateToCart) {
-        navigate(`/cart?tier=${tier}`);
+    })();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, []);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-input-placeholder">Loading pricing data...</div>;
+  }
+
+  if (loadError) {
+    throw new Error(loadError);
+  }
+
+  const handleUpgrade = async (plan: SubscriptionPlan) => {
+    try {
+      if (onUpgrade) {
+        const result = await onUpgrade('business');
+        if (result === false) {
+          return;
+        }
       }
+      navigate(`/cart?planId=${encodeURIComponent(plan.id)}`);
     } catch (error) {
       console.error('Error during upgrade process:', error);
       const message = error instanceof Error ? error.message : t('common:errors.tryAgainLater');
@@ -97,9 +118,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
     try {
       const practiceId = currentPractice?.id;
       if (!practiceId) {
-        console.error(t('pricing:billing.noPracticeSelected'));
-        showError(t('pricing:billing.noPracticeSelected'), t('pricing:billing.selectPracticeToManage'));
-        return;
+        throw new Error('No current practice selected for billing management.');
       }
       setIsBillingLoading(true);
       await openBillingPortal({ practiceId });
@@ -122,55 +141,43 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
 
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
-          {mainPlans.map((plan) => (
-            <div key={plan.id} className={`relative glass-card p-6 transition-all duration-200 flex flex-col h-full ${plan.isRecommended ? 'ring-2 ring-accent-500 shadow-lg shadow-accent-500/10' : ''}`}>
-              {plan.isRecommended && (
-                <div className="absolute -top-3 left-6">
-                  <BadgeRecommended>{t('modal.recommended').toUpperCase()}</BadgeRecommended>
+          {plans.map((plan) => {
+            const isCurrentPlan = Boolean(currentPlanId && plan.id === currentPlanId);
+            const isManagedCurrentPlan = isCurrentPlan && MANAGED_STATUSES.has(currentStatus);
+            const features = mapFeatures(plan);
+
+            return (
+              <div key={plan.id} className="relative glass-card p-6 transition-all duration-200 flex flex-col h-full">
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold mb-2 text-input-text">{plan.displayName || plan.name}</h3>
+                  <div className="text-3xl font-bold mb-2 text-input-text">{formatPlanPrice(plan)}</div>
+                  <p className="text-input-placeholder">{plan.description || 'Stripe-backed subscription plan'}</p>
                 </div>
-              )}
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold mb-2 text-input-text">{plan.name}</h3>
-                <div className="text-3xl font-bold mb-2 text-input-text">{plan.price}</div>
-                <p className="text-input-placeholder">{plan.description}</p>
-              </div>
-              <div className="mb-6">
-                {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise' || plan.id === 'plus') ? (
-                  <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
-                    {isBillingLoading ? t('modal.openingBilling') : t('modal.manageBilling')}
-                  </Button>
-                ) : (
-                  <Button onClick={() => handleUpgrade(plan.id)} disabled={plan.isCurrent} variant={plan.isCurrent ? 'secondary' : 'primary'} size="lg" className="w-full">
-                    {plan.buttonText}
-                  </Button>
+                <div className="mb-6">
+                  {isManagedCurrentPlan ? (
+                    <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
+                      {isBillingLoading ? t('modal.openingBilling') : t('modal.manageBilling')}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleUpgrade(plan)}
+                      disabled={isCurrentPlan}
+                      variant={isCurrentPlan ? 'secondary' : 'primary'}
+                      size="lg"
+                      className="w-full"
+                    >
+                      {isCurrentPlan ? t('modal.currentPlan') : t('plans.business.buttonText')}
+                    </Button>
+                  )}
+                </div>
+                {features.length > 0 && (
+                  <div className="space-y-3 flex-1">
+                    <PlanFeaturesList features={features} />
+                  </div>
                 )}
               </div>
-              <div className="space-y-3 flex-1">
-                <PlanFeaturesList features={plan.features} />
-              </div>
-              {plan.id === 'free' && (
-                <div className="mt-6 pt-4 border-t border-line-glass/30">
-                  <p className="text-xs text-input-placeholder">
-                    {t('plans.free.footer.existingPlan')}{' '}
-                    <Button variant="link" size="sm" onClick={() => navigate('/help/billing')} className="px-0 py-0 h-auto font-normal">
-                      {t('plans.free.footer.billingHelp')}
-                    </Button>
-                  </p>
-                </div>
-              )}
-              {plan.id === 'business' && (
-                <div className="mt-6 pt-4 border-t border-line-glass/30">
-                  <p className="text-xs text-input-placeholder mb-1">{t('plans.business.footer.billing')}</p>
-                  <p className="text-xs text-input-placeholder">
-                    {t('plans.business.footer.unlimited')}{' '}
-                    <Button variant="link" size="sm" onClick={() => navigate('/business/features')} className="px-0 py-0 h-auto font-normal">
-                      {t('plans.business.footer.learnMore')}
-                    </Button>
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div className="border-t border-line-glass/30 px-6 py-2 mt-6">
           <div className="flex items-center justify-between gap-4">

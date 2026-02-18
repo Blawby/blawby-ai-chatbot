@@ -16,14 +16,14 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface PricingComparisonProps {
-  currentTier?: SubscriptionTier;
+  currentTier: SubscriptionTier;
   onUpgrade?: (tier: SubscriptionTier) => void;
   showAllPlans?: boolean;
   className?: string;
 }
 
 const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
-  currentTier = 'free',
+  currentTier,
   onUpgrade,
   showAllPlans = true,
   className = ''

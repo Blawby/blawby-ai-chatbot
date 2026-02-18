@@ -458,7 +458,7 @@ export const Combobox = ({
                 </span>
                 <span className="text-sm">
                   {addNewLabel}{' '}
-                  <span className="font-semibold text-accent-300">"{trimmedQuery}"</span>
+                  <span className="font-semibold text-accent-300">&quot;{trimmedQuery}&quot;</span>
                 </span>
               </button>
             )}

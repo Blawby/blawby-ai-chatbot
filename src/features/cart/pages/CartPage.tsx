@@ -9,12 +9,12 @@ import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { PricingSummary } from '@/shared/ui/cards/PricingSummary';
 import { Button } from '@/shared/ui/Button';
 import {
-  describeSubscriptionPlan,
   hasManagedSubscription,
 } from '@/shared/utils/subscription';
 import { isForcePaidEnabled } from '@/shared/utils/devFlags';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
+import { getCurrentSubscription } from '@/shared/lib/apiClient';
 
 
 export const CartPage = () => {
@@ -29,10 +29,14 @@ export const CartPage = () => {
   const seatsQuery = location.query?.seats;
   const seatsFromQuery = Array.isArray(seatsQuery) ? seatsQuery[0] : seatsQuery;
   const initialSeats = Math.max(1, Number.parseInt(seatsFromQuery || '1', 10) || 1);
+  const planIdQuery = location.query?.planId;
+  const planIdFromQuery = Array.isArray(planIdQuery) ? planIdQuery[0] : planIdQuery;
 
   const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [currentSubscriptionPlanLabel, setCurrentSubscriptionPlanLabel] = useState<string | null>(null);
+  const [currentSubscriptionStatus, setCurrentSubscriptionStatus] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Refs for radio buttons to manage focus programmatically
@@ -63,11 +67,13 @@ export const CartPage = () => {
         return;
       }
       
-      // Select the configured business plan, or the first available plan
+      // Select query-param plan, configured business plan, or first available plan
       const configuredProductId = import.meta.env.VITE_STRIPE_BUSINESS_PRODUCT_ID;
-      const planToSelect = (configuredProductId
-        ? publicPlans.find(p => p.stripeProductId === configuredProductId)
-        : null) || publicPlans[0];
+      const planToSelect = (
+        (planIdFromQuery ? publicPlans.find(p => p.id === planIdFromQuery) : null) ||
+        (configuredProductId ? publicPlans.find(p => p.stripeProductId === configuredProductId) : null) ||
+        publicPlans[0]
+      );
 
       setSelectedPlan(planToSelect);
       // Set initial price ID to monthly (will be updated when user selects annual)
@@ -88,7 +94,7 @@ export const CartPage = () => {
       setLoadError(errorMsg);
       showError('Failed to load pricing', errorMsg);
     }
-  }, [showError]);
+  }, [planIdFromQuery, showError]);
 
   // Load plans from API
   useEffect(() => {
@@ -101,22 +107,34 @@ export const CartPage = () => {
     loadPlans();
   }, [isSessionPending, session?.user, loadPlans, navigateToAuth]);
 
+  useEffect(() => {
+    if (isSessionPending || !session?.user) return;
+    const controller = new AbortController();
+    void getCurrentSubscription({ signal: controller.signal })
+      .then((subscription) => {
+        const planLabel = subscription?.plan?.displayName ?? subscription?.plan?.name ?? null;
+        setCurrentSubscriptionPlanLabel(planLabel);
+        setCurrentSubscriptionStatus(subscription?.status ?? null);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error('[CART][SUBSCRIPTION] Failed to load current subscription', error);
+        setLoadError(error instanceof Error ? error.message : 'Failed to load current subscription');
+      });
+    return () => controller.abort();
+  }, [isSessionPending, session?.user]);
+
   // Dev/test-only override to force paid UI in deterministic E2E runs
   const devForcePaid = isForcePaidEnabled();
   const managedSubscription = hasManagedSubscription(
     currentPractice?.kind,
-    currentPractice?.subscriptionStatus,
+    currentSubscriptionStatus ?? currentPractice?.subscriptionStatus,
     currentPractice?.isPersonal ?? null
   );
   const isPaidTier = devForcePaid || managedSubscription;
-
-  const planLabel = describeSubscriptionPlan(
-    currentPractice?.kind,
-    currentPractice?.subscriptionStatus,
-    currentPractice?.subscriptionTier,
-    currentPractice?.isPersonal ?? null
-  );
-  const displayPlanLabel = devForcePaid ? 'Paid Plan (dev)' : planLabel;
+  const displayPlanLabel = devForcePaid
+    ? 'Paid Plan (dev)'
+    : (currentSubscriptionPlanLabel ?? 'Active');
 
   const handleManageBilling = useCallback(async () => {
     if (!currentPractice?.id) return;
@@ -139,8 +157,7 @@ export const CartPage = () => {
           path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
           search: typeof window !== 'undefined' ? window.location.search : 'n/a',
           devForcePaid,
-          tier: currentPractice?.subscriptionTier,
-          status: currentPractice?.subscriptionStatus,
+          status: currentSubscriptionStatus ?? currentPractice?.subscriptionStatus,
           practiceId: currentPractice?.id,
         });
       } catch (e) {
@@ -148,7 +165,7 @@ export const CartPage = () => {
         console.warn('[CART][DEBUG] log failed:', e);
       }
     }
-  }, [devForcePaid, currentPractice?.subscriptionTier, currentPractice?.subscriptionStatus, currentPractice?.id]);
+  }, [devForcePaid, currentSubscriptionStatus, currentPractice?.subscriptionStatus, currentPractice?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {

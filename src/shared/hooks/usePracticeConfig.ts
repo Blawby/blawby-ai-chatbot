@@ -157,7 +157,10 @@ export const usePracticeConfig = ({
         if (publicDetails) {
           const details = publicDetails.details;
           const resolvedDetailsId = publicDetails.practiceId ?? currentPracticeId;
-          if (details && resolvedDetailsId) {
+          if (details) {
+            setPracticeDetailsEntry(currentPracticeId, details);
+          }
+          if (details && resolvedDetailsId && resolvedDetailsId !== currentPracticeId) {
             setPracticeDetailsEntry(resolvedDetailsId, details);
           }
           const config = buildDefaultPracticeConfig({

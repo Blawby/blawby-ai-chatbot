@@ -51,15 +51,28 @@ export interface TierFeature {
 
 export const TIER_NAMES = {
   free: 'Free',
+  plus: 'Plus',
   business: 'Business',
+  enterprise: 'Enterprise',
 } as const;
 
-export const TIER_FEATURES: Record<'free' | 'business', TierFeature[]> = {
+export const TIER_FEATURES: Record<'free' | 'plus' | 'business' | 'enterprise', TierFeature[]> = {
   free: [
     { icon: BoltIcon, text: 'Basic AI assistance' },
     { icon: DocumentIcon, text: 'Limited document analysis' },
   ],
+  plus: [
+    { icon: BoltIcon, text: 'Enhanced AI assistance' },
+    { icon: DocumentIcon, text: 'Expanded document analysis' },
+    { icon: LockClosedIcon, text: 'Improved security controls' },
+  ],
   business: [
+    { icon: UserGroupIcon, text: 'Practice collaboration & workflows' },
+    { icon: LockClosedIcon, text: 'Advanced security' },
+    { icon: DocumentIcon, text: 'Personalized intake forms' },
+    { icon: BoltIcon, text: 'Unlimited usage with guardrails' },
+  ],
+  enterprise: [
     { icon: UserGroupIcon, text: 'Practice collaboration & workflows' },
     { icon: LockClosedIcon, text: 'Advanced security' },
     { icon: DocumentIcon, text: 'Personalized intake forms' },
@@ -68,9 +81,7 @@ export const TIER_FEATURES: Record<'free' | 'business', TierFeature[]> = {
 };
 
 export function getTierDisplayName(tier: 'free' | 'business' | 'plus' | 'enterprise'): string {
-  // Gracefully map unknown paid tiers to Business for display purposes
-  if (tier === 'plus' || tier === 'enterprise') return TIER_NAMES.business;
-  return TIER_NAMES[tier as 'free' | 'business'] ?? String(tier);
+  return TIER_NAMES[tier];
 }
 
 export function formatPriceCents(

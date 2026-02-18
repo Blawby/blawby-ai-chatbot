@@ -66,6 +66,7 @@ interface VirtualMessageListProps {
 const BATCH_SIZE = 20;
 const SCROLL_THRESHOLD = 100;
 const DEBOUNCE_DELAY = 50;
+const DEBUG_PAGINATION = true;
 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
@@ -93,6 +94,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     showSkeleton = false,
     compactLayout = false
 }) => {
+    useEffect(() => {
+        if (DEBUG_PAGINATION) {
+            console.info('[VirtualMessageList][pagination] instrumentation active');
+        }
+    }, []);
+
     const { session, activeMemberRole } = useSessionContext();
     const { showError, showSuccess } = useToastContext();
     const dedupedMessages = useMemo(() => {
@@ -119,6 +126,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isScrolledToBottomRef = useRef(true);
     const isUserScrollingRef = useRef(false);
     const isLoadingRef = useRef(false);
+    const loggedNoServerPaginationRef = useRef(false);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
     const currentUserAvatar = session?.user?.image || null;
     const currentUserProfile = {
@@ -150,6 +158,26 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             isMountedRef.current = false;
         };
     }, []);
+
+    useEffect(() => {
+        if (!DEBUG_PAGINATION) return;
+        if (startIndex !== 0) {
+            loggedNoServerPaginationRef.current = false;
+            return;
+        }
+        if (hasMoreMessages) {
+            loggedNoServerPaginationRef.current = false;
+            return;
+        }
+        if (loggedNoServerPaginationRef.current) return;
+        loggedNoServerPaginationRef.current = true;
+        console.info('[VirtualMessageList][pagination] server pagination disabled for current state', {
+            startIndex,
+            hasMoreMessages: Boolean(hasMoreMessages),
+            isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
+            hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
+        });
+    }, [startIndex, hasMoreMessages, isLoadingMoreMessages, onLoadMoreMessages]);
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -323,10 +351,27 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!listRef.current) return;
 
         const element = listRef.current;
+        if (DEBUG_PAGINATION) {
+            console.info('[VirtualMessageList][pagination] scroll check', {
+                scrollTop: element.scrollTop,
+                threshold: SCROLL_THRESHOLD,
+                startIndex,
+                hasMoreMessages: Boolean(hasMoreMessages),
+                isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
+                internalLoading: Boolean(isLoadingRef.current),
+                hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
+            });
+        }
 
         // Load more messages when scrolling up (client-side)
         if (element.scrollTop < SCROLL_THRESHOLD && startIndex > 0) {
             const newStartIndex = Math.max(0, startIndex - BATCH_SIZE);
+            if (DEBUG_PAGINATION) {
+                console.info('[VirtualMessageList][pagination] revealing buffered messages', {
+                    previousStartIndex: startIndex,
+                    nextStartIndex: newStartIndex
+                });
+            }
             setStartIndex(newStartIndex);
 
             // Maintain scroll position when loading more messages
@@ -347,6 +392,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             !isLoadingRef.current &&
             onLoadMoreMessages
         ) {
+            if (DEBUG_PAGINATION) {
+                console.info('[VirtualMessageList][pagination] requesting older messages from server');
+            }
             isLoadingRef.current = true;
             const previousScrollHeight = element.scrollHeight;
             const previousScrollTop = element.scrollTop;
@@ -366,7 +414,17 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 })
                 .finally(() => {
                     isLoadingRef.current = false;
+                    if (DEBUG_PAGINATION) {
+                        console.info('[VirtualMessageList][pagination] server request finished');
+                    }
                 });
+        } else if (DEBUG_PAGINATION && element.scrollTop < SCROLL_THRESHOLD && startIndex === 0) {
+            console.info('[VirtualMessageList][pagination] at top but not loading from server', {
+                hasMoreMessages: Boolean(hasMoreMessages),
+                isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
+                internalLoading: Boolean(isLoadingRef.current),
+                hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
+            });
         }
     }, [
         startIndex,
@@ -424,6 +482,15 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
         }
     }, [dedupedMessages.length]);
+
+    useEffect(() => {
+        // If server pagination is exhausted, show full local history instead of
+        // keeping a virtualized window that implies more content is loading.
+        if (hasMoreMessages === false) {
+            setStartIndex(0);
+            setEndIndex(dedupedMessages.length);
+        }
+    }, [dedupedMessages.length, hasMoreMessages]);
 
     useEffect(() => {
         const lastMessage = dedupedMessages[dedupedMessages.length - 1];
@@ -487,14 +554,20 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!onRequestReactions || visibleMessages.length === 0) {
             return;
         }
-        visibleMessages.forEach((message) => {
+        visibleMessages.forEach(async (message) => {
             if (!message.id) return;
             // Skip if reactions are already loaded on the message object.
             if (message.reactions !== undefined) return;
             // Skip if we've already dispatched a request for this message ID.
             if (reactionRequestedRef.current.has(message.id)) return;
+            
             reactionRequestedRef.current.add(message.id);
-            void onRequestReactions(message.id);
+            try {
+                await onRequestReactions(message.id);
+            } catch (error) {
+                // If request fails, remove from ref so it can be retried later
+                reactionRequestedRef.current.delete(message.id);
+            }
         });
     }, [onRequestReactions, visibleMessages]);
 

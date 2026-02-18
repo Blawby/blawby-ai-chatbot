@@ -68,6 +68,8 @@ export interface GetMessagesOptions {
   limit?: number;
   cursor?: string;
   fromSeq?: number;
+  traceId?: string;
+  requestSource?: string;
 }
 
 export interface GetMessagesResult {
@@ -1345,6 +1347,23 @@ export class ConversationService {
     const cursor = hasMore && messages.length > 0
       ? messages[0].created_at
       : undefined;
+
+    Logger.info('[ConversationService][pagination] getMessages result', {
+      traceId: options.traceId ?? null,
+      requestSource: options.requestSource ?? null,
+      conversationId,
+      practiceId,
+      request: {
+        limit,
+        cursor: options.cursor ?? null
+      },
+      recordsCount: records.results.length,
+      returnedMessagesCount: messages.length,
+      hasMore,
+      nextCursor: cursor ?? null,
+      oldestReturnedCreatedAt: messages[0]?.created_at ?? null,
+      newestReturnedCreatedAt: messages[messages.length - 1]?.created_at ?? null
+    });
 
     return {
       messages,

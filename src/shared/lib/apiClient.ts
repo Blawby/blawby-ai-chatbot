@@ -261,6 +261,14 @@ export interface CurrentSubscriptionPlan {
   id?: string | null;
   name?: string | null;
   displayName?: string | null;
+  description?: string | null;
+  stripeProductId?: string | null;
+  stripeMonthlyPriceId?: string | null;
+  stripeYearlyPriceId?: string | null;
+  monthlyPrice?: string | null;
+  yearlyPrice?: string | null;
+  currency?: string | null;
+  features?: string[] | null;
   isActive?: boolean | null;
 }
 
@@ -1614,6 +1622,16 @@ export async function getCurrentSubscription(
       id: toNullableString(container.plan.id),
       name: toNullableString(container.plan.name),
       displayName: toNullableString(container.plan.displayName ?? container.plan.display_name),
+      description: toNullableString(container.plan.description),
+      stripeProductId: toNullableString(container.plan.stripeProductId ?? container.plan.stripe_product_id),
+      stripeMonthlyPriceId: toNullableString(container.plan.stripeMonthlyPriceId ?? container.plan.stripe_monthly_price_id),
+      stripeYearlyPriceId: toNullableString(container.plan.stripeYearlyPriceId ?? container.plan.stripe_yearly_price_id),
+      monthlyPrice: toNullableString(container.plan.monthlyPrice ?? container.plan.monthly_price),
+      yearlyPrice: toNullableString(container.plan.yearlyPrice ?? container.plan.yearly_price),
+      currency: toNullableString(container.plan.currency),
+      features: Array.isArray(container.plan.features)
+        ? container.plan.features.filter((feature): feature is string => typeof feature === 'string')
+        : null,
       isActive: typeof container.plan.isActive === 'boolean'
         ? container.plan.isActive
         : typeof container.plan.is_active === 'boolean'
