@@ -30,6 +30,7 @@ export interface ContactFormProps {
   variant?: 'card' | 'plain';
   formId?: string;
   showSubmitButton?: boolean;
+  submitFullWidth?: boolean;
   submitLabel?: string;
 }
 
@@ -83,6 +84,7 @@ export function ContactForm({
   variant = 'card',
   formId,
   showSubmitButton = true,
+  submitFullWidth = false,
   submitLabel
 }: ContactFormProps) {
   const { t } = useTranslation('common');
@@ -145,6 +147,7 @@ export function ContactForm({
       variant={variant}
       formId={formId}
       showSubmitButton={showSubmitButton}
+      submitFullWidth={submitFullWidth}
       submitLabel={submitLabel ?? t('forms.contactForm.submit')}
       labels={labels}
       placeholders={placeholders}

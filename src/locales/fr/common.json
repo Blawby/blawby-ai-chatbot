@@ -225,8 +225,7 @@
       "sendMessage": "Envoyez-nous un message",
       "consultation": {
         "title": "Besoin de parler à un avocat ?",
-        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation.",
-        "button": "Demander une consultation"
+        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation."
       },
       "poweredBy": "Propulsé par"
     },
@@ -255,6 +254,27 @@
       "inactive": "Inactif",
       "away": "Absent",
       "unknown": "Statut inconnu"
+    }
+  },
+  "chat": {
+    "publicIntro": "Posez-nous vos questions ou partagez vos commentaires.",
+    "continue": "Continuer",
+    "submitRequest": "Soumettre la demande",
+    "submitNow": "Envoyer maintenant",
+    "buildStrongerBrief": "Créer un meilleur dossier",
+    "askQuestion": "Poser une question",
+    "requestConsultation": "Demander une consultation",
+    "retry": "Réessayer",
+    "retrying": "Nouvelle tentative...",
+    "replyingTo": "En réponse à <name>{{name}}</name>",
+    "cta": {
+      "submit": "Envoyer la demande",
+      "submitConsultationRequest": "Envoyer la demande de consultation",
+      "reviewSubmit": "Vérifier et envoyer",
+      "keepAnswering": "Continuer de répondre",
+      "continue": "Continuer",
+      "addMore": "Ajouter plus",
+      "notYet": "Pas encore"
     }
   }
 }

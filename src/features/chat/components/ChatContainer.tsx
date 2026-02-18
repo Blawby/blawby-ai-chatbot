@@ -21,6 +21,7 @@ import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagemen
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { getChatPatterns } from '../config/chatPatterns';
+import { cn } from '@/shared/utils/cn';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -434,7 +435,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             ) : null}
             <div className="flex flex-1 min-h-0 flex-col">
               {isPublicWorkspace && filteredMessages.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-start px-6 pt-8 text-center text-sm text-input-placeholder">
+                <div className={cn(
+                  'flex flex-col items-center justify-start px-6 text-center text-sm text-input-placeholder',
+                  shouldShowSlimForm ? 'pt-4 pb-2' : 'flex-1 pt-8'
+                )}>
                   <p className="max-w-[300px]">
                     {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
                       ? practiceConfig.introMessage.trim()
@@ -470,6 +474,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     isLoadingMoreMessages={isLoadingMoreMessages}
                     onLoadMoreMessages={onLoadMoreMessages}
                     showSkeleton={!messagesReady}
+                    compactLayout={shouldShowSlimForm}
                   />
                 </>
               )}
@@ -485,6 +490,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     initialValues={slimContactDraft ?? undefined}
                     variant="plain"
                     showSubmitButton={true}
+                    submitFullWidth={true}
                     submitLabel={t('chat.continue')}
                   />
                 </div>

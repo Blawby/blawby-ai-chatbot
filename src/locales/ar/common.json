@@ -202,8 +202,7 @@
       "sendMessage": "أرسل لنا رسالة",
       "consultation": {
         "title": "هل تحتاج للتحدث مع محام؟",
-        "description": "شارك بعض التفاصيل وسنقوم بربطك بالمحامي المناسب لحالتك.",
-        "button": "طلب استشارة"
+        "description": "شارك بعض التفاصيل وسنقوم بربطك بالمحامي المناسب لحالتك."
       },
       "poweredBy": "مشغل بواسطة"
     },
@@ -256,5 +255,26 @@
       }
     },
     "goToSettings": "الذهاب إلى إعدادات المكتب"
+  },
+  "chat": {
+    "publicIntro": "اسألنا عن أي شيء، أو شاركنا ملاحظاتك.",
+    "continue": "متابعة",
+    "submitRequest": "إرسال الطلب",
+    "submitNow": "الإرسال الآن",
+    "buildStrongerBrief": "إنشاء موجز أقوى",
+    "askQuestion": "اطرح سؤالاً",
+    "requestConsultation": "طلب استشارة",
+    "retry": "أعد المحاولة",
+    "retrying": "جارٍ إعادة المحاولة...",
+    "replyingTo": "رداً على <name>{{name}}</name>",
+    "cta": {
+      "submit": "إرسال الطلب",
+      "submitConsultationRequest": "إرسال طلب الاستشارة",
+      "reviewSubmit": "المراجعة والإرسال",
+      "keepAnswering": "مواصلة الإجابة",
+      "continue": "متابعة",
+      "addMore": "إضافة المزيد",
+      "notYet": "ليس بعد"
+    }
   }
 }

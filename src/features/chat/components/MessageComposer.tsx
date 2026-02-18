@@ -9,7 +9,7 @@ import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import { useTranslation } from '@/shared/i18n/hooks';
+import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
 
 interface MessageComposerProps {
@@ -69,7 +69,7 @@ const MessageComposer = ({
   onCancelReply,
   footerActions
 }: MessageComposerProps) => {
-  const { t } = useTranslation('auth');
+  const { t } = useTranslation(['auth', 'common']);
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
     intakeStep === 'pending_review' ||
@@ -138,8 +138,15 @@ const MessageComposer = ({
           {replyTo && (
             <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-overlay/80 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="text-input-text/70">{t('chat.replyingTo')}</span>
-                <span className="truncate font-semibold text-accent-500">{replyTo.authorName}</span>
+                <span className="text-input-text/70">
+                  <Trans
+                    i18nKey="chat.replyingTo"
+                    values={{ name: replyTo.authorName }}
+                    components={{
+                      name: <span className="truncate font-semibold text-accent-500" />
+                    }}
+                  />
+                </span>
               </div>
               <Button
                 type="button"

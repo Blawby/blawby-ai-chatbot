@@ -202,8 +202,7 @@
       "sendMessage": "Wyślij do nas wiadomość",
       "consultation": {
         "title": "Potrzebujesz rozmowy z prawnikiem?",
-        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji.",
-        "button": "Poproś o konsultację"
+        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji."
       },
       "poweredBy": "Obsługiwane przez"
     },
@@ -256,5 +255,26 @@
       }
     },
     "goToSettings": "Przejdź do ustawień kancelarii"
+  },
+  "chat": {
+    "publicIntro": "Zadaj nam dowolne pytanie lub podziel się swoją opinią.",
+    "continue": "Kontynuuj",
+    "submitRequest": "Prześlij prośbę",
+    "submitNow": "Prześlij teraz",
+    "buildStrongerBrief": "Stwórz mocniejszy opis",
+    "askQuestion": "Zadaj pytanie",
+    "requestConsultation": "Poproś o konsultację",
+    "retry": "Spróbuj ponownie",
+    "retrying": "Ponawianie...",
+    "replyingTo": "Odpowiedź na <name>{{name}}</name>",
+    "cta": {
+      "submit": "Prześlij prośbę",
+      "submitConsultationRequest": "Prześlij prośbę o konsultację",
+      "reviewSubmit": "Sprawdź i prześlij",
+      "keepAnswering": "Kontynuuj odpowiadanie",
+      "continue": "Kontynuuj",
+      "addMore": "Dodaj więcej",
+      "notYet": "Jeszcze nie"
+    }
   }
 }

@@ -202,8 +202,7 @@
       "sendMessage": "Stuur ons een bericht",
       "consultation": {
         "title": "Moet u een advocaat spreken?",
-        "description": "Deel enkele details en we brengen u in contact met de juiste advocaat voor uw situatie.",
-        "button": "Consultatie aanvragen"
+        "description": "Deel enkele details en we brengen u in contact met de juiste advocaat voor uw situatie."
       },
       "poweredBy": "Mede mogelijk gemaakt door"
     },
@@ -256,5 +255,26 @@
       }
     },
     "goToSettings": "Ga naar kantoorinstellingen"
+  },
+  "chat": {
+    "publicIntro": "Stel ons uw vragen of deel uw feedback.",
+    "continue": "Doorgaan",
+    "submitRequest": "Indienen",
+    "submitNow": "Nu indienen",
+    "buildStrongerBrief": "Bouw een sterker dossier op",
+    "askQuestion": "Een vraag stellen",
+    "requestConsultation": "Consultatie aanvragen",
+    "retry": "Opnieuw proberen",
+    "retrying": "Opnieuw proberen...",
+    "replyingTo": "Antwoord op <name>{{name}}</name>",
+    "cta": {
+      "submit": "Indienen",
+      "submitConsultationRequest": "Consultatieaanvraag indienen",
+      "reviewSubmit": "Bekijken & indienen",
+      "keepAnswering": "Blijven antwoorden",
+      "continue": "Doorgaan",
+      "addMore": "Meer toevoegen",
+      "notYet": "Nog niet"
+    }
   }
 }

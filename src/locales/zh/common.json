@@ -225,8 +225,7 @@
       "sendMessage": "给我们发消息",
       "consultation": {
         "title": "需要咨询律师吗？",
-        "description": "分享一些细节，我们将为您联系适合您情况的律师。",
-        "button": "申请咨询"
+        "description": "分享一些细节，我们将为您联系适合您情况的律师。"
       },
       "poweredBy": "技术支持"
     },
@@ -255,6 +254,27 @@
       "inactive": "离线",
       "away": "离开",
       "unknown": "状态未知"
+    }
+  },
+  "chat": {
+    "publicIntro": "欢迎提问或向我们提供反馈。",
+    "continue": "继续",
+    "submitRequest": "提交请求",
+    "submitNow": "立即提交",
+    "buildStrongerBrief": "创建更完善的简报",
+    "askQuestion": "提问",
+    "requestConsultation": "申请咨询",
+    "retry": "重试",
+    "retrying": "正在重试...",
+    "replyingTo": "回复 <name>{{name}}</name>",
+    "cta": {
+      "submit": "提交请求",
+      "submitConsultationRequest": "提交咨询请求",
+      "reviewSubmit": "审核并提交",
+      "keepAnswering": "继续回答",
+      "continue": "继续",
+      "addMore": "添加更多",
+      "notYet": "尚未"
     }
   }
 }

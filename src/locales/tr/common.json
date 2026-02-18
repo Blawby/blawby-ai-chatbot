@@ -1,12 +1,13 @@
 {
+  "__TODO__": "Follow-up Task: Fully translate remaining keys in Turkish locales and remove English fallbacks.",
   "common": {
-    "back": "Back",
+    "back": "Geri",
     "errors": {
       "tryAgainLater": "Lütfen daha sonra tekrar deneyiniz."
     }
   },
   "app": {
-    "loading": "[NEEDS TRANSLATION] Loading…"
+    "loading": "Yükleniyor…"
   },
   "notifications": {
     "settingsSavedTitle": "Ayarlar kaydedildi",
@@ -15,127 +16,127 @@
     "settingsSaveErrorBody": "Ayarlarınız kaydedilemedi. Lütfen tekrar deneyin."
   },
   "language": {
-    "auto": "[NEEDS TRANSLATION] Auto-detect",
-    "en": "[NEEDS TRANSLATION] English",
-    "vi": "[NEEDS TRANSLATION] Tiếng Việt",
-    "es": "[NEEDS TRANSLATION] Español",
-    "fr": "[NEEDS TRANSLATION] Français",
-    "de": "[NEEDS TRANSLATION] Deutsch",
-    "zh": "[NEEDS TRANSLATION] 中文",
-    "ja": "[NEEDS TRANSLATION] 日本語",
-    "pt": "[NEEDS TRANSLATION] Português",
-    "ar": "[NEEDS TRANSLATION] العربية",
-    "ru": "[NEEDS TRANSLATION] Русский",
-    "it": "[NEEDS TRANSLATION] Italiano",
-    "ko": "[NEEDS TRANSLATION] 한국어",
-    "nl": "[NEEDS TRANSLATION] Nederlands",
-    "pl": "[NEEDS TRANSLATION] Polski",
-    "tr": "[NEEDS TRANSLATION] Türkçe",
-    "th": "[NEEDS TRANSLATION] ไทย",
-    "id": "[NEEDS TRANSLATION] Bahasa Indonesia",
-    "hi": "[NEEDS TRANSLATION] हिन्दी",
-    "uk": "[NEEDS TRANSLATION] Українська"
+    "auto": "Otomatik algıla",
+    "en": "İngilizce",
+    "vi": "Vietnamca",
+    "es": "İspanyolca",
+    "fr": "Fransızca",
+    "de": "Almanca",
+    "zh": "Çince",
+    "ja": "Japonca",
+    "pt": "Portekizce",
+    "ar": "Arapça",
+    "ru": "Rusça",
+    "it": "İtalyanca",
+    "ko": "Korece",
+    "nl": "Felemenkçe",
+    "pl": "Lehçe",
+    "tr": "Türkçe",
+    "th": "Tayca",
+    "id": "Endonezce",
+    "hi": "Hintçe",
+    "uk": "Ukraynaca"
   },
   "forms": {
     "labels": {
-      "name": "[NEEDS TRANSLATION] Full Name",
-      "email": "[NEEDS TRANSLATION] Email Address",
-      "phone": "[NEEDS TRANSLATION] Phone Number",
-      "password": "[NEEDS TRANSLATION] Password",
-      "confirmPassword": "[NEEDS TRANSLATION] Confirm Password",
-      "birthday": "[NEEDS TRANSLATION] Birthday",
-      "terms": "[NEEDS TRANSLATION] Terms and Conditions",
-      "privacy": "[NEEDS TRANSLATION] Privacy Policy",
-      "search": "[NEEDS TRANSLATION] Search",
-      "select": "[NEEDS TRANSLATION] Select an option",
-      "upload": "[NEEDS TRANSLATION] Upload File",
-      "message": "[NEEDS TRANSLATION] Message",
-      "subject": "[NEEDS TRANSLATION] Subject"
+      "name": "Ad Soyad",
+      "email": "E-posta Adresi",
+      "phone": "Telefon Numarası",
+      "password": "Şifre",
+      "confirmPassword": "Şifreyi Onayla",
+      "birthday": "Doğum Günü",
+      "terms": "Şartlar ve Koşullar",
+      "privacy": "Gizlilik Politikası",
+      "search": "Ara",
+      "select": "Bir seçenek belirleyin",
+      "upload": "Dosya Yükle",
+      "message": "Mesaj",
+      "subject": "Konu"
     },
     "placeholders": {
-      "name": "[NEEDS TRANSLATION] Enter your full name",
-      "email": "[NEEDS TRANSLATION] Enter your email address",
-      "phone": "[NEEDS TRANSLATION] Enter your phone number",
-      "password": "[NEEDS TRANSLATION] Enter your password",
-      "confirmPassword": "[NEEDS TRANSLATION] Confirm your password",
-      "birthday": "[NEEDS TRANSLATION] Select your birthday",
-      "search": "[NEEDS TRANSLATION] Search...",
-      "select": "[NEEDS TRANSLATION] Select an option",
-      "message": "[NEEDS TRANSLATION] Enter your message",
-      "subject": "[NEEDS TRANSLATION] Enter your subject"
+      "name": "Ad ve soyadınızı girin",
+      "email": "E-posta adresinizi girin",
+      "phone": "Telefon numaranızı girin",
+      "password": "Şifrenizi girin",
+      "confirmPassword": "Şifrenizi onaylayın",
+      "birthday": "Doğum gününüzü seçin",
+      "search": "Ara...",
+      "select": "Bir seçenek belirleyin",
+      "message": "Mesajınızı girin",
+      "subject": "Konu girin"
     },
     "descriptions": {
-      "optional": "[NEEDS TRANSLATION] Optional",
-      "required": "[NEEDS TRANSLATION] Required",
-      "passwordHelp": "[NEEDS TRANSLATION] Must be at least 8 characters long",
-      "phoneHelp": "[NEEDS TRANSLATION] Include country code for international numbers",
-      "fileHelp": "[NEEDS TRANSLATION] Supported formats: PDF, DOC, DOCX"
+      "optional": "İsteğe bağlı",
+      "required": "Zorunlu",
+      "passwordHelp": "En az 8 karakter olmalıdır",
+      "phoneHelp": "Uluslararası numaralar için ülke kodu ekleyin",
+      "fileHelp": "Desteklenen formatlar: PDF, DOC, DOCX"
     },
     "validation": {
-      "required": "[NEEDS TRANSLATION] This field is required",
-      "email": "[NEEDS TRANSLATION] Please enter a valid email address",
-      "phone": "[NEEDS TRANSLATION] Please enter a valid phone number",
-      "password": "[NEEDS TRANSLATION] Password must be at least 8 characters",
-      "confirmPassword": "[NEEDS TRANSLATION] Passwords do not match",
-      "date": "[NEEDS TRANSLATION] Please enter a valid date (MM/DD/YYYY)",
-      "futureDate": "[NEEDS TRANSLATION] Date cannot be in the future",
-      "fileType": "[NEEDS TRANSLATION] Please select a valid file type",
-      "fileSize": "[NEEDS TRANSLATION] File size must be less than 10MB",
-      "termsRequired": "[NEEDS TRANSLATION] You must agree to the terms"
+      "required": "Bu alan zorunludur",
+      "email": "Lütfen geçerli bir e-posta adresi girin",
+      "phone": "Lütfen geçerli bir telefon numarası girin",
+      "password": "Şifre en az 8 karakter olmalıdır",
+      "confirmPassword": "Şifreler eşleşmiyor",
+      "date": "Lütfen geçerli bir tarih girin (AA/GG/YYYY)",
+      "futureDate": "Tarih gelecekte olamaz",
+      "fileType": "Lütfen geçerli bir dosya türü seçin",
+      "fileSize": "Dosya boyutu 10MB'dan az olmalıdır",
+      "termsRequired": "Şartları kabul etmelisiniz"
     },
     "accessibility": {
-      "togglePassword": "[NEEDS TRANSLATION] Toggle password visibility",
-      "clearSearch": "[NEEDS TRANSLATION] Clear search",
-      "selectOption": "[NEEDS TRANSLATION] Select option",
-      "removeOption": "[NEEDS TRANSLATION] Remove option",
-      "uploadFile": "[NEEDS TRANSLATION] Upload file",
-      "removeFile": "[NEEDS TRANSLATION] Remove file",
-      "calendarOpen": "[NEEDS TRANSLATION] Open calendar",
-      "calendarClose": "[NEEDS TRANSLATION] Close calendar"
+      "togglePassword": "Şifre görünürlüğünü değiştir",
+      "clearSearch": "Aramayı temizle",
+      "selectOption": "Seçenek belirle",
+      "removeOption": "Seçeneği kaldır",
+      "uploadFile": "Dosya yükle",
+      "removeFile": "Dosyayı kaldır",
+      "calendarOpen": "Takvimi aç",
+      "calendarClose": "Takvimi kapat"
     },
     "actions": {
-      "submit": "[NEEDS TRANSLATION] Submit",
-      "submitting": "[NEEDS TRANSLATION] Submitting...",
-      "reset": "[NEEDS TRANSLATION] Reset",
-      "cancel": "[NEEDS TRANSLATION] Cancel",
-      "save": "[NEEDS TRANSLATION] Save",
-      "saving": "[NEEDS TRANSLATION] Saving..."
+      "submit": "Gönder",
+      "submitting": "Gönderiliyor...",
+      "reset": "Sıfırla",
+      "cancel": "İptal",
+      "save": "Kaydet",
+      "saving": "Kaydediliyor..."
     },
     "examples": {
       "validatedForm": {
-        "title": "[NEEDS TRANSLATION] Validated Form Example"
+        "title": "Doğrulanmış Form Örneği"
       }
     },
     "contactForm": {
-      "location": "[NEEDS TRANSLATION] Location",
-      "opposingParty": "[NEEDS TRANSLATION] Opposing Party (Optional)",
+      "location": "Konum",
+      "opposingParty": "Karşı Taraf (İsteğe Bağlı)",
       "description": "Vaka Detayları (İsteğe Bağlı)",
-      "submit": "[NEEDS TRANSLATION] Submit Contact Information",
+      "submit": "İletişim Bilgilerini Gönder",
       "placeholders": {
-        "location": "[NEEDS TRANSLATION] City, State (e.g., New York, NY)",
-        "opposingParty": "[NEEDS TRANSLATION] Name of the other party involved (if any)",
+        "location": "Şehir, Eyalet (örn. İstanbul, TR)",
+        "opposingParty": "Varsa diğer tarafın adı",
         "description": "Lütfen yasal durumunuzu ve ilgili tüm detayları açıklayın"
       }
     }
   },
   "onboarding": {
-    "title": "[NEEDS TRANSLATION] Welcome to Blawby AI",
-    "subtitle": "[NEEDS TRANSLATION] Let's get you set up",
+    "title": "Blawby AI'ya Hoş Geldiniz",
+    "subtitle": "Hadi sizi kuralım",
     "step1": {
-      "title": "[NEEDS TRANSLATION] Tell us about you",
-      "subtitle": "[NEEDS TRANSLATION] Help us personalize your experience",
-      "fullName": "[NEEDS TRANSLATION] Full name",
-      "fullNamePlaceholder": "[NEEDS TRANSLATION] Enter your full name",
-      "birthday": "[NEEDS TRANSLATION] Birthday",
-      "birthdayPlaceholder": "[NEEDS TRANSLATION] MM/DD/YYYY",
-      "termsAgreement": "[NEEDS TRANSLATION] By clicking \"Continue\", you agree to our <termsLink>Terms</termsLink> and have read our <privacyLink>Privacy Policy</privacyLink>.",
-      "continue": "[NEEDS TRANSLATION] Continue",
-      "back": "[NEEDS TRANSLATION] Back",
-      "required": "[NEEDS TRANSLATION] This field is required"
+      "title": "Bize kendinizden bahsedin",
+      "subtitle": "Deneyiminizi kişiselleştirmemize yardımcı olun",
+      "fullName": "Ad soyad",
+      "fullNamePlaceholder": "Ad soyadınızı girin",
+      "birthday": "Doğum günü",
+      "birthdayPlaceholder": "AA/GG/YYYY",
+      "termsAgreement": "\"Devam Et\" butonuna tıklayarak <termsLink>Şartlarımızı</termsLink> kabul etmiş ve <privacyLink>Gizlilik Politikamızı</privacyLink> okumuş olursunuz.",
+      "continue": "Devam Et",
+      "back": "Geri",
+      "required": "Bu alan zorunludur"
     },
     "step2": {
-      "title": "[NEEDS TRANSLATION] What do you want to use Blawby AI for?",
-      "subtitle": "[NEEDS TRANSLATION] This helps us provide more relevant suggestions",
+      "title": "Blawby AI'yı ne için kullanmak istersiniz?",
+      "subtitle": "Bu, daha alakalı öneriler sunmamıza yardımcı olur",
       "options": {
         "other": "Diğer",
         "messaging": "Mesajlaşma",
@@ -143,29 +144,29 @@
         "matter_management": "Dosya yönetimi",
         "intake_forms": "Başvuru formları"
       },
-      "otherPlaceholder": "[NEEDS TRANSLATION] Tell us more...",
-      "next": "[NEEDS TRANSLATION] Next",
-      "skip": "[NEEDS TRANSLATION] Skip"
+      "otherPlaceholder": "Bize daha fazlasını anlatın...",
+      "next": "İleri",
+      "skip": "Atla"
     },
     "welcome": {
-      "title": "[NEEDS TRANSLATION] Blawby AI",
-      "subtitle": "[NEEDS TRANSLATION] Tips for getting started",
+      "title": "Blawby AI",
+      "subtitle": "Başlarken ipuçları",
       "tips": {
         "askAway": {
-          "title": "[NEEDS TRANSLATION] Ask away",
-          "description": "[NEEDS TRANSLATION] Blawby AI can answer legal questions, help you understand legal concepts, review documents, and much more."
+          "title": "Soru sorun",
+          "description": "Blawby AI yasal soruları yanıtlayabilir, yasal kavramları anlamanıza yardımcı olabilir, belgeleri inceleyebilir ve daha pek çok şey yapabilir."
         },
         "privacy": {
-          "title": "[NEEDS TRANSLATION] Don't share sensitive info",
-          "description": "[NEEDS TRANSLATION] Chat history may be reviewed or used to improve our services. Learn more about your choices in our <helpCenterLink>Help Center</helpCenterLink>."
+          "title": "Hassas bilgileri paylaşmayın",
+          "description": "Sohbet geçmişi incelenebilir veya hizmetlerimizi geliştirmek için kullanılabilir. Seçenekleriniz hakkında daha fazla bilgiyi <helpCenterLink>Yardım Merkezimizde</helpCenterLink> bulabilirsiniz."
         },
         "accuracy": {
-          "title": "[NEEDS TRANSLATION] Check your facts",
-          "description": "[NEEDS TRANSLATION] While we have safeguards, Blawby AI may give you inaccurate information. It's not intended to give legal advice."
+          "title": "Bilgileri kontrol edin",
+          "description": "Önlemlerimize rağmen Blawby AI size yanlış bilgiler verebilir. Yasal tavsiye vermek için tasarlanmamıştır."
         }
       },
-      "helpCenter": "[NEEDS TRANSLATION] Help Center",
-      "letsGo": "[NEEDS TRANSLATION] Okay, let's go",
+      "helpCenter": "Yardım Merkezi",
+      "letsGo": "Tamam, hadi gidelim",
       "getStarted": "Başlayın"
     }
   },
@@ -202,8 +203,7 @@
       "sendMessage": "Bize mesaj gönderin",
       "consultation": {
         "title": "Bir avukatla görüşmeniz mi gerekiyor?",
-        "description": "Birkaç ayrıntı paylaşın, sizi durumunuza uygun avukatla iletişime geçirelim.",
-        "button": "Danışmanlık Talep Et"
+        "description": "Birkaç ayrıntı paylaşın, sizi durumunuza uygun avukatla iletişime geçirelim."
       },
       "poweredBy": "Altyapı"
     },
@@ -256,5 +256,26 @@
       }
     },
     "goToSettings": "Ofis Ayarlarına Git"
+  },
+  "chat": {
+    "publicIntro": "Bize istediğinizi sorun veya geri bildiriminizi paylaşın.",
+    "continue": "Devam Et",
+    "submitRequest": "Talebi gönder",
+    "submitNow": "Şimdi gönder",
+    "buildStrongerBrief": "Daha güçlü bir özet oluştur",
+    "askQuestion": "Soru sor",
+    "requestConsultation": "Danışmanlık Talep Et",
+    "retry": "Yeniden dene",
+    "retrying": "Yeniden deneniyor...",
+    "replyingTo": "<name>{{name}}</name> yanıt olarak",
+    "cta": {
+      "submit": "Talebi gönder",
+      "submitConsultationRequest": "Danışmanlık talebi gönder",
+      "reviewSubmit": "İncele ve gönder",
+      "keepAnswering": "Cevaplamaya devam et",
+      "continue": "Devam Et",
+      "addMore": "Daha fazla ekle",
+      "notYet": "Henüz değil"
+    }
   }
 }

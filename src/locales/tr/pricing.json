@@ -3,207 +3,207 @@
     "free": {
       "name": "Ücretsiz",
       "description": "AI temelleriyle başlamak için",
-      "buttonText": "[NEEDS TRANSLATION] Your current plan"
+      "buttonText": "Your current plan"
     },
     "plus": {
       "name": "Plus",
       "description": "Daha fazlasına ihtiyaç duyan ileri kullanıcılar için",
-      "buttonText": "[NEEDS TRANSLATION] Get Plus"
+      "buttonText": "Get Plus"
     },
     "business": {
-      "name": "[NEEDS TRANSLATION] Business",
-      "description": "[NEEDS TRANSLATION] Secure, collaborative workspace for teams",
-      "buttonText": "[NEEDS TRANSLATION] Get Business",
+      "name": "Business",
+      "description": "Secure, collaborative workspace for teams",
+      "buttonText": "Get Business",
       "priceUnavailable": "Fiyat mevcut değil"
     }
   },
   "features": {
     "aiAccess": {
-      "name": "[NEEDS TRANSLATION] AI Access",
-      "description": "[NEEDS TRANSLATION] Access to our legal AI models",
+      "name": "AI Access",
+      "description": "Access to our legal AI models",
       "tiers": {
-        "free": "[NEEDS TRANSLATION] Blawby AI-1 (Limited)",
-        "plus": "[NEEDS TRANSLATION] Blawby AI-1 (Enhanced)",
-        "business": "[NEEDS TRANSLATION] Blawby AI-1 (Unlimited)"
+        "free": "Blawby AI-1 (Limited)",
+        "plus": "Blawby AI-1 (Enhanced)",
+        "business": "Blawby AI-1 (Unlimited)"
       },
       "text": {
-        "free": "[NEEDS TRANSLATION] Access to Blawby AI-1",
-        "plus": "[NEEDS TRANSLATION] Enhanced access to Blawby AI-1",
-        "business": "[NEEDS TRANSLATION] Unlimited access to our best model for work"
+        "free": "Access to Blawby AI-1",
+        "plus": "Enhanced access to Blawby AI-1",
+        "business": "Unlimited access to our best model for work"
       },
       "detail": {
-        "free": "[NEEDS TRANSLATION] Limited access to our legal AI model",
-        "plus": "[NEEDS TRANSLATION] Priority access to our legal AI model",
-        "business": "[NEEDS TRANSLATION] Unlimited access to advanced AI models"
+        "free": "Limited access to our legal AI model",
+        "plus": "Priority access to our legal AI model",
+        "business": "Unlimited access to advanced AI models"
       }
     },
     "documentAnalysis": {
-      "name": "[NEEDS TRANSLATION] Document Analysis",
-      "description": "[NEEDS TRANSLATION] Upload and analyze legal documents",
+      "name": "Document Analysis",
+      "description": "Upload and analyze legal documents",
       "tiers": {
-        "free": "[NEEDS TRANSLATION] Limited",
-        "plus": "[NEEDS TRANSLATION] Enhanced",
-        "business": "[NEEDS TRANSLATION] Unlimited"
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
       },
       "text": {
-        "free": "[NEEDS TRANSLATION] Limited document analysis",
-        "plus": "[NEEDS TRANSLATION] Enhanced document analysis",
-        "business": "[NEEDS TRANSLATION] Advanced document analysis & case preparation"
+        "free": "Limited document analysis",
+        "plus": "Enhanced document analysis",
+        "business": "Advanced document analysis & case preparation"
       },
       "detail": {
-        "free": "[NEEDS TRANSLATION] Upload and analyze basic legal documents",
-        "plus": "[NEEDS TRANSLATION] Faster and more accurate legal document processing",
-        "business": "[NEEDS TRANSLATION] Full legal document processing capabilities"
+        "free": "Upload and analyze basic legal documents",
+        "plus": "Faster and more accurate legal document processing",
+        "business": "Full legal document processing capabilities"
       }
     },
     "casePreparation": {
-      "name": "[NEEDS TRANSLATION] Case PDF Preparation",
-      "description": "[NEEDS TRANSLATION] AI-powered case document preparation",
+      "name": "Case PDF Preparation",
+      "description": "AI-powered case document preparation",
       "tiers": {
-        "free": "[NEEDS TRANSLATION] Limited",
-        "plus": "[NEEDS TRANSLATION] Enhanced",
-        "business": "[NEEDS TRANSLATION] Unlimited"
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
       },
       "text": {
-        "free": "[NEEDS TRANSLATION] Limited case PDF preparation",
-        "plus": "[NEEDS TRANSLATION] Enhanced case PDF preparation",
-        "business": "[NEEDS TRANSLATION] Advanced case PDF preparation"
+        "free": "Limited case PDF preparation",
+        "plus": "Enhanced case PDF preparation",
+        "business": "Advanced case PDF preparation"
       },
       "detail": {
-        "free": "[NEEDS TRANSLATION] Basic case document preparation",
-        "plus": "[NEEDS TRANSLATION] Advanced case document preparation",
-        "business": "[NEEDS TRANSLATION] Full case document preparation capabilities"
+        "free": "Basic case document preparation",
+        "plus": "Advanced case document preparation",
+        "business": "Full case document preparation capabilities"
       }
     },
     "memoryContext": {
-      "name": "[NEEDS TRANSLATION] Memory & Context",
-      "description": "[NEEDS TRANSLATION] Conversation memory and context",
+      "name": "Memory & Context",
+      "description": "Conversation memory and context",
       "tiers": {
-        "free": "[NEEDS TRANSLATION] Limited",
-        "plus": "[NEEDS TRANSLATION] Enhanced",
-        "business": "[NEEDS TRANSLATION] Unlimited"
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
       },
       "text": {
-        "free": "[NEEDS TRANSLATION] Limited memory and context",
-        "plus": "[NEEDS TRANSLATION] Extended memory and context",
-        "business": "[NEEDS TRANSLATION] Unlimited memory and context"
+        "free": "Limited memory and context",
+        "plus": "Extended memory and context",
+        "business": "Unlimited memory and context"
       },
       "detail": {
-        "free": "[NEEDS TRANSLATION] Basic conversation memory",
-        "plus": "[NEEDS TRANSLATION] Longer conversation memory",
-        "business": "[NEEDS TRANSLATION] Unlimited conversation history"
+        "free": "Basic conversation memory",
+        "plus": "Longer conversation memory",
+        "business": "Unlimited conversation history"
       }
     },
     "teamCollaboration": {
-      "name": "[NEEDS TRANSLATION] Team Collaboration",
-      "description": "[NEEDS TRANSLATION] Shared projects and team features",
-      "text": "[NEEDS TRANSLATION] Tools for teams like shared projects & workflows",
-      "detail": "[NEEDS TRANSLATION] Team collaboration and project management"
+      "name": "Team Collaboration",
+      "description": "Shared projects and team features",
+      "text": "Tools for teams like shared projects & workflows",
+      "detail": "Team collaboration and project management"
     },
     "security": {
-      "name": "[NEEDS TRANSLATION] Advanced Security",
-      "description": "[NEEDS TRANSLATION] SSO, MFA, and enterprise security",
-      "text": "[NEEDS TRANSLATION] Advanced security with SSO, MFA, & more",
-      "detail": "[NEEDS TRANSLATION] Enterprise-grade security features"
+      "name": "Advanced Security",
+      "description": "SSO, MFA, and enterprise security",
+      "text": "Advanced security with SSO, MFA, & more",
+      "detail": "Enterprise-grade security features"
     },
     "privacy": {
-      "name": "[NEEDS TRANSLATION] Privacy Protection",
-      "description": "[NEEDS TRANSLATION] Data never used for training",
-      "text": "[NEEDS TRANSLATION] Privacy built in; data never used for training",
-      "detail": "[NEEDS TRANSLATION] Complete data privacy protection"
+      "name": "Privacy Protection",
+      "description": "Data never used for training",
+      "text": "Privacy built in; data never used for training",
+      "detail": "Complete data privacy protection"
     },
     "integrations": {
-      "name": "[NEEDS TRANSLATION] Integrations",
-      "description": "[NEEDS TRANSLATION] SharePoint and other tools",
-      "text": "[NEEDS TRANSLATION] Integration with Quickbooks & other tools",
-      "detail": "[NEEDS TRANSLATION] Connect with your existing workflow"
+      "name": "Integrations",
+      "description": "SharePoint and other tools",
+      "text": "Integration with Quickbooks & other tools",
+      "detail": "Connect with your existing workflow"
     },
     "billing": {
-      "name": "[NEEDS TRANSLATION] Simplified Billing",
-      "description": "[NEEDS TRANSLATION] User management and billing",
-      "text": "[NEEDS TRANSLATION] Simplified billing and user management",
-      "detail": "[NEEDS TRANSLATION] Easy team and billing management"
+      "name": "Simplified Billing",
+      "description": "User management and billing",
+      "text": "Simplified billing and user management",
+      "detail": "Easy team and billing management"
     },
     "transcription": {
-      "name": "[NEEDS TRANSLATION] Voice Transcription",
-      "description": "[NEEDS TRANSLATION] Meeting and voice transcription",
-      "text": "[NEEDS TRANSLATION] Voice transcription and analysis",
-      "detail": "[NEEDS TRANSLATION] Voice transcription and legal analysis"
+      "name": "Voice Transcription",
+      "description": "Meeting and voice transcription",
+      "text": "Voice transcription and analysis",
+      "detail": "Voice transcription and legal analysis"
     },
     "agents": {
-      "name": "[NEEDS TRANSLATION] AI Agents",
-      "description": "[NEEDS TRANSLATION] Coding and research agents",
-      "text": "[NEEDS TRANSLATION] Legal research and lawyer search agents",
-      "detail": "[NEEDS TRANSLATION] Specialized AI agents for legal research and lawyer matching"
+      "name": "AI Agents",
+      "description": "Coding and research agents",
+      "text": "Legal research and lawyer search agents",
+      "detail": "Specialized AI agents for legal research and lawyer matching"
     },
     "plusIncludes": {
-      "text": "[NEEDS TRANSLATION] Everything in Free, with higher limits",
-      "detail": "[NEEDS TRANSLATION] All free features with increased usage"
+      "text": "Everything in Free, with higher limits",
+      "detail": "All free features with increased usage"
     },
     "businessIncludes": {
-      "text": "[NEEDS TRANSLATION] Everything in Plus, with even higher limits",
-      "detail": "[NEEDS TRANSLATION] All Plus features with unlimited usage"
+      "text": "Everything in Plus, with even higher limits",
+      "detail": "All Plus features with unlimited usage"
     }
   },
   "limitations": {
     "free": {
-      "messagesPerDay": "[NEEDS TRANSLATION] Limited to 20 messages per day",
-      "documentSupport": "[NEEDS TRANSLATION] Basic document analysis support",
-      "responseTime": "[NEEDS TRANSLATION] Standard response times",
-      "noTeam": "[NEEDS TRANSLATION] No team collaboration features"
+      "messagesPerDay": "Limited to 20 messages per day",
+      "documentSupport": "Basic document analysis support",
+      "responseTime": "Standard response times",
+      "noTeam": "No team collaboration features"
     },
     "plus": {
-      "messagesPerDay": "[NEEDS TRANSLATION] Limited to 200 messages per day",
-      "noTeam": "[NEEDS TRANSLATION] No team collaboration features",
-      "standardSupport": "[NEEDS TRANSLATION] Standard support response times"
+      "messagesPerDay": "Limited to 200 messages per day",
+      "noTeam": "No team collaboration features",
+      "standardSupport": "Standard support response times"
     },
     "business": {
-      "minUsers": "[NEEDS TRANSLATION] Requires 2+ users",
-      "annualBilling": "[NEEDS TRANSLATION] Annual billing recommended"
+      "minUsers": "Requires 2+ users",
+      "annualBilling": "Annual billing recommended"
     }
   },
   "benefits": {
     "free": {
-      "personal": "[NEEDS TRANSLATION] Perfect for personal legal needs",
-      "noCard": "[NEEDS TRANSLATION] No credit card required",
-      "fullAccess": "[NEEDS TRANSLATION] Full access to core legal AI features",
-      "support": "[NEEDS TRANSLATION] Community support"
+      "personal": "Perfect for personal legal needs",
+      "noCard": "No credit card required",
+      "fullAccess": "Full access to core legal AI features",
+      "support": "Community support"
     },
     "plus": {
-      "higherLimits": "[NEEDS TRANSLATION] 5x higher usage limits",
-      "priorityAccess": "[NEEDS TRANSLATION] Priority AI model access",
-      "enhanced": "[NEEDS TRANSLATION] Enhanced legal features",
-      "support": "[NEEDS TRANSLATION] Email support"
+      "higherLimits": "5x higher usage limits",
+      "priorityAccess": "Priority AI model access",
+      "enhanced": "Enhanced legal features",
+      "support": "Email support"
     },
     "business": {
-      "unlimited": "[NEEDS TRANSLATION] Unlimited usage",
-      "team": "[NEEDS TRANSLATION] Team collaboration",
-      "security": "[NEEDS TRANSLATION] Enterprise security",
-      "prioritySupport": "[NEEDS TRANSLATION] Priority support",
-      "customIntegrations": "[NEEDS TRANSLATION] Custom integrations"
+      "unlimited": "Unlimited usage",
+      "team": "Team collaboration",
+      "security": "Enterprise security",
+      "prioritySupport": "Priority support",
+      "customIntegrations": "Custom integrations"
     }
   },
   "modal": {
-    "title": "[NEEDS TRANSLATION] Upgrade your plan",
+    "title": "Upgrade your plan",
     "tabs": {
-      "personal": "[NEEDS TRANSLATION] Personal",
-      "business": "[NEEDS TRANSLATION] Business"
+      "personal": "Personal",
+      "business": "Business"
     },
-    "countryLabel": "[NEEDS TRANSLATION] Select your country",
-    "currentPlan": "[NEEDS TRANSLATION] Current Plan",
-    "recommended": "[NEEDS TRANSLATION] Recommended",
-    "popular": "[NEEDS TRANSLATION] Most Popular",
-    "close": "[NEEDS TRANSLATION] Close",
+    "countryLabel": "Select your country",
+    "currentPlan": "Current Plan",
+    "recommended": "Recommended",
+    "popular": "Most Popular",
+    "close": "Close",
     "manageBilling": "Yönet",
     "openingBilling": "Açılıyor…"
   },
   "billing": {
-    "monthly": "[NEEDS TRANSLATION] month",
-    "yearly": "[NEEDS TRANSLATION] year",
-    "billedMonthly": "[NEEDS TRANSLATION] Billed monthly",
-    "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
+    "monthly": "month",
+    "yearly": "year",
+    "billedMonthly": "Billed monthly",
+    "billedAnnually": "Billed annually",
     "currency": {
-      "usd": "[NEEDS TRANSLATION] USD"
+      "usd": "USD"
     },
     "noPracticeSelected": "Uygulama seçilmedi",
     "selectPracticeToManage": "Faturalandırmayı yönetmek için lütfen bir uygulama seçin.",
@@ -212,9 +212,9 @@
   },
   "comparison": {
     "title": "Detaylı plan karşılaştırması",
-    "feature": "[NEEDS TRANSLATION] Feature",
-    "included": "[NEEDS TRANSLATION] Included",
-    "notIncluded": "[NEEDS TRANSLATION] Not included"
+    "feature": "Feature",
+    "included": "Included",
+    "notIncluded": "Not included"
   },
   "upgradeFailed": "Yükseltme başarısız oldu"
 }

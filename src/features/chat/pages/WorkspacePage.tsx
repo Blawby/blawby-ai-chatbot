@@ -51,7 +51,7 @@ interface WorkspacePageProps {
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
   workspace?: 'public' | 'practice' | 'client';
-  onStartNewConversation: (mode: ConversationMode) => Promise<string | null>;
+  onStartNewConversation: (mode: ConversationMode) => Promise<string>;
   chatView: ComponentChildren;
   mattersView?: ComponentChildren;
   clientsView?: ComponentChildren;
@@ -607,14 +607,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const handleStartConversation = async (mode: ConversationMode) => {
     try {
       const conversationId = await onStartNewConversation(mode);
-      if (conversationId) {
-        navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
-        return;
-      }
+      navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
     } catch (error) {
       console.error('[WorkspacePage] Failed to start conversation:', error);
+      showError('Unable to start conversation', 'Please try again in a moment.');
     }
-    navigate(conversationsPath);
   };
 
   const handleOpenRecentMessage = () => {

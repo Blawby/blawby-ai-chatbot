@@ -202,8 +202,7 @@
       "sendMessage": "Kirim pesan kepada kami",
       "consultation": {
         "title": "Perlu berbicara dengan pengacara?",
-        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda.",
-        "button": "Minta Konsultasi"
+        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda."
       },
       "poweredBy": "Didukung oleh"
     },
@@ -256,5 +255,26 @@
       }
     },
     "goToSettings": "Buka Pengaturan Kantor Hukum"
+  },
+  "chat": {
+    "publicIntro": "Tanyakan apa saja kepada kami, atau bagikan masukan Anda.",
+    "continue": "Lanjutkan",
+    "submitRequest": "Kirim permintaan",
+    "submitNow": "Kirim sekarang",
+    "buildStrongerBrief": "Buat ringkasan yang lebih kuat",
+    "askQuestion": "Ajukan pertanyaan",
+    "requestConsultation": "Minta Konsultasi",
+    "retry": "Coba lagi",
+    "retrying": "Mencoba lagi...",
+    "replyingTo": "Membalas kepada <name>{{name}}</name>",
+    "cta": {
+      "submit": "Kirim permintaan",
+      "submitConsultationRequest": "Kirim permintaan konsultasi",
+      "reviewSubmit": "Tinjau & kirim",
+      "keepAnswering": "Lanjutkan menjawab",
+      "continue": "Lanjutkan",
+      "addMore": "Tambah lagi",
+      "notYet": "Belum saatnya"
+    }
   }
 }

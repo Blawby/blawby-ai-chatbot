@@ -399,8 +399,7 @@ export function MainApp({
       return data.data.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      showErrorRef.current?.(message);
-      return null;
+      throw new Error(message);
     } finally {
       setIsCreatingConversation(false);
     }
@@ -481,9 +480,6 @@ export function MainApp({
       let currentConversationId = activeConversationId;
       if (!currentConversationId && !isCreatingConversation) {
         currentConversationId = await createConversation();
-        if (!currentConversationId) {
-          showErrorRef.current?.('Unable to create a new conversation. Please try again.');
-        }
       }
       if (!currentConversationId || !practiceId) {
         return;
@@ -492,6 +488,8 @@ export function MainApp({
       await applyConversationMode(nextMode, currentConversationId, source);
     } catch (error) {
       setConversationMode(null);
+      const message = error instanceof Error ? error.message : 'Unable to start conversation';
+      showErrorRef.current?.(message);
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
     } finally {
       isSelectingRef.current = false;
@@ -504,25 +502,25 @@ export function MainApp({
     practiceId
   ]);
 
-  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode): Promise<string | null> => {
+  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode): Promise<string> => {
     try {
       if (isSelectingRef.current) {
-        return null;
+        throw new Error('Conversation start already in progress');
       }
       isSelectingRef.current = true;
       if (!practiceId) {
-        return null;
+        throw new Error('Practice context is required');
       }
       const newConversationId = await createConversation();
       if (!newConversationId) {
-        return null;
+        throw new Error('Unable to create conversation');
       }
       await applyConversationMode(nextMode, newConversationId, 'home_cta');
       return newConversationId;
     } catch (error) {
       setConversationMode(null);
       console.warn('[MainApp] Failed to start new conversation', error);
-      return null;
+      throw error;
     } finally {
       isSelectingRef.current = false;
     }
@@ -880,6 +878,14 @@ export function MainApp({
     }
     return publicConversationsBasePath;
   }, [publicConversationsBasePath, resolvedClientPracticeSlug, resolvedPracticeSlug, workspace]);
+  const conversationBackPath = useMemo(() => {
+    if (workspace === 'public') {
+      return resolvedPublicPracticeSlug
+        ? `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}`
+        : '/public';
+    }
+    return conversationsBasePath;
+  }, [conversationsBasePath, resolvedPublicPracticeSlug, workspace]);
   const headerRightSlot = useMemo(() => {
     if (workspace === 'practice') {
       return (
@@ -902,12 +908,13 @@ export function MainApp({
         practiceLogo={resolvedPracticeLogo}
         activeLabel={headerActiveTimeLabel}
         presenceStatus={headerPresenceStatus}
-        onBack={() => navigate(conversationsBasePath)}
+        onBack={() => navigate(conversationBackPath)}
         rightSlot={headerRightSlot}
       />
     );
   }, [
     activeConversationId,
+    conversationBackPath,
     conversationsBasePath,
     headerActiveTimeLabel,
     headerPresenceStatus,

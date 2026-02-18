@@ -202,8 +202,7 @@
       "sendMessage": "메시지 보내기",
       "consultation": {
         "title": "변호사와 상담이 필요하신가요?",
-        "description": "몇 가지 세부 사항을 공유해 주시면 귀하의 상황에 맞는 변호사에게 연결해 드립니다.",
-        "button": "상담 요청하기"
+        "description": "몇 가지 세부 사항을 공유해 주시면 귀하의 상황에 맞는 변호사에게 연결해 드립니다."
       },
       "poweredBy": "Powered by"
     },
@@ -256,5 +255,26 @@
       }
     },
     "goToSettings": "사무소 설정으로 이동"
+  },
+  "chat": {
+    "publicIntro": "궁금한 점이 있으면 무엇이든 물어보거나 의견을 공유해 주세요.",
+    "continue": "계속",
+    "submitRequest": "요청 제출",
+    "submitNow": "지금 제출",
+    "buildStrongerBrief": "더 강력한 요약 작성",
+    "askQuestion": "질문하기",
+    "requestConsultation": "상담 요청하기",
+    "retry": "다시 시도",
+    "retrying": "다시 시도 중...",
+    "replyingTo": "<name>{{name}}</name>님에게 답장",
+    "cta": {
+      "submit": "요청 제출",
+      "submitConsultationRequest": "상담 요청 제출",
+      "reviewSubmit": "검토 및 제출",
+      "keepAnswering": "계속 답변하기",
+      "continue": "계속",
+      "addMore": "더 추가하기",
+      "notYet": "아직 아니요"
+    }
   }
 }

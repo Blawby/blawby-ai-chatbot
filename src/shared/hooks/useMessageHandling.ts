@@ -23,6 +23,25 @@ import {
   postSystemMessage
 } from '@/shared/lib/conversationApi';
 
+const sanitizeMarkdown = (text: string): string => {
+  if (typeof text !== 'string') return '';
+  // First replace HTML metacharacters with entities to prevent stored-XSS
+  const sanitizedHtml = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  // Then backslash-escape Markdown metacharacters
+  return sanitizedHtml.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
+};
+
+const sanitizeDescriptionForCodeBlock = (text: string): string => {
+  if (typeof text !== 'string') return '';
+  // Avoid breaking the code fence (```) by escaping or breaking up backtick sequences
+  return text.replace(/```/g, '` ` `');
+};
+
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
 const buildFileUrl = (value: string): string => {
@@ -1452,20 +1471,33 @@ export const useMessageHandling = ({
       return;
     }
 
+    const rawDescription = nextDraft.description?.trim() || '_Not provided_';
+    const sanitizedName = sanitizeMarkdown(nextDraft.name);
+    const sanitizedLocation = sanitizeMarkdown(`${nextDraft.city}, ${nextDraft.state}`);
+    const sanitizedOpposingParty = nextDraft.opposingParty?.trim() 
+      ? sanitizeMarkdown(nextDraft.opposingParty.trim())
+      : '_Not provided_';
+    const descriptionSummary = sanitizeDescriptionForCodeBlock(rawDescription);
+    
+    // PII Redaction: rely on intakeSlimContactDraft for canonical data, redact in system message
     const lines = [
-      'Great — I received your contact info.',
-      `Name: ${nextDraft.name}`,
-      `Email: ${nextDraft.email}`,
-      `Phone: ${nextDraft.phone}`,
-      `Location: ${nextDraft.city}, ${nextDraft.state}`
+      '### Contact info received',
+      '',
+      '**Contact details**',
+      `- **Name:** ${sanitizedName}`,
+      '- **Email:** ***REDACTED***',
+      '- **Phone:** ***REDACTED***',
+      `- **Location:** ${sanitizedLocation}`,
+      '',
+      '**Case summary**',
+      `- **Opposing party:** ${sanitizedOpposingParty}`,
+      '- **Description:**',
+      '```',
+      descriptionSummary,
+      '```',
+      '',
+      'Would you like to **submit now**, or build a **stronger brief** first so we can match you with the right attorney?'
     ];
-    if (nextDraft.opposingParty) {
-      lines.push(`Opposing party: ${nextDraft.opposingParty}`);
-    }
-    if (nextDraft.description) {
-      lines.push(`Description: ${nextDraft.description}`);
-    }
-    lines.push('Would you like to submit now, or build a stronger brief first so we can match you with the right attorney?');
 
     try {
       const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {

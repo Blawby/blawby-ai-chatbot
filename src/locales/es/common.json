@@ -225,8 +225,7 @@
       "sendMessage": "Envíanos un mensaje",
       "consultation": {
         "title": "¿Necesitas hablar con un abogado?",
-        "description": "Comparte algunos detalles y te conectaremos con el abogado adecuado para tu situación.",
-        "button": "Solicitar consulta"
+        "description": "Comparte algunos detalles y te conectaremos con el abogado adecuado para tu situación."
       },
       "poweredBy": "Desarrollado por"
     },
@@ -255,6 +254,27 @@
       "inactive": "Inactivo",
       "away": "Ausente",
       "unknown": "Estado desconocido"
+    }
+  },
+  "chat": {
+    "publicIntro": "Haznos cualquier pregunta o comparte tus comentarios.",
+    "continue": "Continuar",
+    "submitRequest": "Enviar solicitud",
+    "submitNow": "Enviar ahora",
+    "buildStrongerBrief": "Crear un informe mejor",
+    "askQuestion": "Hacer una pregunta",
+    "requestConsultation": "Solicitar consulta",
+    "retry": "Reintentar",
+    "retrying": "Reintentando...",
+    "replyingTo": "Respondiendo a <name>{{name}}</name>",
+    "cta": {
+      "submit": "Enviar solicitud",
+      "submitConsultationRequest": "Enviar solicitud de consulta",
+      "reviewSubmit": "Revisar y enviar",
+      "keepAnswering": "Seguir respondiendo",
+      "continue": "Continuar",
+      "addMore": "Añadir más",
+      "notYet": "Todavía no"
     }
   }
 }
