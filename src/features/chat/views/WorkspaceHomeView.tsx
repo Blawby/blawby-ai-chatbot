@@ -39,7 +39,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
     : '';
   const resolvedConsultationTitle = consultationTitle ?? t('workspace.home.consultation.title');
   const resolvedConsultationDescription = consultationDescription ?? t('workspace.home.consultation.description');
-  const resolvedConsultationCta = consultationCta ?? t('workspace.home.consultation.button');
+  const resolvedConsultationCta = consultationCta ?? t('chat.requestConsultation');
   const canSendMessage = Boolean(onSendMessage);
   const canRequestConsultation = Boolean(onRequestConsultation);
   const canOpenRecentMessage = Boolean(onOpenRecentMessage);

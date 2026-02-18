@@ -60,6 +60,7 @@ interface VirtualMessageListProps {
     isLoadingMoreMessages?: boolean;
     onLoadMoreMessages?: () => void | Promise<void>;
     showSkeleton?: boolean;
+    compactLayout?: boolean;
 }
 
 const BATCH_SIZE = 20;
@@ -89,7 +90,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     hasMoreMessages,
     isLoadingMoreMessages,
     onLoadMoreMessages,
-    showSkeleton = false
+    showSkeleton = false,
+    compactLayout = false
 }) => {
     const { session, activeMemberRole } = useSessionContext();
     const { showError, showSuccess } = useToastContext();
@@ -488,7 +490,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
     return (
         <div
-            className={`message-list flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
+            className={`message-list ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
         >
             {startIndex > 0 && (

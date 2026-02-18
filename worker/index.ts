@@ -13,6 +13,7 @@ import {
   handleAuthProxy,
   handleBackendProxy,
   handlePracticeIntakeCreate,
+  handlePracticeIntakeConfirm,
   handleParalegal,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
@@ -66,6 +67,11 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     if (path === '/api/practice/client-intakes/create' && request.method === 'POST') {
       // Enrichment proxy — augments payload with AI fields before forwarding to backend
       response = await handlePracticeIntakeCreate(request, env);
+    } else if (
+      request.method === 'POST'
+      && /^\/api\/practice\/client-intakes\/[^/]+\/confirm$/.test(path)
+    ) {
+      response = await handlePracticeIntakeConfirm(request, env);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
     } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {

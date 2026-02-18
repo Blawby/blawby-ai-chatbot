@@ -202,8 +202,7 @@
       "sendMessage": "Inviaci un messaggio",
       "consultation": {
         "title": "Hai bisogno di parlare con un avvocato?",
-        "description": "Condividi alcuni dettagli e ti metteremo in contatto con l'avvocato giusto per la tua situazione.",
-        "button": "Richiedi consulenza"
+        "description": "Condividi alcuni dettagli e ti metteremo in contatto con l'avvocato giusto per la tua situazione."
       },
       "poweredBy": "Offerto da"
     },
@@ -256,5 +255,12 @@
       }
     },
     "goToSettings": "Vai alle impostazioni dello studio"
+  },
+  "chat": {
+    "askQuestion": "Fai una domanda",
+    "requestConsultation": "Richiedi consulenza",
+    "retry": "Riprova",
+    "retrying": "Nuovo tentativo...",
+    "replyingTo": "In risposta a"
   }
 }

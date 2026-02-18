@@ -225,8 +225,7 @@
       "sendMessage": "Gửi tin nhắn cho chúng tôi",
       "consultation": {
         "title": "Cần nói chuyện với luật sư?",
-        "description": "Chia sẻ một vài chi tiết và chúng tôi sẽ kết nối bạn với luật sư phù hợp cho trường hợp của bạn.",
-        "button": "Yêu cầu tư vấn"
+        "description": "Chia sẻ một vài chi tiết và chúng tôi sẽ kết nối bạn với luật sư phù hợp cho trường hợp của bạn."
       },
       "poweredBy": "Được cung cấp bởi"
     },
@@ -256,5 +255,12 @@
       "away": "Vắng mặt",
       "unknown": "Không rõ trạng thái"
     }
+  },
+  "chat": {
+    "askQuestion": "Đặt câu hỏi",
+    "requestConsultation": "Yêu cầu tư vấn",
+    "retry": "Thử lại",
+    "retrying": "Đang thử lại...",
+    "replyingTo": "Đang trả lời"
   }
 }

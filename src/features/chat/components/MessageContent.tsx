@@ -37,7 +37,7 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
 
 	return (
 		<div className={`min-h-4 ${className}`}>
-			<ChatText text={content} isStreaming={isStreaming} variant={variant} size={size} />
+			<ChatText text={content} isStreaming={isStreaming} />
 		</div>
 	);
 };

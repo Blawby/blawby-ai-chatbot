@@ -13,4 +13,4 @@ export { handleAnalyze } from './analyze';
 export { handleNotifications } from './notifications';
 export { handlePDF } from './pdf';
 export { handleDebug } from './debug';
-export { handlePracticeIntakeCreate } from './intakes';
+export { handlePracticeIntakeCreate, handlePracticeIntakeConfirm } from './intakes';

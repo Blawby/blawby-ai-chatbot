@@ -225,8 +225,7 @@
       "sendMessage": "Send us a message",
       "consultation": {
         "title": "Need to speak to a lawyer?",
-        "description": "Share a few details and we will connect you with the right attorney for your situation.",
-        "button": "Request Consultation"
+        "description": "Share a few details and we will connect you with the right attorney for your situation."
       },
       "poweredBy": "Powered by"
     },
@@ -263,6 +262,11 @@
     "submitRequest": "Submit request",
     "submitNow": "Submit now",
     "buildStrongerBrief": "Build stronger brief",
+    "askQuestion": "Ask a question",
+    "requestConsultation": "Request Consultation",
+    "retry": "Retry",
+    "retrying": "Retrying...",
+    "replyingTo": "Replying to",
     "cta": {
       "submit": "Submit request",
       "submitConsultationRequest": "Submit consultation request",

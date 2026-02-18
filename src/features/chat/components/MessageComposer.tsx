@@ -69,7 +69,7 @@ const MessageComposer = ({
   onCancelReply,
   footerActions
 }: MessageComposerProps) => {
-  const { t } = useTranslation('auth');
+  const { t } = useTranslation(['auth', 'common']);
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
     intakeStep === 'pending_review' ||

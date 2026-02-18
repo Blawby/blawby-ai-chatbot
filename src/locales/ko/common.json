@@ -202,8 +202,7 @@
       "sendMessage": "메시지 보내기",
       "consultation": {
         "title": "변호사와 상담이 필요하신가요?",
-        "description": "몇 가지 세부 사항을 공유해 주시면 귀하의 상황에 맞는 변호사에게 연결해 드립니다.",
-        "button": "상담 요청하기"
+        "description": "몇 가지 세부 사항을 공유해 주시면 귀하의 상황에 맞는 변호사에게 연결해 드립니다."
       },
       "poweredBy": "Powered by"
     },
@@ -256,5 +255,12 @@
       }
     },
     "goToSettings": "사무소 설정으로 이동"
+  },
+  "chat": {
+    "askQuestion": "질문하기",
+    "requestConsultation": "상담 요청하기",
+    "retry": "다시 시도",
+    "retrying": "다시 시도 중...",
+    "replyingTo": "답장 대상"
   }
 }

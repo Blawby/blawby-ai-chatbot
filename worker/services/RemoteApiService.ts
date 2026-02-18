@@ -571,6 +571,56 @@ export class RemoteApiService {
     );
   }
 
+  /**
+   * Convert a paid intake into a matter in the remote API.
+   */
+  static async convertIntake(
+    env: Env,
+    intakeUuid: string,
+    payload: {
+      responsible_attorney_id?: string;
+      billing_type?: string;
+      description?: string;
+    },
+    request?: Request
+  ): Promise<{
+    matter_id: string;
+    matter_status?: string;
+    conversation_id?: string;
+    invite_sent?: boolean;
+  }> {
+    const response = await this.fetchFromRemoteApi(
+      env,
+      `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/convert`,
+      request,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const parsed = await response.json().catch(() => null) as {
+      success?: boolean;
+      data?: Record<string, unknown>;
+    } | null;
+
+    if (!parsed || typeof parsed !== 'object' || parsed.success !== true || !parsed.data || typeof parsed.data !== 'object') {
+      throw HttpErrors.badGateway('Invalid convert intake response from remote API');
+    }
+
+    const matterId = typeof parsed.data.matter_id === 'string' ? parsed.data.matter_id : '';
+    if (!matterId) {
+      throw HttpErrors.badGateway('Remote API convert response missing matter_id');
+    }
+
+    return {
+      matter_id: matterId,
+      matter_status: typeof parsed.data.matter_status === 'string' ? parsed.data.matter_status : undefined,
+      conversation_id: typeof parsed.data.conversation_id === 'string' ? parsed.data.conversation_id : undefined,
+      invite_sent: typeof parsed.data.invite_sent === 'boolean' ? parsed.data.invite_sent : undefined
+    };
+  }
+
   static async getPracticeClientIntakeStatus(
     env: Env,
     intakeUuid: string,

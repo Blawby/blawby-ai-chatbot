@@ -6,16 +6,12 @@ interface ChatTextProps {
   text: string;
   className?: string;
   isStreaming?: boolean;
-  variant?: 'default' | 'compact' | 'detailed';
-  size?: 'sm' | 'md' | 'lg';
 }
 
 export const ChatText: FunctionComponent<ChatTextProps> = ({
   text,
   className = '',
-  isStreaming = false,
-  variant = 'default',
-  size = 'sm'
+  isStreaming = false
 }) => {
   if (!text) return null;
 
@@ -23,8 +19,6 @@ export const ChatText: FunctionComponent<ChatTextProps> = ({
     <ChatMarkdown
       text={text}
       isStreaming={isStreaming}
-      variant={variant}
-      size={size}
       className={`${chatTypography.messageBody} ${className}`.trim()}
     />
   );

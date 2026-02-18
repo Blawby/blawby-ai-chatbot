@@ -225,8 +225,7 @@
       "sendMessage": "Senden Sie uns eine Nachricht",
       "consultation": {
         "title": "Müssen Sie mit einem Anwalt sprechen?",
-        "description": "Teilen Sie uns ein paar Details mit und wir verbinden Sie mit dem richtigen Anwalt für Ihre Situation.",
-        "button": "Beratung anfordern"
+        "description": "Teilen Sie uns ein paar Details mit und wir verbinden Sie mit dem richtigen Anwalt für Ihre Situation."
       },
       "poweredBy": "Unterstützt von"
     },
@@ -256,5 +255,12 @@
       "away": "Abwesend",
       "unknown": "Status unbekannt"
     }
+  },
+  "chat": {
+    "askQuestion": "Eine Frage stellen",
+    "requestConsultation": "Beratung anfordern",
+    "retry": "Erneut versuchen",
+    "retrying": "Wird erneut versucht...",
+    "replyingTo": "Antwort auf"
   }
 }

@@ -225,8 +225,7 @@
       "sendMessage": "メッセージを送信",
       "consultation": {
         "title": "弁護士に相談しますか？",
-        "description": "詳細をお知らせいただければ、あなたの状況に適した弁護士にお繋ぎします。",
-        "button": "相談をリクエスト"
+        "description": "詳細をお知らせいただければ、あなたの状況に適した弁護士にお繋ぎします。"
       },
       "poweredBy": "Powered by"
     },
@@ -256,5 +255,12 @@
       "away": "離席中",
       "unknown": "状態不明"
     }
+  },
+  "chat": {
+    "askQuestion": "質問する",
+    "requestConsultation": "相談をリクエスト",
+    "retry": "再試行",
+    "retrying": "再試行中...",
+    "replyingTo": "返信先"
   }
 }

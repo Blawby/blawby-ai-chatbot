@@ -225,8 +225,7 @@
       "sendMessage": "Envíanos un mensaje",
       "consultation": {
         "title": "¿Necesitas hablar con un abogado?",
-        "description": "Comparte algunos detalles y te conectaremos con el abogado adecuado para tu situación.",
-        "button": "Solicitar consulta"
+        "description": "Comparte algunos detalles y te conectaremos con el abogado adecuado para tu situación."
       },
       "poweredBy": "Desarrollado por"
     },
@@ -256,5 +255,12 @@
       "away": "Ausente",
       "unknown": "Estado desconocido"
     }
+  },
+  "chat": {
+    "askQuestion": "Hacer una pregunta",
+    "requestConsultation": "Solicitar consulta",
+    "retry": "Reintentar",
+    "retrying": "Reintentando...",
+    "replyingTo": "Respondiendo a"
   }
 }

@@ -202,8 +202,7 @@
       "sendMessage": "Kirim pesan kepada kami",
       "consultation": {
         "title": "Perlu berbicara dengan pengacara?",
-        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda.",
-        "button": "Minta Konsultasi"
+        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda."
       },
       "poweredBy": "Didukung oleh"
     },
@@ -256,5 +255,12 @@
       }
     },
     "goToSettings": "Buka Pengaturan Kantor Hukum"
+  },
+  "chat": {
+    "askQuestion": "Ajukan pertanyaan",
+    "requestConsultation": "Minta Konsultasi",
+    "retry": "Coba lagi",
+    "retrying": "Mencoba lagi...",
+    "replyingTo": "Membalas kepada"
   }
 }

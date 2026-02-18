@@ -202,8 +202,7 @@
       "sendMessage": "Wyślij do nas wiadomość",
       "consultation": {
         "title": "Potrzebujesz rozmowy z prawnikiem?",
-        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji.",
-        "button": "Poproś o konsultację"
+        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji."
       },
       "poweredBy": "Obsługiwane przez"
     },
@@ -256,5 +255,12 @@
       }
     },
     "goToSettings": "Przejdź do ustawień kancelarii"
+  },
+  "chat": {
+    "askQuestion": "Zadaj pytanie",
+    "requestConsultation": "Poproś o konsultację",
+    "retry": "Spróbuj ponownie",
+    "retrying": "Ponawianie...",
+    "replyingTo": "Odpowiedź na"
   }
 }

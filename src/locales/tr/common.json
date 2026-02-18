@@ -202,8 +202,7 @@
       "sendMessage": "Bize mesaj gönderin",
       "consultation": {
         "title": "Bir avukatla görüşmeniz mi gerekiyor?",
-        "description": "Birkaç ayrıntı paylaşın, sizi durumunuza uygun avukatla iletişime geçirelim.",
-        "button": "Danışmanlık Talep Et"
+        "description": "Birkaç ayrıntı paylaşın, sizi durumunuza uygun avukatla iletişime geçirelim."
       },
       "poweredBy": "Altyapı"
     },
@@ -256,5 +255,12 @@
       }
     },
     "goToSettings": "Ofis Ayarlarına Git"
+  },
+  "chat": {
+    "askQuestion": "Soru sor",
+    "requestConsultation": "Danışmanlık Talep Et",
+    "retry": "Yeniden dene",
+    "retrying": "Yeniden deneniyor...",
+    "replyingTo": "Yanıt olarak"
   }
 }

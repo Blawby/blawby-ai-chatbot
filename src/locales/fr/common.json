@@ -225,8 +225,7 @@
       "sendMessage": "Envoyez-nous un message",
       "consultation": {
         "title": "Besoin de parler à un avocat ?",
-        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation.",
-        "button": "Demander une consultation"
+        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation."
       },
       "poweredBy": "Propulsé par"
     },
@@ -256,5 +255,12 @@
       "away": "Absent",
       "unknown": "Statut inconnu"
     }
+  },
+  "chat": {
+    "askQuestion": "Poser une question",
+    "requestConsultation": "Demander une consultation",
+    "retry": "Réessayer",
+    "retrying": "Nouvelle tentative...",
+    "replyingTo": "En réponse à"
   }
 }

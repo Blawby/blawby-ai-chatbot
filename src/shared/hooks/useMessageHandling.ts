@@ -1452,20 +1452,23 @@ export const useMessageHandling = ({
       return;
     }
 
+    const opposingPartySummary = nextDraft.opposingParty?.trim() || '_Not provided_';
+    const descriptionSummary = nextDraft.description?.trim() || '_Not provided_';
     const lines = [
-      'Great — I received your contact info.',
-      `Name: ${nextDraft.name}`,
-      `Email: ${nextDraft.email}`,
-      `Phone: ${nextDraft.phone}`,
-      `Location: ${nextDraft.city}, ${nextDraft.state}`
+      '### Contact info received',
+      '',
+      '**Contact details**',
+      `- **Name:** ${nextDraft.name}`,
+      `- **Email:** ${nextDraft.email}`,
+      `- **Phone:** ${nextDraft.phone}`,
+      `- **Location:** ${nextDraft.city}, ${nextDraft.state}`,
+      '',
+      '**Case summary**',
+      `- **Opposing party:** ${opposingPartySummary}`,
+      `- **Description:** ${descriptionSummary}`,
+      '',
+      'Would you like to **submit now**, or build a **stronger brief** first so we can match you with the right attorney?'
     ];
-    if (nextDraft.opposingParty) {
-      lines.push(`Opposing party: ${nextDraft.opposingParty}`);
-    }
-    if (nextDraft.description) {
-      lines.push(`Description: ${nextDraft.description}`);
-    }
-    lines.push('Would you like to submit now, or build a stronger brief first so we can match you with the right attorney?');
 
     try {
       const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {
