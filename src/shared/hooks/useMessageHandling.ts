@@ -1463,7 +1463,6 @@ export const useMessageHandling = ({
       return;
     }
 
-    const opposingPartySummary = nextDraft.opposingParty?.trim() || '_Not provided_';
     const rawDescription = nextDraft.description?.trim() || '_Not provided_';
     const sanitizedName = sanitizeMarkdown(nextDraft.name);
     const sanitizedLocation = sanitizeMarkdown(`${nextDraft.city}, ${nextDraft.state}`);
