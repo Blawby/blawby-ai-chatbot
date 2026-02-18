@@ -257,10 +257,24 @@
     }
   },
   "chat": {
+    "publicIntro": "Hãy hỏi chúng tôi bất kỳ điều gì hoặc chia sẻ ý kiến của bạn.",
+    "continue": "Tiếp tục",
+    "submitRequest": "Gửi yêu cầu",
+    "submitNow": "Gửi ngay",
+    "buildStrongerBrief": "Xây dựng bản tóm tắt chi tiết hơn",
     "askQuestion": "Đặt câu hỏi",
     "requestConsultation": "Yêu cầu tư vấn",
     "retry": "Thử lại",
     "retrying": "Đang thử lại...",
-    "replyingTo": "Đang trả lời"
+    "replyingTo": "Đang trả lời",
+    "cta": {
+      "submit": "Gửi yêu cầu",
+      "submitConsultationRequest": "Gửi yêu cầu tư vấn",
+      "reviewSubmit": "Xem lại & gửi",
+      "keepAnswering": "Tiếp tục trả lời",
+      "continue": "Tiếp tục",
+      "addMore": "Thêm",
+      "notYet": "Chưa phải lúc này"
+    }
   }
 }

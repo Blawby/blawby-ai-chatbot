@@ -257,10 +257,24 @@
     "goToSettings": "Vai alle impostazioni dello studio"
   },
   "chat": {
+    "publicIntro": "Chiedici qualsiasi cosa o condividi il tuo feedback.",
+    "continue": "Continua",
+    "submitRequest": "Invia richiesta",
+    "submitNow": "Invia ora",
+    "buildStrongerBrief": "Crea una sintesi più completa",
     "askQuestion": "Fai una domanda",
     "requestConsultation": "Richiedi consulenza",
     "retry": "Riprova",
     "retrying": "Nuovo tentativo...",
-    "replyingTo": "In risposta a"
+    "replyingTo": "In risposta a",
+    "cta": {
+      "submit": "Invia richiesta",
+      "submitConsultationRequest": "Invia richiesta di consulenza",
+      "reviewSubmit": "Controlla e invia",
+      "keepAnswering": "Continua a rispondere",
+      "continue": "Continua",
+      "addMore": "Aggiungi altro",
+      "notYet": "Non ancora"
+    }
   }
 }

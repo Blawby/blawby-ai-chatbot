@@ -257,11 +257,25 @@
     "goToSettings": "ไปที่การตั้งค่าสำนักงาน"
   },
   "chat": {
+    "publicIntro": "สอบถามได้ทุกเรื่อง หรือแบ่งปันความคิดเห็นของคุณ",
+    "continue": "ดำเนินการต่อ",
+    "submitRequest": "ส่งคำขอ",
+    "submitNow": "ส่งทันที",
+    "buildStrongerBrief": "สร้างข้อมูลสรุปที่ชัดเจนขึ้น",
     "askQuestion": "ถามคำถาม",
     "requestConsultation": "ขอรับคำปรึกษา",
     "retry": "ลองอีกครั้ง",
     "retrying": "กำลังลองอีกครั้ง...",
-    "replyingTo": "กำลังตอบกลับถึง"
+    "replyingTo": "กำลังตอบกลับถึง",
+    "cta": {
+      "submit": "ส่งคำขอ",
+      "submitConsultationRequest": "ส่งคำขอรับคำปรึกษา",
+      "reviewSubmit": "ตรวจสอบและส่ง",
+      "keepAnswering": "ตอบคำถามต่อ",
+      "continue": "ดำเนินการต่อ",
+      "addMore": "เพิ่มเติม",
+      "notYet": "ยังไม่ใช่"
+    }
   },
   "intake": {
     "authTitle": "คุณดำเนินการเกือบเสร็จแล้ว",

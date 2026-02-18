@@ -257,10 +257,24 @@
     "goToSettings": "Ofis Ayarlarına Git"
   },
   "chat": {
+    "publicIntro": "Bize istediğinizi sorun veya geri bildiriminizi paylaşın.",
+    "continue": "Devam Et",
+    "submitRequest": "Talebi gönder",
+    "submitNow": "Şimdi gönder",
+    "buildStrongerBrief": "Daha güçlü bir özet oluştur",
     "askQuestion": "Soru sor",
     "requestConsultation": "Danışmanlık Talep Et",
     "retry": "Yeniden dene",
     "retrying": "Yeniden deneniyor...",
-    "replyingTo": "Yanıt olarak"
+    "replyingTo": "Yanıt olarak",
+    "cta": {
+      "submit": "Talebi gönder",
+      "submitConsultationRequest": "Danışmanlık talebi gönder",
+      "reviewSubmit": "İncele ve gönder",
+      "keepAnswering": "Cevaplamaya devam et",
+      "continue": "Devam Et",
+      "addMore": "Daha fazla ekle",
+      "notYet": "Henüz değil"
+    }
   }
 }

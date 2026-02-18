@@ -257,10 +257,24 @@
     "goToSettings": "Buka Pengaturan Kantor Hukum"
   },
   "chat": {
+    "publicIntro": "Tanyakan apa saja kepada kami, atau bagikan masukan Anda.",
+    "continue": "Lanjutkan",
+    "submitRequest": "Kirim permintaan",
+    "submitNow": "Kirim sekarang",
+    "buildStrongerBrief": "Buat ringkasan yang lebih kuat",
     "askQuestion": "Ajukan pertanyaan",
     "requestConsultation": "Minta Konsultasi",
     "retry": "Coba lagi",
     "retrying": "Mencoba lagi...",
-    "replyingTo": "Membalas kepada"
+    "replyingTo": "Membalas kepada",
+    "cta": {
+      "submit": "Kirim permintaan",
+      "submitConsultationRequest": "Kirim permintaan konsultasi",
+      "reviewSubmit": "Tinjau & kirim",
+      "keepAnswering": "Lanjutkan menjawab",
+      "continue": "Lanjutkan",
+      "addMore": "Tambah lagi",
+      "notYet": "Belum saatnya"
+    }
   }
 }

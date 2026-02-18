@@ -258,10 +258,24 @@
     "goToSettings": "प्रैक्टिस सेटिंग्स पर जाएं"
   },
   "chat": {
+    "publicIntro": "हमसे कुछ भी पूछें, या अपनी प्रतिक्रिया साझा करें।",
+    "continue": "जारी रखें",
+    "submitRequest": "अनुरोध सबमिट करें",
+    "submitNow": "अभी सबमिट करें",
+    "buildStrongerBrief": "मजबूत ब्रीफ बनाएं",
     "askQuestion": "प्रश्न पूछें",
     "requestConsultation": "परामर्श का अनुरोध करें",
     "retry": "पुनः प्रयास करें",
     "retrying": "फिर से प्रयास हो रहा है...",
-    "replyingTo": "के उत्तर में"
+    "replyingTo": "के उत्तर में",
+    "cta": {
+      "submit": "अनुरोध सबमिट करें",
+      "submitConsultationRequest": "परामर्श अनुरोध सबमिट करें",
+      "reviewSubmit": "समीक्षा करें और सबमिट करें",
+      "keepAnswering": "उत्तर देना जारी रखें",
+      "continue": "जारी रखें",
+      "addMore": "और जोड़ें",
+      "notYet": "अभी नहीं"
+    }
   }
 }

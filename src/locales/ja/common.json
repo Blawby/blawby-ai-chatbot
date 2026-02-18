@@ -257,10 +257,24 @@
     }
   },
   "chat": {
+    "publicIntro": "何でもお聞きください。また、フィードバックもお待ちしております。",
+    "continue": "続ける",
+    "submitRequest": "リクエストを送信",
+    "submitNow": "今すぐ送信",
+    "buildStrongerBrief": "より詳細な報告を作成",
     "askQuestion": "質問する",
     "requestConsultation": "相談をリクエスト",
     "retry": "再試行",
     "retrying": "再試行中...",
-    "replyingTo": "返信先"
+    "replyingTo": "返信先",
+    "cta": {
+      "submit": "リクエストを送信",
+      "submitConsultationRequest": "相談リクエストを送信",
+      "reviewSubmit": "確認して送信",
+      "keepAnswering": "回答を続ける",
+      "continue": "続ける",
+      "addMore": "追加する",
+      "notYet": "まだです"
+    }
   }
 }

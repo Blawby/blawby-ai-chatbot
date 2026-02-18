@@ -257,10 +257,24 @@
     "goToSettings": "Ir para configurações do escritório"
   },
   "chat": {
+    "publicIntro": "Pergunte-nos qualquer coisa ou compartilhe seu feedback.",
+    "continue": "Continuar",
+    "submitRequest": "Enviar solicitação",
+    "submitNow": "Enviar agora",
+    "buildStrongerBrief": "Criar um resumo mais completo",
     "askQuestion": "Fazer uma pergunta",
     "requestConsultation": "Solicitar consulta",
     "retry": "Tentar novamente",
     "retrying": "Tentando novamente...",
-    "replyingTo": "Respondendo a"
+    "replyingTo": "Respondendo a",
+    "cta": {
+      "submit": "Enviar solicitação",
+      "submitConsultationRequest": "Enviar pedido de consulta",
+      "reviewSubmit": "Revisar e enviar",
+      "keepAnswering": "Continuar respondendo",
+      "continue": "Continuar",
+      "addMore": "Adicionar mais",
+      "notYet": "Ainda não"
+    }
   }
 }

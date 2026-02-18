@@ -257,10 +257,24 @@
     "goToSettings": "Перейти до налаштувань практики"
   },
   "chat": {
+    "publicIntro": "Запитуйте будь-що або діліться своїми відгуками.",
+    "continue": "Продовжити",
+    "submitRequest": "Надіслати запит",
+    "submitNow": "Надіслати зараз",
+    "buildStrongerBrief": "Створити більш докладне резюме",
     "askQuestion": "Поставити запитання",
     "requestConsultation": "Запросити консультацію",
     "retry": "Повторити",
     "retrying": "Повтор...",
-    "replyingTo": "Відповідь на"
+    "replyingTo": "Відповідь на",
+    "cta": {
+      "submit": "Надіслати запит",
+      "submitConsultationRequest": "Надіслати запит на консультацію",
+      "reviewSubmit": "Перевірити та надіслати",
+      "keepAnswering": "Продовжити відповідати",
+      "continue": "Продовжити",
+      "addMore": "Додати ще",
+      "notYet": "Ще ні"
+    }
   }
 }

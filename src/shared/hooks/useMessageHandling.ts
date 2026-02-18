@@ -28,6 +28,12 @@ const sanitizeMarkdown = (text: string): string => {
   return text.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
 };
 
+const sanitizeDescriptionForCodeBlock = (text: string): string => {
+  if (typeof text !== 'string') return '';
+  // Avoid breaking the code fence (```) by escaping or breaking up backtick sequences
+  return text.replace(/```/g, '` ` `');
+};
+
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
 const buildFileUrl = (value: string): string => {
@@ -1458,10 +1464,13 @@ export const useMessageHandling = ({
     }
 
     const opposingPartySummary = nextDraft.opposingParty?.trim() || '_Not provided_';
-    const descriptionSummary = nextDraft.description?.trim() || '_Not provided_';
+    const rawDescription = nextDraft.description?.trim() || '_Not provided_';
     const sanitizedName = sanitizeMarkdown(nextDraft.name);
     const sanitizedLocation = sanitizeMarkdown(`${nextDraft.city}, ${nextDraft.state}`);
-    const sanitizedOpposingParty = sanitizeMarkdown(opposingPartySummary);
+    const sanitizedOpposingParty = nextDraft.opposingParty?.trim() 
+      ? sanitizeMarkdown(nextDraft.opposingParty.trim())
+      : '_Not provided_';
+    const descriptionSummary = sanitizeDescriptionForCodeBlock(rawDescription);
     
     // PII Redaction: rely on intakeSlimContactDraft for canonical data, redact in system message
     const lines = [

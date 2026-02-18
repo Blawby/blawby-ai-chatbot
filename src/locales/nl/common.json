@@ -257,10 +257,24 @@
     "goToSettings": "Ga naar kantoorinstellingen"
   },
   "chat": {
+    "publicIntro": "Stel ons uw vragen of deel uw feedback.",
+    "continue": "Doorgaan",
+    "submitRequest": "Indienen",
+    "submitNow": "Nu indienen",
+    "buildStrongerBrief": "Bouw een sterker dossier op",
     "askQuestion": "Een vraag stellen",
     "requestConsultation": "Consultatie aanvragen",
     "retry": "Opnieuw proberen",
     "retrying": "Opnieuw proberen...",
-    "replyingTo": "Antwoord op"
+    "replyingTo": "Antwoord op",
+    "cta": {
+      "submit": "Indienen",
+      "submitConsultationRequest": "Consultatieaanvraag indienen",
+      "reviewSubmit": "Bekijken & indienen",
+      "keepAnswering": "Blijven antwoorden",
+      "continue": "Doorgaan",
+      "addMore": "Meer toevoegen",
+      "notYet": "Nog niet"
+    }
   }
 }

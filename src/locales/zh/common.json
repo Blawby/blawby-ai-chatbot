@@ -257,10 +257,24 @@
     }
   },
   "chat": {
+    "publicIntro": "欢迎提问或向我们提供反馈。",
+    "continue": "继续",
+    "submitRequest": "提交请求",
+    "submitNow": "立即提交",
+    "buildStrongerBrief": "创建更完善的简报",
     "askQuestion": "提问",
     "requestConsultation": "申请咨询",
     "retry": "重试",
     "retrying": "正在重试...",
-    "replyingTo": "回复给"
+    "replyingTo": "回复给",
+    "cta": {
+      "submit": "提交请求",
+      "submitConsultationRequest": "提交咨询请求",
+      "reviewSubmit": "审核并提交",
+      "keepAnswering": "继续回答",
+      "continue": "继续",
+      "addMore": "添加更多",
+      "notYet": "尚未"
+    }
   }
 }

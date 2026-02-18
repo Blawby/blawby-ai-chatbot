@@ -257,10 +257,24 @@
     }
   },
   "chat": {
+    "publicIntro": "Haznos cualquier pregunta o comparte tus comentarios.",
+    "continue": "Continuar",
+    "submitRequest": "Enviar solicitud",
+    "submitNow": "Enviar ahora",
+    "buildStrongerBrief": "Crear un informe mejor",
     "askQuestion": "Hacer una pregunta",
     "requestConsultation": "Solicitar consulta",
     "retry": "Reintentar",
     "retrying": "Reintentando...",
-    "replyingTo": "Respondiendo a"
+    "replyingTo": "Respondiendo a",
+    "cta": {
+      "submit": "Enviar solicitud",
+      "submitConsultationRequest": "Enviar solicitud de consulta",
+      "reviewSubmit": "Revisar y enviar",
+      "keepAnswering": "Seguir respondiendo",
+      "continue": "Continuar",
+      "addMore": "Añadir más",
+      "notYet": "Todavía no"
+    }
   }
 }
