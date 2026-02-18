@@ -257,10 +257,24 @@
     "goToSettings": "Przejdź do ustawień kancelarii"
   },
   "chat": {
+    "publicIntro": "Zadaj nam dowolne pytanie lub podziel się swoją opinią.",
+    "continue": "Kontynuuj",
+    "submitRequest": "Prześlij prośbę",
+    "submitNow": "Prześlij teraz",
+    "buildStrongerBrief": "Stwórz mocniejszy opis",
     "askQuestion": "Zadaj pytanie",
     "requestConsultation": "Poproś o konsultację",
     "retry": "Spróbuj ponownie",
     "retrying": "Ponawianie...",
-    "replyingTo": "Odpowiedź na"
+    "replyingTo": "Odpowiedź na",
+    "cta": {
+      "submit": "Prześlij prośbę",
+      "submitConsultationRequest": "Prześlij prośbę o konsultację",
+      "reviewSubmit": "Sprawdź i prześlij",
+      "keepAnswering": "Kontynuuj odpowiadanie",
+      "continue": "Kontynuuj",
+      "addMore": "Dodaj więcej",
+      "notYet": "Jeszcze nie"
+    }
   }
 }

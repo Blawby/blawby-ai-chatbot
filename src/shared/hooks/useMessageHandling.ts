@@ -23,6 +23,11 @@ import {
   postSystemMessage
 } from '@/shared/lib/conversationApi';
 
+const sanitizeMarkdown = (text: string): string => {
+  if (typeof text !== 'string') return '';
+  return text.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
+};
+
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
 const buildFileUrl = (value: string): string => {
@@ -1454,18 +1459,26 @@ export const useMessageHandling = ({
 
     const opposingPartySummary = nextDraft.opposingParty?.trim() || '_Not provided_';
     const descriptionSummary = nextDraft.description?.trim() || '_Not provided_';
+    const sanitizedName = sanitizeMarkdown(nextDraft.name);
+    const sanitizedLocation = sanitizeMarkdown(`${nextDraft.city}, ${nextDraft.state}`);
+    const sanitizedOpposingParty = sanitizeMarkdown(opposingPartySummary);
+    
+    // PII Redaction: rely on intakeSlimContactDraft for canonical data, redact in system message
     const lines = [
       '### Contact info received',
       '',
       '**Contact details**',
-      `- **Name:** ${nextDraft.name}`,
-      `- **Email:** ${nextDraft.email}`,
-      `- **Phone:** ${nextDraft.phone}`,
-      `- **Location:** ${nextDraft.city}, ${nextDraft.state}`,
+      `- **Name:** ${sanitizedName}`,
+      '- **Email:** ***REDACTED***',
+      '- **Phone:** ***REDACTED***',
+      `- **Location:** ${sanitizedLocation}`,
       '',
       '**Case summary**',
-      `- **Opposing party:** ${opposingPartySummary}`,
-      `- **Description:** ${descriptionSummary}`,
+      `- **Opposing party:** ${sanitizedOpposingParty}`,
+      '- **Description:**',
+      '```',
+      descriptionSummary,
+      '```',
       '',
       'Would you like to **submit now**, or build a **stronger brief** first so we can match you with the right attorney?'
     ];

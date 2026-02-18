@@ -173,15 +173,19 @@ export async function handlePracticeIntakeConfirm(request: Request, env: Env): P
   }
 
   const intakeStatus = await RemoteApiService.getPracticeClientIntakeStatus(env, intakeUuid, request);
-  const verifiedPaymentStatus = normalizePaymentStatus(intakeStatus?.status);
-  const paymentConfirmed = Boolean(intakeStatus?.succeeded_at) || (
+  if (intakeStatus === null) {
+    throw HttpErrors.notFound(`Intake not found: ${intakeUuid}`);
+  }
+
+  const verifiedPaymentStatus = normalizePaymentStatus(intakeStatus.status);
+  const paymentConfirmed = Boolean(intakeStatus.succeeded_at) || (
     verifiedPaymentStatus !== null && PAID_INTAKE_STATUSES.has(verifiedPaymentStatus)
   );
   if (!paymentConfirmed) {
     throw HttpErrors.paymentRequired('Intake payment must be confirmed before converting to matter', {
       intakeUuid,
       paymentStatus: verifiedPaymentStatus,
-      succeededAt: intakeStatus?.succeeded_at ?? null
+      succeededAt: intakeStatus.succeeded_at ?? null
     });
   }
 

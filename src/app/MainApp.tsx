@@ -399,8 +399,7 @@ export function MainApp({
       return data.data.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      showErrorRef.current?.(message);
-      return null;
+      throw new Error(message);
     } finally {
       setIsCreatingConversation(false);
     }
@@ -481,9 +480,6 @@ export function MainApp({
       let currentConversationId = activeConversationId;
       if (!currentConversationId && !isCreatingConversation) {
         currentConversationId = await createConversation();
-        if (!currentConversationId) {
-          showErrorRef.current?.('Unable to create a new conversation. Please try again.');
-        }
       }
       if (!currentConversationId || !practiceId) {
         return;
@@ -492,6 +488,8 @@ export function MainApp({
       await applyConversationMode(nextMode, currentConversationId, source);
     } catch (error) {
       setConversationMode(null);
+      const message = error instanceof Error ? error.message : 'Unable to start conversation';
+      showErrorRef.current?.(message);
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
     } finally {
       isSelectingRef.current = false;
