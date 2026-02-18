@@ -266,7 +266,7 @@
     "requestConsultation": "相談をリクエスト",
     "retry": "再試行",
     "retrying": "再試行中...",
-    "replyingTo": "返信先",
+    "replyingTo": "<name>{{name}}</name> への返信",
     "cta": {
       "submit": "リクエストを送信",
       "submitConsultationRequest": "相談リクエストを送信",

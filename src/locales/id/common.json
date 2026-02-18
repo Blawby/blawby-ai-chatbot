@@ -266,7 +266,7 @@
     "requestConsultation": "Minta Konsultasi",
     "retry": "Coba lagi",
     "retrying": "Mencoba lagi...",
-    "replyingTo": "Membalas kepada",
+    "replyingTo": "Membalas kepada <name>{{name}}</name>",
     "cta": {
       "submit": "Kirim permintaan",
       "submitConsultationRequest": "Kirim permintaan konsultasi",

@@ -266,7 +266,7 @@
     "requestConsultation": "Запросить консультацию",
     "retry": "Повторить",
     "retrying": "Повтор...",
-    "replyingTo": "Ответ на",
+    "replyingTo": "В ответ на <name>{{name}}</name>",
     "cta": {
       "submit": "Отправить запрос",
       "submitConsultationRequest": "Отправить запрос на консультацию",

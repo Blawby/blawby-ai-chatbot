@@ -267,7 +267,7 @@
     "requestConsultation": "परामर्श का अनुरोध करें",
     "retry": "पुनः प्रयास करें",
     "retrying": "फिर से प्रयास हो रहा है...",
-    "replyingTo": "के उत्तर में",
+    "replyingTo": "<name>{{name}}</name> के उत्तर में",
     "cta": {
       "submit": "अनुरोध सबमिट करें",
       "submitConsultationRequest": "परामर्श अनुरोध सबमिट करें",

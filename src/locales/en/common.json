@@ -266,7 +266,7 @@
     "requestConsultation": "Request Consultation",
     "retry": "Retry",
     "retrying": "Retrying...",
-    "replyingTo": "Replying to",
+    "replyingTo": "Replying to <name>{{name}}</name>",
     "cta": {
       "submit": "Submit request",
       "submitConsultationRequest": "Submit consultation request",

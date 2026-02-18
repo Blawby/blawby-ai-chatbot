@@ -266,7 +266,7 @@
     "requestConsultation": "Yêu cầu tư vấn",
     "retry": "Thử lại",
     "retrying": "Đang thử lại...",
-    "replyingTo": "Đang trả lời",
+    "replyingTo": "Đang trả lời <name>{{name}}</name>",
     "cta": {
       "submit": "Gửi yêu cầu",
       "submitConsultationRequest": "Gửi yêu cầu tư vấn",

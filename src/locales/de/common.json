@@ -266,7 +266,7 @@
     "requestConsultation": "Beratung anfordern",
     "retry": "Erneut versuchen",
     "retrying": "Wird erneut versucht...",
-    "replyingTo": "Antwort auf",
+    "replyingTo": "Antwort auf <name>{{name}}</name>",
     "cta": {
       "addMore": "Mehr hinzufügen",
       "continue": "Weiter",

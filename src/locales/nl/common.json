@@ -266,7 +266,7 @@
     "requestConsultation": "Consultatie aanvragen",
     "retry": "Opnieuw proberen",
     "retrying": "Opnieuw proberen...",
-    "replyingTo": "Antwoord op",
+    "replyingTo": "Antwoord op <name>{{name}}</name>",
     "cta": {
       "submit": "Indienen",
       "submitConsultationRequest": "Consultatieaanvraag indienen",

@@ -25,7 +25,15 @@ import {
 
 const sanitizeMarkdown = (text: string): string => {
   if (typeof text !== 'string') return '';
-  return text.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
+  // First replace HTML metacharacters with entities to prevent stored-XSS
+  const sanitizedHtml = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  // Then backslash-escape Markdown metacharacters
+  return sanitizedHtml.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
 };
 
 const sanitizeDescriptionForCodeBlock = (text: string): string => {

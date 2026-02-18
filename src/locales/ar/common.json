@@ -266,7 +266,7 @@
     "requestConsultation": "طلب استشارة",
     "retry": "أعد المحاولة",
     "retrying": "جارٍ إعادة المحاولة...",
-    "replyingTo": "ردا على",
+    "replyingTo": "رداً على <name>{{name}}</name>",
     "cta": {
       "submit": "إرسال الطلب",
       "submitConsultationRequest": "إرسال طلب الاستشارة",

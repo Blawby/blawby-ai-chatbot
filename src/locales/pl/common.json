@@ -266,7 +266,7 @@
     "requestConsultation": "Poproś o konsultację",
     "retry": "Spróbuj ponownie",
     "retrying": "Ponawianie...",
-    "replyingTo": "Odpowiedź na",
+    "replyingTo": "Odpowiedź na <name>{{name}}</name>",
     "cta": {
       "submit": "Prześlij prośbę",
       "submitConsultationRequest": "Prześlij prośbę o konsultację",

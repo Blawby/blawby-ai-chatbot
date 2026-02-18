@@ -266,7 +266,7 @@
     "requestConsultation": "申请咨询",
     "retry": "重试",
     "retrying": "正在重试...",
-    "replyingTo": "回复给",
+    "replyingTo": "回复 <name>{{name}}</name>",
     "cta": {
       "submit": "提交请求",
       "submitConsultationRequest": "提交咨询请求",

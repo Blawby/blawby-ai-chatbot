@@ -266,7 +266,7 @@
     "requestConsultation": "상담 요청하기",
     "retry": "다시 시도",
     "retrying": "다시 시도 중...",
-    "replyingTo": "답장 대상",
+    "replyingTo": "<name>{{name}}</name>님에게 답장",
     "cta": {
       "submit": "요청 제출",
       "submitConsultationRequest": "상담 요청 제출",

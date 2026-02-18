@@ -266,7 +266,7 @@
     "requestConsultation": "ขอรับคำปรึกษา",
     "retry": "ลองอีกครั้ง",
     "retrying": "กำลังลองอีกครั้ง...",
-    "replyingTo": "กำลังตอบกลับถึง",
+    "replyingTo": "กำลังตอบกลับถึง <name>{{name}}</name>",
     "cta": {
       "submit": "ส่งคำขอ",
       "submitConsultationRequest": "ส่งคำขอรับคำปรึกษา",
