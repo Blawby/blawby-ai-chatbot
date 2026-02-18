@@ -545,6 +545,7 @@ export const AddressExperienceForm = ({
                 disabled={disabled}
                 variant="secondary"
                 size="md"
+                className={submitFullWidth ? 'w-full' : undefined}
               >
                 {cancelLabel}
               </Button>
