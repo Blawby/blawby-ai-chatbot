@@ -7,6 +7,14 @@ import { RemoteApiService } from '../services/RemoteApiService.js';
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const PAID_INTAKE_STATUSES = new Set(['paid', 'succeeded', 'completed', 'captured']);
+
+const normalizePaymentStatus = (status?: string): string | null => {
+  if (typeof status !== 'string') return null;
+  const normalized = status.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+};
+
 /**
  * Proxy for POST /api/practice/client-intakes/create
  *
@@ -164,6 +172,19 @@ export async function handlePracticeIntakeConfirm(request: Request, env: Env): P
     throw HttpErrors.badRequest('aiSummary is required');
   }
 
+  const intakeStatus = await RemoteApiService.getPracticeClientIntakeStatus(env, intakeUuid, request);
+  const verifiedPaymentStatus = normalizePaymentStatus(intakeStatus?.status);
+  const paymentConfirmed = Boolean(intakeStatus?.succeeded_at) || (
+    verifiedPaymentStatus !== null && PAID_INTAKE_STATUSES.has(verifiedPaymentStatus)
+  );
+  if (!paymentConfirmed) {
+    throw HttpErrors.paymentRequired('Intake payment must be confirmed before converting to matter', {
+      intakeUuid,
+      paymentStatus: verifiedPaymentStatus,
+      succeededAt: intakeStatus?.succeeded_at ?? null
+    });
+  }
+
   const convertResult = await RemoteApiService.convertIntake(
     env,
     intakeUuid,
@@ -172,18 +193,29 @@ export async function handlePracticeIntakeConfirm(request: Request, env: Env): P
   );
 
   const conversationService = new ConversationService(env);
-  await conversationService.sendSystemMessage({
-    conversationId,
-    practiceId,
-    content: aiSummary,
-    metadata: {
-      systemMessageKey: 'intake_summary',
-      matterId: convertResult.matter_id,
-      leadId: convertResult.matter_id,
+  try {
+    await conversationService.sendSystemMessage({
+      conversationId,
+      practiceId,
+      content: aiSummary,
+      metadata: {
+        systemMessageKey: 'intake_summary',
+        matterId: convertResult.matter_id,
+        leadId: convertResult.matter_id,
+        intakeUuid,
+        paymentStatus: verifiedPaymentStatus ?? 'succeeded'
+      }
+    });
+  } catch (error) {
+    console.error('[IntakeConfirm] Failed to send system message after successful conversion', {
       intakeUuid,
-      paymentStatus: 'succeeded'
-    }
-  });
+      matterId: convertResult.matter_id,
+      conversationId,
+      practiceId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    // Intake conversion has already succeeded in remote API; do not fail this request.
+  }
 
   return new Response(JSON.stringify({
     success: true,

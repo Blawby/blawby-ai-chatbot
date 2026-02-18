@@ -1,5 +1,5 @@
 
-import { h } from 'preact';
+import type { ComponentType } from 'preact';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Avatar } from '@/shared/ui/profile';
@@ -27,7 +27,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 
 // Status icons mapping
-const STATUS_ICON: Record<MatterStatus, any> = {
+const STATUS_ICON: Record<MatterStatus, unknown> = {
   first_contact: ChatBubbleLeftRightIcon,
   intake_pending: MagnifyingGlassIcon,
   conflict_check: ShieldExclamationIcon,
@@ -101,13 +101,13 @@ export const MatterDetailHeader = ({
             }))}
             leading={(selectedOption) => {
               const selectedStatus = (selectedOption?.value ?? matter.status) as MatterStatus;
-              const StatusIcon = STATUS_ICON[selectedStatus] ?? ScaleIcon;
+              const StatusIcon = (STATUS_ICON[selectedStatus] as ComponentType<{ className?: string; 'aria-hidden'?: string | boolean }>) ?? ScaleIcon;
               return (
                 <StatusIcon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />
               );
             }}
             optionLeading={(option) => {
-              const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? ScaleIcon;
+              const StatusIcon = (STATUS_ICON[option.value as MatterStatus] as ComponentType<{ className?: string; 'aria-hidden'?: string | boolean }>) ?? ScaleIcon;
               return <StatusIcon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />;
             }}
             className="min-w-[200px]"

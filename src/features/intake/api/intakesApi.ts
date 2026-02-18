@@ -5,6 +5,8 @@ export interface IntakeListParams {
 
 export async function listIntakes(practiceId: string, params: IntakeListParams) {
   // Return empty array until endpoint ships
+  void practiceId;
+  void params;
   return { intakes: [], total: 0, page: 1, total_pages: 0 };
 }
 
@@ -20,7 +22,7 @@ export interface IntakeStatusResponse {
   currency?: string;
   succeeded_at?: string;
   conversation_id?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export async function getIntakeStatus(intakeUuid: string) {

@@ -534,7 +534,10 @@ export const AddressExperienceForm = ({
         ))}
 
         {showSubmitButton && (
-          <div className="flex justify-end gap-3 pt-4">
+          <div className={cn(
+            'pt-4',
+            submitFullWidth ? 'flex flex-col gap-3' : 'flex justify-end gap-3'
+          )}>
             {onCancel && (
               <Button
                 type="button"
