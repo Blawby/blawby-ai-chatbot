@@ -220,5 +220,8 @@
     "benefits": "メリット:",
     "limitations": "制限:"
   },
-  "upgradeFailed": "アップグレードに失敗しました"
+  "upgradeFailed": "アップグレードに失敗しました",
+  "noFeatures": "このプランには機能がありません。",
+  "upgradeButton": "{{price}}にアップグレード",
+  "autoRenewsDisclaimer": "毎月自動更新されます。いつでもキャンセルできます。"
 }

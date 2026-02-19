@@ -220,5 +220,8 @@
     "benefits": "Benefícios:",
     "limitations": "Limitações:"
   },
-  "upgradeFailed": "Falha na atualização"
+  "upgradeFailed": "Falha na atualização",
+  "noFeatures": "Este plano não possui recursos.",
+  "upgradeButton": "Atualizar por {{price}}",
+  "autoRenewsDisclaimer": "Renova automaticamente mensalmente. Cancele a qualquer momento."
 }

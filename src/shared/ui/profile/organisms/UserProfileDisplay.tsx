@@ -15,7 +15,6 @@ import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
@@ -32,29 +31,20 @@ export const UserProfileDisplay = ({
   currentPractice 
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { session, isPending, error, stripeCustomerId } = useSessionContext();
+  const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
-  const { currentPractice: managedPractice } = usePracticeManagement();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { navigateToAuth, navigate, navigateToPricing } = useNavigation();
+  const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
-  const practiceForSubscription = currentPractice ?? managedPractice ?? null;
-  const subscriptionActive = Boolean(stripeCustomerId);
-  const subscriptionLabel = subscriptionActive ? 'Active Subscription' : 'No Active Subscription';
 
   // Derive user data from session and practice
   const user = session?.user ? {
     id: session.user.id,
     name: session.user.name || session.user.email || 'User',
     email: session.user.email,
-    image: session.user.image,
-    practiceId: practiceForSubscription?.id || null,
-    role: 'user',
-    phone: null,
-    subscriptionActive,
-    subscriptionLabel
+    image: session.user.image
   } : null;
 
 
@@ -89,10 +79,6 @@ export const UserProfileDisplay = ({
     navigateToAuth('signin');
   };
 
-  const handleUpgrade = () => {
-    navigateToPricing();
-  };
-
   const handleProfileClick = () => {
     if (isMobile) {
       // On mobile, directly navigate to settings
@@ -112,11 +98,6 @@ export const UserProfileDisplay = ({
       return;
     }
     navigate('/settings');
-  };
-
-  const handleUpgradeClick = () => {
-    setShowDropdown(false);
-    navigateToPricing();
   };
 
   const handleHelpClick = () => {
@@ -207,18 +188,14 @@ export const UserProfileDisplay = ({
         <ProfileButton
           name={user.name}
           image={user.image}
-          planLabel={user.subscriptionLabel}
-          subscriptionActive={user.subscriptionActive}
+          secondaryText={user.email ?? null}
           isCollapsed={isCollapsed}
           onClick={handleProfileClick}
-          onUpgrade={handleUpgrade}
         />
         
         {/* Dropdown - only show on desktop */}
         {showDropdown && !isMobile && (
           <ProfileDropdown
-            subscriptionActive={user.subscriptionActive}
-            onUpgrade={handleUpgradeClick}
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}
             onLogout={handleLogoutClick}

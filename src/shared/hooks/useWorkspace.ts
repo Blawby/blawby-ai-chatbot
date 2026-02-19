@@ -19,8 +19,8 @@ export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
   const {
     activePracticeId,
-    activeOrganizationId,
-    stripeCustomerId,
+    workspaceAccess,
+    routingDefaultWorkspace,
     isPending
   } = useSessionContext();
 
@@ -29,16 +29,18 @@ export function useWorkspace(): UseWorkspaceResult {
     [location.path]
   );
 
-  const hasActiveOrganization = Boolean(activeOrganizationId || activePracticeId);
-  const isSubscribed = Boolean(stripeCustomerId);
-  const hasPracticeAccess = hasActiveOrganization && isSubscribed;
   const isPracticeLoading = isPending;
-  const canAccessPractice = isPending ? true : hasPracticeAccess;
-  const isPracticeEnabled = hasPracticeAccess;
+  const canAccessPractice = isPending ? true : workspaceAccess.practice;
+  const isPracticeEnabled = workspaceAccess.practice;
   const defaultWorkspace: WorkspacePreference = useMemo(() => {
-    if (!canAccessPractice) return 'client';
-    return 'practice';
-  }, [canAccessPractice]);
+    if (routingDefaultWorkspace === 'practice' && workspaceAccess.practice) {
+      return 'practice';
+    }
+    if (routingDefaultWorkspace === 'client') {
+      return 'client';
+    }
+    return workspaceAccess.practice ? 'practice' : 'client';
+  }, [routingDefaultWorkspace, workspaceAccess.practice]);
 
   return {
     workspaceFromPath,

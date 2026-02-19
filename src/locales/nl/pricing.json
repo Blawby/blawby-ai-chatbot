@@ -216,5 +216,8 @@
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
   },
-  "upgradeFailed": "Upgrade mislukt"
+  "upgradeFailed": "Upgrade mislukt",
+  "noFeatures": "Dit plan heeft geen functies.",
+  "upgradeButton": "Upgrade naar {{price}}",
+  "autoRenewsDisclaimer": "Vernieuwd automatisch maandelijks. Op elk moment opzeggen."
 }

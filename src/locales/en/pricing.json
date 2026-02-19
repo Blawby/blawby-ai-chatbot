@@ -292,5 +292,8 @@
     "benefits": "Benefits:",
     "limitations": "Limitations:"
   },
-  "upgradeFailed": "Upgrade failed"
+  "upgradeFailed": "Upgrade failed",
+  "noFeatures": "This plan has no features.",
+  "upgradeButton": "Upgrade for {{price}}",
+  "autoRenewsDisclaimer": "Auto-renews monthly. Cancel anytime."
 }

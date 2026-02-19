@@ -1,31 +1,20 @@
-/**
- * ProfileButton - Molecule Component
- * Main profile trigger combining avatar, name, and subscription summary.
- * Styled to match original main look/feel.
- */
-
 import { Avatar } from '../atoms/Avatar';
-import { UpgradeButton } from '../atoms/UpgradeButton';
 
 interface ProfileButtonProps {
   name: string;
   image?: string | null;
-  planLabel: string;
-  subscriptionActive: boolean;
+  secondaryText?: string | null;
   isCollapsed: boolean;
   onClick: () => void;
-  onUpgrade?: () => void;
   className?: string;
 }
 
 export const ProfileButton = ({
   name,
   image,
-  planLabel,
-  subscriptionActive,
+  secondaryText,
   isCollapsed,
   onClick,
-  onUpgrade,
   className = ''
 }: ProfileButtonProps) => {
   if (isCollapsed) {
@@ -53,17 +42,15 @@ export const ProfileButton = ({
           <p className="text-sm font-medium leading-none text-input-text truncate" title={name}>
             {name}
           </p>
-          <div className="-mt-0.5">
-            <span className="text-xs leading-none text-input-placeholder truncate">
-              {planLabel}
-            </span>
-          </div>
+          {secondaryText && (
+            <div className="-mt-0.5">
+              <span className="text-xs leading-none text-input-placeholder truncate">
+                {secondaryText}
+              </span>
+            </div>
+          )}
         </div>
       </button>
-
-      {!subscriptionActive && onUpgrade && (
-        <UpgradeButton onClick={onUpgrade} variant="short" />
-      )}
     </div>
   );
 };

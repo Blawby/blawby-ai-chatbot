@@ -10,7 +10,18 @@ const PricingPage = () => {
     if (typeof window === 'undefined') return '/';
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
-    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.startsWith('/pricing')) {
+    
+    // Validate: must be internal path starting with /, not //, not /pricing, no backslashes,
+    // and match strict alphanumeric/dash/underscore/slash pattern
+    const isValidInternalPath = returnTo 
+      && typeof returnTo === 'string'
+      && /^\/[A-Za-z0-9_/-]*$/.test(returnTo)
+      && returnTo.startsWith('/') 
+      && !returnTo.startsWith('//') 
+      && !returnTo.startsWith('/pricing')
+      && !returnTo.includes('\\');
+    
+    if (isValidInternalPath) {
       return returnTo;
     }
     return '/';

@@ -5,10 +5,10 @@ import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
 
 const ClientHomePage = () => {
-  const { session, stripeCustomerId } = useSessionContext();
+  const { session, workspaceAccess } = useSessionContext();
   const { navigate, navigateToPricing } = useNavigation();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const showUpgrade = !stripeCustomerId;
+  const showUpgrade = !workspaceAccess.practice;
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [

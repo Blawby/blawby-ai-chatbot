@@ -220,5 +220,8 @@
     "benefits": "优势:",
     "limitations": "限制:"
   },
-  "upgradeFailed": "升级失败"
+  "upgradeFailed": "升级失败",
+  "noFeatures": "此计划没有功能。",
+  "upgradeButton": "升级到 {{price}}",
+  "autoRenewsDisclaimer": "自动按月续费。随时取消。"
 }

@@ -220,5 +220,8 @@
     "benefits": "Vorteile:",
     "limitations": "Einschränkungen:"
   },
-  "upgradeFailed": "Upgrade fehlgeschlagen"
+  "upgradeFailed": "Upgrade fehlgeschlagen",
+  "noFeatures": "Dieser Plan hat keine Funktionen.",
+  "upgradeButton": "Upgrade für {{price}}",
+  "autoRenewsDisclaimer": "Erneuert sich automatisch monatlich. Jederzeit kündbar."
 }

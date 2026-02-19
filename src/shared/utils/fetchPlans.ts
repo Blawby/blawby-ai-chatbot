@@ -31,6 +31,8 @@ export interface SubscriptionPlan {
 
 type PlanAmountUnit = 'cents' | 'dollars';
 
+type MeteredItem = NonNullable<SubscriptionPlan['meteredItems']>[number];
+
 const normalizePlanAmount = (value: unknown, unit: unknown, label: string): string => {
   const normalizeMajor = (amount: number): string => {
     if (!Number.isFinite(amount)) return '';
@@ -99,6 +101,29 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
 };
 
 function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
+  const normalizeMeteredItems = (value: unknown): MeteredItem[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+        const record = item as Record<string, unknown>;
+        const priceId = typeof record.price_id === 'string'
+          ? record.price_id
+          : typeof record.priceId === 'string'
+            ? record.priceId
+            : '';
+        const meterName = typeof record.meter_name === 'string'
+          ? record.meter_name
+          : typeof record.meterName === 'string'
+            ? record.meterName
+            : '';
+        const type = typeof record.type === 'string' ? record.type : '';
+        if (!priceId || !meterName || !type) return null;
+        return { priceId, meterName, type };
+      })
+      .filter((item): item is MeteredItem => item !== null);
+  };
+
   return plans.map((plan) => {
     const record = plan as Record<string, unknown>;
     const limits = (record.limits as Record<string, unknown> | undefined) ?? undefined;
@@ -152,11 +177,7 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
         invoices_per_month: limits?.invoices_per_month as number | undefined,
         storage_gb: limits?.storage_gb as number | undefined,
       },
-      meteredItems: (record.metered_items ?? []) as Array<{
-        priceId: string;
-        meterName: string;
-        type: string;
-      }>,
+      meteredItems: normalizeMeteredItems(record.metered_items),
       isActive: record.is_active as boolean,
       isPublic: record.is_public as boolean,
     };

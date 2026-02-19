@@ -7,6 +7,8 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { i18n } from '@/shared/i18n';
 
 interface PricingViewProps {
   onUpgrade?: (planId: string) => Promise<boolean | void> | boolean | void;
@@ -61,7 +63,14 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   }, []);
 
   if (loadError) {
-    throw new Error(loadError);
+    return (
+      <div className="flex items-center justify-center p-6 text-center">
+        <div className="space-y-4">
+          <p className="text-lg font-semibold text-red-500">{t('common:errors.tryAgainLater')}</p>
+          <p className="text-sm text-input-placeholder">{loadError}</p>
+        </div>
+      </div>
+    );
   }
   if (!plan) {
     return null;
@@ -88,6 +97,13 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     ? plan.imageUrl
     : '/blawby-favicon-iframe.png';
 
+  const formattedPrice = new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: plan.currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(parseFloat(plan.monthlyPrice));
+
   return (
     <div className={`w-full text-input-text ${className ?? ''}`}>
       <div className="w-full px-1 pt-1 pb-2 md:px-2 md:pt-2 md:pb-3">
@@ -111,7 +127,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           {features.length > 0 ? (
             <PlanFeaturesList features={features} />
           ) : (
-            <p className="text-sm text-input-placeholder">Plan features are loading from backend.</p>
+            <p className="text-sm text-input-placeholder">No features for this plan.</p>
           )}
         </div>
 
@@ -122,10 +138,16 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
             size="lg"
             className="h-14 w-full rounded-full"
           >
-            {`Upgrade for $${plan.monthlyPrice}`}
+            {t('pricing:upgradeButton', {
+              price: formatCurrency(
+                parseFloat(plan.monthlyPrice),
+                plan.currency,
+                i18n.language
+              )
+            })}
           </Button>
           <p className="mt-3 text-center text-sm text-input-placeholder">
-            Auto-renews monthly. Cancel anytime.
+            {t('pricing:autoRenewsDisclaimer')}
           </p>
         </div>
       </div>

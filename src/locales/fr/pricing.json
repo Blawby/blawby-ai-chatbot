@@ -220,5 +220,8 @@
     "benefits": "Avantages:",
     "limitations": "Limitations:"
   },
-  "upgradeFailed": "Échec de la mise à niveau"
+  "upgradeFailed": "Échec de la mise à niveau",
+  "noFeatures": "Ce plan n'a pas de fonctionnalités.",
+  "upgradeButton": "Passer à {{price}}",
+  "autoRenewsDisclaimer": "Renouvellement automatique mensuel. Annulation possible à tout moment."
 }

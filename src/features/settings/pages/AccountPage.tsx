@@ -48,7 +48,7 @@ export const AccountPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
-  const { session, isPending, activeMemberRole, stripeCustomerId } = useSessionContext();
+  const { session, isPending, activeMemberRole, workspaceAccess } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export const AccountPage = ({
   const avatarObjectUrlRef = useRef<string | null>(null);
   
 
-  const hasSubscription = Boolean(stripeCustomerId);
+  const hasSubscription = workspaceAccess.practice;
   
   // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {

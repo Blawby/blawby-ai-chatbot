@@ -127,6 +127,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isUserScrollingRef = useRef(false);
     const isLoadingRef = useRef(false);
     const loggedNoServerPaginationRef = useRef(false);
+    const prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
     const currentUserAvatar = session?.user?.image || null;
     const currentUserProfile = {
@@ -490,11 +491,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     useEffect(() => {
         // If server pagination is exhausted, show full local history instead of
         // keeping a virtualized window that implies more content is loading.
-        if (hasMoreMessages === false) {
+        // Only fire when hasMoreMessages transitions from true to false.
+        if (prevHasMoreRef.current === true && hasMoreMessages === false) {
             setStartIndex(0);
             setEndIndex(dedupedMessages.length);
         }
-    }, [dedupedMessages.length, hasMoreMessages]);
+        prevHasMoreRef.current = hasMoreMessages;
+    }, [hasMoreMessages, dedupedMessages.length]);
 
     useEffect(() => {
         const lastMessage = dedupedMessages[dedupedMessages.length - 1];
@@ -558,21 +561,44 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!onRequestReactions || visibleMessages.length === 0) {
             return;
         }
-        visibleMessages.forEach(async (message) => {
-            if (!message.id) return;
-            // Skip if reactions are already loaded on the message object.
-            if (message.reactions !== undefined) return;
-            // Skip if we've already dispatched a request for this message ID.
-            if (reactionRequestedRef.current.has(message.id)) return;
+        
+        let cancelled = false;
+        
+        const requestVisibleReactions = async () => {
+            const messagesToRequest = visibleMessages.filter(message => {
+                if (!message.id) return false;
+                // Skip if reactions are already loaded on the message object.
+                if (message.reactions !== undefined) return false;
+                // Skip if we've already dispatched a request for this message ID.
+                if (reactionRequestedRef.current.has(message.id)) return false;
+                return true;
+            });
             
-            reactionRequestedRef.current.add(message.id);
-            try {
-                await onRequestReactions(message.id);
-            } catch (error) {
-                // If request fails, remove from ref so it can be retried later
-                reactionRequestedRef.current.delete(message.id);
-            }
-        });
+            if (messagesToRequest.length === 0) return;
+            
+            // Create promises for all requests
+            const promises = messagesToRequest.map(async (message) => {
+                if (!message.id) return;
+                reactionRequestedRef.current.add(message.id);
+                try {
+                    await onRequestReactions(message.id);
+                } catch (error) {
+                    // If request fails, remove from ref so it can be retried later
+                    if (!cancelled) {
+                        reactionRequestedRef.current.delete(message.id);
+                    }
+                }
+            });
+            
+            // Wait for all promises to settle
+            await Promise.allSettled(promises);
+        };
+        
+        void requestVisibleReactions();
+        
+        return () => {
+            cancelled = true;
+        };
     }, [onRequestReactions, visibleMessages]);
 
     return (
