@@ -2,8 +2,30 @@ import { ComponentChildren, toChildArray, cloneElement } from 'preact';
 import type { JSX } from 'preact';
 import { forwardRef } from 'preact/compat';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'icon' | 'inverted' | 'danger' | 'outline' | 'link';
-type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon';
+type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'icon'
+  | 'inverted'
+  | 'danger'
+  | 'warning'
+  | 'danger-ghost'
+  | 'accent-ghost'
+  | 'outline'
+  | 'link'
+  | 'menu-item'
+  | 'tab';
+type ButtonSize =
+  | 'xs'
+  | 'sm'
+  | 'md'
+  | 'lg'
+  | 'icon'
+  | 'icon-xs'
+  | 'icon-sm'
+  | 'icon-md'
+  | 'icon-lg';
 
 interface ButtonProps extends JSX.HTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -46,9 +68,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   // Check if this is an icon-only button (no children, only icon)
   const hasChildren = toChildArray(children).length > 0;
   const isIconOnly = !hasChildren && Boolean(icon);
-  
 
-  
   // Development-time accessibility warning for icon-only buttons
   if (typeof import.meta !== 'undefined' && import.meta.env?.DEV && isIconOnly) {
     const hasAccessibleLabel = Boolean(ariaLabel || rest['aria-labelledby'] || title);
@@ -59,49 +79,43 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       );
     }
   }
-  
-  const baseClasses = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border backdrop-blur-xl';
-  const variantClasses: Record<ButtonVariant, string> = {
-    // Primary: Glass Accent
-    primary: 'bg-accent-500/25 backdrop-blur-2xl text-[rgb(var(--accent-foreground))] border-accent-500/40 shadow-lg shadow-accent-500/10 hover:bg-accent-500/40 hover:border-accent-500/60 active:scale-[0.98] transition-all duration-300',
-    
-    // Secondary: Pure glass with subtle border
-    secondary: 'bg-white/5 backdrop-blur-xl text-input-text border-white/10 hover:bg-white/15 hover:border-white/20 active:bg-white/20 shadow-md transition-all duration-300',
-    
-    // Ghost: Minimal glass, appears on hover
-    ghost: 'bg-transparent text-input-text border-transparent hover:bg-white/10 hover:border-white/10 active:bg-white/15 focus:ring-white/20',
-    
-    // Icon: Same as ghost for icon buttons
-    icon: 'bg-transparent text-input-text border-transparent hover:bg-white/10 hover:border-white/10 active:bg-white/15 focus:ring-white/20',
-    
-    // Inverted: Lighter glass for dark backgrounds
-    inverted: 'bg-white/20 backdrop-blur-2xl text-white border-white/30 hover:bg-white/30 hover:border-white/40 active:bg-white/40 focus:ring-white/30 shadow-lg',
-    
-    // Danger: Translucent red glass
-    danger: 'bg-red-500/10 backdrop-blur-xl text-red-400 border-red-500/20 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 active:bg-red-500/30 focus:ring-red-500/50 shadow-sm',
-    
-    // Outline: Glass with defined border
-    outline: 'bg-transparent backdrop-blur-sm text-input-text border-white/20 hover:bg-white/5 hover:border-white/40 active:bg-white/10 focus:ring-white/20 shadow-sm',
-    
-    // Link: No glass, just text with accent color
-    link: 'bg-transparent text-accent-500 border-transparent shadow-none hover:text-accent-400 active:text-accent-600 focus:ring-accent-500/50 hover:underline'
+
+  const variantToClass: Record<ButtonVariant, string> = {
+    primary: 'btn-primary',
+    secondary: 'btn-secondary',
+    ghost: 'btn-ghost',
+    icon: 'btn-icon',
+    inverted: 'btn-inverted',
+    danger: 'btn-danger',
+    warning: 'btn-warning',
+    'danger-ghost': 'btn-danger-ghost',
+    'accent-ghost': 'btn-accent-ghost',
+    outline: 'btn-outline',
+    link: 'btn-link',
+    'menu-item': 'btn-menu-item',
+    tab: 'btn-tab'
   };
-  
-  const sizeClasses: Record<ButtonSize, string> = {
-    xs: isIconOnly ? 'w-9 h-9 p-0 leading-none text-xs' : 'px-2.5 py-1 text-xs',
-    sm: isIconOnly ? 'w-11 h-11 p-0 leading-none text-xs' : 'px-3 py-1.5 text-xs',
-    md: isIconOnly ? 'w-11 h-11 p-0 leading-none text-sm' : 'px-4 py-2 text-sm',
-    lg: isIconOnly ? 'w-12 h-12 p-0 leading-none text-base' : 'px-6 py-3 text-base',
-    icon: isIconOnly ? 'w-10 h-10 p-0 leading-none text-sm' : 'px-3 py-2 text-sm'
+
+  const sizeToClass = (resolvedSize: ButtonSize): string => {
+    if (resolvedSize === 'icon') return 'btn-icon-md';
+    if (resolvedSize === 'icon-xs') return 'btn-icon-xs';
+    if (resolvedSize === 'icon-sm') return 'btn-icon-sm';
+    if (resolvedSize === 'icon-md') return 'btn-icon-md';
+    if (resolvedSize === 'icon-lg') return 'btn-icon-lg';
+    if (isIconOnly) return `btn-icon-${resolvedSize}`;
+    return `btn-${resolvedSize}`;
   };
-  
+
+  const hasVariantOverride = /\bbtn-(primary|secondary|ghost|icon|inverted|danger|warning|danger-ghost|accent-ghost|outline|link|menu-item|tab)\b/.test(className);
+  const hasSizeOverride = /\bbtn-(xs|sm|md|lg|icon-xs|icon-sm|icon-md|icon-lg)\b/.test(className);
+
   const classes = [
-    baseClasses,
-    variantClasses[variant],
-    sizeClasses[size],
+    'btn',
+    hasVariantOverride ? '' : variantToClass[variant],
+    hasSizeOverride ? '' : sizeToClass(size),
     className
   ].filter(Boolean).join(' ');
-  
+
   const renderContent = () => {
     if (isIconOnly) {
       return icon;
@@ -128,14 +142,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       return (
         <>
           {children}
-          <span className="ml-2">{makeIconDecorative(icon)}</span>
+          <span className={variant === 'menu-item' ? '' : 'ml-2'}>{makeIconDecorative(icon)}</span>
         </>
       );
     }
     
     return (
       <>
-        <span className="mr-2">{makeIconDecorative(icon)}</span>
+        <span className={variant === 'menu-item' ? '' : 'mr-2'}>{makeIconDecorative(icon)}</span>
         {children}
       </>
     );

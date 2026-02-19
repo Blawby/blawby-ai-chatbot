@@ -14,7 +14,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 type BillingPeriod = 'monthly' | 'yearly';
 
 interface PricingViewProps {
-  onUpgrade?: (priceId: string) => Promise<boolean | void> | boolean | void;
+  onUpgrade?: (planName: string) => Promise<boolean | void> | boolean | void;
   className?: string;
 }
 
@@ -73,28 +73,30 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     );
   }
   if (!plan) {
-    return null;
+    return (
+      <div className="flex items-center justify-center p-6 text-center">
+        <p className="text-sm text-input-placeholder">Loading…</p>
+      </div>
+    );
   }
 
   const handleUpgrade = async (plan: SubscriptionPlan) => {
     const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
     const isYearly = billingPeriod === 'yearly';
-    const selectedPriceId = isYearly && hasYearly
-      ? plan.stripeYearlyPriceId
-      : plan.stripeMonthlyPriceId;
+    const selectedPlanName = plan.name;
     try {
-      if (!selectedPriceId) {
-        throw new Error('Missing Stripe price ID for the selected billing period.');
+      if (!selectedPlanName) {
+        throw new Error('Missing subscription plan name for upgrade.');
       }
       if (onUpgrade) {
-        const result = await onUpgrade(selectedPriceId);
+        const result = await onUpgrade(selectedPlanName);
         if (result === false) {
           return;
         }
       }
       await submitUpgrade({
         practiceId: currentPractice?.id || undefined,
-        plan: selectedPriceId,
+        plan: selectedPlanName,
         annual: isYearly && hasYearly
       });
     } catch (error) {
@@ -125,15 +127,31 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   const annuallyLabel = t('pricing:billing.annually', {
     defaultValue: t('pricing:billing.yearly')
   });
+  const yearlyDiscountPercent = (() => {
+    if (!hasYearly || !Number.isFinite(monthlyPriceValue) || !Number.isFinite(yearlyPriceValue)) {
+      return null;
+    }
+    const annualizedMonthly = monthlyPriceValue * 12;
+    if (annualizedMonthly <= 0 || yearlyPriceValue <= 0 || yearlyPriceValue >= annualizedMonthly) {
+      return null;
+    }
+    const discount = ((annualizedMonthly - yearlyPriceValue) / annualizedMonthly) * 100;
+    const roundedDiscount = Math.round(discount);
+    return roundedDiscount > 0 ? roundedDiscount : null;
+  })();
+  const annuallyLabelWithDiscount = yearlyDiscountPercent
+    ? `${annuallyLabel} -${yearlyDiscountPercent}%`
+    : annuallyLabel;
   const billingOptions: Array<{ value: BillingPeriod; label: string; disabled?: boolean }> = [
     { value: 'monthly', label: monthlyLabel },
-    { value: 'yearly', label: annuallyLabel, disabled: !hasYearly }
+    { value: 'yearly', label: annuallyLabelWithDiscount, disabled: !hasYearly }
   ];
   return (
     <div className={`w-full text-input-text ${className ?? ''}`}>
       <div className="mx-auto w-full max-w-xl px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3">
         <div className="flex justify-center pb-1">
           <SegmentedToggle<BillingPeriod>
+            className="w-full max-w-[420px]"
             value={billingPeriod}
             options={billingOptions}
             onChange={setBillingPeriod}
@@ -142,7 +160,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           />
         </div>
 
-        <div className="mt-7 px-2 md:px-4">
+        <div className="mt-6 glass-card px-5 py-6 md:px-7 md:py-8">
           <div className="flex flex-col items-start text-left">
             <h1 data-testid="pricing-page-title" className="text-3xl font-semibold tracking-tight text-input-text md:text-4xl">
               {plan.displayName || plan.name}
@@ -180,7 +198,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
               onClick={() => handleUpgrade(plan)}
               variant="primary"
               size="lg"
-              className="h-14 w-full border-accent-500/70 bg-accent-500/90 hover:bg-accent-500"
+              className="h-14 w-full"
               disabled={submitting}
             >
               {submitting

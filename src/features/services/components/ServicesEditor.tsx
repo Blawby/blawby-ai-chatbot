@@ -92,10 +92,9 @@ export const ServicesEditor = ({
                     Custom Service {index + 1}
                   </h4>
                   <Button
-                    variant="ghost"
+                    variant="danger-ghost"
                     size="sm"
                     onClick={() => removeService(service.id)}
-                    className="text-red-600 hover:text-red-700"
                   >
                     Remove
                   </Button>

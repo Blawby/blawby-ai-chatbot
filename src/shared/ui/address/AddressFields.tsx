@@ -1,6 +1,6 @@
 import { forwardRef } from 'preact/compat';
 import { Input } from '@/shared/ui/input/Input';
-import { Select, type SelectOption } from '@/shared/ui/input/Select';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import type { Address } from '@/shared/types/address';
@@ -15,7 +15,7 @@ export interface AddressFieldsProps {
   variant?: 'default' | 'error' | 'success';
   className?: string;
   showCountry?: boolean;
-  countryOptions?: SelectOption[];
+  countryOptions?: ComboboxOption[];
   label?: string;
   placeholder?: string;
   streetAddressProps?: {
@@ -38,7 +38,7 @@ export interface AddressFieldsProps {
 }
 
 // Common country options (ISO-2 codes)
-export const DEFAULT_COUNTRY_OPTIONS: SelectOption[] = [
+export const DEFAULT_COUNTRY_OPTIONS: ComboboxOption[] = [
   { value: 'US', label: 'USA' },
   { value: 'CA', label: 'CAN' },
   { value: 'GB', label: 'GBR' },
@@ -55,7 +55,7 @@ export const DEFAULT_COUNTRY_OPTIONS: SelectOption[] = [
   { value: 'MX', label: 'MEX' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
-const STATE_OPTIONS: SelectOption[] = [
+const STATE_OPTIONS: ComboboxOption[] = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },
   { value: 'AZ', label: 'Arizona' },
@@ -281,7 +281,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
           <div className="relative">
             {safeValue.country === 'US' ? (
               <>
-                <Select
+                <Combobox
                   label=""
                   value={safeValue.state ?? ''}
                   onChange={(newValue) => updateField('state', newValue)}
@@ -292,6 +292,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
                     getInputClasses('state'),
                     hasError('state') && 'border-red-500 dark:border-red-400'
                   )}
+                  searchable={false}
                 />
                 {hasError('state') && (
                   <p className="text-xs text-red-600 dark:text-red-400 mt-1">
@@ -335,7 +336,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
         {/* Country */}
         {showCountry && (
           <div>
-            <Select
+            <Combobox
               label=""
               value={safeValue.country ?? ''}
               onChange={(newValue) => updateField('country', newValue)}
@@ -343,6 +344,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
               options={countryOptions}
               className={getInputClasses('country')}
               placeholder="Country"
+              searchable={false}
             />
             {hasError('country') && (
               <p className="text-xs text-red-600 dark:text-red-400 mt-1">

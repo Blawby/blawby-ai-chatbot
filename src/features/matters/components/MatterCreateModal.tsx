@@ -5,7 +5,6 @@ import { Textarea } from '@/shared/ui/input/Textarea';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { Combobox } from '@/shared/ui/input/Combobox';
-import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { Avatar } from '@/shared/ui/profile';
 import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
@@ -427,7 +426,7 @@ const MatterFormModalInner = ({
           </FormGrid>
           <FormGrid>
             <div className="w-full">
-              <Select
+              <Combobox
                 label="Urgency"
                 value={formState.urgency}
                 options={[
@@ -438,6 +437,7 @@ const MatterFormModalInner = ({
                 ]}
                 onChange={(value) => updateForm('urgency', value as MatterFormState['urgency'])}
                 className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                searchable={false}
               />
             </div>
             <Combobox

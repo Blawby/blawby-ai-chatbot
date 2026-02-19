@@ -1,4 +1,4 @@
-import { Select, type SelectOption } from '@/shared/ui/input';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { cn } from '@/shared/utils/cn';
 
 export interface NotificationChannel {
@@ -43,7 +43,7 @@ export const NotificationChannelSelector = ({
 
   const resolvedBothLabel = bothLabel || `${pushChannel?.label ?? 'Push'} + ${emailChannel?.label ?? 'Email'}`;
 
-  const options: SelectOption[] = isDisabled
+  const options: ComboboxOption[] = isDisabled
     ? [{ value: 'required', label: displayText }]
     : [
       ...(pushChannel && emailChannel ? [{ value: 'both', label: resolvedBothLabel }] : []),
@@ -54,7 +54,7 @@ export const NotificationChannelSelector = ({
 
   return (
     <div className={cn('ml-4', className)}>
-      <Select
+      <Combobox
         value={currentValue}
         options={options}
         onChange={(nextValue) => {
@@ -69,6 +69,7 @@ export const NotificationChannelSelector = ({
           'border-line-glass/30 bg-surface-glass/40 text-input-text',
           'hover:bg-transparent dark:hover:bg-transparent focus:ring-2 focus:ring-accent-500'
         )}
+        searchable={false}
       />
     </div>
   );

@@ -1,11 +1,13 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { Suspense, lazy } from 'preact/compat';
+import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
+import PricingPage from '@/pages/PricingPage';
+import DebugStylesPage from '@/pages/DebugStylesPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -23,11 +25,10 @@ import { PaySuccessPage } from '@/pages/PaySuccessPage';
 import { AppGuard } from '@/app/AppGuard';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { Button } from '@/shared/ui/Button';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-
-const PricingPage = lazy(() => import('@/pages/PricingPage'));
 
 const LoadingScreen = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -42,13 +43,13 @@ const NotFoundRoute = () => {
     <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
       <div className="text-lg font-medium">Page Not Found</div>
       <div>The page you&apos;re looking for doesn&apos;t exist.</div>
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={() => navigate('/')}
-        className="text-body-primary hover:underline font-medium"
       >
         Return to Home
-      </button>
+      </Button>
     </div>
   );
 };
@@ -165,6 +166,7 @@ function AppShell() {
           <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
+          <Route path="/debug/styles" component={import.meta.env.DEV ? DebugStylesPage : NotFoundRoute} />
           <Route path="/pay" component={PaySuccessPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
@@ -232,13 +234,13 @@ function SettingsRoute() {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
         <div>Settings are available in your client portal.</div>
-        <button
+        <Button
           type="button"
-          className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-[rgb(var(--accent-foreground))] shadow-sm hover:bg-accent-600"
+          variant="primary"
           onClick={() => navigate('/auth', true)}
         >
           Go to sign in
-        </button>
+        </Button>
       </div>
     );
   }
@@ -346,13 +348,13 @@ function RootRoute() {
       <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center text-sm text-red-300">
         <p className="text-base font-semibold text-red-200">Activation stalled</p>
         <p className="max-w-md text-red-100">{activationError}</p>
-        <button
+        <Button
           type="button"
-          className="rounded-lg bg-red-500/20 px-4 py-2 font-medium text-red-100 hover:bg-red-500/30"
+          variant="danger"
           onClick={() => window.location.reload()}
         >
           Reload and try again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -823,8 +825,8 @@ async function mountClientApp() {
     document.documentElement.classList.add('dark');
   }
 
-  // Initialize default accent color before practice details load.
-  initializeAccentColor('gold');
+  // Initialize default accent color before workspace/practice details load.
+  initializeAccentColor();
 
   initI18n()
     .then(() => {

@@ -39,10 +39,10 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   const profileImage = session?.user?.image ?? null;
 
   const baseClasses = variant === 'bottom'
-    ? 'flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-    : 'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
-  const activeClasses = 'bg-accent-500/15 text-[rgb(var(--accent-foreground))] border-accent-500/50 shadow-lg shadow-accent-500/10 backdrop-blur-xl';
-  const inactiveClasses = 'bg-transparent text-input-text/70 border-transparent hover:bg-white/[0.08] hover:text-input-text backdrop-blur-xl';
+    ? 'btn btn-tab flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
+    : 'btn btn-tab flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+  const activeClasses = 'active nav-item-active';
+  const inactiveClasses = 'nav-item-inactive backdrop-blur-xl';
   const containerClasses = variant === 'bottom'
     ? (showPracticeTabs
       ? 'grid grid-cols-5 gap-2'

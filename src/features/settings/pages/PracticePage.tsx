@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
+import { FormActions } from '@/shared/ui/form';
 import type { Address } from '@/shared/types/address';
 import Modal from '@/shared/components/Modal';
 import { Input, LogoUploadInput, Switch } from '@/shared/ui/input';
@@ -890,10 +891,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                       </Button>
                     ) : (
                       <Button
-                        variant="ghost"
+                        variant="danger-ghost"
                         size="sm"
                         onClick={() => setShowDeleteModal(true)}
-                        className="text-red-600 hover:text-red-700"
                         data-testid="practice-delete-action"
                       >
                         <TrashIcon className="w-4 h-4 mr-2" />
@@ -997,18 +997,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setIsEditPracticeModalOpen(false)}
-              disabled={isSettingsSaving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving || logoUploading}>
-              Save Changes
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setIsEditPracticeModalOpen(false)}
+            onSubmit={handleUpdatePractice}
+            submitType="button"
+            submitText="Save Changes"
+            submitDisabled={isSettingsSaving || logoUploading}
+            cancelDisabled={isSettingsSaving}
+          />
         </div>
       </Modal>
 
@@ -1071,18 +1068,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setIsContactModalOpen(false)}
-              disabled={isSettingsSaving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveContact} disabled={isSettingsSaving}>
-              Save
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setIsContactModalOpen(false)}
+            onSubmit={handleSaveContact}
+            submitType="button"
+            submitText="Save"
+            disabled={isSettingsSaving}
+          />
         </div>
       </Modal>
 
@@ -1118,17 +1111,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             </div>
           </FormGrid>
           
-          <div className="flex justify-end gap-3 pt-4">
-            <Button 
-              variant="secondary" 
-              onClick={() => setShowCreateModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreatePractice}>
-              Create Practice
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setShowCreateModal(false)}
+            onSubmit={handleCreatePractice}
+            submitType="button"
+            submitText="Create Practice"
+          />
         </div>
       </Modal>
 
@@ -1160,19 +1149,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             />
           </div>
           
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="ghost"
-              onClick={handleDeletePractice}
-              disabled={deleteConfirmText.trim() !== practice?.name}
-              className="text-red-600 hover:text-red-700"
-            >
-              Delete Practice
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setShowDeleteModal(false)}
+            onSubmit={handleDeletePractice}
+            submitType="button"
+            submitVariant="danger-ghost"
+            submitText="Delete Practice"
+            submitDisabled={deleteConfirmText.trim() !== practice?.name}
+          />
         </div>
       </Modal>
 

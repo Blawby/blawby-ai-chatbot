@@ -1,4 +1,4 @@
-import { Form, FormField, FormItem } from '@/shared/ui/form';
+import { Form, FormField, FormItem, FormActions } from '@/shared/ui/form';
 import { cn } from '@/shared/utils/cn';
 import { getFieldEntry, applyFieldAdapter, reverseFieldAdapter } from './fieldRegistry';
 import { useState } from 'preact/hooks';
@@ -98,6 +98,7 @@ export function SmartForm<T extends z.ZodType>({
           // Add options for select components
           if (fieldEntry.options) {
             componentProps.options = fieldEntry.options;
+            componentProps.searchable = false;
           }
           
           return <Component {...componentProps} />;
@@ -134,28 +135,14 @@ export function SmartForm<T extends z.ZodType>({
       ))}
 
       {showActions && (onCancel || submitText) && (
-        <div className={cn(
-          'flex gap-3 pt-4',
-          config.layout === 'grid' && 'col-span-full'
-        )}>
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={disabled}
-              className="px-4 py-2 text-sm font-medium text-input-text glass-input rounded-md hover:bg-surface-glass/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {cancelText}
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={disabled}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitText}
-          </button>
-        </div>
+        <FormActions
+          className={cn(config.layout === 'grid' && 'col-span-full')}
+          onCancel={onCancel}
+          cancelText={cancelText}
+          submitText={submitText}
+          disabled={disabled}
+          submitType="submit"
+        />
       )}
     </Form>
   );

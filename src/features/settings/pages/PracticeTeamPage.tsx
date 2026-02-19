@@ -8,13 +8,14 @@ import { normalizeSeats } from '@/shared/utils/subscription';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
-import { Select } from '@/shared/ui/input/Select';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
+import { FormActions } from '@/shared/ui/form';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -289,24 +290,24 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
 
               <div>
                 <FormLabel htmlFor="invite-role">Role</FormLabel>
-                <Select
+                <Combobox
                   value={inviteForm.role}
                   options={[
                     ...teamRoleOptions
                   ]}
                   onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
+                  searchable={false}
                 />
               </div>
             </FormGrid>
 
-            <div className="flex gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setIsInvitingMember(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSendInvitation}>
-                Send Invitation
-              </Button>
-            </div>
+            <FormActions
+              className="gap-2 pt-2"
+              onCancel={() => setIsInvitingMember(false)}
+              onSubmit={handleSendInvitation}
+              submitType="button"
+              submitText="Send Invitation"
+            />
           </div>
         )}
 
@@ -323,34 +324,33 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
 
             <div>
               <FormLabel htmlFor="member-role">Role</FormLabel>
-              <Select
+              <Combobox
                 value={editMemberData.role}
                 options={[
                   ...teamRoleOptions
                 ]}
                 onChange={(value) => setEditMemberData(prev => prev ? { ...prev, role: value as Role } : null)}
+                searchable={false}
               />
             </div>
 
             <div className="flex justify-between pt-2">
               <Button
-                variant="ghost"
+                variant="danger-ghost"
                 onClick={() => handleRemoveMember(editMemberData)}
-                className="text-red-600 hover:text-red-700"
               >
                 Remove Member
               </Button>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => {
+              <FormActions
+                className="gap-2 pt-0"
+                onCancel={() => {
                   setIsEditingMember(false);
                   setEditMemberData(null);
-                }}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateMemberRole}>
-                  Save Changes
-                </Button>
-              </div>
+                }}
+                onSubmit={handleUpdateMemberRole}
+                submitType="button"
+                submitText="Save Changes"
+              />
             </div>
           </div>
         )}

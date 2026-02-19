@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { DatePicker, Input, NumberInput, Select, Textarea } from '@/shared/ui/input';
+import { DatePicker, Input, NumberInput, Textarea } from '@/shared/ui/input';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import type { MatterTask } from '@/features/matters/data/matterTypes';
 
 const buildDateString = (date: Date) => {
@@ -99,12 +100,13 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
           >
             Status
           </span>
-          <Select
+          <Combobox
             value={formState.status}
             options={STATUS_OPTIONS}
             onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
             aria-labelledby="matter-task-status-label"
             className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+            searchable={false}
           />
         </div>
       </div>

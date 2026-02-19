@@ -7,6 +7,7 @@ import { SplitView } from '@/shared/ui/layout/SplitView';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
+import { FormActions } from '@/shared/ui/form';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
@@ -778,14 +779,14 @@ export const PracticeClientsPage = () => {
           onChange={updateAddClientField}
           disabled={addClientSubmitting}
         />
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="secondary" onClick={handleCloseAddClient} disabled={addClientSubmitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmitAddClient} disabled={addClientSubmitting}>
-            {addClientSubmitting ? 'Saving...' : 'Add Client'}
-          </Button>
-        </div>
+        <FormActions
+          className="justify-end gap-2"
+          onCancel={handleCloseAddClient}
+          onSubmit={handleSubmitAddClient}
+          submitType="button"
+          submitText={addClientSubmitting ? 'Saving...' : 'Add Client'}
+          disabled={addClientSubmitting}
+        />
       </div>
     </Modal>
   );
@@ -808,14 +809,14 @@ export const PracticeClientsPage = () => {
           onChange={updateEditClientField}
           disabled={editClientSubmitting}
         />
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="secondary" onClick={handleCloseEditClient} disabled={editClientSubmitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmitEditClient} disabled={editClientSubmitting}>
-            {editClientSubmitting ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
+        <FormActions
+          className="justify-end gap-2"
+          onCancel={handleCloseEditClient}
+          onSubmit={handleSubmitEditClient}
+          submitType="button"
+          submitText={editClientSubmitting ? 'Saving...' : 'Save Changes'}
+          disabled={editClientSubmitting}
+        />
       </div>
     </Modal>
   );

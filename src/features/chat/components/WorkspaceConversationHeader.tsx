@@ -2,6 +2,7 @@ import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
+import { Button } from '@/shared/ui/Button';
 
 interface WorkspaceConversationHeaderProps {
   practiceName?: string | null;
@@ -43,14 +44,16 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
 
   return (
     <header className="flex min-h-[56px] items-center gap-3 border-b border-line-glass/30 bg-transparent px-4 py-3">
-      <button
+      <Button
         type="button"
+        variant="icon"
+        size="icon-sm"
         onClick={onBack}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-input-placeholder transition hover:bg-surface-glass/40 hover:text-input-text"
+        className="text-input-placeholder hover:text-input-text"
         aria-label={t('workspace.header.back')}
       >
         <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
-      </button>
+      </Button>
       <Avatar
         src={practiceLogo}
         name={resolvedName}

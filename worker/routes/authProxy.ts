@@ -5,7 +5,18 @@ import { optionalAuth } from '../middleware/auth.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
+const SUBSCRIPTIONS_PLANS_PATH = '/api/subscriptions/plans';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
+const SUBSCRIPTIONS_PLANS_CACHE_TTL_MS = 60 * 1000;
+type CachedProxyResponse = {
+  status: number;
+  statusText: string;
+  headers: Array<[string, string]>;
+  body: ArrayBuffer;
+  expiresAt: number;
+};
+const subscriptionsPlansCache = new Map<string, CachedProxyResponse>();
+const subscriptionsPlansInflight = new Map<string, Promise<void>>();
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
   '/api/matters',
@@ -196,6 +207,15 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 const isBackendProxyPath = (path: string): boolean =>
   BACKEND_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 
+const getSubscriptionsPlansCacheKey = (url: URL): string => `${url.pathname}${url.search}`;
+
+const responseFromCache = (cached: CachedProxyResponse): Response =>
+  new Response(cached.body.slice(0), {
+    status: cached.status,
+    statusText: cached.statusText,
+    headers: new Headers(cached.headers)
+  });
+
 export async function handleBackendProxy(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (!isBackendProxyPath(url.pathname)) {
@@ -208,6 +228,33 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
 
   const method = request.method.toUpperCase();
   const requestHost = resolveRequestHost(request);
+  const isSubscriptionsPlansRequest = method === 'GET' && url.pathname === SUBSCRIPTIONS_PLANS_PATH;
+  const plansCacheKey = isSubscriptionsPlansRequest
+    ? getSubscriptionsPlansCacheKey(url)
+    : null;
+
+  if (isSubscriptionsPlansRequest && plansCacheKey) {
+    const cached = subscriptionsPlansCache.get(plansCacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return responseFromCache(cached);
+    }
+    if (cached) {
+      subscriptionsPlansCache.delete(plansCacheKey);
+    }
+
+    const inflight = subscriptionsPlansInflight.get(plansCacheKey);
+    if (inflight) {
+      await inflight.catch(() => undefined);
+      const refreshed = subscriptionsPlansCache.get(plansCacheKey);
+      if (refreshed && refreshed.expiresAt > Date.now()) {
+        return responseFromCache(refreshed);
+      }
+      if (refreshed) {
+        subscriptionsPlansCache.delete(plansCacheKey);
+      }
+    }
+  }
+
   let resolvedReferenceId: string | null = null;
   if (url.pathname === SUBSCRIPTIONS_CURRENT_PATH) {
     const hasReferenceId =
@@ -240,54 +287,101 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     init.body = await request.arrayBuffer();
   }
 
-  const response = await fetch(targetUrl.toString(), init);
+  const fetchBackendResponse = async (): Promise<Response> => {
+    const response = await fetch(targetUrl.toString(), init);
 
-  // Log errors for debugging
-  if (!response.ok) {
-    let responseSnippet = 'response body withheld';
-    const contentType = response.headers.get('Content-Type') || '';
-    
-    if (contentType.includes('application/json')) {
-      try {
-        const json = await response.clone().json() as unknown;
-        const safeData: Record<string, unknown> = {};
-        const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
-        
-        const extractSafe = (source: unknown) => {
-          if (!source || typeof source !== 'object') return;
-          for (const key of allowlist) {
-            const sourceRecord = source as Record<string, unknown>;
-            if (sourceRecord[key] !== undefined) {
-              if (typeof sourceRecord[key] === 'object' && key === 'error') {
-                extractSafe(sourceRecord[key]);
-              } else {
-                safeData[key] = sourceRecord[key];
+    // Log errors for debugging
+    if (!response.ok) {
+      let responseSnippet = 'response body withheld';
+      const contentType = response.headers.get('Content-Type') || '';
+
+      if (contentType.includes('application/json')) {
+        try {
+          const json = await response.clone().json() as unknown;
+          const safeData: Record<string, unknown> = {};
+          const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
+
+          const extractSafe = (source: unknown) => {
+            if (!source || typeof source !== 'object') return;
+            for (const key of allowlist) {
+              const sourceRecord = source as Record<string, unknown>;
+              if (sourceRecord[key] !== undefined) {
+                if (typeof sourceRecord[key] === 'object' && key === 'error') {
+                  extractSafe(sourceRecord[key]);
+                } else {
+                  safeData[key] = sourceRecord[key];
+                }
               }
             }
+          };
+
+          extractSafe(json);
+          const blacklist = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
+          for (const key of blacklist) {
+            delete safeData[key];
           }
-        };
-        
-        extractSafe(json);
-        const blacklist = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
-        for (const key of blacklist) {
-          delete safeData[key];
+          responseSnippet = JSON.stringify(safeData);
+        } catch {
+          // ignore parsing failures
         }
-        responseSnippet = JSON.stringify(safeData);
-      } catch {
-        // ignore parsing failures
       }
+
+      console.error(`[Backend Proxy Error] ${method} ${url.pathname}`, {
+        status: response.status,
+        statusText: response.statusText,
+        hasRequestBody: Boolean(init.body),
+        contentType,
+        hasAuthorization: Boolean(headers.get('Authorization')),
+        responseSnippet: responseSnippet.slice(0, 500)
+      });
     }
 
-    console.error(`[Backend Proxy Error] ${method} ${url.pathname}`, {
-      status: response.status,
-      statusText: response.statusText,
-      hasRequestBody: Boolean(init.body),
-      contentType,
-      hasAuthorization: Boolean(headers.get('Authorization')),
-      responseSnippet: responseSnippet.slice(0, 500)
+    return response;
+  };
+
+  if (isSubscriptionsPlansRequest && plansCacheKey) {
+    let resolveInflight: (() => void) | null = null;
+    let rejectInflight: ((reason?: unknown) => void) | null = null;
+    const inflightPromise = new Promise<void>((resolve, reject) => {
+      resolveInflight = resolve;
+      rejectInflight = reject;
     });
+    subscriptionsPlansInflight.set(plansCacheKey, inflightPromise);
+
+    try {
+      const response = await fetchBackendResponse();
+      const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(response, requestHost);
+      const body = await response.arrayBuffer();
+
+      if (response.ok && !hasSetCookie) {
+        const serializedHeaders: Array<[string, string]> = [];
+        proxyHeaders.forEach((value, key) => {
+          serializedHeaders.push([key, value]);
+        });
+        subscriptionsPlansCache.set(plansCacheKey, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: serializedHeaders,
+          body,
+          expiresAt: Date.now() + SUBSCRIPTIONS_PLANS_CACHE_TTL_MS
+        });
+      }
+
+      resolveInflight?.();
+      return new Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: proxyHeaders
+      });
+    } catch (error) {
+      rejectInflight?.(error);
+      throw error;
+    } finally {
+      subscriptionsPlansInflight.delete(plansCacheKey);
+    }
   }
-  
+
+  const response = await fetchBackendResponse();
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
   return new Response(response.body, {
     status: response.status,

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
-import { Select } from '@/shared/ui/input/Select';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
@@ -113,12 +113,13 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="w-full">
           <span className="block text-sm font-medium text-input-text mb-1">Date</span>
-          <Select
+          <Combobox
             value={formState.date}
             options={dateOptions}
             onChange={(value) => setFormState((prev) => ({ ...prev, date: value }))}
             disabled={lockDate}
             className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+            searchable={false}
           />
         </div>
         <div>

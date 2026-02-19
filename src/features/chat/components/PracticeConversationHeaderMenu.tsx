@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
+import { Button } from '@/shared/ui/Button';
 import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 
@@ -32,13 +33,15 @@ const PracticeConversationHeaderMenu: FunctionComponent<PracticeConversationHead
     <Fragment>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line-glass/30 bg-surface-glass/40 text-input-text transition hover:bg-surface-glass/60"
+            variant="icon"
+            size="icon-sm"
+            className="border border-line-glass/30 bg-surface-glass/40 hover:bg-surface-glass/60"
             aria-label="Conversation actions"
           >
             <LinkIcon className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onSelect={() => setIsLinkModalOpen(true)} disabled={!canLinkMatter}>

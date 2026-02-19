@@ -142,7 +142,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       <Button
         type="button"
         variant="icon"
-        size="md"
+        size="icon-sm"
         ref={triggerRef}
         disabled={!isReadyToUpload}
         onClick={() => isReadyToUpload && setIsOpen(!isOpen)}
@@ -152,12 +152,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-haspopup="menu"
         aria-controls="attachment-menu"
         aria-expanded={isOpen}
-        className="
-          w-10 h-10 rounded-full shadow-lg transition-all duration-200
-          bg-white/10 border border-white/20 text-input-text
-          hover:bg-white/20 hover:scale-105
-          disabled:opacity-60 disabled:cursor-not-allowed
-        "
+        className="shadow-lg bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
         icon={<PlusIcon className="w-5 h-5" aria-hidden="true" />}
       />
 
@@ -175,15 +170,11 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         >
           <Button
             type="button"
-            variant="ghost"
+            variant="menu-item"
             role="menuitem"
             ref={firstMenuItemRef}
             onClick={handleFileClick}
-            className="
-              file-menu-item w-full px-3 py-3 rounded-xl flex items-center justify-between
-              text-input-text hover:bg-white/10 transition-colors
-              text-xs sm:text-sm
-            "
+            className="file-menu-item py-3 text-xs sm:text-sm"
           >
             <span>Add photos &amp; files</span>
             <PhotoIcon className="w-5 h-5" aria-hidden="true" />
@@ -191,15 +182,10 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
 
           <Button
             type="button"
-            variant="ghost"
+            variant="menu-item"
             role="menuitem"
             onClick={openCamera}
-            className="
-              file-menu-item w-full px-3 py-3 rounded-xl flex items-center justify-between
-              text-input-text hover:bg-white/10 transition-colors
-              border-t border-white/10
-              text-xs sm:text-sm
-            "
+            className="file-menu-item py-3 border-t border-white/10 text-xs sm:text-sm"
           >
             <span>Take Photo</span>
             <CameraIcon className="w-5 h-5" aria-hidden="true" />

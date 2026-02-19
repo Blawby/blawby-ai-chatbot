@@ -163,9 +163,9 @@ export const MatterDetailHeader = ({
                 type="button"
                 onClick={() => onTabChange(tab.id)}
                 className={[
-                  'whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition-colors rounded-none',
+                  'btn btn-tab whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition-colors rounded-none',
                   isActive
-                    ? 'border-accent-500 text-input-text'
+                    ? 'active border-accent-500 text-input-text'
                     : 'border-transparent text-input-placeholder hover:border-line-glass/30 hover:text-input-text'
                 ].join(' ')}
               >

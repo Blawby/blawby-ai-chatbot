@@ -191,11 +191,16 @@ export const fetchPlans = async (
     signal: config?.signal
   });
 
-  if (!Array.isArray(response.data)) {
-    throw new Error('Invalid /api/subscriptions/plans payload: expected an array.');
+  const payload = response.data;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Invalid /api/subscriptions/plans payload: expected an object with a plans array.');
+  }
+  const plans = (payload as { plans?: unknown }).plans;
+  if (!Array.isArray(plans)) {
+    throw new Error('Invalid /api/subscriptions/plans payload: missing plans array.');
   }
 
-  const normalized = normalizePlans(response.data as unknown[]);
+  const normalized = normalizePlans(plans as unknown[]);
   for (const plan of normalized) {
     if (!plan.id || !plan.name || !plan.displayName || !plan.stripeProductId || !plan.stripeMonthlyPriceId || !plan.currency) {
       throw new Error('Invalid /api/subscriptions/plans payload: missing required plan fields.');

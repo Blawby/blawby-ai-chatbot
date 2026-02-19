@@ -60,10 +60,9 @@ export function ServicesList({
                   Edit
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="danger-ghost"
                   size="sm"
                   onClick={() => onRemoveService(service.id)}
-                  className="text-red-600 hover:text-red-700"
                   aria-label={`Remove ${service.title}`}
                 >
                   <TrashIcon className="w-4 h-4" />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
-import { Button } from '@/shared/ui/Button';
+import { FormActions } from '@/shared/ui/form';
 import { handleError } from '@/shared/utils/errorHandler';
 
 interface ConfirmationDialogProps {
@@ -206,35 +206,21 @@ export default function ConfirmationDialog({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-line-glass/30">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="min-w-[80px]"
-            disabled={isLoading}
-          >
-            {cancelText}
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={
-              isLoading ||
-              inputValue.trim() !== confirmationValue.trim() ||
-              (requirePassword && !passwordValue)
-            }
-            className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500 min-w-[80px] disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {isLoading ? 'Processing...' : confirmText}
-          </Button>
-        </div>
+        <FormActions
+          className="justify-end border-t border-line-glass/30"
+          size="sm"
+          onCancel={onClose}
+          cancelText={cancelText}
+          submitText={isLoading ? 'Processing...' : confirmText}
+          submitType="submit"
+          submitVariant="danger"
+          submitDisabled={
+            isLoading ||
+            inputValue.trim() !== confirmationValue.trim() ||
+            (requirePassword && !passwordValue)
+          }
+          cancelDisabled={isLoading}
+        />
       </form>
     </Modal>
   );
