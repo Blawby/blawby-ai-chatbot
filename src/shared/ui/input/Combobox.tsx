@@ -57,6 +57,7 @@ type BaseProps = {
   direction?: 'up' | 'down';
   description?: string;
   'aria-labelledby'?: string;
+  id?: string;
 };
 
 export type ComboboxProps =
@@ -68,7 +69,11 @@ export type ComboboxProps =
 // ---------------------------------------------------------------------------
 
 const normalize = (s: string) =>
-  s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  s.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -192,9 +197,11 @@ export function Combobox({
   direction = 'down',
   description,
   'aria-labelledby': ariaLabelledBy,
+  id,
 }: ComboboxProps) {
   const isMultiple = multiple === true;
-  const inputId = useMemo(() => `cbx-${uid()}`, []);
+  const internalId = useMemo(() => `cbx-${uid()}`, []);
+  const inputId = id || internalId;
   const listboxId = `${inputId}-listbox`;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -283,15 +290,22 @@ export function Combobox({
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setQuery('');
-        setFocusedIndex(-1);
+      if (!isOpen || !containerRef.current) return;
+
+      if (!containerRef.current.contains(e.target as Node)) {
+        const isInteractive = (e.target as Element).closest('button, a, input, select, textarea, [tabindex]');
+        if (isInteractive) {
+          setIsOpen(false);
+          setQuery('');
+          setFocusedIndex(-1);
+        } else {
+          close();
+        }
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [isOpen, close]);
 
   // ------------------------------------------------------------------
   // Value helpers
@@ -493,8 +507,7 @@ export function Combobox({
         className={cn(
           'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
           'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
-          isOpen && 'ring-2 ring-accent-500/50',
-          className
+          isOpen && 'ring-2 ring-accent-500/50'
         )}
       >
         {triggerContent}

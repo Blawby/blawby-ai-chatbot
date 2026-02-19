@@ -291,10 +291,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               <div>
                 <FormLabel htmlFor="invite-role">Role</FormLabel>
                 <Combobox
+                  id="invite-role"
                   value={inviteForm.role}
-                  options={[
-                    ...teamRoleOptions
-                  ]}
+                  options={teamRoleOptions}
                   onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
                   searchable={false}
                 />
@@ -325,10 +324,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
             <div>
               <FormLabel htmlFor="member-role">Role</FormLabel>
               <Combobox
+                id="member-role"
                 value={editMemberData.role}
-                options={[
-                  ...teamRoleOptions
-                ]}
+                options={teamRoleOptions}
                 onChange={(value) => setEditMemberData(prev => prev ? { ...prev, role: value as Role } : null)}
                 searchable={false}
               />

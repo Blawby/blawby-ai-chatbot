@@ -112,7 +112,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   const getStrengthColor = (strength: number) => {
     if (strength <= 1) return 'text-red-600 dark:text-red-400';
     if (strength <= 2) return 'text-yellow-600 dark:text-yellow-400';
-    if (strength <= 3) return 'text-blue-600 dark:text-blue-400';
+    if (strength <= 3) return 'text-accent-600 dark:text-accent-400';
     return 'text-green-600 dark:text-green-400';
   };
 
@@ -193,7 +193,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
                 'h-1 rounded-full transition-all duration-300',
                 strength <= 1 ? 'bg-red-500' :
                 strength <= 2 ? 'bg-yellow-500' :
-                strength <= 3 ? 'bg-blue-500' : 'bg-green-500'
+                strength <= 3 ? 'bg-accent-500' : 'bg-green-500'
               )}
               style={{ width: `${(strength / 5) * 100}%` }}
             />

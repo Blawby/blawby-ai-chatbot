@@ -20,7 +20,7 @@ export const FormMessage = ({
     error: 'text-red-600 dark:text-red-400',
     success: 'text-green-600 dark:text-green-400',
     warning: 'text-yellow-600 dark:text-yellow-400',
-    info: 'text-blue-600 dark:text-blue-400'
+    info: 'text-accent-600 dark:text-accent-400'
   };
 
   return (

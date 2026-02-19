@@ -216,6 +216,15 @@ const responseFromCache = (cached: CachedProxyResponse): Response =>
     headers: new Headers(cached.headers)
   });
 
+const cleanupExpiredCache = () => {
+  const now = Date.now();
+  for (const [key, cached] of subscriptionsPlansCache.entries()) {
+    if (cached.expiresAt <= now) {
+      subscriptionsPlansCache.delete(key);
+    }
+  }
+};
+
 export async function handleBackendProxy(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (!isBackendProxyPath(url.pathname)) {
@@ -358,6 +367,7 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
         proxyHeaders.forEach((value, key) => {
           serializedHeaders.push([key, value]);
         });
+        cleanupExpiredCache();
         subscriptionsPlansCache.set(plansCacheKey, {
           status: response.status,
           statusText: response.statusText,

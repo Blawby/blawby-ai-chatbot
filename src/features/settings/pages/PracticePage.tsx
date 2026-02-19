@@ -190,6 +190,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   
   const [isEditPracticeModalOpen, setIsEditPracticeModalOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -344,11 +345,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
 
   const handleCreatePractice = async () => {
+    if (isSettingsSaving) return;
     if (!createForm.name.trim()) {
       showError('Practice name is required');
       return;
     }
 
+    setIsSettingsSaving(true);
     try {
       await createPractice({
         name: createForm.name,
@@ -358,8 +361,10 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       showSuccess('Practice created successfully!');
       setShowCreateModal(false);
       setCreateForm({ name: '', description: '' });
-		} catch (err) {
+    } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to create practice');
+    } finally {
+      setIsSettingsSaving(false);
     }
   };
 
@@ -544,14 +549,17 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       return;
     }
 
+    setIsDeleting(true);
     try {
       await deletePractice(practice.id);
       showSuccess('Practice deleted successfully!');
       setShowDeleteModal(false);
       setDeleteConfirmText('');
       navigate('/');
-		} catch (err) {
+    } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to delete practice');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1117,6 +1125,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             onSubmit={handleCreatePractice}
             submitType="button"
             submitText="Create Practice"
+            isLoading={isSettingsSaving}
           />
         </div>
       </Modal>
@@ -1151,11 +1160,12 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           
           <FormActions
             className="justify-end"
-            onCancel={() => setShowDeleteModal(false)}
+            onCancel={() => !isDeleting && setShowDeleteModal(false)}
             onSubmit={handleDeletePractice}
             submitType="button"
             submitVariant="danger-ghost"
             submitText="Delete Practice"
+            isLoading={isDeleting}
             submitDisabled={deleteConfirmText.trim() !== practice?.name}
           />
         </div>
