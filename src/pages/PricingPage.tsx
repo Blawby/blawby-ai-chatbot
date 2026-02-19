@@ -37,6 +37,7 @@ const PricingPage = () => {
         isOpen
         onClose={handleClose}
         type="modal"
+        showCloseButton={false}
         mobileBehavior="drawer"
         contentClassName="max-w-xl w-full"
       >

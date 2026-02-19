@@ -39,7 +39,7 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
-  accentColor: 'grey',
+  accentColor: 'gold',
   voice: {
     enabled: false,
     provider: 'cloudflare',
@@ -169,7 +169,7 @@ export const usePracticeConfig = ({
             profileImage: publicDetails.logo ?? null,
             introMessage: details?.introMessage ?? '',
             description: details?.description ?? '',
-            accentColor: details?.accentColor ?? 'grey',
+            accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
           });
 
@@ -226,7 +226,7 @@ export const usePracticeConfig = ({
           serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
-          accentColor: cfg.accentColor ?? 'grey',
+          accentColor: cfg.accentColor ?? 'gold',
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',

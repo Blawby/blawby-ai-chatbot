@@ -59,7 +59,7 @@ export const PracticeSetup = ({
     name: '',
     slug: '',
     introMessage: '',
-    accentColor: '#737373'
+    accentColor: '#D4AF37'
   });
   const [contactDraft, setContactDraft] = useState<ContactFormValues>({
     website: '',
@@ -83,7 +83,7 @@ export const PracticeSetup = ({
     name: practice?.name ?? '',
     slug: practice?.slug ?? '',
     introMessage: details?.introMessage ?? practice?.introMessage ?? '',
-    accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#737373'
+    accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37'
   }), [practice?.name, practice?.slug, practice?.introMessage, details?.introMessage, details?.accentColor, practice?.accentColor]);
 
   const currentContactFromProps = useMemo(() => ({
@@ -289,15 +289,15 @@ export const PracticeSetup = ({
               <div className="flex items-center gap-2">
                 <div
                   className="relative h-12 w-12 min-h-12 min-w-12 max-h-12 max-w-12 shrink-0 overflow-hidden rounded-full aspect-square"
-                  style={{ backgroundColor: normalizeAccentColor(basicsDraft.accentColor) ?? '#737373' }}
+                  style={{ backgroundColor: normalizeAccentColor(basicsDraft.accentColor) ?? '#D4AF37' }}
                 >
                   <input
                     id="practice-setup-accent-color"
                     type="color"
-                    value={normalizeAccentColor(basicsDraft.accentColor) ?? '#737373'}
+                    value={normalizeAccentColor(basicsDraft.accentColor) ?? '#D4AF37'}
                     onChange={(e) => {
                       const value = (e.target as HTMLInputElement).value;
-                      setBasicsDraft((prev) => ({ ...prev, accentColor: normalizeAccentColor(value) ?? '#737373' }));
+                      setBasicsDraft((prev) => ({ ...prev, accentColor: normalizeAccentColor(value) ?? '#D4AF37' }));
                     }}
                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   />
@@ -312,7 +312,7 @@ export const PracticeSetup = ({
                     const normalized = normalizeAccentColor(value);
                     setBasicsDraft((prev) => ({
                       ...prev,
-                      accentColor: normalized ? normalized : (prev.accentColor && normalizeAccentColor(prev.accentColor)) ? prev.accentColor : '#737373'
+                      accentColor: normalized ? normalized : (prev.accentColor && normalizeAccentColor(prev.accentColor)) ? prev.accentColor : '#D4AF37'
                     }));
                   }}
                   placeholder="#3B82F6"

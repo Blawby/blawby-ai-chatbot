@@ -252,7 +252,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const introMessageValue = typeof onboardingData.introMessage === 'string'
     ? onboardingData.introMessage.trim()
     : '';
-  const accentColorValue = normalizeAccentColor(onboardingData.accentColor) ?? '#737373';
+  const accentColorValue = normalizeAccentColor(onboardingData.accentColor) ?? '#D4AF37';
   const introPreview = introMessageValue ? truncateText(introMessageValue, 140) : 'Not set';
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
@@ -299,7 +299,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     address: undefined,
   });
   const [introDraft, setIntroDraft] = useState('');
-  const [accentColorDraft, setAccentColorDraft] = useState('#737373');
+  const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
   const modalContentClassName = 'bg-surface-glass bg-opacity-70 border-line-glass border-opacity-30 backdrop-blur-2xl';
   const modalHeaderClassName = 'bg-surface-glass bg-opacity-60 border-line-glass border-opacity-30 backdrop-blur-xl';
 
@@ -972,15 +972,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <div className="flex items-center gap-2">
               <div
                 className="relative h-10 w-10 min-h-10 min-w-10 max-h-10 max-w-10 shrink-0 overflow-hidden rounded-full aspect-square"
-                style={{ backgroundColor: normalizeAccentColor(accentColorDraft) ?? '#737373' }}
+                style={{ backgroundColor: normalizeAccentColor(accentColorDraft) ?? '#D4AF37' }}
               >
                 <input
                   id="practice-accent-color"
                   type="color"
-                  value={normalizeAccentColor(accentColorDraft) ?? '#737373'}
+                  value={normalizeAccentColor(accentColorDraft) ?? '#D4AF37'}
                   onChange={(event) => {
                     const value = (event.target as HTMLInputElement).value;
-                    setAccentColorDraft(normalizeAccentColor(value) ?? '#737373');
+                    setAccentColorDraft(normalizeAccentColor(value) ?? '#D4AF37');
                   }}
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   disabled={isSettingsSaving}

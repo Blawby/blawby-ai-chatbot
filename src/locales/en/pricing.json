@@ -277,10 +277,11 @@
     }
   },
   "billing": {
-    "monthly": "month",
+    "monthly": "Monthly",
+    "annually": "Annually",
     "yearly": "year",
-    "billedMonthly": "Billed monthly",
-    "billedAnnually": "Billed annually",
+    "billedMonthly": "Billed monthly. Cancel anytime.",
+    "billedAnnually": "Billed annually. Cancel anytime.",
     "noPracticeSelected": "No practice selected",
     "selectPracticeToManage": "Please select a practice to manage billing.",
     "unableOpenPortal": "Unable to open billing portal",

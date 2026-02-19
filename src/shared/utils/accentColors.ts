@@ -118,7 +118,7 @@ export const ACCENT_COLORS: Record<AccentColor, Record<string, string>> = {
   },
 };
 
-const DEFAULT_ACCENT_COLOR: AccentColor = 'grey';
+const DEFAULT_ACCENT_COLOR: AccentColor = 'gold';
 const HEX_COLOR_PATTERN = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
 const rgbStringToHex = (value: string): string | null => {
@@ -261,8 +261,8 @@ export function initializeAccentColor(savedColor?: string | null): void {
  */
 export function getAccentColorDisplayName(color: AccentColor): string {
   const names: Record<AccentColor, string> = {
-    grey: 'Grey (Default)',
-    gold: 'Gold',
+    grey: 'Grey',
+    gold: 'Gold (Default)',
     blue: 'Blue',
     green: 'Green',
     yellow: 'Yellow',

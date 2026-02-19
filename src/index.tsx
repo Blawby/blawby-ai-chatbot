@@ -824,7 +824,7 @@ async function mountClientApp() {
   }
 
   // Initialize default accent color before practice details load.
-  initializeAccentColor('grey');
+  initializeAccentColor('gold');
 
   initI18n()
     .then(() => {

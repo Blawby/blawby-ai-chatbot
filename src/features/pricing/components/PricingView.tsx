@@ -2,27 +2,21 @@ import { FunctionComponent } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Switch } from '@/shared/ui/input';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { SegmentedToggle } from '@/shared/ui/input';
+import { CheckIcon } from '@heroicons/react/20/solid';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { i18n } from '@/shared/i18n';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
+type BillingPeriod = 'monthly' | 'yearly';
+
 interface PricingViewProps {
   onUpgrade?: (priceId: string) => Promise<boolean | void> | boolean | void;
   className?: string;
 }
-
-const mapFeatures = (plan: SubscriptionPlan): PlanFeature[] => {
-  if (!Array.isArray(plan.features)) return [];
-  return plan.features
-    .filter((feature): feature is string => typeof feature === 'string' && feature.trim().length > 0)
-    .map((feature) => ({ icon: PlusIcon, text: feature }));
-};
 
 const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade }) => {
   const { t } = useTranslation(['pricing', 'common']);
@@ -32,7 +26,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isYearly, setIsYearly] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
 
   useEffect(() => {
     let mounted = true;
@@ -84,6 +78,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
 
   const handleUpgrade = async (plan: SubscriptionPlan) => {
     const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
+    const isYearly = billingPeriod === 'yearly';
     const selectedPriceId = isYearly && hasYearly
       ? plan.stripeYearlyPriceId
       : plan.stripeMonthlyPriceId;
@@ -109,78 +104,99 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     }
   };
 
-  const features = mapFeatures(plan);
+  const isYearly = billingPeriod === 'yearly';
   const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
+  const features = Array.isArray(plan.features)
+    ? plan.features.filter((feature): feature is string => typeof feature === 'string' && feature.trim().length > 0)
+    : [];
   const monthlyPriceValue = Number.parseFloat(plan.monthlyPrice);
   const yearlyPriceValue = plan.yearlyPrice ? Number.parseFloat(plan.yearlyPrice) : NaN;
-  const selectedPriceValue = isYearly && hasYearly ? yearlyPriceValue : monthlyPriceValue;
+  const selectedPriceValue = isYearly && hasYearly
+    ? yearlyPriceValue
+    : monthlyPriceValue;
   const resolvedPriceValue = Number.isFinite(selectedPriceValue) ? selectedPriceValue : 0;
+  const periodLabel = isYearly && hasYearly
+    ? t('pricing:billing.yearly')
+    : t('pricing:billing.monthly');
   const billingDescription = isYearly && hasYearly
     ? t('pricing:billing.billedAnnually')
     : t('pricing:billing.billedMonthly');
-  const planImageSrc = plan.imageUrl && plan.imageUrl.trim().length > 0
-    ? plan.imageUrl
-    : '/blawby-favicon-iframe.png';
-
+  const monthlyLabel = t('pricing:billing.monthly');
+  const annuallyLabel = t('pricing:billing.annually', {
+    defaultValue: t('pricing:billing.yearly')
+  });
+  const billingOptions: Array<{ value: BillingPeriod; label: string; disabled?: boolean }> = [
+    { value: 'monthly', label: monthlyLabel },
+    { value: 'yearly', label: annuallyLabel, disabled: !hasYearly }
+  ];
   return (
     <div className={`w-full text-input-text ${className ?? ''}`}>
-      <div className="w-full px-1 pt-1 pb-2 md:px-2 md:pt-2 md:pb-3">
-        <div className="flex flex-col items-center text-center">
-          <img
-            src={planImageSrc}
-            alt={plan.displayName || plan.name}
-            className="h-12 w-12 rounded-xl object-cover"
-          />
-          <h1 data-testid="pricing-page-title" className="mt-5 text-4xl font-semibold tracking-tight text-input-text">
-            {plan.displayName || plan.name}
-          </h1>
-          {plan.description ? (
-            <p className="mt-3 max-w-md text-lg leading-7 text-input-placeholder">
-              {plan.description}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-7 rounded-3xl border border-line-glass/30 bg-surface-glass/20 p-4 md:p-5">
-          {features.length > 0 ? (
-            <PlanFeaturesList features={features} />
-          ) : (
-            <p className="text-sm text-input-placeholder">{t('pricing:noFeatures')}</p>
-          )}
-        </div>
-
-        <div className="mt-5 rounded-3xl border border-line-glass/30 bg-surface-glass/20 px-4 py-2 md:px-5">
-          <Switch
-            id="pricing-billing-period"
-            label={`${t('pricing:billing.monthly')} / ${t('pricing:billing.yearly')}`}
-            description={billingDescription}
-            value={hasYearly ? isYearly : false}
-            onChange={(nextValue) => setIsYearly(hasYearly ? nextValue : false)}
-            disabled={!hasYearly || submitting}
-          />
-        </div>
-
-        <div className="mt-7">
-          <Button
-            onClick={() => handleUpgrade(plan)}
-            variant="primary"
-            size="lg"
-            className="h-14 w-full rounded-full"
+      <div className="mx-auto w-full max-w-xl px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3">
+        <div className="flex justify-center pb-1">
+          <SegmentedToggle<BillingPeriod>
+            value={billingPeriod}
+            options={billingOptions}
+            onChange={setBillingPeriod}
+            ariaLabel="Payment frequency"
             disabled={submitting}
-          >
-            {submitting
-              ? t('pricing:modal.openingBilling')
-              : t('pricing:upgradeButton', {
-                  price: formatCurrency(
-                    resolvedPriceValue,
-                    plan.currency,
-                    i18n.language
-                  )
-                })}
-          </Button>
-          <p className="mt-3 text-center text-sm text-input-placeholder">
-            {billingDescription}
-          </p>
+          />
+        </div>
+
+        <div className="mt-7 px-2 md:px-4">
+          <div className="flex flex-col items-start text-left">
+            <h1 data-testid="pricing-page-title" className="text-3xl font-semibold tracking-tight text-input-text md:text-4xl">
+              {plan.displayName || plan.name}
+            </h1>
+            {plan.description ? (
+              <p className="mt-4 max-w-xl text-base leading-7 text-input-placeholder">
+                {plan.description}
+              </p>
+            ) : null}
+            <div className="mt-7 flex items-end gap-1.5">
+              <span className="text-5xl font-semibold tracking-tight text-input-text md:text-6xl">
+                {formatCurrency(resolvedPriceValue, plan.currency, i18n.language)}
+              </span>
+              <span className="pb-1 text-xl font-semibold text-input-placeholder md:pb-2 md:text-2xl">/{periodLabel}</span>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            {features.length > 0 ? (
+              <ul className="space-y-3 text-base text-input-placeholder">
+                {features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <CheckIcon className="mt-0.5 h-5 w-5 flex-none text-accent-500" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-base text-input-placeholder">{t('pricing:noFeatures')}</p>
+            )}
+          </div>
+
+          <div className="mt-8">
+            <Button
+              onClick={() => handleUpgrade(plan)}
+              variant="primary"
+              size="lg"
+              className="h-14 w-full border-accent-500/70 bg-accent-500/90 text-white hover:bg-accent-500"
+              disabled={submitting}
+            >
+              {submitting
+                ? t('pricing:modal.openingBilling')
+                : t('pricing:upgradeButton', {
+                    price: formatCurrency(
+                      resolvedPriceValue,
+                      plan.currency,
+                      i18n.language
+                    )
+                  })}
+            </Button>
+            <p className="mt-4 text-center text-sm text-input-placeholder">
+              {billingDescription}
+            </p>
+          </div>
         </div>
       </div>
     </div>
