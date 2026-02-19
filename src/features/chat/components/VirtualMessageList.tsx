@@ -29,7 +29,7 @@ interface VirtualMessageListProps {
     practiceId?: string;
     onReply?: (target: ReplyTarget) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
-    onRequestReactions?: (messageId: string) => void;
+    onRequestReactions?: (messageId: string) => Promise<void> | void;
     onAuthPromptRequest?: () => void;
     intakeStatus?: {
         step: string;
@@ -574,9 +574,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             messagesToRequest.forEach((message) => {
                 if (!message.id) return;
                 reactionRequestedRef.current.add(message.id);
-                // Fire and forget - no await/catch since it's just a ref tracking mechanism wrapper
-                // and the actual side effect handles its own errors or is safe to fail.
-                onRequestReactions(message.id);
+                // Fire and forget with error handling cleanup
+                // Wrap in Promise.resolve to handle both async and sync returns, though void returns won't trigger catch
+                Promise.resolve(onRequestReactions(message.id)).catch((error) => {
+                    // Only log if really needed, to avoid noise. The user asked to remove message.id on failure.
+                    // We'll log a warning to be helpful for debugging but keep it minimal.
+                    console.warn('[VirtualMessageList] Failed to load reactions, allowing retry', { id: message.id, error });
+                    reactionRequestedRef.current.delete(message.id);
+                });
             });
         };
         
