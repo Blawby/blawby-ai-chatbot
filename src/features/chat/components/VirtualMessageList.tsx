@@ -290,9 +290,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         }
                     );
                 } catch (msgErr) {
-                    if (DEBUG_PAGINATION) {
-                        console.error('[VirtualMessageList] Failed to post system message', msgErr);
-                    }
+                    console.error('[VirtualMessageList] Failed to post system message', msgErr);
                     systemMessageFailed = true;
                 }
 
@@ -413,9 +411,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     });
                 })
                 .catch((error) => {
-                    if (DEBUG_PAGINATION) {
-                        console.error('[VirtualMessageList] Failed to load more messages', error);
-                    }
+                    console.error('[VirtualMessageList] Failed to load more messages', error);
+                    showError('Failed to load more messages', 'Please try again.');
                 })
                 .finally(() => {
                     isLoadingRef.current = false;
@@ -562,9 +559,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             return;
         }
         
-        let cancelled = false;
-        
-        const requestVisibleReactions = async () => {
+        const requestVisibleReactions = () => {
             const messagesToRequest = visibleMessages.filter(message => {
                 if (!message.id) return false;
                 // Skip if reactions are already loaded on the message object.
@@ -576,32 +571,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             
             if (messagesToRequest.length === 0) return;
             
-            // Create promises for all requests
-            const promises = messagesToRequest.map(async (message) => {
+            messagesToRequest.forEach((message) => {
                 if (!message.id) return;
                 reactionRequestedRef.current.add(message.id);
-                try {
-                    await onRequestReactions(message.id);
-                } catch (error) {
-                    console.error('[VirtualMessageList] Failed to load reactions', {
-                        messageId: message.id,
-                        error
-                    });
-                    if (!cancelled) {
-                        reactionRequestedRef.current.delete(message.id);
-                    }
-                }
+                // Fire and forget - no await/catch since it's just a ref tracking mechanism wrapper
+                // and the actual side effect handles its own errors or is safe to fail.
+                onRequestReactions(message.id);
             });
-            
-            // Wait for all promises to settle
-            await Promise.allSettled(promises);
         };
         
-        void requestVisibleReactions();
-        
-        return () => {
-            cancelled = true;
-        };
+        requestVisibleReactions();
     }, [onRequestReactions, visibleMessages]);
 
     return (

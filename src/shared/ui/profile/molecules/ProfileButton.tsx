@@ -44,9 +44,9 @@ export const ProfileButton = ({
           </p>
           {secondaryText && (
             <div className="-mt-0.5">
-              <span className="text-xs leading-none text-input-placeholder truncate">
+              <p className="text-xs leading-none text-input-placeholder truncate">
                 {secondaryText}
-              </span>
+              </p>
             </div>
           )}
         </div>

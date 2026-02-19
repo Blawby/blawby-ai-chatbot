@@ -133,7 +133,10 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           >
             {t('pricing:upgradeButton', {
               price: formatCurrency(
-                parseFloat(plan.monthlyPrice),
+                (() => {
+                  const val = Number.parseFloat(plan.monthlyPrice);
+                  return Number.isFinite(val) ? val : 0;
+                })(),
                 plan.currency,
                 i18n.language
               )

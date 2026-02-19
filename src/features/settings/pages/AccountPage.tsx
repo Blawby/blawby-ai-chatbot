@@ -238,15 +238,19 @@ export const AccountPage = ({
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
       void (async () => {
+        let refreshSucceeded = false;
         try {
           await refreshSubscription();
+          refreshSucceeded = true;
         } catch (error) {
           console.error('Failed to refresh current subscription:', error);
         }
 
         try {
           await refetch();
-          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+          if (refreshSucceeded) {
+            showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+          }
         } catch (error) {
           console.error('Failed to refresh subscription:', error);
           // Don't show error toast - refetch failure is not critical
@@ -705,7 +709,7 @@ export const AccountPage = ({
 
   const currentPlanLabel = hasSubscription
     ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || '')
-    : 'No Active Subscription';
+    : t('settings:account.plan.tiers.free');
 
   return (
     <SettingsPageLayout title={t('settings:account.title')} className={className}>
