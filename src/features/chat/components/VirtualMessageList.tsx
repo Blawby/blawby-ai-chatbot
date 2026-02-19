@@ -583,7 +583,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 try {
                     await onRequestReactions(message.id);
                 } catch (error) {
-                    // If request fails, remove from ref so it can be retried later
+                    console.error('[VirtualMessageList] Failed to load reactions', {
+                        messageId: message.id,
+                        error
+                    });
                     if (!cancelled) {
                         reactionRequestedRef.current.delete(message.id);
                     }

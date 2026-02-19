@@ -7,19 +7,18 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { PricingSummary } from '@/shared/ui/cards/PricingSummary';
-import { Button } from '@/shared/ui/Button';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 
 export const CartPage = () => {
   const location = useLocation();
-  const { navigate, navigateToAuth } = useNavigation();
+  const { navigateToAuth } = useNavigation();
   const { session, isPending: isSessionPending } = useSessionContext();
   const { submitUpgrade, submitting } = usePaymentUpgrade();
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
-  const { i18n, t } = useTranslation(['settings']);
+  const { i18n } = useTranslation(['settings']);
 
   const seatsQuery = location.query?.seats;
   const seatsFromQuery = Array.isArray(seatsQuery) ? seatsQuery[0] : seatsQuery;

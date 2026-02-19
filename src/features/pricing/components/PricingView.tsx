@@ -97,13 +97,6 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     ? plan.imageUrl
     : '/blawby-favicon-iframe.png';
 
-  const formattedPrice = new Intl.NumberFormat('en', {
-    style: 'currency',
-    currency: plan.currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(parseFloat(plan.monthlyPrice));
-
   return (
     <div className={`w-full text-input-text ${className ?? ''}`}>
       <div className="w-full px-1 pt-1 pb-2 md:px-2 md:pt-2 md:pb-3">

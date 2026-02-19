@@ -18,17 +18,10 @@ import { useTranslation } from '@/shared/i18n/hooks';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
-  currentPractice?: {
-    id: string;
-    kind?: 'personal' | 'business' | 'practice';
-    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
-    isPersonal?: boolean | null;
-  } | null;
 }
 
 export const UserProfileDisplay = ({ 
-  isCollapsed = false, 
-  currentPractice 
+  isCollapsed = false
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
   const { session, isPending, error } = useSessionContext();

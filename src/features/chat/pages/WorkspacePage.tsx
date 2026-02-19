@@ -919,7 +919,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   return (
     <AppShell
       className="bg-transparent h-dvh"
-      accentBackdropVariant={workspace === 'practice' ? 'workspace' : 'none'}
+      accentBackdropVariant="workspace"
       sidebar={sidebarNav}
       main={mainShell}
       mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}

@@ -58,7 +58,6 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
       return null;
     }
     return null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceId, practiceSlug]);
 
   const updateDetails = useCallback(async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
@@ -85,4 +84,3 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     setDetails
   };
 };
-

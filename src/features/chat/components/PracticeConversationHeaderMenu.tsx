@@ -46,12 +46,12 @@ const PracticeConversationHeaderMenu: FunctionComponent<PracticeConversationHead
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {canLinkMatter && isLinkModalOpen ? (
+      {canLinkMatter && isLinkModalOpen && practiceId && conversationId ? (
         <LinkMatterModal
           isOpen={isLinkModalOpen}
           onClose={() => setIsLinkModalOpen(false)}
-          practiceId={practiceId!}
-          conversationId={conversationId!}
+          practiceId={practiceId}
+          conversationId={conversationId}
           onMatterUpdated={handleMatterUpdated}
         />
       ) : null}

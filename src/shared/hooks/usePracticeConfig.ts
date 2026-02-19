@@ -265,8 +265,6 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  // onError intentionally omitted — stored in onErrorRef to keep this callback stable.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowUnauthenticated]);
 
   // Retry function for practice config

@@ -55,13 +55,6 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-accent-600/95 via-accent-700/80 to-transparent dark:from-accent-700/95 dark:via-accent-800/70"
-        aria-hidden="true"
-      />
-      <div className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-accent-500/30 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/[0.12] blur-3xl" aria-hidden="true" />
-
       <section className="relative z-10 px-6 pb-12 pt-8 text-white">
         <div className="flex items-center gap-3">
           <Avatar
