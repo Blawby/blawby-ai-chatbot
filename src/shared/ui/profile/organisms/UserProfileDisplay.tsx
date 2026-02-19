@@ -126,8 +126,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="w-8 h-8 bg-surface-glass/60 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="w-20 h-4 bg-surface-glass/60 rounded animate-pulse" />}
+        <div className="glass-input w-8 h-8 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="glass-input w-20 h-4 rounded animate-pulse" />}
       </div>
     );
   }
@@ -160,7 +160,7 @@ export const UserProfileDisplay = ({
       <div className={`p-2 border-t border-line-glass/30`}>
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-surface-glass/50 ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-white/[0.04] ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'

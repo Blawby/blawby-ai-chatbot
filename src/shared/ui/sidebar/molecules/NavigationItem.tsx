@@ -55,8 +55,8 @@ export const NavigationItem = ({
   const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
   const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
   const activeClasses = isActive
-    ? 'bg-surface-glass/60 text-input-text'
-    : 'text-input-text hover:bg-surface-glass/50';
+    ? 'glass-input text-input-text'
+    : 'text-input-text hover:bg-white/[0.04]';
   const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
   return (

@@ -168,7 +168,7 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-glass/50 transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-white/[0.04] transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
                   <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">

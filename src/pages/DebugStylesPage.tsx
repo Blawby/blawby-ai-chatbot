@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
+import { Input } from '@/shared/ui/input/Input';
+import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
+import { DatePicker } from '@/shared/ui/input/DatePicker';
+import { Textarea } from '@/shared/ui/input/Textarea';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 
 const buttonVariants = [
@@ -25,6 +29,10 @@ export default function DebugStylesPage() {
   const [comboboxValue, setComboboxValue] = useState('intake_pending');
   const [comboboxMultiOnlyValue, setComboboxMultiOnlyValue] = useState<string[]>(['first_contact', 'active']);
   const [comboboxMultiValue, setComboboxMultiValue] = useState<string[]>(['email', 'phone']);
+  const [inputValue, setInputValue] = useState('Vendor Contract Negotiation');
+  const [currencyValue, setCurrencyValue] = useState<number | undefined>(325);
+  const [dateValue, setDateValue] = useState('2026-02-19');
+  const [textareaValue, setTextareaValue] = useState('Draft response and settlement options.');
 
   const selectOptions: ComboboxOption[] = useMemo(
     () => [
@@ -128,6 +136,73 @@ export default function DebugStylesPage() {
           <button type="button" className="nav-item-inactive rounded-xl px-3 py-2 text-left">
             Inactive nav item (`nav-item-inactive`)
           </button>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">Dynamic Foreground</h2>
+        <p className="text-sm text-input-placeholder">
+          Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl bg-accent-500 p-4 text-[rgb(var(--accent-foreground))]">
+            <p className="font-medium">Correct: accent foreground token</p>
+            <p className="text-sm opacity-90">Remains readable across accent theme changes.</p>
+          </div>
+          <div className="rounded-xl bg-accent-500 p-4 text-white">
+            <p className="font-medium">Avoid: hardcoded `text-white`</p>
+            <p className="text-sm opacity-90">Can fail contrast on some accent colors.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">Inputs</h2>
+        <p className="text-sm text-input-placeholder">
+          Height baseline should align with Combobox for `md` controls.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="glass-panel rounded-xl p-4">
+            <Input
+              label="Input"
+              value={inputValue}
+              onChange={setInputValue}
+              placeholder="Enter matter title"
+            />
+          </div>
+          <div className="glass-panel rounded-xl p-4">
+            <Combobox
+              label="Combobox"
+              value={comboboxValue}
+              options={comboboxOptions}
+              onChange={setComboboxValue}
+              placeholder="Pick a stage"
+            />
+          </div>
+          <div className="glass-panel rounded-xl p-4">
+            <CurrencyInput
+              label="Currency Input"
+              value={currencyValue}
+              onChange={setCurrencyValue}
+              placeholder="0"
+            />
+          </div>
+          <div className="glass-panel rounded-xl p-4">
+            <DatePicker
+              label="Date Picker"
+              value={dateValue}
+              onChange={setDateValue}
+            />
+          </div>
+          <div className="glass-panel rounded-xl p-4 md:col-span-2">
+            <Textarea
+              label="Textarea"
+              rows={3}
+              value={textareaValue}
+              onChange={setTextareaValue}
+              placeholder="Enter notes"
+            />
+          </div>
         </div>
       </section>
 

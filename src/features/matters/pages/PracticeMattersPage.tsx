@@ -15,17 +15,8 @@ import {
 } from '@/shared/ui/dropdown';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
-import {
-  ChevronUpDownIcon,
-  FolderIcon,
-  PlusIcon
-} from '@heroicons/react/24/outline';
-import {
-  MATTER_STATUS_LABELS,
-  MATTER_WORKFLOW_STATUSES,
-  isMatterStatus,
-  type MatterStatus
-} from '@/shared/types/matterStatus';
+import { ChevronUpDownIcon, FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
   type MatterExpense,
@@ -33,9 +24,9 @@ import {
   type MatterSummary,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
-import { MatterCreateForm, MatterEditForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailPanel';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
@@ -47,8 +38,9 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { asMajor, toMajorUnits, type MajorAmount } from '@/shared/utils/money';
+import { type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { formatLongDate } from '@/shared/utils/dateFormatter';
 import {
   createMatter,
   getMatter,
@@ -57,10 +49,6 @@ import {
   updateMatter,
   type BackendMatter,
   type BackendMatterActivity,
-  type BackendMatterExpense,
-  type BackendMatterMilestone,
-  type BackendMatterNote,
-  type BackendMatterTimeEntry,
   type BackendMatterTimeStats,
   createMatterExpense,
   createMatterNote,
@@ -80,18 +68,39 @@ import {
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
 import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import {
+  buildActivityTimelineItem,
+  buildCreatePayload,
+  buildFormStateFromDetail,
+  buildNoteTimelineItem,
+  buildUpdatePayload,
+  extractAssigneeIds,
+  isClosedStatus,
+  isEmailLike,
+  isUuid,
+  prunePayload,
+  resolveClientLabel,
+  resolveOptionLabel,
+  sortByTimestamp,
+  statusOrder,
+  toExpense,
+  toMatterDetail,
+  toMatterSummary,
+  toMilestone,
+  toTimeEntry
+} from '@/features/matters/utils/matterUtils';
 
-const statusOrder = Object.fromEntries(
-  MATTER_WORKFLOW_STATUSES.map((status, index) => [status, index])
-) as Record<MatterStatus, number>;
-
-import { debounce } from '@/shared/utils/debounce';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type MatterTabId = 'all' | 'open' | 'closed';
 type DetailTabId = 'overview' | 'time' | 'messages';
-
 type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const SORT_LABELS: Record<SortOption, string> = {
   updated: 'Date updated',
@@ -101,16 +110,6 @@ const SORT_LABELS: Record<SortOption, string> = {
   assigned: 'Assigned',
   practice_area: 'Practice area'
 };
-
-const CLOSED_STATUSES: MatterStatus[] = ['closed', 'declined', 'conflicted', 'referred'];
-
-const isClosedStatus = (status: MatterStatus) => CLOSED_STATUSES.includes(status);
-
-const buildTabs = (counts: { open: number; closed: number; all: number }): TabItem[] => [
-  { id: 'all', label: 'All', count: counts.all },
-  { id: 'open', label: 'Open', count: counts.open },
-  { id: 'closed', label: 'Closed', count: counts.closed }
-];
 
 const TAB_HEADINGS: Record<MatterTabId, string> = {
   all: 'All',
@@ -124,428 +123,17 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'messages', label: 'Messages' }
 ];
 
-const isUuid = (value: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const buildTabs = (counts: { open: number; closed: number; all: number }): TabItem[] => [
+  { id: 'all', label: 'All', count: counts.all },
+  { id: 'open', label: 'Open', count: counts.open },
+  { id: 'closed', label: 'Closed', count: counts.closed }
+];
 
-type PracticeMattersPageProps = {
-  basePath?: string;
-};
+const PAGE_SIZE = 50;
 
-
-
-const formatMinorCurrency = (value: unknown): string | null => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-  const major = toMajorUnits(value);
-  if (typeof major !== 'number' || !Number.isFinite(major)) return null;
-  return formatCurrency(major);
-};
-
-const formatUrgencyLabel = (value: string) => value.replace(/_/g, ' ');
-
-const resolveClientLabel = (clientId?: string | null, fallback?: string) => {
-  if (fallback) return fallback;
-  return clientId ? `Client ${clientId.slice(0, 8)}` : 'Unassigned client';
-};
-
-const resolvePracticeServiceLabel = (serviceId?: string | null, fallback?: string) => {
-  if (fallback) return fallback;
-  return serviceId ? `Service ${serviceId.slice(0, 8)}` : 'Not specified';
-};
-
-const resolveOptionLabel = (options: MatterOption[], id: string, fallback: string) =>
-  options.find((option) => option.id === id)?.name ?? fallback;
-
-const normalizeMatterStatus = (status?: string | null): MatterStatus => {
-  const normalized = status?.toLowerCase().replace(/\s+/g, '_') ?? '';
-  if (normalized === 'draft' || normalized === 'lead') return 'first_contact';
-  if (isMatterStatus(normalized)) return normalized;
-  return 'first_contact';
-};
-
-const mapStatusToBackend = (status: MatterStatus): MatterStatus => status;
-
-const prunePayload = (payload: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined)
-  );
-
-const extractAssigneeIds = (matter: BackendMatter): string[] => {
-  if (Array.isArray(matter.assignee_ids)) {
-    return matter.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
-  }
-  if (Array.isArray(matter.assignees)) {
-    return matter.assignees
-      .map((assignee) => {
-        if (typeof assignee === 'string') return assignee;
-        if (!assignee || typeof assignee !== 'object') return '';
-        const record = assignee as Record<string, unknown>;
-        if (typeof record.id === 'string') return record.id;
-        if (typeof record.user_id === 'string') return record.user_id;
-        return '';
-      })
-      .filter((id) => id.trim().length > 0);
-  }
-  return [];
-};
-
-const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['milestones'] => {
-  if (!Array.isArray(milestones)) return [];
-  return milestones.map((item, index) => {
-    if (!item || typeof item !== 'object') {
-      return {
-        description: `Milestone ${index + 1}`,
-        dueDate: '',
-        amount: asMajor(0)
-      };
-    }
-    const record = item as Record<string, unknown>;
-    return {
-      description: typeof record.description === 'string' ? record.description : `Milestone ${index + 1}`,
-      dueDate: typeof record.due_date === 'string'
-        ? record.due_date
-        : typeof record.dueDate === 'string'
-          ? record.dueDate
-          : '',
-      amount: typeof record.amount === 'number' ? asMajor(record.amount) : asMajor(0)
-    };
-  });
-};
-
-const toMatterSummary = (
-  matter: BackendMatter,
-  options?: {
-    clientNameById?: Map<string, string>;
-    serviceNameById?: Map<string, string>;
-  }
-): MatterSummary => {
-  const updatedAt = matter.updated_at || matter.created_at || new Date().toISOString();
-  const clientName = matter.client_id
-    ? options?.clientNameById?.get(matter.client_id)
-    : undefined;
-  const serviceName = matter.practice_service_id
-    ? options?.serviceNameById?.get(matter.practice_service_id)
-    : undefined;
-  return {
-    id: matter.id,
-    title: matter.title || 'Untitled matter',
-    clientName: resolveClientLabel(matter.client_id, clientName),
-    practiceArea: matter.practice_service_id
-      ? resolvePracticeServiceLabel(matter.practice_service_id, serviceName)
-      : null,
-    status: normalizeMatterStatus(matter.status),
-    updatedAt,
-    createdAt: matter.created_at || matter.updated_at || new Date().toISOString()
-  };
-};
-
-const toMatterDetail = (
-  matter: BackendMatter,
-  options?: {
-    clientNameById?: Map<string, string>;
-    serviceNameById?: Map<string, string>;
-  }
-): MatterDetail => ({
-  ...toMatterSummary(matter, options),
-  clientId: matter.client_id || '',
-  practiceAreaId: matter.practice_service_id || '',
-  assigneeIds: extractAssigneeIds(matter),
-  description: matter.description || '',
-  caseNumber: matter.case_number ?? undefined,
-  matterType: matter.matter_type ?? undefined,
-  urgency: (matter.urgency as MatterDetail['urgency']) ?? undefined,
-  responsibleAttorneyId: matter.responsible_attorney_id ?? undefined,
-  originatingAttorneyId: matter.originating_attorney_id ?? undefined,
-  court: matter.court ?? undefined,
-  judge: matter.judge ?? undefined,
-  opposingParty: matter.opposing_party ?? undefined,
-  opposingCounsel: matter.opposing_counsel ?? undefined,
-  openDate: matter.open_date ?? undefined,
-  closeDate: matter.close_date ?? undefined,
-  billingType: (matter.billing_type as MatterDetail['billingType']) || 'hourly',
-  attorneyHourlyRate: typeof matter.attorney_hourly_rate === 'number'
-    ? asMajor(matter.attorney_hourly_rate)
-    : undefined,
-  adminHourlyRate: typeof matter.admin_hourly_rate === 'number'
-    ? asMajor(matter.admin_hourly_rate)
-    : undefined,
-  paymentFrequency: (matter.payment_frequency as MatterDetail['paymentFrequency']) ?? undefined,
-  totalFixedPrice: typeof matter.total_fixed_price === 'number'
-    ? asMajor(matter.total_fixed_price)
-    : undefined,
-  settlementAmount: typeof matter.settlement_amount === 'number'
-    ? asMajor(matter.settlement_amount)
-    : undefined,
-  milestones: mapMilestones(matter.milestones),
-  contingencyPercent: matter.contingency_percentage ?? undefined,
-  timeEntries: [],
-  expenses: [],
-  notes: []
-});
-
-const activityActionMap: Record<string, { type: TimelineItem['type']; label: string }> = {
-  matter_created: { type: 'created', label: 'created the matter.' },
-  matter_updated: { type: 'edited', label: 'updated matter details.' },
-  matter_deleted: { type: 'edited', label: 'deleted the matter.' },
-  matter_status_changed: { type: 'edited', label: 'updated the status.' },
-  note_added: { type: 'commented', label: 'added a note.' },
-  note_updated: { type: 'commented', label: 'updated a note.' },
-  note_deleted: { type: 'commented', label: 'deleted a note.' },
-  time_entry_added: { type: 'edited', label: 'added a time entry.' },
-  time_entry_updated: { type: 'edited', label: 'updated a time entry.' },
-  time_entry_deleted: { type: 'edited', label: 'deleted a time entry.' },
-  expense_added: { type: 'edited', label: 'added an expense.' },
-  expense_updated: { type: 'edited', label: 'updated an expense.' },
-  expense_deleted: { type: 'edited', label: 'deleted an expense.' },
-  milestone_created: { type: 'edited', label: 'added a milestone.' },
-  milestone_updated: { type: 'edited', label: 'updated a milestone.' },
-  milestone_deleted: { type: 'edited', label: 'deleted a milestone.' },
-  milestone_completed: { type: 'edited', label: 'completed a milestone.' },
-  assignee_added: { type: 'edited', label: 'assigned a team member.' },
-  assignee_removed: { type: 'edited', label: 'removed an assignee.' }
-};
-
-const humanizeAction = (value?: string | null): string | undefined => {
-  if (!value) return undefined;
-  return value
-    .trim()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (match) => match.toUpperCase());
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  title: 'title',
-  description: 'description',
-  client_id: 'client',
-  practice_service_id: 'practice area',
-  billing_type: 'billing type',
-  case_number: 'case number',
-  matter_type: 'matter type',
-  urgency: 'urgency',
-  responsible_attorney_id: 'responsible attorney',
-  originating_attorney_id: 'originating attorney',
-  court: 'court',
-  judge: 'judge',
-  opposing_party: 'opposing party',
-  opposing_counsel: 'opposing counsel',
-  open_date: 'open date',
-  close_date: 'close date',
-  admin_hourly_rate: 'admin rate',
-  attorney_hourly_rate: 'attorney rate',
-  status: 'status',
-  payment_frequency: 'payment schedule',
-  total_fixed_price: 'fixed fee',
-  contingency_percentage: 'contingency percentage',
-  settlement_amount: 'settlement amount',
-  assignee_ids: 'team members',
-  assignees: 'team members'
-};
-
-const normalizeFieldLabel = (field: string): string => {
-  const trimmed = field.trim();
-  if (!trimmed) return '';
-  return FIELD_LABELS[trimmed] ?? trimmed.replace(/_/g, ' ');
-};
-
-const isEmailLike = (value: string): boolean => value.includes('@');
-
-const extractChangedFields = (metadata: Record<string, unknown>): string[] => {
-  const raw = metadata.changed_fields;
-  if (!Array.isArray(raw)) {
-    console.warn('[PracticeMattersPage] Missing or invalid metadata.changed_fields for update activity', metadata);
-    return [];
-  }
-  const normalized = raw
-    .filter((item): item is string => typeof item === 'string')
-    .map(normalizeFieldLabel)
-    .filter((value) => value && value.length > 0);
-  return Array.from(new Set(normalized));
-};
-
-
-const formatFieldList = (fields: string[]): string | null => {
-  if (fields.length === 0) return null;
-  if (fields.length === 1) return fields[0];
-  if (fields.length === 2) return `${fields[0]} and ${fields[1]}`;
-  return `${fields.slice(0, -1).join(', ')}, and ${fields[fields.length - 1]}`;
-};
-
-const resolveStatusLabel = (value: string): string => {
-  if (isMatterStatus(value)) return MATTER_STATUS_LABELS[value];
-  return value.replace(/_/g, ' ');
-};
-
-const buildMatterCreatedLabel = (context: {
-  title?: string | null;
-  clientName?: string | null;
-  practiceArea?: string | null;
-}): string => {
-  const title = context.title?.trim();
-  const clientName = context.clientName?.trim();
-  const practiceArea = context.practiceArea?.trim();
-  if (title) {
-    const clientSuffix = clientName ? ` for ${clientName}` : '';
-    const practiceSuffix = practiceArea ? ` (${practiceArea})` : '';
-    return `created matter “${title}”${clientSuffix}${practiceSuffix}.`;
-  }
-  if (clientName || practiceArea) {
-    const clientSuffix = clientName ? ` for ${clientName}` : '';
-    const practiceSuffix = practiceArea ? ` (${practiceArea})` : '';
-    return `created a matter${clientSuffix}${practiceSuffix}.`;
-  }
-  return 'created the matter.';
-};
-
-const resolveStatusChangeLabel = (metadata: Record<string, unknown>): string | null => {
-  const rawOld = metadata.oldStatus ?? metadata.old_status ?? metadata.from_status ?? metadata.from;
-  const rawNew = metadata.newStatus ?? metadata.new_status ?? metadata.to_status ?? metadata.to ?? metadata.status;
-  const oldValue = typeof rawOld === 'string' ? rawOld.trim() : '';
-  const newValue = typeof rawNew === 'string' ? rawNew.trim() : '';
-
-  if (oldValue && newValue) {
-    return `updated the status from ${resolveStatusLabel(oldValue)} to ${resolveStatusLabel(newValue)}.`;
-  }
-  if (newValue) {
-    return `updated the status to ${resolveStatusLabel(newValue)}.`;
-  }
-  return null;
-};
-
-const buildStatusChangeMeta = (metadata: Record<string, unknown>): TimelineItem['actionMeta'] | null => {
-  const rawOld = metadata.oldStatus ?? metadata.old_status ?? metadata.from_status ?? metadata.from;
-  const rawNew = metadata.newStatus ?? metadata.new_status ?? metadata.to_status ?? metadata.to ?? metadata.status;
-  const oldValue = typeof rawOld === 'string' ? rawOld.trim() : '';
-  const newValue = typeof rawNew === 'string' ? rawNew.trim() : '';
-  if (!oldValue || !newValue) return null;
-  return {
-    type: 'status_change',
-    from: resolveStatusLabel(oldValue),
-    to: resolveStatusLabel(newValue)
-  };
-};
-
-const buildSingleFieldUpdateAction = (
-  field: string,
-  metadata: Record<string, unknown>,
-  options: {
-    clientNameById: Map<string, string>;
-    serviceNameById: Map<string, string>;
-    assigneeNameById: Map<string, string>;
-  }
-): string | null => {
-  const changes = metadata.changes;
-  const changeRecord = changes && typeof changes === 'object' ? (changes as Record<string, unknown>) : {};
-  const value = changeRecord[field];
-
-  if (field === 'client_id' && typeof value === 'string' && value.trim()) {
-    const clientName = options.clientNameById.get(value) ?? `Client ${value.slice(0, 6)}`;
-    return `updated client to ${clientName}.`;
-  }
-  if (field === 'practice_service_id' && typeof value === 'string' && value.trim()) {
-    const serviceName = options.serviceNameById.get(value) ?? `Service ${value.slice(0, 6)}`;
-    return `updated practice area to ${serviceName}.`;
-  }
-  if ((field === 'responsible_attorney_id' || field === 'originating_attorney_id') && typeof value === 'string' && value.trim()) {
-    const name = options.assigneeNameById.get(value) ?? `User ${value.slice(0, 6)}`;
-    const label = field === 'responsible_attorney_id' ? 'responsible attorney' : 'originating attorney';
-    return `updated ${label} to ${name}.`;
-  }
-  if (field === 'urgency' && typeof value === 'string' && value.trim()) {
-    return `updated urgency to ${formatUrgencyLabel(value)}.`;
-  }
-  if (field === 'open_date' || field === 'close_date') {
-    const label = field === 'open_date' ? 'open date' : 'close date';
-    const formatted = typeof value === 'string' ? formatLongDate(value) : null;
-    return formatted ? `updated ${label} to ${formatted}.` : `updated ${label}.`;
-  }
-  if (field === 'billing_type' && typeof value === 'string' && value.trim()) {
-    return `updated billing type to ${value.replace(/_/g, ' ')}.`;
-  }
-  if (field === 'admin_hourly_rate' || field === 'attorney_hourly_rate' || field === 'total_fixed_price' || field === 'settlement_amount') {
-    const formatted = formatMinorCurrency(value);
-    const label = normalizeFieldLabel(field);
-    return formatted ? `updated ${label} to ${formatted}.` : `updated ${label}.`;
-  }
-  if (field === 'contingency_percentage' && typeof value === 'number') {
-    return `updated contingency percentage to ${value}%.`;
-  }
-  if (typeof value === 'string' && value.trim()) {
-    return `updated ${normalizeFieldLabel(field)} to ${value}.`;
-  }
-  return `updated ${normalizeFieldLabel(field)}.`;
-};
-
-const findStatusChangeMeta = (
-  activity: BackendMatterActivity,
-  activities: BackendMatterActivity[]
-): TimelineItem['actionMeta'] | null => {
-  if (!activity.created_at) return null;
-  const activityTime = new Date(activity.created_at).getTime();
-  if (!Number.isFinite(activityTime)) return null;
-  const match = activities.find((candidate) => {
-    if (candidate.action !== 'matter_status_changed') return false;
-    if (candidate.user_id !== activity.user_id) return false;
-    if (!candidate.created_at) return false;
-    const candidateTime = new Date(candidate.created_at).getTime();
-    if (!Number.isFinite(candidateTime)) return false;
-    return Math.abs(candidateTime - activityTime) <= 1000;
-  });
-  if (!match) return null;
-  return buildStatusChangeMeta(match.metadata as Record<string, unknown>);
-};
-
-const formatDuration = (seconds?: number | null): string | null => {
-  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
-    return null;
-  }
-  const totalMinutes = Math.round(seconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours > 0 && minutes > 0) {
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-  }
-  if (hours > 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-};
-
-const stripActorPrefix = (description: string, actorName: string): string => {
-  const trimmed = description.trim();
-  if (!actorName) return trimmed;
-  const prefix = `${actorName} `;
-  if (trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
-    return trimmed.slice(prefix.length).trim();
-  }
-  return trimmed;
-};
-
-const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => ({
-  id: entry.id,
-  startTime: entry.start_time ?? new Date().toISOString(),
-  endTime: entry.end_time ?? new Date().toISOString(),
-  description: entry.description ?? ''
-});
-
-const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
-  id: expense.id,
-  description: expense.description ?? 'Expense',
-  amount: asMajor(expense.amount ?? 0),
-  date: expense.date ?? new Date().toISOString().slice(0, 10),
-  billable: expense.billable ?? true
-});
-
-const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestones'][number] => ({
-  id: milestone.id,
-  description: milestone.description ?? 'Milestone',
-  amount: asMajor(milestone.amount ?? 0),
-  dueDate: milestone.due_date ?? '',
-  status: ((): MatterDetail['milestones'][number]['status'] => {
-    const status = typeof milestone.status === 'string' ? milestone.status : undefined;
-    if (!status) return undefined;
-    if (status === 'pending' || status === 'in_progress' || status === 'completed' || status === 'overdue') {
-      return status;
-    }
-    return undefined;
-  })()
-});
+// ---------------------------------------------------------------------------
+// Small local components
+// ---------------------------------------------------------------------------
 
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <div className="flex h-full items-center justify-center p-8">
@@ -572,24 +160,104 @@ const LoadingState = ({ message }: { message: string }) => (
   </div>
 );
 
+// ---------------------------------------------------------------------------
+// Detail field row — shared between overview grid cells
+// ---------------------------------------------------------------------------
+const DetailField = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</p>
+    <p className="mt-1 text-sm text-input-text">{value || '—'}</p>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Error / warning banners — token-compliant
+// ---------------------------------------------------------------------------
+const WarningBanner = ({ children }: { children: preact.ComponentChildren }) => (
+  <div className="status-warning rounded-xl px-4 py-3 text-sm">{children}</div>
+);
+
+const ErrorBanner = ({ children }: { children: preact.ComponentChildren }) => (
+  <div className="status-error rounded-2xl px-4 py-3 text-sm">{children}</div>
+);
+
+// ---------------------------------------------------------------------------
+// Shared "matter not found" / error states
+// ---------------------------------------------------------------------------
+const MatterNotFound = ({
+  matterId,
+  onBack
+}: {
+  matterId: string;
+  onBack: () => void;
+}) => (
+  <Page className="h-full">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <PageHeader
+        title="Matter not found"
+        subtitle="This matter may have been removed or is no longer available."
+        actions={<Button size="sm" variant="secondary" onClick={onBack}>Back to matters</Button>}
+      />
+      <section className="glass-panel p-6">
+        <p className="text-sm text-input-placeholder">
+          We could not find a matter with the ID{' '}
+          <span className="font-mono text-input-text">{matterId}</span>{' '}
+          in this workspace.
+        </p>
+      </section>
+    </div>
+  </Page>
+);
+
+const MatterLoadError = ({
+  message,
+  onBack
+}: {
+  message: string;
+  onBack: () => void;
+}) => (
+  <Page className="h-full">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <PageHeader
+        title="Unable to load matter"
+        subtitle={message}
+        actions={<Button size="sm" variant="secondary" onClick={onBack}>Back to matters</Button>}
+      />
+    </div>
+  </Page>
+);
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+type PracticeMattersPageProps = {
+  basePath?: string;
+};
+
 export const PracticeMattersPage = ({ basePath = '/practice/matters' }: PracticeMattersPageProps) => {
   const location = useLocation();
-  const pathSuffix = location.path.startsWith(basePath)
-    ? location.path.slice(basePath.length)
-    : '';
+  const { activePracticeId, session } = useSessionContext();
+  const { showError } = useToastContext();
+
+  // ── Routing ──────────────────────────────────────────────────────────────
+  const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const firstSegment = pathSegments[0] ?? '';
   const secondSegment = pathSegments[1] ?? '';
   const isCreateRoute = firstSegment === 'new';
-  const isEditRoute = Boolean(firstSegment) && secondSegment === 'edit';
   const selectedMatterId = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
   const conversationBasePath = basePath.endsWith('/matters')
     ? basePath.replace(/\/matters$/, '/conversations')
     : '/practice/conversations';
-  const { activePracticeId, session } = useSessionContext();
-  const { showError } = useToastContext();
+
+  const navigate = (path: string) => location.route(path);
+  const goToList = () => navigate(basePath);
+  const goToDetail = (id: string) => navigate(`${basePath}/${encodeURIComponent(id)}`);
+
+  // ── External hooks ────────────────────────────────────────────────────────
   const { getMembers, fetchMembers } = usePracticeManagement({
     autoFetchPractices: false,
     fetchInvitations: false,
@@ -601,6 +269,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     fetchDetails: fetchPracticeDetails
   } = usePracticeDetails(activePracticeId);
 
+  // ── List state ────────────────────────────────────────────────────────────
   const [matters, setMatters] = useState<BackendMatter[]>([]);
   const [mattersLoading, setMattersLoading] = useState(false);
   const [mattersError, setMattersError] = useState<string | null>(null);
@@ -608,16 +277,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [mattersPage, setMattersPage] = useState(1);
   const [mattersHasMore, setMattersHasMore] = useState(true);
   const [mattersLoadingMore, setMattersLoadingMore] = useState(false);
-  const pageSize = 50;
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const practiceDetailsRequestedRef = useRef<string | null>(null);
+  const [activeTab, setActiveTab] = useState<MatterTabId>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('updated');
+
+  // ── Detail state ──────────────────────────────────────────────────────────
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
+
+  // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
   const [noteItems, setNoteItems] = useState<TimelineItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
-  const [servicesLoading, setServicesLoading] = useState(false);
+
+  // ── Sub-resource state ────────────────────────────────────────────────────
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [timeEntriesLoading, setTimeEntriesLoading] = useState(false);
   const [timeEntriesError, setTimeEntriesError] = useState<string | null>(null);
@@ -628,295 +302,144 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [milestones, setMilestones] = useState<MatterDetail['milestones']>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [milestonesError, setMilestonesError] = useState<string | null>(null);
+
+  // ── Client / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
   const [isClientListTruncated, setIsClientListTruncated] = useState(false);
-  const matterContext = useMemo(
-    () => ({
-      title: selectedMatterDetail?.title ?? null,
-      clientName: selectedMatterDetail?.clientName ?? null,
-      practiceArea: selectedMatterDetail?.practiceArea ?? null
-    }),
-    [selectedMatterDetail?.clientName, selectedMatterDetail?.practiceArea, selectedMatterDetail?.title]
-  );
+  const [servicesLoading, setServicesLoading] = useState(false);
 
-  const isMounted = useRef(true);
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  const [activeTab, setActiveTab] = useState<MatterTabId>('all');
-  const [sortOption, setSortOption] = useState<SortOption>('updated');
-  const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
+  // ── UI state ──────────────────────────────────────────────────────────────
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
   const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
+  const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const isMounted = useRef(true);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const practiceDetailsRequestedRef = useRef<string | null>(null);
   const refreshRequestIdRef = useRef(0);
   const createdMatterIdRef = useRef<string | null>(null);
 
-  const refreshMatters = useCallback(() => {
-    setMattersRefreshKey((prev) => prev + 1);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
   }, []);
 
-  const openQuickTimeEntry = () => {
-    setQuickTimeEntryKey((prev) => prev + 1);
-    setIsQuickTimeEntryOpen(true);
-  };
-
-  const handleQuickTimeSubmit = async (values: TimeEntryFormValues) => {
-    if (!activePracticeId || !selectedMatterId) return;
-    try {
-      await createMatterTimeEntry(activePracticeId, selectedMatterId, {
-        start_time: values.startTime,
-        end_time: values.endTime,
-        description: values.description,
-        billable: true
-      });
-      const [entries, stats] = await Promise.all([
-        listMatterTimeEntries(activePracticeId, selectedMatterId),
-        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
-      ]);
-      setTimeEntries(entries.map(toTimeEntry));
-      setTimeStats(stats);
-      setIsQuickTimeEntryOpen(false);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to save quick time entry', error);
-      showError('Could not save time entry', 'Please try again.');
-    }
-  };
-
-  const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => {
-    const name =
-      detail.user?.name?.trim() ||
-      detail.user?.email?.trim() ||
-      detail.user?.phone?.trim() ||
-      'Unknown Client';
-    return {
-      id: detail.id,
-      name,
-      email: detail.user?.email ?? undefined,
-      role: 'client',
-      status: detail.status
-    };
-  }, []);
+  // ── Derived lookup maps ───────────────────────────────────────────────────
   const clientNameById = useMemo(
-    () => new Map(clientOptions.map((client) => [client.id, client.name])),
+    () => new Map(clientOptions.map((c) => [c.id, c.name])),
     [clientOptions]
   );
+
   const practiceAreaOptions = useMemo<MatterOption[]>(() => {
     const services = practiceDetails?.services;
     if (!Array.isArray(services)) return [];
     return services
-      .filter((service): service is { id: string; name: string; key?: string } => {
-        if (!service || typeof service !== 'object') return false;
-        if (typeof service.id !== 'string' || !isUuid(service.id)) return false;
-        if (typeof service.name !== 'string' || !service.name.trim()) return false;
+      .filter((s): s is { id: string; name: string; key?: string } => {
+        if (!s || typeof s !== 'object') return false;
+        if (typeof s.id !== 'string' || !isUuid(s.id)) return false;
+        if (typeof s.name !== 'string' || !s.name.trim()) return false;
         return true;
       })
-      .map((service) => ({
-        id: service.id,
-        name: service.name,
-        role: service.key
-      }));
+      .map((s) => ({ id: s.id, name: s.name, role: s.key }));
   }, [practiceDetails?.services]);
+
   const assigneeOptions = useMemo<MatterOption[]>(() => {
     if (!activePracticeId) return [];
-    const members = getMembers(activePracticeId);
-    return members
-      .filter((member) => member.role !== 'member' && member.role !== 'client')
-      .map((member) => ({
-        id: member.userId,
-        name: member.name ?? member.email,
-        email: member.email,
-        image: member.image ?? undefined,
-        role: member.role
+    return getMembers(activePracticeId)
+      .filter((m) => m.role !== 'member' && m.role !== 'client')
+      .map((m) => ({
+        id: m.userId,
+        name: m.name ?? m.email,
+        email: m.email,
+        image: m.image ?? undefined,
+        role: m.role
       }));
   }, [activePracticeId, getMembers]);
 
-  const assigneeNameById = useMemo(() => {
-    return new Map(assigneeOptions.map((assignee) => [assignee.id, assignee.name]));
-  }, [assigneeOptions]);
+  const assigneeNameById = useMemo(
+    () => new Map(assigneeOptions.map((a) => [a.id, a.name])),
+    [assigneeOptions]
+  );
+
+  const serviceNameById = useMemo(
+    () => new Map(practiceAreaOptions.map((s) => [s.id, s.name])),
+    [practiceAreaOptions]
+  );
 
   const membersById = useMemo(() => {
     if (!activePracticeId) return new Map<string, { name: string; email?: string | null; image?: string | null }>();
-    const members = getMembers(activePracticeId);
     return new Map(
-      members.map((member) => [
-        member.userId,
-        { name: member.name ?? '', email: member.email ?? null, image: member.image }
+      getMembers(activePracticeId).map((m) => [
+        m.userId,
+        { name: m.name ?? '', email: m.email ?? null, image: m.image }
       ])
     );
   }, [activePracticeId, getMembers]);
 
-  const serviceNameById = useMemo(() => {
-    return new Map(practiceAreaOptions.map((service) => [service.id, service.name]));
-  }, [practiceAreaOptions]);
+  const matterContext = useMemo(() => ({
+    title: selectedMatterDetail?.title ?? null,
+    clientName: selectedMatterDetail?.clientName ?? null,
+    practiceArea: selectedMatterDetail?.practiceArea ?? null
+  }), [selectedMatterDetail?.title, selectedMatterDetail?.clientName, selectedMatterDetail?.practiceArea]);
 
-  const resolveTimelinePerson = useCallback(
-    (userId?: string | null): TimelinePerson => {
-      if (!userId) return { name: 'System' };
-      const member = membersById.get(userId);
-      if (member) {
-        const fallbackEmail = member.email ?? '';
-        const sessionName = session?.user?.id === userId ? session?.user?.name?.trim() : '';
-        const preferredName = member.name?.trim() || sessionName || fallbackEmail;
-        const name = preferredName && !isEmailLike(preferredName)
-          ? preferredName
-          : sessionName && !isEmailLike(sessionName)
-            ? sessionName
-            : fallbackEmail || preferredName;
-        return { name: name || `User ${userId.slice(0, 6)}`, imageUrl: member.image ?? null };
-      }
+  // ── Person resolver ───────────────────────────────────────────────────────
+  const resolvePerson = useCallback((userId?: string | null): TimelinePerson => {
+    if (!userId) return { name: 'System' };
+    const member = membersById.get(userId);
+    if (member) {
+      const fallbackEmail = member.email ?? '';
       const sessionName = session?.user?.id === userId ? session?.user?.name?.trim() : '';
-      if (sessionName && !isEmailLike(sessionName)) {
-        return { name: sessionName, imageUrl: session?.user?.image ?? null };
-      }
-      return { name: `User ${userId.slice(0, 6)}` };
-    },
-    [membersById, session?.user?.id, session?.user?.image, session?.user?.name]
+      const preferredName = member.name?.trim() || sessionName || fallbackEmail;
+      const name = preferredName && !isEmailLike(preferredName)
+        ? preferredName
+        : sessionName && !isEmailLike(sessionName)
+          ? sessionName
+          : fallbackEmail || preferredName;
+      return { name: name || `User ${userId.slice(0, 6)}`, imageUrl: member.image ?? null };
+    }
+    const sessionName = session?.user?.id === userId ? session?.user?.name?.trim() : '';
+    if (sessionName && !isEmailLike(sessionName)) {
+      return { name: sessionName, imageUrl: session?.user?.image ?? null };
+    }
+    return { name: `User ${userId.slice(0, 6)}` };
+  }, [membersById, session?.user?.id, session?.user?.image, session?.user?.name]);
+
+  // ── Activity builder (now just calls util, passing context) ───────────────
+  const toActivityItem = useCallback(
+    (activity: BackendMatterActivity, activities: BackendMatterActivity[]): TimelineItem =>
+      buildActivityTimelineItem(activity, activities, {
+        matterContext,
+        clientNameById,
+        serviceNameById,
+        assigneeNameById,
+        resolvePerson
+      }),
+    [matterContext, clientNameById, serviceNameById, assigneeNameById, resolvePerson]
   );
 
-  const toActivityTimelineItem = useCallback(
-    (activity: BackendMatterActivity, activities: BackendMatterActivity[]): TimelineItem => {
-      const createdAt = activity.created_at ?? new Date().toISOString();
-      const actionKey = activity.action ?? '';
-      const mapped = activityActionMap[actionKey];
-      const type = mapped?.type ?? 'edited';
-      const date = formatRelativeTime(createdAt);
-      const description = activity.description ?? undefined;
-      const person = resolveTimelinePerson(activity.user_id);
-      const metadata = activity.metadata ?? {};
-      const timeEntryDuration = formatDuration(
-        typeof (metadata as Record<string, unknown>).duration === 'number'
-          ? (metadata as Record<string, unknown>).duration as number
-          : null
-      );
-      const timeEntryDescription = typeof (metadata as Record<string, unknown>).description === 'string'
-        ? (metadata as Record<string, unknown>).description as string
-        : undefined;
-      const cleanedDescription = description ? stripActorPrefix(description, person.name) : undefined;
-      let actionMeta = actionKey === 'matter_status_changed'
-        ? buildStatusChangeMeta(metadata as Record<string, unknown>)
-        : null;
-      const action = (() => {
-        if (type === 'commented') return undefined;
-        if (actionKey === 'matter_created') {
-          return buildMatterCreatedLabel(matterContext);
-        }
-        if (actionKey === 'matter_updated') {
-          const fields = extractChangedFields(metadata as Record<string, unknown>);
-          if (fields.length === 1 && fields[0] === 'client') {
-            const changes = (metadata as Record<string, unknown>).changes;
-            if (changes && typeof changes === 'object') {
-              const clientId = (changes as Record<string, unknown>).client_id;
-              if (typeof clientId === 'string' && clientId.trim()) {
-                const clientName = clientNameById.get(clientId);
-                if (clientName) {
-                  return `updated client to ${clientName}.`;
-                }
-              }
-            }
-          }
-          if (fields.length === 1 && fields[0] === 'status') {
-            const statusMeta = findStatusChangeMeta(activity, activities);
-            if (!statusMeta) {
-              console.warn('[PracticeMattersPage] Missing status change metadata for status-only update', activity);
-            } else {
-              actionMeta = statusMeta;
-            }
-            return undefined;
-          }
-          if (fields.length === 1) {
-            return buildSingleFieldUpdateAction(fields[0], metadata as Record<string, unknown>, {
-              clientNameById,
-              serviceNameById,
-              assigneeNameById
-            });
-          }
-          const formatted = formatFieldList(fields);
-          if (formatted) return `updated ${formatted}.`;
-          return cleanedDescription ?? 'updated matter details.';
-        }
-        if (actionKey === 'matter_status_changed') {
-          return resolveStatusChangeLabel(metadata as Record<string, unknown>) ?? 'updated the status.';
-        }
-        if (actionKey.startsWith('time_entry_')) {
-          if (actionKey === 'time_entry_updated') {
-            const fields = extractChangedFields(metadata as Record<string, unknown>);
-            const formatted = formatFieldList(fields);
-            if (formatted) return `updated ${formatted}.`;
-          }
-          if (actionKey === 'time_entry_deleted') {
-            return cleanedDescription ?? 'deleted a time entry.';
-          }
-          if (timeEntryDuration) {
-            const verb = actionKey === 'time_entry_updated' ? 'updated' : 'logged';
-            return timeEntryDescription
-              ? `${verb} ${timeEntryDuration} for ${timeEntryDescription}.`
-              : `${verb} ${timeEntryDuration}.`;
-          }
-          return cleanedDescription ?? 'logged time entry.';
-        }
-        if (actionKey.startsWith('milestone_')) {
-          if (actionKey === 'milestone_updated') {
-            const fields = extractChangedFields(metadata as Record<string, unknown>);
-            const formatted = formatFieldList(fields);
-            if (formatted) return `updated ${formatted}.`;
-          }
-          if (cleanedDescription) {
-            return cleanedDescription;
-          }
-          return actionKey === 'milestone_completed'
-            ? 'completed a milestone.'
-            : actionKey === 'milestone_deleted'
-              ? 'deleted a milestone.'
-              : actionKey === 'milestone_updated'
-                ? 'updated a milestone.'
-                : 'added a milestone.';
-        }
-        if (actionKey === 'expense_updated' || actionKey === 'note_updated') {
-          const fields = extractChangedFields(metadata as Record<string, unknown>);
-          const formatted = formatFieldList(fields);
-          if (formatted) return `updated ${formatted}.`;
-        }
-        return mapped?.label ?? cleanedDescription ?? humanizeAction(actionKey);
-      })();
-      return {
-        id: activity.id,
-        type,
-        person,
-        date: date || 'Just now',
-        dateTime: createdAt,
-        comment: type === 'commented' ? description : undefined,
-        action,
-        actionMeta: actionMeta ?? undefined
-      };
-    },
-    [assigneeNameById, clientNameById, matterContext, resolveTimelinePerson, serviceNameById]
+  const toNoteItem = useCallback(
+    (note: Parameters<typeof buildNoteTimelineItem>[0]): TimelineItem =>
+      buildNoteTimelineItem(note, resolvePerson),
+    [resolvePerson]
   );
 
-  const toNoteTimelineItem = useCallback(
-    (note: BackendMatterNote): TimelineItem => {
-      const createdAt = note.created_at ?? new Date().toISOString();
-      const person = resolveTimelinePerson(note.user_id);
-      const date = formatRelativeTime(createdAt);
-      return {
-        id: `note-${note.id}`,
-        type: 'commented',
-        person,
-        date: date || 'Just now',
-        dateTime: createdAt,
-        comment: note.content ?? ''
-      };
-    },
-    [resolveTimelinePerson]
-  );
-
+  // ── Data fetching: members ────────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId) return;
     void fetchMembers(activePracticeId, { force: false });
   }, [activePracticeId, fetchMembers]);
+
+  // ── Data fetching: clients (paginated) ────────────────────────────────────
+  const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => ({
+    id: detail.id,
+    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown Client',
+    email: detail.user?.email ?? undefined,
+    role: 'client',
+    status: detail.status
+  }), []);
 
   useEffect(() => {
     if (!activePracticeId) {
@@ -934,51 +457,31 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       const limit = 100;
       const allClients: MatterOption[] = [];
       let hasMore = true;
-
       let lastTotal = 0;
+      const MAX_PAGES = 100;
+      let iterations = 0;
+
       try {
-        const MAX_PAGES = 100;
-        let iterations = 0;
         while (hasMore && !cancelled && !controller.signal.aborted && iterations < MAX_PAGES) {
           iterations++;
-          const response = await listUserDetails(activePracticeId, {
-            limit,
-            offset,
-            signal: controller.signal
-          });
+          const response = await listUserDetails(activePracticeId, { limit, offset, signal: controller.signal });
           if (cancelled || controller.signal.aborted) break;
 
-          const options = response.data.map(buildClientOption);
-          allClients.push(...options);
-
-          // Determine if we should fetch more
-          const count = response.data.length;
+          allClients.push(...response.data.map(buildClientOption));
           lastTotal = response.total ?? 0;
-
-          if (lastTotal > 0) {
-            hasMore = allClients.length < lastTotal;
-          } else {
-            hasMore = count === limit;
-          }
-
-          if (hasMore) {
-            offset += limit;
-          }
+          hasMore = lastTotal > 0 ? allClients.length < lastTotal : response.data.length === limit;
+          if (hasMore) offset += limit;
         }
 
         if (!cancelled && !controller.signal.aborted) {
           setClientOptions(allClients);
-          // Detect truncation if we broke loop prematurely or if total exceeds the amount we fetched
-          const isTruncated = iterations >= MAX_PAGES || (lastTotal > allClients.length);
-          setIsClientListTruncated(isTruncated);
+          setIsClientListTruncated(iterations >= MAX_PAGES || lastTotal > allClients.length);
         }
       } catch (error) {
-        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
-          return;
-        }
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
         if (!cancelled) {
           console.error('[PracticeMattersPage] Failed to load clients', error);
-          setClientOptions(allClients); // Show what we have
+          setClientOptions(allClients);
           setIsClientListTruncated(true);
           showError('Failed to load full client list', 'Some clients may be missing.');
         }
@@ -986,13 +489,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     };
 
     void fetchAllClients();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
+    return () => { cancelled = true; controller.abort(); };
   }, [activePracticeId, buildClientOption, showError]);
 
+  // ── Data fetching: practice services ─────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId) return;
     if (practiceDetailsRequestedRef.current === activePracticeId) return;
@@ -1003,14 +503,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     practiceDetailsRequestedRef.current = activePracticeId;
     setServicesLoading(true);
     fetchPracticeDetails()
-      .catch((error) => {
-        console.warn('[PracticeMattersPage] Failed to load practice services', error);
-      })
-      .finally(() => {
-        setServicesLoading(false);
-      });
+      .catch((error) => console.warn('[PracticeMattersPage] Failed to load practice services', error))
+      .finally(() => setServicesLoading(false));
   }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails, practiceDetails]);
 
+  // ── Data fetching: matters list ───────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId) {
       setMatters([]);
@@ -1027,61 +524,51 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     setMattersHasMore(true);
     setMattersPage(1);
 
-    listMatters(activePracticeId, { signal: controller.signal, page: 1, limit: pageSize })
+    listMatters(activePracticeId, { signal: controller.signal, page: 1, limit: PAGE_SIZE })
       .then((items) => {
         setMatters(items);
-        setMattersHasMore(items.length === pageSize);
+        setMattersHasMore(items.length === PAGE_SIZE);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        const message = error instanceof Error ? error.message : 'Failed to load matters';
-        setMattersError(message);
+        setMattersError(error instanceof Error ? error.message : 'Failed to load matters');
       })
-      .finally(() => {
-        setMattersLoading(false);
-      });
+      .finally(() => setMattersLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, mattersRefreshKey, pageSize]);
+  }, [activePracticeId, mattersRefreshKey]);
+
+  const refreshMatters = useCallback(() => setMattersRefreshKey((prev) => prev + 1), []);
 
   const loadMoreMatters = useCallback(async () => {
-    if (!activePracticeId || mattersLoadingMore || mattersLoading || !mattersHasMore) {
-      return;
-    }
+    if (!activePracticeId || mattersLoadingMore || mattersLoading || !mattersHasMore) return;
     const nextPage = mattersPage + 1;
     setMattersLoadingMore(true);
     try {
-      const items = await listMatters(activePracticeId, { page: nextPage, limit: pageSize });
+      const items = await listMatters(activePracticeId, { page: nextPage, limit: PAGE_SIZE });
       setMatters((prev) => [...prev, ...items]);
       setMattersPage(nextPage);
-      setMattersHasMore(items.length === pageSize);
+      setMattersHasMore(items.length === PAGE_SIZE);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to load more matters', error);
       showError('Could not load more matters', 'Please try again.');
     } finally {
       setMattersLoadingMore(false);
     }
-  }, [activePracticeId, mattersHasMore, mattersLoading, mattersLoadingMore, mattersPage, pageSize, showError]);
+  }, [activePracticeId, mattersHasMore, mattersLoading, mattersLoadingMore, mattersPage, showError]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
-    if (!target) return;
-    if (!mattersHasMore || mattersLoading || mattersLoadingMore) return;
-
+    if (!target || !mattersHasMore || mattersLoading || mattersLoadingMore) return;
     const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry?.isIntersecting) {
-          void loadMoreMatters();
-        }
-      },
+      (entries) => { if (entries[0]?.isIntersecting) void loadMoreMatters(); },
       { rootMargin: '200px' }
     );
-
     observer.observe(target);
     return () => observer.disconnect();
   }, [loadMoreMatters, mattersHasMore, mattersLoading, mattersLoadingMore]);
 
+  // ── Data fetching: matter detail ──────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
       setSelectedMatterDetail(null);
@@ -1096,22 +583,18 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     getMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((matter) => {
-        setSelectedMatterDetail(
-          matter ? toMatterDetail(matter, { clientNameById, serviceNameById }) : null
-        );
+        setSelectedMatterDetail(matter ? toMatterDetail(matter, { clientNameById, serviceNameById }) : null);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        const message = error instanceof Error ? error.message : 'Failed to load matter';
-        setDetailError(message);
+        setDetailError(error instanceof Error ? error.message : 'Failed to load matter');
       })
-      .finally(() => {
-        setDetailLoading(false);
-      });
+      .finally(() => setDetailLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, clientNameById, selectedMatterId, serviceNameById]);
+  }, [activePracticeId, selectedMatterId, clientNameById, serviceNameById]);
 
+  // ── Data fetching: activity ───────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
       setActivityItems([]);
@@ -1124,79 +607,39 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
     getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((items) => {
-        const nextItems = items
-          .filter((item) => !String(item.action ?? '').startsWith('note_'))
-          .slice()
-          .sort((a, b) => {
-            const getTimestamp = (item: typeof a) => {
-              if (!item.created_at) {
-                console.warn('[PracticeMattersPage] Item missing created_at', { id: item.id, action: item.action });
-                return 0;
-              }
-              const time = new Date(item.created_at).getTime();
-              if (Number.isNaN(time)) {
-                console.warn('[PracticeMattersPage] Item has invalid created_at', { id: item.id, action: item.action, value: item.created_at });
-                return 0;
-              }
-              return time;
-            };
-
-            const aTime = getTimestamp(a);
-            const bTime = getTimestamp(b);
-            return aTime - bTime;
-          })
-          .map((item) => toActivityTimelineItem(item, items));
-        setActivityItems(nextItems);
+        const filtered = items.filter((item) => !String(item.action ?? '').startsWith('note_'));
+        setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, items)));
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
         console.warn('[PracticeMattersPage] Failed to load activity', error);
         setActivityItems([]);
       })
-      .finally(() => {
-        setActivityLoading(false);
-      });
+      .finally(() => setActivityLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, toActivityTimelineItem]);
+  }, [activePracticeId, selectedMatterId, toActivityItem]);
 
+  // ── Data fetching: notes ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!activePracticeId || !selectedMatterId) {
-      setNoteItems([]);
-      return;
-    }
+    if (!activePracticeId || !selectedMatterId) { setNoteItems([]); return; }
 
     const controller = new AbortController();
     listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
-      .then((items) => {
-        const nextNotes = items
-          .slice()
-          .sort((a, b) => {
-            const getTimestamp = (item: typeof a) => {
-              if (!item.created_at) return 0;
-              const time = new Date(item.created_at).getTime();
-              return Number.isNaN(time) ? 0 : time;
-            };
-            return getTimestamp(a) - getTimestamp(b);
-          })
-          .map(toNoteTimelineItem);
-        setNoteItems(nextNotes);
-      })
+      .then((items) => setNoteItems(sortByTimestamp(items).map(toNoteItem)))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        console.warn('[PracticeMattersPage] Failed to load notes for timeline', error);
+        console.warn('[PracticeMattersPage] Failed to load notes', error);
         setNoteItems([]);
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, toNoteTimelineItem]);
+  }, [activePracticeId, selectedMatterId, toNoteItem]);
 
+  // ── Data fetching: time entries ───────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
-      setTimeEntries([]);
-      setTimeEntriesError(null);
-      setTimeEntriesLoading(false);
-      setTimeStats(null);
+      setTimeEntries([]); setTimeEntriesError(null); setTimeEntriesLoading(false); setTimeStats(null);
       return;
     }
 
@@ -1208,27 +651,20 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       listMatterTimeEntries(activePracticeId, selectedMatterId, { signal: controller.signal }),
       getMatterTimeEntryStats(activePracticeId, selectedMatterId, { signal: controller.signal })
     ])
-      .then(([entries, stats]) => {
-        setTimeEntries(entries.map(toTimeEntry));
-        setTimeStats(stats);
-      })
+      .then(([entries, stats]) => { setTimeEntries(entries.map(toTimeEntry)); setTimeStats(stats); })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        const message = error instanceof Error ? error.message : 'Failed to load time entries';
-        setTimeEntriesError(message);
+        setTimeEntriesError(error instanceof Error ? error.message : 'Failed to load time entries');
       })
-      .finally(() => {
-        setTimeEntriesLoading(false);
-      });
+      .finally(() => setTimeEntriesLoading(false));
 
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId]);
 
+  // ── Data fetching: expenses ───────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
-      setExpenses([]);
-      setExpensesError(null);
-      setExpensesLoading(false);
+      setExpenses([]); setExpensesError(null); setExpensesLoading(false);
       return;
     }
 
@@ -1237,26 +673,20 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     setExpensesError(null);
 
     listMatterExpenses(activePracticeId, selectedMatterId, { signal: controller.signal })
-      .then((items) => {
-        setExpenses(items.map(toExpense));
-      })
+      .then((items) => setExpenses(items.map(toExpense)))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        const message = error instanceof Error ? error.message : 'Failed to load expenses';
-        setExpensesError(message);
+        setExpensesError(error instanceof Error ? error.message : 'Failed to load expenses');
       })
-      .finally(() => {
-        setExpensesLoading(false);
-      });
+      .finally(() => setExpensesLoading(false));
 
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId]);
 
+  // ── Data fetching: milestones ─────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
-      setMilestones([]);
-      setMilestonesError(null);
-      setMilestonesLoading(false);
+      setMilestones([]); setMilestonesError(null); setMilestonesLoading(false);
       return;
     }
 
@@ -1268,223 +698,200 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       .then((items) => {
         const mapped = items.map(toMilestone);
         setMilestones(mapped);
-        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+        setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: mapped } : prev);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
         console.warn('[PracticeMattersPage] Failed to load milestones', error);
-        const message = error instanceof Error ? error.message : 'Failed to load milestones';
-        setMilestonesError(message);
+        setMilestonesError(error instanceof Error ? error.message : 'Failed to load milestones');
       })
-      .finally(() => {
-        setMilestonesLoading(false);
-      });
+      .finally(() => setMilestonesLoading(false));
 
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId]);
 
-  const handleCreateMilestone = useCallback(async (values: { description: string; amount: MajorAmount; dueDate: string; status?: string }) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
+  // ── Refresh helpers ───────────────────────────────────────────────────────
+  const refreshSelectedMatter = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const requestId = ++refreshRequestIdRef.current;
 
-    const created = await createMatterMilestone(activePracticeId, selectedMatterId, {
-      description: values.description,
-      amount: values.amount,
-      due_date: values.dueDate,
-      status: values.status ?? 'pending',
-      order: milestones.length + 1
-    });
-
-    if (created) {
-      const next = [...milestones, toMilestone(created)];
-      setMilestones(next);
-      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
-    } else {
-      const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
-      const mapped = refreshed.map(toMilestone);
-      setMilestones(mapped);
-      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
-    }
-  }, [activePracticeId, milestones, selectedMatterId]);
-
-  const handleUpdateMilestone = useCallback(async (
-    milestone: MatterDetail['milestones'][number],
-    values: { description: string; amount: MajorAmount; dueDate: string; status?: string }
-  ) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    if (!milestone.id) {
-      throw new Error('Milestone ID is required');
-    }
     try {
-      const updated = await updateMatterMilestone(activePracticeId, selectedMatterId, milestone.id, {
-        description: values.description,
-        amount: values.amount,
-        due_date: values.dueDate,
-        status: values.status ?? 'pending'
+      const activities = await getMatterActivity(activePracticeId, selectedMatterId);
+      if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
+      const filtered = (activities ?? []).filter((item) => !String(item.action ?? '').startsWith('note_'));
+      setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, activities ?? [])));
+    } catch (error) {
+      console.warn('[PracticeMattersPage] Failed to refresh activity', error);
+    }
+
+    try {
+      const refreshed = await getMatter(activePracticeId, selectedMatterId);
+      if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
+      if (refreshed) {
+        setSelectedMatterDetail(toMatterDetail(refreshed, { clientNameById, serviceNameById }));
+      }
+    } catch (error) {
+      console.warn('[PracticeMattersPage] Failed to refresh matter detail', error);
+    }
+  }, [activePracticeId, selectedMatterId, clientNameById, serviceNameById, toActivityItem]);
+
+  // ── Matter CRUD ───────────────────────────────────────────────────────────
+  const handleCreateMatter = useCallback(async (values: MatterFormState) => {
+    if (!activePracticeId) throw new Error('Practice ID is required to create a matter.');
+    if (values.clientId && !isUuid(values.clientId)) throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
+    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
+
+    const created = await createMatter(activePracticeId, prunePayload(buildCreatePayload(values)));
+    refreshMatters();
+    createdMatterIdRef.current = created?.id ?? null;
+  }, [activePracticeId, refreshMatters]);
+
+  const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
+    if (!activePracticeId || !selectedMatterId) return;
+    if (values.clientId && !isUuid(values.clientId)) throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
+    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
+
+    await updateMatter(
+      activePracticeId,
+      selectedMatterId,
+      prunePayload(buildUpdatePayload(values, selectedMatterDetail?.status))
+    );
+    refreshMatters();
+    await refreshSelectedMatter();
+  }, [activePracticeId, selectedMatterId, selectedMatterDetail?.status, refreshMatters, refreshSelectedMatter]);
+
+  // ── Status update shortcut (uses buildFormStateFromDetail) ────────────────
+  const handleUpdateStatus = useCallback((newStatus: MatterStatus) => {
+    if (!selectedMatterDetail || !activePracticeId) return;
+    void handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, { status: newStatus }));
+  }, [selectedMatterDetail, activePracticeId, handleUpdateMatter]);
+
+  // ── Description edit handlers ─────────────────────────────────────────────
+  const startDescriptionEdit = useCallback(() => {
+    if (!selectedMatterDetail) return;
+    setDescriptionDraft(selectedMatterDetail.description ?? '');
+    setIsDescriptionEditing(true);
+  }, [selectedMatterDetail]);
+
+  const cancelDescriptionEdit = useCallback(() => {
+    setIsDescriptionEditing(false);
+    setDescriptionDraft('');
+  }, []);
+
+  const saveDescription = useCallback(async () => {
+    if (!selectedMatterDetail || !activePracticeId) return;
+    setIsSavingDescription(true);
+    try {
+      await handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, { description: descriptionDraft }));
+      setIsDescriptionEditing(false);
+      setDescriptionDraft('');
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update description', error);
+      showError('Could not save description', 'Please try again.');
+    } finally {
+      setIsSavingDescription(false);
+    }
+  }, [selectedMatterDetail, activePracticeId, descriptionDraft, handleUpdateMatter, showError]);
+
+  // ── Time entry handlers ───────────────────────────────────────────────────
+  const refreshTimeEntries = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const [entries, stats] = await Promise.all([
+      listMatterTimeEntries(activePracticeId, selectedMatterId),
+      getMatterTimeEntryStats(activePracticeId, selectedMatterId)
+    ]);
+    setTimeEntries(entries.map(toTimeEntry));
+    setTimeStats(stats);
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues, existing?: TimeEntry | null) => {
+    if (!activePracticeId || !selectedMatterId) return;
+    try {
+      if (existing?.id) {
+        await updateMatterTimeEntry(activePracticeId, selectedMatterId, existing.id, {
+          start_time: values.startTime, end_time: values.endTime, description: values.description, billable: true
+        });
+      } else {
+        await createMatterTimeEntry(activePracticeId, selectedMatterId, {
+          start_time: values.startTime, end_time: values.endTime, description: values.description, billable: true
+        });
+      }
+      await refreshTimeEntries();
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to save time entry', error);
+      showError('Could not save time entry', 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, refreshTimeEntries, showError]);
+
+  const handleDeleteTimeEntry = useCallback(async (entry: TimeEntry) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    try {
+      await deleteMatterTimeEntry(activePracticeId, selectedMatterId, entry.id);
+      await refreshTimeEntries();
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete time entry', error);
+      showError('Could not delete time entry', 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, refreshTimeEntries, showError]);
+
+  const handleQuickTimeSubmit = useCallback(async (values: TimeEntryFormValues) => {
+    if (!activePracticeId || !selectedMatterId) return;
+    try {
+      await createMatterTimeEntry(activePracticeId, selectedMatterId, {
+        start_time: values.startTime, end_time: values.endTime, description: values.description, billable: true
       });
-      if (updated) {
-        const next = milestones.map((item) => (item.id === milestone.id ? toMilestone(updated) : item));
-        setMilestones(next);
-        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
-        setMilestonesError(null);
-        return;
-      }
-      const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
-      const mapped = refreshed.map(toMilestone);
-      setMilestones(mapped);
-      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
-      setMilestonesError(null);
+      await refreshTimeEntries();
+      setIsQuickTimeEntryOpen(false);
     } catch (error) {
-      console.error('[PracticeMattersPage] Failed to update milestone', error);
-      showError('Could not update milestone', 'Please try again.');
-      setMilestonesError('Unable to update milestone.');
-      try {
-        const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
-        const mapped = refreshed.map(toMilestone);
-        setMilestones(mapped);
-        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
-      } catch (refreshError) {
-        console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
-      }
-      throw error;
+      console.error('[PracticeMattersPage] Failed to save quick time entry', error);
+      showError('Could not save time entry', 'Please try again.');
     }
-  }, [activePracticeId, milestones, selectedMatterId, showError]);
+  }, [activePracticeId, selectedMatterId, refreshTimeEntries, showError]);
 
-  const handleDeleteMilestone = useCallback(async (milestone: MatterDetail['milestones'][number]) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    if (!milestone.id) {
-      throw new Error('Milestone ID is required');
-    }
-    try {
-      await deleteMatterMilestone(activePracticeId, selectedMatterId, milestone.id);
-      const next = milestones.filter((item) => item.id !== milestone.id);
-      setMilestones(next);
-      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
-      setMilestonesError(null);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to delete milestone', error);
-      showError('Could not delete milestone', 'Please try again.');
-      setMilestonesError('Unable to delete milestone.');
-      try {
-        const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
-        const mapped = refreshed.map(toMilestone);
-        setMilestones(mapped);
-        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
-        setMilestonesError(null);
-      } catch (refreshError) {
-        console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
-      }
-      throw error;
-    }
-  }, [activePracticeId, milestones, selectedMatterId, showError]);
-
-  const handleReorderMilestones = useCallback(async (nextOrder: MatterDetail['milestones']) => {
-    if (!activePracticeId || !selectedMatterId) {
-      return;
-    }
-
-    const previousMilestones = milestones;
-    setMilestones(nextOrder);
-    setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: nextOrder } : prev));
-
-    const payload = nextOrder
-      .map((milestone, index) => ({
-        id: milestone.id ?? '',
-        order: index + 1
-      }))
-      .filter((item) => item.id);
-
-    if (payload.length === 0) {
-      return;
-    }
-
-    try {
-      await reorderMatterMilestones(activePracticeId, selectedMatterId, payload);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to reorder milestones', error);
-      setMilestones(previousMilestones);
-      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: previousMilestones } : prev));
-      showError('Could not reorder milestones', 'Please try again.');
-    }
-  }, [activePracticeId, milestones, selectedMatterId, showError]);
-
-  const handleCreateNote = useCallback(async (values: { content: string }) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    const created = await createMatterNote(activePracticeId, selectedMatterId, values.content);
-    if (created) {
-      const newItem = toNoteTimelineItem(created);
-      setNoteItems((prev) => [...prev, newItem]);
-    }
-  }, [activePracticeId, selectedMatterId, toNoteTimelineItem]);
+  // ── Expense handlers ──────────────────────────────────────────────────────
+  const refreshExpenses = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const items = await listMatterExpenses(activePracticeId, selectedMatterId);
+    setExpenses(items.map(toExpense));
+  }, [activePracticeId, selectedMatterId]);
 
   const handleCreateExpense = useCallback(async (values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    if (values.amount === undefined) {
-      throw new Error('Amount is required');
-    }
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    if (values.amount === undefined) throw new Error('Amount is required');
     const created = await createMatterExpense(activePracticeId, selectedMatterId, {
-      description: values.description,
-      amount: values.amount,
-      date: values.date,
-      billable: values.billable
+      description: values.description, amount: values.amount, date: values.date, billable: values.billable
     });
     if (created) {
       setExpenses((prev) => [toExpense(created), ...prev]);
     } else {
-      const updated = await listMatterExpenses(activePracticeId, selectedMatterId);
-      setExpenses(updated.map(toExpense));
+      await refreshExpenses();
     }
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, refreshExpenses]);
 
   const handleUpdateExpense = useCallback(async (expense: MatterExpense, values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    if (values.amount === undefined) {
-      throw new Error('Amount is required');
-    }
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    if (values.amount === undefined) throw new Error('Amount is required');
     try {
       const updated = await updateMatterExpense(activePracticeId, selectedMatterId, expense.id, {
-        description: values.description,
-        amount: values.amount,
-        date: values.date,
-        billable: values.billable
+        description: values.description, amount: values.amount, date: values.date, billable: values.billable
       });
       if (updated) {
-        setExpenses((prev) => prev.map((item) => (item.id === expense.id ? toExpense(updated) : item)));
-        setExpensesError(null);
-        return;
+        setExpenses((prev) => prev.map((item) => item.id === expense.id ? toExpense(updated) : item));
+      } else {
+        await refreshExpenses();
       }
-      const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
-      setExpenses(refreshed.map(toExpense));
       setExpensesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to update expense', error);
       showError('Could not update expense', 'Please try again.');
       setExpensesError('Unable to update expense.');
-      try {
-        const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
-        setExpenses(refreshed.map(toExpense));
-      } catch (refreshError) {
-        console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
-      }
+      await refreshExpenses().catch(console.error);
       throw error;
     }
-  }, [activePracticeId, selectedMatterId, showError]);
+  }, [activePracticeId, selectedMatterId, refreshExpenses, showError]);
 
   const handleDeleteExpense = useCallback(async (expense: MatterExpense) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
     try {
       await deleteMatterExpense(activePracticeId, selectedMatterId, expense.id);
       setExpenses((prev) => prev.filter((item) => item.id !== expense.id));
@@ -1493,315 +900,175 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       console.error('[PracticeMattersPage] Failed to delete expense', error);
       showError('Could not delete expense', 'Please try again.');
       setExpensesError('Unable to delete expense.');
-      try {
-        const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
-        setExpenses(refreshed.map(toExpense));
-        setExpensesError(null);
-      } catch (refreshError) {
-        console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
-      }
+      await refreshExpenses().catch(console.error);
       throw error;
     }
-  }, [activePracticeId, selectedMatterId, showError]);
+  }, [activePracticeId, selectedMatterId, refreshExpenses, showError]);
 
-  const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues, existing?: TimeEntry | null) => {
+  // ── Milestone handlers ────────────────────────────────────────────────────
+  const refreshMilestones = useCallback(async () => {
     if (!activePracticeId || !selectedMatterId) return;
-    try {
-      if (existing?.id) {
-        await updateMatterTimeEntry(activePracticeId, selectedMatterId, existing.id, {
-          start_time: values.startTime,
-          end_time: values.endTime,
-          description: values.description,
-          billable: true
-        });
-      } else {
-        await createMatterTimeEntry(activePracticeId, selectedMatterId, {
-          start_time: values.startTime,
-          end_time: values.endTime,
-          description: values.description,
-          billable: true
-        });
-      }
-      const [entries, stats] = await Promise.all([
-        listMatterTimeEntries(activePracticeId, selectedMatterId),
-        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
-      ]);
-      setTimeEntries(entries.map(toTimeEntry));
-      setTimeStats(stats);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to save time entry', error);
-      showError('Could not save time entry', 'Please try again.');
-    }
-  }, [activePracticeId, selectedMatterId, showError]);
+    const items = await listMatterMilestones(activePracticeId, selectedMatterId);
+    const mapped = items.map(toMilestone);
+    setMilestones(mapped);
+    setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: mapped } : prev);
+  }, [activePracticeId, selectedMatterId]);
 
-  const handleDeleteTimeEntry = useCallback(async (entry: TimeEntry) => {
-    if (!activePracticeId || !selectedMatterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-    try {
-      await deleteMatterTimeEntry(activePracticeId, selectedMatterId, entry.id);
-      const [entries, stats] = await Promise.all([
-        listMatterTimeEntries(activePracticeId, selectedMatterId),
-        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
-      ]);
-      setTimeEntries(entries.map(toTimeEntry));
-      setTimeStats(stats);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to delete time entry', error);
-      showError('Could not delete time entry', 'Please try again.');
-    }
-  }, [activePracticeId, selectedMatterId, showError]);
-
-  const handleCreateMatter = useCallback(async (values: MatterFormState) => {
-    if (!activePracticeId) {
-      throw new Error('Practice ID is required to create a matter.');
-    }
-
-    if (values.clientId && !isUuid(values.clientId)) {
-      throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
-    }
-    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
-      throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
-    }
-
-    const payload: Record<string, unknown> = {
-      title: values.title.trim(),
-      client_id: values.clientId || undefined,
-      description: values.description || undefined,
-      case_number: values.caseNumber || undefined,
-      matter_type: values.matterType || undefined,
-      urgency: values.urgency || undefined,
-      responsible_attorney_id: values.responsibleAttorneyId || undefined,
-      originating_attorney_id: values.originatingAttorneyId || undefined,
-      court: values.court || undefined,
-      judge: values.judge || undefined,
-      opposing_party: values.opposingParty || undefined,
-      opposing_counsel: values.opposingCounsel || undefined,
-      open_date: values.openDate || undefined,
-      close_date: values.closeDate || undefined,
-      billing_type: values.billingType,
-      total_fixed_price: values.totalFixedPrice ?? undefined,
-      contingency_percentage: values.contingencyPercent ?? undefined,
-      settlement_amount: values.settlementAmount ?? undefined,
-      practice_service_id: values.practiceAreaId || undefined,
-      admin_hourly_rate: values.adminHourlyRate ?? undefined,
-      attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
-      payment_frequency: values.paymentFrequency ?? undefined,
-      status: mapStatusToBackend(values.status),
-      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined,
-      milestones: values.milestones.map((milestone, index) => ({
-        description: milestone.description,
-        amount: milestone.amount ?? 0,
-        due_date: milestone.dueDate,
-        order: index + 1
-      }))
-    };
-
-    const created = await createMatter(activePracticeId, prunePayload(payload));
-    refreshMatters();
-    createdMatterIdRef.current = created?.id ?? null;
-  }, [activePracticeId, refreshMatters]);
-
-  const refreshSelectedMatter = useCallback(async () => {
-    if (!activePracticeId || !selectedMatterId) return;
-    const requestId = ++refreshRequestIdRef.current;
-    
-    try {
-      const activities = await getMatterActivity(activePracticeId, selectedMatterId);
-      if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
-      
-      const nextItems = (activities ?? [])
-        .filter((item) => !String(item.action ?? '').startsWith('note_'))
-        .slice()
-        .sort((a, b) => {
-          const getTimestamp = (d?: string | null) => {
-             const t = d ? new Date(d).getTime() : 0;
-             return Number.isNaN(t) ? 0 : t;
-          };
-          return getTimestamp(a.created_at) - getTimestamp(b.created_at);
-        })
-        .map((item) => toActivityTimelineItem(item, activities ?? []));
-      
-      setActivityItems(nextItems);
-    } catch (error) {
-      console.warn('[PracticeMattersPage] Failed to refresh activity', error);
-    }
-
-    try {
-      const refreshed = await getMatter(activePracticeId, selectedMatterId);
-      if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
-
-      if (refreshed) {
-        setSelectedMatterDetail(
-          toMatterDetail(refreshed, { clientNameById, serviceNameById })
-        );
-      }
-    } catch (error) {
-      console.warn('[PracticeMattersPage] Failed to refresh matter detail', error);
-    }
-  }, [activePracticeId, selectedMatterId, clientNameById, serviceNameById, toActivityTimelineItem]);
-
-  const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
-    if (!activePracticeId || !selectedMatterId) return;
-
-    if (values.clientId && !isUuid(values.clientId)) {
-      throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
-    }
-    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) {
-      throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
-    }
-
-    const payload: Partial<BackendMatter> = {
-      title: values.title.trim(),
-      description: values.description !== undefined ? values.description.trim() : undefined,
-      client_id: values.clientId === '' ? null : (values.clientId || undefined),
-      practice_service_id: values.practiceAreaId === '' ? null : (values.practiceAreaId || undefined),
-      case_number: values.caseNumber === '' ? null : (values.caseNumber || undefined),
-      matter_type: values.matterType === '' ? null : (values.matterType || undefined),
-      urgency: values.urgency === '' ? null : (values.urgency || undefined),
-      responsible_attorney_id: values.responsibleAttorneyId === ''
-        ? null
-        : values.responsibleAttorneyId && isUuid(values.responsibleAttorneyId)
-          ? values.responsibleAttorneyId
-          : undefined,
-      originating_attorney_id: values.originatingAttorneyId === ''
-        ? null
-        : values.originatingAttorneyId && isUuid(values.originatingAttorneyId)
-          ? values.originatingAttorneyId
-          : undefined,
-      court: values.court === '' ? null : (values.court || undefined),
-      judge: values.judge === '' ? null : (values.judge || undefined),
-      opposing_party: values.opposingParty === '' ? null : (values.opposingParty || undefined),
-      opposing_counsel: values.opposingCounsel === '' ? null : (values.opposingCounsel || undefined),
-      open_date: values.openDate === '' ? null : (values.openDate || undefined),
-      close_date: values.closeDate === '' ? null : (values.closeDate || undefined),
-      admin_hourly_rate: values.adminHourlyRate ?? undefined,
-      attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
-      payment_frequency: values.paymentFrequency ?? undefined,
-      settlement_amount: values.settlementAmount ?? undefined,
-      status: values.status !== selectedMatterDetail?.status ? mapStatusToBackend(values.status) : undefined,
-      assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : null
-    };
-
-    await updateMatter(activePracticeId, selectedMatterId, prunePayload(payload));
-    refreshMatters();
-    await refreshSelectedMatter();
-  }, [
-    activePracticeId,
-    refreshMatters,
-    selectedMatterDetail?.status,
-    selectedMatterId,
-    refreshSelectedMatter
-  ]);
-
-  const matterEntries = useMemo(() => {
-    return matters.map((matter) => {
-      const summary = toMatterSummary(matter, { clientNameById, serviceNameById });
-      return {
-        summary: {
-          ...summary
-        },
-        assigneeIds: extractAssigneeIds(matter)
-      };
+  const handleCreateMilestone = useCallback(async (values: { description: string; amount: MajorAmount; dueDate: string; status?: string }) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    const created = await createMatterMilestone(activePracticeId, selectedMatterId, {
+      description: values.description,
+      amount: values.amount,
+      due_date: values.dueDate,
+      status: values.status ?? 'pending',
+      order: milestones.length + 1
     });
-  }, [clientNameById, matters, serviceNameById]);
+    if (created) {
+      const next = [...milestones, toMilestone(created)];
+      setMilestones(next);
+      setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: next } : prev);
+    } else {
+      await refreshMilestones();
+    }
+  }, [activePracticeId, selectedMatterId, milestones, refreshMilestones]);
 
-  const matterSummaries = useMemo(() => matterEntries.map((entry) => entry.summary), [matterEntries]);
+  const handleUpdateMilestone = useCallback(async (
+    milestone: MatterDetail['milestones'][number],
+    values: { description: string; amount: MajorAmount; dueDate: string; status?: string }
+  ) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    if (!milestone.id) throw new Error('Milestone ID is required');
+    try {
+      const updated = await updateMatterMilestone(activePracticeId, selectedMatterId, milestone.id, {
+        description: values.description, amount: values.amount, due_date: values.dueDate, status: values.status ?? 'pending'
+      });
+      if (updated) {
+        const next = milestones.map((m) => m.id === milestone.id ? toMilestone(updated) : m);
+        setMilestones(next);
+        setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: next } : prev);
+      } else {
+        await refreshMilestones();
+      }
+      setMilestonesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update milestone', error);
+      showError('Could not update milestone', 'Please try again.');
+      setMilestonesError('Unable to update milestone.');
+      await refreshMilestones().catch(console.error);
+      throw error;
+    }
+  }, [activePracticeId, selectedMatterId, milestones, refreshMilestones, showError]);
+
+  const handleDeleteMilestone = useCallback(async (milestone: MatterDetail['milestones'][number]) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    if (!milestone.id) throw new Error('Milestone ID is required');
+    try {
+      await deleteMatterMilestone(activePracticeId, selectedMatterId, milestone.id);
+      const next = milestones.filter((m) => m.id !== milestone.id);
+      setMilestones(next);
+      setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: next } : prev);
+      setMilestonesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete milestone', error);
+      showError('Could not delete milestone', 'Please try again.');
+      setMilestonesError('Unable to delete milestone.');
+      await refreshMilestones().catch(console.error);
+      throw error;
+    }
+  }, [activePracticeId, selectedMatterId, milestones, refreshMilestones, showError]);
+
+  const handleReorderMilestones = useCallback(async (nextOrder: MatterDetail['milestones']) => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const previous = milestones;
+    setMilestones(nextOrder);
+    setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: nextOrder } : prev);
+
+    const payload = nextOrder
+      .map((m, i) => ({ id: m.id ?? '', order: i + 1 }))
+      .filter((item) => item.id);
+    if (payload.length === 0) return;
+
+    try {
+      await reorderMatterMilestones(activePracticeId, selectedMatterId, payload);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to reorder milestones', error);
+      setMilestones(previous);
+      setSelectedMatterDetail((prev) => prev ? { ...prev, milestones: previous } : prev);
+      showError('Could not reorder milestones', 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, milestones, showError]);
+
+  // ── Note handler ──────────────────────────────────────────────────────────
+  const handleCreateNote = useCallback(async (values: { content: string }) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    const created = await createMatterNote(activePracticeId, selectedMatterId, values.content);
+    if (created) setNoteItems((prev) => [...prev, toNoteItem(created)]);
+  }, [activePracticeId, selectedMatterId, toNoteItem]);
+
+  // ── Derived list data ─────────────────────────────────────────────────────
+  const matterEntries = useMemo(() => matters.map((m) => ({
+    summary: toMatterSummary(m, { clientNameById, serviceNameById }),
+    assigneeIds: extractAssigneeIds(m)
+  })), [matters, clientNameById, serviceNameById]);
+
+  const matterSummaries = useMemo(() => matterEntries.map((e) => e.summary), [matterEntries]);
 
   const counts = useMemo(() => {
-    const countsByStatus = MATTER_WORKFLOW_STATUSES.reduce<Record<MatterStatus, number>>((acc, status) => {
-      acc[status] = 0;
-      return acc;
-    }, {} as Record<MatterStatus, number>);
-    for (const matter of matterSummaries) {
-      countsByStatus[matter.status] = (countsByStatus[matter.status] ?? 0) + 1;
-    }
-    const all = Object.values(countsByStatus).reduce((sum, value) => sum + value, 0);
-    const closed = Object.entries(countsByStatus)
-      .filter(([status]) => isClosedStatus(status as MatterStatus))
-      .reduce((sum, [, value]) => sum + value, 0);
-    return {
-      all,
-      closed,
-      open: all - closed
-    };
+    const all = matterSummaries.length;
+    const closed = matterSummaries.filter((m) => isClosedStatus(m.status)).length;
+    return { all, closed, open: all - closed };
   }, [matterSummaries]);
 
   const tabs = useMemo(() => buildTabs(counts), [counts]);
 
   const filteredMatters = useMemo(() => {
     if (activeTab === 'all') return matterEntries;
-    if (activeTab === 'open') {
-      return matterEntries.filter((entry) => !isClosedStatus(entry.summary.status));
-    }
-    return matterEntries.filter((entry) => isClosedStatus(entry.summary.status));
+    if (activeTab === 'open') return matterEntries.filter((e) => !isClosedStatus(e.summary.status));
+    return matterEntries.filter((e) => isClosedStatus(e.summary.status));
   }, [activeTab, matterEntries]);
 
-  const sortedMatters = useMemo(() => {
-    const matters = [...filteredMatters];
-    if (sortOption === 'title') {
-      return matters.sort((a, b) => a.summary.title.localeCompare(b.summary.title));
-    }
-    if (sortOption === 'status') {
-      return matters.sort((a, b) => statusOrder[a.summary.status] - statusOrder[b.summary.status]);
-    }
-    if (sortOption === 'client') {
-      return matters.sort((a, b) => a.summary.clientName.localeCompare(b.summary.clientName));
-    }
-    if (sortOption === 'practice_area') {
-      return matters.sort((a, b) => (a.summary.practiceArea ?? '').localeCompare(b.summary.practiceArea ?? ''));
-    }
-    if (sortOption === 'assigned') {
-      return matters.sort((a, b) => {
-        const aAssigneeId = a.assigneeIds?.[0] ?? '';
-        const bAssigneeId = b.assigneeIds?.[0] ?? '';
-        const aAssignee = aAssigneeId ? assigneeNameById.get(aAssigneeId) ?? '' : '';
-        const bAssignee = bAssigneeId ? assigneeNameById.get(bAssigneeId) ?? '' : '';
-        return aAssignee.localeCompare(bAssignee);
+  const sortedMatterSummaries = useMemo(() => {
+    const entries = [...filteredMatters];
+    if (sortOption === 'title') entries.sort((a, b) => a.summary.title.localeCompare(b.summary.title));
+    else if (sortOption === 'status') entries.sort((a, b) => statusOrder[a.summary.status] - statusOrder[b.summary.status]);
+    else if (sortOption === 'client') entries.sort((a, b) => a.summary.clientName.localeCompare(b.summary.clientName));
+    else if (sortOption === 'practice_area') entries.sort((a, b) => (a.summary.practiceArea ?? '').localeCompare(b.summary.practiceArea ?? ''));
+    else if (sortOption === 'assigned') {
+      entries.sort((a, b) => {
+        const aName = a.assigneeIds[0] ? assigneeNameById.get(a.assigneeIds[0]) ?? '' : '';
+        const bName = b.assigneeIds[0] ? assigneeNameById.get(b.assigneeIds[0]) ?? '' : '';
+        return aName.localeCompare(bName);
       });
+    } else {
+      entries.sort((a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime());
     }
-    return matters.sort((a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime());
-  }, [assigneeNameById, filteredMatters, sortOption]);
+    return entries.map((e) => e.summary);
+  }, [filteredMatters, sortOption, assigneeNameById]);
 
-  const sortedMatterSummaries = useMemo(() => sortedMatters.map((entry) => entry.summary), [sortedMatters]);
-
-  const selectedMatterSummary = useMemo(() => (
-    selectedMatterId ? matterSummaries.find((matter) => matter.id === selectedMatterId) ?? null : null
-  ), [matterSummaries, selectedMatterId]);
+  const selectedMatterSummary = useMemo(
+    () => selectedMatterId ? matterSummaries.find((m) => m.id === selectedMatterId) ?? null : null,
+    [matterSummaries, selectedMatterId]
+  );
   const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
+
   const timelineItems = useMemo(() => {
-    const combined = [...activityItems, ...noteItems];
-    return combined.sort((a, b) => {
-      const getTimestamp = (d?: string | null) => {
-        const t = d ? new Date(d).getTime() : 0;
-        return Number.isFinite(t) ? t : 0;
-      };
-      const aTime = getTimestamp(a.dateTime);
-      const bTime = getTimestamp(b.dateTime);
-      return bTime - aTime;
+    return [...activityItems, ...noteItems].sort((a, b) => {
+      const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+      const bt = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+      return (Number.isFinite(bt) ? bt : 0) - (Number.isFinite(at) ? at : 0);
     });
   }, [activityItems, noteItems]);
 
-  const debouncedUpdateMatter = useMemo(
-    () => debounce((values: MatterFormState) => handleUpdateMatter(values), 1000),
-    [handleUpdateMatter]
-  );
-
-  useEffect(() => {
-    return () => debouncedUpdateMatter.cancel();
-  }, [debouncedUpdateMatter]);
-
-  const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
+  // ── Header meta ───────────────────────────────────────────────────────────
   const headerMeta = useMemo(() => {
     if (!resolvedSelectedMatter) return null;
-
     const detail = selectedMatterDetail;
-    const clientIds = detail 
+    const clientIds = detail
       ? [detail.clientId, ...((detail as { clientIds?: string[] }).clientIds ?? [])].filter(Boolean) as string[]
       : [];
-    
+
     const clientEntries = clientIds.map((id) => {
-      const option = clientOptions.find((opt) => opt.id === id);
+      const option = clientOptions.find((o) => o.id === id);
       return {
         id,
         name: option?.name ?? resolveOptionLabel(clientOptions, id, resolveClientLabel(id)),
@@ -1809,65 +1076,55 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         location: option?.location
       };
     });
-    
     if (clientEntries.length === 0 && resolvedSelectedMatter.clientName) {
-      clientEntries.push({ 
-        id: 'client-name-fallback', 
-        name: resolvedSelectedMatter.clientName,
-        status: undefined,
-        location: undefined
-      });
+      clientEntries.push({ id: 'client-name-fallback', name: resolvedSelectedMatter.clientName, status: undefined, location: undefined });
     }
-
-    const assigneeNames = detail?.assigneeIds
-      .map((id) => resolveOptionLabel(assigneeOptions, id, `User ${id.slice(0, 6)}`))
-      .filter(Boolean) ?? [];
-
-    const billingLabel = detail?.billingType
-      ? detail.billingType.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase())
-      : '';
-
-    const createdLabel = formatLongDate(resolvedSelectedMatter.createdAt);
 
     return {
       description: detail?.description,
       clientEntries,
-      assigneeNames,
-      billingLabel,
-      createdLabel
+      assigneeNames: detail?.assigneeIds.map((id) => resolveOptionLabel(assigneeOptions, id, `User ${id.slice(0, 6)}`)).filter(Boolean) ?? [],
+      billingLabel: detail?.billingType ? detail.billingType.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
+      createdLabel: formatLongDate(resolvedSelectedMatter.createdAt)
     };
   }, [resolvedSelectedMatter, selectedMatterDetail, clientOptions, assigneeOptions]);
 
+  // ── Patch matter — partial update from inline field groups ───────────────
+  const handlePatchMatter = useCallback(async (patch: Partial<MatterFormState>) => {
+    if (!activePracticeId || !selectedMatterId || !selectedMatterDetail) return;
+    const base = buildFormStateFromDetail(selectedMatterDetail);
+    const merged: MatterFormState = { ...base, ...patch };
+    await updateMatter(
+      activePracticeId,
+      selectedMatterId,
+      prunePayload(buildUpdatePayload(merged, selectedMatterDetail.status))
+    );
+    refreshMatters();
+    await refreshSelectedMatter();
+  }, [activePracticeId, selectedMatterId, selectedMatterDetail, refreshMatters, refreshSelectedMatter]);
 
+  // =========================================================================
+  // Render — create route
+  // =========================================================================
   if (isCreateRoute) {
     return (
       <Page className="min-h-full">
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
           <Breadcrumbs
-            items={[
-              { label: 'Matters', href: basePath },
-              { label: 'Create matter' }
-            ]}
-            onNavigate={(href) => location.route(href)}
+            items={[{ label: 'Matters', href: basePath }, { label: 'Create matter' }]}
+            onNavigate={navigate}
           />
           <PageHeader
             title="Create Matter"
             subtitle="Capture matter details, billing structure, and assignment in one place."
-            actions={(
-              <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
-                Back to matters
-              </Button>
-            )}
+            actions={<Button size="sm" variant="secondary" onClick={goToList}>Back to matters</Button>}
           />
           <MatterCreateForm
             onClose={() => {
-              const createdMatterId = createdMatterIdRef.current;
+              const id = createdMatterIdRef.current;
               createdMatterIdRef.current = null;
-              if (createdMatterId) {
-                location.route(`${basePath}/${encodeURIComponent(createdMatterId)}`);
-                return;
-              }
-              location.route(basePath);
+              if (id) { goToDetail(id); return; }
+              goToList();
             }}
             onSubmit={handleCreateMatter}
             practiceId={activePracticeId}
@@ -1881,378 +1138,110 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     );
   }
 
-  if (isEditRoute && selectedMatterId) {
+  // =========================================================================
+  // Render — detail route
+  // =========================================================================
+  if (selectedMatterId) {
     if (detailLoading && !resolvedSelectedMatter) {
-      return (
-        <Page className="h-full">
-          <LoadingState message="Loading matter details..." />
-        </Page>
-      );
+      return <Page className="h-full"><LoadingState message="Loading matter details..." /></Page>;
     }
-
     if (detailError && !resolvedSelectedMatter) {
-      return (
-        <Page className="h-full">
-          <div className="max-w-5xl mx-auto space-y-6">
-            <PageHeader
-              title="Unable to load matter"
-              subtitle={detailError}
-              actions={(
-                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
-                  Back to matters
-                </Button>
-              )}
-            />
-          </div>
-        </Page>
-      );
+      return <MatterLoadError message={detailError} onBack={goToList} />;
     }
-
     if (!resolvedSelectedMatter) {
-      return (
-        <Page className="h-full">
-          <div className="max-w-5xl mx-auto space-y-6">
-            <PageHeader
-              title="Matter not found"
-              subtitle="This matter may have been removed or is no longer available."
-              actions={(
-                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
-                  Back to matters
-                </Button>
-              )}
-            />
-            <section className="glass-panel p-6">
-              <p className="text-sm text-input-placeholder">
-                We could not find a matter with the ID{' '}
-                <span className="font-mono text-input-text">{selectedMatterId}</span>
-                {' '}in this workspace.
-              </p>
-            </section>
-          </div>
-        </Page>
-      );
-    }
-
-    if (!selectedMatterDetail) {
-      return (
-        <Page className="h-full">
-          <LoadingState message="Loading matter details..." />
-        </Page>
-      );
+      return <MatterNotFound matterId={selectedMatterId} onBack={goToList} />;
     }
 
     return (
       <Page className="min-h-full">
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
-          <Breadcrumbs
-            items={[
-              { label: 'Matters', href: basePath },
-              { label: resolvedSelectedMatter.title, href: `${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}` },
-              { label: 'Edit' }
-            ]}
-            onNavigate={(href) => location.route(href)}
-          />
-          <PageHeader
-            title="Edit Matter"
-            subtitle={`Update details for ${resolvedSelectedMatter.title}.`}
-            actions={(
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}`)}
-              >
-                Back to matter
-              </Button>
-            )}
-          />
-          <MatterEditForm
-            key={`edit-${selectedMatterId}`}
-            onClose={() => location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}`)}
-            onSubmit={handleUpdateMatter}
-            practiceId={activePracticeId}
-            clients={clientOptions}
-            practiceAreas={practiceAreaOptions}
-            practiceAreasLoading={servicesLoading}
-            assignees={assigneeOptions}
-            initialValues={{
-              title: selectedMatterDetail.title,
-              clientId: selectedMatterDetail.clientId,
-              practiceAreaId: selectedMatterDetail.practiceAreaId,
-              assigneeIds: selectedMatterDetail.assigneeIds,
-              status: selectedMatterDetail.status,
-              caseNumber: selectedMatterDetail.caseNumber ?? '',
-              matterType: selectedMatterDetail.matterType ?? '',
-              urgency: selectedMatterDetail.urgency ?? '',
-              responsibleAttorneyId: selectedMatterDetail.responsibleAttorneyId ?? '',
-              originatingAttorneyId: selectedMatterDetail.originatingAttorneyId ?? '',
-              court: selectedMatterDetail.court ?? '',
-              judge: selectedMatterDetail.judge ?? '',
-              opposingParty: selectedMatterDetail.opposingParty ?? '',
-              opposingCounsel: selectedMatterDetail.opposingCounsel ?? '',
-              openDate: selectedMatterDetail.openDate ?? '',
-              closeDate: selectedMatterDetail.closeDate ?? '',
-              billingType: selectedMatterDetail.billingType,
-              attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
-              adminHourlyRate: selectedMatterDetail.adminHourlyRate,
-              paymentFrequency: selectedMatterDetail.paymentFrequency,
-              totalFixedPrice: selectedMatterDetail.totalFixedPrice,
-              settlementAmount: selectedMatterDetail.settlementAmount,
-              milestones: selectedMatterDetail.milestones ?? [],
-              contingencyPercent: selectedMatterDetail.contingencyPercent,
-              description: selectedMatterDetail.description
-            }}
-          />
-        </div>
-      </Page>
-    );
-  }
 
-  if (selectedMatterId && !isEditRoute) {
-    if (detailLoading && !resolvedSelectedMatter) {
-      return (
-        <Page className="h-full">
-          <LoadingState message="Loading matter details..." />
-        </Page>
-      );
-    }
-
-    if (detailError && !resolvedSelectedMatter) {
-      return (
-        <Page className="h-full">
-          <div className="max-w-5xl mx-auto space-y-6">
-            <PageHeader
-              title="Unable to load matter"
-              subtitle={detailError}
-              actions={(
-                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
-                  Back to matters
-                </Button>
-              )}
+          {headerMeta && (
+            <MatterDetailHeader
+              matter={resolvedSelectedMatter}
+              detail={selectedMatterDetail}
+              headerMeta={headerMeta}
+              activeTab={detailTab}
+              onTabChange={(id) => setDetailTab(id as DetailTabId)}
+              tabs={DETAIL_TABS}
+              onUpdateStatus={handleUpdateStatus}
+              isLoading={detailLoading}
             />
-          </div>
-        </Page>
-      );
-    }
-
-    if (!resolvedSelectedMatter) {
-      return (
-        <Page className="h-full">
-          <div className="max-w-5xl mx-auto space-y-6">
-            <PageHeader
-              title="Matter not found"
-              subtitle="This matter may have been removed or is no longer available."
-              actions={(
-                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
-                  Back to matters
-                </Button>
-              )}
-            />
-            <section className="glass-panel p-6">
-              <p className="text-sm text-input-placeholder">
-                We could not find a matter with the ID{' '}
-                <span className="font-mono text-input-text">{selectedMatterId}</span>
-                {' '}in this workspace.
-              </p>
-            </section>
-          </div>
-        </Page>
-      );
-    }
-
-    return (
-      <Page className="min-h-full">
-        <div className="max-w-6xl mx-auto flex flex-col gap-6">
-          <div className="space-y-4">
-            {headerMeta && (
-              <MatterDetailHeader
-                matter={resolvedSelectedMatter}
-                detail={selectedMatterDetail}
-                headerMeta={headerMeta}
-                activeTab={detailTab}
-                onTabChange={(id) => setDetailTab(id as DetailTabId)}
-                tabs={DETAIL_TABS}
-                onUpdateStatus={(newStatus) => {
-                  if (!selectedMatterDetail || !activePracticeId) return;
-                  handleUpdateMatter({
-                    title: selectedMatterDetail.title,
-                    clientId: selectedMatterDetail.clientId,
-                    practiceAreaId: selectedMatterDetail.practiceAreaId,
-                    assigneeIds: selectedMatterDetail.assigneeIds,
-                    status: newStatus,
-                    caseNumber: selectedMatterDetail.caseNumber ?? '',
-                    matterType: selectedMatterDetail.matterType ?? '',
-                    urgency: selectedMatterDetail.urgency ?? '',
-                    responsibleAttorneyId: selectedMatterDetail.responsibleAttorneyId ?? '',
-                    originatingAttorneyId: selectedMatterDetail.originatingAttorneyId ?? '',
-                    court: selectedMatterDetail.court ?? '',
-                    judge: selectedMatterDetail.judge ?? '',
-                    opposingParty: selectedMatterDetail.opposingParty ?? '',
-                    opposingCounsel: selectedMatterDetail.opposingCounsel ?? '',
-                    openDate: selectedMatterDetail.openDate ?? '',
-                    closeDate: selectedMatterDetail.closeDate ?? '',
-                    billingType: selectedMatterDetail.billingType,
-                    attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
-                    adminHourlyRate: selectedMatterDetail.adminHourlyRate,
-                    paymentFrequency: selectedMatterDetail.paymentFrequency,
-                    totalFixedPrice: selectedMatterDetail.totalFixedPrice,
-                    settlementAmount: selectedMatterDetail.settlementAmount,
-                    milestones: selectedMatterDetail.milestones ?? [],
-                    contingencyPercent: selectedMatterDetail.contingencyPercent,
-                    description: selectedMatterDetail.description
-                  });
-                }}
-                onEdit={() => location.route(`${basePath}/${encodeURIComponent(resolvedSelectedMatter.id)}/edit`)}
-                isLoading={detailLoading}
-              />
-            )}
-          </div>
-
-
+          )}
 
           <MatterSummaryCards
             activeTab={detailTab}
             onAddTime={() => {
               if (detailTab !== 'overview') return;
-              openQuickTimeEntry();
+              setQuickTimeEntryKey((k) => k + 1);
+              setIsQuickTimeEntryOpen(true);
             }}
             onViewTimesheet={() => setDetailTab('time')}
             onChangeRate={() => {}}
             timeStats={timeStats}
           />
 
+          {/* Description — inline editable */}
           {detailTab === 'overview' && selectedMatterDetail && (
-            <div className="glass-panel p-6">
-              <MarkdownUploadTextarea
-                label="Description"
-                value={selectedMatterDetail.description}
-                onChange={(value) => {
-                  if (!selectedMatterDetail || !activePracticeId) return;
-                  debouncedUpdateMatter({
-                    title: selectedMatterDetail.title,
-                    clientId: selectedMatterDetail.clientId,
-                    practiceAreaId: selectedMatterDetail.practiceAreaId,
-                    assigneeIds: selectedMatterDetail.assigneeIds,
-                    status: selectedMatterDetail.status,
-                    caseNumber: selectedMatterDetail.caseNumber ?? '',
-                    matterType: selectedMatterDetail.matterType ?? '',
-                    urgency: selectedMatterDetail.urgency ?? '',
-                    responsibleAttorneyId: selectedMatterDetail.responsibleAttorneyId ?? '',
-                    originatingAttorneyId: selectedMatterDetail.originatingAttorneyId ?? '',
-                    court: selectedMatterDetail.court ?? '',
-                    judge: selectedMatterDetail.judge ?? '',
-                    opposingParty: selectedMatterDetail.opposingParty ?? '',
-                    opposingCounsel: selectedMatterDetail.opposingCounsel ?? '',
-                    openDate: selectedMatterDetail.openDate ?? '',
-                    closeDate: selectedMatterDetail.closeDate ?? '',
-                    billingType: selectedMatterDetail.billingType,
-                    attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
-                    adminHourlyRate: selectedMatterDetail.adminHourlyRate,
-                    paymentFrequency: selectedMatterDetail.paymentFrequency,
-                    totalFixedPrice: selectedMatterDetail.totalFixedPrice,
-                    settlementAmount: selectedMatterDetail.settlementAmount,
-                    milestones: selectedMatterDetail.milestones ?? [],
-                    contingencyPercent: selectedMatterDetail.contingencyPercent,
-                    description: value
-                  });
-                }}
-                practiceId={activePracticeId}
-                showLabel={true}
-                showTabs={true}
-                showFooter={true}
-                rows={12}
-                defaultTab="preview"
-              />
+            <div className="glass-panel overflow-hidden">
+              <div className="border-b border-white/[0.06] px-6 py-4">
+                <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
+              </div>
+              {isDescriptionEditing ? (
+                <div className="space-y-3 px-6 py-5">
+                  <MarkdownUploadTextarea
+                    label="Description"
+                    value={descriptionDraft}
+                    onChange={setDescriptionDraft}
+                    practiceId={activePracticeId}
+                    showLabel={false}
+                    showTabs
+                    showFooter
+                    rows={12}
+                    defaultTab="preview"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="secondary" onClick={cancelDescriptionEdit} disabled={isSavingDescription}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={() => void saveDescription()} disabled={isSavingDescription}>
+                      {isSavingDescription ? 'Saving...' : 'Save description'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4 px-6 py-5">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
+                    {selectedMatterDetail.description?.trim() || 'No description yet.'}
+                  </p>
+                  <Button
+                    size="icon-sm"
+                    variant="icon"
+                    onClick={startDescriptionEdit}
+                    icon={<PencilIcon className="h-4 w-4" />}
+                    aria-label="Edit description"
+                    className="shrink-0"
+                  />
+                </div>
+              )}
             </div>
           )}
 
+          {/* Tab panels */}
           <section>
             {detailTab === 'overview' ? (
-              <div className="px-0 space-y-6">
+              <div className="space-y-6">
+
+                {/* Inline-editable matter details */}
                 {selectedMatterDetail && (
-                  <Panel className="p-4">
-                    <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Case number</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.caseNumber || '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Matter type</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.matterType || '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Urgency</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Responsible attorney</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.responsibleAttorneyId
-                            ? resolveOptionLabel(assigneeOptions, selectedMatterDetail.responsibleAttorneyId, `User ${selectedMatterDetail.responsibleAttorneyId.slice(0, 6)}`)
-                            : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Originating attorney</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.originatingAttorneyId
-                            ? resolveOptionLabel(assigneeOptions, selectedMatterDetail.originatingAttorneyId, `User ${selectedMatterDetail.originatingAttorneyId.slice(0, 6)}`)
-                            : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Court</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.court || '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Judge</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.judge || '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Opposing party</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.opposingParty || '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Opposing counsel</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.opposingCounsel || '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Open date</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {formatLongDate(selectedMatterDetail.openDate)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Close date</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {formatLongDate(selectedMatterDetail.closeDate)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Settlement amount</p>
-                        <p className="mt-1 text-sm text-input-text">
-                          {selectedMatterDetail.settlementAmount !== undefined && selectedMatterDetail.settlementAmount !== null
-                            ? formatCurrency(selectedMatterDetail.settlementAmount)
-                            : '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </Panel>
+                  <MatterDetailsPanel
+                    detail={selectedMatterDetail}
+                    assigneeOptions={assigneeOptions}
+                    onSave={handlePatchMatter}
+                  />
                 )}
+
+                {/* Activity timeline */}
                 <div>
                   <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
                   <Panel className="mt-4 p-4">
@@ -2282,9 +1271,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     )}
                   </Panel>
                 </div>
+
+                {/* Milestones */}
                 {selectedMatterDetail && (
                   <MatterMilestonesPanel
-                    key={`milestones-overview-${selectedMatterDetail.id}`}
+                    key={`milestones-${selectedMatterDetail.id}`}
                     matter={selectedMatterDetail}
                     milestones={milestones}
                     loading={milestonesLoading}
@@ -2296,19 +1287,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     allowReorder
                   />
                 )}
-                {/* Notes are handled via the activity timeline composer */}
               </div>
+
             ) : detailTab === 'time' && selectedMatterDetail ? (
-              <div className="px-0 space-y-6">
+              <div className="space-y-6">
                 <TimeEntriesPanel
                   key={`time-${selectedMatterDetail.id}`}
                   entries={timeEntries}
-                  onSaveEntry={(values, existing) => {
-                    void handleSaveTimeEntry(values, existing);
-                  }}
-                  onDeleteEntry={(entry) => {
-                    void handleDeleteTimeEntry(entry);
-                  }}
+                  onSaveEntry={(values, existing) => void handleSaveTimeEntry(values, existing)}
+                  onDeleteEntry={(entry) => void handleDeleteTimeEntry(entry)}
                   loading={timeEntriesLoading}
                   error={timeEntriesError}
                 />
@@ -2326,9 +1313,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">
                     <div>
                       <h3 className="text-sm font-semibold text-input-text">Recent transactions</h3>
-                      <p className="text-xs text-input-placeholder">
-                        Summary of billed time across recent periods.
-                      </p>
+                      <p className="text-xs text-input-placeholder">Summary of billed time across recent periods.</p>
                     </div>
                   </header>
                   <div className="grid gap-4 p-6 sm:grid-cols-3">
@@ -2337,10 +1322,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                       { label: 'Last 30 days', value: '$0.00' },
                       { label: 'Since start', value: '$1,237.50' }
                     ].map((card) => (
-                      <div
-                        key={card.label}
-                        className="glass-panel p-4"
-                      >
+                      <div key={card.label} className="glass-panel p-4">
                         <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
                         <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
                       </div>
@@ -2348,23 +1330,23 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   </div>
                 </Panel>
               </div>
+
             ) : detailTab === 'messages' && selectedMatterDetail ? (
-              <div className="px-0">
-                <MatterMessagesPanel
-                  key={`messages-${selectedMatterDetail.id}`}
-                  matter={selectedMatterDetail}
-                  practiceId={activePracticeId}
-                  conversationBasePath={conversationBasePath}
-                />
-              </div>
+              <MatterMessagesPanel
+                key={`messages-${selectedMatterDetail.id}`}
+                matter={selectedMatterDetail}
+                practiceId={activePracticeId}
+                conversationBasePath={conversationBasePath}
+              />
             ) : (
-              <div className="px-0 text-sm text-input-placeholder">
-                We will add the {DETAIL_TABS.find((tab) => tab.id === detailTab)?.label ?? 'tab'} details next.
-              </div>
+              <p className="text-sm text-input-placeholder">
+                We will add the {DETAIL_TABS.find((t) => t.id === detailTab)?.label ?? 'tab'} details next.
+              </p>
             )}
           </section>
         </div>
-        
+
+        {/* Quick time entry modal */}
         {isQuickTimeEntryOpen && (
           <Modal
             isOpen={isQuickTimeEntryOpen}
@@ -2383,46 +1365,41 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     );
   }
 
+  // =========================================================================
+  // Render — list route (default)
+  // =========================================================================
   return (
     <Page className="min-h-full">
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <PageHeader
           title="Matters"
           subtitle="Track matter progress, client updates, and case milestones."
-          actions={(
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                icon={<PlusIcon className="h-4 w-4" />}
-                onClick={() => location.route(`${basePath}/new`)}
-                disabled={!activePracticeId}
-              >
-                Create Matter
-              </Button>
-            </div>
-          )}
+          actions={
+            <Button
+              size="sm"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => navigate(`${basePath}/new`)}
+              disabled={!activePracticeId}
+            >
+              Create Matter
+            </Button>
+          }
         />
 
         {isClientListTruncated && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <WarningBanner>
             <strong>Warning:</strong> The client list is incomplete. Some names or options may be missing.
-          </div>
+          </WarningBanner>
         )}
-
 
         <Tabs
           items={tabs}
           activeId={activeTab}
           onChange={(id) => setActiveTab(id as MatterTabId)}
-          actions={(
+          actions={
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<ChevronUpDownIcon className="h-4 w-4" />}
-                  iconPosition="right"
-                >
+                <Button variant="secondary" size="sm" icon={<ChevronUpDownIcon className="h-4 w-4" />} iconPosition="right">
                   Sort by {SORT_LABELS[sortOption]}
                 </Button>
               </DropdownMenuTrigger>
@@ -2440,56 +1417,39 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
+          }
         />
 
-        {mattersError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-            {mattersError}
-          </div>
-        )}
+        {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
 
-        <div className="flex flex-col gap-6">
-          <Panel className="overflow-hidden">
-            <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-4 sm:px-6 lg:px-8">
-              <div>
-                <h2 className="text-sm font-semibold text-input-text">{activeTabLabel} Matters</h2>
-                <p className="text-xs text-input-placeholder">
-                  {sortedMatterSummaries.length} showing
-                </p>
-              </div>
-            </header>
-            {mattersLoading ? (
-              <LoadingState message="Loading matters..." />
-            ) : sortedMatterSummaries.length === 0 ? (
-              <EmptyState
-                onCreate={() => location.route(`${basePath}/new`)}
-                disableCreate={!activePracticeId}
-              />
-            ) : (
-              <ul className="divide-y divide-line-default">
-                {sortedMatterSummaries.map((matter) => (
-                  <MatterListItem
-                    key={matter.id}
-                    matter={matter}
-                    onSelect={(selected) => location.route(`${basePath}/${encodeURIComponent(selected.id)}`)}
-                  />
-                ))}
-              </ul>
-            )}
-            {mattersHasMore && !mattersLoading && (
-              <div ref={loadMoreRef} className="h-10" />
-            )}
-            {mattersLoadingMore && (
-              <div className="px-6 py-4 text-sm text-input-placeholder">
-                Loading more matters...
-              </div>
-            )}
-          </Panel>
-
-        </div>
+        <Panel className="overflow-hidden">
+          <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-4 sm:px-6 lg:px-8">
+            <div>
+              <h2 className="text-sm font-semibold text-input-text">{TAB_HEADINGS[activeTab]} Matters</h2>
+              <p className="text-xs text-input-placeholder">{sortedMatterSummaries.length} showing</p>
+            </div>
+          </header>
+          {mattersLoading ? (
+            <LoadingState message="Loading matters..." />
+          ) : sortedMatterSummaries.length === 0 ? (
+            <EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />
+          ) : (
+            <ul className="divide-y divide-line-default">
+              {sortedMatterSummaries.map((matter) => (
+                <MatterListItem
+                  key={matter.id}
+                  matter={matter}
+                  onSelect={(selected) => goToDetail(selected.id)}
+                />
+              ))}
+            </ul>
+          )}
+          {mattersHasMore && !mattersLoading && <div ref={loadMoreRef} className="h-10" />}
+          {mattersLoadingMore && (
+            <p className="px-6 py-4 text-sm text-input-placeholder">Loading more matters...</p>
+          )}
+        </Panel>
       </div>
-
     </Page>
   );
 };

@@ -88,6 +88,13 @@ Use shared visual tokens and component classes first. Do not introduce ad-hoc co
 - Buttons:
   - Use `<Button>` variants (`primary`, `secondary`, `ghost`, `danger`, `warning`, `danger-ghost`, `accent-ghost`, `menu-item`, `tab`, `icon`, `link`)
   - Do not hardcode brand colors like `bg-blue-*`; use accent tokens/variants
+- Text handling:
+  - Single-line labels/titles in constrained rows should use `truncate`
+  - User-generated or long-form content should use `break-words`
+  - Preserve authored line breaks only when needed (for example message/markdown blocks) using `whitespace-pre-wrap`
+- Dynamic foreground (contrast-aware):
+  - On accent-colored surfaces, use `text-[rgb(var(--accent-foreground))]` for foreground text/icons
+  - Do not hardcode `text-white`, `text-gray-*`, or `text-input-text` on accent surfaces
 - Navigation:
   - Use shared nav state classes: `nav-item-active`, `nav-item-inactive`
   - `WorkspaceNav` is primary app chrome; `SidebarNavigation` is secondary configurable nav

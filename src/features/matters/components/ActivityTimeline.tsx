@@ -123,7 +123,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                     )}
                     
                     {/* Icon */}
-                    <div className="relative flex-shrink-0 w-6 h-6 rounded-full bg-surface-glass/60 flex items-center justify-center">
+                    <div className="glass-input relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
                       <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                     </div>
                     

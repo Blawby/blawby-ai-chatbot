@@ -873,7 +873,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const publicShellFrameClass = workspace === 'public' || workspace === 'client'
     ? 'bg-transparent border-line-glass/30'
-    : 'bg-surface-glass/40 border-line-glass/30 backdrop-blur-xl shadow-glass';
+    : 'bg-white/[0.08] border-line-glass/30 backdrop-blur-xl shadow-glass';
 
   const mainShell = isPublicShell ? (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">

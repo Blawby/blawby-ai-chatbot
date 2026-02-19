@@ -6,7 +6,6 @@
   :root {
     color-scheme: light dark;
     --surface-base: 255 255 255;
-    --surface-glass: 255 255 255;
     --surface-overlay: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
@@ -29,7 +28,6 @@
 
   .dark {
     --surface-base: 3 7 18;
-    --surface-glass: 255 255 255;
     --surface-overlay: 10 15 26;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;

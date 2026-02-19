@@ -14,8 +14,6 @@ export default {
       colors: {
         surface: {
           base: 'rgb(var(--surface-base) / <alpha-value>)',
-
-          glass: 'rgb(var(--surface-glass) / <alpha-value>)',
           overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
         },
         line: {

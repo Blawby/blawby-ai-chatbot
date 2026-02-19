@@ -197,7 +197,6 @@ const MatterFormModalInner = ({
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof MatterFormState, string>>>({});
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({
@@ -234,7 +233,7 @@ const MatterFormModalInner = ({
       name={name?.trim() || 'User'}
       src={image ?? null}
       size={size}
-      className="bg-surface-glass/60 backdrop-blur-sm"
+      className="glass-input"
     />
   );
 
@@ -244,31 +243,10 @@ const MatterFormModalInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
-  const hasFormErrors = Object.keys(formErrors).length > 0;
-  const canSubmit = Boolean(formState.title && formState.clientId) && !hasFormErrors;
+  const canSubmit = Boolean(formState.title && formState.clientId);
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
-    setFormState((prev) => {
-      const next = { ...prev, [key]: value };
-
-      if (key === 'openDate' || key === 'closeDate') {
-        const { openDate, closeDate } = next;
-        if (openDate && closeDate && new Date(closeDate) < new Date(openDate)) {
-          setFormErrors((prevErrors) => ({
-            ...prevErrors,
-            closeDate: 'Close date cannot be earlier than open date'
-          }));
-        } else {
-          setFormErrors((prevErrors) => {
-            const nextErrors = { ...prevErrors };
-            delete nextErrors.closeDate;
-            return nextErrors;
-          });
-        }
-      }
-
-      return next;
-    });
+    setFormState((prev) => ({ ...prev, [key]: value }));
   };
 
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
@@ -484,22 +462,6 @@ const MatterFormModalInner = ({
               allowCustomValues
               addNewLabel="Add opposing counsel"
             />
-            <Input
-              label="Open date"
-              type="date"
-              value={formState.openDate}
-              onChange={(value) => updateForm('openDate', value)}
-            />
-          </FormGrid>
-          <FormGrid>
-            <Input
-              label="Close date"
-              type="date"
-              value={formState.closeDate}
-              onChange={(value) => updateForm('closeDate', value)}
-              error={formErrors.closeDate}
-              variant={formErrors.closeDate ? 'error' : 'default'}
-            />
             <CurrencyInput
               label="Settlement amount"
               value={formState.settlementAmount}
@@ -710,31 +672,24 @@ const MatterFormModalInner = ({
           )}
         </div>
 
-        <div className="glass-panel p-4 flex items-center space-x-3">
-          <div className="shrink-0">
-            <div className="p-2 rounded-full bg-surface-overlay/70 border border-line-glass/30">
-              <ShieldCheckIcon className="h-6 w-6 text-input-text" />
-            </div>
-          </div>
-          <p className="text-sm text-input-text">
-            Payments are built for securing IOLTA compliance.{' '}
-            <a
-              href="https://blawby.com/compliance/iolta-compliance"
-              className="font-medium underline text-brand-600 hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learn more
-            </a>
+        {submitError ? (
+          <p className="text-sm text-red-400">{submitError}</p>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-xs text-input-placeholder">
+            <ShieldCheckIcon className="h-4 w-4 text-input-placeholder" />
+            <span>
+              Payments are built for securing IOLTA compliance.{' '}
+              <a
+                href="https://blawby.com/compliance/iolta-compliance"
+                className="font-medium underline text-accent-500 hover:text-accent-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Learn more
+              </a>
+            </span>
           </p>
-        </div>
-
-        <div className="glass-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-input-placeholder">
-          {submitError ? (
-            <p className="text-red-400">{submitError}</p>
-          ) : (
-            <p>Ready to save this matter to the practice workspace.</p>
-          )}
           <div className="flex items-center gap-2">
             <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel

@@ -889,7 +889,7 @@ export const AccountPage = ({
                 ]}
                 onChange={handleDomainChange}
                 placeholder={t('settings:account.links.selectOption')}
-                className="border-0 bg-transparent px-3 py-1 hover:bg-surface-glass/50 focus:ring-2 focus:ring-accent-500"
+                className="border-0 bg-transparent px-3 py-1 hover:bg-white/[0.04] focus:ring-2 focus:ring-accent-500"
                 searchable={false}
               />
             </SettingRow>

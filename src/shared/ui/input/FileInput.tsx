@@ -218,7 +218,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       {showFileList && files.length > 0 && (
         <div className="mt-3 space-y-2">
           {files.map((file, index) => (
-            <div key={index} className="flex items-center justify-between p-2 bg-surface-glass/60 backdrop-blur-sm rounded">
+            <div key={index} className="glass-input flex items-center justify-between p-2 rounded">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-input-text truncate">
                   {file.name}

@@ -115,7 +115,7 @@ export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelPro
             return (
               <div
                 key={task.id}
-                className="px-6 py-5 hover:bg-surface-glass/50 transition-colors"
+                className="px-6 py-5 hover:bg-white/[0.04] transition-colors"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <button
@@ -150,7 +150,7 @@ export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelPro
                           <span>Assigned:</span>
                           {assignee ? (
                             <span className="inline-flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-0.5 text-xs text-input-text">
-                              <Avatar name={assignee.name} size="xs" className="bg-surface-glass/60" />
+                              <Avatar name={assignee.name} size="xs" className="glass-input" />
                               {assignee.name}
                             </span>
                           ) : (
@@ -186,7 +186,7 @@ export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelPro
                               onSelect={() => handleAssign(task.id, assigneeOption.id)}
                             >
                               <span className="flex items-center gap-2">
-                                <Avatar name={assigneeOption.name} size="xs" className="bg-surface-glass/60" />
+                                <Avatar name={assigneeOption.name} size="xs" className="glass-input" />
                                 {assigneeOption.name}
                               </span>
                             </DropdownMenuItem>
@@ -238,7 +238,7 @@ export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelPro
                 return (
                   <div
                     key={task.id}
-                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-surface-glass/50 transition-colors"
+                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-white/[0.04] transition-colors"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <button
@@ -273,7 +273,7 @@ export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelPro
                               <span>Assigned:</span>
                               {assignee ? (
                                 <span className="inline-flex items-center gap-2 rounded-full border border-line-glass/30 px-2 py-0.5 text-xs text-input-text">
-                                  <Avatar name={assignee.name} size="xs" className="bg-surface-glass/60" />
+                                  <Avatar name={assignee.name} size="xs" className="glass-input" />
                                   {assignee.name}
                                 </span>
                               ) : (
@@ -309,7 +309,7 @@ export const MatterTasksPanel = ({ matter, assignees = [] }: MatterTasksPanelPro
                                   onSelect={() => handleAssign(task.id, assigneeOption.id)}
                                 >
                                   <span className="flex items-center gap-2">
-                                    <Avatar name={assigneeOption.name} size="xs" className="bg-surface-glass/60" />
+                                    <Avatar name={assigneeOption.name} size="xs" className="glass-input" />
                                     {assigneeOption.name}
                                   </span>
                                 </DropdownMenuItem>

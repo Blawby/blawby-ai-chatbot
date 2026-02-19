@@ -26,7 +26,7 @@ export const DropdownMenuItem = ({
       disabled={disabled}
       className={cn(
         'w-full text-left px-2 py-1.5 text-sm text-input-text',
-        'hover:bg-surface-glass/50 focus:outline-none focus:bg-surface-glass/50',
+        'hover:bg-white/[0.04] focus:outline-none focus:bg-white/[0.08]',
         disabled && 'opacity-50 cursor-not-allowed',
         className
       )}

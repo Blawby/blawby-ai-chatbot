@@ -302,8 +302,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
-  const modalContentClassName = 'bg-surface-glass bg-opacity-70 border-line-glass border-opacity-30 backdrop-blur-2xl';
-  const modalHeaderClassName = 'bg-surface-glass bg-opacity-60 border-line-glass border-opacity-30 backdrop-blur-xl';
+  const modalContentClassName = 'glass-panel';
+  const modalHeaderClassName = 'glass-panel';
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)

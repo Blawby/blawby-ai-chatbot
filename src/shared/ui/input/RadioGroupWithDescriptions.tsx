@@ -20,12 +20,11 @@ export const RadioGroupWithDescriptions = ({
   className
 }: RadioGroupWithDescriptionsProps) => (
   <fieldset className={className}>
-    <legend className="block text-sm font-medium text-input-text mb-1">{label}</legend>
-    <div className="-space-y-px overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-overlay/55 backdrop-blur-xl">
+    <legend className="mb-1 block text-sm font-medium text-input-text">{label}</legend>
+    <div className="glass-card overflow-hidden rounded-2xl">
       {options.map((option, index) => {
         const isSelected = value === option.value;
         const isFirst = index === 0;
-        const isLast = index === options.length - 1;
         const inputId = `${name}-${option.value}`;
         return (
           <label
@@ -33,12 +32,12 @@ export const RadioGroupWithDescriptions = ({
             htmlFor={inputId}
             aria-label={option.label}
             className={cn(
-              'relative flex cursor-pointer items-start gap-3 border p-4 text-left transition focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-500',
-              isFirst && 'rounded-t-md',
-              isLast && 'rounded-b-md',
+              'relative flex cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors',
+              !isFirst && 'border-t border-line-glass/20',
+              'focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-500/50 focus-within:ring-inset',
               isSelected
-                ? 'z-10 border-accent-500/45 bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
-                : 'border-line-glass/25 bg-transparent hover:bg-surface-glass/35'
+                ? 'bg-white/[0.10] ring-1 ring-inset ring-accent-500/45 text-input-text'
+                : 'text-input-text hover:bg-white/[0.04]'
             )}
           >
             <input
@@ -53,18 +52,20 @@ export const RadioGroupWithDescriptions = ({
             <span
               className={cn(
                 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-                isSelected ? 'border-transparent bg-accent-500' : 'border-line-glass/30 bg-surface-glass/60'
+                isSelected
+                  ? 'border-accent-500/50 bg-accent-500/20'
+                  : 'border-line-glass/40 bg-white/[0.10]'
               )}
               aria-hidden="true"
             >
-              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />}
+              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />}
             </span>
             <span className="flex flex-col">
-              <span className={cn('block text-sm font-medium', isSelected ? 'text-inherit' : 'text-input-text')}>
+              <span className="block text-sm font-medium text-input-text">
                 {option.label}
               </span>
               {option.description && (
-                <span className={cn('block text-sm', isSelected ? 'text-inherit opacity-85' : 'text-input-placeholder')}>
+                <span className="block text-xs text-input-placeholder">
                   {option.description}
                 </span>
               )}
