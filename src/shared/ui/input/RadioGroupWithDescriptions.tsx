@@ -57,7 +57,7 @@ export const RadioGroupWithDescriptions = ({
               )}
               aria-hidden="true"
             >
-            <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />
+              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />}
             </span>
             <span className="flex flex-col">
               <span className={cn('block text-sm font-medium', isSelected ? 'text-inherit' : 'text-input-text')}>
