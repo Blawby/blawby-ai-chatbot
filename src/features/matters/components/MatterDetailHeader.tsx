@@ -84,8 +84,17 @@ interface StatusPopoverProps {
 
 const StatusPopover = ({ currentStatus, onSelect, disabled }: StatusPopoverProps) => {
   const [open, setOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Focus the option when focusedIndex changes
+  useEffect(() => {
+    if (open && optionRefs.current[focusedIndex]) {
+      optionRefs.current[focusedIndex]?.focus();
+    }
+  }, [focusedIndex, open]);
 
   // Close on outside click
   useEffect(() => {
@@ -105,6 +114,33 @@ const StatusPopover = ({ currentStatus, onSelect, disabled }: StatusPopoverProps
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
+  // Handle keyboard navigation within listbox
+  const handleListboxKeyDown = (e: KeyboardEvent) => {
+    const maxIndex = MATTER_WORKFLOW_STATUSES.length - 1;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex((i) => (i < maxIndex ? i + 1 : i));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex((i) => (i > 0 ? i - 1 : i));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setFocusedIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setFocusedIndex(maxIndex);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const status = MATTER_WORKFLOW_STATUSES[focusedIndex];
+      if (status) {
+        onSelect(status);
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+  };
+
   const StatusIcon = (STATUS_ICON[currentStatus] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
   const colorClasses = STATUS_COLOR[currentStatus];
 
@@ -114,7 +150,10 @@ const StatusPopover = ({ currentStatus, onSelect, disabled }: StatusPopoverProps
         ref={buttonRef}
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          if (!open) setFocusedIndex(0);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Status: ${MATTER_STATUS_LABELS[currentStatus]}. Click to change.`}
@@ -139,6 +178,8 @@ const StatusPopover = ({ currentStatus, onSelect, disabled }: StatusPopoverProps
         <div
           role="listbox"
           aria-label="Select status"
+          tabIndex={-1}
+          onKeyDown={handleListboxKeyDown}
           className={cn(
             'absolute left-0 top-full z-50 mt-2 w-56',
             'rounded-xl border border-white/10',
@@ -146,14 +187,17 @@ const StatusPopover = ({ currentStatus, onSelect, disabled }: StatusPopoverProps
             'py-1 overflow-y-auto max-h-72'
           )}
         >
-          {MATTER_WORKFLOW_STATUSES.map((status) => {
+          {MATTER_WORKFLOW_STATUSES.map((status, index) => {
             const Icon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
             const isSelected = status === currentStatus;
+            const isFocused = index === focusedIndex;
             return (
               <button
                 key={status}
+                ref={(el) => { optionRefs.current[index] = el; }}
                 type="button"
                 role="option"
+                tabIndex={isFocused ? 0 : -1}
                 aria-selected={isSelected}
                 onClick={() => { onSelect(status); setOpen(false); }}
                 className={cn(
@@ -323,6 +367,7 @@ export const MatterDetailHeader = ({
 
       {/* ── Tab bar — flush to bottom, no padding ────────────────────── */}
       <nav
+        role="tablist"
         className="flex items-end gap-0 border-t border-white/[0.06] px-5"
         aria-label="Matter sections"
       >

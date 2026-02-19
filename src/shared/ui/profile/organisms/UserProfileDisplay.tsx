@@ -160,7 +160,7 @@ export const UserProfileDisplay = ({
       <div className={`p-2 border-t border-line-glass/30`}>
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-white/[0.04] ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-white/[0.08] ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'

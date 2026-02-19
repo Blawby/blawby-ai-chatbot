@@ -418,17 +418,27 @@ export const prunePayload = (payload: Record<string, unknown>): Record<string, u
 // Activity / timeline helpers
 // ---------------------------------------------------------------------------
 
-export const extractChangedFields = (metadata: Record<string, unknown>): string[] => {
+export const extractChangedFields = (metadata: Record<string, unknown>): Array<{ key: string; label: string }> => {
   const raw = metadata.changed_fields;
   if (!Array.isArray(raw)) {
     console.warn('[matterUtils] Missing or invalid metadata.changed_fields', metadata);
     return [];
   }
-  const normalized = raw
-    .filter((item): item is string => typeof item === 'string')
-    .map(normalizeFieldLabel)
-    .filter((v) => v && v.length > 0);
-  return Array.from(new Set(normalized));
+  const seen = new Set<string>();
+  const result: Array<{ key: string; label: string }> = [];
+  
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const trimmed = item.trim();
+      const label = normalizeFieldLabel(trimmed);
+      if (label && !seen.has(label)) {
+        seen.add(label);
+        result.push({ key: trimmed, label });
+      }
+    }
+  }
+  
+  return result;
 };
 
 export const buildMatterCreatedLabel = (context: {
@@ -584,7 +594,7 @@ export const buildActivityTimelineItem = (
 
     if (actionKey === 'matter_updated') {
       const fields = extractChangedFields(metadata);
-      if (fields.length === 1 && fields[0] === 'client') {
+      if (fields.length === 1 && fields[0].label === 'client') {
         const changes = metadata.changes;
         if (changes && typeof changes === 'object') {
           const clientId = (changes as Record<string, unknown>).client_id;
@@ -594,7 +604,7 @@ export const buildActivityTimelineItem = (
           }
         }
       }
-      if (fields.length === 1 && fields[0] === 'status') {
+      if (fields.length === 1 && fields[0].label === 'status') {
         const statusMeta = findStatusChangeMeta(activity, activities);
         if (!statusMeta) {
           console.warn('[matterUtils] Missing status change metadata', activity);
@@ -604,9 +614,10 @@ export const buildActivityTimelineItem = (
         return undefined;
       }
       if (fields.length === 1) {
-        return buildSingleFieldUpdateAction(fields[0], metadata, context);
+        return buildSingleFieldUpdateAction(fields[0].key, metadata, context);
       }
-      const formatted = formatFieldList(fields);
+      const labels = fields.map(f => f.label);
+      const formatted = formatFieldList(labels);
       return formatted ? `updated ${formatted}.` : cleanedDescription ?? 'updated matter details.';
     }
 
@@ -617,7 +628,8 @@ export const buildActivityTimelineItem = (
     if (actionKey.startsWith('time_entry_')) {
       if (actionKey === 'time_entry_updated') {
         const fields = extractChangedFields(metadata);
-        const formatted = formatFieldList(fields);
+        const labels = fields.map(f => f.label);
+        const formatted = formatFieldList(labels);
         if (formatted) return `updated ${formatted}.`;
       }
       if (actionKey === 'time_entry_deleted') return cleanedDescription ?? 'deleted a time entry.';
@@ -633,7 +645,8 @@ export const buildActivityTimelineItem = (
     if (actionKey.startsWith('milestone_')) {
       if (actionKey === 'milestone_updated') {
         const fields = extractChangedFields(metadata);
-        const formatted = formatFieldList(fields);
+        const labels = fields.map(f => f.label);
+        const formatted = formatFieldList(labels);
         if (formatted) return `updated ${formatted}.`;
       }
       if (cleanedDescription) return cleanedDescription;
@@ -645,7 +658,8 @@ export const buildActivityTimelineItem = (
 
     if (actionKey === 'expense_updated' || actionKey === 'note_updated') {
       const fields = extractChangedFields(metadata);
-      const formatted = formatFieldList(fields);
+      const labels = fields.map(f => f.label);
+      const formatted = formatFieldList(labels);
       if (formatted) return `updated ${formatted}.`;
     }
 

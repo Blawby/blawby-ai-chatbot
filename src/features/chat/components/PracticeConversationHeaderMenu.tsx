@@ -37,7 +37,7 @@ const PracticeConversationHeaderMenu: FunctionComponent<PracticeConversationHead
             type="button"
             variant="icon"
             size="icon-sm"
-            className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.08]"
+            className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
             aria-label="Conversation actions"
           >
             <LinkIcon className="h-4 w-4" aria-hidden="true" />

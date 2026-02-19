@@ -84,24 +84,27 @@ const InlineInput = ({
   value,
   onChange,
   placeholder,
-  type = 'text'
+  type = 'text',
+  id
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   type?: 'text' | 'date';
+  id?: string;
 }) => (
   <div>
-    <label className="block text-xs font-medium text-input-placeholder mb-1.5">
-      {label}
-    </label>
     <Input
+      id={id}
       type={type}
       value={value}
       onChange={onChange}
       placeholder={placeholder}
+      label={label}
       className="w-full"
+      labelKey={undefined}
+      size="sm"
     />
   </div>
 );
@@ -111,27 +114,30 @@ const InlineCurrencyInput = ({
   label,
   value,
   onChange,
-  placeholder = '0.00'
+  placeholder = '0.00',
+  id
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  id?: string;
 }) => (
   <div>
-    <label className="block text-xs font-medium text-input-placeholder mb-1.5">
-      {label}
-    </label>
     <Input
+      id={id}
       type="number"
       min="0"
       step={0.01}
       value={value}
       onChange={onChange}
       placeholder={placeholder}
+      label={label}
       icon={<span className="text-sm text-input-placeholder">$</span>}
       iconPosition="left"
       className="w-full"
+      labelKey={undefined}
+      size="sm"
     />
   </div>
 );

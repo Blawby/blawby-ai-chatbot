@@ -93,7 +93,7 @@ const BriefStrengthIndicator: FunctionComponent<BriefStrengthIndicatorProps> = (
           type="button"
           variant="icon"
           size="icon-sm"
-          className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.08]"
+          className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
           aria-label={`${label} details`}
         >
           <span className="relative h-6 w-6">
