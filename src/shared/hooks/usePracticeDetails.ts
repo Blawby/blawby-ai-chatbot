@@ -45,16 +45,13 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     const slugToFetch = practiceSlug?.trim() || practiceId;
     if (slugToFetch) {
       const publicDetails = await getPublicPracticeDetails(slugToFetch);
-      if (publicDetails?.details) {
-        // Store under both the slug key and the canonical UUID key (if available)
-        // so that both lookup paths find the cached entry.
-        setPracticeDetailsEntry(practiceId, publicDetails.details);
-        if (publicDetails.practiceId && publicDetails.practiceId !== practiceId) {
-          setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details);
-        }
-        return publicDetails.details;
+      // Cache the result (including null) under the practiceId key (which might be the slug)
+      // and also under the canonical UUID if returned.
+      setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
+      if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
+        setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
       }
-      return null;
+      return publicDetails?.details ?? null;
     }
     return null;
   }, [practiceId, practiceSlug]);

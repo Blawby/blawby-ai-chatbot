@@ -54,7 +54,8 @@ export const CartPage = () => {
       );
       
       if (publicPlans.length === 0) {
-        throw new Error('No subscription plans available from /api/subscriptions/plans');
+        console.error('[CART][PLANS] No subscription plans available from /api/subscriptions/plans');
+        throw new Error('Unable to load subscription plans, please try again later');
       }
       
       // Select query-param plan, configured business plan, or first available plan

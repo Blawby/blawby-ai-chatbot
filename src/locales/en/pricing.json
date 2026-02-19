@@ -295,5 +295,6 @@
   "upgradeFailed": "Upgrade failed",
   "noFeatures": "This plan has no features.",
   "upgradeButton": "Upgrade for {{price}}",
-  "autoRenewsDisclaimer": "Auto-renews monthly. Cancel anytime."
+  "autoRenewsDisclaimer": "Auto-renews monthly. Cancel anytime.",
+  "errorGeneric": "Unable to load pricing information, please try again later."
 }

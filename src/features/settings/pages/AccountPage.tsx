@@ -11,6 +11,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { signOut } from '@/shared/utils/auth';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
+import { useLocation } from 'preact-iso';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { formatDate } from '@/shared/utils/dateTime';
 import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
@@ -38,12 +39,24 @@ export interface AccountPageProps {
 
 const DOMAIN_SELECT_VALUE = '__select__';
 
+const parsePeriodEndDate = (value: string | number | null | undefined): Date | null => {
+  if (value === null || value === undefined) return null;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    const d = new Date(numeric * 1000);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 export const AccountPage = ({
   isMobile: _isMobile = false,
   onClose: _onClose,
   className = ''
 }: AccountPageProps) => {
   const { showSuccess, showError } = useToastContext();
+  const location = useLocation();
   const { navigate, navigateToPricing } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
@@ -71,22 +84,8 @@ export const AccountPage = ({
   // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {
     if (!hasSubscription) return null;
-    if (currentSubscription?.currentPeriodEnd) {
-      const numeric = Number(currentSubscription.currentPeriodEnd);
-      if (Number.isFinite(numeric)) {
-        const d = new Date(numeric * 1000);
-        if (!isNaN(d.getTime())) return d;
-      }
-      const parsed = new Date(currentSubscription.currentPeriodEnd);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    if (currentPractice?.subscriptionPeriodEnd) {
-      const d = new Date(currentPractice.subscriptionPeriodEnd * 1000);
-      if (!isNaN(d.getTime())) return d;
-    }
-    return null;
+    return parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
+           parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
   }, [hasSubscription, currentSubscription?.currentPeriodEnd, currentPractice?.subscriptionPeriodEnd]);
 
   const clearLocalAuthState = useCallback(() => {
@@ -164,23 +163,10 @@ export const AccountPage = ({
   const canManageBilling = isOwner;
 
   const subscriptionStatus = (currentSubscription?.status ?? 'none').toLowerCase();
-  const subscriptionEnd = (() => {
-    if (currentSubscription?.currentPeriodEnd) {
-      const numeric = Number(currentSubscription.currentPeriodEnd);
-      if (Number.isFinite(numeric)) {
-        return new Date(numeric * 1000);
-      }
-      const parsed = new Date(currentSubscription.currentPeriodEnd);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    if (currentPractice?.subscriptionPeriodEnd) {
-      return new Date(currentPractice.subscriptionPeriodEnd * 1000);
-    }
-    return null;
-  })();
-  const hasActiveSubscription = hasSubscription;
+  const subscriptionEnd = parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
+                           parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
+  const hasActiveSubscription = currentSubscription !== null && 
+    ['active', 'trialing', 'past_due'].includes(currentSubscription.status.toLowerCase());
   const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
   const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
   const isDeleteBlocked = deletionBlockedBySubscription;
@@ -237,32 +223,38 @@ export const AccountPage = ({
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
+      const controller = new AbortController();
+      
+      // Cleanup URL immediately to avoid re-triggering on slow re-renders
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('sync');
+      location.route(newUrl.pathname + newUrl.search, true);
+
       void (async () => {
         let refreshSucceeded = false;
         try {
-          await refreshSubscription();
+          await refreshSubscription(controller.signal);
           refreshSucceeded = true;
         } catch (error) {
+          if (controller.signal.aborted) return;
           console.error('Failed to refresh current subscription:', error);
         }
 
         try {
+          // Assuming refetch supports an AbortSignal in its options if it's from usePracticeManagement
           await refetch();
-          if (refreshSucceeded) {
+          if (!controller.signal.aborted && refreshSucceeded) {
             showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
           }
         } catch (error) {
+          if (controller.signal.aborted) return;
           console.error('Failed to refresh subscription:', error);
-          // Don't show error toast - refetch failure is not critical
-        } finally {
-          // Remove sync param to prevent re-trigger (URL hygiene)
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
         }
       })();
+
+      return () => controller.abort();
     }
-  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess]);
+  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess, location]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
