@@ -238,8 +238,16 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   const method = request.method.toUpperCase();
   const requestHost = resolveRequestHost(request);
   const isSubscriptionsPlansRequest = method === 'GET' && url.pathname === SUBSCRIPTIONS_PLANS_PATH;
+  let plansAuthContext: Awaited<ReturnType<typeof optionalAuth>> | null = null;
+  if (isSubscriptionsPlansRequest) {
+    try {
+      plansAuthContext = await optionalAuth(request, env);
+    } catch {
+      plansAuthContext = null;
+    }
+  }
   const plansCacheKey = isSubscriptionsPlansRequest
-    ? getSubscriptionsPlansCacheKey(url)
+    ? `${getSubscriptionsPlansCacheKey(url)}:${plansAuthContext?.user?.id ?? 'anonymous'}`
     : null;
 
   if (isSubscriptionsPlansRequest && plansCacheKey) {

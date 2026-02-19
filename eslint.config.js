@@ -123,7 +123,7 @@ export default [
       'object-shorthand': 'error',
       'prefer-template': 'error',
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector: "JSXAttribute[name.name='href'] Literal[value=/^\\u002f/]",
           message: 'Use Link or navigate() for internal routes; <a href> should be external or full reload only.'

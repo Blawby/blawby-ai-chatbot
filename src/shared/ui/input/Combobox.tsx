@@ -441,6 +441,14 @@ export function Combobox({
 
   const hasValue = valueList.length > 0;
 
+  useEffect(() => {
+    if (!isOpen || clampedFocus < 0) return;
+    const element = typeof document !== 'undefined'
+      ? document.getElementById(`${inputId}-option-${clampedFocus}`)
+      : null;
+    element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [clampedFocus, inputId, isOpen]);
+
   const triggerContent = (
     <>
       {/* Leading icon */}
@@ -494,16 +502,21 @@ export function Combobox({
 
       {/* Trigger */}
       <button
-        ref={triggerRef}
-        id={inputId}
-        type="button"
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-controls={listboxId}
-        aria-labelledby={ariaLabelledBy}
-        onClick={() => (isOpen ? close() : open())}
-        onKeyDown={handleKeyDown}
+      ref={triggerRef}
+      id={inputId}
+      type="button"
+      disabled={disabled}
+      aria-haspopup="listbox"
+      aria-expanded={isOpen}
+      aria-controls={listboxId}
+      aria-labelledby={ariaLabelledBy}
+      aria-activedescendant={
+        !searchable && isOpen && clampedFocus >= 0
+          ? `${inputId}-option-${clampedFocus}`
+          : undefined
+      }
+      onClick={() => (isOpen ? close() : open())}
+      onKeyDown={handleKeyDown}
         className={cn(
           'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
           'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',

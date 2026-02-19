@@ -193,6 +193,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       variant="danger-ghost"
                       size="sm"
                       icon={<XMarkIcon className="w-4 h-4" />}
+                      aria-label={`Remove ${doc.name ?? 'document'}`}
                       onClick={() => onDocumentRemove(doc.id)}
                     />
                   </div>

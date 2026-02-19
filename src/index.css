@@ -362,7 +362,7 @@
 
   /* Semantic status surfaces */
   .status-info {
-    @apply border border-accent-500/20 bg-accent-500/10 text-accent-400 backdrop-blur-xl;
+    @apply border border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 
