@@ -208,7 +208,7 @@
     "noPracticeSelected": "선택된 사무소가 없습니다",
     "selectPracticeToManage": "청구 관리를 위해 사무소를 선택해 주세요.",
     "unableOpenPortal": "청구 포털을 열 수 없습니다",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "청구 포털을 열 때 알 수 없는 오류가 발생했습니다."
   },
   "loading": "로드 중…",
   "comparison": {

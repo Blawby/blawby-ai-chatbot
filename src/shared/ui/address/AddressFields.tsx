@@ -1,19 +1,16 @@
 import { forwardRef } from 'preact/compat';
+import { useRef, useEffect } from 'preact/hooks';
 import { Input } from '@/shared/ui/input/Input';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
-import type { Address } from '@/shared/types/address';
+import type { Address, AddressSuggestion } from '@/shared/types/address';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface AddressSuggestion {
-  id: string;
-  label: string;
-  formatted: string;
-}
+export type { AddressSuggestion } from '@/shared/types/address';
 
 export interface AddressFieldsProps {
   value: Partial<Address>;
@@ -145,6 +142,24 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
   ) => {
     const listboxId = useUniqueId('address-suggestions-listbox');
     const streetInputId = useUniqueId('street-address-input');
+    const suggestionRefsMap = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+    // Auto-scroll active suggestion into view
+    useEffect(() => {
+      if (
+        streetAddressProps?.isOpen &&
+        streetAddressProps.selectedIndex >= 0 &&
+        streetAddressProps.suggestions.length > 0
+      ) {
+        const activeSuggestion = streetAddressProps.suggestions[streetAddressProps.selectedIndex];
+        if (activeSuggestion) {
+          const element = suggestionRefsMap.current.get(activeSuggestion.id);
+          if (element) {
+            element.scrollIntoView({ block: 'nearest' });
+          }
+        }
+      }
+    }, [streetAddressProps?.selectedIndex, streetAddressProps?.isOpen, streetAddressProps?.suggestions]);
 
     const safe: Partial<Address> = value ?? {
       address: '',
@@ -237,6 +252,13 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                     return (
                       <li key={s.id}>
                         <button
+                          ref={(el) => {
+                            if (el) {
+                              suggestionRefsMap.current.set(s.id, el);
+                            } else {
+                              suggestionRefsMap.current.delete(s.id);
+                            }
+                          }}
                           type="button"
                           role="option"
                           id={`address-suggestion-${s.id}`}

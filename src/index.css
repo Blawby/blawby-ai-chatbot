@@ -12,6 +12,9 @@
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
     --accent-foreground: 255 255 255;
+    --success-foreground: 74 222 128;
+    --warning-foreground: 249 115 22;
+    --error-foreground: 248 113 113;
 
     /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
     --glass-rim-strong:   inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
@@ -115,6 +118,7 @@
   /* Cards — most prominent surface, heaviest rim */
   .glass-card {
     @apply rounded-3xl bg-white/5 backdrop-blur-3xl saturate-150 transition-all duration-300;
+
     border: none;
     box-shadow: var(--glass-rim-strong), var(--shadow-glass);
   }
@@ -124,12 +128,14 @@
   }
   .glass-card-hover:hover {
     @apply bg-white/10 -translate-y-0.5;
+
     box-shadow: var(--glass-rim-strong), 0 24px 48px rgb(15 23 42 / 18%), 0 0 1px rgb(15 23 42 / 12%);
   }
 
   /* Panels — secondary surface, medium rim */
   .glass-panel {
     @apply rounded-2xl bg-white/[0.08] backdrop-blur-2xl saturate-150 transition-all duration-300;
+
     border: none;
     box-shadow: var(--glass-rim-medium);
   }
@@ -137,6 +143,7 @@
   /* Inputs — tertiary surface, subtle rim */
   .glass-input {
     @apply bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 backdrop-blur-xl;
+
     border: none;
     box-shadow: var(--glass-rim-subtle), var(--shadow-glass);
   }
@@ -149,6 +156,7 @@
   /* Semantic surface helpers */
   .surface-subtle {
     @apply bg-black/5 dark:bg-white/5 backdrop-blur-xl;
+
     border: none;
     box-shadow: var(--glass-rim-subtle);
   }
@@ -158,6 +166,7 @@
   }
   .surface-hover:hover {
     @apply bg-black/10 dark:bg-white/10;
+
     box-shadow: var(--glass-rim-medium);
   }
 
@@ -365,17 +374,17 @@
   }
 
   .status-success {
-    @apply border border-green-500/20 bg-green-500/10 text-green-400 backdrop-blur-xl;
+    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-warning {
-    @apply border border-orange-500/20 bg-orange-500/10 text-orange-400 backdrop-blur-xl;
+    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-error {
-    @apply border border-red-500/20 bg-red-500/10 text-red-400 backdrop-blur-xl;
+    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 

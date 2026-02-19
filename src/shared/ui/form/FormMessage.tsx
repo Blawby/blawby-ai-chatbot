@@ -29,7 +29,7 @@ export const FormMessage = ({
       role="alert"
       aria-live="polite"
       className={cn(
-        'text-xs mt-1 inline-flex items-center rounded px-2 py-1',
+        'text-xs mt-1 p-2 rounded',
         variantClasses[variant],
         className
       )}

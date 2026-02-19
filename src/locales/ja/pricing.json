@@ -208,7 +208,7 @@
     "noPracticeSelected": "事務所が選択されていません",
     "selectPracticeToManage": "請求を管理するには事務所を選択してください。",
     "unableOpenPortal": "請求ポータルを開けませんでした",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "請求ポータルを開くときに不明なエラーが発生しました。"
   },
   "loading": "読み込み中…",
   "comparison": {

@@ -208,7 +208,7 @@
     "noPracticeSelected": "لم يتم اختيار مكتب",
     "selectPracticeToManage": "يرجى اختيار مكتب لإدارة الفواتير.",
     "unableOpenPortal": "تعذر فتح بوابة الفواتير",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "حدث خطأ غير معروف أثناء فتح بوابة الفواتير."
   },
   "loading": "جاري التحميل…",
   "comparison": {

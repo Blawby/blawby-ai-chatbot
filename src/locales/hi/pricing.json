@@ -207,8 +207,8 @@
     },
     "noPracticeSelected": "No practice selected",
     "selectPracticeToManage": "Please select a practice to manage billing.",
-    "unableOpenPortal": "Unable to open billing portal",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unableOpenPortal": "बिलिंग पोर्टल खोलने में असमर्थ",
+    "unknownError": "बिलिंग पोर्टल खोलते समय एक अज्ञात त्रुटि हुई।"
   },
   "loading": "लोड हो रहा है…",
   "comparison": {

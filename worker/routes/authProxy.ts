@@ -380,6 +380,20 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   };
 
   if (isSubscriptionsPlansRequest && plansCacheKey) {
+    // Check for existing inflight request (before creating new one)
+    let inflight = subscriptionsPlansInflight.get(plansCacheKey);
+    if (inflight) {
+      await inflight.catch(() => undefined);
+      const cached = subscriptionsPlansCache.get(plansCacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return responseFromCache(cached);
+      }
+      if (cached) {
+        subscriptionsPlansCache.delete(plansCacheKey);
+      }
+    }
+
+    // No existing inflight found; create a new one
     let resolveInflight: (() => void) | null = null;
     let rejectInflight: ((reason?: unknown) => void) | null = null;
     const inflightPromise = new Promise<void>((resolve, reject) => {
