@@ -66,6 +66,7 @@ export const AccountPage = ({
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
@@ -194,13 +195,13 @@ export const AccountPage = ({
     try {
       const subscription = await getCurrentSubscription({ signal });
       setCurrentSubscription(subscription);
-      setError(null);
+      setSubscriptionError(null);
     } catch (fetchError) {
       if (signal?.aborted) {
         return;
       }
       console.error('[Account] Failed to load subscription state', fetchError);
-      setError('Unable to load subscription state from API.');
+      setSubscriptionError('Unable to load subscription state from API.');
       setCurrentSubscription(null);
     } finally {
       setSubscriptionLoading(false);
@@ -210,6 +211,7 @@ export const AccountPage = ({
   useEffect(() => {
     if (!session?.user) {
       setCurrentSubscription(null);
+      setSubscriptionError(null);
       setSubscriptionLoading(false);
       return;
     }
@@ -769,6 +771,11 @@ export const AccountPage = ({
               )}
             </div>
           </SettingRow>
+          {subscriptionError && (
+            <SettingsHelperText className="mt-2 text-red-500">
+              {subscriptionError}
+            </SettingsHelperText>
+          )}
 
           {/* Plan Features Section */}
           <SettingRow
