@@ -120,7 +120,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           {features.length > 0 ? (
             <PlanFeaturesList features={features} />
           ) : (
-            <p className="text-sm text-input-placeholder">No features for this plan.</p>
+            <p className="text-sm text-input-placeholder">{t('pricing:noFeatures')}</p>
           )}
         </div>
 

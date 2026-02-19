@@ -9,6 +9,7 @@ import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { PricingSummary } from '@/shared/ui/cards/PricingSummary';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
+import { Button } from '@/shared/ui/Button';
 
 
 export const CartPage = () => {
@@ -182,7 +183,28 @@ export const CartPage = () => {
   }, [selectedPriceId, selectedPlan]);
 
   if (loadError) {
-    throw new Error(loadError);
+    return (
+      <SetupShell>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-6">
+          <div className="text-center max-w-md">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 mb-6">
+              <h2 className="text-xl font-bold text-red-500 mb-2">Error loading pricing</h2>
+              <p className="text-gray-400 text-sm mb-4">{loadError}</p>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => {
+                  setLoadError(null);
+                  loadPlans();
+                }}
+              >
+                Try again
+              </Button>
+            </div>
+          </div>
+        </div>
+      </SetupShell>
+    );
   }
 
   if (!selectedPlan) {

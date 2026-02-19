@@ -33,9 +33,8 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     if (isLikelyUuid(practiceId)) {
       // UUID → use the authenticated endpoint (practice owner CMS view).
       const fetchedDetails = await getPracticeDetails(practiceId);
-      if (fetchedDetails) {
-        setPracticeDetailsEntry(practiceId, fetchedDetails);
-      }
+      // Cache null responses too, so missing records don't trigger repeated fetches.
+      setPracticeDetailsEntry(practiceId, fetchedDetails);
       return fetchedDetails;
     }
 

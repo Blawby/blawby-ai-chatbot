@@ -279,9 +279,6 @@ export const AccountPage = ({
 
   // Simple computed values for demo - only compute when currentTier is available
   const currentPlanFeatures = (() => {
-    if (subscriptionLoading || isPending || practiceLoading || error) {
-      return null;
-    }
     const backendFeatures = currentSubscription?.plan?.features;
     if (!Array.isArray(backendFeatures)) {
       return [] as PlanFeature[];
@@ -673,7 +670,7 @@ export const AccountPage = ({
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   useEffect(() => {
-    if (isPending || practiceLoading) {
+    if (isPending || practiceLoading || subscriptionLoading) {
       const timeout = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000); // 10 second timeout
@@ -681,9 +678,9 @@ export const AccountPage = ({
     } else {
       setLoadingTimeout(false);
     }
-  }, [isPending, practiceLoading]);
+  }, [isPending, practiceLoading, subscriptionLoading]);
 
-  if ((isPending || practiceLoading) && !loadingTimeout) {
+  if ((isPending || practiceLoading || subscriptionLoading) && !loadingTimeout) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -699,16 +696,8 @@ export const AccountPage = ({
     );
   }
 
-  if (!currentPlanFeatures) {
-    throw new Error('Subscription plan features could not be loaded.');
-  }
-
-  if (hasSubscription && !currentSubscription?.plan?.displayName && !currentSubscription?.plan?.name) {
-    throw new Error('Current subscription is active but plan display name is missing from API response.');
-  }
-
   const currentPlanLabel = hasSubscription
-    ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || '')
+    ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || t('settings:account.plan.tiers.free'))
     : t('settings:account.plan.tiers.free');
 
   return (
