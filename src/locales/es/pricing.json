@@ -208,7 +208,7 @@
     "noPracticeSelected": "Ninguna práctica seleccionada",
     "selectPracticeToManage": "Por favor, seleccione una práctica para gestionar la facturación.",
     "unableOpenPortal": "No se pudo abrir el portal de facturación",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "Ocurrió un error desconocido al abrir el portal de facturación."
   },
   "loading": "Cargando…",
   "comparison": {

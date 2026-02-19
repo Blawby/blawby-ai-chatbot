@@ -144,6 +144,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
     ref
   ) => {
     const listboxId = useUniqueId('address-suggestions-listbox');
+    const streetInputId = useUniqueId('street-address-input');
 
     const safe: Partial<Address> = value ?? {
       address: '',
@@ -172,12 +173,13 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
         {/* ── Street address + autocomplete ─────────────────────────── */}
         <div>
           {label && (
-            <label className="mb-1 block text-sm font-medium text-input-text">
+            <label htmlFor={streetInputId} className="mb-1 block text-sm font-medium text-input-text">
               {label}
             </label>
           )}
           <div className="relative">
             <Input
+              id={streetInputId}
               label=""
               placeholder={placeholder ?? 'Street address'}
               value={streetAddressProps?.value ?? safe.address ?? ''}
