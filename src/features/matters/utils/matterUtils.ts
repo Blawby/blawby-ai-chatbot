@@ -127,6 +127,36 @@ export const normalizeMatterStatus = (status?: string | null): MatterStatus => {
   return 'first_contact';
 };
 
+export const normalizeUrgency = (urgency?: string | null): MatterDetail['urgency'] => {
+  if (!urgency) return undefined;
+  const normalized = urgency.toLowerCase().replace(/\s+/g, '_');
+  const validValues = ['routine', 'time_sensitive', 'emergency'] as const;
+  if ((validValues as readonly string[]).includes(normalized)) {
+    return normalized as MatterDetail['urgency'];
+  }
+  throw new Error(`Invalid urgency value: "${urgency}". Expected one of: routine, time_sensitive, emergency`);
+};
+
+export const normalizeBillingType = (billingType?: string | null): MatterDetail['billingType'] => {
+  if (!billingType) throw new Error('Missing required billing type');
+  const normalized = billingType.toLowerCase().replace(/\s+/g, '_');
+  const validValues = ['hourly', 'fixed', 'contingency', 'pro_bono'] as const;
+  if ((validValues as readonly string[]).includes(normalized)) {
+    return normalized as MatterDetail['billingType'];
+  }
+  throw new Error(`Invalid billing type: "${billingType}". Expected one of: hourly, fixed, contingency, pro_bono`);
+};
+
+export const normalizePaymentFrequency = (frequency?: string | null): MatterDetail['paymentFrequency'] => {
+  if (!frequency) return undefined;
+  const normalized = frequency.toLowerCase().replace(/\s+/g, '_');
+  const validValues = ['project', 'milestone'] as const;
+  if ((validValues as readonly string[]).includes(normalized)) {
+    return normalized as MatterDetail['paymentFrequency'];
+  }
+  throw new Error(`Invalid payment frequency: "${frequency}". Expected one of: project, milestone`);
+};
+
 export const normalizeFieldLabel = (field: string): string => {
   const trimmed = field.trim();
   if (!trimmed) return '';
@@ -231,7 +261,7 @@ export const toMatterSummary = (
   matter: BackendMatter,
   options?: { clientNameById?: Map<string, string>; serviceNameById?: Map<string, string> }
 ): MatterSummary => {
-  const updatedAt = matter.updated_at || matter.created_at || new Date().toISOString();
+  const updatedAt = matter.updated_at || matter.created_at || '';
   const clientName = matter.client_id ? options?.clientNameById?.get(matter.client_id) : undefined;
   const serviceName = matter.practice_service_id ? options?.serviceNameById?.get(matter.practice_service_id) : undefined;
   return {
@@ -243,7 +273,7 @@ export const toMatterSummary = (
       : null,
     status: normalizeMatterStatus(matter.status),
     updatedAt,
-    createdAt: matter.created_at || matter.updated_at || new Date().toISOString()
+    createdAt: matter.created_at || matter.updated_at || ''
   };
 };
 
@@ -258,7 +288,7 @@ export const toMatterDetail = (
   description: matter.description || '',
   caseNumber: matter.case_number ?? undefined,
   matterType: matter.matter_type ?? undefined,
-  urgency: (matter.urgency as MatterDetail['urgency']) ?? undefined,
+  urgency: normalizeUrgency(matter.urgency),
   responsibleAttorneyId: matter.responsible_attorney_id ?? undefined,
   originatingAttorneyId: matter.originating_attorney_id ?? undefined,
   court: matter.court ?? undefined,
@@ -267,10 +297,10 @@ export const toMatterDetail = (
   opposingCounsel: matter.opposing_counsel ?? undefined,
   openDate: matter.open_date ?? undefined,
   closeDate: matter.close_date ?? undefined,
-  billingType: (matter.billing_type as MatterDetail['billingType']) || 'hourly',
+  billingType: normalizeBillingType(matter.billing_type),
   attorneyHourlyRate: typeof matter.attorney_hourly_rate === 'number' ? asMajor(matter.attorney_hourly_rate) : undefined,
   adminHourlyRate: typeof matter.admin_hourly_rate === 'number' ? asMajor(matter.admin_hourly_rate) : undefined,
-  paymentFrequency: (matter.payment_frequency as MatterDetail['paymentFrequency']) ?? undefined,
+  paymentFrequency: normalizePaymentFrequency(matter.payment_frequency),
   totalFixedPrice: typeof matter.total_fixed_price === 'number' ? asMajor(matter.total_fixed_price) : undefined,
   settlementAmount: typeof matter.settlement_amount === 'number' ? asMajor(matter.settlement_amount) : undefined,
   milestones: mapMilestones(matter.milestones),

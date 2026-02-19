@@ -23,7 +23,6 @@ import { type MatterFormState } from '@/features/matters/components/MatterCreate
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { cn } from '@/shared/utils/cn';
 import { asMajor } from '@/shared/utils/money';
-import { nullIfEmpty } from '@/features/matters/utils/matterUtils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -237,6 +236,7 @@ export const MatterDetailsPanel = ({
 
   // ── Open group for editing ────────────────────────────────────────────────
   const startEdit = (group: EditingGroup) => {
+    setSaveError(null);
     if (group === 'identifiers') {
       setDraftIdentifiers({
         caseNumber: detail.caseNumber ?? '',
@@ -286,32 +286,41 @@ export const MatterDetailsPanel = ({
 
   const saveIdentifiers = () =>
     commitSave({
-      caseNumber: nullIfEmpty(draftIdentifiers.caseNumber) as string,
-      matterType: nullIfEmpty(draftIdentifiers.matterType) as string,
-      urgency: nullIfEmpty(draftIdentifiers.urgency) as MatterFormState['urgency']
+      caseNumber: draftIdentifiers.caseNumber,
+      matterType: draftIdentifiers.matterType,
+      urgency: draftIdentifiers.urgency as MatterFormState['urgency']
     });
 
   const saveParties = () =>
     commitSave({
-      opposingParty: nullIfEmpty(draftParties.opposingParty) as string,
-      opposingCounsel: nullIfEmpty(draftParties.opposingCounsel) as string
+      opposingParty: draftParties.opposingParty,
+      opposingCounsel: draftParties.opposingCounsel
     });
 
   const saveJurisdiction = () =>
     commitSave({
-      court: nullIfEmpty(draftJurisdiction.court) as string,
-      judge: nullIfEmpty(draftJurisdiction.judge) as string
+      court: draftJurisdiction.court,
+      judge: draftJurisdiction.judge
     });
 
   const saveAttorneys = () =>
     commitSave({
-      responsibleAttorneyId: nullIfEmpty(draftAttorneys.responsibleAttorneyId) as string,
-      originatingAttorneyId: nullIfEmpty(draftAttorneys.originatingAttorneyId) as string
+      responsibleAttorneyId: draftAttorneys.responsibleAttorneyId,
+      originatingAttorneyId: draftAttorneys.originatingAttorneyId
     });
 
   const saveFinancial = () => {
-    const raw = parseFloat(draftFinancial.settlementAmount);
-    const amount = !Number.isNaN(raw) ? asMajor(raw) : (draftFinancial.settlementAmount === '' ? null : undefined);
+    const trimmed = draftFinancial.settlementAmount.trim();
+    if (trimmed === '') {
+      void commitSave({ settlementAmount: undefined });
+      return;
+    }
+    const raw = parseFloat(trimmed);
+    if (Number.isNaN(raw)) {
+      setSaveError('Settlement amount must be a valid number');
+      return;
+    }
+    const amount = asMajor(raw);
     void commitSave({ settlementAmount: amount });
   };
 
