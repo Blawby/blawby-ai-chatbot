@@ -63,7 +63,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const baseClasses = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border backdrop-blur-xl';
   const variantClasses: Record<ButtonVariant, string> = {
     // Primary: Glass Accent
-    primary: 'bg-accent-500/25 backdrop-blur-2xl text-white border-accent-500/40 shadow-lg shadow-accent-500/10 hover:bg-accent-500/40 hover:border-accent-500/60 active:scale-[0.98] transition-all duration-300',
+    primary: 'bg-accent-500/25 backdrop-blur-2xl text-[rgb(var(--accent-foreground))] border-accent-500/40 shadow-lg shadow-accent-500/10 hover:bg-accent-500/40 hover:border-accent-500/60 active:scale-[0.98] transition-all duration-300',
     
     // Secondary: Pure glass with subtle border
     secondary: 'bg-white/5 backdrop-blur-xl text-input-text border-white/10 hover:bg-white/15 hover:border-white/20 active:bg-white/20 shadow-md transition-all duration-300',

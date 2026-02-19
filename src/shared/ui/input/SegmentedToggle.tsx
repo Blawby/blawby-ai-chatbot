@@ -60,9 +60,10 @@ export const SegmentedToggle = <T extends string>({
                 onChange(option.value);
               }
             }}
+            style={{ width: `${itemWidth}%` }}
             className={cn(
-              'relative z-10 min-w-24 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200',
-              isActive ? 'text-white' : 'text-input-placeholder hover:text-input-text',
+              'relative z-10 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200',
+              isActive ? 'text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder hover:text-input-text',
               (disabled || option.disabled) && 'cursor-not-allowed'
             )}
           >

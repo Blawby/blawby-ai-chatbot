@@ -180,7 +180,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
               onClick={() => handleUpgrade(plan)}
               variant="primary"
               size="lg"
-              className="h-14 w-full border-accent-500/70 bg-accent-500/90 text-white hover:bg-accent-500"
+              className="h-14 w-full border-accent-500/70 bg-accent-500/90 hover:bg-accent-500"
               disabled={submitting}
             >
               {submitting
