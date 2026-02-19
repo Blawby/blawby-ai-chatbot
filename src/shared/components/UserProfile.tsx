@@ -4,19 +4,12 @@ import { UserProfileDisplay } from '@/shared/ui/profile/organisms/UserProfileDis
 interface UserProfileProps {
   isCollapsed?: boolean;
   isMobile?: boolean;
-  currentPractice?: {
-    id: string;
-    kind?: 'personal' | 'business' | 'practice';
-    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
-    isPersonal?: boolean | null;
-  } | null;
 }
 
-const UserProfile = ({ isCollapsed = false, currentPractice }: UserProfileProps) => {
+const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   return (
     <UserProfileDisplay 
-      isCollapsed={isCollapsed} 
-      currentPractice={currentPractice} 
+      isCollapsed={isCollapsed}
     />
   );
 };

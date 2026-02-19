@@ -223,5 +223,6 @@
   "upgradeFailed": "Error en la actualización",
   "noFeatures": "Este plan no tiene características.",
   "upgradeButton": "Actualizar por {{price}}",
-  "autoRenewsDisclaimer": "Se renueva automáticamente mensualmente. Cancelar en cualquier momento."
+  "autoRenewsDisclaimer": "Se renueva automáticamente mensualmente. Cancelar en cualquier momento.",
+  "errorGeneric": "No se pudo cargar la información de precios, inténtelo de nuevo más tarde."
 }

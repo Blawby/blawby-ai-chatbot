@@ -216,5 +216,9 @@
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
   },
-  "upgradeFailed": "Ошибка обновления"
+  "upgradeFailed": "Ошибка обновления",
+  "noFeatures": "В этом тарифном плане нет функций.",
+  "upgradeButton": "Обновить за {{price}}",
+  "autoRenewsDisclaimer": "Автоматическое продление каждый месяц. Отмена в любое время.",
+  "errorGeneric": "Не удалось загрузить информацию о ценах, пожалуйста, попробуйте позже."
 }

@@ -166,7 +166,7 @@ export const AccountPage = ({
   const subscriptionEnd = parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
                            parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
   const hasActiveSubscription = currentSubscription !== null && 
-    ['active', 'trialing', 'past_due'].includes(currentSubscription.status.toLowerCase());
+    ['active', 'trialing', 'past_due'].includes((currentSubscription.status || '').toLowerCase());
   const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
   const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
   const isDeleteBlocked = deletionBlockedBySubscription;
@@ -241,7 +241,7 @@ export const AccountPage = ({
         }
 
         try {
-          // Assuming refetch supports an AbortSignal in its options if it's from usePracticeManagement
+          // Note: refetch from usePracticeManagement does not currently support AbortSignal cancellation
           await refetch();
           if (!controller.signal.aborted && refreshSucceeded) {
             showSuccess('Subscription updated', 'Your subscription status has been refreshed.');

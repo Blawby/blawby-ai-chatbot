@@ -222,6 +222,7 @@
   },
   "upgradeFailed": "升级失败",
   "noFeatures": "此计划没有功能。",
-  "upgradeButton": "升级到 {{price}}",
-  "autoRenewsDisclaimer": "自动按月续费。随时取消。"
+  "upgradeButton": "升级需 {{price}}",
+  "autoRenewsDisclaimer": "每月自动续订。随时取消。",
+  "errorGeneric": "无法加载价格信息，请稍后再试。"
 }

@@ -31,12 +31,6 @@ interface SidebarContentProps {
   };
   navItems: SidebarNavItem[];
   onClose?: () => void;
-  currentPractice?: {
-    id: string;
-    kind?: 'personal' | 'business' | 'practice';
-    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
-    isPersonal?: boolean | null;
-  } | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -45,7 +39,6 @@ export const SidebarContent = ({
   practiceConfig,
   navItems,
   onClose,
-  currentPractice,
   isCollapsed,
   onToggleCollapse
 }: SidebarContentProps) => {
@@ -83,8 +76,7 @@ export const SidebarContent = ({
 
       {/* User Profile Section */}
       <UserProfile 
-        isCollapsed={isCollapsed} 
-        currentPractice={currentPractice} 
+        isCollapsed={isCollapsed}
       />
     </div>
   );

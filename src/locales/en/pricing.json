@@ -277,6 +277,10 @@
     }
   },
   "billing": {
+    "monthly": "month",
+    "yearly": "year",
+    "billedMonthly": "Billed monthly",
+    "billedAnnually": "Billed annually",
     "noPracticeSelected": "No practice selected",
     "selectPracticeToManage": "Please select a practice to manage billing.",
     "unableOpenPortal": "Unable to open billing portal",

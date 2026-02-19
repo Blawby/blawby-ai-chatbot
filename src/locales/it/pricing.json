@@ -219,5 +219,6 @@
   "upgradeFailed": "Aggiornamento fallito",
   "noFeatures": "Questo piano non ha alcuna funzionalità.",
   "upgradeButton": "Aggiorna a {{price}}",
-  "autoRenewsDisclaimer": "Si rinnova automaticamente mensilmente. Cancella in qualsiasi momento."
+  "autoRenewsDisclaimer": "Si rinnova automaticamente ogni mese. Annulla in qualsiasi momento.",
+  "errorGeneric": "Impossibile caricare le informazioni sui prezzi, riprovare più tardi."
 }

@@ -222,6 +222,7 @@
   },
   "upgradeFailed": "アップグレードに失敗しました",
   "noFeatures": "このプランには機能がありません。",
-  "upgradeButton": "{{price}}にアップグレード",
-  "autoRenewsDisclaimer": "毎月自動更新されます。いつでもキャンセルできます。"
+  "upgradeButton": "{{price}} でアップグレード",
+  "autoRenewsDisclaimer": "毎月自動更新されます。いつでもキャンセル可能です。",
+  "errorGeneric": "料金情報を読み込めませんでした。後でもう一度お試しください。"
 }

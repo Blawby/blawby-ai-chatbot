@@ -223,5 +223,6 @@
   "upgradeFailed": "Échec de la mise à niveau",
   "noFeatures": "Ce plan n'a pas de fonctionnalités.",
   "upgradeButton": "Passer à {{price}}",
-  "autoRenewsDisclaimer": "Renouvellement automatique mensuel. Annulation possible à tout moment."
+  "autoRenewsDisclaimer": "Renouvellement automatique mensuel. Annulation possible à tout moment.",
+  "errorGeneric": "Impossible de charger les informations de tarification, veuillez réessayer plus tard."
 }

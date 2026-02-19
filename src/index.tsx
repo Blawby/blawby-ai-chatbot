@@ -28,10 +28,6 @@ import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
-const CartPage = lazy(async () => {
-  const mod = await import('@/features/cart/pages/CartPage');
-  return { default: mod.CartPage };
-});
 
 const LoadingScreen = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -167,7 +163,6 @@ function AppShell() {
           <Route path="/auth" component={AuthPage} />
           <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
           <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
-          <Route path="/cart" component={CartPage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/pay" component={PaySuccessPage} />

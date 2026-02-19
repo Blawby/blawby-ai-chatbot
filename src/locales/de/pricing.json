@@ -223,5 +223,6 @@
   "upgradeFailed": "Upgrade fehlgeschlagen",
   "noFeatures": "Dieser Plan hat keine Funktionen.",
   "upgradeButton": "Upgrade für {{price}}",
-  "autoRenewsDisclaimer": "Erneuert sich automatisch monatlich. Jederzeit kündbar."
+  "autoRenewsDisclaimer": "Erneuert sich automatisch monatlich. Jederzeit kündbar.",
+  "errorGeneric": "Preisinformationen konnten nicht geladen werden, bitte versuchen Sie es später noch einmal."
 }

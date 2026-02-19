@@ -1,17 +1,19 @@
 import { FunctionComponent } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
+import { Switch } from '@/shared/ui/input';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { i18n } from '@/shared/i18n';
+import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 interface PricingViewProps {
-  onUpgrade?: (planId: string) => Promise<boolean | void> | boolean | void;
+  onUpgrade?: (priceId: string) => Promise<boolean | void> | boolean | void;
   className?: string;
 }
 
@@ -24,11 +26,13 @@ const mapFeatures = (plan: SubscriptionPlan): PlanFeature[] => {
 
 const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade }) => {
   const { t } = useTranslation(['pricing', 'common']);
-  const { navigate } = useNavigation();
   const { showError } = useToastContext();
+  const { submitUpgrade, submitting } = usePaymentUpgrade();
+  const { currentPractice } = usePracticeManagement();
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -52,7 +56,9 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
         setLoadError(null);
       } catch (error) {
         if (controller.signal.aborted || !mounted) return;
-        setLoadError(error instanceof Error ? error.message : String(error));
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('[PricingView] Failed to load plans:', error);
+        setLoadError(errorMsg);
       }
     })();
 
@@ -63,7 +69,6 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   }, []);
 
   if (loadError) {
-    console.error('[PricingView] Failed to load plans:', loadError);
     return (
       <div className="flex items-center justify-center p-6 text-center">
         <div className="space-y-4">
@@ -78,14 +83,25 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   }
 
   const handleUpgrade = async (plan: SubscriptionPlan) => {
+    const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
+    const selectedPriceId = isYearly && hasYearly
+      ? plan.stripeYearlyPriceId
+      : plan.stripeMonthlyPriceId;
     try {
+      if (!selectedPriceId) {
+        throw new Error('Missing Stripe price ID for the selected billing period.');
+      }
       if (onUpgrade) {
-        const result = await onUpgrade(plan.id);
+        const result = await onUpgrade(selectedPriceId);
         if (result === false) {
           return;
         }
       }
-      navigate(`/cart?planId=${encodeURIComponent(plan.id)}`);
+      await submitUpgrade({
+        practiceId: currentPractice?.id || undefined,
+        plan: selectedPriceId,
+        annual: isYearly && hasYearly
+      });
     } catch (error) {
       console.error('Error during upgrade process:', error);
       const message = error instanceof Error ? error.message : t('common:errors.tryAgainLater');
@@ -94,6 +110,14 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   };
 
   const features = mapFeatures(plan);
+  const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
+  const monthlyPriceValue = Number.parseFloat(plan.monthlyPrice);
+  const yearlyPriceValue = plan.yearlyPrice ? Number.parseFloat(plan.yearlyPrice) : NaN;
+  const selectedPriceValue = isYearly && hasYearly ? yearlyPriceValue : monthlyPriceValue;
+  const resolvedPriceValue = Number.isFinite(selectedPriceValue) ? selectedPriceValue : 0;
+  const billingDescription = isYearly && hasYearly
+    ? t('pricing:billing.billedAnnually')
+    : t('pricing:billing.billedMonthly');
   const planImageSrc = plan.imageUrl && plan.imageUrl.trim().length > 0
     ? plan.imageUrl
     : '/blawby-favicon-iframe.png';
@@ -125,26 +149,37 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           )}
         </div>
 
+        <div className="mt-5 rounded-3xl border border-line-glass/30 bg-surface-glass/20 px-4 py-2 md:px-5">
+          <Switch
+            id="pricing-billing-period"
+            label={`${t('pricing:billing.monthly')} / ${t('pricing:billing.yearly')}`}
+            description={billingDescription}
+            value={hasYearly ? isYearly : false}
+            onChange={(nextValue) => setIsYearly(hasYearly ? nextValue : false)}
+            disabled={!hasYearly || submitting}
+          />
+        </div>
+
         <div className="mt-7">
           <Button
             onClick={() => handleUpgrade(plan)}
             variant="primary"
             size="lg"
             className="h-14 w-full rounded-full"
+            disabled={submitting}
           >
-            {t('pricing:upgradeButton', {
-              price: formatCurrency(
-                (() => {
-                  const val = Number.parseFloat(plan.monthlyPrice);
-                  return Number.isFinite(val) ? val : 0;
-                })(),
-                plan.currency,
-                i18n.language
-              )
-            })}
+            {submitting
+              ? t('pricing:modal.openingBilling')
+              : t('pricing:upgradeButton', {
+                  price: formatCurrency(
+                    resolvedPriceValue,
+                    plan.currency,
+                    i18n.language
+                  )
+                })}
           </Button>
           <p className="mt-3 text-center text-sm text-input-placeholder">
-            {t('pricing:autoRenewsDisclaimer')}
+            {billingDescription}
           </p>
         </div>
       </div>

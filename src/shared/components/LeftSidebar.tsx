@@ -21,8 +21,7 @@ interface LeftSidebarProps {
 const LeftSidebar = ({
   navItems,
   onClose,
-  practiceConfig,
-  currentPractice
+  practiceConfig
 }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
@@ -36,7 +35,6 @@ const LeftSidebar = ({
         practiceConfig={practiceConfig}
         navItems={navItems}
         onClose={onClose}
-        currentPractice={currentPractice}
         isCollapsed={shouldShowCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />

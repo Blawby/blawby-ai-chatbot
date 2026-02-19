@@ -216,5 +216,9 @@
     "included": "शामिल",
     "notIncluded": "शामिल नहीं"
   },
-  "upgradeFailed": "Upgrade failed"
+  "upgradeFailed": "अपग्रेड विफल",
+  "noFeatures": "इस योजना में कोई सुविधा नहीं है।",
+  "upgradeButton": "{{price}} के लिए अपग्रेड करें",
+  "autoRenewsDisclaimer": "मासिक स्वतः नवीनीकरण। किसी भी समय रद्द करें।",
+  "errorGeneric": "मूल्य निर्धारण जानकारी लोड करने में असमर्थ, कृपया बाद में पुनः प्रयास करें।"
 }
