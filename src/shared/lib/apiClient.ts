@@ -276,6 +276,7 @@ export interface CurrentSubscription {
   status?: string | null;
   plan?: CurrentSubscriptionPlan | null;
   cancelAtPeriodEnd?: boolean | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
 }
 
@@ -1638,7 +1639,8 @@ export async function getCurrentSubscription(
     status: toNullableString(container.status),
     plan,
     cancelAtPeriodEnd: typeof container.cancel_at_period_end === 'boolean' ? container.cancel_at_period_end : null,
-    currentPeriodEnd: toNullableString(container.current_period_end)
+    currentPeriodStart: toNullableString(container.period_start ?? container.current_period_start),
+    currentPeriodEnd: toNullableString(container.period_end ?? container.current_period_end)
   };
 }
 

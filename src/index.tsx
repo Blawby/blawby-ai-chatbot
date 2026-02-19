@@ -234,7 +234,7 @@ function SettingsRoute() {
         <div>Settings are available in your client portal.</div>
         <button
           type="button"
-          className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-accent-600"
+          className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-[rgb(var(--accent-foreground))] shadow-sm hover:bg-accent-600"
           onClick={() => navigate('/auth', true)}
         >
           Go to sign in

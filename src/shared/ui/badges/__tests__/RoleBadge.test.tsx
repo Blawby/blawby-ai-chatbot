@@ -8,7 +8,7 @@ describe('RoleBadge', () => {
     
     const badge = screen.getByText('Owner');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-accent-500', 'text-gray-900');
+    expect(badge).toHaveClass('bg-accent-500/10', 'text-[rgb(var(--accent-foreground))]');
   });
 
   it('should render admin role with correct styling', () => {
@@ -16,7 +16,7 @@ describe('RoleBadge', () => {
     
     const badge = screen.getByText('Admin');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-primary-500', 'text-white');
+    expect(badge).toHaveClass('bg-primary-500/10', 'text-primary-600');
   });
 
   it('should render attorney role with correct styling', () => {
@@ -24,7 +24,7 @@ describe('RoleBadge', () => {
     
     const badge = screen.getByText('Attorney');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-blue-500', 'text-white');
+    expect(badge).toHaveClass('bg-blue-500/10', 'text-blue-600');
   });
 
   it('should render paralegal role with correct styling', () => {
@@ -32,7 +32,7 @@ describe('RoleBadge', () => {
     
     const badge = screen.getByText('Paralegal');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-indigo-500', 'text-white');
+    expect(badge).toHaveClass('bg-indigo-500/10', 'text-indigo-600');
   });
 
   it('should render member role with correct styling', () => {
@@ -40,7 +40,7 @@ describe('RoleBadge', () => {
     
     const badge = screen.getByText('Member');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-emerald-500', 'text-white');
+    expect(badge).toHaveClass('bg-emerald-500/10', 'text-emerald-600');
   });
 
   it('should render client role with correct styling', () => {
@@ -48,7 +48,7 @@ describe('RoleBadge', () => {
     
     const badge = screen.getByText('Client');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('bg-gray-500', 'text-white');
+    expect(badge).toHaveClass('bg-gray-500/10', 'text-gray-600');
   });
 
   it('should apply custom className when provided', () => {

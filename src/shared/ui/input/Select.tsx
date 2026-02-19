@@ -224,7 +224,7 @@ export const Select = ({
                     'w-full text-left px-3 py-2 text-sm text-input-text',
                     'hover:bg-surface-overlay/65 flex items-center justify-between',
                     'focus:outline-none focus:bg-surface-overlay/65',
-                    value === option.value && 'bg-accent-500/15 text-input-text',
+                    value === option.value && 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]',
                     focusedIndex === index && 'bg-surface-overlay/65'
                   )}
                 >
@@ -322,7 +322,7 @@ export const Select = ({
                   'w-full text-left px-3 py-2 text-sm text-input-text',
                   'hover:bg-surface-overlay/65 flex items-center justify-between',
                   'focus:outline-none focus:bg-surface-overlay/65',
-                  value === option.value && 'bg-accent-500/15 text-input-text',
+                  value === option.value && 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]',
                   focusedIndex === index && 'bg-surface-overlay/65'
                 )}
               >

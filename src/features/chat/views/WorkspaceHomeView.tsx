@@ -118,7 +118,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent-500/50 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
           <span
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-gray-900 pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
             aria-hidden="true"
           >
             <PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />
