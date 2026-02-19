@@ -5,6 +5,16 @@ import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import type { Address } from '@/shared/types/address';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface AddressSuggestion {
+  id: string;
+  label: string;
+  formatted: string;
+}
+
 export interface AddressFieldsProps {
   value: Partial<Address>;
   onChange: (address: Partial<Address>) => void;
@@ -18,6 +28,7 @@ export interface AddressFieldsProps {
   countryOptions?: ComboboxOption[];
   label?: string;
   placeholder?: string;
+  /** Props for street address autocomplete behaviour */
   streetAddressProps?: {
     value: string;
     onChange: (value: string) => void;
@@ -25,19 +36,18 @@ export interface AddressFieldsProps {
     isLoading: boolean;
     isOpen: boolean;
     disabled?: boolean;
-    suggestions: Array<{
-      id: string;
-      label: string;
-      formatted: string;
-    }>;
+    suggestions: AddressSuggestion[];
     selectedIndex: number;
-    onSuggestionSelect: (suggestion: { id: string; label: string; formatted: string }) => void;
+    onSuggestionSelect: (suggestion: AddressSuggestion) => void;
     limit?: number;
   };
   inputClassName?: string;
 }
 
-// Common country options (ISO-2 codes)
+// ---------------------------------------------------------------------------
+// Static data
+// ---------------------------------------------------------------------------
+
 export const DEFAULT_COUNTRY_OPTIONS: ComboboxOption[] = [
   { value: 'US', label: 'USA' },
   { value: 'CA', label: 'CAN' },
@@ -109,193 +119,197 @@ const STATE_OPTIONS: ComboboxOption[] = [
   { value: 'WY', label: 'Wyoming' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
-export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
-  value,
-  onChange,
-  disabled = false,
-  errors = {},
-  required = {},
-  size = 'md',
-  variant = 'default',
-  className = '',
-  showCountry = true,
-  countryOptions = DEFAULT_COUNTRY_OPTIONS,
-  label,
-  placeholder,
-  streetAddressProps,
-  inputClassName,
-}, ref) => {
-  // Default address value to prevent null issues
-  const safeValue = value || { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
-  
-  // Generate unique IDs for this component instance
-  const listboxId = useUniqueId('address-suggestions-listbox');
-  const updateField = (field: keyof Address, fieldValue: string) => {
-    onChange({
-      ...safeValue,
-      [field]: fieldValue,
-    });
-  };
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
-  const hasError = (field: keyof Address) => !!errors[field];
-  const getError = (field: keyof Address) => errors[field];
-  const isRequired = (field: keyof Address) => !!required[field];
+export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
+  (
+    {
+      value,
+      onChange,
+      disabled = false,
+      errors = {},
+      required = {},
+      size = 'md',
+      variant = 'default',
+      className,
+      showCountry = true,
+      countryOptions = DEFAULT_COUNTRY_OPTIONS,
+      label,
+      placeholder,
+      streetAddressProps,
+      inputClassName,
+    },
+    ref
+  ) => {
+    const listboxId = useUniqueId('address-suggestions-listbox');
 
-  const getInputClasses = (field: keyof Address) => cn(
-    hasError(field) && 'border-red-500 dark:border-red-400',
-    inputClassName
-  );
+    const safe: Partial<Address> = value ?? {
+      address: '',
+      apartment: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: '',
+    };
 
-  const containerClasses = cn(
-    'space-y-4',
-    className
-  );
+    const update = (field: keyof Address, v: string) =>
+      onChange({ ...safe, [field]: v });
 
+    const hasError = (field: keyof Address) => !!errors[field];
+    const getError = (field: keyof Address) => errors[field];
+    const isRequired = (field: keyof Address) => !!required[field];
 
-  return (
-    <div ref={ref} className={containerClasses}>
-      {/* Address Line 1 */}
-      <div className="relative">
-        <Input
-          label={label}
-          placeholder={placeholder}
-          value={streetAddressProps?.value ?? safeValue.address ?? ''}
-          onChange={(newValue) => {
-            if (streetAddressProps?.onChange) {
-              streetAddressProps.onChange(newValue);
-            } else {
-              updateField('address', newValue);
-            }
-          }}
-          disabled={disabled}
-          required={isRequired('address')}
-          error={getError('address')}
-          variant={hasError('address') ? 'error' : variant}
-          size={size}
-          className={cn(
-            getInputClasses('address'),
-            streetAddressProps?.isOpen && 'ring-2 ring-blue-500 border-blue-500'
-          )}
-          autoComplete="off"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={streetAddressProps?.isOpen || false}
-          aria-controls={streetAddressProps?.isOpen ? listboxId : undefined}
-          aria-activedescendant={
-            streetAddressProps?.selectedIndex >= 0 && streetAddressProps?.suggestions[streetAddressProps.selectedIndex]
-              ? `address-suggestion-${streetAddressProps.suggestions[streetAddressProps.selectedIndex].id}`
-              : undefined
-          }
-          onKeyDown={streetAddressProps?.onKeyDown}
-        />
-        
-        {/* Loading indicator */}
-        {streetAddressProps?.isLoading && (
-          <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-line-glass/30 border-t-blue-600" />
-          </div>
-        )}
+    const fieldCn = (field: keyof Address) =>
+      cn(hasError(field) && 'border-red-500 dark:border-red-400', inputClassName);
 
-        {/* Autocomplete dropdown */}
-        {streetAddressProps?.isOpen && !streetAddressProps?.disabled && (
-          <div 
-            role="listbox"
-            id={listboxId}
-            aria-label="Address suggestions"
-            data-testid="autocomplete-dropdown"
-            className="absolute z-50 w-full mt-1 bg-surface-glass bg-opacity-80 border border-line-glass border-opacity-30 rounded-lg shadow-glass backdrop-blur-xl max-h-60 overflow-y-auto"
-          >
-            {streetAddressProps.suggestions.length > 0 ? (
-              <ul className="py-1">
-                {streetAddressProps.suggestions.map((suggestion, index) => (
-                  <li
-                    key={suggestion.id}
-                  >
-                    <button
-                      type="button"
-                      role="option"
-                      id={`address-suggestion-${suggestion.id}`}
-                      aria-selected={index === streetAddressProps.selectedIndex}
-                      className={cn(
-                        'w-full text-left px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-surface-glass/50',
-                        index === streetAddressProps.selectedIndex && 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                      )}
-                      onClick={() => streetAddressProps.onSuggestionSelect(suggestion)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          streetAddressProps.onSuggestionSelect(suggestion);
-                        }
-                      }}
-                    >
-                      <div className="text-sm font-medium text-input-text">
-                        {suggestion.formatted}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                No suggestions found
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+    const isUS = safe.country === 'US';
 
-      {/* Address Line 2 */}
-      <Input
-        label=""
-        value={safeValue.apartment ?? ''}
-        onChange={(newValue) => updateField('apartment', newValue)}
-        disabled={disabled}
-        placeholder="Apartment, suite, etc. (optional)"
-        required={false}
-        error={getError('apartment')}
-        variant={hasError('apartment') ? 'error' : variant}
-        size={size}
-        className={getInputClasses('apartment')}
-      />
+    return (
+      <div ref={ref} className={cn('space-y-4', className)}>
 
-      {/* City, State, Postal Code - 3 Column Layout */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* City */}
-        <div>
+        {/* ── Street address + autocomplete ─────────────────────────── */}
+        <div className="relative">
           <Input
-            label=""
-            value={safeValue.city ?? ''}
-            onChange={(newValue) => updateField('city', newValue)}
+            label={label}
+            placeholder={placeholder ?? 'Street address'}
+            value={streetAddressProps?.value ?? safe.address ?? ''}
+            onChange={(v) =>
+              streetAddressProps ? streetAddressProps.onChange(v) : update('address', v)
+            }
             disabled={disabled}
-            placeholder="City"
-            required={isRequired('city')}
-            error={getError('city')}
-            variant={hasError('city') ? 'error' : variant}
+            required={isRequired('address')}
+            error={getError('address')}
+            variant={hasError('address') ? 'error' : variant}
             size={size}
-            className={getInputClasses('city')}
+            className={cn(
+              fieldCn('address'),
+              streetAddressProps?.isOpen && 'ring-2 ring-accent-500/50'
+            )}
+            autoComplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={streetAddressProps?.isOpen ?? false}
+            aria-controls={streetAddressProps?.isOpen ? listboxId : undefined}
+            aria-activedescendant={
+              streetAddressProps?.selectedIndex >= 0 &&
+              streetAddressProps.suggestions[streetAddressProps.selectedIndex]
+                ? `address-suggestion-${streetAddressProps.suggestions[streetAddressProps.selectedIndex].id}`
+                : undefined
+            }
+            onKeyDown={streetAddressProps?.onKeyDown}
           />
+
+          {/* Spinner — uses accent token, not hardcoded blue */}
+          {streetAddressProps?.isLoading && (
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-accent-500" />
+            </div>
+          )}
+
+          {/* Autocomplete suggestions dropdown */}
+          {streetAddressProps?.isOpen && !streetAddressProps.disabled && (
+            <div
+              role="listbox"
+              id={listboxId}
+              aria-label="Address suggestions"
+              data-testid="autocomplete-dropdown"
+              className={cn(
+                'absolute z-50 mt-1 w-full overflow-y-auto rounded-xl',
+                'max-h-60 border border-white/10',
+                'bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
+              )}
+            >
+              {streetAddressProps.suggestions.length > 0 ? (
+                <ul className="py-1">
+                  {streetAddressProps.suggestions.map((s, i) => {
+                    const isActive = i === streetAddressProps.selectedIndex;
+                    return (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          role="option"
+                          id={`address-suggestion-${s.id}`}
+                          aria-selected={isActive}
+                          onClick={() => streetAddressProps.onSuggestionSelect(s)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              streetAddressProps.onSuggestionSelect(s);
+                            }
+                          }}
+                          className={cn(
+                            'w-full px-3 py-2 text-left text-sm transition-colors duration-150',
+                            isActive
+                              ? 'bg-accent-500/15 text-accent-400'
+                              : 'text-input-text hover:bg-white/[0.08]'
+                          )}
+                        >
+                          {s.formatted}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="px-3 py-2 text-sm text-input-placeholder">
+                  No suggestions found.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* State */}
-        <div>
-          <div className="relative">
-            {safeValue.country === 'US' ? (
+        {/* ── Apartment / suite ─────────────────────────────────────── */}
+        <Input
+          label=""
+          placeholder="Apartment, suite, etc. (optional)"
+          value={safe.apartment ?? ''}
+          onChange={(v) => update('apartment', v)}
+          disabled={disabled}
+          required={false}
+          error={getError('apartment')}
+          variant={hasError('apartment') ? 'error' : variant}
+          size={size}
+          className={fieldCn('apartment')}
+        />
+
+        {/* ── City / State / ZIP ────────────────────────────────────── */}
+        <div className={cn('grid gap-4 grid-cols-1', showCountry ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+
+          {/* City */}
+          <div className={showCountry ? 'sm:col-span-2' : 'sm:col-span-1'}>
+            <Input
+              label=""
+              placeholder="City"
+              value={safe.city ?? ''}
+              onChange={(v) => update('city', v)}
+              disabled={disabled}
+              required={isRequired('city')}
+              error={getError('city')}
+              variant={hasError('city') ? 'error' : variant}
+              size={size}
+              className={fieldCn('city')}
+            />
+          </div>
+
+          {/* State — Combobox for US, plain Input otherwise */}
+          <div>
+            {isUS ? (
               <>
                 <Combobox
                   label=""
-                  value={safeValue.state ?? ''}
-                  onChange={(newValue) => updateField('state', newValue)}
-                  disabled={disabled}
                   placeholder="State"
+                  value={safe.state ?? ''}
+                  onChange={(v) => update('state', v)}
                   options={STATE_OPTIONS}
-                  className={cn(
-                    getInputClasses('state'),
-                    hasError('state') && 'border-red-500 dark:border-red-400'
-                  )}
-                  searchable={false}
+                  disabled={disabled}
+                  searchable
+                  className={cn(fieldCn('state'), hasError('state') && 'border-red-500')}
                 />
                 {hasError('state') && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                     {getError('state')}
                   </p>
                 )}
@@ -303,66 +317,66 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(({
             ) : (
               <Input
                 label=""
-                value={safeValue.state ?? ''}
-                onChange={(newValue) => updateField('state', newValue)}
+                placeholder="State / Province"
+                value={safe.state ?? ''}
+                onChange={(v) => update('state', v)}
                 disabled={disabled}
-                placeholder="State/Province"
                 required={isRequired('state')}
                 error={getError('state')}
                 variant={hasError('state') ? 'error' : variant}
                 size={size}
-                className={getInputClasses('state')}
+                className={fieldCn('state')}
               />
             )}
           </div>
-        </div>
 
-        {/* Postal Code */}
-        <div>
-          <Input
-            label=""
-            value={safeValue.postalCode ?? ''}
-            onChange={(newValue) => updateField('postalCode', newValue)}
-            disabled={disabled}
-            placeholder={safeValue?.country === 'US' ? 'ZIP code' : 'Postal code'}
-            required={isRequired('postalCode')}
-            error={getError('postalCode')}
-            variant={hasError('postalCode') ? 'error' : variant}
-            size={size}
-            className={getInputClasses('postalCode')}
-          />
-        </div>
-
-        {/* Country */}
-        {showCountry && (
+          {/* ZIP / Postal code */}
           <div>
-            <Combobox
+            <Input
               label=""
-              value={safeValue.country ?? ''}
-              onChange={(newValue) => updateField('country', newValue)}
+              placeholder={isUS ? 'ZIP code' : 'Postal code'}
+              value={safe.postalCode ?? ''}
+              onChange={(v) => update('postalCode', v)}
               disabled={disabled}
-              options={countryOptions}
-              className={getInputClasses('country')}
-              placeholder="Country"
-              searchable={false}
+              required={isRequired('postalCode')}
+              error={getError('postalCode')}
+              variant={hasError('postalCode') ? 'error' : variant}
+              size={size}
+              className={fieldCn('postalCode')}
             />
-            {hasError('country') && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                {getError('country')}
-              </p>
-            )}
           </div>
+
+          {/* Country */}
+          {showCountry && (
+            <div>
+              <Combobox
+                label=""
+                placeholder="Country"
+                value={safe.country ?? ''}
+                onChange={(v) => update('country', v)}
+                options={countryOptions}
+                disabled={disabled}
+                searchable
+                className={fieldCn('country')}
+              />
+              {hasError('country') && (
+                <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                  {getError('country')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Error summary ─────────────────────────────────────────── */}
+        {Object.values(errors).some(Boolean) && (
+          <p className="text-sm text-red-500 dark:text-red-400">
+            Please correct the errors above.
+          </p>
         )}
       </div>
-
-      {/* Error Summary */}
-      {Object.values(errors).some(Boolean) && (
-        <div className="text-sm text-red-600 dark:text-red-400">
-          Please correct the errors above.
-        </div>
-      )}
-    </div>
-  );
-});
+    );
+  }
+);
 
 AddressFields.displayName = 'AddressFields';

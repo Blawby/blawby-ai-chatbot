@@ -161,12 +161,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Load more button */}
               {hasMore && (
-                <Button
-                  variant="link"
-                  size="xs"
-                  onClick={loadMore}
-                  className="mt-3 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                >
+                <Button variant="link" size="sm" onClick={loadMore} className="mt-3">
                   Load more events
                 </Button>
               )}

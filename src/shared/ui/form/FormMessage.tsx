@@ -17,10 +17,10 @@ export const FormMessage = ({
   if (!children) return null;
 
   const variantClasses = {
-    error: 'text-red-600 dark:text-red-400',
-    success: 'text-green-600 dark:text-green-400',
-    warning: 'text-yellow-600 dark:text-yellow-400',
-    info: 'text-accent-600 dark:text-accent-400'
+    error: 'status-error',
+    success: 'status-success',
+    warning: 'status-warning',
+    info: 'status-info'
   };
 
   return (
@@ -29,7 +29,7 @@ export const FormMessage = ({
       role="alert"
       aria-live="polite"
       className={cn(
-        'text-xs mt-1',
+        'text-xs mt-1 inline-flex items-center rounded px-2 py-1',
         variantClasses[variant],
         className
       )}
