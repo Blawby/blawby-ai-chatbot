@@ -1,14 +1,14 @@
 import { Input } from '@/shared/ui/input/Input';
 import { EmailInput } from '@/shared/ui/input/EmailInput';
 import { PhoneInput } from '@/shared/ui/input/PhoneInput';
-import { Select, type SelectOption } from '@/shared/ui/input/Select';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import type { Address } from '@/shared/types/ui';
 import type { FunctionalComponent } from 'preact';
 
 // Status options for client forms
-const STATUS_OPTIONS: SelectOption[] = [
+const STATUS_OPTIONS: ComboboxOption[] = [
   { value: 'lead', label: 'Lead' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
@@ -16,7 +16,7 @@ const STATUS_OPTIONS: SelectOption[] = [
 ];
 
 // Currency options for client forms
-const CURRENCY_OPTIONS: SelectOption[] = [
+const CURRENCY_OPTIONS: ComboboxOption[] = [
   { value: 'usd', label: 'USD' },
   { value: 'cad', label: 'CAD' },
   { value: 'eur', label: 'EUR' },
@@ -41,7 +41,7 @@ export interface FieldRegistryEntry {
     gridSpan?: number;
     section?: string;
   };
-  options?: SelectOption[];
+  options?: ComboboxOption[];
 }
 
 const asComponentFactory = <P,>(component: FunctionalComponent<P>): ComponentFactory =>
@@ -109,7 +109,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   
   // Client-specific fields
   status: {
-    component: asComponentFactory(Select),
+    component: asComponentFactory(Combobox),
     label: 'Status',
     placeholder: 'Select status',
     defaultValue: 'lead',
@@ -118,7 +118,7 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
   },
   
   currency: {
-    component: asComponentFactory(Select),
+    component: asComponentFactory(Combobox),
     label: 'Currency',
     placeholder: 'Select currency',
     defaultValue: 'usd',

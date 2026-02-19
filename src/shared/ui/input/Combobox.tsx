@@ -1,443 +1,590 @@
-import { useMemo, useState } from 'preact/hooks';
+/**
+ * Combobox — unified select / combobox primitive
+ *
+ * Replaces both Select.tsx and Combobox.tsx.
+ *
+ * Modes:
+ *   searchable={false}  → plain dropdown (replaces Select)
+ *   searchable={true}   → filterable combobox (default)
+ *   multiple={true}     → multi-select with chips
+ *   allowCustomValues   → free-text "Add …" row
+ *
+ * All visual styles use design-system tokens from index.css.
+ */
+
+import { useMemo, useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { CheckIcon, ChevronUpDownIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  XMarkIcon,
+  PlusIcon,
+} from '@heroicons/react/24/outline';
 import { cn } from '@/shared/utils/cn';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export type ComboboxOption = {
   value: string;
   label: string;
   meta?: string;
-  isCustom?: boolean; // true for free-text values not in the options list
+  icon?: ComponentChildren;
+  isCustom?: boolean;
 };
 
-type ComboboxPropsBase = {
-  label: string;
-  placeholder: string;
+type BaseProps = {
+  label?: string;
+  placeholder?: string;
   options: ComboboxOption[];
-  leading: ComponentChildren | ((selectedOption?: ComboboxOption, selectedOptions?: ComboboxOption[]) => ComponentChildren);
-  className?: string;
-  displayValue?: (option?: ComboboxOption) => string;
-  optionLeading?: (option: ComboboxOption) => ComponentChildren;
+  /** Icon/element shown on the left of the trigger */
+  leading?: ComponentChildren | ((selected?: ComboboxOption, selectedMany?: ComboboxOption[]) => ComponentChildren);
+  /** Icon/element shown on the left for each dropdown option */
+  optionLeading?: ComponentChildren | ((option: ComboboxOption) => ComponentChildren);
+  /** Optional custom right-side meta content for each dropdown option */
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
+  className?: string;
   disabled?: boolean;
-  /**
-   * When true, typing a value not in the options list shows an "Add [query]" row
-   * and allows the free-text value to be emitted. Defaults to false.
-   */
+  /** Show search input inside dropdown. Default: true */
+  searchable?: boolean;
+  /** Allow typing a value not in the list. Default: false */
   allowCustomValues?: boolean;
-  /** Placeholder shown inside the "Add new" row. Defaults to "Add" */
+  /** Label for the "Add …" row. Default: "Add" */
   addNewLabel?: string;
+  /** Dropdown direction. Default: "down" */
+  direction?: 'up' | 'down';
+  description?: string;
+  'aria-labelledby'?: string;
+  id?: string;
 };
 
 export type ComboboxProps =
-  | (ComboboxPropsBase & {
-      multiple?: false;
-      value: string;
-      onChange: (value: string) => void;
-    })
-  | (ComboboxPropsBase & {
-      multiple: true;
-      value: string[];
-      onChange: (value: string[]) => void;
-    });
+  | (BaseProps & { multiple?: false; value: string; onChange: (v: string) => void })
+  | (BaseProps & { multiple: true; value: string[]; onChange: (v: string[]) => void });
 
-export const Combobox = ({
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const normalize = (s: string) =>
+  s.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function Chip({
   label,
-  placeholder,
+  isCustom,
+  onRemove,
+}: {
+  label: string;
+  isCustom?: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+        isCustom
+          ? 'bg-accent-500/20 text-accent-300 ring-1 ring-inset ring-accent-500/30'
+          : 'bg-white/10 text-input-text ring-1 ring-inset ring-white/15'
+      )}
+    >
+      {label}
+      {isCustom && (
+        <span className="text-accent-400/60 text-[10px] leading-none">custom</span>
+      )}
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={onRemove}
+        className="ml-0.5 rounded hover:text-red-400 transition-colors"
+        aria-label={`Remove ${label}`}
+      >
+        <XMarkIcon className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
+function DropdownOption({
+  option,
+  isSelected,
+  isFocused,
+  onSelect,
+  id,
+  optionLeading,
+  optionMeta,
+}: {
+  option: ComboboxOption;
+  isSelected: boolean;
+  isFocused: boolean;
+  onSelect: () => void;
+  id: string;
+  optionLeading?: ComponentChildren | ((option: ComboboxOption) => ComponentChildren);
+  optionMeta?: (option: ComboboxOption) => ComponentChildren;
+}) {
+  const resolvedOptionLeading =
+    typeof optionLeading === 'function' ? optionLeading(option) : optionLeading ?? option.icon;
+  const resolvedOptionMeta = optionMeta ? optionMeta(option) : option.meta;
+
+  return (
+    <button
+      type="button"
+      id={id}
+      role="option"
+      aria-selected={isSelected}
+      tabIndex={-1}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onSelect}
+      className={cn(
+        'group relative flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors',
+        isSelected || isFocused
+          ? 'bg-accent-500/15 text-accent-400'
+          : 'text-input-text hover:bg-white/[0.08]'
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-2.5">
+        {resolvedOptionLeading && (
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-input-placeholder group-hover:text-input-text">
+            {resolvedOptionLeading}
+          </span>
+        )}
+        <span className={cn('truncate', isSelected && 'font-medium')}>
+          {option.label}
+        </span>
+      </span>
+      <span className="flex flex-shrink-0 items-center gap-2">
+        {resolvedOptionMeta && (
+          <span className="text-xs text-input-placeholder">{resolvedOptionMeta}</span>
+        )}
+        {isSelected && (
+          <CheckIcon className="h-4 w-4 text-accent-400" aria-hidden="true" />
+        )}
+      </span>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export function Combobox({
+  label,
+  placeholder = 'Select an option',
   value,
   options,
   leading,
+  optionLeading,
+  optionMeta,
   onChange,
   multiple,
   className,
-  displayValue,
-  optionLeading,
-  optionMeta,
-  disabled,
+  disabled = false,
+  searchable = true,
   allowCustomValues = false,
   addNewLabel = 'Add',
-}: ComboboxProps) => {
+  direction = 'down',
+  description,
+  'aria-labelledby': ariaLabelledBy,
+  id,
+}: ComboboxProps) {
   const isMultiple = multiple === true;
+  const internalId = useMemo(() => `cbx-${uid()}`, []);
+  const inputId = id || internalId;
+  const listboxId = `${inputId}-listbox`;
 
-  const valueList = useMemo(() => {
-    const raw = Array.isArray(value) ? value : value != null ? [value] : [];
-    return raw.filter((v) => v != null && v !== '');
-  }, [value]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  // Build a merged option list that includes custom values already selected
-  // so chips and display values resolve correctly even for free-text entries
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+
+  // ------------------------------------------------------------------
+  // Derived state
+  // ------------------------------------------------------------------
+
+  const valueList = useMemo<string[]>(() => {
+    if (isMultiple) return (value as string[]).filter(Boolean);
+    return value ? [value as string] : [];
+  }, [value, isMultiple]);
+
+  // Merge in any custom (free-text) values already selected so chips resolve
   const mergedOptions = useMemo(() => {
-    const knownValues = new Set(options.map((o) => o.value));
-    const customEntries: ComboboxOption[] = valueList
-      .filter((v) => !knownValues.has(v))
+    const known = new Set(options.map((o) => o.value));
+    const custom: ComboboxOption[] = valueList
+      .filter((v) => !known.has(v))
       .map((v) => ({ value: v, label: v, isCustom: true }));
-    return [...options, ...customEntries];
+    return [...options, ...custom];
   }, [options, valueList]);
 
   const selectedOptions = mergedOptions.filter((o) => valueList.includes(o.value));
   const selectedOption = selectedOptions[0];
 
-  const resolvedDisplayValue =
-    selectedOptions.length > 0
-      ? selectedOptions.map((o) => displayValue?.(o) ?? o.label).join(', ')
-      : isMultiple && Array.isArray(value)
-      ? value.join(', ')
-      : typeof value === 'string'
-      ? value
-      : '';
-
-  const [query, setQuery] = useState(resolvedDisplayValue);
-  const [userTyped, setUserTyped] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-
-  const inputId = useMemo(
-    () => `combobox-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2, 8)}`,
-    [label]
-  );
-  const listboxId = `${inputId}-listbox`;
-
-  const emitChange = (val: string | string[]) => {
-    if (isMultiple) {
-      (onChange as (v: string[]) => void)(Array.isArray(val) ? val : [val]);
-    } else {
-      (onChange as (v: string) => void)(Array.isArray(val) ? (val[0] ?? '') : val);
-    }
-  };
-
-  const normalize = (input: string) =>
-    input.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const displayText = useMemo(() => {
+    if (selectedOptions.length === 0) return '';
+    return selectedOptions.map((o) => o.label).join(', ');
+  }, [selectedOptions]);
 
   const filteredOptions = useMemo(() => {
-    const normalizedQuery = normalize(query);
-    if (!normalizedQuery) return options;
-    return options.filter((o) => {
-      const normalized = normalize(`${o.label} ${o.value} ${o.meta ?? ''}`);
-      return normalized.includes(normalizedQuery);
-    });
-  }, [options, query]);
+    const q = normalize(query);
+    if (!q || !searchable) return options;
+    return options.filter((o) =>
+      normalize(`${o.label} ${o.value} ${o.meta ?? ''}`).includes(q)
+    );
+  }, [options, query, searchable]);
 
-  // Whether to show the "Add [query]" row
   const trimmedQuery = query.trim();
-  const queryMatchesExisting =
-    trimmedQuery === '' ||
-    mergedOptions.some((o) => {
-      const normalizedQuery = trimmedQuery.toLowerCase();
-      return (
-        o.label.trim().toLowerCase() === normalizedQuery ||
-        o.value.trim().toLowerCase() === normalizedQuery
-      );
-    });
+  const queryMatchesExisting = mergedOptions.some(
+    (o) =>
+      o.label.trim().toLowerCase() === trimmedQuery.toLowerCase() ||
+      o.value.trim().toLowerCase() === trimmedQuery.toLowerCase()
+  );
   const queryAlreadySelected = valueList
     .map((v) => v.toLowerCase())
     .includes(trimmedQuery.toLowerCase());
   const showAddRow =
     allowCustomValues &&
     isOpen &&
-    userTyped &&
     trimmedQuery.length > 0 &&
     !queryMatchesExisting &&
     !queryAlreadySelected;
 
-  // Total rows in dropdown: filtered options + optional add row at top
   const totalRows = filteredOptions.length + (showAddRow ? 1 : 0);
-  const resolvedFocusedIndex =
-    focusedIndex >= 0 && focusedIndex < totalRows ? focusedIndex : -1;
+  const clampedFocus = focusedIndex >= 0 && focusedIndex < totalRows ? focusedIndex : -1;
 
-  const showOptions = isOpen && (filteredOptions.length > 0 || showAddRow) && !disabled;
   const resolvedLeading =
     typeof leading === 'function' ? leading(selectedOption, selectedOptions) : leading;
-  const hasValue = valueList.length > 0;
 
-  const openDropdown = () => {
+  // ------------------------------------------------------------------
+  // Open / close
+  // ------------------------------------------------------------------
+
+  const open = useCallback(() => {
     if (disabled) return;
     setIsOpen(true);
-  };
+    if (searchable) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [disabled, searchable]);
 
-  const closeDropdown = () => {
+  const close = useCallback(() => {
     setIsOpen(false);
-    setFocusedIndex(-1);
-  };
-
-  const commitValue = (val: string) => {
-    if (isMultiple) {
-      if (!valueList.includes(val)) {
-        emitChange([...valueList, val]);
-      }
-      setQuery('');
-      setUserTyped(false);
-      openDropdown();
-    } else {
-      emitChange(val);
-      const matchedOption = mergedOptions.find((o) => o.value === val);
-      setQuery(matchedOption ? (displayValue?.(matchedOption) ?? matchedOption.label) : val);
-      setUserTyped(false);
-      closeDropdown();
-    }
-  };
-
-  const toggleValue = (optionValue: string) => {
-    if (!isMultiple) return;
-    const next = valueList.includes(optionValue)
-      ? valueList.filter((v) => v !== optionValue)
-      : [...valueList, optionValue];
-    emitChange(next);
     setQuery('');
-    setUserTyped(false);
-    openDropdown();
-  };
+    setFocusedIndex(-1);
+    triggerRef.current?.focus();
+  }, []);
 
-  const removeValue = (optionValue: string) => {
-    if (!isMultiple) return;
-    emitChange(valueList.filter((v) => v !== optionValue));
-  };
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!isOpen || !containerRef.current) return;
 
-  // Removed Effect - sync handled in open/close handlers
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (disabled) return;
-
-    if (!isOpen) {
-      if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
-        event.preventDefault();
-        openDropdown();
-        setFocusedIndex(0);
-      }
-      return;
-    }
-
-    if (totalRows === 0) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        const matchedOption =
-          queryMatchesExisting && trimmedQuery !== ''
-            ? mergedOptions.find(
-                (o) =>
-                  o.label.trim().toLowerCase() === trimmedQuery.toLowerCase() ||
-                  o.value.trim().toLowerCase() === trimmedQuery.toLowerCase()
-              )
-            : null;
-
-        if (matchedOption) {
-          commitValue(matchedOption.value);
-        } else if (allowCustomValues && trimmedQuery) {
-          commitValue(trimmedQuery);
+      if (!containerRef.current.contains(e.target as Node)) {
+        const isInteractive = (e.target as Element).closest('button, a, input, select, textarea, [tabindex]');
+        if (isInteractive) {
+          setIsOpen(false);
+          setQuery('');
+          setFocusedIndex(-1);
         } else {
-          closeDropdown();
+          close();
         }
       }
-      setFocusedIndex(-1);
-      return;
-    }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen, close]);
 
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault();
-        setFocusedIndex((prev) => {
-          const cur = prev >= 0 && prev < totalRows ? prev : -1;
-          return (cur + 1) % totalRows;
-        });
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        setFocusedIndex((prev) => {
-          const cur = prev >= 0 && prev < totalRows ? prev : 0;
-          return cur <= 0 ? totalRows - 1 : cur - 1;
-        });
-        break;
-      case 'Enter': {
-        event.preventDefault();
-        if (resolvedFocusedIndex === -1) {
-          // Nothing focused — if allowCustomValues, commit the typed query
-          if (allowCustomValues && trimmedQuery && !queryMatchesExisting) {
-            commitValue(trimmedQuery);
-          } else {
-            closeDropdown();
-          }
+  // ------------------------------------------------------------------
+  // Value helpers
+  // ------------------------------------------------------------------
+
+  const emit = useCallback(
+    (next: string | string[]) => {
+      if (isMultiple) {
+        (onChange as (v: string[]) => void)(Array.isArray(next) ? next : [next]);
+      } else {
+        (onChange as (v: string) => void)(Array.isArray(next) ? (next[0] ?? '') : next);
+      }
+    },
+    [isMultiple, onChange]
+  );
+
+  const commit = useCallback(
+    (val: string) => {
+      if (isMultiple) {
+        if (!valueList.includes(val)) emit([...valueList, val]);
+        setQuery('');
+        setFocusedIndex(0);
+        inputRef.current?.focus();
+      } else {
+        emit(val);
+        close();
+      }
+    },
+    [isMultiple, valueList, emit, close]
+  );
+
+  const toggle = useCallback(
+    (val: string) => {
+      const next = valueList.includes(val)
+        ? valueList.filter((v) => v !== val)
+        : [...valueList, val];
+      emit(next);
+      setQuery('');
+      inputRef.current?.focus();
+    },
+    [valueList, emit]
+  );
+
+  const remove = useCallback(
+    (val: string) => emit(valueList.filter((v) => v !== val)),
+    [valueList, emit]
+  );
+
+  const clear = useCallback(() => {
+    emit(isMultiple ? [] : '');
+    setQuery('');
+    close();
+  }, [isMultiple, emit, close]);
+
+  // ------------------------------------------------------------------
+  // Keyboard navigation
+  // ------------------------------------------------------------------
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (disabled) return;
+
+      if (!isOpen) {
+        if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+          e.preventDefault();
+          open();
+          setFocusedIndex(0);
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedIndex((p) => (totalRows === 0 ? -1 : (p + 1) % totalRows));
           break;
-        }
-        // Index 0 is the "Add" row when showAddRow is true
-        if (showAddRow && resolvedFocusedIndex === 0) {
-          commitValue(trimmedQuery);
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedIndex((p) =>
+            totalRows === 0 ? -1 : p <= 0 ? totalRows - 1 : p - 1
+          );
           break;
-        }
-        const optionIndex = showAddRow ? resolvedFocusedIndex - 1 : resolvedFocusedIndex;
-        const option = filteredOptions[optionIndex];
-        if (option) {
-          if (isMultiple) {
-            toggleValue(option.value);
-            setFocusedIndex(showAddRow ? 1 : 0);
-          } else {
-            commitValue(option.value);
-          }
-        }
-        break;
-      }
-      case 'Backspace': {
-        // In multiple mode, if query is empty, remove the last chip
-        if (isMultiple && query === '' && valueList.length > 0) {
-          event.preventDefault();
-          emitChange(valueList.slice(0, -1));
-        }
-        break;
-      }
-      case 'Escape':
-        event.preventDefault();
-        closeDropdown();
-        break;
-    }
-  };
-
-  return (
-    <div className={cn('relative', className, disabled && 'opacity-50 pointer-events-none')}>
-      <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
-        {label}
-      </label>
-
-      <div className="relative mt-1">
-        {/* Multiple mode: chips inside the input wrapper */}
-        {isMultiple && selectedOptions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-1">
-            {selectedOptions.map((opt) => (
-              <span
-                key={opt.value}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium',
-                  opt.isCustom
-                    ? 'bg-[rgb(var(--accent-500)/0.12)] text-[rgb(var(--accent-foreground))] ring-1 ring-inset ring-accent-500/30'
-                    : 'bg-surface-glass text-input-text ring-1 ring-inset ring-line-glass/40'
-                )}
-              >
-                {opt.label}
-                {opt.isCustom && (
-                  <span className="text-accent-400/70 text-[10px] leading-none">custom</span>
-                )}
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => removeValue(opt.value)}
-                  className="ml-0.5 rounded hover:text-red-400 transition-colors"
-                  aria-label={`Remove ${opt.label}`}
-                >
-                  <XMarkIcon className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="relative flex items-center">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            {resolvedLeading}
-          </div>
-          <input
-            type="text"
-            id={inputId}
-            disabled={disabled}
-            role="combobox"
-            aria-expanded={isOpen}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
-            aria-activedescendant={
-              resolvedFocusedIndex >= 0 ? `${inputId}-option-${resolvedFocusedIndex}` : undefined
+        case 'Enter': {
+          e.preventDefault();
+          if (clampedFocus === -1) {
+            if (allowCustomValues && trimmedQuery && !queryMatchesExisting) {
+              commit(trimmedQuery);
+            } else {
+              close();
             }
-            value={isOpen ? query : (isMultiple ? '' : resolvedDisplayValue)}
-            placeholder={isMultiple && selectedOptions.length > 0 ? 'Add another…' : placeholder}
-            onInput={(event) => {
-              const nextValue = (event.target as HTMLInputElement).value;
-              setQuery(nextValue);
-              setUserTyped(true);
-              openDropdown();
-              setFocusedIndex(0);
-            }}
-            onFocus={() => {
-              if (!disabled) {
-                if (!isMultiple) {
-                  setQuery('');
-                }
-                setUserTyped(false);
-                openDropdown();
-              }
-            }}
-            onBlur={() => {
-              closeDropdown();
+            break;
+          }
+          if (showAddRow && clampedFocus === 0) {
+            commit(trimmedQuery);
+            break;
+          }
+          const optIdx = showAddRow ? clampedFocus - 1 : clampedFocus;
+          const opt = filteredOptions[optIdx];
+          if (opt) {
+            if (isMultiple) {
+              toggle(opt.value);
+            } else {
+              commit(opt.value);
+            }
+          }
+          break;
+        }
+        case 'Backspace':
+          if (isMultiple && query === '' && valueList.length > 0) {
+            e.preventDefault();
+            emit(valueList.slice(0, -1));
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          close();
+          break;
+        case 'Tab':
+          close();
+          break;
+      }
+    },
+    [
+      disabled, isOpen, open, close, totalRows, clampedFocus, showAddRow,
+      allowCustomValues, trimmedQuery, queryMatchesExisting, commit, toggle,
+      filteredOptions, isMultiple, query, valueList, emit,
+    ]
+  );
 
-              if (!userTyped) return;
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
 
-              const trimmed = query.trim();
-              if (!trimmed) return;
+  const hasValue = valueList.length > 0;
 
-              const exactMatch = mergedOptions.find(
-                (o) =>
-                  o.label.trim().toLowerCase() === trimmed.toLowerCase() ||
-                  o.value.trim().toLowerCase() === trimmed.toLowerCase()
-              );
+  useEffect(() => {
+    if (!isOpen || clampedFocus < 0) return;
+    const element = typeof document !== 'undefined'
+      ? document.getElementById(`${inputId}-option-${clampedFocus}`)
+      : null;
+    element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [clampedFocus, inputId, isOpen]);
 
-              if (isMultiple) {
-                const valToAdd = exactMatch ? exactMatch.value : allowCustomValues ? trimmed : null;
-                if (valToAdd && !valueList.includes(valToAdd)) {
-                  emitChange([...valueList, valToAdd]);
-                }
-              } else {
-                if (exactMatch) {
-                  emitChange(exactMatch.value);
-                } else if (allowCustomValues && trimmed) {
-                  emitChange(trimmed);
-                }
-                // If no match and no allowCustomValues, the input implicitly reverts
-                // to showing resolvedDisplayValue when closed via closeDropdown().
-              }
-
-              setUserTyped(false);
-            }}
-            onKeyDown={handleKeyDown}
-            className={cn(
-              'w-full rounded-md text-input-text placeholder:text-input-placeholder py-3 pl-12 pr-10',
-              'focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm',
-              'disabled:bg-surface-glass/40 disabled:text-input-placeholder glass-input',
-              isMultiple && selectedOptions.length > 0 && 'pt-1.5'
-            )}
-          />
-
-          {/* Clear button (single) or chevron */}
-          {!isMultiple && hasValue ? (
-            <button
-              type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                emitChange('');
-                setQuery('');
-                closeDropdown();
-              }}
-              aria-label={`Clear ${label}`}
-            >
-              <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-          ) : (
-            <div className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 text-gray-400 pointer-events-none">
-              <ChevronUpDownIcon className="h-5 w-5" aria-hidden="true" />
-            </div>
-          )}
-      </div>
-
-      {/* Hint text when allowCustomValues */}
-      {allowCustomValues && !isOpen && (
-        <p className="mt-1 text-xs text-input-placeholder pl-1">
-          Select an existing option or type to add your own.
-        </p>
+  const triggerContent = (
+    <>
+      {/* Leading icon */}
+      {resolvedLeading && (
+        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-input-placeholder">
+          {resolvedLeading}
+        </span>
       )}
 
-      {showOptions && (
-          <div
-            id={listboxId}
-            role="listbox"
-            aria-multiselectable={isMultiple}
-            tabIndex={-1}
-            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line-glass border-opacity-30 bg-[rgb(var(--surface-overlay)/0.94)] py-1 text-base shadow-glass backdrop-blur-xl focus:outline-none sm:text-sm"
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            {/* "Add [query]" row — always at top when shown */}
+      {/* Display text / placeholder */}
+      <span
+        className={cn(
+          'flex-1 truncate text-left text-sm',
+          resolvedLeading && 'pl-7',
+          !hasValue && 'text-input-placeholder'
+        )}
+      >
+        {hasValue ? displayText : placeholder}
+      </span>
+
+      {/* Clear or chevron */}
+      {hasValue && !isMultiple ? (
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => { e.stopPropagation(); clear(); }}
+          className="flex-shrink-0 text-input-placeholder hover:text-input-text transition-colors"
+          aria-label="Clear selection"
+        >
+          <XMarkIcon className="h-4 w-4" />
+        </button>
+      ) : (
+        <span className="flex-shrink-0 text-input-placeholder pointer-events-none">
+          {searchable
+            ? <ChevronUpDownIcon className="h-4 w-4" />
+            : <ChevronDownIcon className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+          }
+        </span>
+      )}
+    </>
+  );
+
+  return (
+    <div ref={containerRef} className={cn('relative w-full', className, disabled && 'opacity-50 pointer-events-none')}>
+      {/* Label */}
+      {label && (
+        <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-input-text">
+          {label}
+        </label>
+      )}
+
+      {/* Trigger */}
+      <div
+        ref={triggerRef}
+        id={inputId}
+        role="combobox"
+        tabIndex={disabled ? -1 : 0}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={listboxId}
+        aria-labelledby={ariaLabelledBy}
+        aria-activedescendant={
+          !searchable && isOpen && clampedFocus >= 0
+            ? `${inputId}-option-${clampedFocus}`
+            : undefined
+        }
+        onClick={() => (isOpen ? close() : open())}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
+          'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
+          isOpen && 'ring-2 ring-accent-500/50',
+          !disabled && 'cursor-pointer'
+        )}
+      >
+        {triggerContent}
+      </div>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-multiselectable={isMultiple}
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+          className={cn(
+            'absolute z-50 w-full overflow-hidden rounded-xl',
+            'border border-white/10 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
+            direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          )}
+        >
+          {/* Multi chips inside dropdown header */}
+          {isMultiple && selectedOptions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
+              {selectedOptions.map((opt) => (
+                <Chip
+                  key={opt.value}
+                  label={opt.label}
+                  isCustom={opt.isCustom}
+                  onRemove={() => remove(opt.value)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Search input */}
+          {searchable && (
+            <div className="border-b border-white/[0.06] px-2 py-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                placeholder={isMultiple ? 'Filter or add…' : 'Search…'}
+                onInput={(e) => {
+                  setQuery((e.target as HTMLInputElement).value);
+                  setFocusedIndex(0);
+                }}
+                onKeyDown={handleKeyDown}
+                className={cn(
+                  'w-full rounded-md bg-white/[0.06] px-3 py-1.5 text-sm text-input-text',
+                  'placeholder:text-input-placeholder/60',
+                  'focus:outline-none focus:ring-1 focus:ring-accent-500/50',
+                )}
+                aria-autocomplete="list"
+                aria-controls={listboxId}
+                aria-activedescendant={
+                  clampedFocus >= 0 ? `${inputId}-option-${clampedFocus}` : undefined
+                }
+              />
+            </div>
+          )}
+
+          {/* Options list */}
+          <div className="max-h-60 overflow-y-auto py-1">
+            {/* Add custom value row */}
             {showAddRow && (
               <button
                 type="button"
@@ -445,90 +592,64 @@ export const Combobox = ({
                 role="option"
                 aria-selected={false}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => commitValue(trimmedQuery)}
+                onClick={() => commit(trimmedQuery)}
                 className={cn(
-                  'group relative flex w-full items-center gap-2.5 py-2 pl-3 pr-9 text-left transition-colors',
-                  resolvedFocusedIndex === 0
-                    ? 'bg-[rgb(var(--accent-500)/0.18)] text-[rgb(var(--accent-foreground))]'
-                    : 'text-input-text hover:bg-[rgb(var(--surface-overlay)/0.78)]'
+                  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
+                  clampedFocus === 0
+                    ? 'bg-accent-500/15 text-accent-400'
+                    : 'text-input-text hover:bg-white/[0.08]'
                 )}
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-accent-500/20 text-accent-400 flex-shrink-0">
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-400">
                   <PlusIcon className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-sm">
+                <span>
                   {addNewLabel}{' '}
                   <span className="font-semibold text-accent-300">&quot;{trimmedQuery}&quot;</span>
                 </span>
               </button>
             )}
 
-            {/* Divider between add row and existing options */}
             {showAddRow && filteredOptions.length > 0 && (
-              <div className="my-1 border-t border-line-glass/20" />
+              <div className="my-1 border-t border-white/[0.06]" />
             )}
 
             {filteredOptions.map((option, index) => {
-              // Offset index by 1 if the add row is showing
               const rowIndex = showAddRow ? index + 1 : index;
-              const isSelected = valueList.includes(option.value);
-              const isFocused = rowIndex === resolvedFocusedIndex;
-              const optionLead = optionLeading?.(option);
-              const optionMetaContent = optionMeta?.(option) ?? option.meta;
-
               return (
-                <button
+                <DropdownOption
                   key={option.value}
-                  type="button"
                   id={`${inputId}-option-${rowIndex}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (isMultiple) {
-                      toggleValue(option.value);
-                    } else {
-                      commitValue(option.value);
-                    }
-                  }}
-                  className={cn(
-                    'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
-                    isSelected || isFocused
-                      ? 'bg-[rgb(var(--accent-500)/0.18)] text-[rgb(var(--accent-foreground))]'
-                      : 'text-input-text hover:bg-[rgb(var(--surface-overlay)/0.78)]'
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    {optionLead && (
-                      <span className="flex h-6 w-6 items-center justify-center">{optionLead}</span>
-                    )}
-                    <span className={cn('block truncate', isSelected && 'font-semibold')}>
-                      {option.label}
-                    </span>
-                  </span>
-                  {optionMetaContent && (
-                    <span className="ml-3 max-w-[45%] truncate text-sm text-input-placeholder group-hover:text-input-text">
-                      {optionMetaContent}
-                    </span>
-                  )}
-                  {isSelected && (
-                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-accent-400">
-                      <CheckIcon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                  )}
-                </button>
+                  option={option}
+                  isSelected={valueList.includes(option.value)}
+                  isFocused={rowIndex === clampedFocus}
+                  optionLeading={optionLeading}
+                  optionMeta={optionMeta}
+                  onSelect={() =>
+                    isMultiple ? toggle(option.value) : commit(option.value)
+                  }
+                />
               );
             })}
 
-            {/* Empty state when nothing matches and allowCustomValues is off */}
             {filteredOptions.length === 0 && !showAddRow && (
-              <div className="py-3 px-4 text-sm text-input-placeholder text-center">
+              <p className="px-4 py-3 text-center text-sm text-input-placeholder">
                 No options found.
-              </div>
+              </p>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Description / hint */}
+      {description && (
+        <p className="mt-1 pl-1 text-xs text-input-placeholder">{description}</p>
+      )}
+      {allowCustomValues && !isOpen && !description && (
+        <p className="mt-1 pl-1 text-xs text-input-placeholder">
+          Select an option or type to add your own.
+        </p>
+      )}
     </div>
   );
-};
+}

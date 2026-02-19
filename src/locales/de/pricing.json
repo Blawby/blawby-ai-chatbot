@@ -210,6 +210,7 @@
     "unableOpenPortal": "Abrechnungsportal konnte nicht geöffnet werden",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Wird geladen…",
   "comparison": {
     "title": "Pläne vergleichen",
     "feature": "Funktion",

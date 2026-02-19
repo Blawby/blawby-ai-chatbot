@@ -5,6 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
+import { Button } from '@/shared/ui/Button';
 import type { IntakeConversationState } from '@/shared/types/intake';
 
 type StrengthTier = 'none' | 'weak' | 'basic' | 'good' | 'strong';
@@ -88,9 +89,11 @@ const BriefStrengthIndicator: FunctionComponent<BriefStrengthIndicatorProps> = (
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line-glass/30 bg-surface-glass/40 text-input-text transition hover:bg-surface-glass/60"
+          variant="icon"
+          size="icon-sm"
+          className="border border-line-glass/30 bg-surface-glass/40 hover:bg-surface-glass/60"
           aria-label={`${label} details`}
         >
           <span className="relative h-6 w-6">
@@ -121,7 +124,7 @@ const BriefStrengthIndicator: FunctionComponent<BriefStrengthIndicatorProps> = (
               <InformationCircleIcon className="h-3.5 w-3.5 text-input-text/80" aria-hidden="true" />
             </span>
           </span>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 p-3">
         <div className="space-y-1">

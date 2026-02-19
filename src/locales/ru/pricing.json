@@ -210,6 +210,7 @@
     "unableOpenPortal": "Не удалось открыть портал счетов",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Загрузка…",
   "comparison": {
     "title": "Подробное сравнение планов",
     "feature": "[NEEDS TRANSLATION] Feature",

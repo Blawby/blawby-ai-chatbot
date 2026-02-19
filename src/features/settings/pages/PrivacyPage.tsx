@@ -217,9 +217,8 @@ export default function PrivacyPage() {
               Cancel
             </Button>
             <Button 
-              variant="ghost"
+              variant="danger-ghost"
               onClick={handleConfirmToggle}
-              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
             >
               Disable Anyway
             </Button>

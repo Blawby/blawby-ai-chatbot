@@ -180,7 +180,7 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 export interface SubscriptionUpgradeRequest {
   practiceId?: string;
   planId?: string; // UUID of the subscription plan (optional)
-  plan?: string; // Stripe price ID (required for /api/subscriptions/create)
+  plan?: string; // Subscription plan name (required for /api/auth/subscription/upgrade)
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -312,10 +312,10 @@ export const usePaymentUpgrade = () => {
       setSubmitting(true);
       setError(null);
 
-      // Stripe price ID is required for /api/subscriptions/create
+      // Plan name is required for Better Auth Stripe subscription.upgrade endpoint
       if (!plan) {
-        setError('Stripe price ID is required');
-        showError('Invalid Request', 'Stripe price ID is required to create a subscription.');
+        setError('Subscription plan name is required');
+        showError('Invalid Request', 'Subscription plan name is required to create a subscription.');
         setSubmitting(false);
         return;
       }
@@ -350,11 +350,12 @@ export const usePaymentUpgrade = () => {
         );
 
 
-        // Step 3: Create subscription using remote API /api/subscriptions/create endpoint
+        // Step 3: Create subscription using Better Auth Stripe subscription.upgrade endpoint
         try {
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
-            plan, // Stripe price ID (required)
+            plan, // Plan name (required by Better Auth Stripe plugin)
+            referenceId: resolvedPracticeId,
             annual: typeof annual === 'boolean' ? annual : undefined,
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,

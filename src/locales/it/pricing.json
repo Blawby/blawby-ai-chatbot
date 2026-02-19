@@ -208,8 +208,9 @@
     "noPracticeSelected": "Nessuno studio selezionato",
     "selectPracticeToManage": "Seleziona uno studio per gestire la fatturazione.",
     "unableOpenPortal": "Impossibile aprire il portale di fatturazione",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "Si è verificato un errore sconosciuto durante l'apertura del portale di fatturazione."
   },
+  "loading": "Caricamento in corso…",
   "comparison": {
     "title": "Confronto dettagliato dei piani",
     "feature": "[NEEDS TRANSLATION] Feature",

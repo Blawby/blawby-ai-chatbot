@@ -190,11 +190,11 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       {doc.file.name}
                     </span>
                     <Button
-                      variant="ghost"
+                      variant="danger-ghost"
                       size="sm"
                       icon={<XMarkIcon className="w-4 h-4" />}
+                      aria-label={`Remove ${doc.name ?? 'document'}`}
                       onClick={() => onDocumentRemove(doc.id)}
-                      className="text-red-500 hover:text-red-700"
                     />
                   </div>
                 )}

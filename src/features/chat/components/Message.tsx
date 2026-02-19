@@ -198,12 +198,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 			)}
 
 			{showActions && (
-				<div className="absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100">
+				<div className="message-action-popover">
 					{onToggleReaction && quickReactions.map((emoji) => (
 						<button
 							key={emoji}
 							type="button"
-							className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-200 transition hover:bg-white/10"
+							className="message-action-btn text-sm"
 							aria-label={`React with ${emoji}`}
 							onClick={() => onToggleReaction(emoji)}
 						>
@@ -213,7 +213,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					{onReply && (
 						<button
 							type="button"
-							className="flex h-6 w-6 items-center justify-center rounded text-gray-200 transition hover:bg-white/10"
+							className="message-action-btn"
 							aria-label="Reply to message"
 							onClick={onReply}
 						>
@@ -323,16 +323,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							<button
 								key={reaction.emoji}
 								type="button"
-								className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
-									reaction.reactedByMe
-										? 'border-blue-400/40 bg-blue-500/20 text-blue-100'
-										: 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
-								}`}
+								className={`message-reaction-chip ${reaction.reactedByMe ? 'message-reaction-chip-active' : ''}`}
 								aria-label={`React with ${reaction.emoji}`}
 								onClick={() => onToggleReaction?.(reaction.emoji)}
 							>
 								<span className="text-sm">{reaction.emoji}</span>
-								<span className="text-xs text-gray-300">{reaction.count}</span>
+								<span className="message-reaction-count">{reaction.count}</span>
 							</button>
 						))}
 					</div>

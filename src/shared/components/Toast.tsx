@@ -45,21 +45,21 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
       case 'info':
       default:
-        return <InformationCircleIcon className="h-5 w-5 text-blue-500" />;
+        return <InformationCircleIcon className="h-5 w-5 text-accent-400" />;
     }
   };
 
-  const getBackgroundColor = () => {
+  const getStatusClass = () => {
     switch (toast.type) {
       case 'success':
-        return 'bg-emerald-500/10 border-emerald-500/30 backdrop-blur-xl shadow-lg shadow-emerald-500/10';
+        return 'status-success';
       case 'error':
-        return 'bg-red-500/10 border-red-500/30 backdrop-blur-xl shadow-lg shadow-red-500/10';
+        return 'status-error';
       case 'warning':
-        return 'bg-amber-500/10 border-amber-500/30 backdrop-blur-xl shadow-lg shadow-amber-500/10';
+        return 'status-warning';
       case 'info':
       default:
-        return 'bg-blue-500/10 border-blue-500/30 backdrop-blur-xl shadow-lg shadow-blue-500/10';
+        return 'status-info';
     }
   };
 
@@ -69,7 +69,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -50, scale: 0.95 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`max-w-sm w-full ${getBackgroundColor()} border rounded-lg shadow-lg p-4 relative`}
+      className={`max-w-sm w-full ${getStatusClass()} rounded-lg p-4 relative`}
     >
       <div className="flex items-start">
         <div className="flex-shrink-0">
@@ -88,7 +88,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         <div className="ml-4 flex-shrink-0">
           <button
             onClick={handleRemove}
-            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm focus:outline-none"
+            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
           >
             <XMarkIcon className="h-4 w-4" />
           </button>

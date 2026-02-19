@@ -12,9 +12,19 @@
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
     --accent-foreground: 255 255 255;
+    --success-foreground: 74 222 128;
+    --warning-foreground: 249 115 22;
+    --error-foreground: 248 113 113;
+
+    /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
+    --glass-rim-strong:   inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
+                          inset 0 0 3px 1px rgba(255, 255, 255, 0.25);
+    --glass-rim-medium:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.50),
+                          inset 0 0 2px 1px rgba(255, 255, 255, 0.15);
+    --glass-rim-subtle:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.30),
+                          inset 0 0 2px 1px rgba(255, 255, 255, 0.08);
+
     --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
-
-
   }
 
   .dark {
@@ -25,27 +35,30 @@
     --input-text: 249 250 251;
     --input-placeholder: 156 163 175;
     --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
+
+    /* Slightly brighter rims in dark mode — more contrast against dark bg */
+    --glass-rim-strong:   inset 2px 2px 0px -2px rgba(255, 255, 255, 0.78),
+                          inset 0 0 3px 1px rgba(255, 255, 255, 0.28);
+    --glass-rim-medium:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.60),
+                          inset 0 0 2px 1px rgba(255, 255, 255, 0.18);
+    --glass-rim-subtle:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.36),
+                          inset 0 0 2px 1px rgba(255, 255, 255, 0.10);
   }
 
   body {
     @apply min-h-screen m-0;
-    /* Base background color */
     background-color: rgb(var(--surface-base));
-    /* Subtle radial gradient overlay for depth */
     background-image:
       radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500) / 8%), transparent 50%),
       radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600) / 5%), transparent 50%);
     background-attachment: fixed;
   }
 
-  /* Hide scrollbars globally to prevent overlay on content */
+  /* Hide scrollbars globally */
   * {
     scrollbar-width: none;
-    /* Firefox */
     -ms-overflow-style: none;
-    /* Internet Explorer 10+ */
   }
-
   *::-webkit-scrollbar {
     width: 0;
     height: 0;
@@ -55,34 +68,21 @@
   a {
     @apply text-accent-500 hover:text-accent-600 transition-colors duration-200;
   }
-
-  /* Dark mode link styles */
   .dark a {
     @apply text-accent-400 hover:text-accent-300;
   }
-
-  /* Utility classes for specific link styles */
-  .link-plain {
-    @apply no-underline font-normal;
-  }
-
-  .link-btn {
-    @apply no-underline font-bold;
-  }
+  .link-plain { @apply no-underline font-normal; }
+  .link-btn   { @apply no-underline font-bold; }
 
   /* Hide scrollbars when modal is open */
   body.modal-open .overflow-y-auto,
   body.modal-open .overflow-auto {
     scrollbar-width: none;
-    /* Firefox */
     -ms-overflow-style: none;
-    /* Internet Explorer 10+ */
   }
-
   body.modal-open .overflow-y-auto::-webkit-scrollbar,
   body.modal-open .overflow-auto::-webkit-scrollbar {
     display: none;
-    /* Safari and Chrome */
   }
 
   .settings-panel .overflow-y-auto {
@@ -93,18 +93,12 @@
   @media (max-width: 768px) {
     .h-screen {
       height: 100vh;
-      /* Fallback */
       height: 100dvh;
-      /* Dynamic viewport height for mobile */
     }
-
-    /* Safe area handling for mobile devices with notches */
     .pt-16 {
       padding-top: 4rem;
-      /* Fallback */
       padding-top: max(4rem, env(safe-area-inset-top, 0px));
     }
-
     .pt-safe {
       padding-top: env(safe-area-inset-top, 0px);
     }
@@ -112,102 +106,384 @@
 }
 
 @layer components {
-  .chat-markdown {
-    @apply whitespace-pre-wrap break-words;
-  }
 
-  /* Apple-style glassmorphism card - heavy blur, translucent */
+  /* ============================================================
+     GLASS SURFACE SYSTEM
+     Border strategy: inset box-shadow rim lighting instead of
+     a flat border — creates a directional highlight that reads
+     as physical glass thickness catching light from top-left.
+     Three tiers of visual weight: card > panel > input/subtle
+     ============================================================ */
+
+  /* Cards — most prominent surface, heaviest rim */
   .glass-card {
-    @apply rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl saturate-150 shadow-glass transition-all duration-300;
-    @apply dark:border-white/10 dark:bg-white/5;
+    @apply rounded-3xl bg-white/5 backdrop-blur-3xl saturate-150 transition-all duration-300;
+
+    border: none;
+    box-shadow: var(--glass-rim-strong), var(--shadow-glass);
   }
 
   .glass-card-hover {
-    @apply hover:bg-white/10 hover:border-white/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300;
+    @apply transition-all duration-300;
+  }
+  .glass-card-hover:hover {
+    @apply bg-white/10 -translate-y-0.5;
+
+    box-shadow: var(--glass-rim-strong), 0 24px 48px rgb(15 23 42 / 18%), 0 0 1px rgb(15 23 42 / 12%);
   }
 
-  /* Apple-style glassmorphism panel - medium blur */
-
+  /* Panels — secondary surface, medium rim */
   .glass-panel {
-    @apply rounded-2xl border border-white/[0.08] bg-white/[0.08] backdrop-blur-2xl saturate-150 shadow-sm transition-all duration-300;
-    @apply dark:border-white/10 dark:bg-white/[0.08];
+    @apply rounded-2xl bg-white/[0.08] backdrop-blur-2xl saturate-150 transition-all duration-300;
+
+    border: none;
+    box-shadow: var(--glass-rim-medium);
   }
 
-  /* Apple-style glassmorphism input */
-
+  /* Inputs — tertiary surface, subtle rim */
   .glass-input {
-    @apply border border-white/10 bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 shadow-glass backdrop-blur-xl;
-    @apply dark:border-white/10 dark:bg-white/[0.08];
+    @apply bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 backdrop-blur-xl;
+
+    border: none;
+    box-shadow: var(--glass-rim-subtle), var(--shadow-glass);
+  }
+  .glass-input:focus {
+    outline: none;
+    box-shadow: var(--glass-rim-medium),
+                0 0 0 2px rgb(var(--accent-500) / 0.3);
   }
 
-  .chat-markdown p {
-    @apply mt-0 mb-3;
+  /* Semantic surface helpers */
+  .surface-subtle {
+    @apply bg-black/5 dark:bg-white/5 backdrop-blur-xl;
+
+    border: none;
+    box-shadow: var(--glass-rim-subtle);
   }
 
-  .chat-markdown p:last-child {
-    @apply mb-0;
+  .surface-hover {
+    @apply transition-all duration-200;
+  }
+  .surface-hover:hover {
+    @apply bg-black/10 dark:bg-white/10;
+
+    box-shadow: var(--glass-rim-medium);
   }
 
-  .chat-markdown strong {
-    @apply font-semibold;
+  /* ============================================================
+     BUTTON SYSTEM
+     All button visual styles are defined here as component
+     classes so ad-hoc Tailwind buttons across the codebase
+     can be migrated to these tokens incrementally.
+     Reference preview in dev: /debug/styles
+
+     Variants:  btn-primary | btn-secondary | btn-ghost |
+                btn-icon    | btn-danger    | btn-warning |
+                btn-danger-ghost | btn-accent-ghost |
+                btn-outline | btn-inverted | btn-link |
+                btn-menu-item | btn-tab
+     Sizes:     btn-xs | btn-sm | btn-md (default) | btn-lg
+     ============================================================ */
+
+  /* Base shared across all button variants */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-full font-medium
+           transition-all duration-200 focus:outline-none focus:ring-2
+           focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed
+           backdrop-blur-xl active:scale-[0.98] select-none
+           px-4 py-2 text-sm;
+    border: none;
   }
 
-  .chat-markdown em {
-    @apply italic;
+  /* Sizes */
+  .btn-xs { @apply px-2.5 py-1 text-xs; }
+  .btn-sm { @apply px-3 py-1.5 text-xs; }
+  .btn-md { @apply px-4 py-2 text-sm; }
+  .btn-lg { @apply px-6 py-3 text-base; }
+
+  /* Icon-only size helpers (pair with a variant) */
+  .btn-icon-xs { @apply w-9 h-9 p-0 text-xs; }
+  .btn-icon-sm { @apply w-11 h-11 p-0 text-xs; }
+  .btn-icon-md { @apply w-11 h-11 p-0 text-sm; }
+  .btn-icon-lg { @apply w-12 h-12 p-0 text-base; }
+
+  /* Primary — solid accent */
+  .btn-primary {
+    background-color: rgb(var(--accent-500));
+    color: rgb(var(--accent-foreground));
+    box-shadow: var(--glass-rim-medium),
+                0 4px 16px rgb(var(--accent-500) / 0.3);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: rgb(var(--accent-600));
+    box-shadow:    var(--glass-rim-strong),
+                0 6px 20px rgb(var(--accent-500) / 0.4);
+  }
+  .btn-primary:focus { @apply ring-accent-500/50; }
+
+  /* Secondary — neutral glass */
+  .btn-secondary {
+    @apply bg-white/5 backdrop-blur-xl text-input-text;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-white/15;
+    box-shadow: var(--glass-rim-medium);
+  }
+  .btn-secondary:focus { @apply ring-white/20; }
+
+  /* Ghost — no bg until hover */
+  .btn-ghost {
+    @apply bg-transparent text-input-text;
+    box-shadow: none;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-white/10;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-ghost:focus { @apply ring-white/20; }
+
+  /* Icon — same as ghost, used for icon-only controls */
+  .btn-icon {
+    @apply bg-transparent text-input-text;
+    box-shadow: none;
+  }
+  .btn-icon:hover:not(:disabled) {
+    @apply bg-white/10;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-icon:focus { @apply ring-white/20; }
+
+  /* Inverted — for use on dark surfaces */
+  .btn-inverted {
+    @apply bg-white/20 backdrop-blur-2xl text-white;
+    box-shadow: var(--glass-rim-medium), 0 4px 12px rgb(0 0 0 / 0.2);
+  }
+  .btn-inverted:hover:not(:disabled) {
+    @apply bg-white/30;
+    box-shadow: var(--glass-rim-strong), 0 6px 16px rgb(0 0 0 / 0.3);
+  }
+  .btn-inverted:focus { @apply ring-white/30; }
+
+  /* Danger — red glass */
+  .btn-danger {
+    @apply bg-red-500/10 backdrop-blur-xl text-red-400;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-danger:hover:not(:disabled) {
+    @apply bg-red-500/20 text-red-300;
+    box-shadow: var(--glass-rim-medium);
+  }
+  .btn-danger:focus { @apply ring-red-500/50; }
+
+  /* Warning — orange destructive */
+  .btn-warning {
+    @apply bg-orange-500/10 backdrop-blur-xl text-orange-400;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-warning:hover:not(:disabled) {
+    @apply bg-orange-500/20 text-orange-300;
+    box-shadow: var(--glass-rim-medium);
+  }
+  .btn-warning:focus { @apply ring-orange-500/50; }
+
+  /* Danger ghost — red text, no bg until hover */
+  .btn-danger-ghost {
+    @apply bg-transparent text-red-500 dark:text-red-400;
+    box-shadow: none;
+  }
+  .btn-danger-ghost:hover:not(:disabled) {
+    @apply bg-red-500/10 text-red-400 dark:text-red-300;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-danger-ghost:focus { @apply ring-red-500/50; }
+
+  /* Accent ghost — accent text, no bg until hover */
+  .btn-accent-ghost {
+    @apply bg-transparent text-accent-500;
+    box-shadow: none;
+  }
+  .btn-accent-ghost:hover:not(:disabled) {
+    @apply bg-accent-500/10 text-accent-400;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-accent-ghost:focus { @apply ring-accent-500/50; }
+
+  /* Outline — clear bg, defined rim */
+  .btn-outline {
+    @apply bg-transparent backdrop-blur-sm text-input-text;
+    box-shadow: var(--glass-rim-subtle);
+  }
+  .btn-outline:hover:not(:disabled) {
+    @apply bg-white/5;
+    box-shadow: var(--glass-rim-medium);
+  }
+  .btn-outline:focus { @apply ring-white/20; }
+
+  /* Link — text only, no glass */
+  .btn-link {
+    @apply bg-transparent text-accent-500 shadow-none rounded-none;
+    box-shadow: none;
+  }
+  .btn-link:hover:not(:disabled) { @apply text-accent-400 underline; }
+  .btn-link:focus { @apply ring-accent-500/50; }
+
+  /* Menu item — full width, left-aligned, used in dropdowns/nav */
+  .btn-menu-item {
+    @apply w-full rounded-xl px-3 py-2.5 text-left text-sm text-input-text bg-transparent justify-between;
+    box-shadow: none;
+  }
+  .btn-menu-item:hover:not(:disabled) {
+    @apply bg-white/10;
+  }
+  .btn-menu-item:focus { @apply ring-white/20; }
+
+  /* Tab — for segmented navigation */
+  .btn-tab {
+    @apply bg-transparent text-input-placeholder rounded-lg px-3 py-1.5 text-sm;
+    box-shadow: none;
+  }
+  .btn-tab:hover:not(:disabled) {
+    @apply bg-white/5 text-input-text;
+  }
+  .btn-tab[aria-selected="true"],
+  .btn-tab.active {
+    @apply bg-white/10 text-input-text;
+    box-shadow: var(--glass-rim-subtle);
   }
 
+  /* Shared nav item active/inactive state */
+  .nav-item-active {
+    @apply bg-white/10 text-accent-400 border-transparent backdrop-blur-xl;
+    box-shadow: var(--glass-rim-subtle),
+                0 2px 8px rgb(var(--accent-500) / 0.12);
+  }
+
+  .nav-item-inactive {
+    @apply text-input-text/70 border-transparent;
+  }
+
+  .nav-item-inactive:hover {
+    @apply bg-white/[0.08] text-input-text;
+  }
+
+  /* Semantic status surfaces */
+  .status-info {
+    @apply border border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .status-success {
+    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .status-warning {
+    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .status-error {
+    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  /* Segmented toggle */
+  .segmented-toggle {
+    @apply relative inline-flex items-center rounded-full p-1 bg-transparent backdrop-blur-xl;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .segmented-toggle-thumb {
+    @apply pointer-events-none absolute top-1 bottom-1 rounded-full bg-accent-500 transition-transform duration-300 ease-out;
+    box-shadow: var(--glass-rim-subtle),
+                0 2px 8px rgb(var(--accent-500) / 0.25);
+  }
+
+  .segmented-toggle-item {
+    @apply relative z-10 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200;
+  }
+
+  .segmented-toggle-item-active {
+    @apply text-[rgb(var(--accent-foreground))];
+  }
+
+  .segmented-toggle-item-inactive {
+    @apply text-input-placeholder;
+  }
+
+  .segmented-toggle-item-inactive:hover:not(:disabled) {
+    @apply text-input-text;
+  }
+
+  /* ============================================================
+     MARKDOWN / CHAT
+     ============================================================ */
+
+  .chat-markdown { @apply whitespace-pre-wrap break-words; }
+  .chat-markdown p { @apply mt-0 mb-3; }
+  .chat-markdown p:last-child { @apply mb-0; }
+  .chat-markdown strong { @apply font-semibold; }
+  .chat-markdown em { @apply italic; }
   .chat-markdown a {
     @apply underline text-accent-500 hover:text-accent-600 transition-colors duration-200;
   }
-
-  .dark .chat-markdown a {
-    @apply text-accent-300 hover:text-accent-200;
+  .dark .chat-markdown a { @apply text-accent-300 hover:text-accent-200; }
+  .chat-markdown ul,
+  .chat-markdown ol  { @apply my-3 pl-6; }
+  .chat-markdown ul  { @apply list-disc; }
+  .chat-markdown ol  { @apply list-decimal; }
+  .chat-markdown li  { @apply mb-1.5; }
+  .chat-markdown li:last-child { @apply mb-0; }
+  .chat-markdown blockquote {
+    @apply pl-4 border-l-4 border-gray-200 dark:border-gray-700
+           text-gray-700 dark:text-gray-300 italic mb-3;
+  }
+  .chat-markdown code {
+    @apply px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-sm font-mono;
+  }
+  .chat-markdown pre {
+    @apply bg-gray-900/90 text-gray-100 rounded-md p-4 overflow-x-auto
+           text-sm leading-relaxed mb-4;
+  }
+  .chat-markdown pre code { @apply bg-transparent p-0 text-inherit; }
+  .chat-markdown hr { @apply border-gray-200 dark:border-gray-700 my-6; }
+  .chat-markdown .chat-cursor {
+    @apply inline-block align-middle ml-2 h-2.5 w-2.5 rounded-full
+           bg-accent-500/80 animate-pulse;
   }
 
-  /* File display styling */
-  .file-display {
-    @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200;
-  }
+  /* ============================================================
+     FILE DISPLAY
+     ============================================================ */
 
-  .file-display-icon {
-    @apply flex-shrink-0;
-  }
-
-  .file-display-info {
-    @apply flex-1 min-w-0;
-  }
-
-  .file-display-name {
-    @apply text-sm font-medium text-input-text truncate;
-  }
-
-  .file-display-type {
-    @apply text-xs text-input-placeholder;
-  }
-
+  .file-display        { @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200; }
+  .file-display-icon   { @apply flex-shrink-0; }
+  .file-display-info   { @apply flex-1 min-w-0; }
+  .file-display-name   { @apply text-sm font-medium text-input-text truncate; }
+  .file-display-type   { @apply text-xs text-input-placeholder; }
   .file-display-remove {
-    @apply flex-shrink-0 w-6 h-6 rounded-full;
-    @apply flex items-center justify-center;
-    @apply bg-red-500/20 hover:bg-red-500/30 transition-colors;
+    @apply flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center
+           bg-red-500/20 hover:bg-red-500/30 transition-colors;
   }
+  .file-display-remove-icon { @apply w-3.5 h-3.5 text-white; }
 
-  .file-display-remove-icon {
-    @apply w-3.5 h-3.5 text-white;
-  }
+  /* ============================================================
+     MESSAGE COMPOSER
+     ============================================================ */
 
   .message-composer-container {
-    @apply flex flex-col w-full relative;
-    @apply p-2 min-h-[48px] gap-2 h-auto overflow-visible;
-    @apply bg-transparent border-0 shadow-none;
+    @apply flex flex-col w-full relative p-2 min-h-[48px] gap-2
+           h-auto overflow-visible bg-transparent;
+    border: none;
+    box-shadow: none;
   }
+  .message-composer-preview-container { @apply flex gap-2 overflow-x-auto scrollbar-hide; }
+  .message-composer-input-row         { @apply flex items-center gap-3 w-full; }
 
-  .message-composer-preview-container {
-    @apply flex gap-2 overflow-x-auto scrollbar-hide;
-  }
-
-  .message-composer-input-row {
-    @apply flex items-center gap-3 w-full;
-  }
+  /* ============================================================
+     MESSAGE LIST
+     ============================================================ */
 
   .message-list {
     border: 0;
@@ -216,466 +492,165 @@
     box-shadow: none;
     backdrop-filter: none;
   }
-
   .message-list-item {
     border: 0;
     background-color: transparent;
     box-shadow: none;
   }
+  .message-list-item + .message-list-item { margin-top: 0; }
 
-  .message-list-item + .message-list-item {
-    margin-top: 0;
+  .message-action-popover {
+    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1
+           rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0
+           backdrop-blur-sm transition-opacity duration-150
+           group-hover:flex group-hover:opacity-100
+           group-focus-within:flex group-focus-within:opacity-100;
   }
 
-  .chat-markdown ul,
-  .chat-markdown ol {
-    @apply my-3 pl-6;
+  .message-action-btn {
+    @apply flex h-6 w-6 items-center justify-center rounded text-xs text-input-text/90 transition;
+    box-shadow: none;
   }
 
-  .chat-markdown ul {
-    @apply list-disc;
+  .message-action-btn:hover:not(:disabled) {
+    @apply bg-white/10 text-input-text;
   }
 
-  .chat-markdown ol {
-    @apply list-decimal;
+  .message-reaction-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5
+           px-2 py-0.5 text-xs text-input-text transition;
+    box-shadow: none;
   }
 
-  .chat-markdown li {
-    @apply mb-1.5;
+  .message-reaction-chip:hover:not(:disabled) {
+    @apply bg-white/10;
   }
 
-  .chat-markdown li:last-child {
-    @apply mb-0;
+  .message-reaction-chip-active {
+    @apply border-accent-500/30 bg-accent-500/20 text-accent-300;
+    box-shadow: var(--glass-rim-subtle);
   }
 
-  .chat-markdown ul li {
-    @apply list-disc;
+  .message-reaction-count {
+    @apply text-xs text-input-placeholder;
   }
 
-  .chat-markdown ol li {
-    @apply list-decimal;
-  }
+  /* ============================================================
+     TYPOGRAPHY TOKENS
+     ============================================================ */
 
-  .chat-markdown blockquote {
-    @apply pl-4 border-l-4 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 italic mb-3;
-  }
-
-  .chat-markdown code {
-    @apply px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-sm font-mono;
-  }
-
-  .chat-markdown pre {
-    @apply bg-gray-900/90 text-gray-100 rounded-md p-4 overflow-x-auto text-sm leading-relaxed mb-4;
-  }
-
-  .chat-markdown pre code {
-    @apply bg-transparent p-0 text-inherit;
-  }
-
-  .chat-markdown hr {
-    @apply border-gray-200 dark:border-gray-700 my-6;
-  }
-
-  .chat-markdown .chat-cursor {
-    @apply inline-block align-middle ml-2 h-2.5 w-2.5 rounded-full bg-accent-500/80 animate-pulse;
-  }
-
-  /* Semantic Typography Tokens */
-  .text-heading {
-    @apply text-input-text font-bold;
-  }
-
-  .text-body-primary {
-    @apply text-input-text;
-  }
-
-  .text-secondary {
-    @apply text-input-placeholder;
-  }
-
-  .text-body {
-    @apply text-input-text;
-  }
-
-  /* Semantic Surface & Border Tokens */
-  .surface-subtle {
-    @apply bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-xl;
-  }
-
-  .surface-hover {
-    @apply hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20 transition-all duration-200;
-  }
-
+  .text-heading      { @apply text-input-text font-bold; }
+  .text-body-primary { @apply text-input-text; }
+  .text-secondary    { @apply text-input-placeholder; }
+  .text-body         { @apply text-input-text; }
 }
 
 @layer utilities {
 
-  /* Simple accordion styles */
-  [data-state="open"] [data-slot="accordion-trigger"] svg {
-    transform: rotate(180deg);
-  }
+  /* Accordion */
+  [data-state="open"]   [data-slot="accordion-trigger"] svg { transform: rotate(180deg); }
+  [data-state="closed"] [data-slot="accordion-content"]     { display: none; }
+  [data-state="open"]   [data-slot="accordion-content"]     { display: block; }
 
-  [data-state="closed"] [data-slot="accordion-content"] {
-    display: none;
-  }
-
-  [data-state="open"] [data-slot="accordion-content"] {
-    display: block;
-  }
-
-  /* Hide scrollbar */
+  /* Scrollbar hide */
   .scrollbar-hide {
     -ms-overflow-style: none;
-    /* Internet Explorer 10+ */
     scrollbar-width: none;
-    /* Firefox */
   }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
 
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-    /* Safari and Chrome */
-  }
+  /* ============================================================
+     RTL SUPPORT
+     ============================================================ */
 
-  /* RTL (Right-to-Left) Support */
-  /* Automatically flip margins and paddings for RTL languages */
-  [dir="rtl"] .ml-auto {
-    margin-left: unset;
-    margin-right: auto;
-  }
+  [dir="rtl"] .ml-auto  { margin-left: unset;  margin-right: auto; }
+  [dir="rtl"] .mr-auto  { margin-right: unset; margin-left: auto; }
+  [dir="rtl"] .text-left  { text-align: right; }
+  [dir="rtl"] .text-right { text-align: left; }
 
-  [dir="rtl"] .mr-auto {
-    margin-right: unset;
-    margin-left: auto;
-  }
-
-  [dir="rtl"] .text-left {
-    text-align: right;
-  }
-
-  [dir="rtl"] .text-right {
-    text-align: left;
-  }
-
-  /* Flip list markers in RTL */
   [dir="rtl"] .chat-markdown ul,
-  [dir="rtl"] .chat-markdown ol {
-    margin-left: 0;
-    margin-right: 1.25rem;
-  }
+  [dir="rtl"] .chat-markdown ol { margin-left: 0; margin-right: 1.25rem; }
 
-  /* Flip border-left to border-right for blockquotes in RTL */
   [dir="rtl"] .chat-markdown blockquote {
-    padding-left: 0;
-    padding-right: 1rem;
-    border-left: none;
-    border-right: 4px solid;
+    padding-left: 0; padding-right: 1rem;
+    border-left: none; border-right: 4px solid;
     @apply border-gray-200 dark:border-gray-700;
   }
 
-  /* Flip cursor animation position in RTL */
-  [dir="rtl"] .chat-markdown .chat-cursor {
-    margin-left: 0;
-    margin-right: 0.5rem;
-  }
+  [dir="rtl"] .chat-markdown .chat-cursor { margin-left: 0; margin-right: 0.5rem; }
 
-  /* Comprehensive margin RTL rules */
-  [dir="rtl"] .ml-1 {
-    margin-left: unset;
-    margin-right: 0.25rem;
-  }
+  /* Margins */
+  [dir="rtl"] .ml-1  { margin-left: unset; margin-right: 0.25rem; }
+  [dir="rtl"] .ml-2  { margin-left: unset; margin-right: 0.5rem; }
+  [dir="rtl"] .ml-3  { margin-left: unset; margin-right: 0.75rem; }
+  [dir="rtl"] .ml-4  { margin-left: unset; margin-right: 1rem; }
+  [dir="rtl"] .ml-5  { margin-left: unset; margin-right: 1.25rem; }
+  [dir="rtl"] .ml-6  { margin-left: unset; margin-right: 1.5rem; }
+  [dir="rtl"] .ml-8  { margin-left: unset; margin-right: 2rem; }
+  [dir="rtl"] .ml-10 { margin-left: unset; margin-right: 2.5rem; }
+  [dir="rtl"] .ml-12 { margin-left: unset; margin-right: 3rem; }
 
-  [dir="rtl"] .ml-2 {
-    margin-left: unset;
-    margin-right: 0.5rem;
-  }
+  [dir="rtl"] .mr-1  { margin-right: unset; margin-left: 0.25rem; }
+  [dir="rtl"] .mr-2  { margin-right: unset; margin-left: 0.5rem; }
+  [dir="rtl"] .mr-3  { margin-right: unset; margin-left: 0.75rem; }
+  [dir="rtl"] .mr-4  { margin-right: unset; margin-left: 1rem; }
+  [dir="rtl"] .mr-5  { margin-right: unset; margin-left: 1.25rem; }
+  [dir="rtl"] .mr-6  { margin-right: unset; margin-left: 1.5rem; }
+  [dir="rtl"] .mr-8  { margin-right: unset; margin-left: 2rem; }
+  [dir="rtl"] .mr-10 { margin-right: unset; margin-left: 2.5rem; }
+  [dir="rtl"] .mr-12 { margin-right: unset; margin-left: 3rem; }
 
-  [dir="rtl"] .ml-3 {
-    margin-left: unset;
-    margin-right: 0.75rem;
-  }
+  /* Paddings */
+  [dir="rtl"] .pl-1  { padding-left: unset; padding-right: 0.25rem; }
+  [dir="rtl"] .pl-2  { padding-left: unset; padding-right: 0.5rem; }
+  [dir="rtl"] .pl-3  { padding-left: unset; padding-right: 0.75rem; }
+  [dir="rtl"] .pl-4  { padding-left: unset; padding-right: 1rem; }
+  [dir="rtl"] .pl-5  { padding-left: unset; padding-right: 1.25rem; }
+  [dir="rtl"] .pl-6  { padding-left: unset; padding-right: 1.5rem; }
+  [dir="rtl"] .pl-8  { padding-left: unset; padding-right: 2rem; }
+  [dir="rtl"] .pl-10 { padding-left: unset; padding-right: 2.5rem; }
+  [dir="rtl"] .pl-12 { padding-left: unset; padding-right: 3rem; }
 
-  [dir="rtl"] .ml-4 {
-    margin-left: unset;
-    margin-right: 1rem;
-  }
+  [dir="rtl"] .pr-1  { padding-right: unset; padding-left: 0.25rem; }
+  [dir="rtl"] .pr-2  { padding-right: unset; padding-left: 0.5rem; }
+  [dir="rtl"] .pr-3  { padding-right: unset; padding-left: 0.75rem; }
+  [dir="rtl"] .pr-4  { padding-right: unset; padding-left: 1rem; }
+  [dir="rtl"] .pr-5  { padding-right: unset; padding-left: 1.25rem; }
+  [dir="rtl"] .pr-6  { padding-right: unset; padding-left: 1.5rem; }
+  [dir="rtl"] .pr-8  { padding-right: unset; padding-left: 2rem; }
+  [dir="rtl"] .pr-10 { padding-right: unset; padding-left: 2.5rem; }
+  [dir="rtl"] .pr-12 { padding-right: unset; padding-left: 3rem; }
 
-  [dir="rtl"] .ml-5 {
-    margin-left: unset;
-    margin-right: 1.25rem;
-  }
+  /* Positioning */
+  [dir="rtl"] .left-0  { left: unset; right: 0; }
+  [dir="rtl"] .left-1  { left: unset; right: 0.25rem; }
+  [dir="rtl"] .left-2  { left: unset; right: 0.5rem; }
+  [dir="rtl"] .left-3  { left: unset; right: 0.75rem; }
+  [dir="rtl"] .left-4  { left: unset; right: 1rem; }
+  [dir="rtl"] .left-5  { left: unset; right: 1.25rem; }
+  [dir="rtl"] .left-6  { left: unset; right: 1.5rem; }
+  [dir="rtl"] .left-8  { left: unset; right: 2rem; }
+  [dir="rtl"] .left-10 { left: unset; right: 2.5rem; }
+  [dir="rtl"] .left-12 { left: unset; right: 3rem; }
 
-  [dir="rtl"] .ml-6 {
-    margin-left: unset;
-    margin-right: 1.5rem;
-  }
+  [dir="rtl"] .right-0  { right: unset; left: 0; }
+  [dir="rtl"] .right-1  { right: unset; left: 0.25rem; }
+  [dir="rtl"] .right-2  { right: unset; left: 0.5rem; }
+  [dir="rtl"] .right-3  { right: unset; left: 0.75rem; }
+  [dir="rtl"] .right-4  { right: unset; left: 1rem; }
+  [dir="rtl"] .right-5  { right: unset; left: 1.25rem; }
+  [dir="rtl"] .right-6  { right: unset; left: 1.5rem; }
+  [dir="rtl"] .right-8  { right: unset; left: 2rem; }
+  [dir="rtl"] .right-10 { right: unset; left: 2.5rem; }
+  [dir="rtl"] .right-12 { right: unset; left: 3rem; }
 
-  [dir="rtl"] .ml-8 {
-    margin-left: unset;
-    margin-right: 2rem;
-  }
+  /* ============================================================
+     ANIMATIONS
+     ============================================================ */
 
-  [dir="rtl"] .ml-10 {
-    margin-left: unset;
-    margin-right: 2.5rem;
-  }
-
-  [dir="rtl"] .ml-12 {
-    margin-left: unset;
-    margin-right: 3rem;
-  }
-
-  [dir="rtl"] .mr-1 {
-    margin-right: unset;
-    margin-left: 0.25rem;
-  }
-
-  [dir="rtl"] .mr-2 {
-    margin-right: unset;
-    margin-left: 0.5rem;
-  }
-
-  [dir="rtl"] .mr-3 {
-    margin-right: unset;
-    margin-left: 0.75rem;
-  }
-
-  [dir="rtl"] .mr-4 {
-    margin-right: unset;
-    margin-left: 1rem;
-  }
-
-  [dir="rtl"] .mr-5 {
-    margin-right: unset;
-    margin-left: 1.25rem;
-  }
-
-  [dir="rtl"] .mr-6 {
-    margin-right: unset;
-    margin-left: 1.5rem;
-  }
-
-  [dir="rtl"] .mr-8 {
-    margin-right: unset;
-    margin-left: 2rem;
-  }
-
-  [dir="rtl"] .mr-10 {
-    margin-right: unset;
-    margin-left: 2.5rem;
-  }
-
-  [dir="rtl"] .mr-12 {
-    margin-right: unset;
-    margin-left: 3rem;
-  }
-
-  /* Comprehensive padding RTL rules */
-  [dir="rtl"] .pl-1 {
-    padding-left: unset;
-    padding-right: 0.25rem;
-  }
-
-  [dir="rtl"] .pl-2 {
-    padding-left: unset;
-    padding-right: 0.5rem;
-  }
-
-  [dir="rtl"] .pl-3 {
-    padding-left: unset;
-    padding-right: 0.75rem;
-  }
-
-  [dir="rtl"] .pl-4 {
-    padding-left: unset;
-    padding-right: 1rem;
-  }
-
-  [dir="rtl"] .pl-5 {
-    padding-left: unset;
-    padding-right: 1.25rem;
-  }
-
-  [dir="rtl"] .pl-6 {
-    padding-left: unset;
-    padding-right: 1.5rem;
-  }
-
-  [dir="rtl"] .pl-8 {
-    padding-left: unset;
-    padding-right: 2rem;
-  }
-
-  [dir="rtl"] .pl-10 {
-    padding-left: unset;
-    padding-right: 2.5rem;
-  }
-
-  [dir="rtl"] .pl-12 {
-    padding-left: unset;
-    padding-right: 3rem;
-  }
-
-  [dir="rtl"] .pr-1 {
-    padding-right: unset;
-    padding-left: 0.25rem;
-  }
-
-  [dir="rtl"] .pr-2 {
-    padding-right: unset;
-    padding-left: 0.5rem;
-  }
-
-  [dir="rtl"] .pr-3 {
-    padding-right: unset;
-    padding-left: 0.75rem;
-  }
-
-  [dir="rtl"] .pr-4 {
-    padding-right: unset;
-    padding-left: 1rem;
-  }
-
-  [dir="rtl"] .pr-5 {
-    padding-right: unset;
-    padding-left: 1.25rem;
-  }
-
-  [dir="rtl"] .pr-6 {
-    padding-right: unset;
-    padding-left: 1.5rem;
-  }
-
-  [dir="rtl"] .pr-8 {
-    padding-right: unset;
-    padding-left: 2rem;
-  }
-
-  [dir="rtl"] .pr-10 {
-    padding-right: unset;
-    padding-left: 2.5rem;
-  }
-
-  [dir="rtl"] .pr-12 {
-    padding-right: unset;
-    padding-left: 3rem;
-  }
-
-  /* Comprehensive positioning RTL rules */
-  [dir="rtl"] .left-0 {
-    left: unset;
-    right: 0;
-  }
-
-  [dir="rtl"] .left-1 {
-    left: unset;
-    right: 0.25rem;
-  }
-
-  [dir="rtl"] .left-2 {
-    left: unset;
-    right: 0.5rem;
-  }
-
-  [dir="rtl"] .left-3 {
-    left: unset;
-    right: 0.75rem;
-  }
-
-  [dir="rtl"] .left-4 {
-    left: unset;
-    right: 1rem;
-  }
-
-  [dir="rtl"] .left-5 {
-    left: unset;
-    right: 1.25rem;
-  }
-
-  [dir="rtl"] .left-6 {
-    left: unset;
-    right: 1.5rem;
-  }
-
-  [dir="rtl"] .left-8 {
-    left: unset;
-    right: 2rem;
-  }
-
-  [dir="rtl"] .left-10 {
-    left: unset;
-    right: 2.5rem;
-  }
-
-  [dir="rtl"] .left-12 {
-    left: unset;
-    right: 3rem;
-  }
-
-  [dir="rtl"] .right-0 {
-    right: unset;
-    left: 0;
-  }
-
-  [dir="rtl"] .right-1 {
-    right: unset;
-    left: 0.25rem;
-  }
-
-  [dir="rtl"] .right-2 {
-    right: unset;
-    left: 0.5rem;
-  }
-
-  [dir="rtl"] .right-3 {
-    right: unset;
-    left: 0.75rem;
-  }
-
-  [dir="rtl"] .right-4 {
-    right: unset;
-    left: 1rem;
-  }
-
-  [dir="rtl"] .right-5 {
-    right: unset;
-    left: 1.25rem;
-  }
-
-  [dir="rtl"] .right-6 {
-    right: unset;
-    left: 1.5rem;
-  }
-
-  [dir="rtl"] .right-8 {
-    right: unset;
-    left: 2rem;
-  }
-
-  [dir="rtl"] .right-10 {
-    right: unset;
-    left: 2.5rem;
-  }
-
-  [dir="rtl"] .right-12 {
-    right: unset;
-    left: 3rem;
-  }
-}
-
-@layer utilities {
   @keyframes float-in {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
-  .animate-float-in {
-    animation: float-in 600ms ease-out both;
-  }
+  .animate-float-in { animation: float-in 600ms ease-out both; }
 }

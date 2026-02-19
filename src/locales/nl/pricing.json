@@ -210,6 +210,7 @@
     "unableOpenPortal": "Kan factureringsportaal niet openen",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Laden…",
   "comparison": {
     "title": "Gedetailleerde planvergelijking",
     "feature": "[NEEDS TRANSLATION] Feature",

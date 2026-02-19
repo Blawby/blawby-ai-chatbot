@@ -210,6 +210,7 @@
     "unableOpenPortal": "Tidak dapat membuka portal penagihan",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Memuat…",
   "comparison": {
     "title": "Bandingkan Paket",
     "feature": "Fitur",

@@ -5,7 +5,7 @@ import { Input } from '@/shared/ui/input/Input';
 import { EmailInput } from '@/shared/ui/input/EmailInput';
 import { PhoneInput } from '@/shared/ui/input/PhoneInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import { Select, type SelectOption } from '@/shared/ui/input/Select';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
@@ -73,14 +73,14 @@ export interface AddressExperienceFormProps {
   inputClassName?: string;
 }
 
-const STATUS_OPTIONS: SelectOption[] = [
+const STATUS_OPTIONS: ComboboxOption[] = [
   { value: 'lead', label: 'Lead' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
   { value: 'archived', label: 'Archived' },
 ];
 
-const CURRENCY_OPTIONS: SelectOption[] = [
+const CURRENCY_OPTIONS: ComboboxOption[] = [
   { value: 'usd', label: 'USD' },
   { value: 'cad', label: 'CAD' },
   { value: 'eur', label: 'EUR' },
@@ -427,7 +427,7 @@ export const AddressExperienceForm = ({
                     );
                   case 'status':
                     return (
-                      <Select
+                      <Combobox
                         label={getLabel('status')}
                         value={(value as string) || ''}
                         onChange={handleChange}
@@ -435,11 +435,12 @@ export const AddressExperienceForm = ({
                         placeholder={getPlaceholder('status')}
                         disabled={disabled}
                         className={inputClassName}
+                        searchable={false}
                       />
                     );
                   case 'currency':
                     return (
-                      <Select
+                      <Combobox
                         label={getLabel('currency')}
                         value={(value as string) || ''}
                         onChange={handleChange}
@@ -447,6 +448,7 @@ export const AddressExperienceForm = ({
                         placeholder={getPlaceholder('currency')}
                         disabled={disabled}
                         className={inputClassName}
+                        searchable={false}
                       />
                     );
                   case 'address': {

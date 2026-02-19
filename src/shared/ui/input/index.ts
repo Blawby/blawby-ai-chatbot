@@ -1,5 +1,4 @@
 export { Switch } from './Switch';
-export { Select } from './Select';
 export { Input } from './Input';
 export { Textarea } from './Textarea';
 export { Checkbox } from './Checkbox';
@@ -19,7 +18,6 @@ export { MarkdownUploadTextarea } from './MarkdownUploadTextarea';
 export { SegmentedToggle } from './SegmentedToggle';
 
 export type { SwitchProps } from './Switch';
-export type { SelectProps, SelectOption } from './Select';
 export type { InputProps } from './Input';
 export type { TextareaProps } from './Textarea';
 export type { CheckboxProps } from './Checkbox';

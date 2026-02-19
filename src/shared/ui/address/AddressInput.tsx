@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks'
 import { AddressFields } from './AddressFields';
 import { cn } from '@/shared/utils/cn';
 import type { Address, AddressSuggestion } from '@/shared/types/address';
+import type { ComboboxOption } from '@/shared/ui/input/Combobox';
 
 export interface AddressInputProps {
   value: Partial<Address>;
@@ -16,7 +17,7 @@ export interface AddressInputProps {
   label?: string;
   placeholder?: string;
   showCountry?: boolean;
-  countryOptions?: Array<{ value: string; label: string }>;
+  countryOptions?: ComboboxOption[];
   minChars?: number;
   debounceMs?: number;
   enableAutocomplete?: boolean;

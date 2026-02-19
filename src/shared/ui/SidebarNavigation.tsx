@@ -150,8 +150,8 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                                 ? 'text-red-400 border-transparent hover:bg-red-500/10 active:bg-red-500/20'
                                 : 'text-input-text border-transparent hover:bg-white/10 active:bg-white/15'
                               : isActive
-                                ? 'bg-white/[0.12] text-white border-accent-500/50 shadow-lg shadow-accent-500/10 backdrop-blur-xl'
-                                : 'text-input-text/70 border-transparent hover:bg-white/[0.08] active:bg-white/[0.12] backdrop-blur-xl'
+                                ? 'nav-item-active'
+                                : 'nav-item-inactive active:bg-white/[0.12] backdrop-blur-xl'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -206,8 +206,8 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                                 ? 'text-red-400 border-transparent hover:bg-red-500/10 active:bg-red-500/20'
                                 : 'text-input-text border-transparent hover:bg-white/10 active:bg-white/15'
                               : isActive
-                                ? 'bg-white/[0.12] text-white border-accent-500/50 shadow-lg shadow-accent-500/10 backdrop-blur-xl'
-                                : 'text-input-text/70 border-transparent hover:bg-white/[0.08] active:bg-white/[0.12] backdrop-blur-xl'
+                                ? 'nav-item-active'
+                                : 'nav-item-inactive active:bg-white/[0.12] backdrop-blur-xl'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -252,14 +252,14 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                           }
                         }}
                         className={cn(
-                          'w-full flex items-center justify-between px-4 py-3 text-left transition-all duration-200 touch-manipulation',
+                          'w-full flex items-center justify-between px-4 py-3 text-left transition-all duration-200 touch-manipulation border',
                           isAction
                             ? isDanger
-                              ? 'text-red-400 hover:bg-red-500/10 active:bg-red-500/20'
-                              : 'text-input-text hover:bg-white/10 active:bg-white/15'
+                              ? 'text-red-400 border-transparent hover:bg-red-500/10 active:bg-red-500/20'
+                              : 'text-input-text border-transparent hover:bg-white/10 active:bg-white/15'
                             : isActive
-                              ? 'bg-white/[0.12] text-white border border-accent-500/50 shadow-lg shadow-accent-500/10 backdrop-blur-xl'
-                              : 'text-input-text hover:bg-white/[0.08] active:bg-white/[0.12] backdrop-blur-xl'
+                              ? 'nav-item-active'
+                              : 'nav-item-inactive active:bg-white/[0.12] backdrop-blur-xl'
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -337,8 +337,8 @@ export const SidebarNavigation: FunctionComponent<SidebarNavigationProps> = ({
                       ? 'text-red-400 bg-transparent border-transparent hover:bg-red-500/10 hover:border-red-500/20 active:bg-red-500/20'
                       : 'text-input-text bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/15'
                     : isActive
-                      ? 'bg-white/[0.12] text-white border-accent-500/50 shadow-lg shadow-accent-500/10 backdrop-blur-xl'
-                      : 'text-input-text/70 border-transparent hover:bg-white/[0.08] hover:text-input-text active:bg-white/[0.12] backdrop-blur-xl'
+                      ? 'nav-item-active'
+                      : 'nav-item-inactive hover:text-input-text active:bg-white/[0.12] backdrop-blur-xl'
                 )}
               >
                 <IconComponent className="w-5 h-5 flex-shrink-0" />

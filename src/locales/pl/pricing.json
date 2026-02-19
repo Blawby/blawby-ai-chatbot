@@ -208,8 +208,9 @@
     "noPracticeSelected": "Nie wybrano kancelarii",
     "selectPracticeToManage": "Wybierz kancelarię, aby zarządzać rozliczeniami.",
     "unableOpenPortal": "Nie można otworzyć portalu rozliczeniowego",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "Nieznany błąd podczas otwierania portalu rozliczeniowego."
   },
+  "loading": "Wczytywanie…",
   "comparison": {
     "title": "Szczegółowe porównanie planów",
     "feature": "[NEEDS TRANSLATION] Feature",

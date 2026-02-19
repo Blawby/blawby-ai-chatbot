@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, LogoUploadInput, Select } from '@/shared/ui/input';
+import { Input, LogoUploadInput } from '@/shared/ui/input';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui';
 import Modal from '@/shared/components/Modal';
@@ -28,7 +29,7 @@ import { SettingsDangerButton } from '@/features/settings/components/SettingsDan
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { AccountPreferences } from '@/shared/types/preferences';
-import { FormLabel } from '@/shared/ui/form';
+import { FormActions, FormLabel } from '@/shared/ui/form';
 
 
 export interface AccountPageProps {
@@ -879,7 +880,7 @@ export const AccountPage = ({
                 </div>
               }
             >
-              <Select
+              <Combobox
                 value={selectedDomain}
                 options={[
                   { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
@@ -889,6 +890,7 @@ export const AccountPage = ({
                 onChange={handleDomainChange}
                 placeholder={t('settings:account.links.selectOption')}
                 className="border-0 bg-transparent px-3 py-1 hover:bg-surface-glass/50 focus:ring-2 focus:ring-accent-500"
+                searchable={false}
               />
             </SettingRow>
 
@@ -1013,24 +1015,15 @@ export const AccountPage = ({
             error={domainError ?? undefined}
           />
           
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCloseDomainModal}
-              className="min-w-[80px]"
-            >
-              {t('settings:account.domainModal.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleDomainSubmit}
-              className="min-w-[80px]"
-            >
-              {t('settings:account.domainModal.submit')}
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            size="sm"
+            onCancel={handleCloseDomainModal}
+            onSubmit={handleDomainSubmit}
+            submitType="button"
+            cancelText={t('settings:account.domainModal.cancel')}
+            submitText={t('settings:account.domainModal.submit')}
+          />
         </div>
       </Modal>
     </SettingsPageLayout>

@@ -210,6 +210,7 @@
     "unableOpenPortal": "Не вдалося відкрити портал рахунків",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Завантаження…",
   "comparison": {
     "title": "Порівняти плани",
     "feature": "Функція",

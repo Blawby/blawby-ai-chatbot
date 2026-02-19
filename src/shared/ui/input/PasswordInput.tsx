@@ -109,13 +109,6 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
     return score;
   };
 
-  const getStrengthColor = (strength: number) => {
-    if (strength <= 1) return 'text-red-600 dark:text-red-400';
-    if (strength <= 2) return 'text-yellow-600 dark:text-yellow-400';
-    if (strength <= 3) return 'text-blue-600 dark:text-blue-400';
-    return 'text-green-600 dark:text-green-400';
-  };
-
   const getStrengthText = (strength: number) => {
     if (strength <= 1) return 'Very weak';
     if (strength <= 2) return 'Weak';
@@ -123,9 +116,22 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
     return 'Strong';
   };
 
+  const getStrengthVariant = (strength: number): 'error' | 'warning' | 'info' | 'success' => {
+    if (strength <= 1) return 'error';
+    if (strength <= 2) return 'warning';
+    if (strength <= 3) return 'info';
+    return 'success';
+  };
+
   const strength = calculateStrength(value);
-  const strengthColor = getStrengthColor(strength);
   const strengthText = getStrengthText(strength);
+  const strengthVariant = getStrengthVariant(strength);
+  const strengthVariantClasses: Record<'error' | 'warning' | 'info' | 'success', string> = {
+    error: 'status-error',
+    warning: 'status-warning',
+    info: 'status-info',
+    success: 'status-success'
+  };
 
   // Build aria-describedby attribute
   const describedByIds = [];
@@ -182,22 +188,11 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
       </div>
       
       {showStrength && value && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500 dark:text-gray-400">Password strength:</span>
-            <span className={strengthColor}>{strengthText}</span>
-          </div>
-          <div className="mt-1 w-full bg-line-default/60 rounded-full h-1">
-            <div
-              className={cn(
-                'h-1 rounded-full transition-all duration-300',
-                strength <= 1 ? 'bg-red-500' :
-                strength <= 2 ? 'bg-yellow-500' :
-                strength <= 3 ? 'bg-blue-500' : 'bg-green-500'
-              )}
-              style={{ width: `${(strength / 5) * 100}%` }}
-            />
-          </div>
+        <div className="mt-2 flex items-center justify-between text-xs text-input-placeholder">
+          <span>Password strength:</span>
+          <span className={cn('px-2 py-0.5 rounded-full font-medium', strengthVariantClasses[strengthVariant])}>
+            {strengthText}
+          </span>
         </div>
       )}
       

@@ -432,7 +432,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         startIndex,
         hasMoreMessages,
         isLoadingMoreMessages,
-        onLoadMoreMessages
+        onLoadMoreMessages,
+        showError
     ]);
 
     const debouncedHandleScroll = useMemo(() => {

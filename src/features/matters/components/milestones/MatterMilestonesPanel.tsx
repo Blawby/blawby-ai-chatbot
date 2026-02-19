@@ -2,9 +2,9 @@ import { useMemo, useState } from 'preact/hooks';
 import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { Input } from '@/shared/ui/input/Input';
-import { Select } from '@/shared/ui/input/Select';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
@@ -308,11 +308,12 @@ export const MatterMilestonesPanel = ({
             />
             <div>
               <span className="block text-sm font-medium text-input-text mb-1">Status</span>
-              <Select
+              <Combobox
                 value={formState.status}
                 options={statusOptions}
                 onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MilestoneStatus }))}
                 className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                searchable={false}
               />
             </div>
             {submitError && (

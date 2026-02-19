@@ -5,7 +5,6 @@ import { Textarea } from '@/shared/ui/input/Textarea';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { Combobox } from '@/shared/ui/input/Combobox';
-import { Select } from '@/shared/ui/input';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { Avatar } from '@/shared/ui/profile';
 import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
@@ -427,7 +426,7 @@ const MatterFormModalInner = ({
           </FormGrid>
           <FormGrid>
             <div className="w-full">
-              <Select
+              <Combobox
                 label="Urgency"
                 value={formState.urgency}
                 options={[
@@ -437,7 +436,8 @@ const MatterFormModalInner = ({
                   { value: 'emergency', label: 'Emergency' }
                 ]}
                 onChange={(value) => updateForm('urgency', value as MatterFormState['urgency'])}
-                className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                className="w-full"
+                searchable={false}
               />
             </div>
             <Combobox
@@ -710,7 +710,7 @@ const MatterFormModalInner = ({
           )}
         </div>
 
-        <div className="rounded-2xl border border-line-glass/30 bg-surface-overlay/55 backdrop-blur-xl p-4 flex items-center space-x-3">
+        <div className="glass-panel p-4 flex items-center space-x-3">
           <div className="shrink-0">
             <div className="p-2 rounded-full bg-surface-overlay/70 border border-line-glass/30">
               <ShieldCheckIcon className="h-6 w-6 text-input-text" />
@@ -729,7 +729,7 @@ const MatterFormModalInner = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line-glass/30 bg-surface-overlay/55 backdrop-blur-xl px-4 py-3 text-xs text-input-placeholder">
+        <div className="glass-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-input-placeholder">
           {submitError ? (
             <p className="text-red-400">{submitError}</p>
           ) : (

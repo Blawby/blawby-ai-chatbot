@@ -208,8 +208,9 @@
     "noPracticeSelected": "ไม่ได้เลือกสำนักงาน",
     "selectPracticeToManage": "กรุณาเลือกสำนักงานเพื่อจัดการการเรียกเก็บเงิน",
     "unableOpenPortal": "ไม่สามารถเปิดพอร์ทัลการเรียกเก็บเงินได้",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "unknownError": "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุขณะเปิดพอร์ทัลการเรียกเก็บเงิน"
   },
+  "loading": "กำลังโหลด…",
   "comparison": {
     "title": "เปรียบเทียบแผน",
     "feature": "ฟีเจอร์",

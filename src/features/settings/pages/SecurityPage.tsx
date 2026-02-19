@@ -18,6 +18,7 @@ import { SettingsDangerButton } from '@/features/settings/components/SettingsDan
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
+import { FormActions } from '@/shared/ui/form';
 
 // Local interface for user with security-related fields
 interface SecurityUser {
@@ -437,24 +438,16 @@ export const SecurityPage = ({
                 </div>
               </div>
               
-              <div className="flex gap-3 justify-end pt-4">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleCancelDisableMFA}
-                  className="min-w-[80px]"
-                >
-                  {t('settings:security.mfa.disable.cancel')}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleConfirmDisableMFA}
-                  className="bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700 focus:ring-orange-500 min-w-[80px]"
-                >
-                  {t('settings:security.mfa.disable.confirm')}
-                </Button>
-              </div>
+              <FormActions
+                className="justify-end"
+                size="sm"
+                onCancel={handleCancelDisableMFA}
+                onSubmit={handleConfirmDisableMFA}
+                submitType="button"
+                submitVariant="warning"
+                cancelText={t('settings:security.mfa.disable.cancel')}
+                submitText={t('settings:security.mfa.disable.confirm')}
+              />
             </div>
           </Modal>
         </>

@@ -28,9 +28,9 @@ export const SegmentedToggle = <T extends string>({
   const itemWidth = count > 0 ? 100 / count : 100;
 
   return (
-    <div
-      className={cn(
-        'relative inline-flex items-center rounded-full border border-line-glass/30 bg-transparent p-1 shadow-sm backdrop-blur-xl',
+      <div
+        className={cn(
+        'segmented-toggle',
         (disabled || options.length === 0) && 'opacity-60',
         className
       )}
@@ -39,7 +39,7 @@ export const SegmentedToggle = <T extends string>({
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-1 bottom-1 rounded-full bg-accent-500 transition-transform duration-300 ease-out"
+        className="segmented-toggle-thumb"
         style={{
           left: '0.25rem',
           width: `calc(${itemWidth}% - 0.5rem)`,
@@ -62,8 +62,8 @@ export const SegmentedToggle = <T extends string>({
             }}
             style={{ width: `${itemWidth}%` }}
             className={cn(
-              'relative z-10 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200',
-              isActive ? 'text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder hover:text-input-text',
+              'segmented-toggle-item whitespace-nowrap',
+              isActive ? 'segmented-toggle-item-active' : 'segmented-toggle-item-inactive',
               (disabled || option.disabled) && 'cursor-not-allowed'
             )}
           >
