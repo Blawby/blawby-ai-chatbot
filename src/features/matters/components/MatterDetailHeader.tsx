@@ -199,7 +199,7 @@ const StatusPopover = ({ currentStatus, onSelect, disabled }: StatusPopoverProps
                 role="option"
                 tabIndex={isFocused ? 0 : -1}
                 aria-selected={isSelected}
-                onClick={() => { onSelect(status); setOpen(false); }}
+                onClick={() => { onSelect(status); setOpen(false); buttonRef.current?.focus(); }}
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
