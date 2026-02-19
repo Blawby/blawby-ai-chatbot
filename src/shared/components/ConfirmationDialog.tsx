@@ -165,7 +165,12 @@ export default function ConfirmationDialog({
 
                 {/* Success Message */}
                 {showSuccessMessage && successMessage && (
-                  <div className="mt-4 rounded-lg status-success">
+                  <div className="mt-4 rounded-lg status-success p-3">
+                    {successMessage.title && (
+                      <p className="text-sm font-medium text-input-text mb-2">
+                        {successMessage.title}
+                      </p>
+                    )}
                     <p className="text-sm text-input-text">
                       {successMessage.body}
                     </p>

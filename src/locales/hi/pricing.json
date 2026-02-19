@@ -210,6 +210,7 @@
     "unableOpenPortal": "Unable to open billing portal",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "लोड हो रहा है…",
   "comparison": {
     "title": "योजनाओं की तुलना करें",
     "feature": "सुविधा",

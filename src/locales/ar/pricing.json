@@ -210,6 +210,7 @@
     "unableOpenPortal": "تعذر فتح بوابة الفواتير",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "جاري التحميل…",
   "comparison": {
     "title": "مقارنة الخطط",
     "feature": "الميزة",

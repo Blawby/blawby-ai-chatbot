@@ -242,8 +242,31 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   if (isSubscriptionsPlansRequest) {
     try {
       plansAuthContext = await optionalAuth(request, env);
-    } catch {
-      plansAuthContext = null;
+    } catch (error) {
+      // Log auth errors for subscriptions plans endpoint
+      // Distinguish between transient errors and invalid token errors
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isTransientError = 
+        errorMessage.includes('network') || 
+        errorMessage.includes('timeout') || 
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('Connection');
+      
+      if (isTransientError) {
+        console.error(
+          `[authProxy] Transient auth error for ${url.pathname}:`,
+          { message: errorMessage, requestPath: url.pathname }
+        );
+        // For transient errors, treat as unauthenticated to return cached/fresh response
+        plansAuthContext = null;
+      } else {
+        console.error(
+          `[authProxy] Auth validation error for ${url.pathname}:`,
+          { message: errorMessage, requestPath: url.pathname }
+        );
+        // For invalid token errors, also treat as unauthenticated
+        plansAuthContext = null;
+      }
     }
   }
   const plansCacheKey = isSubscriptionsPlansRequest

@@ -210,6 +210,7 @@
     "unableOpenPortal": "Não foi possível abrir o portal de faturação",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Carregando…",
   "comparison": {
     "title": "Comparar Planos",
     "feature": "Recurso",

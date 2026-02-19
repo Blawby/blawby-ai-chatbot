@@ -170,43 +170,50 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
       <div ref={ref} className={cn('space-y-4', className)}>
 
         {/* ── Street address + autocomplete ─────────────────────────── */}
-        <div className="relative">
-          <Input
-            label={label}
-            placeholder={placeholder ?? 'Street address'}
-            value={streetAddressProps?.value ?? safe.address ?? ''}
-            onChange={(v) =>
-              streetAddressProps ? streetAddressProps.onChange(v) : update('address', v)
-            }
-            disabled={disabled}
-            required={isRequired('address')}
-            error={getError('address')}
-            variant={hasError('address') ? 'error' : variant}
-            size={size}
-            className={cn(
-              fieldCn('address'),
-              streetAddressProps?.isOpen && 'ring-2 ring-accent-500/50'
-            )}
-            autoComplete="off"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={streetAddressProps?.isOpen ?? false}
-            aria-controls={streetAddressProps?.isOpen ? listboxId : undefined}
-            aria-activedescendant={
-              streetAddressProps?.selectedIndex >= 0 &&
-              streetAddressProps.suggestions[streetAddressProps.selectedIndex]
-                ? `address-suggestion-${streetAddressProps.suggestions[streetAddressProps.selectedIndex].id}`
-                : undefined
-            }
-            onKeyDown={streetAddressProps?.onKeyDown}
-          />
-
-          {/* Spinner — uses accent token, not hardcoded blue */}
-          {streetAddressProps?.isLoading && (
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-accent-500" />
-            </div>
+        <div>
+          {label && (
+            <label className="mb-1 block text-sm font-medium text-input-text">
+              {label}
+            </label>
           )}
+          <div className="relative">
+            <Input
+              label=""
+              placeholder={placeholder ?? 'Street address'}
+              value={streetAddressProps?.value ?? safe.address ?? ''}
+              onChange={(v) =>
+                streetAddressProps ? streetAddressProps.onChange(v) : update('address', v)
+              }
+              disabled={disabled}
+              required={isRequired('address')}
+              error={getError('address')}
+              variant={hasError('address') ? 'error' : variant}
+              size={size}
+              className={cn(
+                fieldCn('address'),
+                streetAddressProps?.isOpen && 'ring-2 ring-accent-500/50'
+              )}
+              autoComplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={streetAddressProps?.isOpen ?? false}
+              aria-controls={streetAddressProps?.isOpen ? listboxId : undefined}
+              aria-activedescendant={
+                streetAddressProps?.selectedIndex >= 0 &&
+                streetAddressProps.suggestions[streetAddressProps.selectedIndex]
+                  ? `address-suggestion-${streetAddressProps.suggestions[streetAddressProps.selectedIndex].id}`
+                  : undefined
+              }
+              onKeyDown={streetAddressProps?.onKeyDown}
+            />
+
+            {/* Spinner — uses accent token, not hardcoded blue */}
+            {streetAddressProps?.isLoading && (
+              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-accent-500" />
+              </div>
+            )}
+          </div>
 
           {/* Autocomplete suggestions dropdown */}
           {streetAddressProps?.isOpen && !streetAddressProps.disabled && (
@@ -279,7 +286,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
         <div className={cn('grid gap-4 grid-cols-1', showCountry ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
 
           {/* City */}
-          <div className={showCountry ? 'sm:col-span-2' : 'sm:col-span-1'}>
+          <div className={'sm:col-span-1'}>
             <Input
               label=""
               placeholder="City"

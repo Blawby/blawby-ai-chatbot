@@ -210,6 +210,7 @@
     "unableOpenPortal": "无法打开账单门户",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "加载中…",
   "comparison": {
     "title": "比较计划",
     "feature": "功能",

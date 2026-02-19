@@ -210,6 +210,7 @@
     "unableOpenPortal": "청구 포털을 열 수 없습니다",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "로드 중…",
   "comparison": {
     "title": "상세 플랜 비교",
     "feature": "[NEEDS TRANSLATION] Feature",

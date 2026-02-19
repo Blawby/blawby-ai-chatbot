@@ -210,6 +210,7 @@
     "unableOpenPortal": "Impossibile aprire il portale di fatturazione",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Caricamento in corso…",
   "comparison": {
     "title": "Confronto dettagliato dei piani",
     "feature": "[NEEDS TRANSLATION] Feature",

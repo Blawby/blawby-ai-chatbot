@@ -75,7 +75,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   if (!plan) {
     return (
       <div className="flex items-center justify-center p-6 text-center">
-        <p className="text-sm text-input-placeholder">Loading…</p>
+        <p className="text-sm text-input-placeholder">{t('pricing:loading')}</p>
       </div>
     );
   }

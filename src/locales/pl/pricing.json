@@ -210,6 +210,7 @@
     "unableOpenPortal": "Nie można otworzyć portalu rozliczeniowego",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Wczytywanie…",
   "comparison": {
     "title": "Szczegółowe porównanie planów",
     "feature": "[NEEDS TRANSLATION] Feature",

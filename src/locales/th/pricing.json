@@ -210,6 +210,7 @@
     "unableOpenPortal": "ไม่สามารถเปิดพอร์ทัลการเรียกเก็บเงินได้",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "กำลังโหลด…",
   "comparison": {
     "title": "เปรียบเทียบแผน",
     "feature": "ฟีเจอร์",

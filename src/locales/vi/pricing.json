@@ -210,6 +210,7 @@
     "unableOpenPortal": "Không thể mở cổng thanh toán",
     "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Đang tải…",
   "comparison": {
     "title": "So sánh gói",
     "feature": "Tính năng",
