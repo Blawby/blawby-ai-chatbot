@@ -280,20 +280,30 @@ export const toMatterDetail = (
   notes: []
 });
 
-export const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => ({
-  id: entry.id,
-  startTime: entry.start_time ?? new Date().toISOString(),
-  endTime: entry.end_time ?? new Date().toISOString(),
-  description: entry.description ?? ''
-});
+export const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => {
+  if (!entry.start_time || !entry.end_time) {
+    throw new Error(`Invalid time entry: missing required timestamps (id: ${entry.id})`);
+  }
+  return {
+    id: entry.id,
+    startTime: entry.start_time,
+    endTime: entry.end_time,
+    description: entry.description ?? ''
+  };
+};
 
-export const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
-  id: expense.id,
-  description: expense.description ?? 'Expense',
-  amount: asMajor(expense.amount ?? 0),
-  date: expense.date ?? new Date().toISOString().slice(0, 10),
-  billable: expense.billable ?? true
-});
+export const toExpense = (expense: BackendMatterExpense): MatterExpense => {
+  if (!expense.date) {
+    throw new Error(`Invalid expense: missing required date (id: ${expense.id})`);
+  }
+  return {
+    id: expense.id,
+    description: expense.description ?? 'Expense',
+    amount: asMajor(expense.amount ?? 0),
+    date: expense.date,
+    billable: expense.billable ?? true
+  };
+};
 
 export const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestones'][number] => ({
   id: milestone.id,
@@ -345,7 +355,7 @@ export const buildFormStateFromDetail = (detail: MatterDetail, overrides?: Parti
 // MatterFormState → API payload builders
 // ---------------------------------------------------------------------------
 
-const nullIfEmpty = (value: string | undefined | null): string | null | undefined =>
+export const nullIfEmpty = (value: string | undefined | null): string | null | undefined =>
   value === '' ? null : value || undefined;
 
 const uuidOrNull = (value: string | undefined | null): string | null | undefined => {

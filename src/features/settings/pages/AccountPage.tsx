@@ -365,7 +365,7 @@ export const AccountPage = ({
   const selectedDomain = links?.selectedDomain && links.selectedDomain !== 'Select a domain'
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
-  const showLinksSection = false;
+  const showLinksSection = true;
   const showFeedbackToggle = false;
 
 

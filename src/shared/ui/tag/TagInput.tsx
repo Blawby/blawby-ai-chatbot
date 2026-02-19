@@ -511,8 +511,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
                 onClick={() => addTag(suggestion)}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm text-input-text',
-                  'hover:bg-white/[0.04]',
-                  'focus:outline-none focus:bg-white/[0.08]',
+                  'hover:bg-white/[0.12]',
+                  'focus:outline-none focus:bg-white/[0.12]',
                   focusedSuggestionIndex === index && 'bg-accent-50 dark:bg-accent-900/20'
                 )}
               >

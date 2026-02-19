@@ -23,6 +23,7 @@ import { type MatterFormState } from '@/features/matters/components/MatterCreate
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { cn } from '@/shared/utils/cn';
 import { asMajor } from '@/shared/utils/money';
+import { nullIfEmpty } from '@/features/matters/utils/matterUtils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,10 +43,10 @@ type EditingGroup = 'identifiers' | 'parties' | 'jurisdiction' | 'attorneys' | '
 // ---------------------------------------------------------------------------
 
 const URGENCY_OPTIONS = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'critical', label: 'Critical' }
+  { value: 'routine', label: 'Routine' },
+  { value: 'time_sensitive', label: 'Time Sensitive' },
+  { value: 'emergency', label: 'Emergency' },
+  { value: '', label: 'None' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -210,6 +211,7 @@ export const MatterDetailsPanel = ({
 }: MatterDetailsPanelProps) => {
   const [editing, setEditing] = useState<EditingGroup>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Draft state (populated when a group enters edit mode) ────────────────
   const [draftIdentifiers, setDraftIdentifiers] = useState({
@@ -270,9 +272,13 @@ export const MatterDetailsPanel = ({
   // ── Commit save ───────────────────────────────────────────────────────────
   const commitSave = async (patch: Partial<MatterFormState>) => {
     setSaving(true);
+    setSaveError(null);
     try {
       await onSave(patch);
       setEditing(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save changes';
+      setSaveError(message);
     } finally {
       setSaving(false);
     }
@@ -280,32 +286,32 @@ export const MatterDetailsPanel = ({
 
   const saveIdentifiers = () =>
     commitSave({
-      caseNumber: draftIdentifiers.caseNumber || undefined,
-      matterType: draftIdentifiers.matterType || undefined,
-      urgency: (draftIdentifiers.urgency as MatterFormState['urgency']) || undefined
+      caseNumber: nullIfEmpty(draftIdentifiers.caseNumber) as string,
+      matterType: nullIfEmpty(draftIdentifiers.matterType) as string,
+      urgency: nullIfEmpty(draftIdentifiers.urgency) as MatterFormState['urgency']
     });
 
   const saveParties = () =>
     commitSave({
-      opposingParty: draftParties.opposingParty || undefined,
-      opposingCounsel: draftParties.opposingCounsel || undefined
+      opposingParty: nullIfEmpty(draftParties.opposingParty) as string,
+      opposingCounsel: nullIfEmpty(draftParties.opposingCounsel) as string
     });
 
   const saveJurisdiction = () =>
     commitSave({
-      court: draftJurisdiction.court || undefined,
-      judge: draftJurisdiction.judge || undefined
+      court: nullIfEmpty(draftJurisdiction.court) as string,
+      judge: nullIfEmpty(draftJurisdiction.judge) as string
     });
 
   const saveAttorneys = () =>
     commitSave({
-      responsibleAttorneyId: draftAttorneys.responsibleAttorneyId || undefined,
-      originatingAttorneyId: draftAttorneys.originatingAttorneyId || undefined
+      responsibleAttorneyId: nullIfEmpty(draftAttorneys.responsibleAttorneyId) as string,
+      originatingAttorneyId: nullIfEmpty(draftAttorneys.originatingAttorneyId) as string
     });
 
   const saveFinancial = () => {
     const raw = parseFloat(draftFinancial.settlementAmount);
-    const amount = !Number.isNaN(raw) ? asMajor(raw) : undefined;
+    const amount = !Number.isNaN(raw) ? asMajor(raw) : (draftFinancial.settlementAmount === '' ? null : undefined);
     void commitSave({ settlementAmount: amount });
   };
 
@@ -363,6 +369,11 @@ export const MatterDetailsPanel = ({
       {showGroup(identifiersHasData, 'identifiers') && (
         <div className="group px-5 py-4">
           <SectionHeader title="Case" {...sectionProps('identifiers')} />
+          {saveError && editing === 'identifiers' && (
+            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              {saveError}
+            </div>
+          )}
           {editing === 'identifiers' ? (
             <div className="grid gap-3 sm:grid-cols-3">
               <InlineInput
@@ -409,6 +420,11 @@ export const MatterDetailsPanel = ({
       {showGroup(partiesHasData, 'parties') && (
         <div className="group px-5 py-4">
           <SectionHeader title="Parties" {...sectionProps('parties')} />
+          {saveError && editing === 'parties' && (
+            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              {saveError}
+            </div>
+          )}
           {editing === 'parties' ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <InlineInput
@@ -437,6 +453,11 @@ export const MatterDetailsPanel = ({
       {showGroup(jurisdictionHasData, 'jurisdiction') && (
         <div className="group px-5 py-4">
           <SectionHeader title="Jurisdiction" {...sectionProps('jurisdiction')} />
+          {saveError && editing === 'jurisdiction' && (
+            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              {saveError}
+            </div>
+          )}
           {editing === 'jurisdiction' ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <InlineInput
@@ -465,6 +486,11 @@ export const MatterDetailsPanel = ({
       {showGroup(attorneysHasData, 'attorneys') && (
         <div className="group px-5 py-4">
           <SectionHeader title="Attorneys" {...sectionProps('attorneys')} />
+          {saveError && editing === 'attorneys' && (
+            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              {saveError}
+            </div>
+          )}
           {editing === 'attorneys' ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -514,6 +540,11 @@ export const MatterDetailsPanel = ({
       {showGroup(financialHasData, 'financial') && (
         <div className="group px-5 py-4">
           <SectionHeader title="Financial" {...sectionProps('financial')} />
+          {saveError && editing === 'financial' && (
+            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              {saveError}
+            </div>
+          )}
           {editing === 'financial' ? (
             <div className="max-w-xs">
               <InlineCurrencyInput
