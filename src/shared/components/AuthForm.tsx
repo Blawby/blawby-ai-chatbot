@@ -278,7 +278,7 @@ const AuthForm = ({
               <div className="w-full border-t border-line-glass/30" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-transparent text-input-placeholder font-medium backdrop-blur-sm">{t('common.orContinueWithEmail')}</span>
+              <span className="px-2 bg-[rgb(var(--surface-overlay))] text-input-placeholder font-medium">{t('common.orContinueWithEmail')}</span>
             </div>
           </div>
         )}
