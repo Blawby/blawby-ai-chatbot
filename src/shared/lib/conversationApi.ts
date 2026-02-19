@@ -107,6 +107,7 @@ export const fetchLatestConversationMessage = async (
   };
   const params = buildPracticeParams(practiceId);
   params.set('limit', '1');
+  params.set('source', 'preview');
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
     {

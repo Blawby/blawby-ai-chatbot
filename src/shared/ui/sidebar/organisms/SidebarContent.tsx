@@ -10,7 +10,6 @@ import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
 import UserProfile from '@/shared/components/UserProfile';
 import type { ComponentChildren } from 'preact';
-import type { SubscriptionTier } from '@/shared/types/user';
 import type { MatterStatus } from '@/shared/types/matter';
 
 export interface SidebarNavItem {
@@ -32,10 +31,6 @@ interface SidebarContentProps {
   };
   navItems: SidebarNavItem[];
   onClose?: () => void;
-  currentPractice?: {
-    id: string;
-    subscriptionTier?: SubscriptionTier;
-  } | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -44,7 +39,6 @@ export const SidebarContent = ({
   practiceConfig,
   navItems,
   onClose,
-  currentPractice,
   isCollapsed,
   onToggleCollapse
 }: SidebarContentProps) => {
@@ -82,8 +76,7 @@ export const SidebarContent = ({
 
       {/* User Profile Section */}
       <UserProfile 
-        isCollapsed={isCollapsed} 
-        currentPractice={currentPractice} 
+        isCollapsed={isCollapsed}
       />
     </div>
   );

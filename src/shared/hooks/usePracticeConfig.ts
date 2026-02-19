@@ -16,7 +16,6 @@ const PracticeSchema = z.object({
   createdAt: z.union([z.number(), z.string()]).optional(),
   updatedAt: z.union([z.number(), z.string()]).nullable().optional(), // API can return null or string
   stripeCustomerId: z.string().nullable().optional(), // API can return null
-  subscriptionTier: z.string().optional(),
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
@@ -40,7 +39,7 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
-  accentColor: 'grey',
+  accentColor: 'gold',
   voice: {
     enabled: false,
     provider: 'cloudflare',
@@ -72,6 +71,12 @@ export const usePracticeConfig = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>(() => buildDefaultPracticeConfig());
   const refreshKeyRef = useRef<string | number | null | undefined>(refreshKey);
+
+  // Store onError in a ref so it never appears in useCallback deps.
+  // This prevents fetchPracticeConfig from being recreated every render when
+  // callers pass inline arrow functions (which is the common pattern in route components).
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   // Use ref to track if we've already fetched for this practiceId
   const fetchedPracticeIds = useRef<Set<string>>(new Set());
@@ -151,7 +156,10 @@ export const usePracticeConfig = ({
         if (publicDetails) {
           const details = publicDetails.details;
           const resolvedDetailsId = publicDetails.practiceId ?? currentPracticeId;
-          if (details && resolvedDetailsId) {
+          if (details) {
+            setPracticeDetailsEntry(currentPracticeId, details);
+          }
+          if (details && resolvedDetailsId && resolvedDetailsId !== currentPracticeId) {
             setPracticeDetailsEntry(resolvedDetailsId, details);
           }
           const config = buildDefaultPracticeConfig({
@@ -161,7 +169,7 @@ export const usePracticeConfig = ({
             profileImage: publicDetails.logo ?? null,
             introMessage: details?.introMessage ?? '',
             description: details?.description ?? '',
-            accentColor: details?.accentColor ?? 'grey',
+            accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
           });
 
@@ -218,7 +226,7 @@ export const usePracticeConfig = ({
           serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
-          accentColor: cfg.accentColor ?? 'grey',
+          accentColor: cfg.accentColor ?? 'gold',
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',
@@ -248,7 +256,7 @@ export const usePracticeConfig = ({
       }
       console.warn('Failed to fetch practice config:', error);
       setPracticeNotFound(true);
-      onError?.('Failed to load practice configuration');
+      onErrorRef.current?.('Failed to load practice configuration');
     } finally {
       // Clear the current request ref and reset loading state
       if (currentRequestRef.current?.practiceId === currentPracticeId) {
@@ -257,7 +265,7 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  }, [allowUnauthenticated, onError]);
+  }, [allowUnauthenticated]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {
@@ -289,6 +297,7 @@ export const usePracticeConfig = ({
     if (!practiceId) return;
     if (refreshKey === undefined) return;
     if (refreshKeyRef.current === refreshKey) return;
+    refreshKeyRef.current = refreshKey;
     fetchedPracticeIds.current.delete(practiceId);
     fetchPracticeConfig(practiceId);
   }, [fetchPracticeConfig, practiceId, refreshKey]);

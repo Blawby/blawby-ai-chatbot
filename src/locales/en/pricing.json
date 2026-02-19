@@ -277,6 +277,11 @@
     }
   },
   "billing": {
+    "monthly": "Monthly",
+    "annually": "Annually",
+    "yearly": "year",
+    "billedMonthly": "Billed monthly. Cancel anytime.",
+    "billedAnnually": "Billed annually. Cancel anytime.",
     "noPracticeSelected": "No practice selected",
     "selectPracticeToManage": "Please select a practice to manage billing.",
     "unableOpenPortal": "Unable to open billing portal",
@@ -292,5 +297,9 @@
     "benefits": "Benefits:",
     "limitations": "Limitations:"
   },
-  "upgradeFailed": "Upgrade failed"
+  "upgradeFailed": "Upgrade failed",
+  "noFeatures": "This plan has no features.",
+  "upgradeButton": "Upgrade for {{price}}",
+  "autoRenewsDisclaimer": "Auto-renews monthly. Cancel anytime.",
+  "errorGeneric": "Unable to load pricing information, please try again later."
 }

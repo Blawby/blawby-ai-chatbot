@@ -1,7 +1,6 @@
 import { useState } from 'preact/hooks';
 import { SidebarContent, type SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
-import type { SubscriptionTier } from '@/shared/types/user';
 
 interface LeftSidebarProps {
   navItems: SidebarNavItem[];
@@ -13,15 +12,16 @@ interface LeftSidebarProps {
   };
   currentPractice?: {
     id: string;
-    subscriptionTier?: SubscriptionTier;
+    kind?: 'personal' | 'business' | 'practice';
+    subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+    isPersonal?: boolean | null;
   } | null;
 }
 
 const LeftSidebar = ({
   navItems,
   onClose,
-  practiceConfig,
-  currentPractice
+  practiceConfig
 }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
@@ -35,7 +35,6 @@ const LeftSidebar = ({
         practiceConfig={practiceConfig}
         navItems={navItems}
         onClose={onClose}
-        currentPractice={currentPractice}
         isCollapsed={shouldShowCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />

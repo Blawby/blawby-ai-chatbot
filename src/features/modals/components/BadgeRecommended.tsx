@@ -7,7 +7,7 @@ interface BadgeRecommendedProps {
 
 const BadgeRecommended: FunctionComponent<BadgeRecommendedProps> = ({ children, className }) => {
   return (
-    <span className={`bg-accent-500 text-gray-900 text-xs font-medium px-3 py-1 rounded-full ${className || ''}`}>
+    <span className={`bg-accent-500 text-[rgb(var(--accent-foreground))] text-xs font-medium px-3 py-1 rounded-full ${className || ''}`}>
       {children || 'RECOMMENDED'}
     </span>
   );

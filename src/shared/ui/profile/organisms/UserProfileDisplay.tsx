@@ -15,77 +15,29 @@ import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { type SubscriptionTier } from '@/shared/types/user';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { getCurrentSubscription } from '@/shared/lib/apiClient';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
-  currentPractice?: {
-    id: string;
-    subscriptionTier?: SubscriptionTier;
-  } | null;
 }
 
 export const UserProfileDisplay = ({ 
-  isCollapsed = false, 
-  currentPractice 
+  isCollapsed = false
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { session, isPending, error, activeOrganizationId } = useSessionContext();
+  const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
-  const { currentPractice: managedPractice } = usePracticeManagement();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
-  const practiceForTier = currentPractice ?? managedPractice ?? null;
-  const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean>(false);
-  const sessionUserId = session?.user?.id ?? null;
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-
-    if (!sessionUserId || !activeOrganizationId) {
-      setHasActiveSubscription(false);
-      return () => {
-        isMounted = false;
-        controller.abort();
-      };
-    }
-
-    (async () => {
-      try {
-        const subscription = await getCurrentSubscription({ signal: controller.signal });
-        if (!isMounted) return;
-        setHasActiveSubscription(Boolean(subscription));
-      } catch (fetchError) {
-        if (!isMounted) return;
-        console.warn('[Profile] Failed to fetch current subscription', fetchError);
-        setHasActiveSubscription(false);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, [activeOrganizationId, sessionUserId]);
-
-  const resolvedSubscriptionTier: SubscriptionTier =
-    practiceForTier?.subscriptionTier ?? (hasActiveSubscription ? 'business' : 'free');
 
   // Derive user data from session and practice
   const user = session?.user ? {
     id: session.user.id,
     name: session.user.name || session.user.email || 'User',
     email: session.user.email,
-    image: session.user.image,
-    practiceId: practiceForTier?.id || null,
-    role: 'user',
-    phone: null,
-    subscriptionTier: resolvedSubscriptionTier
+    image: session.user.image
   } : null;
 
 
@@ -120,10 +72,6 @@ export const UserProfileDisplay = ({
     navigateToAuth('signin');
   };
 
-  const handleUpgrade = () => {
-    navigate('/pricing');
-  };
-
   const handleProfileClick = () => {
     if (isMobile) {
       // On mobile, directly navigate to settings
@@ -143,11 +91,6 @@ export const UserProfileDisplay = ({
       return;
     }
     navigate('/settings');
-  };
-
-  const handleUpgradeClick = () => {
-    setShowDropdown(false);
-    navigate('/pricing');
   };
 
   const handleHelpClick = () => {
@@ -238,17 +181,14 @@ export const UserProfileDisplay = ({
         <ProfileButton
           name={user.name}
           image={user.image}
-          tier={user.subscriptionTier}
+          secondaryText={user.email ?? null}
           isCollapsed={isCollapsed}
           onClick={handleProfileClick}
-          onUpgrade={handleUpgrade}
         />
         
         {/* Dropdown - only show on desktop */}
         {showDropdown && !isMobile && (
           <ProfileDropdown
-            tier={user.subscriptionTier}
-            onUpgrade={handleUpgradeClick}
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}
             onLogout={handleLogoutClick}

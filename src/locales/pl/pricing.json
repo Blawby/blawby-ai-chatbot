@@ -216,5 +216,9 @@
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
   },
-  "upgradeFailed": "Aktualizacja nie powiodła się"
+  "upgradeFailed": "Uaktualnienie nie powiodło się",
+  "noFeatures": "Ten plan nie ma żadnych funkcji.",
+  "upgradeButton": "Uaktualnij za {{price}}",
+  "autoRenewsDisclaimer": "Automatyczne odnawianie co miesiąc. Anuluj w dowolnym momencie.",
+  "errorGeneric": "Nie można załadować informacji o cenach, spróbuj ponownie później."
 }

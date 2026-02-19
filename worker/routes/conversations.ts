@@ -184,6 +184,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('limit must be a positive integer');
     }
     const cursor = url.searchParams.get('cursor') || undefined;
+    const requestSource = url.searchParams.get('source') || undefined;
+    const traceId = `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const fromSeqParam = url.searchParams.get('from_seq');
     const fromSeq = fromSeqParam !== null ? parseInt(fromSeqParam, 10) : undefined;
 
@@ -196,12 +198,24 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       }
     }
 
+    Logger.info('[Conversations][messages] request', {
+      traceId,
+      routeConversationId: conversationId,
+      routePracticeId: conversationPracticeId,
+      limit,
+      cursor: cursor ?? null,
+      fromSeq: fromSeq ?? null,
+      requestSource: requestSource ?? null
+    });
+
     let result;
     try {
       result = await conversationService.getMessages(conversationId, conversationPracticeId, {
         limit,
         cursor,
-        fromSeq
+        fromSeq,
+        traceId,
+        requestSource
       });
     } catch (error) {
       Logger.warn('[Conversations] Failed to fetch messages', {

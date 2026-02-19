@@ -9,25 +9,24 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { signOut } from '@/shared/utils/auth';
-import { TIER_FEATURES } from '@/shared/utils/stripe-products';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
+import { useLocation } from 'preact-iso';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { displayPlan, hasManagedSubscription } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
 import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
+import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
-import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
+import type { UserLinks, EmailSettings } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
+import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import type { AccountPreferences } from '@/shared/types/preferences';
 import { FormLabel } from '@/shared/ui/form';
 
@@ -40,24 +39,35 @@ export interface AccountPageProps {
 
 const DOMAIN_SELECT_VALUE = '__select__';
 
+const parsePeriodEndDate = (value: string | number | null | undefined): Date | null => {
+  if (value === null || value === undefined) return null;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    const d = new Date(numeric * 1000);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 export const AccountPage = ({
   isMobile: _isMobile = false,
   onClose: _onClose,
   className = ''
 }: AccountPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const { navigate } = useNavigation();
+  const location = useLocation();
+  const { navigate, navigateToPricing } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
-  const { session, isPending, activeMemberRole } = useSessionContext();
+  const { session, isPending, activeMemberRole, workspaceAccess } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
-  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [domainInput, setDomainInput] = useState('');
@@ -70,18 +80,14 @@ export const AccountPage = ({
   const avatarObjectUrlRef = useRef<string | null>(null);
   
 
-  const hasSubscription = hasManagedSubscription(
-    currentPractice?.kind,
-    currentPractice?.subscriptionStatus,
-    currentPractice?.isPersonal ?? null
-  );
+  const hasSubscription = workspaceAccess.practice;
   
-  // Get renewal date from subscription period_end (stored in seconds, from Stripe webhooks)
+  // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {
-    if (!hasSubscription || !currentPractice?.subscriptionPeriodEnd) return null;
-    // subscriptionPeriodEnd is stored as Unix timestamp in seconds
-    return new Date(currentPractice.subscriptionPeriodEnd * 1000);
-  }, [hasSubscription, currentPractice?.subscriptionPeriodEnd]);
+    if (!hasSubscription) return null;
+    return parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
+           parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
+  }, [hasSubscription, currentSubscription?.currentPeriodEnd, currentPractice?.subscriptionPeriodEnd]);
 
   const clearLocalAuthState = useCallback(() => {
     try {
@@ -125,17 +131,13 @@ export const AccountPage = ({
         securityAlerts: prefs?.security_alerts ?? true
       };
       
-      const practiceTier = currentPractice?.subscriptionTier;
-      const displayTier = practiceTier ?? (hasSubscription ? 'business' : 'free');
-      
       setLinks(linksData);
       setEmailSettings(emailData);
-      setCurrentTier(displayTier as SubscriptionTier);
     } catch (error) {
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
     }
-  }, [session?.user, currentPractice?.subscriptionTier, hasSubscription]);
+  }, [session?.user]);
 
   // Load account data when component mounts or practice changes
   // Only load when practice data is available (not loading) and session is available
@@ -161,38 +163,19 @@ export const AccountPage = ({
   const isOwner = activeMemberRole === 'owner';
   const canManageBilling = isOwner;
 
-  const resolveSubscriptionEnd = (value: string | null | undefined): Date | null => {
-    if (!value) return null;
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
-      return new Date(numeric * 1000);
-    }
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? null : date;
-  };
-
-  const subscriptionStatus = (currentSubscription?.status ?? '').toLowerCase();
-  const subscriptionEnd = resolveSubscriptionEnd(currentSubscription?.currentPeriodEnd);
-  const hasActiveSubscription = Boolean(
-    currentSubscription?.id &&
-    subscriptionStatus &&
-    subscriptionStatus !== 'canceled'
-  );
+  const subscriptionStatus = (currentSubscription?.status ?? 'none').toLowerCase();
+  const subscriptionEnd = parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
+                           parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
+  const hasActiveSubscription = currentSubscription !== null && 
+    ['active', 'trialing', 'past_due'].includes((currentSubscription.status || '').toLowerCase());
   const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
   const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
-  const deletionBlockedBySubscriptionCheck = isOwner && Boolean(subscriptionError);
-  const isDeleteBlocked = deletionBlockedBySubscription || deletionBlockedBySubscriptionCheck;
+  const isDeleteBlocked = deletionBlockedBySubscription;
   const deletionBlockedMessage = (() => {
-    if (subscriptionLoading) {
-      return 'Checking subscription status...';
-    }
-    if (deletionBlockedBySubscriptionCheck) {
-      return 'Unable to verify your subscription status. Please try again.';
-    }
     if (!deletionBlockedBySubscription) {
       return '';
     }
-    if (currentSubscription?.cancelAtPeriodEnd && subscriptionEnd) {
+    if (subscriptionStatus === 'canceled' && subscriptionEnd) {
       return `Subscription will end on ${formatDate(subscriptionEnd)}. You can delete your account after it ends.`;
     }
     if (subscriptionEnd) {
@@ -206,57 +189,74 @@ export const AccountPage = ({
     ? window.location.origin
     : '';
 
+  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
+    if (!session?.user) return;
+    setSubscriptionLoading(true);
+    try {
+      const subscription = await getCurrentSubscription({ signal });
+      setCurrentSubscription(subscription);
+      setSubscriptionError(null);
+    } catch (fetchError) {
+      if (signal?.aborted) {
+        return;
+      }
+      console.error('[Account] Failed to load subscription state', fetchError);
+      setSubscriptionError('Unable to load subscription state from API.');
+      setCurrentSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [session?.user]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setCurrentSubscription(null);
+      setSubscriptionError(null);
+      setSubscriptionLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    void refreshSubscription(controller.signal);
+    return () => controller.abort();
+  }, [refreshSubscription, session?.user]);
+
   // Refetch after return from Stripe portal or checkout
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
-      refetch()
-        .then(() => {
-          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        })
-        .catch((error) => {
+      const controller = new AbortController();
+      
+      // Cleanup URL immediately to avoid re-triggering on slow re-renders
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('sync');
+      location.route(newUrl.pathname + newUrl.search, true);
+
+      void (async () => {
+        let refreshSucceeded = false;
+        try {
+          await refreshSubscription(controller.signal);
+          refreshSucceeded = true;
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          console.error('Failed to refresh current subscription:', error);
+        }
+
+        try {
+          // Note: refetch from usePracticeManagement does not currently support AbortSignal cancellation
+          await refetch();
+          if (!controller.signal.aborted && refreshSucceeded) {
+            showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+          }
+        } catch (error) {
+          if (controller.signal.aborted) return;
           console.error('Failed to refresh subscription:', error);
-          // Don't show error toast - refetch failure is not critical
-        })
-        .finally(() => {
-          // Remove sync param to prevent re-trigger (URL hygiene)
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
-        });
+        }
+      })();
+
+      return () => controller.abort();
     }
-  }, [currentPractice?.id, refetch, showSuccess]);
-
-  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
-    setSubscriptionLoading(true);
-    setSubscriptionError(null);
-
-    try {
-      const subscription = await getCurrentSubscription({ signal });
-      setCurrentSubscription(subscription);
-    } catch (fetchError) {
-      console.warn('[Account] Failed to load current subscription', fetchError);
-      setSubscriptionError('Unable to verify subscription status.');
-      setCurrentSubscription(null);
-    } finally {
-      setSubscriptionLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!session?.user) {
-      setCurrentSubscription(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    void refreshSubscription(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, [refreshSubscription, session?.user]);
+  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess, location]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
@@ -272,9 +272,16 @@ export const AccountPage = ({
   // No need for custom event listeners - Better Auth handles reactivity automatically
 
   // Simple computed values for demo - only compute when currentTier is available
-  const currentPlanFeatures = currentTier && (currentTier === 'free' || currentTier === 'business')
-    ? TIER_FEATURES[currentTier]
-    : TIER_FEATURES['business'];
+  const currentPlanFeatures = (() => {
+    const backendFeatures = currentSubscription?.plan?.features;
+    if (!Array.isArray(backendFeatures)) {
+      return [] as PlanFeature[];
+    }
+    return backendFeatures.map((feature): PlanFeature => ({
+      icon: PlusIcon,
+      text: feature
+    }));
+  })();
   const emailAddress = emailSettings?.email || session?.user?.email || '';
   const displayName = session?.user?.name || emailAddress || '—';
   const currentAvatarUrl = avatarPreviewUrl ?? session?.user?.image ?? null;
@@ -370,11 +377,9 @@ export const AccountPage = ({
     }
     if (isDeleteBlocked) {
       const endLabel = subscriptionEnd ? `Access ends on ${formatDate(subscriptionEnd)}.` : undefined;
-      const message = deletionBlockedBySubscriptionCheck
-        ? 'We could not verify your subscription status. Please try again.'
-        : (currentSubscription?.cancelAtPeriodEnd
-          ? `Your subscription is scheduled to cancel. ${endLabel ?? ''} You can delete your account after it ends.`
-          : `Your subscription is still active. ${endLabel ?? ''} Please cancel it before deleting your account.`);
+      const message = subscriptionStatus === 'canceled'
+        ? `Your subscription is scheduled to cancel. ${endLabel ?? ''} You can delete your account after it ends.`
+        : `Your subscription is still active. ${endLabel ?? ''} Please cancel it before deleting your account.`;
       showError('Account deletion unavailable', message.trim());
       return;
     }
@@ -659,7 +664,7 @@ export const AccountPage = ({
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   useEffect(() => {
-    if (isPending || practiceLoading) {
+    if (isPending || practiceLoading || subscriptionLoading) {
       const timeout = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000); // 10 second timeout
@@ -667,9 +672,9 @@ export const AccountPage = ({
     } else {
       setLoadingTimeout(false);
     }
-  }, [isPending, practiceLoading]);
+  }, [isPending, practiceLoading, subscriptionLoading]);
 
-  if ((isPending || practiceLoading) && !loadingTimeout) {
+  if ((isPending || practiceLoading || subscriptionLoading) && !loadingTimeout) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -678,39 +683,16 @@ export const AccountPage = ({
   }
 
   if (loadingTimeout || error) {
-    const errorMessage = loadingTimeout 
-      ? 'Loading timed out. Please check your connection and try again.'
-      : error || 'An error occurred while loading your account information.';
-    
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 mb-4">
-            <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <p className="text-sm font-medium">{t('settings:account.loadingError')}</p>
-            <SettingsHelperText className="mt-1">{errorMessage}</SettingsHelperText>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setLoadingTimeout(false);
-              setError(null);
-              refetch().then(() => {
-                if (session?.user && currentPractice !== undefined) {
-                  loadAccountData();
-                }
-              });
-            }}
-          >
-            {t('settings:account.retry')}
-          </Button>
-        </div>
-      </div>
+    throw new Error(
+      loadingTimeout
+        ? 'Loading timed out. Please check your connection and try again.'
+        : (error || 'An error occurred while loading your account information.')
     );
   }
+
+  const currentPlanLabel = hasSubscription
+    ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || t('settings:account.plan.tiers.free'))
+    : t('settings:account.plan.tiers.free');
 
   return (
     <SettingsPageLayout title={t('settings:account.title')} className={className}>
@@ -737,7 +719,7 @@ export const AccountPage = ({
 
           {/* Subscription Plan Section */}
           <SettingRow
-            label={displayPlan((currentTier || 'free'))}
+            label={currentPlanLabel}
             labelClassName="text-input-text font-semibold"
             description={
               hasSubscription && renewalDate
@@ -782,13 +764,18 @@ export const AccountPage = ({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => navigate('/pricing')}
+                  onClick={() => navigateToPricing()}
                 >
                   {t('settings:account.plan.upgrade')}
                 </Button>
               )}
             </div>
           </SettingRow>
+          {subscriptionError && (
+            <SettingsHelperText className="mt-2 text-red-500">
+              {subscriptionError}
+            </SettingsHelperText>
+          )}
 
           {/* Plan Features Section */}
           <SettingRow
@@ -859,16 +846,6 @@ export const AccountPage = ({
                 >
                   {t('settings:account.plan.manage')}
                 </Button>
-                {deletionBlockedBySubscriptionCheck && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void refreshSubscription()}
-                    disabled={subscriptionLoading}
-                  >
-                    {t('settings:account.retry')}
-                  </Button>
-                )}
               </div>
             ) : (
               <SettingsDangerButton

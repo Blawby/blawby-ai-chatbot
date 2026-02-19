@@ -35,6 +35,17 @@ export function useNavigation() {
     },
 
     /**
+     * Navigate to pricing and preserve a safe in-app return path.
+     */
+    navigateToPricing: (replace = false) => {
+      const currentUrl = location.url.startsWith('/')
+        ? location.url
+        : `/${location.url.replace(/^\/+/, '')}`;
+      const target = `/pricing?returnTo=${encodeURIComponent(currentUrl)}`;
+      location.route(target, replace);
+    },
+
+    /**
      * Navigate to the home page
      */
     navigateToHome: () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { CheckIcon, ChevronUpDownIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/shared/utils/cn';
@@ -304,7 +304,7 @@ export const Combobox = ({
                 className={cn(
                   'inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium',
                   opt.isCustom
-                    ? 'bg-[rgb(var(--accent-500)/0.12)] text-accent-300 ring-1 ring-inset ring-accent-500/30'
+                    ? 'bg-[rgb(var(--accent-500)/0.12)] text-[rgb(var(--accent-foreground))] ring-1 ring-inset ring-accent-500/30'
                     : 'bg-surface-glass text-input-text ring-1 ring-inset ring-line-glass/40'
                 )}
               >
@@ -449,7 +449,7 @@ export const Combobox = ({
                 className={cn(
                   'group relative flex w-full items-center gap-2.5 py-2 pl-3 pr-9 text-left transition-colors',
                   resolvedFocusedIndex === 0
-                    ? 'bg-[rgb(var(--accent-500)/0.18)] text-input-text'
+                    ? 'bg-[rgb(var(--accent-500)/0.18)] text-[rgb(var(--accent-foreground))]'
                     : 'text-input-text hover:bg-[rgb(var(--surface-overlay)/0.78)]'
                 )}
               >
@@ -458,7 +458,7 @@ export const Combobox = ({
                 </span>
                 <span className="text-sm">
                   {addNewLabel}{' '}
-                  <span className="font-semibold text-accent-300">"{trimmedQuery}"</span>
+                  <span className="font-semibold text-accent-300">&quot;{trimmedQuery}&quot;</span>
                 </span>
               </button>
             )}
@@ -494,7 +494,7 @@ export const Combobox = ({
                   className={cn(
                     'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
                     isSelected || isFocused
-                      ? 'bg-[rgb(var(--accent-500)/0.18)] text-input-text'
+                      ? 'bg-[rgb(var(--accent-500)/0.18)] text-[rgb(var(--accent-foreground))]'
                       : 'text-input-text hover:bg-[rgb(var(--surface-overlay)/0.78)]'
                   )}
                 >

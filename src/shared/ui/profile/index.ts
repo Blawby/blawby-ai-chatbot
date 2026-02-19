@@ -1,7 +1,5 @@
 // Profile atoms
 export { Avatar } from './atoms/Avatar';
-export { TierBadge } from './atoms/TierBadge';
-export { UpgradeButton } from './atoms/UpgradeButton';
 export { ProfileIcon } from './atoms/ProfileIcon';
 
 // Profile molecules

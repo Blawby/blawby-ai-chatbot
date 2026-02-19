@@ -16,24 +16,9 @@ import {
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import {
-  ChevronLeftIcon,
   ChevronUpDownIcon,
   FolderIcon,
-  PencilIcon,
-  PlusIcon,
-  ScaleIcon,
-  ShieldCheckIcon,
-  UserIcon,
-  ChatBubbleLeftRightIcon,
-  MagnifyingGlassIcon,
-  ShieldExclamationIcon,
-  DocumentCheckIcon,
-  BriefcaseIcon,
-  PauseCircleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
-  ArrowUturnRightIcon
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import {
   MATTER_STATUS_LABELS,
@@ -50,8 +35,6 @@ import {
 } from '@/features/matters/data/matterTypes';
 import { MatterCreateForm, MatterEditForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
-import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
-import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
@@ -1853,7 +1836,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       billingLabel,
       createdLabel
     };
-  }, [resolvedSelectedMatter, selectedMatterDetail, clientOptions, assigneeOptions, resolveClientLabel]);
+  }, [resolvedSelectedMatter, selectedMatterDetail, clientOptions, assigneeOptions]);
 
 
   if (isCreateRoute) {

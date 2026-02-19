@@ -216,5 +216,9 @@
     "included": "Included",
     "notIncluded": "Not included"
   },
-  "upgradeFailed": "Yükseltme başarısız oldu"
+  "upgradeFailed": "Yükseltme başarısız oldu",
+  "noFeatures": "Bu planın özellikleri yok.",
+  "upgradeButton": "{{price}} için Yükselt",
+  "autoRenewsDisclaimer": "Aylık olarak otomatik olarak yenilenir. İstediğiniz zaman iptal edin.",
+  "errorGeneric": "Fiyatlandırma bilgileri yüklenemedi, lütfen daha sonra tekrar deneyin."
 }

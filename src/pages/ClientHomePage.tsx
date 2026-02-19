@@ -5,10 +5,10 @@ import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
 
 const ClientHomePage = () => {
-  const { session, activeOrganizationId } = useSessionContext();
-  const { navigate } = useNavigation();
+  const { session, workspaceAccess } = useSessionContext();
+  const { navigate, navigateToPricing } = useNavigation();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const showUpgrade = !activeOrganizationId;
+  const showUpgrade = !workspaceAccess.practice;
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [
@@ -28,7 +28,7 @@ const ClientHomePage = () => {
         status: 'pending',
         action: {
           label: 'View plans',
-          onClick: () => navigate('/pricing'),
+          onClick: () => navigateToPricing(),
           variant: 'secondary' as const,
           size: 'sm' as const
         }
@@ -36,7 +36,7 @@ const ClientHomePage = () => {
     }
 
     return items;
-  }, [navigate, showUpgrade]);
+  }, [navigateToPricing, showUpgrade]);
 
   return (
     <div className="h-full overflow-y-auto p-6">

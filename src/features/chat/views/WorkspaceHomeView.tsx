@@ -55,13 +55,6 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-accent-600/95 via-accent-700/80 to-transparent dark:from-accent-700/95 dark:via-accent-800/70"
-        aria-hidden="true"
-      />
-      <div className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-accent-500/30 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/[0.12] blur-3xl" aria-hidden="true" />
-
       <section className="relative z-10 px-6 pb-12 pt-8 text-white">
         <div className="flex items-center gap-3">
           <Avatar
@@ -125,7 +118,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent-500/50 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
           <span
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-gray-900 pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
             aria-hidden="true"
           >
             <PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />

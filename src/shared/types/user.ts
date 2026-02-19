@@ -3,10 +3,6 @@
 
 import type { User as BetterAuthUser } from 'better-auth/types';
 
-// Subscription tier type matching database enum
-export type SubscriptionTier = 'free' | 'plus' | 'business' | 'enterprise';
-
-
 // Language type for internationalization
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | 'zh' | 'ar' | 'hi' | 'ru' | 'tr' | 'pl' | 'nl' | 'id' | 'th' | 'vi' | 'uk';
 
@@ -16,8 +12,6 @@ export interface ExtendedUser extends BetterAuthUser {
   practiceId?: string | null;
   activePracticeId?: string | null;
   role?: string | null;
-  primaryWorkspace?: 'client' | 'practice' | null;
-  preferredPracticeId?: string | null;
   practiceCount?: number | null;
   onboardingComplete?: boolean | null;
   
@@ -50,9 +44,8 @@ export interface UserProfile {
   practiceId?: string | null;
   activePracticeId?: string | null;
   role?: string | null;
+  stripeCustomerId?: string | null;
   phone?: string | null;
-  primaryWorkspace?: 'client' | 'practice' | null;
-  preferredPracticeId?: string | null;
   practiceCount?: number | null;
   
   // Profile Information
@@ -223,9 +216,8 @@ export interface BetterAuthSessionUser {
   practiceId?: string | null;
   activePracticeId?: string | null;
   role?: string | null;
+  stripeCustomerId?: string | null;
   phone?: string | null;
-  primaryWorkspace?: 'client' | 'practice' | null;
-  preferredPracticeId?: string | null;
   practiceCount?: number | null;
   onboardingComplete?: boolean | null;
   
@@ -348,14 +340,6 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
   // Validate required fields first
   validateRequiredFields(rawUser);
   
-  const rawPrimaryWorkspace = rawUser.primaryWorkspace;
-  const primaryWorkspace =
-    rawPrimaryWorkspace === 'client' || rawPrimaryWorkspace === 'practice'
-      ? rawPrimaryWorkspace
-      : rawPrimaryWorkspace === null
-        ? null
-        : undefined;
-
   // Build the transformed user object with explicit field mapping
   const transformedUser: BetterAuthSessionUser = {
     // Required fields (already validated)
@@ -378,9 +362,13 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     practiceId: rawUser.practiceId as string | null | undefined,
     activePracticeId: rawUser.activePracticeId as string | null | undefined,
     role: rawUser.role as string | null | undefined,
+    stripeCustomerId:
+      typeof rawUser.stripeCustomerId === 'string'
+        ? rawUser.stripeCustomerId
+        : typeof rawUser.stripe_customer_id === 'string'
+          ? rawUser.stripe_customer_id
+          : null,
     phone: rawUser.phone as string | null | undefined,
-    primaryWorkspace,
-    preferredPracticeId: rawUser.preferredPracticeId as string | null | undefined,
     practiceCount: typeof rawUser.practiceCount === 'number' ? rawUser.practiceCount : undefined,
     onboardingComplete:
       typeof rawUser.onboardingComplete === 'boolean'

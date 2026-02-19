@@ -154,7 +154,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                         }`} />
                           <span className={`text-sm font-medium ${
                           isSelected 
-                            ? 'text-accent-600 dark:text-accent-400' 
+                            ? 'text-[rgb(var(--accent-foreground))]' 
                             : 'text-input-text'
                         }`}>
                           {t(option.labelKey)}

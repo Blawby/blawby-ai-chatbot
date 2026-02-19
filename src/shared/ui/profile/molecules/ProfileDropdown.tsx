@@ -7,17 +7,13 @@
 
 import { ProfileMenuItem } from './ProfileMenuItem';
 import {
-  SparklesIcon,
   Cog6ToothIcon,
   QuestionMarkCircleIcon,
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { type SubscriptionTier } from '@/shared/types/user';
 
 interface ProfileDropdownProps {
-  tier: SubscriptionTier;
-  onUpgrade: () => void;
   onSettings: () => void;
   onHelp: () => void;
   onLogout: () => void;
@@ -26,8 +22,6 @@ interface ProfileDropdownProps {
 }
 
 export const ProfileDropdown = ({ 
-  tier, 
-  onUpgrade, 
   onSettings, 
   onHelp, 
   onLogout,
@@ -43,15 +37,6 @@ export const ProfileDropdown = ({
       aria-label="Profile menu"
       className={`absolute bottom-full right-0 mb-2 w-full max-w-xs bg-surface-glass/80 backdrop-blur-xl rounded-lg shadow-glass border border-line-glass/30 py-2 z-50 ${className}`}
     >
-      {/* Upgrade Plan - only for free tier */}
-      {tier === 'free' && (
-        <ProfileMenuItem
-          icon={<SparklesIcon />}
-          label={t('profile:menu.upgrade')}
-          onClick={onUpgrade}
-        />
-      )}
-      
       {/* Settings */}
       <ProfileMenuItem
         icon={<Cog6ToothIcon />}

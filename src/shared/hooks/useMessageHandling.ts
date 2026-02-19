@@ -23,6 +23,8 @@ import {
   postSystemMessage
 } from '@/shared/lib/conversationApi';
 
+const DEBUG_MESSAGE_PAGINATION = import.meta.env.DEV;
+
 const sanitizeMarkdown = (text: string): string => {
   if (typeof text !== 'string') return '';
   // First replace HTML metacharacters with entities to prevent stored-XSS
@@ -200,6 +202,12 @@ export const useMessageHandling = ({
   onConversationMetadataUpdated,
   onError
 }: UseMessageHandlingOptions) => {
+  useEffect(() => {
+    if (DEBUG_MESSAGE_PAGINATION) {
+      console.info('[useMessageHandling][pagination] instrumentation active');
+    }
+  }, []);
+
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const sessionReady = Boolean(session?.user) && !sessionIsPending;
   const currentUserId = session?.user?.id ?? null;
@@ -1650,12 +1658,16 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       if (intakeUuid && isAnonymous) {
         try {
           const payload = { intakeUuid, practiceSlug: resolvedPracticeSlug, conversationId };
-          console.info('[Intake] Triggering invite pre-auth', payload);
+          if (import.meta.env.DEV) {
+            console.info('[Intake] Triggering invite pre-auth', payload);
+          }
           const result = await triggerIntakeInvitation(intakeUuid);
-          console.info('[Intake] Invite triggered pre-auth', {
-            payload,
-            result
-          });
+          if (import.meta.env.DEV) {
+            console.info('[Intake] Invite triggered pre-auth', {
+              payload,
+              result
+            });
+          }
           if (typeof window !== 'undefined') {
             window.sessionStorage.setItem(`intakeInviteSent:${intakeUuid}`, 'true');
           }
@@ -1914,6 +1926,12 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     } = options ?? {};
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) {
+      if (DEBUG_MESSAGE_PAGINATION) {
+        console.info('[useMessageHandling][pagination] fetch skipped: missing conversation or practice', {
+          activeConversationId,
+          practiceId
+        });
+      }
       return;
     }
 
@@ -1924,11 +1942,19 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         practiceId,
         limit: '50',
       });
+      params.set('source', isLoadMore ? 'chat_load_more' : 'chat_initial');
       if (cursor) {
         params.set('cursor', cursor);
       }
 
       if (isLoadMore) {
+        if (DEBUG_MESSAGE_PAGINATION) {
+          console.info('[useMessageHandling][pagination] fetch start', {
+            activeConversationId,
+            cursor,
+            params: params.toString()
+          });
+        }
         setIsLoadingMoreMessages(true);
       }
 
@@ -1957,6 +1983,15 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         throw new Error(data.error || 'Failed to fetch messages');
       }
 
+      if (DEBUG_MESSAGE_PAGINATION) {
+        console.info('[useMessageHandling][pagination] fetch response', {
+          isLoadMore: Boolean(isLoadMore),
+          messageCount: data.data.messages?.length ?? 0,
+          hasMore: Boolean(data.data.hasMore),
+          nextCursor: data.data.cursor ?? null
+        });
+      }
+
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
           applyServerMessages(data.data.messages ?? []);
@@ -1975,10 +2010,23 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         }
         setHasMoreMessages(Boolean(data.data.hasMore));
         setNextCursor(data.data.cursor ?? null);
+        if (DEBUG_MESSAGE_PAGINATION) {
+          console.info('[useMessageHandling][pagination] state updated', {
+            hasMoreMessages: Boolean(data.data.hasMore),
+            nextCursor: data.data.cursor ?? null
+          });
+        }
       }
     } catch (err) {
       if (isDisposedRef.current) return;
       if (err instanceof Error && err.name === 'AbortError') return;
+      if (DEBUG_MESSAGE_PAGINATION) {
+        console.info('[useMessageHandling][pagination] fetch error', {
+          message: err instanceof Error ? err.message : String(err),
+          cursor,
+          isLoadMore: Boolean(isLoadMore)
+        });
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
       onError?.(errorMessage);
     } finally {
@@ -1990,13 +2038,27 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
   const loadMoreMessages = useCallback(async () => {
     if (!nextCursor || isLoadingMoreMessages || isLoadingMoreRef.current) {
+      if (DEBUG_MESSAGE_PAGINATION) {
+        console.info('[useMessageHandling][pagination] loadMore skipped', {
+          hasCursor: Boolean(nextCursor),
+          nextCursor,
+          isLoadingMoreMessages,
+          internalLoading: isLoadingMoreRef.current
+        });
+      }
       return;
+    }
+    if (DEBUG_MESSAGE_PAGINATION) {
+      console.info('[useMessageHandling][pagination] loadMore start', { nextCursor });
     }
     isLoadingMoreRef.current = true;
     try {
       await fetchMessages({ cursor: nextCursor, isLoadMore: true });
     } finally {
       isLoadingMoreRef.current = false;
+      if (DEBUG_MESSAGE_PAGINATION) {
+        console.info('[useMessageHandling][pagination] loadMore finished');
+      }
     }
   }, [fetchMessages, isLoadingMoreMessages, nextCursor]);
 

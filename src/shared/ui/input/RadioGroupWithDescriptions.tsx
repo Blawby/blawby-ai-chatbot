@@ -37,7 +37,7 @@ export const RadioGroupWithDescriptions = ({
               isFirst && 'rounded-t-md',
               isLast && 'rounded-b-md',
               isSelected
-                ? 'z-10 border-accent-500/45 bg-accent-500/10 text-input-text'
+                ? 'z-10 border-accent-500/45 bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
                 : 'border-line-glass/25 bg-transparent hover:bg-surface-glass/35'
             )}
           >
@@ -57,14 +57,14 @@ export const RadioGroupWithDescriptions = ({
               )}
               aria-hidden="true"
             >
-            <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />
+              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-input-bg" />}
             </span>
             <span className="flex flex-col">
-              <span className={cn('block text-sm font-medium text-input-text')}>
+              <span className={cn('block text-sm font-medium', isSelected ? 'text-inherit' : 'text-input-text')}>
                 {option.label}
               </span>
               {option.description && (
-                <span className={cn('block text-sm', isSelected ? 'text-input-text/85' : 'text-input-placeholder')}>
+                <span className={cn('block text-sm', isSelected ? 'text-inherit opacity-85' : 'text-input-placeholder')}>
                   {option.description}
                 </span>
               )}

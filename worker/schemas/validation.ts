@@ -10,7 +10,6 @@ export const timestampSchema = z.number().int().positive();
 export const practiceRoleSchema = z.enum(['owner', 'admin', 'attorney', 'paralegal']);
 
 // Subscription and billing schemas (handled by remote API)
-export const subscriptionTierSchema = z.enum(['free', 'plus', 'business', 'enterprise']);
 export const seatsSchema = z.number().int().positive().default(1);
 export const stripeCustomerIdSchema = z.string().min(1).optional();
 
@@ -165,7 +164,6 @@ export const practiceSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   stripeCustomerId: z.string().nullable().optional(),
-  subscriptionTier: subscriptionTierSchema.nullable().optional(),
   seats: z.number().int().positive().nullable().optional(),
   conversationConfig: conversationConfigSchema.optional(),
   metadata: z.object({

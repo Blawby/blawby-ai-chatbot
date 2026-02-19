@@ -216,5 +216,9 @@
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
   },
-  "upgradeFailed": "Aggiornamento fallito"
+  "upgradeFailed": "Aggiornamento fallito",
+  "noFeatures": "Questo piano non ha alcuna funzionalità.",
+  "upgradeButton": "Aggiorna a {{price}}",
+  "autoRenewsDisclaimer": "Si rinnova automaticamente ogni mese. Annulla in qualsiasi momento.",
+  "errorGeneric": "Impossibile caricare le informazioni sui prezzi, riprovare più tardi."
 }

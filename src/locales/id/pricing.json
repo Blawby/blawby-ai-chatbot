@@ -216,5 +216,9 @@
     "included": "Termasuk",
     "notIncluded": "Tidak termasuk"
   },
-  "upgradeFailed": "Pembaruan gagal"
+  "upgradeFailed": "Peningkatan gagal",
+  "noFeatures": "Paket ini tidak memiliki fitur.",
+  "upgradeButton": "Tingkatkan seharga {{price}}",
+  "autoRenewsDisclaimer": "Perpanjangan otomatis setiap bulan. Batalkan kapan saja.",
+  "errorGeneric": "Tidak dapat memuat informasi harga, silakan coba lagi nanti."
 }

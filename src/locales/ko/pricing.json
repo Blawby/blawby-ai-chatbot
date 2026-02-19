@@ -216,5 +216,9 @@
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
   },
-  "upgradeFailed": "업그레이드 실패"
+  "upgradeFailed": "업그레이드 실패",
+  "noFeatures": "이 요금제는 기능이 없습니다.",
+  "upgradeButton": "{{price}}로 업그레이드",
+  "autoRenewsDisclaimer": "매달 자동 갱신되며, 언제든지 취소 가능합니다.",
+  "errorGeneric": "요금 정보를 불러올 수 없습니다. 나중에 다시 시도해 주세요."
 }

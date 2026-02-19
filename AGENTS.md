@@ -37,3 +37,5 @@ Only use hard navigations for cross-origin URLs, Stripe checkout, or external au
 Avoid manual path parsing in MainApp; prefer Router routes for /practice/* and /client/*.
 Keep Workbox/PWA navigation denylist for /api/*; index.html fallback only for document navigations.
 Greenfield app: no backward-compat/legacy support except for environment-variable migration (specifically VITE_APP_BASE_URL, VITE_PUBLIC_APP_URL, and the legacy VITE_APP_URL fallback). Do not add other fallbacks or shims. Frontend + Worker proxy must speak directly to the Railway backend; surface backend errors rather than masking them.
+Fail fast: do not add fallback paths, silent catches, default substitutions, or retry-on-unknown-error logic unless explicitly requested by the user; propagate backend/runtime errors verbatim.
+For accent-colored surfaces (`bg-accent-*` / accent overlays), never hardcode foreground text colors (`text-white`, `text-gray-*`, `text-input-text`); use `text-[rgb(var(--accent-foreground))]` so contrast stays WCAG-safe across dynamic accent themes.

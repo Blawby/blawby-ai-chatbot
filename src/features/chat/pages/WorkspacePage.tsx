@@ -10,6 +10,7 @@ import { SplitView } from '@/shared/ui/layout/SplitView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 import { Page } from '@/shared/ui/layout/Page';
 import { Button } from '@/shared/ui/Button';
+import { SegmentedToggle } from '@/shared/ui/input';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
@@ -676,27 +677,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
               Public preview
             </div>
-            <div className="inline-flex gap-1 rounded-full glass-panel p-1 text-xs font-semibold text-input-placeholder shadow-sm">
-              {previewTabOptions.map((option) => {
-                const isActive = previewTab === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setPreviewTab(option.id)}
-                    className={cn(
-                      'rounded-full px-3 py-1 transition backdrop-blur-xl',
-                      isActive
-                        ? 'bg-white/[0.12] text-white border border-accent-500/50 shadow-lg shadow-accent-500/10'
-                        : 'text-input-placeholder hover:text-input-text hover:bg-white/[0.08] border border-transparent'
-                    )}
-                    aria-pressed={isActive}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+            <SegmentedToggle<PreviewTab>
+              value={previewTab}
+              options={previewTabOptions.map((option) => ({
+                value: option.id,
+                label: option.label
+              }))}
+              onChange={setPreviewTab}
+              ariaLabel="Public preview tabs"
+            />
             <div className="relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden glass-card shadow-glass">
               {renderPreviewContent()}
               <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" aria-hidden="true" />
@@ -919,7 +908,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   return (
     <AppShell
       className="bg-transparent h-dvh"
-      accentBackdropVariant={workspace === 'practice' ? 'workspace' : 'none'}
+      accentBackdropVariant="workspace"
       sidebar={sidebarNav}
       main={mainShell}
       mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}

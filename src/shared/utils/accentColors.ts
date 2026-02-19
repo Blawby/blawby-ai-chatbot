@@ -118,8 +118,10 @@ export const ACCENT_COLORS: Record<AccentColor, Record<string, string>> = {
   },
 };
 
-const DEFAULT_ACCENT_COLOR: AccentColor = 'grey';
+const DEFAULT_ACCENT_COLOR: AccentColor = 'gold';
 const HEX_COLOR_PATTERN = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+const DARK_FOREGROUND_RGB = '15 15 15';
+const LIGHT_FOREGROUND_RGB = '255 255 255';
 
 const rgbStringToHex = (value: string): string | null => {
   const parts = value.split(/\s+/).filter(Boolean).map((part) => Number(part));
@@ -180,6 +182,34 @@ const buildPaletteFromHex = (hex: string): Record<string, string> => {
   };
 };
 
+/**
+ * Calculate relative luminance of an RGB color (WCAG 2.1)
+ * Returns a value between 0 (black) and 1 (white).
+ */
+const getRelativeLuminance = (r: number, g: number, b: number): number => {
+  const toLinear = (channel: number) => {
+    const c = channel / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+};
+
+/**
+ * Determine whether text on a given RGB background should be dark or light.
+ * Uses WCAG contrast ratio against white and black to pick the better foreground.
+ */
+export const getTextColorForBackground = (rgbString: string): 'dark' | 'light' => {
+  const parts = rgbString.split(/\s+/).filter(Boolean).map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return 'light';
+  }
+
+  const luminance = getRelativeLuminance(parts[0], parts[1], parts[2]);
+  const contrastWithWhite = 1.05 / (luminance + 0.05);
+  const contrastWithBlack = (luminance + 0.05) / 0.05;
+  return contrastWithWhite > contrastWithBlack ? 'light' : 'dark';
+};
+
 const resolveAccentPalette = (value?: string | null): Record<string, string> | null => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -219,6 +249,12 @@ export function applyAccentColor(color: AccentColor | string): void {
     root.style.setProperty(`--accent-${shade}`, rgb);
   });
   root.style.setProperty('--accent-color', `rgb(${colorValues['500']})`);
+  const accent500 = colorValues['500'];
+  const textOnAccent = getTextColorForBackground(accent500);
+  root.style.setProperty(
+    '--accent-foreground',
+    textOnAccent === 'dark' ? DARK_FOREGROUND_RGB : LIGHT_FOREGROUND_RGB
+  );
 }
 
 /**
@@ -261,8 +297,8 @@ export function initializeAccentColor(savedColor?: string | null): void {
  */
 export function getAccentColorDisplayName(color: AccentColor): string {
   const names: Record<AccentColor, string> = {
-    grey: 'Grey (Default)',
-    gold: 'Gold',
+    grey: 'Grey',
+    gold: 'Gold (Default)',
     blue: 'Blue',
     green: 'Green',
     yellow: 'Yellow',

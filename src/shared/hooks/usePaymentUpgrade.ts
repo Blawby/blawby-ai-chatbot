@@ -308,7 +308,7 @@ export const usePaymentUpgrade = () => {
   );
 
   const submitUpgrade = useCallback(
-    async ({ practiceId, planId, plan, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
+    async ({ practiceId, planId, plan, successUrl, cancelUrl, returnUrl, annual }: SubscriptionUpgradeRequest): Promise<void> => {
       setSubmitting(true);
       setError(null);
 
@@ -355,6 +355,7 @@ export const usePaymentUpgrade = () => {
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
             plan, // Stripe price ID (required)
+            annual: typeof annual === 'boolean' ? annual : undefined,
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,
             disableRedirect: false // Auto-redirect to Stripe Checkout

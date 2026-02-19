@@ -1,6 +1,6 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
-import { getPracticeDetails, getPracticeDetailsBySlug } from '@/shared/lib/apiClient';
+import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
@@ -24,27 +24,37 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     if (!practiceId) {
       return null;
     }
-    const cached = hasCachedDetails ? detailsMap[practiceId] : undefined;
-    if (cached !== undefined) {
-      return cached ?? null;
+    // Check the store snapshot directly to avoid stale closure over detailsMap.
+    const storeSnapshot = practiceDetailsStore.get();
+    if (Object.prototype.hasOwnProperty.call(storeSnapshot, practiceId)) {
+      return storeSnapshot[practiceId] ?? null;
     }
+
     if (isLikelyUuid(practiceId)) {
-      const details = await getPracticeDetails(practiceId);
-      if (details) {
-        setPracticeDetailsEntry(practiceId, details);
-      }
-      return details;
+      // UUID → use the authenticated endpoint (practice owner CMS view).
+      const fetchedDetails = await getPracticeDetails(practiceId);
+      // Cache null responses too, so missing records don't trigger repeated fetches.
+      setPracticeDetailsEntry(practiceId, fetchedDetails);
+      return fetchedDetails;
     }
-    if (practiceSlug && practiceSlug.trim().length > 0) {
-      const details = await getPracticeDetailsBySlug(practiceSlug.trim());
-      if (details) {
-        const canonicalId = details.id || practiceId;
-        setPracticeDetailsEntry(canonicalId, details);
+
+    // Slug → use the public endpoint which has a persistent module-level cache.
+    // This is the correct endpoint for client/guest users and avoids hitting the
+    // authenticated API unnecessarily. The cache ensures only one network request
+    // is ever made per slug per session, regardless of how many callers invoke this.
+    const slugToFetch = practiceSlug?.trim() || practiceId;
+    if (slugToFetch) {
+      const publicDetails = await getPublicPracticeDetails(slugToFetch);
+      // Cache the result (including null) under the practiceId key (which might be the slug)
+      // and also under the canonical UUID if returned.
+      setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
+      if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
+        setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
       }
-      return details;
+      return publicDetails?.details ?? null;
     }
     return null;
-  }, [detailsMap, hasCachedDetails, practiceId, practiceSlug]);
+  }, [practiceId, practiceSlug]);
 
   const updateDetails = useCallback(async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
     if (!practiceId) {

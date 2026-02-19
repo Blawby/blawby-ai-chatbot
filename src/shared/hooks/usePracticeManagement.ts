@@ -21,9 +21,10 @@ import {
   respondToPracticeInvitation,
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
-  deletePracticeMember as apiDeletePracticeMember
+  deletePracticeMember as apiDeletePracticeMember,
+  clearPublicPracticeDetailsCache
 } from '@/shared/lib/apiClient';
-import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
+import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
@@ -98,7 +99,6 @@ export interface Practice {
   currency?: string | null;
   consultationFee: MajorAmount | null;
   paymentUrl: string | null;
-  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   subscriptionPeriodEnd?: number | null;
@@ -238,31 +238,15 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const slug = typeof raw.slug === 'string' ? raw.slug : id;
   const name = typeof raw.name === 'string' ? raw.name : 'Practice';
 
-  const rawIsPersonal = typeof raw.isPersonal === 'boolean'
-    ? raw.isPersonal
-    : typeof raw.is_personal === 'number'
-      ? raw.is_personal === 1
-      : undefined;
+  const rawIsPersonal = typeof raw.isPersonal === 'boolean' ? raw.isPersonal : undefined;
 
-  const rawStatus = typeof raw.subscriptionStatus === 'string'
-    ? raw.subscriptionStatus
-    : typeof raw.subscription_status === 'string'
-      ? raw.subscription_status
-      : undefined;
+  const rawStatus = typeof raw.subscriptionStatus === 'string' ? raw.subscriptionStatus : undefined;
 
-  const resolvedKind = resolvePracticeKind(typeof raw.kind === 'string' ? raw.kind : undefined, rawIsPersonal);
-  const normalizedStatus = normalizePracticeStatus(rawStatus, resolvedKind);
-
-  const subscriptionTier = typeof raw.subscriptionTier === 'string'
-    ? raw.subscriptionTier
-    : typeof raw.subscription_tier === 'string'
-      ? raw.subscription_tier
-      : null;
-
-  const allowedTiers = new Set(['free', 'plus', 'business', 'enterprise']);
-  const normalizedTier = (typeof subscriptionTier === 'string' && allowedTiers.has(subscriptionTier))
-    ? (subscriptionTier as Practice['subscriptionTier'])
-    : null;
+  const rawKind = typeof raw.kind === 'string' ? raw.kind : undefined;
+  const resolvedKind = rawKind === 'business' || rawKind === 'personal' || rawKind === 'practice'
+    ? rawKind
+    : undefined;
+  const normalizedStatus = normalizePracticeStatus(rawStatus);
 
   const seats = typeof raw.seats === 'number'
     ? raw.seats
@@ -460,7 +444,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessEmail: getDetailString('businessEmail', 'business_email') ?? null,
     calendlyUrl: getDetailString('calendlyUrl', 'calendly_url') ?? null,
     logo: getDetailString('logo', 'logo') ?? null,
-    subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
@@ -734,6 +717,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         practicesFetchedRef.current = false;
         resetSharedPracticeCache();
         resetPracticeDetailsStore();
+        clearPublicPracticeDetailsCache();
         return;
       }
 
