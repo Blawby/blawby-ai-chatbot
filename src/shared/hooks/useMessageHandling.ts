@@ -1270,6 +1270,11 @@ export const useMessageHandling = ({
       const bubbleId = `${STREAMING_BUBBLE_PREFIX}${conversationId}`;
       addStreamingBubble(bubbleId);
 
+      // Create and store AbortController for this stream
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       try {
         const aiResponse = await fetch('/api/ai/chat', {
           method: 'POST',
@@ -1278,6 +1283,7 @@ export const useMessageHandling = ({
             'Accept': 'text/event-stream',
           },
           credentials: 'include',
+          signal: abortController.signal,
           body: JSON.stringify({
             conversationId,
             practiceId: resolvedPracticeId,
@@ -1380,6 +1386,10 @@ export const useMessageHandling = ({
         };
 
         while (true) {
+          if (abortController.signal.aborted) {
+            removeStreamingBubble(bubbleId);
+            break;
+          }
           const { done, value } = await reader.read();
           if (done) break;
 
@@ -1401,20 +1411,47 @@ export const useMessageHandling = ({
         }
 
         // If the persisted event never arrived (worker error / disconnect),
-        // remove the bubble so we don't leave a ghost message
+        // handle the cleanup: remove empty bubbles, mark non-empty ones as orphaned
         if (pendingStreamMessageIdRef.current === null) {
-          // The WebSocket message.new will clean up if it arrives later.
-          // Only remove if content is still empty (nothing was streamed).
           setMessages(prev => {
             const bubble = prev.find(m => m.id === bubbleId);
-            if (bubble && !bubble.content.trim()) {
+            if (!bubble) return prev;
+
+            // If content is empty, remove the bubble entirely
+            if (!bubble.content.trim()) {
               return prev.filter(m => m.id !== bubbleId);
             }
-            return prev;
+
+            // If content exists, mark as orphaned with expiry timestamp
+            // so the UI can show a retry/expired state
+            const orphanExpiryMs = 30000; // 30 seconds
+            const orphanedBubble = {
+              ...bubble,
+              metadata: {
+                ...bubble.metadata,
+                isOrphan: true,
+                orphanExpiryTime: Date.now() + orphanExpiryMs
+              }
+            };
+
+            // Schedule cleanup after expiry if no persisted message arrives
+            const orphanTimer = setTimeout(() => {
+              setMessages(current => current.filter(m => m.id !== bubbleId));
+            }, orphanExpiryMs);
+
+            // Store timer so it can be cleared if message.new arrives
+            if (!orphanedBubble.metadata) orphanedBubble.metadata = {};
+            (orphanedBubble.metadata as any).orphanTimer = orphanTimer;
+
+            return prev.map(m => m.id === bubbleId ? orphanedBubble : m);
           });
         }
 
       } catch (streamError) {
+        if (streamError instanceof Error && streamError.name === 'AbortError') {
+          // Normal cancellation, already removed bubble above
+          return;
+        }
         removeStreamingBubble(bubbleId);
         throw streamError;
       }
