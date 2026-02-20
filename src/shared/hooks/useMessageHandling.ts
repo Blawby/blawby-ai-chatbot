@@ -294,7 +294,8 @@ export const useMessageHandling = ({
     isAnonymous,
     linkAnonymousConversationOnLoad,
     practiceId,
-    sessionReady
+    sessionReady,
+    onError
   ]);
   const conversationIdRef = useRef<string | undefined>();
   const practiceIdRef = useRef<string | undefined>();
@@ -2554,7 +2555,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         if (controller.signal.aborted || cancelled) return;
         onError?.(error, { source: 'fetchIntakePaidStatus', intakeUuid });
         console.warn('[Intake] Failed to reconcile payment status on refresh', error);
-        throw error;
       }
     };
 

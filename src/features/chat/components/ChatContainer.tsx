@@ -297,6 +297,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (!pendingSubmitAfterAuth) return;
     if (isAnonymousUser) return;
     if (!onSubmitNow) {
+      onIntakeCtaResponse?.('ready');
       setPendingSubmitAfterAuth(false);
       return;
     }

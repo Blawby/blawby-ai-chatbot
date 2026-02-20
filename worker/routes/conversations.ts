@@ -642,6 +642,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     // Allow authenticated users to claim anonymous conversations on first load.
     // This supports direct refresh on /public/:slug/conversations/:id after auth.
+    // SECURITY NOTE: This open claim model is opportunistic. To prevent potential enumeration
+    // or unauthorized claiming of active anonymous sessions, this route should utilize 
+    // rate limiting and perhaps require a matching anonymous_session_id check.
     try {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } catch (error) {

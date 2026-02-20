@@ -42,7 +42,9 @@ const normalizeStatus = (value?: string | null) => {
 
 export const isPaidIntakeStatus = (status?: unknown, succeededAt?: unknown): boolean => {
   if (typeof succeededAt === 'string' && succeededAt.trim().length > 0) {
-    return true;
+    if (Number.isFinite(Date.parse(succeededAt))) {
+      return true;
+    }
   }
   if (typeof status !== 'string') return false;
   const normalized = normalizeStatus(status);

@@ -150,12 +150,16 @@ async function notifyIntakeDecision(options: {
 
   let inviteSent: boolean | null = null;
   if (decision === 'accepted' && intakeUuid) {
-    const inviteResult = await RemoteApiService.triggerPracticeClientIntakeInvite(
-      env,
-      intakeUuid,
-      options.request
-    );
-    inviteSent = inviteResult.success;
+    try {
+      const inviteResult = await RemoteApiService.triggerPracticeClientIntakeInvite(
+        env,
+        intakeUuid,
+        options.request
+      );
+      inviteSent = inviteResult.success;
+    } catch (error) {
+      console.error('[Practices] Failed to trigger intake invite', { error, intakeUuid, decision });
+    }
   }
 
   const conversationService = new ConversationService(env);

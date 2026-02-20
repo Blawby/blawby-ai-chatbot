@@ -95,7 +95,7 @@ export const onboardingSchemas = {
     agreedToTerms: commonSchemas.termsAgreement,
   }),
   personalInfoNoName: z.object({
-    fullName: z.string().optional(),
+    fullName: z.string().min(2, 'Full name must be at least 2 characters').optional(),
     birthday: commonSchemas.birthday,
     agreedToTerms: commonSchemas.termsAgreement,
   }),
