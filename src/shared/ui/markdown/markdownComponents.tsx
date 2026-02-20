@@ -1,5 +1,5 @@
 import type { Components } from 'react-markdown';
-import { useState } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { ClipboardDocumentCheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 
@@ -25,6 +25,7 @@ const getNodeText = (node: ComponentChildren): string => {
 
 const CopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
 
   const handleCopy = async () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -33,11 +34,23 @@ const CopyButton = ({ text }: { text: string }) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      timeoutRef.current = window.setTimeout(() => {
+        setCopied(false);
+        timeoutRef.current = null;
+      }, 1800);
     } catch (error) {
       console.warn('[markdown] Failed to copy code block', error);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <button

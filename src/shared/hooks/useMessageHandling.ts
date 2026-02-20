@@ -237,6 +237,7 @@ export const useMessageHandling = ({
   // Tracks the real message ID we expect from the WebSocket after streaming.
   // When message.new arrives with this ID we remove the streaming bubble.
   const pendingStreamMessageIdRef = useRef<string | null>(null);
+  const orphanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!conversationId || !practiceId) {
@@ -677,6 +678,11 @@ export const useMessageHandling = ({
           const matchIndex = additions.findIndex(m => m.id === pendingId);
           if (matchIndex !== -1) {
             pendingStreamMessageIdRef.current = null;
+            // Clear orphan timer if it's running
+            if (orphanTimerRef.current !== null) {
+              clearTimeout(orphanTimerRef.current);
+              orphanTimerRef.current = null;
+            }
             // Remove streaming bubble
             next = next.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
           }
@@ -1368,7 +1374,7 @@ export const useMessageHandling = ({
           // Persisted event — worker has saved the message, WebSocket will deliver it.
           // Check if the message already exists (race condition: WebSocket arrived before SSE).
           if (parsed.persisted === true && typeof parsed.messageId === 'string') {
-            const messageExists = messages.some(m => m.id === parsed.messageId);
+            const messageExists = messagesRef.current?.some(m => m.id === parsed.messageId);
             if (messageExists) {
               removeStreamingBubble(bubbleId);
               return;
@@ -1437,11 +1443,9 @@ export const useMessageHandling = ({
             // Schedule cleanup after expiry if no persisted message arrives
             const orphanTimer = setTimeout(() => {
               setMessages(current => current.filter(m => m.id !== bubbleId));
+              orphanTimerRef.current = null;
             }, orphanExpiryMs);
-
-            // Store timer so it can be cleared if message.new arrives
-            if (!orphanedBubble.metadata) orphanedBubble.metadata = {};
-            (orphanedBubble.metadata as any).orphanTimer = orphanTimer;
+            orphanTimerRef.current = orphanTimer;
 
             return prev.map(m => m.id === bubbleId ? orphanedBubble : m);
           });

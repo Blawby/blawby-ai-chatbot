@@ -571,11 +571,23 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           try {
             const trimmed = buffer.trim();
             if (trimmed.startsWith('data: ')) {
-              const chunk = JSON.parse(trimmed.slice(6)) as { choices?: Array<{ delta?: { content?: string | null } }> };
+              const chunk = JSON.parse(trimmed.slice(6)) as { choices?: Array<{ delta?: { content?: string | null; tool_calls?: Array<{ index?: number; function?: { name?: string; arguments?: string } }> } }> };
               const token = chunk.choices?.[0]?.delta?.content;
               if (typeof token === 'string' && token.length > 0) {
                 accumulatedReply += token;
                 write({ token });
+              }
+              // Handle tool calls in final buffer
+              const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
+              if (Array.isArray(toolCalls)) {
+                for (const tc of toolCalls) {
+                  if (typeof tc.function?.name === 'string') {
+                    toolCallName = tc.function.name;
+                  }
+                  if (typeof tc.function?.arguments === 'string') {
+                    toolCallArgBuffer += tc.function.arguments;
+                  }
+                }
               }
             }
           } catch {
