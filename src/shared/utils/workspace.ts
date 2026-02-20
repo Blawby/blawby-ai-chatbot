@@ -117,6 +117,32 @@ export function setSettingsReturnPath(path: string): void {
   window.sessionStorage.setItem(SETTINGS_RETURN_KEY, path);
 }
 
+const isRelativeInternalPath = (path: string): boolean =>
+  path.startsWith('/') && !path.startsWith('//');
+
+export function getValidatedSettingsReturnPath(
+  returnPath: string | null,
+  workspace: Exclude<WorkspaceType, 'public'>,
+  slug: string
+): string | null {
+  if (!returnPath || !isRelativeInternalPath(returnPath) || !slug) {
+    return null;
+  }
+
+  const encodedSlug = encodeURIComponent(slug);
+  const expectedBasePath = `/${workspace}/${encodedSlug}`;
+  if (
+    returnPath === expectedBasePath ||
+    returnPath.startsWith(`${expectedBasePath}/`) ||
+    returnPath.startsWith(`${expectedBasePath}?`) ||
+    returnPath.startsWith(`${expectedBasePath}#`)
+  ) {
+    return returnPath;
+  }
+
+  return null;
+}
+
 export function resolveSettingsBasePath(path: string): string {
   const segments = path.split('/').filter(Boolean);
   const settingsIndex = segments.indexOf('settings');

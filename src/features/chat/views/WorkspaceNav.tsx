@@ -32,6 +32,7 @@ interface WorkspaceNavProps {
   onSelectTab: (tab: WorkspaceNavTab) => void;
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
+  showLogo?: boolean;
   items?: WorkspaceNavItem[];
   activeItemId?: string;
   onSelectItem?: (itemId: string) => void;
@@ -44,6 +45,7 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   onSelectTab,
   showClientTabs = false,
   showPracticeTabs = false,
+  showLogo = true,
   items,
   activeItemId,
   onSelectItem,
@@ -58,7 +60,7 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
 
   const baseClasses = variant === 'bottom'
     ? 'btn btn-tab flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-    : 'btn btn-tab flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+    : 'btn btn-tab flex w-full items-center justify-start gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
   const activeClasses = 'active nav-item-active';
   const inactiveClasses = 'nav-item-inactive backdrop-blur-xl';
   const containerClasses = variant === 'bottom'
@@ -154,9 +156,11 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
     >
       {variant === 'sidebar' ? (
         <div className="flex h-full flex-col">
-          <div className="px-3 pb-4 pt-2">
-            <Logo size="sm" showText className="text-input-text" />
-          </div>
+          {showLogo && (
+            <div className="px-3 pb-4 pt-2">
+              <Logo size="sm" showText className="text-input-text" />
+            </div>
+          )}
           <nav className="flex min-h-0 flex-1 flex-col px-2 pb-6">
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
               {customButtons ?? (
