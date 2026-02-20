@@ -276,5 +276,16 @@
       "addMore": "Tambah lagi",
       "notYet": "Belum saatnya"
     }
+  },
+  "intake": {
+    "authTitle": "Anda hampir selesai",
+    "authDescription": "Buat akun gratis untuk melanjutkan asupan Anda dan mendapatkan pembaruan dari {{practice}}. Kami akan mengirimkan tautan konfirmasi melalui email.",
+    "authDescriptionFallback": "Buat akun gratis untuk melanjutkan asupan Anda dan mendapatkan pembaruan. Kami akan mengirimkan tautan konfirmasi melalui email."
+  },
+  "leadReview": {
+    "accept": "Terima",
+    "decline": "Tolak",
+    "convert": "Konversi ke kasus",
+    "noPermission": "Anda tidak memiliki izin untuk meninjau prospek ini"
   }
 }

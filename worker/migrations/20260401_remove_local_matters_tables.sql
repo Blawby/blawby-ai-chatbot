@@ -7,6 +7,8 @@
 
 PRAGMA foreign_keys = OFF;
 
+BEGIN TRANSACTION;
+
 DROP TRIGGER IF EXISTS matters_after_update_timestamp;
 
 DROP INDEX IF EXISTS idx_matters_practice;
@@ -218,7 +220,7 @@ INSERT INTO matter_events_new (
 )
 SELECT
   me.id,
-  COALESCE(m.practice_id, ''),
+  m.practice_id,
   me.matter_id,
   me.event_type,
   me.title,
@@ -233,7 +235,7 @@ SELECT
   me.created_at,
   me.updated_at
 FROM matter_events me
-LEFT JOIN matters m ON m.id = me.matter_id;
+INNER JOIN matters m ON m.id = me.matter_id;
 
 DROP TABLE matter_events;
 ALTER TABLE matter_events_new RENAME TO matter_events;
@@ -243,5 +245,7 @@ CREATE INDEX IF NOT EXISTS idx_matter_events_matter ON matter_events(matter_id, 
 
 DROP TABLE IF EXISTS matter_questions;
 DROP TABLE IF EXISTS matters;
+
+COMMIT;
 
 PRAGMA foreign_keys = ON;

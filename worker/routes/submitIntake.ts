@@ -147,7 +147,7 @@ export async function handleSubmitIntake(
   env: Env,
   conversationId: string
 ): Promise<Response> {
-  // Auth — anonymous users can submit intakes
+  // Auth — authentication is required to submit intakes
   const authContext = await optionalAuth(request, env);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required');

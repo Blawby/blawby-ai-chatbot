@@ -254,10 +254,15 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         return;
       }
 
-      if (paymentIntentStatus === 'succeeded' || paymentIntentStatus === 'processing') {
+      if (paymentIntentStatus === 'succeeded') {
         setStatus('succeeded');
         paymentSucceeded = true;
         await handlePostPaymentSuccess();
+        return;
+      }
+
+      if (paymentIntentStatus === 'processing') {
+        setStatus('processing');
         return;
       }
 

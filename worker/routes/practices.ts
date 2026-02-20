@@ -84,7 +84,12 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
     if (resource === 'sessions') {
       requireMinimumRole(authContext.memberRole, 'admin');
 
-      const statusFilter = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const rawStatus = url.searchParams.get('status');
+      const validStatuses = new Set<string>(['active', 'archived', 'closed']);
+      if (rawStatus && !validStatuses.has(rawStatus)) {
+        throw HttpErrors.badRequest(`Invalid status filter. Valid values: ${Array.from(validStatuses).join(', ')}`);
+      }
+      const statusFilter = (rawStatus as 'active' | 'archived' | 'closed' | null) ?? null;
       const baseQuery = `
         SELECT id,
                status,

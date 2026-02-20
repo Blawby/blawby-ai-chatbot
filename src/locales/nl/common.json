@@ -276,5 +276,16 @@
       "addMore": "Meer toevoegen",
       "notYet": "Nog niet"
     }
+  },
+  "intake": {
+    "authTitle": "U bent bijna klaar",
+    "authDescription": "Maak een gratis account aan om uw inname voort te zetten en updates van {{practice}} te ontvangen. We sturen u een bevestigingslink per e-mail.",
+    "authDescriptionFallback": "Maak een gratis account aan om uw inname voort te zetten en updates te ontvangen. We sturen u een bevestigingslink per e-mail."
+  },
+  "leadReview": {
+    "accept": "Accepteren",
+    "decline": "Weigeren",
+    "convert": "Converteren naar zaak",
+    "noPermission": "U hebt geen toestemming om deze lead te beoordelen"
   }
 }

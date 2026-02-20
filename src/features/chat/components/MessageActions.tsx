@@ -177,7 +177,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									onClick={leadReview.onConvert}
 									disabled={leadReview.isSubmitting}
 								>
-									Convert to matter
+									{t('leadReview.convert')}
 								</Button>
 							) : (
 								<>

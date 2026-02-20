@@ -557,7 +557,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           urgency: intake.urgency === 'routine' || intake.urgency === 'time_sensitive' || intake.urgency === 'emergency'
             ? intake.urgency
             : '',
-          status: intake.triage_status === 'accepted' ? 'engagement_pending' : 'engagement_pending',
+          status: 'engagement_pending',
         });
       })
       .catch((error: unknown) => {

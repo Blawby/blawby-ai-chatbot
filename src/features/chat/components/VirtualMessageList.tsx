@@ -194,15 +194,22 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             })
             .filter((value): value is string => Boolean(value));
 
+        const controllers = new Map<string, AbortController>();
+
         intakeUuids.forEach((intakeUuid) => {
             if (leadTriageStatus[intakeUuid]) return;
             if (triageStatusRequestedRef.current.has(intakeUuid)) return;
             triageStatusRequestedRef.current.add(intakeUuid);
 
+            const controller = new AbortController();
+            controllers.set(intakeUuid, controller);
+
             void fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
                 credentials: 'include',
+                signal: controller.signal,
             })
                 .then(async (response) => {
+                    if (!isMountedRef.current) return;
                     if (!response.ok) {
                         const errData = await response.json().catch(() => ({})) as { error?: string; message?: string };
                         throw new Error(errData.message ?? errData.error ?? `HTTP ${response.status}`);
@@ -213,14 +220,23 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     };
                     const triageStatus = payload.data?.triage_status;
                     if (typeof triageStatus === 'string' && triageStatus.length > 0) {
-                        setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
+                        if (isMountedRef.current) {
+                            setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
+                        }
                     }
                 })
                 .catch((error) => {
+                    if (error instanceof Error && error.name === 'AbortError') return;
                     console.warn('[VirtualMessageList] Failed to hydrate intake triage status', { intakeUuid, error });
-                    triageStatusRequestedRef.current.delete(intakeUuid);
+                    if (isMountedRef.current) {
+                        triageStatusRequestedRef.current.delete(intakeUuid);
+                    }
                 });
         });
+
+        return () => {
+            controllers.forEach((controller) => controller.abort());
+        };
     }, [dedupedMessages, isPracticeViewer, leadReviewActions, leadTriageStatus]);
 
     const resolveAvatar = (message: ChatMessageUI) => {

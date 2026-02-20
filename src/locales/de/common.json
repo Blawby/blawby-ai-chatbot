@@ -276,5 +276,16 @@
       "submit": "Anfrage absenden",
       "submitConsultationRequest": "Beratungsanfrage absenden"
     }
+  },
+  "intake": {
+    "authTitle": "Sie sind fast fertig",
+    "authDescription": "Erstellen Sie ein kostenloses Konto, um mit Ihrem Antrag fortzufahren und Updates von {{practice}} zu erhalten. Wir werden Ihnen einen Bestätigungslink per E-Mail senden.",
+    "authDescriptionFallback": "Erstellen Sie ein kostenloses Konto, um mit Ihrem Antrag fortzufahren und Updates zu erhalten. Wir werden Ihnen einen Bestätigungslink per E-Mail senden."
+  },
+  "leadReview": {
+    "accept": "Akzeptieren",
+    "decline": "Ablehnen",
+    "convert": "In Akte umwandeln",
+    "noPermission": "Sie haben keine Berechtigung, diesen Lead zu überprüfen"
   }
 }

@@ -276,5 +276,16 @@
       "addMore": "Dodaj więcej",
       "notYet": "Jeszcze nie"
     }
+  },
+  "intake": {
+    "authTitle": "Jesteś prawie gotowy",
+    "authDescription": "Utwórz bezpłatne konto, aby kontynuować najem i otrzymywać aktualizacje od {{practice}}. Wyślemy Ci link potwierdzający pocztą e-mail.",
+    "authDescriptionFallback": "Utwórz bezpłatne konto, aby kontynuować najem i otrzymywać aktualizacje. Wyślemy Ci link potwierdzający pocztą e-mail."
+  },
+  "leadReview": {
+    "accept": "Zaakceptuj",
+    "decline": "Odrzuć",
+    "convert": "Konwertuj na sprawę",
+    "noPermission": "Nie masz uprawnień do przeglądania tego potencjalnego klienta"
   }
 }

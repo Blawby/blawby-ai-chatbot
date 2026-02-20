@@ -285,5 +285,11 @@
     "authTitle": "You're almost done",
     "authDescription": "Create a free account to continue your intake and get updates from {{practice}}. We'll email you a confirmation link.",
     "authDescriptionFallback": "Create a free account to continue your intake and get updates. We'll email you a confirmation link."
+  },
+  "leadReview": {
+    "accept": "Accept",
+    "decline": "Decline",
+    "convert": "Convert to matter",
+    "noPermission": "You don't have permission to review this lead"
   }
 }

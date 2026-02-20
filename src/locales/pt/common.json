@@ -276,5 +276,16 @@
       "addMore": "Adicionar mais",
       "notYet": "Ainda não"
     }
+  },
+  "intake": {
+    "authTitle": "Você quase terminou",
+    "authDescription": "Crie uma conta gratuita para continuar sua inscrição e receber atualizações de {{practice}}. Enviaremos um link de confirmação por e-mail.",
+    "authDescriptionFallback": "Crie uma conta gratuita para continuar sua inscrição e receber atualizações. Enviaremos um link de confirmação por e-mail."
+  },
+  "leadReview": {
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "convert": "Converter para caso",
+    "noPermission": "Você não tem permissão para revisar este lead"
   }
 }

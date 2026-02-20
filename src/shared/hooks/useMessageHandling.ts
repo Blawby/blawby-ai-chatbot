@@ -1855,8 +1855,8 @@ export const useMessageHandling = ({
             `intakePaymentPending:${intakeUuid}`,
             JSON.stringify({ conversationId, practiceId, returnTo })
           );
+          window.location.href = paymentLinkUrl;
         }
-        window.location.href = paymentLinkUrl;
         return;
       }
 
