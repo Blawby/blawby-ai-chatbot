@@ -123,7 +123,7 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
         </div>
         <div>
           <span className="block text-sm font-medium text-input-text mb-1">Timezone</span>
-          <div className="min-h-[44px] rounded-lg border border-line-glass/30 bg-surface-glass/60 backdrop-blur-sm px-3 py-2 text-sm text-input-placeholder flex items-center">
+          <div className="glass-input min-h-[44px] rounded-lg px-3 py-2 text-sm text-input-placeholder flex items-center">
             UTC
           </div>
         </div>

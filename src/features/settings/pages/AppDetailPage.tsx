@@ -98,7 +98,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           label={app.name}
           labelNode={(
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-surface-glass/60 backdrop-blur-sm flex items-center justify-center border border-line-glass/30 overflow-hidden">
+              <div className="glass-input w-16 h-16 rounded-full flex items-center justify-center border border-line-glass/30 overflow-hidden">
                 {app.logo ? (
                   <img
                     src={app.logo}

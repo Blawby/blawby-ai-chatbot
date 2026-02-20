@@ -8,6 +8,7 @@ import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import DebugStylesPage from '@/pages/DebugStylesPage';
+import DebugMatterPage from '@/pages/DebugMatterPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -167,6 +168,7 @@ function AppShell() {
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={import.meta.env.DEV ? DebugStylesPage : NotFoundRoute} />
+          <Route path="/debug/matters" component={import.meta.env.DEV ? DebugMatterPage : NotFoundRoute} />
           <Route path="/pay" component={PaySuccessPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />

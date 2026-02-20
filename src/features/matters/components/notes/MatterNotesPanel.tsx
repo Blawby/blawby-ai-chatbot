@@ -190,7 +190,7 @@ export const MatterNotesPanel = ({
           {sortedNotes.map((note) => (
             <li
               key={note.id}
-              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-surface-glass/50 transition-colors"
+              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-white/[0.04] transition-colors"
             >
               <button
                 type="button"
@@ -205,7 +205,7 @@ export const MatterNotesPanel = ({
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="rounded-full bg-surface-glass/60 px-2 py-0.5 text-xs font-medium text-input-placeholder">
+                      <span className="glass-input rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
                         {note.author.role}
                       </span>
                     )}

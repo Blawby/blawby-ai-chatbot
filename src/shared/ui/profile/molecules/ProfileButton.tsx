@@ -21,7 +21,7 @@ export const ProfileButton = ({
     return (
       <button
         onClick={onClick}
-        className={`w-8 h-8 rounded-full bg-surface-glass/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 mx-auto ${className}`}
+        className={`glass-input w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mx-auto ${className}`}
         title={name}
         aria-label={`User profile for ${name}`}
       >

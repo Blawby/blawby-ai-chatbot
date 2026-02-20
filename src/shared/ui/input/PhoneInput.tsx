@@ -260,7 +260,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="menu"
               aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
               className={cn(
-                "inline-flex items-center border border-input-border rounded-l-lg text-input-text hover:bg-surface-glass/50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors glass-input",
+                "inline-flex items-center border border-input-border rounded-l-lg text-input-text hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors glass-input",
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
@@ -271,7 +271,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             </button>
             
             {isDropdownOpen && (
-              <div className="absolute z-10 bg-surface-glass/80 backdrop-blur-xl border border-line-glass/30 rounded-lg shadow-glass w-52 top-full left-0 mt-1">
+              <div className="absolute z-10 glass-panel border border-line-glass/30 rounded-lg shadow-glass w-52 top-full left-0 mt-1">
                 <div 
                   ref={listRef}
                   role="listbox"
@@ -284,8 +284,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                         type="button"
                         onClick={() => handleCountrySelect(country)}
                         className={cn(
-                          "inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-surface-glass/50 focus:outline-none focus:bg-surface-glass/50",
-                          index === focusedIndex && "bg-surface-glass/50"
+                          "inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-white/[0.04] focus:outline-none focus:bg-white/[0.08]",
+                          index === focusedIndex && "bg-white/[0.08]"
                         )}
                         tabIndex={-1}
                       >
