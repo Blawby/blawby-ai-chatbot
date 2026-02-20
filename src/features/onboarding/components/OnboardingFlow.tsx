@@ -168,7 +168,7 @@ export const OnboardingFlow = ({
         });
       }
 
-      const trimmedName = sourceData.personalInfo.fullName.trim();
+      const trimmedName = sourceData.personalInfo.fullName?.trim() ?? '';
       const updatePayload: Record<string, unknown> = {
         onboardingComplete: true
       };

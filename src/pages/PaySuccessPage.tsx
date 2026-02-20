@@ -28,8 +28,9 @@ const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => 
       return null;
     }
     return typeof payload.data.intake_uuid === 'string' ? payload.data.intake_uuid : null;
-  } catch {
-    return null;
+  } catch (error) {
+    console.error('[PaySuccessPage] Failed to fetch post-pay status:', error);
+    throw error;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -68,7 +69,13 @@ export const PaySuccessPage: FunctionComponent = () => {
       let resolvedUuid = intakeUuid;
       if (!resolvedUuid && sessionId) {
         setMessage('Confirming payment…');
-        resolvedUuid = await fetchPostPayStatus(sessionId);
+        try {
+          resolvedUuid = await fetchPostPayStatus(sessionId);
+        } catch (error) {
+          setMessage('Payment confirmed, but we encountered a confirmation error. Please contact support if needed.');
+          console.error('[PaySuccessPage] Error confirming payment:', error);
+          return;
+        }
         if (cancelled) return;
       }
 

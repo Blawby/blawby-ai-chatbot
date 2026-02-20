@@ -345,9 +345,8 @@ export function MainApp({
       try {
         window.sessionStorage.removeItem('intakeAwaitingInvitePath');
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn('[MainApp] Failed to clear intake awaiting path on auth prompt close', error);
-        }
+        console.warn('[MainApp] Failed to clear intake awaiting path on auth prompt close', error);
+        throw error;
       }
     }
     if (isPaymentAuthPromptOpen) {

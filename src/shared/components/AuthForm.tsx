@@ -61,13 +61,6 @@ const AuthForm = ({
     ));
   }, [initialEmail]);
 
-  useEffect(() => {
-    if (typeof initialName !== 'string') return;
-    setFormData((prev) => (
-      prev.name === initialName ? prev : { ...prev, name: initialName }
-    ));
-  }, [initialName]);
-
   const notifySuccess = useCallback(async (user: unknown) => {
     if (!onSuccess) return;
 

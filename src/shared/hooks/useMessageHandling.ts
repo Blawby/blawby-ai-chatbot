@@ -275,12 +275,18 @@ export const useMessageHandling = ({
       try {
         await linkConversationToUser(conversationId, practiceId, currentUserId);
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn('[useMessageHandling] Conversation relink on load failed', {
-            conversationId,
-            practiceId,
-            error
-          });
+        console.warn('[useMessageHandling] Conversation relink on load failed', {
+          conversationId,
+          practiceId,
+          error
+        });
+        onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
+        const is409Conflict = error instanceof Error && (error as any)?.status === 409;
+        if (is409Conflict) {
+          if (!cancelled) {
+            setIsConversationLinkReady(true);
+          }
+          return;
         }
       } finally {
         if (!cancelled) {

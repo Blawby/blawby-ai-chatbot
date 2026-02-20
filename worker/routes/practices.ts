@@ -150,22 +150,12 @@ async function notifyIntakeDecision(options: {
 
   let inviteSent: boolean | null = null;
   if (decision === 'accepted' && intakeUuid) {
-    try {
-      const inviteResult = await RemoteApiService.triggerPracticeClientIntakeInvite(
-        env,
-        intakeUuid,
-        options.request
-      );
-      inviteSent = inviteResult.success;
-    } catch (error) {
-      console.error('[Practice] Failed to trigger intake invite after lead acceptance:', {
-        intakeUuid,
-        practiceId,
-        matterId,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      inviteSent = false;
-    }
+    const inviteResult = await RemoteApiService.triggerPracticeClientIntakeInvite(
+      env,
+      intakeUuid,
+      options.request
+    );
+    inviteSent = inviteResult.success;
   }
 
   const conversationService = new ConversationService(env);

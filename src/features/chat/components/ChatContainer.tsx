@@ -241,7 +241,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             await handleSubmitNowAction();
           } catch (error) {
             console.error('Failed to submit via chat shortcut', error);
-            onIntakeCtaResponse('ready');
+            throw error;
           }
         })();
         setInputValue('');
@@ -563,7 +563,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                               await handleSubmitNowAction();
                             } catch (error) {
                               console.error('Failed to submit via footer CTA', error);
-                              onIntakeCtaResponse?.('ready');
+                              throw error;
                             }
                           }}
                         >

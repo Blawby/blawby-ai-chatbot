@@ -114,7 +114,7 @@ const shouldShowIntakeCtaForReply = (reply: string): boolean => {
   ) {
     return true;
   }
-  return /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|submit your consultation|connect you with the right attorney|would you like to submit)/i.test(reply);
+  return /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|submit your consultation|connect you with the right attorney|would you like to submit|would you like to continue now)/i.test(reply);
 };
 
 const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null): Record<string, unknown> | null => {

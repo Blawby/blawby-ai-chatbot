@@ -146,7 +146,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
     } else {
       const membership = await checkPracticeMembership(request, env, conversation.practice_id);
-      if (!isStaffMemberRole(membership.memberRole)) {
+      if (!membership.isMember && !isStaffMemberRole(membership.memberRole)) {
         await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
       }
     }
