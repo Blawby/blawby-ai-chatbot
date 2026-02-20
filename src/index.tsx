@@ -22,6 +22,7 @@ import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
   buildSettingsPath,
+  getValidatedSettingsReturnPath,
   getSettingsReturnPath,
   getWorkspaceHomePath,
   setSettingsReturnPath
@@ -169,6 +170,14 @@ function LegacySettingsRoute() {
   const resolvedPractice = currentPractice ?? practices[0] ?? null;
   const resolvedSlug = resolvedPractice?.slug ?? null;
   const legacySubPath = location.path.replace(/^\/settings\/?/, '');
+  const legacySearch = useMemo(() => {
+    const queryIndex = location.url.indexOf('?');
+    if (queryIndex < 0) return '';
+    const hashIndex = location.url.indexOf('#', queryIndex);
+    return hashIndex < 0
+      ? location.url.slice(queryIndex)
+      : location.url.slice(queryIndex, hashIndex);
+  }, [location.url]);
 
   useEffect(() => {
     if (practicesLoading || !resolvedSlug || !resolvedPractice) return;
@@ -176,9 +185,9 @@ function LegacySettingsRoute() {
     const settingsBase = `/${workspacePrefix}/${encodeURIComponent(resolvedSlug)}/settings`;
     const targetPath = buildSettingsPath(settingsBase, legacySubPath || undefined);
     // Preserve query parameters when redirecting
-    const fullPath = location.search ? targetPath + location.search : targetPath;
+    const fullPath = legacySearch ? targetPath + legacySearch : targetPath;
     navigate(fullPath, true);
-  }, [defaultWorkspace, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug, location.search]);
+  }, [defaultWorkspace, legacySearch, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
 
   if (!practicesLoading && (!resolvedSlug || !resolvedPractice)) return <App404 />;
 
@@ -209,7 +218,10 @@ function WorkspaceSettingsRoute({
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
     const fallback = workspaceKey ? getWorkspaceHomePath(workspaceKey, slug, '/') : '/';
-    navigate(returnPath ?? fallback, true);
+    const validatedReturnPath = workspaceKey
+      ? getValidatedSettingsReturnPath(returnPath, workspaceKey, slug)
+      : null;
+    navigate(validatedReturnPath ?? fallback, true);
   }, [navigate, slug, workspaceKey]);
 
   if (!slug || !workspaceKey) {
