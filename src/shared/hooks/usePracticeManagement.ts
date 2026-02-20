@@ -194,6 +194,12 @@ interface UsePracticeManagementOptions {
    * them into the practice list snapshot.
    */
   fetchPracticeDetails?: boolean;
+  /**
+   * Optional practice slug to resolve as the active practice.
+   * If provided, will search for a matching practice in the list.
+   * Falls back to the first practice if not found or not provided.
+   */
+  practiceSlug?: string | null;
 }
 
 interface UsePracticeManagementReturn {
@@ -623,8 +629,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
     fetchPracticeDetails = false,
+    practiceSlug,
   } = options;
-  const { session, isPending: sessionLoading, isAnonymous, activeOrganizationId } = useSessionContext();
+  const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const members = useStore(membersStore);
@@ -701,11 +708,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     return workspaceData[practiceId]?.[resource] || [];
   }, [workspaceData]);
 
+  // Track the last practice slug we selected to detect when it changes
+  const lastSelectedSlugRef = useRef<string | undefined>();
+
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
-      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails)) {
+      // Check if practiceSlug has changed - if so, we need to re-select even if already fetched
+      const slugChanged = lastSelectedSlugRef.current !== practiceSlug;
+      
+      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
         return;
       }
 
@@ -730,6 +743,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         setCurrentPractice(snapshot.currentPractice);
         setLoading(false);
         practicesFetchedRef.current = true;
+        // Track that we've selected this slug
+        lastSelectedSlugRef.current = practiceSlug;
       };
 
       const hydrateSnapshotDetails = async (snapshot: SharedPracticeSnapshot) => {
@@ -772,14 +787,26 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       };
 
       if (sharedPracticeSnapshot) {
-        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !sharedPracticeSnapshot.currentPractice) {
-          applySnapshot(sharedPracticeSnapshot);
+        // Re-select currentPractice based on practiceSlug even when using cached snapshot
+        let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+        if (practiceSlug) {
+          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === practiceSlug);
+          selectedCurrentPractice = foundBySlug || null;
+        }
+
+        const snapshotToApply = {
+          ...sharedPracticeSnapshot,
+          currentPractice: selectedCurrentPractice
+        };
+
+        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !snapshotToApply.currentPractice) {
+          applySnapshot(snapshotToApply);
           return;
         }
 
         setLoading(true);
         setError(null);
-        const hydrated = await hydrateSnapshotDetails(sharedPracticeSnapshot);
+        const hydrated = await hydrateSnapshotDetails(snapshotToApply);
         applySnapshot(hydrated);
         return;
       }
@@ -788,14 +815,27 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         const cachedPromise = sharedPracticePromise;
         try {
           const cached = await sharedPracticePromise;
-          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cached.currentPractice) {
+          
+          // Re-select currentPractice based on practiceSlug even when using cached promise
+          let selectedCurrentPractice = cached.currentPractice;
+          if (practiceSlug) {
+            const foundBySlug = cached.practices.find((p) => p.slug === practiceSlug);
+            selectedCurrentPractice = foundBySlug || null;
+          }
+
+          const cachedToApply = {
+            ...cached,
+            currentPractice: selectedCurrentPractice
+          };
+
+          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cachedToApply.currentPractice) {
             setLoading(true);
             setError(null);
-            const hydrated = await hydrateSnapshotDetails(cached);
+            const hydrated = await hydrateSnapshotDetails(cachedToApply);
             applySnapshot(hydrated);
             return;
           }
-          applySnapshot(cached);
+          applySnapshot(cachedToApply);
           return;
         } catch (_err) {
           console.warn('Cached practice promise failed, retrying with fresh fetch.');
@@ -823,13 +863,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
           .filter((practice) => practice.id.length > 0);
 
-        const activeOrgId = activeOrganizationId ?? null;
-        const activePractice = activeOrgId
-          ? normalizedList.find(practice =>
-            practice.betterAuthOrgId === activeOrgId || practice.id === activeOrgId
-          )
-          : undefined;
-        const currentPracticeNext = activePractice || normalizedList[0] || null;
+        let currentPracticeNext: Practice | null = null;
+        if (practiceSlug) {
+          const foundBySlug = normalizedList.find((p) => p.slug === practiceSlug);
+          currentPracticeNext = foundBySlug || null;
+        }
+        if (!currentPracticeNext) {
+          currentPracticeNext = normalizedList[0] || null;
+        }
         let details: PracticeDetails | null = null;
         let stripeDetailsSubmitted: boolean | null = ENABLE_PAYOUT_STATUS ? null : false;
         if (currentPracticeNext) {
@@ -914,7 +955,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [activeOrganizationId, fetchPracticeDetails, isAnonymous, session]);
+  }, [fetchPracticeDetails, isAnonymous, session, practiceSlug]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {

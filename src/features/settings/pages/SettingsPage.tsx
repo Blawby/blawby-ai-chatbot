@@ -1,5 +1,5 @@
 import { useLocation } from 'preact-iso';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useState, useCallback } from 'preact/hooks';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
@@ -13,7 +13,7 @@ import { PracticeTeamPage } from './PracticeTeamPage';
 import { PracticePricingPage } from './PracticePricingPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
-import { SidebarNavigation, SidebarNavigationItem } from '@/shared/ui/SidebarNavigation';
+import WorkspaceNav, { type WorkspaceNavItem } from '@/features/chat/views/WorkspaceNav';
 import { 
   UserIcon, 
   ShieldCheckIcon, 
@@ -32,6 +32,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { signOut } from '@/shared/utils/auth';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 import { mockApps, type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
@@ -57,30 +58,38 @@ export const SettingsPage = ({
   const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
   const canShowPracticeSettings = canAccessPractice;
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = useCallback((subPath?: string) => buildSettingsPath(settingsBasePath, subPath), [settingsBasePath]);
   
   // Get current page from URL path
   const getCurrentPage = () => {
-    const path = location.path;
-    if (path === '/settings' || path === '/settings/') {
+    const segments = location.path.split('/').filter(Boolean);
+    const settingsIndex = segments.indexOf('settings');
+    if (settingsIndex === -1) {
       return 'navigation'; // Show main navigation on mobile
     }
-    const segments = path.split('/').filter(Boolean);
-    return segments[1] || 'navigation'; // Get the page from /settings/page
+    return segments[settingsIndex + 1] || 'navigation';
   };
   
   const getPracticeSubPage = () => {
     const segments = location.path.split('/').filter(Boolean);
-    return segments[2] || '';
+    const settingsIndex = segments.indexOf('settings');
+    if (settingsIndex === -1) return '';
+    return segments[settingsIndex + 2] || '';
   };
 
   const getAccountSubPage = () => {
     const segments = location.path.split('/').filter(Boolean);
-    return segments[2] || '';
+    const settingsIndex = segments.indexOf('settings');
+    if (settingsIndex === -1) return '';
+    return segments[settingsIndex + 2] || '';
   };
 
   const getCurrentAppId = () => {
     const segments = location.path.split('/').filter(Boolean);
-    return segments[2];
+    const settingsIndex = segments.indexOf('settings');
+    if (settingsIndex === -1) return undefined;
+    return segments[settingsIndex + 2];
   };
 
   const currentAppId = getCurrentAppId();
@@ -92,21 +101,21 @@ export const SettingsPage = ({
   // Redirect legacy 'organization' URLs to 'practice'
   useEffect(() => {
     if (currentPage === 'organization') {
-      navigate('/settings/practice');
+      navigate(toSettingsPath('practice'), { replace: true });
     }
-  }, [currentPage, navigate]);
+  }, [currentPage, navigate, toSettingsPath]);
   
   useEffect(() => {
     if (sessionPending) {
       return;
     }
     if (!canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
-      navigate('/settings');
+      navigate(toSettingsPath(), { replace: true });
     }
-  }, [canShowPracticeSettings, currentPage, navigate, sessionPending]);
+  }, [canShowPracticeSettings, currentPage, navigate, sessionPending, toSettingsPath]);
 
   const handleNavigation = (page: string) => {
-    navigate(`/settings/${page}`);
+    navigate(toSettingsPath(page));
   };
 
   const handleBack = () => {
@@ -133,8 +142,7 @@ export const SettingsPage = ({
   };
 
   // Define navigation items with ChatGPT-like structure
-  // Note: Icons are now properly typed to accept SVG props like className, aria-hidden, strokeWidth, etc.
-  const navigationItems: SidebarNavigationItem[] = [
+  const navigationItems: WorkspaceNavItem[] = [
     { id: 'general', label: t('settings:navigation.items.general'), icon: Cog6ToothIcon },
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
@@ -198,21 +206,21 @@ export const SettingsPage = ({
         const currentApp = apps.find(app => app.id === currentAppId);
         if (currentAppId && currentApp) {
           return (
-            <AppDetailPage
-              app={currentApp}
-              onBack={() => navigate('/settings/apps')}
-              onUpdate={handleAppUpdate}
+              <AppDetailPage
+                app={currentApp}
+                onBack={() => navigate(toSettingsPath('apps'))}
+                onUpdate={handleAppUpdate}
+              />
+            );
+          }
+
+          return (
+            <AppsPage
+              apps={apps}
+              onSelect={(appId) => navigate(toSettingsPath(`apps/${appId}`))}
+              className="h-full"
             />
           );
-        }
-
-        return (
-          <AppsPage
-            apps={apps}
-            onSelect={(appId) => navigate(`/settings/apps/${appId}`)}
-            className="h-full"
-          />
-        );
       }
       case 'security':
         return <SecurityPage isMobile={isMobile} onClose={onClose} className="h-full" />;
@@ -238,19 +246,17 @@ export const SettingsPage = ({
     return null;
   }
 
-  const navigationList = (
-    <SidebarNavigation
-      items={navigationItems}
-      activeItem={activeNavigationId}
-      onItemClick={handleNavigation}
-      mobile={isMobile}
-    />
-  );
-
   const desktopNavigation = (
     <div className="flex min-h-0 flex-col">
       <div className="flex-1 overflow-y-auto">
-        {navigationList}
+        <WorkspaceNav
+          variant="sidebar"
+          activeTab="settings"
+          onSelectTab={() => undefined}
+          items={navigationItems}
+          activeItemId={activeNavigationId}
+          onSelectItem={handleNavigation}
+        />
       </div>
     </div>
   );
@@ -286,11 +292,15 @@ export const SettingsPage = ({
         variant="icon"
         size="icon"
         onClick={() => {
-          if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team' || practiceSubPage === 'pricing')) {
-            navigate('/settings/practice');
+          if (currentPage === 'apps' && currentAppId) {
+            navigate(toSettingsPath('apps'));
             return;
           }
-          navigate('/settings');
+          if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team' || practiceSubPage === 'pricing')) {
+            navigate(toSettingsPath('practice'));
+            return;
+          }
+          navigate(toSettingsPath());
         }}
         aria-label={t('settings:navigation.backToSettings')}
         icon={<ArrowLeftIcon className="w-5 h-5" />}
@@ -322,7 +332,14 @@ export const SettingsPage = ({
     ? (
       <div className="flex-1 overflow-y-auto bg-transparent">
         <div className="px-4 py-2">
-          {navigationList}
+          <WorkspaceNav
+            variant="sidebar"
+            activeTab="settings"
+            onSelectTab={() => undefined}
+            items={navigationItems}
+            activeItemId={activeNavigationId}
+            onSelectItem={handleNavigation}
+          />
         </div>
       </div>
     )

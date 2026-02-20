@@ -1079,9 +1079,11 @@ export function MainApp({
       onStartNewConversation={handleStartNewConversation}
       chatView={chatPanel}
       mattersView={
-        <PracticeMattersPage
-          basePath={practiceMattersPath ?? '/practice/matters'}
-        />
+        practiceMattersPath ? (
+          <PracticeMattersPage
+            basePath={practiceMattersPath}
+          />
+        ) : null
       }
       clientsView={<PracticeClientsPage />}
     />

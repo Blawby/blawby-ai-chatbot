@@ -1,6 +1,7 @@
 import { useCallback } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useLocation } from 'preact-iso';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 export interface UseSettingsNavigationReturn {
   currentPath: string;
@@ -21,39 +22,40 @@ export const useSettingsNavigation = (): UseSettingsNavigationReturn => {
   
   // Derive currentPath from the actual router state
   const currentPath = location.path;
+  const settingsBasePath = resolveSettingsBasePath(location.path);
 
-  const navigateToSettings = useCallback((path: string = '/settings') => {
+  const navigateToSettings = useCallback((path: string = settingsBasePath) => {
     navigate(path);
-  }, [navigate]);
+  }, [navigate, settingsBasePath]);
 
   const navigateToAccount = useCallback(() => {
-    navigateToSettings('/settings/account');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'account'));
+  }, [navigateToSettings, settingsBasePath]);
 
 
   const navigateToNotifications = useCallback(() => {
-    navigateToSettings('/settings/notifications');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'notifications'));
+  }, [navigateToSettings, settingsBasePath]);
 
   const navigateToSecurity = useCallback(() => {
-    navigateToSettings('/settings/security');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'security'));
+  }, [navigateToSettings, settingsBasePath]);
 
   const navigateToHelp = useCallback(() => {
-    navigateToSettings('/settings/help');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'help'));
+  }, [navigateToSettings, settingsBasePath]);
 
   const navigateToPractice = useCallback(() => {
-    navigateToSettings('/settings/practice');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'practice'));
+  }, [navigateToSettings, settingsBasePath]);
 
   const navigateToLegal = useCallback(() => {
-    navigateToSettings('/settings/legal');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'legal'));
+  }, [navigateToSettings, settingsBasePath]);
 
   const navigateToSupport = useCallback(() => {
-    navigateToSettings('/settings/support');
-  }, [navigateToSettings]);
+    navigateToSettings(buildSettingsPath(settingsBasePath, 'support'));
+  }, [navigateToSettings, settingsBasePath]);
 
   const goBack = useCallback(() => {
     // Try to use browser history back navigation first

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
@@ -11,6 +12,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface PracticeServicesPageProps {
   onNavigate?: (path: string) => void;
@@ -22,7 +24,10 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   const { showError, showSuccess } = useToastContext();
   const { navigate: baseNavigate } = useNavigation();
   const navigate = onNavigate ?? baseNavigate;
+  const location = useLocation();
   const [servicesError, setServicesError] = useState<string | null>(null);
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const lastSavedKeyRef = useRef<string>('');
   const lastToastAtRef = useRef(0);
   const toastCooldownMs = 4000;
@@ -83,7 +88,7 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
         <Button
           variant="icon"
           size="icon"
-          onClick={() => navigate('/settings/practice')}
+          onClick={() => navigate(toSettingsPath('practice'))}
           aria-label="Back to practice settings"
           icon={<ArrowLeftIcon className="w-5 h-5" />}
         />

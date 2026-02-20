@@ -49,11 +49,8 @@ export function useConversations({
   enabled = true,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
-  const { activePracticeId, activeOrganizationId, session, isPending: sessionIsPending } = useSessionContext();
-  const sessionPracticeId = useMemo(
-    () => activePracticeId ?? activeOrganizationId ?? null,
-    [activePracticeId, activeOrganizationId]
-  );
+  const { activePracticeId, session, isPending: sessionIsPending } = useSessionContext();
+  const sessionPracticeId = useMemo(() => activePracticeId ?? null, [activePracticeId]);
   const sessionReady = Boolean(session?.user) && !sessionIsPending;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);

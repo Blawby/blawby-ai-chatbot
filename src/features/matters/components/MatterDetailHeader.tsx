@@ -367,7 +367,6 @@ export const MatterDetailHeader = ({
 
       {/* ── Tab bar — flush to bottom, no padding ────────────────────── */}
       <nav
-        role="tablist"
         className="flex items-end gap-0 border-t border-white/[0.06] px-5"
         aria-label="Matter sections"
       >

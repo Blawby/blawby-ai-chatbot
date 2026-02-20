@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -13,6 +14,7 @@ import { SectionDivider } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import Modal from '@/shared/components/Modal';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 const DEFAULT_BILLING_INCREMENT = 1;
 
@@ -21,6 +23,7 @@ export const PracticePricingPage = () => {
   const { currentPractice, loading, updatePracticeDetails } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const location = useLocation();
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [feeEnabledDraft, setFeeEnabledDraft] = useState(false);
   const [feeDraft, setFeeDraft] = useState<MajorAmount | undefined>(undefined);
@@ -34,6 +37,8 @@ export const PracticePricingPage = () => {
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const canEdit = !activeMemberRoleLoading && (normalizedRole === 'owner' || normalizedRole === 'admin');
   const isReadOnly = !activeMemberRoleLoading && !canEdit;
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   const activeFee = useMemo(() => {
     const raw = currentPractice?.consultationFee;
@@ -225,7 +230,7 @@ export const PracticePricingPage = () => {
         <Button
           variant="icon"
           size="icon"
-          onClick={() => navigate('/settings/practice')}
+          onClick={() => navigate(toSettingsPath('practice'))}
           aria-label="Back to practice settings"
           icon={<ArrowLeftIcon className="w-5 h-5" />}
         />

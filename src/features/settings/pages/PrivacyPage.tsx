@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
@@ -8,6 +9,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import Modal from '@/shared/components/Modal';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 type PrivacySettings = {
   piiConsentGiven: boolean;
@@ -31,9 +33,12 @@ const CRITICAL_CONSENTS: (keyof PrivacySettings)[] = ['piiConsentGiven', 'dataPr
 export default function PrivacyPage() {
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const location = useLocation();
   const [settings, setSettings] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingToggle, setPendingToggle] = useState<{ key: keyof PrivacySettings; value: boolean } | null>(null);
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const isInitialLoad = useRef(true);
   const shouldPersist = useRef(false);
 
@@ -170,7 +175,7 @@ export default function PrivacyPage() {
           </Button>
           <Button
             variant="secondary"
-            onClick={() => navigate('/settings/account')}
+            onClick={() => navigate(toSettingsPath('account'))}
           >
             Manage account deletion
           </Button>

@@ -1,6 +1,7 @@
 import { useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import type { WorkspacePreference, WorkspaceType } from '@/shared/types/workspace';
 import {
   resolveWorkspaceFromPath
@@ -19,28 +20,22 @@ export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
   const {
     activePracticeId,
-    workspaceAccess,
-    routingDefaultWorkspace,
     isPending
   } = useSessionContext();
+  const {
+    hasPracticeAccess,
+    defaultWorkspace,
+    practicesLoading
+  } = useWorkspaceResolver();
 
   const workspaceFromPath = useMemo(
     () => resolveWorkspaceFromPath(location.path),
     [location.path]
   );
 
-  const isPracticeLoading = isPending;
-  const canAccessPractice = isPending ? true : workspaceAccess.practice;
-  const isPracticeEnabled = workspaceAccess.practice;
-  const defaultWorkspace: WorkspacePreference = useMemo(() => {
-    if (routingDefaultWorkspace === 'practice' && workspaceAccess.practice) {
-      return 'practice';
-    }
-    if (routingDefaultWorkspace === 'client') {
-      return 'client';
-    }
-    return workspaceAccess.practice ? 'practice' : 'client';
-  }, [routingDefaultWorkspace, workspaceAccess.practice]);
+  const isPracticeLoading = isPending || practicesLoading;
+  const canAccessPractice = isPracticeLoading ? true : hasPracticeAccess;
+  const isPracticeEnabled = hasPracticeAccess;
 
   return {
     workspaceFromPath,

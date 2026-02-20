@@ -96,14 +96,19 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const workspaceBasePath = useMemo(() => {
     if (workspace === 'practice') {
-      return practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/practice';
+      return practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/';
     }
     if (workspace === 'client') {
-      return practiceSlug ? `/client/${encodeURIComponent(practiceSlug)}` : '/client';
+      return practiceSlug ? `/client/${encodeURIComponent(practiceSlug)}` : '/';
     }
-    return practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
+    return practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/';
   }, [workspace, practiceSlug]);
-  const conversationsPath = `${workspaceBasePath}/conversations`;
+  const conversationsPath = useMemo(() => {
+    if (workspaceBasePath === '/') {
+      return '/conversations';
+    }
+    return `${workspaceBasePath}/conversations`;
+  }, [workspaceBasePath]);
   const previewBaseUrl = useMemo(() => {
     const path = practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
     if (typeof window !== 'undefined' && window.location?.origin) {

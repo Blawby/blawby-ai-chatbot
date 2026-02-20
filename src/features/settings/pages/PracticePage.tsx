@@ -41,6 +41,7 @@ import {
   type EditPracticeFormState
 } from '@/features/settings/hooks/usePracticePageEffects';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -150,7 +151,7 @@ interface PracticePageProps {
 }
 
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { session, isPending: sessionPending, activeMemberRole, activeOrganizationId } = useSessionContext();
+  const { session, isPending: sessionPending, activeMemberRole } = useSessionContext();
   const { 
     currentPractice,
     getMembers,
@@ -169,6 +170,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const { navigate } = useNavigation();
   const navigateTo = onNavigate ?? navigate;
   const location = useLocation();
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { t } = useTranslation(['settings']);
   
@@ -528,9 +531,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   useEffect(() => {
     if (location.query?.setup === 'contact' && !isContactModalOpen) {
       openContactModal();
-      navigate('/settings/practice', true);
+      navigate(buildSettingsPath(settingsBasePath, 'practice'), true);
     }
-  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal]);
+  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal, settingsBasePath]);
 
   const handleTogglePublic = async (nextValue: boolean) => {
     await saveOnboardingSettings(
@@ -603,11 +606,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <Button size="sm" variant="secondary" onClick={refetch}>
               Reload
             </Button>
-            {!activeOrganizationId && (
-              <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                Create Practice
-              </Button>
-            )}
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>
+              Create Practice
+            </Button>
           </div>
         </div>
       </div>
@@ -755,7 +756,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => navigateTo('/settings/practice/services')}
+                    onClick={() => navigateTo(toSettingsPath('practice/services'))}
                     className="hidden sm:inline-flex"
                   >
                     Manage
@@ -763,7 +764,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   <Button
                     variant="icon"
                     size="icon"
-                    onClick={() => navigateTo('/settings/practice/services')}
+                    onClick={() => navigateTo(toSettingsPath('practice/services'))}
                     className="sm:hidden"
                     aria-label="Manage services"
                     icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
@@ -788,7 +789,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => navigateTo('/settings/practice/pricing')}
+                    onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
                     className="hidden sm:inline-flex"
                   >
                     Manage
@@ -796,7 +797,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   <Button
                     variant="icon"
                     size="icon"
-                    onClick={() => navigateTo('/settings/practice/pricing')}
+                    onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
                     className="sm:hidden"
                     aria-label="Manage pricing"
                     icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
@@ -830,8 +831,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     variant="secondary"
                     size="sm"
                     onClick={() => navigateTo(members.length === 0
-                      ? '/settings/practice/team?invite=1'
-                      : '/settings/practice/team')}
+                      ? `${toSettingsPath('practice/team')}?invite=1`
+                      : toSettingsPath('practice/team'))}
                     className="hidden sm:inline-flex"
                   >
                     {members.length === 0 ? 'Invite' : 'Manage'}
@@ -840,8 +841,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     variant="icon"
                     size="icon"
                     onClick={() => navigateTo(members.length === 0
-                      ? '/settings/practice/team?invite=1'
-                      : '/settings/practice/team')}
+                      ? `${toSettingsPath('practice/team')}?invite=1`
+                      : toSettingsPath('practice/team'))}
                     className="sm:hidden"
                     aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
                     icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
@@ -889,7 +890,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                           if (!practice?.id) return;
                           openBillingPortal({ 
                             practiceId: practice.id, 
-                            returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
+                            returnUrl: origin
+                              ? `${origin}${toSettingsPath('practice')}?sync=1`
+                              : `${toSettingsPath('practice')}?sync=1`
                           });
                         }}
                         disabled={submitting}
