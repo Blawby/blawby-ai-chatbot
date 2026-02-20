@@ -280,6 +280,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
+  const onSubmitNowRef = useRef(onSubmitNow);
+  useEffect(() => {
+    onSubmitNowRef.current = onSubmitNow;
+  }, [onSubmitNow]);
+
   const handleSubmitNowAction = async () => {
     if (isAnonymousUser) {
       setPendingSubmitAfterAuth(true);
@@ -296,7 +301,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   useEffect(() => {
     if (!pendingSubmitAfterAuth) return;
     if (isAnonymousUser) return;
-    if (!onSubmitNow) {
+    if (!onSubmitNowRef.current) {
       onIntakeCtaResponse?.('ready');
       setPendingSubmitAfterAuth(false);
       return;
@@ -305,7 +310,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     let cancelled = false;
     (async () => {
       try {
-        await onSubmitNow();
+        await onSubmitNowRef.current?.();
       } catch (error) {
         console.error('Failed to continue intake after auth', error);
       } finally {
@@ -318,7 +323,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isAnonymousUser, onSubmitNow, pendingSubmitAfterAuth]);
+  }, [isAnonymousUser, pendingSubmitAfterAuth]);
 
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 

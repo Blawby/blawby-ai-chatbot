@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks'
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
 import type { ContactData } from '@/features/intake/components/ContactForm';
-import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
+import { getConversationMessagesEndpoint, getConversationWsEndpoint, getPracticeClientIntakeStatusEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { submitContactForm } from '@/shared/utils/forms';
 import axios from 'axios';
@@ -175,7 +175,7 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
 };
 
 const fetchIntakePaidStatus = async (intakeUuid: string, signal?: AbortSignal): Promise<boolean> => {
-  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+  const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
     credentials: 'include',
     signal
   });
@@ -2553,7 +2553,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         await postPaymentConfirmation(intakeUuid, 'the practice');
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
-        onError?.(error, { source: 'fetchIntakePaidStatus', intakeUuid });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        onError?.(errorMessage, { source: 'fetchIntakePaidStatus', intakeUuid });
         console.warn('[Intake] Failed to reconcile payment status on refresh', error);
       }
     };

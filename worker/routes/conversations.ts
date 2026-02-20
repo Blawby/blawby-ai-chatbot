@@ -629,7 +629,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
-    const body = await parseJsonBody(request) as { userId?: string | null };
+    const body = await parseJsonBody(request) as { userId?: string | null; anonymousSessionId?: string | null };
 
     if (authContext.isAnonymous) {
       throw HttpErrors.unauthorized('Sign in is required to link a conversation');
@@ -642,9 +642,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     // Allow authenticated users to claim anonymous conversations on first load.
     // This supports direct refresh on /public/:slug/conversations/:id after auth.
-    // SECURITY NOTE: This open claim model is opportunistic. To prevent potential enumeration
-    // or unauthorized claiming of active anonymous sessions, this route should utilize 
-    // rate limiting and perhaps require a matching anonymous_session_id check.
+    // Require explict ownership proof before allowing claim.
     try {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } catch (error) {
@@ -653,6 +651,10 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       }
       const conversation = await conversationService.getConversation(conversationId, practiceId);
       if (conversation.user_id) {
+        throw error;
+      }
+      // Require ownership proof
+      if (!body.anonymousSessionId || body.anonymousSessionId !== (conversation as any).anonymous_session_id) {
         throw error;
       }
     }
