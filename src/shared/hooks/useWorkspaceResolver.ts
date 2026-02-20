@@ -36,7 +36,7 @@ export function useWorkspaceResolver(): UseWorkspaceResolverResult {
   const resolvePracticeBySlug = useCallback((slug?: string | null): Practice | null => {
     const normalized = typeof slug === 'string' ? slug.trim() : '';
     if (!normalized) return null;
-    return practiceBySlug.get(normalized) ?? (currentPractice?.slug === normalized ? currentPractice : null);
+    return practiceBySlug.get(normalized) ?? (currentPractice?.slug?.trim() === normalized ? currentPractice : null);
   }, [practiceBySlug, currentPractice]);
 
   return {

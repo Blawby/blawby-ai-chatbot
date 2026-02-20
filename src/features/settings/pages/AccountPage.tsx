@@ -751,7 +751,13 @@ export const AccountPage = ({
                       <DropdownMenuItem
                         onSelect={() => {
                           if (!currentPractice) return;
-                          if (!origin) throw new Error('Missing window.location.origin; cannot create Stripe returnUrl');
+                          if (!origin) {
+                            showError(
+                              t('common:error.title'),
+                              'Unable to open billing portal. Please try again.'
+                            );
+                            return;
+                          }
                           void openBillingPortal({
                             practiceId: currentPractice.id,
                             returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
@@ -809,7 +815,13 @@ export const AccountPage = ({
               size="sm"
               onClick={() => {
                 if (!currentPractice) return;
-                if (!origin) throw new Error('Missing window.location.origin; cannot create Stripe returnUrl');
+                if (!origin) {
+                  showError(
+                    t('common:error.title'),
+                    'Unable to open billing portal. Please try again.'
+                  );
+                  return;
+                }
                 void openBillingPortal({
                   practiceId: currentPractice.id,
                   returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
@@ -849,7 +861,13 @@ export const AccountPage = ({
                   size="sm"
                   onClick={() => {
                     if (!currentPractice) return;
-                    if (!origin) throw new Error('Missing window.location.origin; cannot create Stripe returnUrl');
+                    if (!origin) {
+                      showError(
+                        t('common:error.title'),
+                        'Unable to open billing portal. Please try again.'
+                      );
+                      return;
+                    }
                     void openBillingPortal({
                       practiceId: currentPractice.id,
                       returnUrl: `${origin}${toSettingsPath('account')}?sync=1`

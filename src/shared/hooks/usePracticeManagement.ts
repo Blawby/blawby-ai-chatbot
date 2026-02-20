@@ -779,14 +779,26 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       };
 
       if (sharedPracticeSnapshot) {
-        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !sharedPracticeSnapshot.currentPractice) {
-          applySnapshot(sharedPracticeSnapshot);
+        // Re-select currentPractice based on practiceSlug even when using cached snapshot
+        let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+        if (practiceSlug) {
+          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === practiceSlug);
+          selectedCurrentPractice = foundBySlug || null;
+        }
+
+        const snapshotToApply = {
+          ...sharedPracticeSnapshot,
+          currentPractice: selectedCurrentPractice
+        };
+
+        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !snapshotToApply.currentPractice) {
+          applySnapshot(snapshotToApply);
           return;
         }
 
         setLoading(true);
         setError(null);
-        const hydrated = await hydrateSnapshotDetails(sharedPracticeSnapshot);
+        const hydrated = await hydrateSnapshotDetails(snapshotToApply);
         applySnapshot(hydrated);
         return;
       }
@@ -795,14 +807,27 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         const cachedPromise = sharedPracticePromise;
         try {
           const cached = await sharedPracticePromise;
-          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cached.currentPractice) {
+          
+          // Re-select currentPractice based on practiceSlug even when using cached promise
+          let selectedCurrentPractice = cached.currentPractice;
+          if (practiceSlug) {
+            const foundBySlug = cached.practices.find((p) => p.slug === practiceSlug);
+            selectedCurrentPractice = foundBySlug || null;
+          }
+
+          const cachedToApply = {
+            ...cached,
+            currentPractice: selectedCurrentPractice
+          };
+
+          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cachedToApply.currentPractice) {
             setLoading(true);
             setError(null);
-            const hydrated = await hydrateSnapshotDetails(cached);
+            const hydrated = await hydrateSnapshotDetails(cachedToApply);
             applySnapshot(hydrated);
             return;
           }
-          applySnapshot(cached);
+          applySnapshot(cachedToApply);
           return;
         } catch (_err) {
           console.warn('Cached practice promise failed, retrying with fresh fetch.');

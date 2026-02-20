@@ -252,13 +252,18 @@ export const usePracticeConfig = ({
   useEffect(() => {
     if ((isAuthenticated || allowUnauthenticated) && practiceId) {
       fetchPracticeConfig(practiceId);
-      return;
-    }
-    if (!practiceId) {
+    } else if (!practiceId) {
       setPracticeNotFound(false);
       setIsLoading(false);
       setPracticeConfig(buildDefaultPracticeConfig());
     }
+
+    // Cleanup: abort any in-flight requests when effect unmounts or dependencies change
+    return () => {
+      if (currentRequestRef.current) {
+        currentRequestRef.current.abortController.abort();
+      }
+    };
   }, [practiceId, isAuthenticated, allowUnauthenticated, fetchPracticeConfig]);
 
   useEffect(() => {

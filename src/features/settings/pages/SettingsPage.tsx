@@ -1,5 +1,5 @@
 import { useLocation } from 'preact-iso';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useState, useCallback } from 'preact/hooks';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
@@ -59,7 +59,7 @@ export const SettingsPage = ({
   const { canAccessPractice } = useWorkspace();
   const canShowPracticeSettings = canAccessPractice;
   const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
+  const toSettingsPath = useCallback((subPath?: string) => buildSettingsPath(settingsBasePath, subPath), [settingsBasePath]);
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -292,6 +292,10 @@ export const SettingsPage = ({
         variant="icon"
         size="icon"
         onClick={() => {
+          if (currentPage === 'apps' && currentAppId) {
+            navigate(toSettingsPath('apps'));
+            return;
+          }
           if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team' || practiceSubPage === 'pricing')) {
             navigate(toSettingsPath('practice'));
             return;

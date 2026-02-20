@@ -13,6 +13,8 @@ import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { cn } from '@/shared/utils/cn';
 
 export type WorkspaceNavTab = 'home' | 'messages' | 'matters' | 'settings' | 'clients';
+
+const VALID_WORKSPACE_NAV_TABS = new Set<WorkspaceNavTab>(['home', 'messages', 'matters', 'settings', 'clients']);
 type IconComponent = preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>;
 
 export interface WorkspaceNavItem {
@@ -82,15 +84,19 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
           : ((activeItemId ?? activeTab) === tab ? activeClasses : inactiveClasses)
       )}
       onClick={() => {
-        if (options?.isAction && options.onClick) {
-          options.onClick();
+        if (options?.isAction) {
+          if (options.onClick) {
+            options.onClick();
+          }
           return;
         }
         if (items && onSelectItem) {
           onSelectItem(tab);
           return;
         }
-        onSelectTab(tab as WorkspaceNavTab);
+        if (VALID_WORKSPACE_NAV_TABS.has(tab as WorkspaceNavTab)) {
+          onSelectTab(tab as WorkspaceNavTab);
+        }
       }}
       aria-current={!options?.isAction && (activeItemId ?? activeTab) === tab ? 'page' : undefined}
     >
@@ -126,12 +132,14 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   const customButtons = items
     ? items.map((item) => {
         const Icon = item.icon;
-        return renderButton(
+        const button = renderButton(
           item.id,
           <Icon className="h-5 w-5" aria-hidden="true" />,
           item.label,
           { isAction: item.isAction, variant: item.variant, onClick: item.onClick }
         );
+        // Create a keyed wrapper for proper Preact reconciliation
+        return <div key={item.id}>{button}</div>;
       })
     : null;
 
