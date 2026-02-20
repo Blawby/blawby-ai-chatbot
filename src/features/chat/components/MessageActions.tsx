@@ -80,7 +80,7 @@ interface MessageActionsProps {
 
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
-	intakeStatus: _intakeStatus,
+	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -104,6 +104,10 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const { t } = useTranslation('common');
 
 	const strength = intakeConversationState?.caseStrength ?? null;
+	const isIntakeCompleted = intakeStatus?.step === 'completed';
+	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
+	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
+	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
 	const strengthTier = (() => {
 		if (!strength) return 'none';
 		if (strength === 'needs_more_info') return 'weak';
@@ -118,7 +122,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		: strengthTier === 'good'
 			? t('chat.cta.reviewSubmit')
 			: strengthTier === 'basic'
-				? t('chat.cta.keepAnswering')
+				? t('chat.submitNow')
 				: t('chat.cta.continue');
 	const ctaSecondaryLabel = strengthTier === 'strong'
 		? t('chat.cta.addMore')
@@ -140,10 +144,10 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					</Button>
 				</div>
 			)}
-			{authCta?.label && onAuthPromptRequest && (
+			{shouldShowAuthCta && (
 				<div className="mt-3">
 					<Button variant="primary" size="sm" onClick={onAuthPromptRequest}>
-						{authCta.label}
+						{authCta?.label}
 					</Button>
 				</div>
 			)}
@@ -204,7 +208,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					))}
 				</div>
 			)}
-			{showIntakeDecisionPrompt && (
+			{shouldShowDecisionPrompt && (
 				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
 					<Button
 						variant="primary"
@@ -227,7 +231,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{showCtaButtons && (
 				<div className="mt-3 space-y-3">
 					{intakeConversationState?.missingSummary && strength === 'developing' && (
-						<p className="text-xs text-input-placeholder">
+						<p className="text-sm leading-relaxed text-input-text">
 							{intakeConversationState.missingSummary}
 						</p>
 					)}
@@ -282,7 +286,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				/>
 			)}
 			
-			{paymentRequest && (
+			{shouldShowPaymentCard && paymentRequest && (
 				<IntakePaymentCard paymentRequest={paymentRequest} onOpenPayment={onOpenPayment} />
 			)}
 			

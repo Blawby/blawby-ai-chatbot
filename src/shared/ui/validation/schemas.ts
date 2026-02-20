@@ -94,6 +94,11 @@ export const onboardingSchemas = {
     birthday: commonSchemas.birthday,
     agreedToTerms: commonSchemas.termsAgreement,
   }),
+  personalInfoNoName: z.object({
+    fullName: z.string().optional(),
+    birthday: commonSchemas.birthday,
+    agreedToTerms: commonSchemas.termsAgreement,
+  }),
   
   useCase: z.object({
     primaryUseCase: z.enum(['messaging', 'legal_payments', 'matter_management', 'intake_forms', 'other']),

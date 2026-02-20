@@ -243,6 +243,7 @@ export function MainApp({
     practiceId: effectivePracticeId,
     practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: activeConversationId ?? undefined,
+    linkAnonymousConversationOnLoad: workspace === 'public',
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError
@@ -285,9 +286,13 @@ export function MainApp({
 
   const { t } = useTranslation('common');
   const shouldShowIntakeAuthPrompt = Boolean(
-    intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget
+    isAnonymousUser &&
+    intakeAuthTarget &&
+    dismissedIntakeAuthFor !== intakeAuthTarget
   );
-  const shouldShowAuthPrompt = shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen;
+  const shouldShowAuthPrompt = Boolean(
+    isAnonymousUser && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen)
+  );
 
   const intakeAuthTitle = t('intake.authTitle');
   const intakeAuthDescription = resolvedPracticeName
@@ -310,16 +315,23 @@ export function MainApp({
     resolvedPracticeName,
     resolvedPublicPracticeSlug
   ]);
+  const intakePostAuthPath = useMemo(() => {
+    if (!isPublicWorkspace) return null;
+    if (resolvedPublicPracticeSlug && activeConversationId) {
+      return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
+    }
+    return awaitingInvitePath;
+  }, [activeConversationId, awaitingInvitePath, isPublicWorkspace, resolvedPublicPracticeSlug]);
 
   const handleIntakeAuthSuccess = useCallback(async () => {
-    if (!awaitingInvitePath) return;
+    if (!intakePostAuthPath) return;
 
     if (intakeAuthTarget) {
       setDismissedIntakeAuthFor(intakeAuthTarget);
     }
-    navigate(awaitingInvitePath, true);
+    navigate(intakePostAuthPath, true);
   }, [
-    awaitingInvitePath,
+    intakePostAuthPath,
     intakeAuthTarget,
     navigate
   ]);
@@ -329,6 +341,15 @@ export function MainApp({
   }, []);
 
   const handleAuthPromptClose = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[MainApp] Failed to clear intake awaiting path on auth prompt close', error);
+        }
+      }
+    }
     if (isPaymentAuthPromptOpen) {
       setIsPaymentAuthPromptOpen(false);
     }
@@ -345,17 +366,17 @@ export function MainApp({
   }, [handleIntakeAuthSuccess, isPaymentAuthPromptOpen]);
 
   useEffect(() => {
-    if (!awaitingInvitePath || !shouldShowAuthPrompt || typeof window === 'undefined') {
+    if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') {
       return;
     }
     try {
-      window.sessionStorage.setItem('intakeAwaitingInvitePath', awaitingInvitePath);
+      window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath);
     } catch (error) {
       if (import.meta.env.DEV) {
         console.warn('[MainApp] Failed to persist intake awaiting path', error);
       }
     }
-  }, [awaitingInvitePath, shouldShowAuthPrompt]);
+  }, [intakePostAuthPath, shouldShowAuthPrompt]);
 
   useEffect(() => {
     clearMessages();

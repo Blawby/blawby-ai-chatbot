@@ -74,8 +74,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handlePracticeIntakeConfirm(request, env);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
-    } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {
-      response = await handleBackendProxy(request, env);
     } else if (
       path.startsWith('/api/onboarding') ||
       path.startsWith('/api/matters') ||

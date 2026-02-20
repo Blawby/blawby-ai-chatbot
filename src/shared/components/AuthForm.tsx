@@ -13,6 +13,7 @@ interface AuthFormProps {
   mode?: AuthMode;
   defaultMode?: AuthMode;
   initialEmail?: string;
+  initialName?: string;
   signupVariant?: 'full' | 'minimal';
   callbackURL?: string;
   onSuccess?: (user: unknown) => void | Promise<void>;
@@ -28,6 +29,7 @@ const AuthForm = ({
   mode,
   defaultMode = 'signin',
   initialEmail,
+  initialName,
   signupVariant = 'full',
   callbackURL,
   onSuccess,
@@ -43,7 +45,7 @@ const AuthForm = ({
   const resolvedMode = mode ?? internalMode;
   const isControlled = typeof mode !== 'undefined';
   const [formData, setFormData] = useState({
-    name: '',
+    name: initialName ?? '',
     email: initialEmail ?? '',
     password: '',
     confirmPassword: ''
@@ -58,6 +60,13 @@ const AuthForm = ({
       prev.email === initialEmail ? prev : { ...prev, email: initialEmail }
     ));
   }, [initialEmail]);
+
+  useEffect(() => {
+    if (typeof initialName !== 'string') return;
+    setFormData((prev) => (
+      prev.name === initialName ? prev : { ...prev, name: initialName }
+    ));
+  }, [initialName]);
 
   const notifySuccess = useCallback(async (user: unknown) => {
     if (!onSuccess) return;
@@ -231,7 +240,12 @@ const AuthForm = ({
     }
     setError('');
     setMessage('');
-    setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+    setFormData({
+      name: initialName ?? '',
+      email: initialEmail ?? '',
+      password: '',
+      confirmPassword: ''
+    });
   };
 
   return (

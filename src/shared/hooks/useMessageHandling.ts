@@ -5,7 +5,7 @@ import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { submitContactForm } from '@/shared/utils/forms';
-import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
@@ -38,12 +38,6 @@ const sanitizeMarkdown = (text: string): string => {
   return sanitizedHtml.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
 };
 
-const sanitizeDescriptionForCodeBlock = (text: string): string => {
-  if (typeof text !== 'string') return '';
-  // Avoid breaking the code fence (```) by escaping or breaking up backtick sequences
-  return text.replace(/```/g, '` ` `');
-};
-
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
 const buildFileUrl = (value: string): string => {
@@ -72,6 +66,7 @@ interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string; // Required for user-to-user chat
+  linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: string) => void;
@@ -178,6 +173,33 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   return hasPayload ? request : undefined;
 };
 
+const PAID_INTAKE_STATUSES = new Set(['paid', 'succeeded', 'completed', 'captured']);
+
+const isPaidIntakeStatus = (status: unknown, succeededAt?: unknown): boolean => {
+  if (typeof succeededAt === 'string' && succeededAt.trim().length > 0) {
+    return true;
+  }
+  if (typeof status !== 'string') return false;
+  const normalized = status.trim().toLowerCase();
+  return normalized.length > 0 && PAID_INTAKE_STATUSES.has(normalized);
+};
+
+const fetchIntakePaidStatus = async (intakeUuid: string, signal?: AbortSignal): Promise<boolean> => {
+  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+    credentials: 'include',
+    signal
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch intake status (${response.status})`);
+  }
+  const payload = await response.json() as {
+    success?: boolean;
+    data?: { status?: string; succeeded_at?: string | null };
+  };
+  if (!payload?.success || !payload.data) return false;
+  return isPaidIntakeStatus(payload.data.status, payload.data.succeeded_at);
+};
+
 /**
  * Hook that uses blawby-ai practice for all message handling
  * This is the preferred way to use message handling in components
@@ -198,6 +220,7 @@ export const useMessageHandling = ({
   practiceId,
   practiceSlug,
   conversationId,
+  linkAnonymousConversationOnLoad = false,
   mode,
   onConversationMetadataUpdated,
   onError
@@ -211,7 +234,9 @@ export const useMessageHandling = ({
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const sessionReady = Boolean(session?.user) && !sessionIsPending;
   const currentUserId = session?.user?.id ?? null;
+  const [isConversationLinkReady, setIsConversationLinkReady] = useState(!linkAnonymousConversationOnLoad);
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
+  const [verifiedPaidIntakeUuids, setVerifiedPaidIntakeUuids] = useState<string[]>([]);
   const [conversationMetadata, setConversationMetadata] = useState<ConversationMetadata | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -224,6 +249,57 @@ export const useMessageHandling = ({
   const metadataUpdateQueueRef = useRef<Promise<Conversation | null>>(Promise.resolve(null));
   const isDisposedRef = useRef(false);
   const lastConversationIdRef = useRef<string | undefined>();
+  const lastConversationLinkAttemptRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!conversationId || !practiceId) {
+      setIsConversationLinkReady(true);
+      return;
+    }
+    if (!linkAnonymousConversationOnLoad || !sessionReady || isAnonymous || !currentUserId) {
+      setIsConversationLinkReady(true);
+      return;
+    }
+
+    const attemptKey = `${practiceId}:${conversationId}:${currentUserId}`;
+    if (lastConversationLinkAttemptRef.current === attemptKey) {
+      setIsConversationLinkReady(true);
+      return;
+    }
+    lastConversationLinkAttemptRef.current = attemptKey;
+
+    let cancelled = false;
+    setIsConversationLinkReady(false);
+
+    (async () => {
+      try {
+        await linkConversationToUser(conversationId, practiceId, currentUserId);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[useMessageHandling] Conversation relink on load failed', {
+            conversationId,
+            practiceId,
+            error
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsConversationLinkReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    conversationId,
+    currentUserId,
+    isAnonymous,
+    linkAnonymousConversationOnLoad,
+    practiceId,
+    sessionReady
+  ]);
   const conversationIdRef = useRef<string | undefined>();
   const practiceIdRef = useRef<string | undefined>();
   const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
@@ -1479,32 +1555,29 @@ export const useMessageHandling = ({
       return;
     }
 
-    const rawDescription = nextDraft.description?.trim() || '_Not provided_';
+    const sanitizedDescription = nextDraft.description?.trim()
+      ? sanitizeMarkdown(nextDraft.description.trim().replace(/\s+/g, ' '))
+      : '_Not provided_';
     const sanitizedName = sanitizeMarkdown(nextDraft.name);
     const sanitizedLocation = sanitizeMarkdown(`${nextDraft.city}, ${nextDraft.state}`);
     const sanitizedOpposingParty = nextDraft.opposingParty?.trim() 
       ? sanitizeMarkdown(nextDraft.opposingParty.trim())
       : '_Not provided_';
-    const descriptionSummary = sanitizeDescriptionForCodeBlock(rawDescription);
     
     // PII Redaction: rely on intakeSlimContactDraft for canonical data, redact in system message
     const lines = [
-      '### Contact info received',
+      'Contact info received',
+      'Contact details',
+      `Name: ${sanitizedName}`,
+      'Email: REDACTED',
+      'Phone: REDACTED',
+      `Location: ${sanitizedLocation}`,
       '',
-      '**Contact details**',
-      `- **Name:** ${sanitizedName}`,
-      '- **Email:** ***REDACTED***',
-      '- **Phone:** ***REDACTED***',
-      `- **Location:** ${sanitizedLocation}`,
+      'Case summary',
+      `Opposing party: ${sanitizedOpposingParty}`,
+      `Description: ${sanitizedDescription}`,
       '',
-      '**Case summary**',
-      `- **Opposing party:** ${sanitizedOpposingParty}`,
-      '- **Description:**',
-      '```',
-      descriptionSummary,
-      '```',
-      '',
-      'Would you like to **submit now**, or build a **stronger brief** first so we can match you with the right attorney?'
+      'Would you like to sign up now, or build a stronger brief first so we can match you with the right attorney?'
     ];
 
     try {
@@ -1592,10 +1665,21 @@ export const useMessageHandling = ({
             return parts.length > 0 ? `Address: ${parts.join(', ')}` : '';
           })()
         : '';
-      const contactMessage = `Contact Information:
+      const opposingPartyText = contactData.opposingParty?.trim()
+        ? contactData.opposingParty.trim()
+        : 'Not provided';
+      const descriptionText = contactData.description?.trim()
+        ? contactData.description.trim()
+        : 'Not provided';
+      const contactMessage = `Contact info received
+Contact details
 Name: ${contactData.name}
 Email: ${contactData.email}
-Phone: ${contactData.phone}${addressText ? `\n${addressText}` : ''}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
+Phone: ${contactData.phone}${addressText ? `\n${addressText}` : ''}
+
+Case summary
+Opposing party: ${opposingPartyText}
+Description: ${descriptionText}`;
 
       // Debug hook for test environment (development only, PII-safe)
       if (import.meta.env.MODE === 'development' && typeof window !== 'undefined' && window.__DEBUG_CONTACT_FORM__) {
@@ -1655,33 +1739,13 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
       const intakeUuid = typeof paymentDetails?.uuid === 'string' ? paymentDetails.uuid : undefined;
 
-      if (intakeUuid && isAnonymous) {
-        try {
-          const payload = { intakeUuid, practiceSlug: resolvedPracticeSlug, conversationId };
-          if (import.meta.env.DEV) {
-            console.info('[Intake] Triggering invite pre-auth', payload);
-          }
-          const result = await triggerIntakeInvitation(intakeUuid);
-          if (import.meta.env.DEV) {
-            console.info('[Intake] Invite triggered pre-auth', {
-              payload,
-              result
-            });
-          }
-          if (typeof window !== 'undefined') {
-            window.sessionStorage.setItem(`intakeInviteSent:${intakeUuid}`, 'true');
-          }
-        } catch (error) {
-          console.warn('[Intake] Failed to trigger invite pre-auth', {
-            intakeUuid,
-            error
-          });
-        }
-      }
-
-      const nextStepLine = paymentRequired
-        ? 'Next step: sign up to save your details and continue to payment.'
-        : 'Next step: sign up to save your details and finish your intake.';
+      const nextStepLine = isAnonymous
+        ? (paymentRequired
+          ? 'Next step: sign up to save your details and continue to payment.'
+          : 'Next step: sign up to save your details and finish your intake.')
+        : (paymentRequired
+          ? 'Next step: complete payment below and we will notify the practice right away.'
+          : 'Your intake is submitted. Thank you, someone from the practice will contact you soon.');
       const enrichedContactMessage = `${contactMessage}\n\nThanks! ${nextStepLine}`;
 
       await sendMessageOverWs(enrichedContactMessage, [], {
@@ -2177,6 +2241,10 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       closeChatSocket();
       return;
     }
+    if (!isConversationLinkReady) {
+      closeChatSocket();
+      return;
+    }
     if (!conversationId || !practiceId) {
       conversationIdRef.current = undefined;
       closeChatSocket();
@@ -2207,6 +2275,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     conversationId,
     fetchConversationMetadata,
     fetchMessages,
+    isConversationLinkReady,
     practiceId,
     resetRealtimeState,
     sessionReady
@@ -2339,11 +2408,12 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
   const intakePaymentReceived = useMemo(() => {
     if (!latestIntakeSubmission.intakeUuid) return false;
+    if (verifiedPaidIntakeUuids.includes(latestIntakeSubmission.intakeUuid)) return true;
     return messages.some((message) =>
       message.metadata?.intakePaymentUuid === latestIntakeSubmission.intakeUuid
       && message.metadata?.paymentStatus === 'succeeded'
     );
-  }, [latestIntakeSubmission.intakeUuid, messages]);
+  }, [latestIntakeSubmission.intakeUuid, messages, verifiedPaidIntakeUuids]);
   
   const intakeDecision = messages.find(m => {
     const decision = m.metadata?.intakeDecision;
@@ -2400,12 +2470,11 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     });
   }, [isAnonymous, userMessages.length, hasSubmittedContactForm, currentStep, messages.length, logDev]);
 
-  // Inject system messages based on step
+  // Reconcile payment confirmation based on session flags + backend status
   const processedPaymentUuidsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!isAnonymous) return;
-
     let cancelled = false;
+    const controller = new AbortController();
 
     const parseStoredFlag = (raw: string | null) => {
       if (!raw) return null;
@@ -2426,6 +2495,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       if (cancelled || !conversationId || !practiceId) {
         return;
       }
+      setVerifiedPaidIntakeUuids((prev) => (prev.includes(uuid) ? prev : [...prev, uuid]));
       const messageId = `system-payment-confirm-${uuid}`;
       if (processedPaymentUuidsRef.current.has(uuid) || messagesRef.current.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
         return;
@@ -2475,6 +2545,21 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       }
     };
 
+    const maybeReconcileFromBackend = async () => {
+      const intakeUuid = latestIntakeSubmission.intakeUuid;
+      if (!intakeUuid || !latestIntakeSubmission.paymentRequired || intakePaymentReceived) {
+        return;
+      }
+      try {
+        const isPaid = await fetchIntakePaidStatus(intakeUuid, controller.signal);
+        if (!isPaid || cancelled) return;
+        await postPaymentConfirmation(intakeUuid, 'the practice');
+      } catch (error) {
+        if (controller.signal.aborted || cancelled) return;
+        console.warn('[Intake] Failed to reconcile payment status on refresh', error);
+      }
+    };
+
     if (typeof window !== 'undefined') {
       const paymentKeys: string[] = [];
       const pendingKeys: string[] = [];
@@ -2516,11 +2601,16 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       });
     }
 
+    void maybeReconcileFromBackend();
+
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
-    isAnonymous,
+    latestIntakeSubmission.intakeUuid,
+    latestIntakeSubmission.paymentRequired,
+    intakePaymentReceived,
     conversationId,
     onError,
     practiceId,
