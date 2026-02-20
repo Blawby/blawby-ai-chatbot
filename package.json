@@ -75,7 +75,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.9.13",
+    "@cloudflare/vitest-pool-workers": "^0.12.14",
     "@cloudflare/workers-types": "^4.20250715.0",
     "@eslint/compat": "^1.4.0",
     "@eslint/js": "^9.36.0",
@@ -92,9 +92,8 @@
     "baseline-browser-mapping": "^2.9.15",
     "concurrently": "^8.2.2",
     "critters": "^0.0.25",
-    "eslint": "^9.36.0",
+    "eslint": "^10.0.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
-    "eslint-plugin-preact": "^0.1.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "happy-dom": "^20.6.3",

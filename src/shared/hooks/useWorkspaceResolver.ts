@@ -13,13 +13,18 @@ interface UseWorkspaceResolverResult {
   resolvePracticeBySlug: (slug?: string | null) => Practice | null;
 }
 
-export function useWorkspaceResolver(): UseWorkspaceResolverResult {
+interface UseWorkspaceResolverOptions {
+  autoFetchPractices?: boolean;
+}
+
+export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}): UseWorkspaceResolverResult {
+  const { autoFetchPractices = true } = options;
   const { isPending } = useSessionContext();
   const {
     practices,
     currentPractice,
     loading: practicesLoading
-  } = usePracticeManagement();
+  } = usePracticeManagement({ autoFetchPractices });
 
   const practiceBySlug = useMemo(() => {
     const map = new Map<string, Practice>();

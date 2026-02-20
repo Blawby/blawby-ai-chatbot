@@ -60,7 +60,14 @@ function AppShell() {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
-  const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver();
+  const shouldFetchWorkspacePractices =
+    !location.path.startsWith('/public/') &&
+    !location.path.startsWith('/auth') &&
+    !location.path.startsWith('/pricing') &&
+    !location.path.startsWith('/pay');
+  const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
+    autoFetchPractices: shouldFetchWorkspacePractices
+  });
 
   const handleRouteChange = useCallback((url: string) => {
     if (typeof window === 'undefined') return;
@@ -189,6 +196,27 @@ function AppShell() {
         </Router>
       </Suspense>
     </ToastProvider>
+  );
+}
+
+function RouteLoadError({
+  message,
+  onRetry
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="text-sm text-input-text">Failed to load this page: {message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-md border border-input-border px-3 py-1.5 text-sm text-input-text hover:bg-hover-background"
+      >
+        Retry
+      </button>
+    </div>
   );
 }
 
@@ -513,7 +541,7 @@ function ClientPracticeRoute({
     } else if (!isAuthenticatedClient && workspaceView === 'matters') {
       navigate(`/client/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending, session]);
+  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending]);
 
   if (isLoading || sessionIsPending || practicesLoading) {
     return <LoadingScreen />;
@@ -573,30 +601,27 @@ function PublicPracticeRoute({
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
-  const {
-    practicesLoading,
-    resolvePracticeBySlug
-  } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
 
   const slug = (practiceSlug ?? '').trim();
-  const slugPractice = resolvePracticeBySlug(slug);
 
   const {
     practiceConfig,
     practiceNotFound,
-    isLoading
+    loadError,
+    isLoading,
+    handleRetryPracticeConfig
   } = usePracticeConfig({
     onError: handlePracticeError,
     practiceId: slug,
     allowUnauthenticated: true
   });
   const resolvedPracticeId = useMemo(
-    () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : '') || slugPractice?.id || '',
-    [practiceConfig.id, slugPractice?.id]
+    () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : ''),
+    [practiceConfig.id]
   );
 
   // Handle anonymous sign-in for widget users (clients chatting with practices)
@@ -688,7 +713,7 @@ function PublicPracticeRoute({
     } else if (!isAuthenticatedClient && workspaceView === 'matters') {
       navigate(`/public/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending, session]);
+  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -702,15 +727,11 @@ function PublicPracticeRoute({
     return <App404 />;
   }
 
+  if (loadError) {
+    return <RouteLoadError message={loadError} onRetry={handleRetryPracticeConfig} />;
+  }
+
   if (!resolvedPracticeId) {
-    return <LoadingScreen />;
-  }
-
-  if (sessionIsPending) {
-    return <LoadingScreen />;
-  }
-
-  if (!sessionIsPending && session?.user && !session.user.isAnonymous && practicesLoading) {
     return <LoadingScreen />;
   }
 

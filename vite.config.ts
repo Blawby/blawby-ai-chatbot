@@ -152,12 +152,46 @@ const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	return entries;
 };
 
+// Plugin to fix decode-named-character-reference during prerendering
+const fixDecodeNamedCharacterReference = (): Plugin => {
+	return {
+		name: 'fix-decode-named-character-reference',
+		configResolved(config) {
+			// Override the conditions to force non-DOM version during build
+			config.build.rollupOptions = {
+				...config.build.rollupOptions,
+				onwarn(warning, warn) {
+					// Suppress warnings about this specific package
+					if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+					warn(warning);
+				}
+			};
+		},
+		resolveId(id, importer) {
+			if (id === 'decode-named-character-reference') {
+				// Return the absolute path to the non-DOM version
+				const nonDomPath = resolve(__dirname, 'node_modules/.pnpm/decode-named-character-reference@1.3.0/node_modules/decode-named-character-reference/index.js');
+				return nonDomPath;
+			}
+			return null;
+		},
+		load(id) {
+			if (id.includes('decode-named-character-reference') && id.endsWith('index.js')) {
+				// Return the content of the non-DOM version
+				return null; // Let Vite handle loading the file
+			}
+			return null;
+		}
+	};
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
 		envPrefix: ['VITE_'],
 		plugins: [
+			fixDecodeNamedCharacterReference(),
 			preact({
 				prerender: {
 					enabled: true,
