@@ -28,14 +28,12 @@ const DEBUG_MESSAGE_PAGINATION = import.meta.env.DEV;
 
 const sanitizeMarkdown = (text: string): string => {
   if (typeof text !== 'string') return '';
-  // First replace HTML metacharacters with entities to prevent stored-XSS
   const sanitizedHtml = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-  // Then backslash-escape Markdown metacharacters
   return sanitizedHtml.replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1');
 };
 
@@ -53,7 +51,6 @@ const buildFileUrl = (value: string): string => {
   return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
 };
 
-// Global interface for window API base override and debug properties
 declare global {
   interface Window {
     __API_BASE__?: string;
@@ -66,7 +63,7 @@ declare global {
 interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
-  conversationId?: string; // Required for user-to-user chat
+  conversationId?: string;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
@@ -83,6 +80,10 @@ const MESSAGE_CACHE_LIMIT = 200;
 const RECONNECT_BASE_DELAY_MS = 800;
 const RECONNECT_MAX_DELAY_MS = 12000;
 const RECONNECT_MAX_ATTEMPTS = 5;
+
+// Prefix for the temporary streaming bubble ID.
+// Must not collide with real message IDs (UUIDs) or other temp IDs.
+const STREAMING_BUBBLE_PREFIX = 'streaming-';
 
 type IntakeFieldsPayload = {
   practiceArea?: string;
@@ -135,7 +136,10 @@ const createClientId = (): string => {
   return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const isTempMessageId = (messageId: string): boolean => messageId.startsWith('temp-') || messageId.startsWith('system-');
+const isTempMessageId = (messageId: string): boolean =>
+  messageId.startsWith('temp-') ||
+  messageId.startsWith('system-') ||
+  messageId.startsWith(STREAMING_BUBBLE_PREFIX);
 
 const getMessageCacheKey = (practiceId: string, conversationId: string): string => (
   `chat:messages:${practiceId}:${conversationId}`
@@ -190,22 +194,11 @@ const fetchIntakePaidStatus = async (intakeUuid: string, signal?: AbortSignal): 
   return isPaidIntakeStatus(payload.data.status, payload.data.succeeded_at);
 };
 
-/**
- * Hook that uses blawby-ai practice for all message handling
- * This is the preferred way to use message handling in components
- */
 export const useMessageHandlingWithContext = ({ conversationId, onError }: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
   const { activePracticeId } = useSessionContext();
   return useMessageHandling({ practiceId: activePracticeId ?? undefined, conversationId, onError });
 };
 
-/**
- * Legacy hook that requires practiceId parameter
- * @deprecated Use useMessageHandlingWithContext() instead
- * 
- * Note: For user-to-user chat, conversationId is required.
- * This hook will fetch messages on mount if conversationId is provided.
- */
 export const useMessageHandling = ({
   practiceId,
   practiceSlug,
@@ -241,6 +234,10 @@ export const useMessageHandling = ({
   const lastConversationIdRef = useRef<string | undefined>();
   const lastConversationLinkAttemptRef = useRef<string | null>(null);
 
+  // Tracks the real message ID we expect from the WebSocket after streaming.
+  // When message.new arrives with this ID we remove the streaming bubble.
+  const pendingStreamMessageIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!conversationId || !practiceId) {
       setIsConversationLinkReady(true);
@@ -272,22 +269,16 @@ export const useMessageHandling = ({
         });
         const is409Conflict = axios.isAxiosError(error) && error.response?.status === 409;
         if (is409Conflict) {
-          if (!cancelled) {
-            setIsConversationLinkReady(true);
-          }
+          if (!cancelled) setIsConversationLinkReady(true);
           return;
         }
         onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
       } finally {
-        if (!cancelled) {
-          setIsConversationLinkReady(true);
-        }
+        if (!cancelled) setIsConversationLinkReady(true);
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [
     conversationId,
     currentUserId,
@@ -297,6 +288,7 @@ export const useMessageHandling = ({
     sessionReady,
     onError
   ]);
+
   const conversationIdRef = useRef<string | undefined>();
   const practiceIdRef = useRef<string | undefined>();
   const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
@@ -328,13 +320,13 @@ export const useMessageHandling = ({
     message: string;
     paymentUrl: string;
   } | null>(null);
+
   practiceIdRef.current = practiceId;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const sessionReadyRef = useRef(sessionReady);
   sessionReadyRef.current = sessionReady;
-  
-  // Debug hooks for test environment (development only)
+
   useEffect(() => {
     if (import.meta.env.MODE !== 'production' && typeof window !== 'undefined') {
       window.__DEBUG_AI_MESSAGES__ = (messages: ChatMessageUI[]) => {
@@ -361,9 +353,7 @@ export const useMessageHandling = ({
   }, []);
 
   const updateSocketReady = useCallback((ready: boolean) => {
-    if (isDisposedRef.current) {
-      return;
-    }
+    if (isDisposedRef.current) return;
     setIsSocketReady(ready);
   }, []);
 
@@ -406,40 +396,28 @@ export const useMessageHandling = ({
     lastReadSeqRef.current = 0;
     reactionLoadedRef.current.clear();
     reactionFetchRef.current.clear();
+    pendingStreamMessageIdRef.current = null;
   }, []);
 
   const waitForSocketReady = useCallback(async () => {
-    if (!wsReadyRef.current) {
-      throw new Error('Chat connection not initialized');
-    }
+    if (!wsReadyRef.current) throw new Error('Chat connection not initialized');
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<void>((_resolve, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(new Error('Chat connection timed out'));
-      }, SOCKET_READY_TIMEOUT_MS);
+      timeoutId = setTimeout(() => reject(new Error('Chat connection timed out')), SOCKET_READY_TIMEOUT_MS);
     });
-
     try {
       await Promise.race([wsReadyRef.current, timeoutPromise]);
     } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
     }
   }, []);
 
   const waitForSessionReady = useCallback(async () => {
-    if (sessionReadyRef.current) {
-      return;
-    }
-    if (typeof window === 'undefined') {
-      throw new Error('Chat session is not available in this environment.');
-    }
+    if (sessionReadyRef.current) return;
+    if (typeof window === 'undefined') throw new Error('Chat session is not available in this environment.');
     const start = Date.now();
     while (!sessionReadyRef.current) {
-      if (isDisposedRef.current) {
-        throw new Error('Chat session was disposed.');
-      }
+      if (isDisposedRef.current) throw new Error('Chat session was disposed.');
       if (Date.now() - start > SESSION_READY_TIMEOUT_MS) {
         throw new Error('Secure session is not ready yet. Please try again in a moment.');
       }
@@ -449,33 +427,22 @@ export const useMessageHandling = ({
 
   const sendFrame = useCallback((frame: { type: string; data: Record<string, unknown>; request_id?: string }) => {
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      throw new Error('Chat connection not open');
-    }
+    if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Chat connection not open');
     ws.send(JSON.stringify(frame));
   }, []);
 
   const sendReadUpdate = useCallback((seq: number) => {
     const activeConversationId = conversationIdRef.current;
-    if (!activeConversationId || !isSocketReadyRef.current) {
-      return;
-    }
-    if (seq <= lastReadSeqRef.current) {
-      return;
-    }
+    if (!activeConversationId || !isSocketReadyRef.current) return;
+    if (seq <= lastReadSeqRef.current) return;
     lastReadSeqRef.current = seq;
     try {
       sendFrame({
         type: 'read.update',
-        data: {
-          conversation_id: activeConversationId,
-          last_read_seq: seq
-        }
+        data: { conversation_id: activeConversationId, last_read_seq: seq }
       });
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('[ChatRoom] Failed to send read.update', error);
-      }
+      if (import.meta.env.DEV) console.warn('[ChatRoom] Failed to send read.update', error);
     }
   }, [sendFrame]);
 
@@ -490,14 +457,11 @@ export const useMessageHandling = ({
     patch: ConversationMetadata,
     targetConversationId?: string
   ) => {
-    if (!sessionReady) {
-      return null;
-    }
+    if (!sessionReady) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
-    if (!activeConversationId || !practiceKey) {
-      return null;
-    }
+    if (!activeConversationId || !practiceKey) return null;
+
     const runUpdate = async () => {
       const current = conversationMetadataRef.current ?? {};
       const nextMetadata = { ...current, ...patch };
@@ -542,25 +506,17 @@ export const useMessageHandling = ({
     if (typeof fields.householdSize === 'number') next.householdSize = fields.householdSize;
     if (typeof fields.hasDocuments === 'boolean') next.hasDocuments = fields.hasDocuments;
     if (Array.isArray(fields.eligibilitySignals)) {
-      next.eligibilitySignals = fields.eligibilitySignals.filter((value): value is string => typeof value === 'string');
+      next.eligibilitySignals = fields.eligibilitySignals.filter((v): v is string => typeof v === 'string');
     }
     if (fields.caseStrength === 'needs_more_info' || fields.caseStrength === 'developing' || fields.caseStrength === 'strong') {
       next.caseStrength = fields.caseStrength;
     }
-    if (fields.missingSummary !== undefined) {
-      next.missingSummary = fields.missingSummary ?? null;
-    }
+    if (fields.missingSummary !== undefined) next.missingSummary = fields.missingSummary ?? null;
     next.turnCount = (current.turnCount ?? 0) + 1;
-    if (next.caseStrength === 'developing' || next.caseStrength === 'strong') {
-      next.ctaShown = true;
-    }
-    if (current.ctaResponse === 'not_yet') {
-      next.ctaResponse = null;
-    }
+    if (next.caseStrength === 'developing' || next.caseStrength === 'strong') next.ctaShown = true;
+    if (current.ctaResponse === 'not_yet') next.ctaResponse = null;
 
-    await updateConversationMetadata({
-      intakeConversationState: next
-    });
+    await updateConversationMetadata({ intakeConversationState: next });
   }, [updateConversationMetadata]);
 
   const fetchConversationMetadata = useCallback(async (
@@ -574,12 +530,7 @@ export const useMessageHandling = ({
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const response = await fetch(
       `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
-      {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-        signal
-      }
+      { method: 'GET', headers, credentials: 'include', signal }
     );
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({})) as { error?: string };
@@ -591,7 +542,6 @@ export const useMessageHandling = ({
     applyConversationMetadata(data.data?.user_info ?? null);
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
-  // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
     const senderId = typeof msg.user_id === 'string' && msg.user_id.trim().length > 0
       ? msg.user_id
@@ -611,45 +561,75 @@ export const useMessageHandling = ({
       content: msg.content,
       reply_to_message_id: msg.reply_to_message_id ?? null,
       timestamp: new Date(msg.created_at).getTime(),
-      metadata: {
-        ...(msg.metadata || {}),
-        __client_id: msg.client_id
-      },
+      metadata: { ...(msg.metadata || {}), __client_id: msg.client_id },
       userId: senderId,
-      files: msg.metadata?.attachments ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
-        id: fileId,
-        name: 'File',
-        size: 0,
-        type: 'application/octet-stream',
-        url: buildFileUrl(fileId),
-      })) : undefined,
+      files: msg.metadata?.attachments
+        ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
+            id: fileId,
+            name: 'File',
+            size: 0,
+            type: 'application/octet-stream',
+            url: buildFileUrl(fileId),
+          }))
+        : undefined,
       paymentRequest,
       isUser
     };
   }, [currentUserId]);
 
+  // ---------------------------------------------------------------------------
+  // Streaming bubble helpers
+  // ---------------------------------------------------------------------------
+
+  /** Insert a new empty streaming bubble for AI replies */
+  const addStreamingBubble = useCallback((bubbleId: string) => {
+    const bubble: ChatMessageUI = {
+      id: bubbleId,
+      role: 'assistant',
+      content: '',
+      isUser: false,
+      isStreaming: true,
+      timestamp: Date.now(),
+      userId: null,
+      reply_to_message_id: null,
+      metadata: { source: 'ai' }
+    };
+    setMessages(prev => [...prev, bubble]);
+  }, []);
+
+  /** Append a token to the streaming bubble */
+  const appendStreamingToken = useCallback((bubbleId: string, token: string) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === bubbleId
+        ? { ...msg, content: msg.content + token } as ChatMessageUI
+        : msg
+    ));
+  }, []);
+
+  /** Remove the streaming bubble — called either on error or when the
+   *  persisted message arrives via WebSocket and replaces it */
+  const removeStreamingBubble = useCallback((bubbleId: string) => {
+    setMessages(prev => prev.filter(msg => msg.id !== bubbleId));
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Server message application
+  // ---------------------------------------------------------------------------
+
   const applyServerMessages = useCallback((incoming: ConversationMessage[]) => {
-    if (incoming.length === 0 || isDisposedRef.current) {
-      return;
-    }
+    if (incoming.length === 0 || isDisposedRef.current) return;
 
     let nextLatestSeq = lastSeqRef.current;
     const replacements = new Map<string, ChatMessageUI>();
     const additions: ChatMessageUI[] = [];
 
     for (const message of incoming) {
-      if (!message?.id) {
-        continue;
-      }
+      if (!message?.id) continue;
       const seqValue = typeof message.seq === 'number' && Number.isFinite(message.seq)
         ? message.seq
         : null;
-      if (seqValue !== null) {
-        nextLatestSeq = Math.max(nextLatestSeq, seqValue);
-      }
-      if (messageIdSetRef.current.has(message.id)) {
-        continue;
-      }
+      if (seqValue !== null) nextLatestSeq = Math.max(nextLatestSeq, seqValue);
+      if (messageIdSetRef.current.has(message.id)) continue;
       messageIdSetRef.current.add(message.id);
       const uiMessage = toUIMessage(message);
       const pendingId = pendingClientMessageRef.current.get(message.client_id);
@@ -673,18 +653,16 @@ export const useMessageHandling = ({
 
     setMessages(prev => {
       let next = prev;
+
       if (replacements.size > 0) {
-        next = next.map(message => {
-          const replacement = replacements.get(message.id);
-          if (!replacement) {
-            return message;
-          }
+        next = next.map(msg => {
+          const replacement = replacements.get(msg.id);
+          if (!replacement) return msg;
           return {
             ...replacement,
-            // Keep optimistic timestamp to avoid reorder flicker when server ts arrives.
-            timestamp: message.timestamp,
-            files: replacement.files ?? message.files,
-            reactions: replacement.reactions ?? message.reactions
+            timestamp: msg.timestamp,
+            files: replacement.files ?? msg.files,
+            reactions: replacement.reactions ?? msg.reactions
           } as ChatMessageUI;
         });
       } else {
@@ -692,6 +670,17 @@ export const useMessageHandling = ({
       }
 
       if (additions.length > 0) {
+        // If the incoming message matches what we were waiting for from the
+        // streaming path, remove the streaming bubble and add the real message.
+        const pendingId = pendingStreamMessageIdRef.current;
+        if (pendingId) {
+          const matchIndex = additions.findIndex(m => m.id === pendingId);
+          if (matchIndex !== -1) {
+            pendingStreamMessageIdRef.current = null;
+            // Remove streaming bubble
+            next = next.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+          }
+        }
         next = [...next, ...additions];
       }
 
@@ -710,9 +699,7 @@ export const useMessageHandling = ({
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
     const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
     const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
-    if (!clientId || !messageId || !serverTs || !Number.isFinite(seqValue)) {
-      return;
-    }
+    if (!clientId || !messageId || !serverTs || !Number.isFinite(seqValue)) return;
 
     const pending = pendingAckRef.current.get(clientId);
     if (pending) {
@@ -730,24 +717,16 @@ export const useMessageHandling = ({
     }
 
     pendingClientMessageRef.current.delete(clientId);
-    setMessages(prev => prev.map(message => {
-      if (message.id !== pendingId) {
-        return message;
-      }
-      return {
-        ...message,
-        id: messageId
-      } as ChatMessageUI;
-    }));
+    setMessages(prev => prev.map(msg =>
+      msg.id !== pendingId ? msg : { ...msg, id: messageId } as ChatMessageUI
+    ));
     sendReadUpdate(lastSeqRef.current);
   }, [sendReadUpdate]);
 
   const handleMessageNew = useCallback((data: Record<string, unknown>) => {
     const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
     const activeConversationId = conversationIdRef.current;
-    if (!conversationIdValue || conversationIdValue !== activeConversationId) {
-      return;
-    }
+    if (!conversationIdValue || conversationIdValue !== activeConversationId) return;
 
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
     const clientId = typeof data.client_id === 'string' ? data.client_id : null;
@@ -755,9 +734,7 @@ export const useMessageHandling = ({
     const role = typeof data.role === 'string' ? data.role : null;
     const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
     const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
-    if (!messageId || !clientId || !content || !serverTs || !Number.isFinite(seqValue)) {
-      return;
-    }
+    if (!messageId || !clientId || !content || !serverTs || !Number.isFinite(seqValue)) return;
 
     const replyToMessageId = typeof data.reply_to_message_id === 'string'
       ? data.reply_to_message_id
@@ -790,11 +767,9 @@ export const useMessageHandling = ({
   }, [applyServerMessages]);
 
   const updateMessageReactions = useCallback((messageId: string, reactions: MessageReaction[]) => {
-    setMessages(prev => prev.map(message => (
-      message.id === messageId
-        ? { ...message, reactions } as ChatMessageUI
-        : message
-    )));
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId ? { ...msg, reactions } as ChatMessageUI : msg
+    ));
   }, []);
 
   const getOptimisticReactions = useCallback((
@@ -803,34 +778,26 @@ export const useMessageHandling = ({
     shouldAdd: boolean
   ): MessageReaction[] => {
     const next = [...reactions];
-    const index = next.findIndex((reaction) => reaction.emoji === emoji);
+    const index = next.findIndex((r) => r.emoji === emoji);
     if (index === -1 && shouldAdd) {
       next.push({ emoji, count: 1, reactedByMe: true });
       return next;
     }
-    if (index === -1) {
-      return next;
-    }
+    if (index === -1) return next;
     const current = next[index];
     const nextCount = Math.max(0, (current.count ?? 0) + (shouldAdd ? 1 : -1));
     if (!shouldAdd && nextCount === 0) {
       next.splice(index, 1);
       return next;
     }
-    next[index] = {
-      ...current,
-      count: nextCount,
-      reactedByMe: shouldAdd
-    };
+    next[index] = { ...current, count: nextCount, reactedByMe: shouldAdd };
     return next;
   }, []);
 
   const handleReactionUpdate = useCallback((data: Record<string, unknown>) => {
     const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
     const activeConversationId = conversationIdRef.current;
-    if (!conversationIdValue || conversationIdValue !== activeConversationId) {
-      return;
-    }
+    if (!conversationIdValue || conversationIdValue !== activeConversationId) return;
 
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
     const emoji = typeof data.emoji === 'string' ? data.emoji : null;
@@ -838,21 +805,16 @@ export const useMessageHandling = ({
     const actorId = typeof data.user_id === 'string' ? data.user_id : null;
     const countValue = typeof data.count === 'number' ? data.count : Number(data.count);
     const count = Number.isFinite(countValue) ? countValue : null;
-
-    if (!messageId || !emoji || (action !== 'add' && action !== 'remove')) {
-      return;
-    }
+    if (!messageId || !emoji || (action !== 'add' && action !== 'remove')) return;
 
     reactionLoadedRef.current.add(messageId);
 
     setMessages(prev => {
       let changed = false;
-      const next = prev.map(message => {
-        if (message.id !== messageId) {
-          return message;
-        }
-        const existing = message.reactions ?? [];
-        const index = existing.findIndex(reaction => reaction.emoji === emoji);
+      const next = prev.map(msg => {
+        if (msg.id !== messageId) return msg;
+        const existing = msg.reactions ?? [];
+        const index = existing.findIndex(r => r.emoji === emoji);
         const current = index >= 0 ? existing[index] : null;
         const shouldReact = action === 'add';
         const reactedByMe = actorId && currentUserId
@@ -865,34 +827,24 @@ export const useMessageHandling = ({
           ? Math.max(0, count)
           : Math.max(0, (current?.count ?? 0) + (shouldReact ? 1 : -1));
 
-        if (!current && !shouldReact) {
-          return message;
-        }
+        if (!current && !shouldReact) return msg;
 
         let updated = existing;
         if (nextCount <= 0) {
-          if (index === -1) {
-            return message;
-          }
-          updated = existing.filter((reaction) => reaction.emoji !== emoji);
+          if (index === -1) return msg;
+          updated = existing.filter((r) => r.emoji !== emoji);
         } else if (index === -1) {
           updated = [...existing, { emoji, count: nextCount, reactedByMe }];
         } else {
-          updated = existing.map((reaction, reactionIndex) => (
-            reactionIndex === index
-              ? { ...reaction, count: nextCount, reactedByMe }
-              : reaction
-          ));
+          updated = existing.map((r, i) =>
+            i === index ? { ...r, count: nextCount, reactedByMe } : r
+          );
         }
 
-        if (updated === existing) {
-          return message;
-        }
-
+        if (updated === existing) return msg;
         changed = true;
-        return { ...message, reactions: updated } as ChatMessageUI;
+        return { ...msg, reactions: updated } as ChatMessageUI;
       });
-
       return changed ? next : prev;
     });
   }, [currentUserId]);
@@ -900,9 +852,7 @@ export const useMessageHandling = ({
   const fetchGapMessages = useCallback(async (fromSeq: number, latestSeq: number) => {
     const activeConversationId = conversationIdRef.current;
     const activePracticeId = practiceIdRef.current;
-    if (!activeConversationId || !activePracticeId) {
-      return;
-    }
+    if (!activeConversationId || !activePracticeId) return;
 
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
@@ -913,52 +863,35 @@ export const useMessageHandling = ({
         isDisposedRef.current ||
         conversationIdRef.current !== activeConversationId ||
         practiceIdRef.current !== activePracticeId
-      ) {
-        return;
-      }
+      ) return;
+
       try {
         const params = new URLSearchParams({
           practiceId: activePracticeId,
           from_seq: String(nextSeq),
           limit: String(GAP_FETCH_LIMIT)
         });
-
-        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params.toString()}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
-        });
-
+        const response = await fetch(
+          `${getConversationMessagesEndpoint(activeConversationId)}?${params.toString()}`,
+          { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' }
+        );
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({})) as { error?: string };
           throw new Error(errorData.error || `HTTP ${response.status}`);
         }
-
         const data = await response.json() as {
           success: boolean;
           error?: string;
-          data?: {
-            messages: ConversationMessage[];
-            latest_seq?: number;
-            next_from_seq?: number | null;
-          };
+          data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null };
         };
-        if (!data.success || !data.data) {
-          throw new Error(data.error || 'Failed to fetch message gap');
-        }
-
+        if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch message gap');
         if (
           isDisposedRef.current ||
           conversationIdRef.current !== activeConversationId ||
           practiceIdRef.current !== activePracticeId
-        ) {
-          return;
-        }
-
+        ) return;
         applyServerMessages(data.data.messages ?? []);
-        if (typeof data.data.latest_seq === 'number') {
-          targetLatest = data.data.latest_seq;
-        }
+        if (typeof data.data.latest_seq === 'number') targetLatest = data.data.latest_seq;
         nextSeq = data.data.next_from_seq ?? null;
         attempts = 0;
       } catch (error) {
@@ -982,45 +915,26 @@ export const useMessageHandling = ({
   }, []);
 
   const scheduleReconnect = useCallback((targetConversationId: string) => {
-    if (isDisposedRef.current || isClosingSocketRef.current) {
-      return;
-    }
-    if (!sessionReadyRef.current || !targetConversationId) {
-      return;
-    }
-    if (conversationIdRef.current !== targetConversationId) {
-      return;
-    }
-    if (reconnectTimerRef.current) {
-      return;
-    }
+    if (isDisposedRef.current || isClosingSocketRef.current) return;
+    if (!sessionReadyRef.current || !targetConversationId) return;
+    if (conversationIdRef.current !== targetConversationId) return;
+    if (reconnectTimerRef.current) return;
     const nextAttempt = reconnectAttemptRef.current + 1;
-    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) {
-      return;
-    }
+    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) return;
     reconnectAttemptRef.current = nextAttempt;
     const backoff = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_DELAY_MS);
     const jitter = Math.floor(Math.random() * 250);
     reconnectTimerRef.current = globalThis.setTimeout(() => {
       reconnectTimerRef.current = null;
-      if (isDisposedRef.current || isClosingSocketRef.current) {
-        return;
-      }
-      if (!sessionReadyRef.current || conversationIdRef.current !== targetConversationId) {
-        return;
-      }
+      if (isDisposedRef.current || isClosingSocketRef.current) return;
+      if (!sessionReadyRef.current || conversationIdRef.current !== targetConversationId) return;
       connectChatRoomRef.current(targetConversationId);
     }, backoff + jitter);
   }, []);
 
-
   const connectChatRoom = useCallback((targetConversationId: string) => {
-    if (!sessionReady) {
-      return;
-    }
-    if (!targetConversationId) {
-      return;
-    }
+    if (!sessionReady) return;
+    if (!targetConversationId) return;
     clearReconnectTimer();
     if (typeof WebSocket === 'undefined') {
       onError?.('WebSocket is not available in this environment.');
@@ -1031,9 +945,7 @@ export const useMessageHandling = ({
       socketConversationIdRef.current === targetConversationId &&
       wsRef.current.readyState === WebSocket.OPEN &&
       isSocketReadyRef.current
-    ) {
-      return;
-    }
+    ) return;
 
     isClosingSocketRef.current = false;
     socketSessionRef.current += 1;
@@ -1053,26 +965,17 @@ export const useMessageHandling = ({
       clearReconnectTimer();
       ws.send(JSON.stringify({
         type: 'auth',
-        data: {
-          protocol_version: CHAT_PROTOCOL_VERSION,
-          client_info: { platform: 'web' }
-        }
+        data: { protocol_version: CHAT_PROTOCOL_VERSION, client_info: { platform: 'web' } }
       }));
     });
 
     ws.addEventListener('message', (event) => {
-      if (socketSessionRef.current !== sessionId || typeof event.data !== 'string') {
-        return;
-      }
+      if (socketSessionRef.current !== sessionId || typeof event.data !== 'string') return;
       let frame: { type?: string; data?: Record<string, unknown>; request_id?: string };
       try {
         frame = JSON.parse(event.data) as { type?: string; data?: Record<string, unknown>; request_id?: string };
-      } catch {
-        return;
-      }
-      if (!frame.type || !frame.data || typeof frame.data !== 'object') {
-        return;
-      }
+      } catch { return; }
+      if (!frame.type || !frame.data || typeof frame.data !== 'object') return;
 
       switch (frame.type) {
         case 'auth.ok': {
@@ -1080,15 +983,10 @@ export const useMessageHandling = ({
           try {
             sendFrame({
               type: 'resume',
-              data: {
-                conversation_id: targetConversationId,
-                last_seq: lastSeqRef.current
-              }
+              data: { conversation_id: targetConversationId, last_seq: lastSeqRef.current }
             });
           } catch (error) {
-            if (import.meta.env.DEV) {
-              console.warn('[ChatRoom] Failed to send resume', error);
-            }
+            if (import.meta.env.DEV) console.warn('[ChatRoom] Failed to send resume', error);
           }
           return;
         }
@@ -1113,9 +1011,7 @@ export const useMessageHandling = ({
           const latestSeq = Number(frame.data.latest_seq);
           if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
             fetchGapMessages(fromSeq, latestSeq).catch((error) => {
-              if (import.meta.env.DEV) {
-                console.warn('[ChatRoom] Gap fetch failed', error);
-              }
+              if (import.meta.env.DEV) console.warn('[ChatRoom] Gap fetch failed', error);
             });
           }
           return;
@@ -1148,9 +1044,7 @@ export const useMessageHandling = ({
     });
 
     ws.addEventListener('close', () => {
-      if (socketSessionRef.current !== sessionId) {
-        return;
-      }
+      if (socketSessionRef.current !== sessionId) return;
       isSocketReadyRef.current = false;
       rejectSocketReady(new Error('Chat connection closed'));
       flushPendingAcks(new Error('Chat connection closed'));
@@ -1159,17 +1053,13 @@ export const useMessageHandling = ({
         socketConversationIdRef.current = null;
       }
       if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) {
-        if (import.meta.env.DEV) {
-          console.info('[ChatRoom] WebSocket closed; will reconnect on next action.');
-        }
+        if (import.meta.env.DEV) console.info('[ChatRoom] WebSocket closed; will reconnect on next action.');
         scheduleReconnect(targetConversationId);
       }
     });
 
     ws.addEventListener('error', (error) => {
-      if (import.meta.env.DEV) {
-        console.warn('[ChatRoom] WebSocket error', error);
-      }
+      if (import.meta.env.DEV) console.warn('[ChatRoom] WebSocket error', error);
     });
   }, [
     clearReconnectTimer,
@@ -1212,21 +1102,8 @@ export const useMessageHandling = ({
   ) => {
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationIdRef.current;
-    if (!effectivePracticeId) {
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] sendMessageOverWs aborted: missing practiceId');
-      }
-      return;
-    }
-    if (!activeConversationId) {
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] sendMessageOverWs aborted: missing conversationId');
-      }
-      return;
-    }
-    if (!content.trim()) {
-      throw new Error('Message cannot be empty.');
-    }
+    if (!effectivePracticeId || !activeConversationId) return;
+    if (!content.trim()) throw new Error('Message cannot be empty.');
 
     const clientId = createClientId();
     const tempId = `temp-${clientId}`;
@@ -1238,10 +1115,7 @@ export const useMessageHandling = ({
       timestamp: Date.now(),
       userId: currentUserId,
       reply_to_message_id: replyToMessageId ?? null,
-      metadata: {
-        ...(metadata || {}),
-        __client_id: clientId
-      },
+      metadata: { ...(metadata || {}), __client_id: clientId },
       files: attachments
     };
 
@@ -1256,35 +1130,11 @@ export const useMessageHandling = ({
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
     try {
-      if (import.meta.env.DEV) {
-        console.info('[useMessageHandling] sendMessageOverWs start', {
-          conversationId: activeConversationId,
-          practiceId: effectivePracticeId,
-          contentLength: content.length,
-          attachments: attachmentIds.length,
-          hasMetadata: Boolean(metadata)
-        });
-      }
       await waitForSessionReady();
       if (!isSocketReadyRef.current || socketConversationIdRef.current !== activeConversationId) {
-        if (import.meta.env.DEV) {
-          console.info('[useMessageHandling] connecting chat room', {
-            socketReady: isSocketReadyRef.current,
-            socketConversationId: socketConversationIdRef.current,
-            targetConversationId: activeConversationId
-          });
-        }
         connectChatRoomRef.current(activeConversationId);
       }
       await waitForSocketReady();
-      if (import.meta.env.DEV) {
-        console.info('[useMessageHandling] sending WS frame message.send', {
-          conversationId: activeConversationId,
-          clientId,
-          hasReply: Boolean(replyToMessageId),
-          attachments: attachmentIds.length
-        });
-      }
       sendFrame({
         type: 'message.send',
         data: {
@@ -1300,26 +1150,28 @@ export const useMessageHandling = ({
     } catch (error) {
       pendingAckRef.current.delete(clientId);
       pendingClientMessageRef.current.delete(clientId);
-      setMessages(prev => prev.filter(message => message.id !== tempId));
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
     }
 
     return ackPromise.catch((error) => {
       pendingClientMessageRef.current.delete(clientId);
-      setMessages(prev => prev.filter(message => message.id !== tempId));
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
     });
   }, [currentUserId, sendFrame, waitForSessionReady, waitForSocketReady]);
 
   const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
 
-  // Main message sending function
+  // ---------------------------------------------------------------------------
+  // Main send function
+  // ---------------------------------------------------------------------------
+
   const sendMessage = useCallback(async (
     message: string,
     attachments: FileAttachment[] = [],
     replyToMessageId?: string | null
   ) => {
-    // Debug hook for test environment (development only)
     if (import.meta.env.MODE !== 'production' && typeof window !== 'undefined' && window.__DEBUG_SEND_MESSAGE__) {
       window.__DEBUG_SEND_MESSAGE__(message, attachments);
     }
@@ -1332,11 +1184,11 @@ export const useMessageHandling = ({
 
     if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
       if (pendingIntakeInitRef.current) {
-         try {
-           await pendingIntakeInitRef.current;
-         } catch (error) {
-           console.error('Failed to await pending intake init', error);
-         }
+        try {
+          await pendingIntakeInitRef.current;
+        } catch (error) {
+          console.error('Failed to await pending intake init', error);
+        }
       } else {
         const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState });
         pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
@@ -1351,14 +1203,10 @@ export const useMessageHandling = ({
     try {
       await sendMessageOverWs(message, attachments, undefined, replyToMessageId ?? null);
 
-      if (!shouldUseAi || trimmedMessage.length === 0) {
-        return;
-      }
+      if (!shouldUseAi || trimmedMessage.length === 0) return;
 
       const resolvedPracticeId = (practiceId ?? '').trim();
-      if (!resolvedPracticeId) {
-        return;
-      }
+      if (!resolvedPracticeId) return;
 
       if (shouldClassifyIntent && !hasLoggedIntentRef.current && !hasUserMessages) {
         intentAbortRef.current?.abort();
@@ -1370,16 +1218,10 @@ export const useMessageHandling = ({
         try {
           intentResponse = await fetch('/api/ai/intent', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             signal: intentController.signal,
-            body: JSON.stringify({
-              conversationId,
-              practiceId: resolvedPracticeId,
-              message: trimmedMessage
-            })
+            body: JSON.stringify({ conversationId, practiceId: resolvedPracticeId, message: trimmedMessage })
           });
         } catch (intentError) {
           if (intentError instanceof Error && intentError.name === 'AbortError') {
@@ -1391,27 +1233,17 @@ export const useMessageHandling = ({
 
         if (intentResponse?.ok) {
           const intentData = await intentResponse.json() as FirstMessageIntent;
-          if (intentController.signal.aborted) {
-            return;
-          }
-          if (conversationIdRef.current !== intentConversationId || resolvedPracticeId !== intentPracticeId) {
-            return;
-          }
-          if (hasLoggedIntentRef.current) {
-            return;
-          }
+          if (intentController.signal.aborted) return;
+          if (conversationIdRef.current !== intentConversationId || resolvedPracticeId !== intentPracticeId) return;
+          if (hasLoggedIntentRef.current) return;
           hasLoggedIntentRef.current = true;
           try {
-            await updateConversationMetadata({
-              first_message_intent: intentData
-            }, intentConversationId);
+            await updateConversationMetadata({ first_message_intent: intentData }, intentConversationId);
           } catch (intentError) {
             console.warn('[useMessageHandling] Failed to persist intent classification', intentError);
           }
         } else if (intentResponse) {
-          console.warn('[useMessageHandling] Intent classification request failed', {
-            status: intentResponse.status
-          });
+          console.warn('[useMessageHandling] Intent classification request failed', { status: intentResponse.status });
         }
       }
 
@@ -1422,6 +1254,8 @@ export const useMessageHandling = ({
             msg.role === 'assistant' ||
             (msg.role === 'system' && msg.metadata?.source === 'ai')
           )
+          // Exclude streaming bubble from history
+          .filter((msg) => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
           .map((msg) => ({
             role: msg.role === 'system' ? 'assistant' : msg.role,
             content: msg.content
@@ -1431,68 +1265,185 @@ export const useMessageHandling = ({
 
       const resolvedPracticeSlug = (practiceSlug ?? '').trim() || undefined;
       const intakeSubmitted = messages.some((msg) => msg.isUser && msg.metadata?.isContactFormSubmission);
-      const aiResponse = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          conversationId,
-          practiceId: resolvedPracticeId,
-          practiceSlug: resolvedPracticeSlug,
-          mode: activeMode,
-          intakeSubmitted,
-          messages: aiMessages
-        })
-      });
 
-      if (!aiResponse.ok) {
-        const errorData = await aiResponse.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
+      // Add streaming bubble before the fetch so the user sees something immediately
+      const bubbleId = `${STREAMING_BUBBLE_PREFIX}${conversationId}`;
+      addStreamingBubble(bubbleId);
+
+      try {
+        const aiResponse = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            conversationId,
+            practiceId: resolvedPracticeId,
+            practiceSlug: resolvedPracticeSlug,
+            mode: activeMode,
+            intakeSubmitted,
+            messages: aiMessages
+          })
+        });
+
+        if (!aiResponse.ok) {
+          removeStreamingBubble(bubbleId);
+          const errorData = await aiResponse.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
+        }
+
+        const contentType = aiResponse.headers.get('content-type') ?? '';
+
+        // ---------------------------------------------------------------------------
+        // JSON fallback — short-circuit replies (legal disclaimer, service list, etc.)
+        // come back as JSON. The worker streams everything else, but these instant
+        // replies don't need streaming and return the old format unchanged.
+        // ---------------------------------------------------------------------------
+        if (contentType.includes('application/json')) {
+          removeStreamingBubble(bubbleId);
+          const aiData = await aiResponse.json() as {
+            reply?: string;
+            message?: ConversationMessage;
+            intakeFields?: IntakeFieldsPayload | null;
+          };
+          if (aiData.intakeFields) await applyIntakeFields(aiData.intakeFields);
+          if (aiData.message) {
+            // Let WebSocket message.new deliver the persisted message to avoid
+            // racing local insertion against socket broadcast.
+            return;
+          }
+          const reply = (aiData.reply ?? '').trim();
+          if (!reply) throw new Error('AI response missing');
+          if (import.meta.env.DEV) console.warn('[useMessageHandling] AI returned reply without persisted message');
+          onError?.('Something went wrong. Please try again.');
+          return;
+        }
+
+        // ---------------------------------------------------------------------------
+        // SSE streaming path
+        // ---------------------------------------------------------------------------
+        if (!aiResponse.body) {
+          removeStreamingBubble(bubbleId);
+          throw new Error('AI response body is null');
+        }
+
+        const reader = aiResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
+
+        const processEvent = async (eventData: string) => {
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(eventData) as Record<string, unknown>;
+          } catch {
+            return;
+          }
+
+          // Token chunk — append to streaming bubble
+          if (typeof parsed.token === 'string') {
+            appendStreamingToken(bubbleId, parsed.token);
+            return;
+          }
+
+          // Done event — intake fields are available, real message is being persisted
+          if (parsed.done === true) {
+            if (parsed.intakeFields && typeof parsed.intakeFields === 'object') {
+              applyIntakeFields(parsed.intakeFields as IntakeFieldsPayload).catch((err) => {
+                console.warn('[useMessageHandling] Failed to apply intake fields from stream', err);
+              });
+            }
+            // quickReplies are stored on the persisted message metadata by the worker,
+            // they'll arrive via the WebSocket message.new frame — nothing to do here
+            return;
+          }
+
+          // Persisted event — worker has saved the message, WebSocket will deliver it.
+          // Store the expected ID so applyServerMessages can swap out the bubble.
+          if (parsed.persisted === true && typeof parsed.messageId === 'string') {
+            pendingStreamMessageIdRef.current = parsed.messageId;
+            return;
+          }
+
+          // Error event from worker
+          if (parsed.error === true) {
+            removeStreamingBubble(bubbleId);
+            onError?.(typeof parsed.message === 'string' ? parsed.message : 'Something went wrong. Please try again.');
+            return;
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const events = sseBuffer.split('\n\n');
+          sseBuffer = events.pop() ?? '';
+
+          for (const event of events) {
+            const dataLine = event.split('\n').find(line => line.startsWith('data: '));
+            if (!dataLine) continue;
+            await processEvent(dataLine.slice(6));
+          }
+        }
+
+        // Flush any remaining buffer
+        if (sseBuffer.trim()) {
+          const dataLine = sseBuffer.split('\n').find(line => line.startsWith('data: '));
+          if (dataLine) await processEvent(dataLine.slice(6));
+        }
+
+        // If the persisted event never arrived (worker error / disconnect),
+        // remove the bubble so we don't leave a ghost message
+        if (pendingStreamMessageIdRef.current === null) {
+          // The WebSocket message.new will clean up if it arrives later.
+          // Only remove if content is still empty (nothing was streamed).
+          setMessages(prev => {
+            const bubble = prev.find(m => m.id === bubbleId);
+            if (bubble && !bubble.content.trim()) {
+              return prev.filter(m => m.id !== bubbleId);
+            }
+            return prev;
+          });
+        }
+
+      } catch (streamError) {
+        removeStreamingBubble(bubbleId);
+        throw streamError;
       }
 
-      const aiData = await aiResponse.json() as { reply?: string; message?: ConversationMessage; intakeFields?: IntakeFieldsPayload | null };
-      if (aiData.intakeFields) {
-        await applyIntakeFields(aiData.intakeFields);
-      }
-      if (aiData.message) {
-        applyServerMessages([aiData.message]);
-        return;
-      }
-      const reply = (aiData.reply ?? '').trim();
-      if (!reply) {
-        throw new Error('AI response missing');
-      }
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] AI returned reply without persisted message');
-      }
-      onError?.('Something went wrong. Please try again.');
     } catch (error) {
       console.error('Error sending message:', {
         error,
         errorType: typeof error,
         errorMessage: error instanceof Error ? error.message : String(error),
       });
-
       const errorMessage = error instanceof Error && error.message
         ? error.message
-        : "Failed to send message. Please try again.";
-
+        : 'Failed to send message. Please try again.';
       onError?.(errorMessage);
     }
   }, [
-    applyServerMessages,
+    addStreamingBubble,
+    appendStreamingToken,
     applyIntakeFields,
+    applyServerMessages,
     conversationId,
     messages,
     mode,
+    onError,
     practiceId,
     practiceSlug,
-    onError,
+    removeStreamingBubble,
     sendMessageOverWs,
     updateConversationMetadata
   ]);
+
+  // ---------------------------------------------------------------------------
+  // Intake flow handlers — unchanged from original
+  // ---------------------------------------------------------------------------
 
   const handleIntakeCtaResponse = useCallback(async (response: 'ready' | 'not_yet') => {
     const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
@@ -1502,30 +1453,19 @@ export const useMessageHandling = ({
       ctaShown: true,
       notYetCount: response === 'not_yet' ? (current.notYetCount ?? 0) + 1 : (current.notYetCount ?? 0)
     };
-
-    await updateConversationMetadata({
-      intakeConversationState: next
-    });
-
+    await updateConversationMetadata({ intakeConversationState: next });
     if (response === 'ready') return;
     try {
       await sendMessage('Not yet', []);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('[Intake] Failed to send "Not yet" response', error);
-      }
+      if (import.meta.env.DEV) console.warn('[Intake] Failed to send "Not yet" response', error);
     }
   }, [sendMessage, updateConversationMetadata]);
 
   const resetIntakeCta = useCallback(async () => {
     const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
-    const next: IntakeConversationState = {
-      ...current,
-      ctaResponse: null
-    };
-    await updateConversationMetadata({
-      intakeConversationState: next
-    });
+    const next: IntakeConversationState = { ...current, ctaResponse: null };
+    await updateConversationMetadata({ intakeConversationState: next });
   }, [updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
@@ -1544,24 +1484,19 @@ export const useMessageHandling = ({
     });
 
     const practiceContextId = (practiceId ?? '').trim();
-    if (!conversationId || !practiceContextId) {
-      return;
-    }
-    const alreadyPosted = messagesRef.current.some((message) => message.metadata?.intakeDecisionPrompt === true);
-    if (alreadyPosted) {
-      return;
-    }
+    if (!conversationId || !practiceContextId) return;
+    const alreadyPosted = messagesRef.current.some((msg) => msg.metadata?.intakeDecisionPrompt === true);
+    if (alreadyPosted) return;
 
     const sanitizedDescription = nextDraft.description?.trim()
       ? sanitizeMarkdown(nextDraft.description.trim().replace(/\s+/g, ' '))
       : '_Not provided_';
     const sanitizedName = sanitizeMarkdown(nextDraft.name);
     const sanitizedLocation = sanitizeMarkdown(`${nextDraft.city}, ${nextDraft.state}`);
-    const sanitizedOpposingParty = nextDraft.opposingParty?.trim() 
+    const sanitizedOpposingParty = nextDraft.opposingParty?.trim()
       ? sanitizeMarkdown(nextDraft.opposingParty.trim())
       : '_Not provided_';
-    
-    // PII Redaction: rely on intakeSlimContactDraft for canonical data, redact in system message
+
     const lines = [
       'Contact info received',
       'Contact details',
@@ -1581,53 +1516,31 @@ export const useMessageHandling = ({
       const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {
         clientId: 'system-intake-decision',
         content: lines.join('\n'),
-        metadata: {
-          systemMessageKey: 'intake_decision_prompt',
-          intakeDecisionPrompt: true
-        }
+        metadata: { systemMessageKey: 'intake_decision_prompt', intakeDecisionPrompt: true }
       });
-      if (persistedMessage) {
-        applyServerMessages([persistedMessage]);
-      }
+      if (persistedMessage) applyServerMessages([persistedMessage]);
     } catch (error) {
-      console.error('[Intake] Failed to persist decision prompt message', {
-        conversationId,
-        practiceContextId,
-        error
-      });
+      console.error('[Intake] Failed to persist decision prompt message', { conversationId, practiceContextId, error });
     }
   }, [applyServerMessages, conversationId, practiceId, updateConversationMetadata]);
 
   const handleBuildBrief = useCallback(async () => {
-    const patch: ConversationMetadata = {
-      intakeAiBriefActive: true
-    };
+    const patch: ConversationMetadata = { intakeAiBriefActive: true };
     if (conversationMetadataRef.current?.mode !== 'REQUEST_CONSULTATION') {
       patch.mode = 'REQUEST_CONSULTATION';
     }
     const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
     if (current.ctaResponse !== null) {
-      patch.intakeConversationState = {
-        ...current,
-        ctaResponse: null
-      };
+      patch.intakeConversationState = { ...current, ctaResponse: null };
     }
     await updateConversationMetadata(patch);
     const locationParts = [slimContactDraft?.city, slimContactDraft?.state]
-      .map((value) => (typeof value === 'string' ? value.trim() : ''))
-      .filter((value) => value.length > 0);
-    const kickoffParts = [
-      'I want to build a stronger brief.'
-    ];
-    if (locationParts.length > 0) {
-      kickoffParts.push(`My location is ${locationParts.join(', ')}.`);
-    }
-    if (slimContactDraft?.opposingParty?.trim()) {
-      kickoffParts.push(`Opposing party: ${slimContactDraft.opposingParty.trim()}.`);
-    }
-    if (slimContactDraft?.description?.trim()) {
-      kickoffParts.push(`My current description: ${slimContactDraft.description.trim()}.`);
-    }
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter((v) => v.length > 0);
+    const kickoffParts = ['I want to build a stronger brief.'];
+    if (locationParts.length > 0) kickoffParts.push(`My location is ${locationParts.join(', ')}.`);
+    if (slimContactDraft?.opposingParty?.trim()) kickoffParts.push(`Opposing party: ${slimContactDraft.opposingParty.trim()}.`);
+    if (slimContactDraft?.description?.trim()) kickoffParts.push(`My current description: ${slimContactDraft.description.trim()}.`);
     try {
       await sendMessage(kickoffParts.join(' '), []);
     } catch (error) {
@@ -1635,7 +1548,6 @@ export const useMessageHandling = ({
     }
   }, [sendMessage, slimContactDraft, updateConversationMetadata]);
 
-  // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {
     logDev('[useMessageHandling] handleContactFormSubmit called with:', {
       name: !!contactData.name,
@@ -1646,8 +1558,7 @@ export const useMessageHandling = ({
       description: !!contactData.description
     });
     try {
-      // Format contact data as a structured message
-      const addressText = contactData.address 
+      const addressText = contactData.address
         ? (() => {
             const parts = [];
             if (contactData.address.address) parts.push(contactData.address.address);
@@ -1662,25 +1573,11 @@ export const useMessageHandling = ({
             return parts.length > 0 ? `Address: ${parts.join(', ')}` : '';
           })()
         : '';
-      const opposingPartyText = contactData.opposingParty?.trim()
-        ? contactData.opposingParty.trim()
-        : 'Not provided';
-      const descriptionText = contactData.description?.trim()
-        ? contactData.description.trim()
-        : 'Not provided';
-      const contactMessage = `Contact info received
-Contact details
-Name: ${contactData.name}
-Email: ${contactData.email}
-Phone: ${contactData.phone}${addressText ? `\n${addressText}` : ''}
+      const opposingPartyText = contactData.opposingParty?.trim() ? contactData.opposingParty.trim() : 'Not provided';
+      const descriptionText = contactData.description?.trim() ? contactData.description.trim() : 'Not provided';
+      const contactMessage = `Contact info received\nContact details\nName: ${contactData.name}\nEmail: ${contactData.email}\nPhone: ${contactData.phone}${addressText ? `\n${addressText}` : ''}\n\nCase summary\nOpposing party: ${opposingPartyText}\nDescription: ${descriptionText}`;
 
-Case summary
-Opposing party: ${opposingPartyText}
-Description: ${descriptionText}`;
-
-      // Debug hook for test environment (development only, PII-safe)
       if (import.meta.env.MODE === 'development' && typeof window !== 'undefined' && window.__DEBUG_CONTACT_FORM__) {
-        // Create sanitized payload with presence flags instead of raw PII
         const sanitizedContactData = {
           nameProvided: !!contactData.name,
           emailProvided: !!contactData.email,
@@ -1689,34 +1586,16 @@ Description: ${descriptionText}`;
           opposingPartyProvided: !!contactData.opposingParty,
           descriptionProvided: !!contactData.description
         };
-        
-        // Create redacted contact message indicating sections without actual values
-        const redactedContactMessage = `Contact Information:
-Name: ${contactData.name ? '[PROVIDED]' : '[NOT PROVIDED]'}
-Email: ${contactData.email ? '[PROVIDED]' : '[NOT PROVIDED]'}
-Phone: ${contactData.phone ? '[PROVIDED]' : '[NOT PROVIDED]'}
-Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
-        
+        const redactedContactMessage = `Contact Information:\nName: ${contactData.name ? '[PROVIDED]' : '[NOT PROVIDED]'}\nEmail: ${contactData.email ? '[PROVIDED]' : '[NOT PROVIDED]'}\nPhone: ${contactData.phone ? '[PROVIDED]' : '[NOT PROVIDED]'}\nAddress: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
         window.__DEBUG_CONTACT_FORM__(sanitizedContactData, redactedContactMessage);
       }
 
-      // Send the contact information as a user message with metadata flag
-      // This metadata helps us detect that the contact form was submitted
-      if (!conversationId) {
-        throw new Error('Conversation ID is required');
-      }
-
+      if (!conversationId) throw new Error('Conversation ID is required');
       const resolvedPracticeSlug = (practiceSlug ?? practiceId ?? '').trim();
-      if (!resolvedPracticeSlug) {
-        throw new Error('Practice slug is required to submit intake');
-      }
+      if (!resolvedPracticeSlug) throw new Error('Practice slug is required to submit intake');
 
       const intakeResult = await submitContactForm(
-        {
-          ...contactData,
-          sessionId: conversationId,
-          userId: currentUserId
-        },
+        { ...contactData, sessionId: conversationId, userId: currentUserId },
         resolvedPracticeSlug
       );
 
@@ -1746,23 +1625,18 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const enrichedContactMessage = `${contactMessage}\n\nThanks! ${nextStepLine}`;
 
       await sendMessageOverWs(enrichedContactMessage, [], {
-        // Mark this as a contact form submission without storing PII in metadata
         isContactFormSubmission: true,
         ...(intakeUuid ? { intakeUuid } : {}),
         ...(paymentRequired ? { intakePaymentRequired: true } : {}),
-        authCta: {
-          label: 'Continue to finish intake'
-        }
+        authCta: { label: 'Continue to finish intake' }
       }, null);
 
       setMessages((prev) => {
-        const alreadyPresent = prev.some((message) =>
-          message.metadata?.isContactFormSubmission
-          && (intakeUuid ? message.metadata?.intakeUuid === intakeUuid : true)
+        const alreadyPresent = prev.some((msg) =>
+          msg.isUser && msg.metadata?.isContactFormSubmission &&
+          (intakeUuid ? msg.metadata?.intakeUuid === intakeUuid : true)
         );
-        if (alreadyPresent) {
-          return prev;
-        }
+        if (alreadyPresent) return prev;
         const fallbackMessage: ChatMessageUI = {
           id: `fallback-contact-${Date.now()}`,
           content: enrichedContactMessage,
@@ -1781,10 +1655,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         return [...prev, fallbackMessage];
       });
 
-      // Show success feedback
-      if (import.meta.env.DEV) {
-        console.log('[ContactForm] Successfully submitted contact information');
-      }
+      if (import.meta.env.DEV) console.log('[ContactForm] Successfully submitted contact information');
 
       const clientSecret = paymentDetails?.clientSecret;
       const paymentLinkUrl = paymentDetails?.paymentLinkUrl;
@@ -1794,29 +1665,8 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const hasPaymentLink = typeof paymentLinkUrl === 'string' && paymentLinkUrl.trim().length > 0;
       const hasCheckoutSession = typeof checkoutSessionUrl === 'string' && checkoutSessionUrl.trim().length > 0;
 
-      if (import.meta.env.DEV) {
-        console.info('[Intake] Payment message decision', {
-          paymentRequired,
-          hasClientSecret,
-          hasPaymentLink,
-          hasCheckoutSession,
-          intakeUuid: paymentDetails?.uuid,
-          paymentLinkUrl,
-          checkoutSessionUrl,
-          clientSecretPresent: hasClientSecret,
-          paymentLinkPresent: hasPaymentLink
-        });
-      }
-
       if (paymentRequired && (hasClientSecret || hasCheckoutSession || hasPaymentLink)) {
-        if (isAnonymous) {
-          if (import.meta.env.DEV) {
-            console.info('[Intake] Skipping payment message until user is authenticated', {
-              intakeUuid: paymentDetails?.uuid
-            });
-          }
-          return;
-        }
+        if (isAnonymous) return;
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
@@ -1861,10 +1711,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
               const persistedMessage = await postSystemMessage(conversationId, practiceContextId, {
                 clientId: paymentMessageId,
                 content: 'One more step: submit the consultation fee to complete your intake.',
-                metadata: {
-                  paymentRequest: paymentRequestPayload,
-                  paymentUrl
-                }
+                metadata: { paymentRequest: paymentRequestPayload, paymentUrl }
               });
               if (persistedMessage) {
                 applyServerMessages([persistedMessage]);
@@ -1880,26 +1727,13 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
             }
           }
 
-          if (persistenceStatus === 'idle') {
-            const message = 'Payment message could not be saved. Please retry.';
-            throw new Error(message);
-          }
-          if (import.meta.env.DEV) {
-            console.info('[Intake] Payment message enqueued', {
-              paymentMessageId,
-              intakeUuid: paymentDetails.uuid,
-              paymentUrl
-            });
-          }
+          if (persistenceStatus === 'idle') throw new Error('Payment message could not be saved. Please retry.');
         }
-      } else if (!paymentRequired && paymentDetails?.uuid) {
-        // confirmIntakeLead removed - Worker handles conversion after payment
-
       }
     } catch (error) {
       console.error('Error submitting contact form:', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
-      throw error; // Re-throw so form can handle the error state
+      throw error;
     }
   }, [
     conversationId,
@@ -1926,10 +1760,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       state: draft.state,
       opposingParty: mergedOpposingParty || undefined,
       description: mergedDescription || undefined,
-      address: {
-        city: draft.city,
-        state: draft.state
-      }
+      address: { city: draft.city, state: draft.state }
     };
   }, []);
 
@@ -1942,19 +1773,16 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     await handleContactFormSubmit(merged);
   }, [buildContactData, handleContactFormSubmit, slimContactDraft]);
 
-  // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
     setMessages(prev => [...prev, message]);
   }, []);
 
-  // Update a specific message
   const updateMessage = useCallback((messageId: string, updates: Partial<ChatMessageUI>) => {
-    setMessages(prev => prev.map(msg => 
+    setMessages(prev => prev.map(msg =>
       msg.id === messageId ? { ...msg, ...updates } as ChatMessageUI : msg
     ));
   }, []);
 
-  // Clear all messages
   const clearMessages = useCallback(() => {
     resetRealtimeState();
     reactionFetchRef.current.clear();
@@ -1967,7 +1795,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     isLoadingMoreRef.current = false;
   }, [resetRealtimeState]);
 
-  // Fetch messages from conversation
   const fetchMessages = useCallback(async (
     options?: {
       signal?: AbortSignal;
@@ -1976,82 +1803,31 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       isLoadMore?: boolean;
     }
   ) => {
-    if (!sessionReady) {
-      return;
-    }
-    const {
-      signal,
-      targetConversationId,
-      cursor,
-      isLoadMore
-    } = options ?? {};
+    if (!sessionReady) return;
+    const { signal, targetConversationId, cursor, isLoadMore } = options ?? {};
     const activeConversationId = targetConversationId ?? conversationId;
-    if (!activeConversationId || !practiceId) {
-      if (DEBUG_MESSAGE_PAGINATION) {
-        console.info('[useMessageHandling][pagination] fetch skipped: missing conversation or practice', {
-          activeConversationId,
-          practiceId
-        });
-      }
-      return;
-    }
+    if (!activeConversationId || !practiceId) return;
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-      const params = new URLSearchParams({
-        practiceId,
-        limit: '50',
-      });
+      const params = new URLSearchParams({ practiceId, limit: '50' });
       params.set('source', isLoadMore ? 'chat_load_more' : 'chat_initial');
-      if (cursor) {
-        params.set('cursor', cursor);
-      }
+      if (cursor) params.set('cursor', cursor);
+      if (isLoadMore) setIsLoadingMoreMessages(true);
 
-      if (isLoadMore) {
-        if (DEBUG_MESSAGE_PAGINATION) {
-          console.info('[useMessageHandling][pagination] fetch start', {
-            activeConversationId,
-            cursor,
-            params: params.toString()
-          });
-        }
-        setIsLoadingMoreMessages(true);
-      }
-
-      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params.toString()}`, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-        signal,
-      });
-
+      const response = await fetch(
+        `${getConversationMessagesEndpoint(activeConversationId)}?${params.toString()}`,
+        { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include', signal }
+      );
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-
       const data = await response.json() as {
         success: boolean;
         error?: string;
-        data?: {
-          messages: ConversationMessage[];
-          hasMore?: boolean;
-          cursor?: string | null;
-        };
+        data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null };
       };
-      if (!data.success || !data.data) {
-        throw new Error(data.error || 'Failed to fetch messages');
-      }
-
-      if (DEBUG_MESSAGE_PAGINATION) {
-        console.info('[useMessageHandling][pagination] fetch response', {
-          isLoadMore: Boolean(isLoadMore),
-          messageCount: data.data.messages?.length ?? 0,
-          hasMore: Boolean(data.data.hasMore),
-          nextCursor: data.data.cursor ?? null
-        });
-      }
+      if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch messages');
 
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
@@ -2061,9 +1837,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
           messageIdSetRef.current = new Set(data.data.messages.map((msg) => msg.id));
           lastSeqRef.current = data.data.messages.reduce((max, msg) => Math.max(max, msg.seq), 0);
           setMessages(prev => {
-            if (uiMessages.length === 0 && prev.length > 0) {
-              return prev;
-            }
+            if (uiMessages.length === 0 && prev.length > 0) return prev;
             return uiMessages;
           });
           setMessagesReady(true);
@@ -2071,93 +1845,47 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         }
         setHasMoreMessages(Boolean(data.data.hasMore));
         setNextCursor(data.data.cursor ?? null);
-        if (DEBUG_MESSAGE_PAGINATION) {
-          console.info('[useMessageHandling][pagination] state updated', {
-            hasMoreMessages: Boolean(data.data.hasMore),
-            nextCursor: data.data.cursor ?? null
-          });
-        }
       }
     } catch (err) {
       if (isDisposedRef.current) return;
       if (err instanceof Error && err.name === 'AbortError') return;
-      if (DEBUG_MESSAGE_PAGINATION) {
-        console.info('[useMessageHandling][pagination] fetch error', {
-          message: err instanceof Error ? err.message : String(err),
-          cursor,
-          isLoadMore: Boolean(isLoadMore)
-        });
-      }
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
-      onError?.(errorMessage);
+      onError?.(err instanceof Error ? err.message : 'Failed to fetch messages');
     } finally {
-      if (!isDisposedRef.current && isLoadMore) {
-        setIsLoadingMoreMessages(false);
-      }
+      if (!isDisposedRef.current && isLoadMore) setIsLoadingMoreMessages(false);
     }
   }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate, sessionReady, applyServerMessages]);
 
   const loadMoreMessages = useCallback(async () => {
-    if (!nextCursor || isLoadingMoreMessages || isLoadingMoreRef.current) {
-      if (DEBUG_MESSAGE_PAGINATION) {
-        console.info('[useMessageHandling][pagination] loadMore skipped', {
-          hasCursor: Boolean(nextCursor),
-          nextCursor,
-          isLoadingMoreMessages,
-          internalLoading: isLoadingMoreRef.current
-        });
-      }
-      return;
-    }
-    if (DEBUG_MESSAGE_PAGINATION) {
-      console.info('[useMessageHandling][pagination] loadMore start', { nextCursor });
-    }
+    if (!nextCursor || isLoadingMoreMessages || isLoadingMoreRef.current) return;
     isLoadingMoreRef.current = true;
     try {
       await fetchMessages({ cursor: nextCursor, isLoadMore: true });
     } finally {
       isLoadingMoreRef.current = false;
-      if (DEBUG_MESSAGE_PAGINATION) {
-        console.info('[useMessageHandling][pagination] loadMore finished');
-      }
     }
   }, [fetchMessages, isLoadingMoreMessages, nextCursor]);
 
   const requestMessageReactions = useCallback(async (messageId: string) => {
     const conversationIdValue = conversationIdRef.current;
     const practiceContextId = (practiceIdRef.current ?? '').trim();
-    if (!conversationIdValue || !practiceContextId) {
-      return null;
-    }
-    if (isTempMessageId(messageId)) {
-      return null;
-    }
-    if (reactionLoadedRef.current.has(messageId)) {
-      return null;
-    }
-
+    if (!conversationIdValue || !practiceContextId) return null;
+    if (isTempMessageId(messageId)) return null;
+    if (reactionLoadedRef.current.has(messageId)) return null;
     const existingRequest = reactionFetchRef.current.get(messageId);
-    if (existingRequest) {
-      return existingRequest;
-    }
+    if (existingRequest) return existingRequest;
 
-    const requestPromise = fetchMessageReactions(
-      conversationIdValue,
-      messageId,
-      practiceContextId
-    ).then((reactions) => {
-      updateMessageReactions(messageId, reactions);
-      reactionLoadedRef.current.add(messageId);
-      return reactions;
-    }).catch((error) => {
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] Failed to fetch reactions', error);
-      }
-      reactionLoadedRef.current.delete(messageId);
-      return null;
-    }).finally(() => {
-      reactionFetchRef.current.delete(messageId);
-    });
+    const requestPromise = fetchMessageReactions(conversationIdValue, messageId, practiceContextId)
+      .then((reactions) => {
+        updateMessageReactions(messageId, reactions);
+        reactionLoadedRef.current.add(messageId);
+        return reactions;
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) console.warn('[useMessageHandling] Failed to fetch reactions', error);
+        reactionLoadedRef.current.delete(messageId);
+        return null;
+      })
+      .finally(() => { reactionFetchRef.current.delete(messageId); });
 
     reactionFetchRef.current.set(messageId, requestPromise);
     return requestPromise;
@@ -2166,16 +1894,12 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
   const toggleMessageReaction = useCallback(async (messageId: string, emoji: string) => {
     const conversationIdValue = conversationIdRef.current;
     const practiceContextId = (practiceIdRef.current ?? '').trim();
-    if (!conversationIdValue || !practiceContextId) {
-      return;
-    }
-    if (isTempMessageId(messageId)) {
-      return;
-    }
+    if (!conversationIdValue || !practiceContextId) return;
+    if (isTempMessageId(messageId)) return;
 
-    const currentMessage = messages.find((message) => message.id === messageId);
+    const currentMessage = messages.find((msg) => msg.id === messageId);
     const existingReactions = currentMessage?.reactions ?? [];
-    const existingReaction = existingReactions.find((reaction) => reaction.emoji === emoji);
+    const existingReaction = existingReactions.find((r) => r.emoji === emoji);
     const hasReacted = existingReaction?.reactedByMe ?? false;
     const optimisticReactions = getOptimisticReactions(existingReactions, emoji, !hasReacted);
     updateMessageReactions(messageId, optimisticReactions);
@@ -2183,36 +1907,19 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
     try {
       const nextReactions = hasReacted
-        ? await removeMessageReaction(
-          conversationIdValue,
-          messageId,
-          practiceContextId,
-          emoji
-        )
-        : await addMessageReaction(
-          conversationIdValue,
-          messageId,
-          practiceContextId,
-          emoji
-        );
+        ? await removeMessageReaction(conversationIdValue, messageId, practiceContextId, emoji)
+        : await addMessageReaction(conversationIdValue, messageId, practiceContextId, emoji);
       updateMessageReactions(messageId, nextReactions);
       reactionLoadedRef.current.add(messageId);
     } catch (error) {
       updateMessageReactions(messageId, existingReactions);
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] Failed to update reaction', error);
-      }
+      if (import.meta.env.DEV) console.warn('[useMessageHandling] Failed to update reaction', error);
       onError?.('Failed to update reaction.');
     }
   }, [getOptimisticReactions, messages, onError, updateMessageReactions]);
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
-    if (!sessionReady) {
-      return;
-    }
-    if (!targetConversationId || !practiceId) {
-      return;
-    }
+    if (!sessionReady || !targetConversationId || !practiceId) return;
     void updateConversationMetadata({
       intakeConversationState: initialIntakeState,
       intakeSlimContactDraft: null,
@@ -2232,22 +1939,14 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     connectChatRoom(targetConversationId);
   }, [connectChatRoom, fetchConversationMetadata, fetchMessages, practiceId, sessionReady, updateConversationMetadata]);
 
-  // Fetch messages and connect realtime socket when conversation is ready
   useEffect(() => {
-    if (!sessionReady) {
-      closeChatSocket();
-      return;
-    }
-    if (!isConversationLinkReady) {
-      closeChatSocket();
-      return;
-    }
+    if (!sessionReady) { closeChatSocket(); return; }
+    if (!isConversationLinkReady) { closeChatSocket(); return; }
     if (!conversationId || !practiceId) {
       conversationIdRef.current = undefined;
       closeChatSocket();
       return;
     }
-
     conversationIdRef.current = conversationId;
     resetRealtimeState();
     setPaymentRetryNotice(null);
@@ -2261,11 +1960,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
     });
     connectChatRoom(conversationId);
-
-    return () => {
-      controller.abort();
-      closeChatSocket();
-    };
+    return () => { controller.abort(); closeChatSocket(); };
   }, [
     closeChatSocket,
     connectChatRoom,
@@ -2278,66 +1973,44 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     sessionReady
   ]);
 
-  useEffect(() => {
-    intentAbortRef.current?.abort();
-  }, [conversationId, practiceId]);
+  useEffect(() => { intentAbortRef.current?.abort(); }, [conversationId, practiceId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (!conversationId || !practiceId) {
-      return;
-    }
+    if (typeof window === 'undefined' || !conversationId || !practiceId) return;
     const cacheKey = getMessageCacheKey(practiceId, conversationId);
     try {
       const raw = window.localStorage.getItem(cacheKey);
-      if (!raw) {
-        return;
-      }
+      if (!raw) return;
       const parsed = JSON.parse(raw) as ChatMessageUI[];
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        return;
-      }
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
       const isValid = parsed.every(
         (msg) => typeof msg.id === 'string' && typeof msg.content === 'string' && typeof msg.timestamp === 'number'
       );
-      if (!isValid) {
-        window.localStorage.removeItem(cacheKey);
-        return;
-      }
-      messageIdSetRef.current = new Set(parsed.map((message) => message.id));
-      setMessages(parsed);
+      if (!isValid) { window.localStorage.removeItem(cacheKey); return; }
+      // Never restore streaming bubbles from cache
+      const filtered = parsed.filter(msg => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX));
+      messageIdSetRef.current = new Set(filtered.map((msg) => msg.id));
+      setMessages(filtered);
       setMessagesReady(true);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] Failed to load cached messages', error);
-      }
+      if (import.meta.env.DEV) console.warn('[useMessageHandling] Failed to load cached messages', error);
     }
   }, [conversationId, practiceId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (!conversationId || !practiceId) {
-      return;
-    }
-    if (messages.length === 0) {
-      return;
-    }
+    if (typeof window === 'undefined' || !conversationId || !practiceId || messages.length === 0) return;
     const cacheKey = getMessageCacheKey(practiceId, conversationId);
-    const trimmed = messages.slice(-MESSAGE_CACHE_LIMIT);
+    // Never cache streaming bubbles
+    const trimmed = messages
+      .filter(msg => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
+      .slice(-MESSAGE_CACHE_LIMIT);
     try {
       window.localStorage.setItem(cacheKey, JSON.stringify(trimmed));
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('[useMessageHandling] Failed to cache messages', error);
-      }
+      if (import.meta.env.DEV) console.warn('[useMessageHandling] Failed to cache messages', error);
     }
   }, [conversationId, messages, practiceId]);
 
-  // Clear UI state when switching to a different conversation to avoid showing stale messages
   useEffect(() => {
     if (
       lastConversationIdRef.current &&
@@ -2348,70 +2021,47 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       setIsConsultFlowActive(false);
       applyConversationMetadata(null);
     }
-
     lastConversationIdRef.current = conversationId;
   }, [conversationId, applyConversationMetadata, clearMessages]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       isDisposedRef.current = true;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (intentAbortRef.current) {
-        intentAbortRef.current.abort();
-      }
-      if (consultFlowAbortRef.current) {
-        consultFlowAbortRef.current.abort();
-      }
+      abortControllerRef.current?.abort();
+      intentAbortRef.current?.abort();
+      consultFlowAbortRef.current?.abort();
       closeChatSocket();
     };
   }, [closeChatSocket]);
 
-  // Determine intake status based on user message count (for anonymous users)
-  // 0 messages -> Welcome prompt
-  // 1 message -> Show Contact Form
-  // After contact form -> Pending review until practice decision
   const userMessages = messages.filter(m => m.isUser);
-  
-  // Check if contact form has been submitted by looking for the submission flag
-  const hasSubmittedContactForm = messages.some(m => 
-    m.isUser && m.metadata?.isContactFormSubmission
-  );
+  const hasSubmittedContactForm = messages.some(m => m.isUser && m.metadata?.isContactFormSubmission);
 
   const latestIntakeSubmission = useMemo(() => {
     let intakeUuid: string | null = null;
     let paymentRequired = false;
-
     for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const message = messages[i];
-      if (!message?.isUser || !message.metadata?.isContactFormSubmission) {
-        continue;
-      }
-      const candidateUuid = message.metadata?.intakeUuid;
+      const msg = messages[i];
+      if (!msg?.isUser || !msg.metadata?.isContactFormSubmission) continue;
+      const candidateUuid = msg.metadata?.intakeUuid;
       if (typeof candidateUuid === 'string' && candidateUuid.trim().length > 0) {
         intakeUuid = candidateUuid.trim();
       }
-      paymentRequired = message.metadata?.intakePaymentRequired === true;
+      paymentRequired = msg.metadata?.intakePaymentRequired === true;
       break;
     }
-
-    return {
-      intakeUuid,
-      paymentRequired
-    };
+    return { intakeUuid, paymentRequired };
   }, [messages]);
 
   const intakePaymentReceived = useMemo(() => {
     if (!latestIntakeSubmission.intakeUuid) return false;
     if (verifiedPaidIntakeUuids.includes(latestIntakeSubmission.intakeUuid)) return true;
-    return messages.some((message) =>
-      message.metadata?.intakePaymentUuid === latestIntakeSubmission.intakeUuid
-      && message.metadata?.paymentStatus === 'succeeded'
+    return messages.some((msg) =>
+      msg.metadata?.intakePaymentUuid === latestIntakeSubmission.intakeUuid &&
+      msg.metadata?.paymentStatus === 'succeeded'
     );
   }, [latestIntakeSubmission.intakeUuid, messages, verifiedPaidIntakeUuids]);
-  
+
   const intakeDecision = messages.find(m => {
     const decision = m.metadata?.intakeDecision;
     return decision === 'accepted' || decision === 'rejected';
@@ -2419,32 +2069,25 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
 
   const currentStep = useMemo((): IntakeStep => {
     if (!isAnonymous) return 'completed';
-
     if (intakeDecision === 'accepted') return 'accepted';
     if (intakeDecision === 'rejected') return 'rejected';
-
     if (!isConsultFlowActive) return 'ready';
     if (hasSubmittedContactForm) return 'pending_review';
-    if (!slimContactDraft) {
-      return 'contact_form_slim';
-    }
-    if (isAiBriefActive) {
-      return 'ai_brief';
-    }
+    if (!slimContactDraft) return 'contact_form_slim';
+    if (isAiBriefActive) return 'ai_brief';
     return 'contact_form_decision';
   }, [hasSubmittedContactForm, intakeDecision, isAiBriefActive, isAnonymous, isConsultFlowActive, slimContactDraft]);
-  
-  // Memoize logging to prevent excessive console output
+
   useEffect(() => {
     if (messages.length > 0) {
       logDev('[IntakeFlow] Message analysis', {
         totalMessages: messages.length,
         userMessagesCount: userMessages.length,
         hasSubmittedContactForm,
-        messagesWithIsUser: messages.map(m => ({ 
-          id: m.id, 
-          isUser: m.isUser, 
-          role: m.role, 
+        messagesWithIsUser: messages.map(m => ({
+          id: m.id,
+          isUser: m.isUser,
+          role: m.role,
           content: m.content.substring(0, 50),
           hasIsUserProperty: 'isUser' in m,
           isUserType: typeof m.isUser,
@@ -2456,7 +2099,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       });
     }
   }, [messages, userMessages.length, hasSubmittedContactForm, logDev]);
-  
+
   useEffect(() => {
     logDev('[IntakeFlow] Step calculation', {
       isAnonymous,
@@ -2467,7 +2110,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     });
   }, [isAnonymous, userMessages.length, hasSubmittedContactForm, currentStep, messages.length, logDev]);
 
-  // Reconcile payment confirmation based on session flags + backend status
   const processedPaymentUuidsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     let cancelled = false;
@@ -2476,12 +2118,7 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     const parseStoredFlag = (raw: string | null) => {
       if (!raw) return null;
       try {
-        const parsed = JSON.parse(raw) as {
-          practiceName?: string;
-          practiceId?: string;
-          conversationId?: string;
-        };
-        return parsed;
+        return JSON.parse(raw) as { practiceName?: string; practiceId?: string; conversationId?: string };
       } catch (error) {
         console.warn('[Intake] Failed to parse payment flag', error);
         return null;
@@ -2489,64 +2126,42 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     };
 
     const postPaymentConfirmation = async (uuid: string, practiceName: string) => {
-      if (cancelled || !conversationId || !practiceId) {
-        return;
-      }
+      if (cancelled || !conversationId || !practiceId) return;
       setVerifiedPaidIntakeUuids((prev) => (prev.includes(uuid) ? prev : [...prev, uuid]));
       const messageId = `system-payment-confirm-${uuid}`;
-      if (processedPaymentUuidsRef.current.has(uuid) || messagesRef.current.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)) {
-        return;
-      }
-
-      if (cancelled) {
-        return;
-      }
-
+      if (
+        processedPaymentUuidsRef.current.has(uuid) ||
+        messagesRef.current.some((m) => m.id === messageId || m.metadata?.intakePaymentUuid === uuid)
+      ) return;
+      if (cancelled) return;
       try {
         if (cancelled) return;
-        if (processedPaymentUuidsRef.current.has(uuid)) {
-          return;
-        }
+        if (processedPaymentUuidsRef.current.has(uuid)) return;
         processedPaymentUuidsRef.current.add(uuid);
-
         const persistedMessage = await postSystemMessage(conversationId, practiceId, {
           clientId: messageId,
           content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
-          metadata: {
-            intakePaymentUuid: uuid,
-            paymentStatus: 'succeeded'
-          }
+          metadata: { intakePaymentUuid: uuid, paymentStatus: 'succeeded' }
         });
-        
-        if (cancelled) {
-          return;
-        }
-
+        if (cancelled) return;
         if (persistedMessage) {
           applyServerMessages([persistedMessage]);
           setPaymentRetryNotice(null);
-          // confirmIntakeLead removed - Worker handles conversion after payment
-
         } else {
           throw new Error('Payment confirmation message could not be saved.');
         }
       } catch (error) {
-        // Only remove if it failed to save (so it can be retried)
-        // If it was cancelled but saved, we rely on the dedupe check above on next run
         processedPaymentUuidsRef.current.delete(uuid);
-        
         const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
         console.warn('[Intake] Failed to persist payment confirmation message', error);
         onError?.(message);
-        throw error; // Re-throw to allow caller to handle retry logic
+        throw error;
       }
     };
 
     const maybeReconcileFromBackend = async () => {
       const intakeUuid = latestIntakeSubmission.intakeUuid;
-      if (!intakeUuid || !latestIntakeSubmission.paymentRequired || intakePaymentReceived) {
-        return;
-      }
+      if (!intakeUuid || !latestIntakeSubmission.paymentRequired || intakePaymentReceived) return;
       try {
         const isPaid = await fetchIntakePaidStatus(intakeUuid, controller.signal);
         if (!isPaid || cancelled) return;
@@ -2564,14 +2179,9 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
       const pendingKeys: string[] = [];
       for (let i = 0; i < window.sessionStorage.length; i += 1) {
         const key = window.sessionStorage.key(i);
-        if (key && key.startsWith('intakePaymentSuccess:')) {
-          paymentKeys.push(key);
-        }
-        if (key && key.startsWith('intakePaymentPending:')) {
-          pendingKeys.push(key);
-        }
+        if (key && key.startsWith('intakePaymentSuccess:')) paymentKeys.push(key);
+        if (key && key.startsWith('intakePaymentPending:')) pendingKeys.push(key);
       }
-
       paymentKeys.forEach((key) => {
         const uuid = key.split(':')[1];
         const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -2585,27 +2195,15 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         if (parsed?.practiceName && parsed.practiceName.trim().length > 0) {
           practiceName = parsed.practiceName.trim();
         }
-        
         postPaymentConfirmation(uuid, practiceName)
-          .then(() => {
-            window.sessionStorage.removeItem(key);
-          })
-          .catch((error) => {
-            console.warn('[Intake] Payment confirmation retry failed, keeping session key', error);
-          });
+          .then(() => { window.sessionStorage.removeItem(key); })
+          .catch((error) => { console.warn('[Intake] Payment confirmation retry failed, keeping session key', error); });
       });
-
-      pendingKeys.forEach((key) => {
-        window.sessionStorage.removeItem(key);
-      });
+      pendingKeys.forEach((key) => { window.sessionStorage.removeItem(key); });
     }
 
     void maybeReconcileFromBackend();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
+    return () => { cancelled = true; controller.abort(); };
   }, [
     latestIntakeSubmission.intakeUuid,
     latestIntakeSubmission.paymentRequired,
@@ -2616,7 +2214,6 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
     applyServerMessages
   ]);
 
-  // The intake flow is now conversational and non-blocking
   return {
     messages,
     conversationMetadata,

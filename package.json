@@ -67,6 +67,7 @@
     "preact-render-to-string": "^6.5.13",
     "react-i18next": "^15.5.3",
     "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "stripe": "^18.0.0",
     "tailwind-merge": "2.6.0",
     "tldts": "^7.0.9",

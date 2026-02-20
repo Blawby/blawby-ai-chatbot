@@ -1,6 +1,7 @@
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
+import type { ExecutionContext } from '@cloudflare/workers-types';
 import { ConversationService } from '../services/ConversationService.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
@@ -9,7 +10,7 @@ import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js'
 import { Logger } from '../utils/logger.js';
 
 const DEFAULT_AI_MODEL = 'gpt-4o-mini';
-const LEGAL_DISCLAIMER = 'I’m not a lawyer and can’t provide legal advice, but I can help you request a consultation with this practice.';
+const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
 const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the necessary details for the firm.";
 const MAX_MESSAGES = 40;
@@ -66,7 +67,7 @@ const formatServiceList = (names: string[]): string => {
   return `${names.slice(0, 3).join(', ')}, and ${names.length - 3} more`;
 };
 
-const normalizeApostrophes = (text: string): string => text.replace(/[’']/g, '\'');
+const normalizeApostrophes = (text: string): string => text.replace(/['']/g, '\'');
 
 const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; content: string }>): boolean => {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
@@ -77,9 +78,7 @@ const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; c
 const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
 
 const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): string => {
-  if (!fields) {
-    return 'Thanks — can you share a bit more about what happened?';
-  }
+  if (!fields) return 'Thanks — can you share a bit more about what happened?';
   if (typeof fields.practiceArea !== 'string' || fields.practiceArea.trim() === '') {
     return 'Which practice area best fits your situation?';
   }
@@ -127,27 +126,19 @@ const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null):
   };
   if ('consultation_fee' in normalized) {
     const next = normalizeMoney(normalized.consultation_fee);
-    if (next !== undefined) {
-      normalized.consultation_fee = next;
-    }
+    if (next !== undefined) normalized.consultation_fee = next;
   }
   if ('consultationFee' in normalized) {
     const next = normalizeMoney(normalized.consultationFee);
-    if (next !== undefined) {
-      normalized.consultationFee = next;
-    }
+    if (next !== undefined) normalized.consultationFee = next;
   }
   if ('payment_link_prefill_amount' in normalized) {
     const next = normalizeMoney(normalized.payment_link_prefill_amount);
-    if (next !== undefined) {
-      normalized.payment_link_prefill_amount = next;
-    }
+    if (next !== undefined) normalized.payment_link_prefill_amount = next;
   }
   if ('paymentLinkPrefillAmount' in normalized) {
     const next = normalizeMoney(normalized.paymentLinkPrefillAmount);
-    if (next !== undefined) {
-      normalized.paymentLinkPrefillAmount = next;
-    }
+    if (next !== undefined) normalized.paymentLinkPrefillAmount = next;
   }
   return normalized;
 };
@@ -168,40 +159,19 @@ const INTAKE_TOOL = {
           type: 'string',
           description: 'Plain-English summary of the case, max 300 chars'
         },
-        urgency: {
-          type: 'string',
-          enum: ['routine', 'time_sensitive', 'emergency']
-        },
-        opposingParty: {
-          type: 'string',
-          description: 'Name or description of the opposing party if mentioned'
-        },
+        urgency: { type: 'string', enum: ['routine', 'time_sensitive', 'emergency'] },
+        opposingParty: { type: 'string', description: 'Name or description of the opposing party if mentioned' },
         city: { type: 'string' },
         state: { type: 'string', description: '2-letter US state code' },
         postalCode: { type: 'string' },
         country: { type: 'string' },
         addressLine1: { type: 'string' },
         addressLine2: { type: 'string' },
-        desiredOutcome: {
-          type: 'string',
-          description: 'What the user wants to achieve, max 150 chars'
-        },
-        courtDate: {
-          type: 'string',
-          description: 'Any known court date or deadline in plain text'
-        },
-        income: {
-          type: 'string',
-          description: 'Monthly or yearly income if mentioned'
-        },
-        householdSize: {
-          type: 'number',
-          description: 'Number of people in the household'
-        },
-        hasDocuments: {
-          type: 'boolean',
-          description: 'Whether the user has mentioned having relevant documents'
-        },
+        desiredOutcome: { type: 'string', description: 'What the user wants to achieve, max 150 chars' },
+        courtDate: { type: 'string', description: 'Any known court date or deadline in plain text' },
+        income: { type: 'string', description: 'Monthly or yearly income if mentioned' },
+        householdSize: { type: 'number', description: 'Number of people in the household' },
+        hasDocuments: { type: 'boolean', description: 'Whether the user has mentioned having relevant documents' },
         eligibilitySignals: {
           type: 'array',
           items: { type: 'string' },
@@ -213,10 +183,7 @@ const INTAKE_TOOL = {
           items: { type: 'string' },
           description: '2-3 short suggested answers for predictable questions. Omit for open-ended questions.'
         },
-        caseStrength: {
-          type: 'string',
-          enum: ['needs_more_info', 'developing', 'strong']
-        },
+        caseStrength: { type: 'string', enum: ['needs_more_info', 'developing', 'strong'] },
         missingSummary: {
           type: 'string',
           description: 'Plain English — what would most improve case strength. Null if strong.'
@@ -267,7 +234,60 @@ missingSummary is required whenever caseStrength is "needs_more_info" or "develo
 Hard limit: after 8 user messages, set caseStrength to at minimum "developing" and show the summary regardless.`;
 };
 
-export async function handleAiChat(request: Request, env: Env): Promise<Response> {
+// ---------------------------------------------------------------------------
+// SSE helpers
+// ---------------------------------------------------------------------------
+
+const encoder = new TextEncoder();
+
+/**
+ * Encode a single SSE event as bytes.
+ * We use a single `data:` line containing JSON so the client can parse each
+ * event with one JSON.parse call without needing to track event names.
+ */
+function sseEvent(payload: Record<string, unknown>): Uint8Array {
+  return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+/**
+ * Build an SSE Response with the correct headers for Cloudflare Workers.
+ * The transform stream lets us write events from a separate async task while
+ * the response is already streaming to the client.
+ */
+function createSseResponse(): {
+  response: Response;
+  write: (payload: Record<string, unknown>) => void;
+  close: () => void;
+} {
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+
+  return {
+    response: new Response(readable, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        // Prevent Cloudflare from buffering the stream
+        'X-Accel-Buffering': 'no',
+      },
+    }),
+    write(payload) {
+      // Fire-and-forget — if the client disconnected the write will silently fail
+      writer.write(sseEvent(payload)).catch(() => {});
+    },
+    close() {
+      writer.close().catch(() => {});
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
+
+export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   if (request.method !== 'POST') {
     throw HttpErrors.methodNotAllowed('Method not allowed');
   }
@@ -348,207 +368,358 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     practiceId,
     practiceSlug || undefined
   );
+
   const isIntakeMode = body.mode === 'REQUEST_CONSULTATION' && body.intakeSubmitted !== true && isPublic;
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
-  let reply: string;
-  let model = env.AI_MODEL || DEFAULT_AI_MODEL;
-  let intakeFields: Record<string, unknown> | null = null;
-  let quickReplies: string[] | null = null;
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
   const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
 
+  // ------------------------------------------------------------------
+  // Short-circuit paths — instant replies that don't need streaming.
+  // These return a JSON response identical to the old format so any
+  // legacy client code that hasn't been updated yet still works.
+  // ------------------------------------------------------------------
+
+  let shortCircuitReply: string | null = null;
+
   if (!details || !isPublic) {
-    reply = 'I don’t have access to this practice’s details right now. Please click “Request consultation” to connect with the practice.';
+    shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
   } else if (!isIntakeMode && hasLegalIntent) {
-    reply = LEGAL_DISCLAIMER;
+    shortCircuitReply = LEGAL_DISCLAIMER;
   } else if (!isIntakeMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
     const normalizedQuestion = normalizeText(lastUserMessage.content);
     const matchedService = serviceNames.find((service) => normalizedQuestion.includes(normalizeText(service)));
-    if (matchedService) {
-      reply = `Yes — we handle ${matchedService}. Would you like to request a consultation?`;
-    } else {
-      reply = `We currently handle ${formatServiceList(serviceNames)}. Would you like to request a consultation?`;
-    }
-  } else {
-    const aiDetails = normalizePracticeDetailsForAi(details);
-    const aiClient = createAiClient(env);
-    if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
-      model = 'openai/gpt-4o-mini';
-    }
-    const servicesForPrompt = normalizeServicesForPrompt(details);
-    const systemPrompt = isIntakeMode
-      ? buildIntakeSystemPrompt(servicesForPrompt)
-      : [
-          'You are an intake assistant for a law practice website.',
-          'You may answer only operational questions using provided practice details.',
-          `If user asks for legal advice: respond with the exact sentence: "${LEGAL_DISCLAIMER}" and recommend consultation.`,
-          'Ask only ONE clarifying question max per assistant message.',
-          'If you don’t have practice details: say you don’t have access and recommend consultation.',
-        ].join('\n');
+    shortCircuitReply = matchedService
+      ? `Yes — we handle ${matchedService}. Would you like to request a consultation?`
+      : `We currently handle ${formatServiceList(serviceNames)}. Would you like to request a consultation?`;
+  }
 
-    const requestPayload: Record<string, unknown> = {
-      model,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'system',
-          content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`
-        },
-        ...body.messages.map((message) => ({
-          role: message.role,
-          content: message.content
-        }))
-      ]
-    };
-    if (isIntakeMode) {
-      requestPayload.tools = [INTAKE_TOOL];
-      requestPayload.tool_choice = 'auto';
-    }
-    const response = await Promise.race([
-      aiClient.requestChatCompletions({
-        ...requestPayload
-      }),
-      new Promise<Response>((_resolve, reject) => {
-        setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT_MS);
-      })
-    ]).catch((error: unknown) => {
-      Logger.warn('AI request timed out or failed', {
-        conversationId: body.conversationId,
-        reason: error instanceof Error ? error.message : String(error)
-      });
-      return null;
+  if (shortCircuitReply !== null) {
+    const shouldPromptConsultation =
+      shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply);
+
+    const storedMessage = await conversationService.sendSystemMessage({
+      conversationId: body.conversationId,
+      practiceId: conversation.practice_id,
+      content: shortCircuitReply,
+      metadata: {
+        source: 'ai',
+        model: env.AI_MODEL || DEFAULT_AI_MODEL,
+        ...(shouldPromptConsultation
+          ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+          : {})
+      },
+      recipientUserId: authContext.user.id,
+      skipPracticeValidation: shouldSkipPracticeValidation,
+      request
     });
 
-    if (response && response.ok) {
-      const payload = await response.json().catch(() => null) as {
-        choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ function?: { name?: string; arguments?: string } }> } }>;
-      } | null;
+    await auditService.createEvent({
+      conversationId: body.conversationId,
+      practiceId: conversation.practice_id,
+      eventType: 'ai_message_received',
+      actorType: 'system',
+      payload: { conversationId: body.conversationId }
+    });
 
-      const messagePayload = payload?.choices?.[0]?.message;
-      const rawReply = messagePayload?.content;
-      const toolCall = messagePayload?.tool_calls?.[0];
-      if (toolCall?.function?.name === 'update_intake_fields' && typeof toolCall.function.arguments === 'string') {
-        try {
-          intakeFields = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
-        } catch (error) {
-          Logger.warn('Failed to parse intake tool response', {
-            conversationId: body.conversationId,
-            error: error instanceof Error ? error.message : String(error)
-          });
-          intakeFields = null;
-        }
-      }
-      if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
-        quickReplies = intakeFields.quickReplies
-          .filter((value): value is string => typeof value === 'string')
-          .map((value) => value.trim())
-          .filter((value) => value.length > 0)
-          .slice(0, 3);
-        if (quickReplies.length === 0) {
-          quickReplies = null;
-        }
-      }
-      if (intakeFields && 'quickReplies' in intakeFields) {
-        const { quickReplies: _extracted, ...rest } = intakeFields as Record<string, unknown>;
-        intakeFields = rest;
-      }
-      if (intakeFields && typeof intakeFields.practiceArea === 'string') {
-        const matched = servicesForPrompt.find((service) => service.key === intakeFields?.practiceArea);
-        if (matched) {
-          intakeFields.practiceAreaName = matched.name;
-        }
-      }
-      if (typeof rawReply === 'string' && rawReply.trim() !== '') {
-        reply = rawReply;
-      } else if (isIntakeMode && intakeFields) {
-        reply = buildIntakeFallbackReply(intakeFields);
-        Logger.warn('AI response missing or empty in intake mode', {
+    return new Response(
+      JSON.stringify({ reply: shortCircuitReply, message: storedMessage, intakeFields: null }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Streaming path — calls OpenAI with stream:true, pipes tokens to the
+  // client via SSE, then persists the completed message via waitUntil.
+  // ------------------------------------------------------------------
+
+  const aiDetails = normalizePracticeDetailsForAi(details);
+  const aiClient = createAiClient(env);
+  let model = env.AI_MODEL || DEFAULT_AI_MODEL;
+  if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
+    model = 'openai/gpt-4o-mini';
+  }
+
+  const servicesForPrompt = normalizeServicesForPrompt(details);
+  const systemPrompt = isIntakeMode
+    ? buildIntakeSystemPrompt(servicesForPrompt)
+    : [
+        'You are an intake assistant for a law practice website.',
+        'You may answer only operational questions using provided practice details.',
+        `If user asks for legal advice: respond with the exact sentence: "${LEGAL_DISCLAIMER}" and recommend consultation.`,
+        'Ask only ONE clarifying question max per assistant message.',
+        'If you don\'t have practice details: say you don\'t have access and recommend consultation.',
+      ].join('\n');
+
+  const requestPayload: Record<string, unknown> = {
+    model,
+    temperature: 0.2,
+    stream: true,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'system', content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}` },
+      ...body.messages.map((message) => ({ role: message.role, content: message.content }))
+    ]
+  };
+
+  // Intake mode uses tool_choice — OpenAI supports streaming with tools,
+  // but the tool call arguments arrive in chunks too. We accumulate them
+  // separately and only emit the done event once the full tool call is parsed.
+  if (isIntakeMode) {
+    requestPayload.tools = [INTAKE_TOOL];
+    requestPayload.tool_choice = 'auto';
+  }
+
+  const { response: sseResponse, write, close } = createSseResponse();
+
+  // Kick off the async work and register it with ctx.waitUntil so Cloudflare
+  // does not terminate the worker before persistence completes.
+  const streamAndPersist = async () => {
+    let accumulatedReply = '';
+    let intakeFields: Record<string, unknown> | null = null;
+    let quickReplies: string[] | null = null;
+
+    try {
+      const aiResponse = await Promise.race([
+        aiClient.requestChatCompletions(requestPayload),
+        new Promise<Response>((_, reject) =>
+          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT_MS)
+        )
+      ]).catch((error: unknown) => {
+        Logger.warn('AI request timed out or failed', {
           conversationId: body.conversationId,
-          rawReplyType: typeof rawReply
+          reason: error instanceof Error ? error.message : String(error)
         });
+        return null;
+      });
+
+      if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
+        // Emit a fallback reply as a single token so the client still gets something
+        const fallback = isIntakeMode ? buildIntakeFallbackReply(null) : EMPTY_REPLY_FALLBACK;
+        accumulatedReply = fallback;
+        write({ token: fallback });
       } else {
-        reply = EMPTY_REPLY_FALLBACK;
-        Logger.warn('AI response missing or empty', {
-          conversationId: body.conversationId,
-          rawReplyType: typeof rawReply
-        });
+        // Read the SSE stream from OpenAI and re-emit each token to our client.
+        // OpenAI streams newline-delimited `data: {...}` events.
+        const reader = aiResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        // Accumulate tool call argument chunks separately
+        let toolCallName = '';
+        let toolCallArgBuffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          // Keep the last (potentially incomplete) line in the buffer
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === 'data: [DONE]') continue;
+            if (!trimmed.startsWith('data: ')) continue;
+
+            let chunk: {
+              choices?: Array<{
+                delta?: {
+                  content?: string | null;
+                  tool_calls?: Array<{
+                    index?: number;
+                    function?: { name?: string; arguments?: string };
+                  }>;
+                };
+                finish_reason?: string | null;
+              }>;
+            };
+
+            try {
+              chunk = JSON.parse(trimmed.slice(6));
+            } catch {
+              continue;
+            }
+
+            const delta = chunk.choices?.[0]?.delta;
+            if (!delta) continue;
+
+            // Text token
+            if (typeof delta.content === 'string' && delta.content.length > 0) {
+              accumulatedReply += delta.content;
+              write({ token: delta.content });
+            }
+
+            // Tool call argument chunk (intake mode)
+            if (delta.tool_calls?.[0]) {
+              const tc = delta.tool_calls[0];
+              if (tc.function?.name) {
+                toolCallName = tc.function.name;
+              }
+              if (typeof tc.function?.arguments === 'string') {
+                toolCallArgBuffer += tc.function.arguments;
+              }
+            }
+          }
+        }
+
+        // Flush any remaining buffer content
+        if (buffer.trim() && buffer.trim() !== 'data: [DONE]') {
+          try {
+            const trimmed = buffer.trim();
+            if (trimmed.startsWith('data: ')) {
+              const chunk = JSON.parse(trimmed.slice(6)) as { choices?: Array<{ delta?: { content?: string | null } }> };
+              const token = chunk.choices?.[0]?.delta?.content;
+              if (typeof token === 'string' && token.length > 0) {
+                accumulatedReply += token;
+                write({ token });
+              }
+            }
+          } catch {
+            // ignore malformed final chunk
+          }
+        }
+
+        // Parse accumulated tool call if present
+        if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
+          try {
+            intakeFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
+          } catch (error) {
+            Logger.warn('Failed to parse streamed intake tool arguments', {
+              conversationId: body.conversationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
       }
-      if (reply !== EMPTY_REPLY_FALLBACK) {
+
+      // Post-process reply — same validation logic as the non-streaming path
+      if (!accumulatedReply.trim()) {
+        accumulatedReply = isIntakeMode && intakeFields
+          ? buildIntakeFallbackReply(intakeFields)
+          : EMPTY_REPLY_FALLBACK;
+      }
+
+      if (accumulatedReply !== EMPTY_REPLY_FALLBACK) {
         const violations: string[] = [];
         if (
           shouldRequireDisclaimer(body.messages) &&
-          !normalizeApostrophes(reply).toLowerCase().includes(normalizeApostrophes(LEGAL_DISCLAIMER).toLowerCase())
+          !normalizeApostrophes(accumulatedReply).toLowerCase().includes(normalizeApostrophes(LEGAL_DISCLAIMER).toLowerCase())
         ) {
           violations.push('missing_disclaimer');
         }
-        if (!isIntakeMode && countQuestions(reply) > 1) {
+        if (!isIntakeMode && countQuestions(accumulatedReply) > 1) {
           violations.push('too_many_questions');
         }
         if (violations.length > 0) {
           Logger.warn('AI response violated prompt contract', {
             conversationId: body.conversationId,
-            rawReplyType: typeof rawReply,
             violations
           });
-          // If the violation is a missing disclaimer, always fallback regardless of intake mode.
           if (violations.includes('missing_disclaimer')) {
-            reply = isIntakeMode ? INTRO_INTAKE_DISCLAIMER_FALLBACK : EMPTY_REPLY_FALLBACK;
+            accumulatedReply = isIntakeMode ? INTRO_INTAKE_DISCLAIMER_FALLBACK : EMPTY_REPLY_FALLBACK;
           } else if (!isIntakeMode) {
-            reply = EMPTY_REPLY_FALLBACK;
+            accumulatedReply = EMPTY_REPLY_FALLBACK;
           }
         }
       }
-    } else if (isIntakeMode) {
-      reply = buildIntakeFallbackReply(null);
-    } else {
-      throw HttpErrors.internalServerError('AI request failed');
+
+      // Extract quickReplies from intakeFields before persisting
+      if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
+        quickReplies = (intakeFields.quickReplies as unknown[])
+          .filter((v): v is string => typeof v === 'string')
+          .map((v) => v.trim())
+          .filter((v) => v.length > 0)
+          .slice(0, 3);
+        if (quickReplies.length === 0) quickReplies = null;
+      }
+      if (intakeFields && 'quickReplies' in intakeFields) {
+        const { quickReplies: _q, ...rest } = intakeFields as Record<string, unknown>;
+        intakeFields = rest;
+      }
+      if (intakeFields && typeof intakeFields.practiceArea === 'string') {
+        const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
+        if (matched) intakeFields.practiceAreaName = matched.name;
+      }
+
+      const shouldPromptConsultation =
+        shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply);
+
+      const intakeCaseStrength = typeof intakeFields?.caseStrength === 'string'
+        ? intakeFields.caseStrength
+        : null;
+      const shouldShowIntakeCta =
+        (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong') &&
+        shouldShowIntakeCtaForReply(accumulatedReply);
+
+      // Emit the done event before persisting — client can act on intakeFields
+      // immediately without waiting for the DB write
+      write({
+        done: true,
+        intakeFields: intakeFields ?? null,
+        quickReplies: quickReplies ?? null,
+      });
+
+      // Persist and audit — runs inside waitUntil so the worker stays alive
+      // until this completes even after the SSE stream is closed
+      const storedMessage = await conversationService.sendSystemMessage({
+        conversationId: body.conversationId,
+        practiceId: conversation.practice_id,
+        content: accumulatedReply,
+        metadata: {
+          source: 'ai',
+          model,
+          ...(intakeFields ? { intakeFields } : {}),
+          ...(quickReplies ? { quickReplies } : {}),
+          ...(isIntakeMode && shouldShowIntakeCta ? { intakeReadyCta: true } : {}),
+          ...(shouldPromptConsultation
+            ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+            : {})
+        },
+        recipientUserId: authContext.user.id,
+        skipPracticeValidation: shouldSkipPracticeValidation,
+        request
+      });
+
+      if (storedMessage) {
+        // Send the persisted message ID so the client can reconcile the
+        // temporary streaming bubble with the real message when it arrives
+        // via WebSocket message.new
+        write({ persisted: true, messageId: storedMessage.id });
+      }
+
+      await auditService.createEvent({
+        conversationId: body.conversationId,
+        practiceId: conversation.practice_id,
+        eventType: 'ai_message_received',
+        actorType: 'system',
+        payload: { conversationId: body.conversationId }
+      });
+
+    } catch (error) {
+      Logger.warn('Streaming AI handler error', {
+        conversationId: body.conversationId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      write({ error: true, message: EMPTY_REPLY_FALLBACK });
+    } finally {
+      close();
     }
+  };
+
+  if (ctx) {
+    ctx.waitUntil(streamAndPersist());
+  } else {
+    // Fallback for environments without ExecutionContext (tests, local dev without miniflare)
+    streamAndPersist().catch((error) => {
+      Logger.warn('streamAndPersist uncaught error', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    });
   }
 
-  const shouldPromptConsultation =
-    shouldRequireDisclaimer(body.messages)
-    || CONSULTATION_CTA_REGEX.test(reply);
-
-  const intakeCaseStrength = typeof intakeFields?.caseStrength === 'string'
-    ? intakeFields.caseStrength
-    : null;
-  const shouldShowIntakeCta = (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong')
-    && shouldShowIntakeCtaForReply(reply);
-  const storedMessage = await conversationService.sendSystemMessage({
-    conversationId: body.conversationId,
-    practiceId: conversation.practice_id,
-    content: reply,
-    metadata: {
-      source: 'ai',
-      model,
-      ...(intakeFields ? { intakeFields } : {}),
-      ...(quickReplies ? { quickReplies } : {}),
-      ...(isIntakeMode && shouldShowIntakeCta ? { intakeReadyCta: true } : {}),
-      ...(shouldPromptConsultation
-        ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-        : {})
-    },
-    recipientUserId: authContext.user.id,
-    skipPracticeValidation: shouldSkipPracticeValidation,
-    request
-  });
-
-  await auditService.createEvent({
-    conversationId: body.conversationId,
-    practiceId: conversation.practice_id,
-    eventType: 'ai_message_received',
-    actorType: 'system',
-    payload: { conversationId: body.conversationId }
-  });
-
-  return new Response(JSON.stringify({ reply, message: storedMessage, intakeFields }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
+  return sseResponse;
 }
