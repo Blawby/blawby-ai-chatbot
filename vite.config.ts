@@ -141,6 +141,8 @@ const createWorkerProxyConfig = (): ProxyOptions => ({
 	},
 });
 
+import { createRequire } from 'module';
+
 const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	const entries: Record<string, ProxyOptions> = {};
 
@@ -169,9 +171,20 @@ const fixDecodeNamedCharacterReference = (): Plugin => {
 		},
 		resolveId(id, importer) {
 			if (id === 'decode-named-character-reference') {
-				// Return the absolute path to the non-DOM version
-				const nonDomPath = resolve(__dirname, 'node_modules/.pnpm/decode-named-character-reference@1.3.0/node_modules/decode-named-character-reference/index.js');
-				return nonDomPath;
+				// Dynamically resolve the package entry instead of hardcoding a pnpm path.
+				// We want the non-DOM build (default export) so use Node resolution with
+				// appropriate conditions. If resolution fails, log and return null so
+				// Vite can fall back or surface an error.
+				try {
+					const req = createRequire(import.meta.url);
+					// require.resolve will respect "exports" and choose the default
+					// entry, which in this package is the non-DOM index.js.
+					const resolved = req.resolve('decode-named-character-reference', { paths: [__dirname] });
+					return resolved;
+				} catch (err) {
+					console.error('[vite] failed to resolve decode-named-character-reference:', err);
+					return null;
+				}
 			}
 			return null;
 		},
