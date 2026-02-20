@@ -19,6 +19,7 @@ import { FormActions } from '@/shared/ui/form';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface PracticeTeamPageProps {
   onNavigate?: (path: string) => void;
@@ -44,6 +45,8 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   const { t } = useTranslation(['settings']);
   const navigate = onNavigate ?? baseNavigate;
   const location = useLocation();
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   const currentUserEmail = session?.user?.email || '';
   const members = useMemo(
@@ -185,7 +188,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
         <Button
           variant="icon"
           size="icon"
-          onClick={() => navigate('/settings/practice')}
+          onClick={() => navigate(toSettingsPath('practice'))}
           aria-label="Back to practice settings"
           icon={<ArrowLeftIcon className="w-5 h-5" />}
         />
@@ -223,7 +226,9 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                   size="sm"
                   onClick={() => openBillingPortal({
                     practiceId: currentPractice.id,
-                    returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1'
+                    returnUrl: origin
+                      ? `${origin}${toSettingsPath('practice')}?sync=1`
+                      : `${toSettingsPath('practice')}?sync=1`
                   })}
                   disabled={submitting}
                   className="ml-2 underline text-accent-600 hover:text-accent-700"

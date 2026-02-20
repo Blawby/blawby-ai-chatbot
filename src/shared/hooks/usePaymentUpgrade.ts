@@ -323,15 +323,7 @@ export const usePaymentUpgrade = () => {
       const resolvedPracticeId = practiceId || undefined;
 
       try {
-        // Step 1: Set active practice if we have one using the Better Auth organization plugin
-        // The remote API will auto-create and set the active practice if one doesn't exist
-        if (resolvedPracticeId) {
-          // Set active practice using the Better Auth organization plugin
-          const client = getClient();
-          await client.organization.setActive({ organizationId: resolvedPracticeId });
-        }
-
-        // Step 2: Build URLs for success and cancel callbacks
+        // Step 1: Build URLs for success and cancel callbacks
         // Note: resolvedPracticeId may be undefined - the remote API will handle practice creation
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
@@ -350,7 +342,7 @@ export const usePaymentUpgrade = () => {
         );
 
 
-        // Step 3: Create subscription using Better Auth Stripe subscription.upgrade endpoint
+        // Step 2: Create subscription using Better Auth Stripe subscription.upgrade endpoint
         try {
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)

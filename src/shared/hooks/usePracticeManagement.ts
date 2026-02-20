@@ -624,7 +624,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     fetchInvitations: shouldFetchInvitations = true,
     fetchPracticeDetails = false,
   } = options;
-  const { session, isPending: sessionLoading, isAnonymous, activeOrganizationId } = useSessionContext();
+  const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const members = useStore(membersStore);
@@ -823,13 +823,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
           .filter((practice) => practice.id.length > 0);
 
-        const activeOrgId = activeOrganizationId ?? null;
-        const activePractice = activeOrgId
-          ? normalizedList.find(practice =>
-            practice.betterAuthOrgId === activeOrgId || practice.id === activeOrgId
-          )
-          : undefined;
-        const currentPracticeNext = activePractice || normalizedList[0] || null;
+        const currentPracticeNext = normalizedList[0] || null;
         let details: PracticeDetails | null = null;
         let stripeDetailsSubmitted: boolean | null = ENABLE_PAYOUT_STATUS ? null : false;
         if (currentPracticeNext) {
@@ -914,7 +908,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [activeOrganizationId, fetchPracticeDetails, isAnonymous, session]);
+  }, [fetchPracticeDetails, isAnonymous, session]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {

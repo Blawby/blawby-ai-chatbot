@@ -64,9 +64,9 @@ export const usePracticeConfig = ({
   allowUnauthenticated = false,
   refreshKey
 }: UsePracticeConfigOptions = {}) => {
-  const { activeOrganizationId, session } = useSessionContext();
+  const { session } = useSessionContext();
   const isAuthenticated = Boolean(session?.user);
-  const [practiceId, setPracticeId] = useState<string>('');
+  const practiceId = typeof explicitPracticeId === 'string' ? explicitPracticeId.trim() : '';
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>(() => buildDefaultPracticeConfig());
@@ -86,30 +86,6 @@ export const usePracticeConfig = ({
     practiceId: string;
     abortController: AbortController;
   } | null>(null);
-
-  // Parse URL parameters for configuration
-  const parseUrlParams = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const rawPracticeIdParam = urlParams.get('practiceId');
-      const practiceIdParam = rawPracticeIdParam && rawPracticeIdParam.trim().length > 0
-        ? rawPracticeIdParam
-        : null;
-      const shouldUseQueryParam = allowUnauthenticated || !session?.user;
-
-      // Priority: explicit param (slug from path) > URL param (only for unauth/public) > active org
-      const normalizedExplicitPracticeId = typeof explicitPracticeId === 'string'
-        ? explicitPracticeId.trim()
-        : null;
-      const resolved = (
-        (normalizedExplicitPracticeId && normalizedExplicitPracticeId.length > 0 ? normalizedExplicitPracticeId : null) ??
-        (shouldUseQueryParam ? practiceIdParam : null) ??
-        activeOrganizationId ??
-        ''
-      );
-      setPracticeId(resolved);
-    }
-  }, [explicitPracticeId, activeOrganizationId, allowUnauthenticated, session?.user]);
 
   // Fetch practice configuration
   const fetchPracticeConfig = useCallback(async (currentPracticeId: string) => {
@@ -174,10 +150,6 @@ export const usePracticeConfig = ({
           });
 
           setPracticeConfig(config);
-          if (publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
-            fetchedPracticeIds.current.add(publicDetails.practiceId);
-            setPracticeId(publicDetails.practiceId);
-          }
           setPracticeNotFound(false);
           setIsLoading(false);
           return;
@@ -237,10 +209,6 @@ export const usePracticeConfig = ({
         };
 
         setPracticeConfig(config);
-        if (practice.id && practice.id !== currentPracticeId) {
-          fetchedPracticeIds.current.add(practice.id);
-          setPracticeId(practice.id);
-        }
         setPracticeNotFound(false);
       } else {
         // Practice not found in the list - this indicates a 404-like scenario
@@ -280,16 +248,16 @@ export const usePracticeConfig = ({
     fetchPracticeConfig(practiceId);
   }, [practiceId, fetchPracticeConfig]);
 
-  // Initialize URL parameters on mount
-  useEffect(() => {
-    parseUrlParams();
-  }, [parseUrlParams]);
-
-  // Fetch practice config when practiceId changes
-  // Only fetch if authenticated (or guest access enabled) and practiceId is not empty
+  // Fetch practice config when explicit practiceId changes
   useEffect(() => {
     if ((isAuthenticated || allowUnauthenticated) && practiceId) {
       fetchPracticeConfig(practiceId);
+      return;
+    }
+    if (!practiceId) {
+      setPracticeNotFound(false);
+      setIsLoading(false);
+      setPracticeConfig(buildDefaultPracticeConfig());
     }
   }, [practiceId, isAuthenticated, allowUnauthenticated, fetchPracticeConfig]);
 
@@ -308,6 +276,5 @@ export const usePracticeConfig = ({
     practiceNotFound,
     isLoading,
     handleRetryPracticeConfig,
-    setPracticeId
   };
 }; 

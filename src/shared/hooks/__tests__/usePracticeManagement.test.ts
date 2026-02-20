@@ -101,7 +101,7 @@ vi.mock('@/shared/contexts/SessionContext', () => ({
     session: { user: { id: 'user-1', email: 'test@example.com' } },
     isPending: false,
     isAnonymous: false,
-    activeOrganizationId: 'practice-1',
+    activePracticeId: 'practice-1',
   })
 }));
 

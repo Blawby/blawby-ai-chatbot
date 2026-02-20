@@ -19,10 +19,13 @@ import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding
 import { CheckCircleIcon, LockClosedIcon, ShieldCheckIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 export const PayoutsPage = ({ className = '' }: { className?: string }) => {
-  const { session, activeOrganizationId } = useSessionContext();
+  const { session } = useSessionContext();
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showError } = useToastContext();
-  const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
+  const organizationId = useMemo(
+    () => currentPractice?.betterAuthOrgId ?? currentPractice?.id ?? null,
+    [currentPractice?.betterAuthOrgId, currentPractice?.id]
+  );
   const lastOrganizationIdRef = useRef<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +92,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
 
   const handleSubmitDetails = useCallback(async () => {
     if (!organizationId) {
-      showError('Payouts', 'Missing active organization.');
+      showError('Payouts', 'Missing practice context.');
       return;
     }
 

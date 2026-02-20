@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -19,6 +20,7 @@ import { SettingsHelperText } from '@/features/settings/components/SettingsHelpe
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 // Local interface for user with security-related fields
 interface SecurityUser {
@@ -77,6 +79,7 @@ export const SecurityPage = ({
 }: SecurityPageProps) => {
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const { session, isPending } = useSessionContext();
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
@@ -89,6 +92,8 @@ export const SecurityPage = ({
     newPassword: '',
     confirmPassword: ''
   });
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   // Load settings from preferences API
   useEffect(() => {
@@ -142,7 +147,7 @@ export const SecurityPage = ({
     if (key === 'twoFactorEnabled') {
       if (value) {
         // Enable MFA: Navigate to enrollment page without updating state
-        navigate('/settings/mfa-enrollment');
+        navigate(toSettingsPath('mfa-enrollment'));
       } else {
         // Disable MFA: Show confirmation dialog
         setShowDisableMFAConfirm(true);

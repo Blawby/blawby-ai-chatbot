@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
 import { SectionDivider } from '@/shared/ui/layout';
@@ -10,6 +11,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { authClient, hasTwoFactorPlugin, type TwoFactorClient } from '@/shared/lib/authClient';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 export interface MFAEnrollmentPageProps {
   className?: string;
@@ -40,10 +42,13 @@ export const MFAEnrollmentPage = ({
 }: MFAEnrollmentPageProps) => {
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const location = useLocation();
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isMFAConfigured, setIsMFAConfigured] = useState<boolean | null>(null);
   const { t } = useTranslation(['settings', 'common']);
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   // Check for twoFactor availability during component initialization
   useEffect(() => {
@@ -124,7 +129,7 @@ export const MFAEnrollmentPage = ({
         t('settings:security.mfa.toastEnabled.title'),
         t('settings:security.mfa.toastEnabled.body')
       );
-      navigate('/settings/security');
+      navigate(toSettingsPath('security'));
     } catch (error) {
       // Distinguish between configuration errors and verification failures
       if (error instanceof MFAConfigurationError) {
@@ -195,7 +200,7 @@ export const MFAEnrollmentPage = ({
         <Button
           variant="icon"
           size="icon"
-          onClick={() => navigate('/settings/security')}
+          onClick={() => navigate(toSettingsPath('security'))}
           aria-label={t('settings:mfa.back')}
           icon={<ArrowLeftIcon className="w-5 h-5" />}
         />

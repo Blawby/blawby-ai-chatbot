@@ -1080,7 +1080,7 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         <PracticeMattersPage
-          basePath={practiceMattersPath ?? '/practice/matters'}
+          basePath={practiceMattersPath ?? '/'}
         />
       }
       clientsView={<PracticeClientsPage />}

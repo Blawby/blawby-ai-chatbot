@@ -1,14 +1,16 @@
 import { useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
 
 const ClientHomePage = () => {
-  const { session, workspaceAccess } = useSessionContext();
+  const { session } = useSessionContext();
+  const { canAccessPractice } = useWorkspace();
   const { navigate, navigateToPricing } = useNavigation();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const showUpgrade = !workspaceAccess.practice;
+  const showUpgrade = !canAccessPractice;
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [

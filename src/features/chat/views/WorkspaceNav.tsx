@@ -13,6 +13,16 @@ import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { cn } from '@/shared/utils/cn';
 
 export type WorkspaceNavTab = 'home' | 'messages' | 'matters' | 'settings' | 'clients';
+type IconComponent = preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>;
+
+export interface WorkspaceNavItem {
+  id: string;
+  label: string;
+  icon: IconComponent;
+  isAction?: boolean;
+  onClick?: () => void;
+  variant?: 'default' | 'danger';
+}
 
 interface WorkspaceNavProps {
   variant: 'bottom' | 'sidebar';
@@ -20,6 +30,9 @@ interface WorkspaceNavProps {
   onSelectTab: (tab: WorkspaceNavTab) => void;
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
+  items?: WorkspaceNavItem[];
+  activeItemId?: string;
+  onSelectItem?: (itemId: string) => void;
   className?: string;
 }
 
@@ -29,6 +42,9 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   onSelectTab,
   showClientTabs = false,
   showPracticeTabs = false,
+  items,
+  activeItemId,
+  onSelectItem,
   className
 }) => {
   const { t } = useTranslation();
@@ -52,16 +68,31 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
     : 'flex h-full flex-col gap-2 px-2';
 
   const renderButton = (
-    tab: WorkspaceNavTab,
+    tab: string,
     icon: VNode,
     label: string,
-    options?: { truncate?: boolean }
+    options?: { truncate?: boolean; isAction?: boolean; variant?: 'default' | 'danger'; onClick?: () => void }
   ) => (
     <button
       type="button"
-      className={cn(baseClasses, activeTab === tab ? activeClasses : inactiveClasses)}
-      onClick={() => onSelectTab(tab)}
-      aria-current={activeTab === tab ? 'page' : undefined}
+      className={cn(
+        baseClasses,
+        options?.isAction
+          ? (options.variant === 'danger' ? 'text-red-400 hover:bg-red-500/10' : inactiveClasses)
+          : ((activeItemId ?? activeTab) === tab ? activeClasses : inactiveClasses)
+      )}
+      onClick={() => {
+        if (options?.isAction && options.onClick) {
+          options.onClick();
+          return;
+        }
+        if (items && onSelectItem) {
+          onSelectItem(tab);
+          return;
+        }
+        onSelectTab(tab as WorkspaceNavTab);
+      }}
+      aria-current={!options?.isAction && (activeItemId ?? activeTab) === tab ? 'page' : undefined}
     >
       {icon}
       <span className={cn(options?.truncate ? 'truncate max-w-[96px]' : '')}>{label}</span>
@@ -92,6 +123,22 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
     )
     : null;
 
+  const customButtons = items
+    ? items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <div key={item.id}>
+            {renderButton(
+              item.id,
+              <Icon className="h-5 w-5" aria-hidden="true" />,
+              item.label,
+              { isAction: item.isAction, variant: item.variant, onClick: item.onClick }
+            )}
+          </div>
+        );
+      })
+    : null;
+
   return (
     <div
       className={cn(
@@ -108,8 +155,44 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
           </div>
           <nav className="flex min-h-0 flex-1 flex-col px-2 pb-6">
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
-              {renderButton('home', <HomeIcon className="h-5 w-5" aria-hidden="true" />, t('workspace.navigation.home'))}
-              {renderButton('messages', <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />, t('workspace.navigation.messages'))}
+              {customButtons ?? (
+                <>
+                  {renderButton('home', <HomeIcon className="h-5 w-5" aria-hidden="true" />, t('workspace.navigation.home'))}
+                  {renderButton('messages', <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />, t('workspace.navigation.messages'))}
+                  {(showClientTabs || showPracticeTabs) && renderButton(
+                    'matters',
+                    <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />,
+                    t('workspace.navigation.matters')
+                  )}
+                  {showPracticeTabs && renderButton(
+                    'clients',
+                    <UsersIcon className="h-5 w-5" aria-hidden="true" />,
+                    t('workspace.navigation.clients')
+                  )}
+                </>
+              )}
+            </div>
+            {!customButtons && settingsButton && (
+              <div className="border-t border-line-glass/30 pt-3">
+                {settingsButton}
+              </div>
+            )}
+          </nav>
+        </div>
+      ) : (
+        <nav className={containerClasses}>
+          {customButtons ?? (
+            <>
+              {renderButton(
+                'home',
+                <HomeIcon className="h-5 w-5" aria-hidden="true" />,
+                t('workspace.navigation.home')
+              )}
+              {renderButton(
+                'messages',
+                <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />,
+                t('workspace.navigation.messages')
+              )}
               {(showClientTabs || showPracticeTabs) && renderButton(
                 'matters',
                 <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />,
@@ -120,37 +203,9 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
                 <UsersIcon className="h-5 w-5" aria-hidden="true" />,
                 t('workspace.navigation.clients')
               )}
-            </div>
-            {settingsButton && (
-              <div className="border-t border-line-glass/30 pt-3">
-                {settingsButton}
-              </div>
-            )}
-          </nav>
-        </div>
-      ) : (
-        <nav className={containerClasses}>
-          {renderButton(
-            'home',
-            <HomeIcon className="h-5 w-5" aria-hidden="true" />,
-            t('workspace.navigation.home')
+              {settingsButton}
+            </>
           )}
-          {renderButton(
-            'messages',
-            <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" aria-hidden="true" />,
-            t('workspace.navigation.messages')
-          )}
-          {(showClientTabs || showPracticeTabs) && renderButton(
-            'matters',
-            <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />,
-            t('workspace.navigation.matters')
-          )}
-          {showPracticeTabs && renderButton(
-            'clients',
-            <UsersIcon className="h-5 w-5" aria-hidden="true" />,
-            t('workspace.navigation.clients')
-          )}
-          {settingsButton}
         </nav>
       )}
     </div>

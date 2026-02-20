@@ -9,6 +9,7 @@ import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { signOut } from '@/shared/utils/auth';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
@@ -30,6 +31,7 @@ import { SettingsHelperText } from '@/features/settings/components/SettingsHelpe
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { AccountPreferences } from '@/shared/types/preferences';
 import { FormActions, FormLabel } from '@/shared/ui/form';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 
 export interface AccountPageProps {
@@ -62,7 +64,10 @@ export const AccountPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
-  const { session, isPending, activeMemberRole, workspaceAccess } = useSessionContext();
+  const { session, isPending, activeMemberRole } = useSessionContext();
+  const { canAccessPractice } = useWorkspace();
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +86,7 @@ export const AccountPage = ({
   const avatarObjectUrlRef = useRef<string | null>(null);
   
 
-  const hasSubscription = workspaceAccess.practice;
+  const hasSubscription = canAccessPractice;
   
   // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {
@@ -749,7 +754,9 @@ export const AccountPage = ({
                           if (!currentPractice) return;
                           void openBillingPortal({
                             practiceId: currentPractice.id,
-                            returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                            returnUrl: origin
+                              ? `${origin}${toSettingsPath('account')}?sync=1`
+                              : `${toSettingsPath('account')}?sync=1`
                           });
                         }}
                       >
@@ -804,7 +811,9 @@ export const AccountPage = ({
               size="sm"
               onClick={() => currentPractice && openBillingPortal({
                 practiceId: currentPractice.id,
-                returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                returnUrl: origin
+                  ? `${origin}${toSettingsPath('account')}?sync=1`
+                  : `${toSettingsPath('account')}?sync=1`
               })}
               disabled={!currentPractice || !isOwner || !canManageBilling || submitting}
             >
@@ -821,7 +830,7 @@ export const AccountPage = ({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => navigate('/settings/account/payouts')}
+              onClick={() => navigate(toSettingsPath('account/payouts'))}
             >
               {t('settings:account.payouts.manage')}
             </Button>
@@ -840,7 +849,9 @@ export const AccountPage = ({
                   size="sm"
                   onClick={() => currentPractice && openBillingPortal({
                     practiceId: currentPractice.id,
-                    returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                    returnUrl: origin
+                      ? `${origin}${toSettingsPath('account')}?sync=1`
+                      : `${toSettingsPath('account')}?sync=1`
                   })}
                   disabled={!currentPractice || !isOwner || !canManageBilling}
                   data-testid="account-delete-action"

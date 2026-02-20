@@ -16,12 +16,12 @@ type InvitationDetails = {
   id: string;
   email: string;
   role: string | string[];
-  organizationId: string;
+  practiceId: string;
   inviterId: string;
   status: string;
   expiresAt: string;
-  organizationName?: string;
-  organizationSlug?: string;
+  practiceName?: string;
+  practiceSlug?: string;
   inviterName?: string;
   inviterEmail?: string;
 };
@@ -43,14 +43,14 @@ type IntakeInvitePayload = {
 
 type PrefillDetails = {
   email: string;
-  organizationName: string;
-  organizationSlug: string;
+  practiceName: string;
+  practiceSlug: string;
   intakeId?: string;
   conversationId?: string;
   payloadType?: string;
 };
 
-type OrganizationSummary = {
+type PracticeSummary = {
   id: string;
   slug?: string | null;
 };
@@ -86,16 +86,16 @@ const normalizeInviteResponse = (payload: unknown): InvitationDetails | null => 
     id: getString(record.id),
     email: getString(record.email),
     role,
-    organizationId: getString(record.organizationId ?? record.organization_id),
+    practiceId: getString(record.organizationId ?? record.organization_id),
     inviterId: getString(record.inviterId ?? record.inviter_id),
     status: getString(record.status),
     expiresAt: getString(record.expiresAt ?? record.expires_at),
-    organizationName: getString(record.organizationName ?? record.organization_name) || undefined,
-    organizationSlug: getString(record.organizationSlug ?? record.organization_slug) || undefined,
+    practiceName: getString(record.organizationName ?? record.organization_name) || undefined,
+    practiceSlug: getString(record.organizationSlug ?? record.organization_slug) || undefined,
     inviterName: getString(record.inviterName ?? record.inviter_name) || undefined,
     inviterEmail: getString(record.inviterEmail ?? record.inviter_email) || undefined
   };
-  if (!invitation.id || !invitation.organizationId) return null;
+  if (!invitation.id || !invitation.practiceId) return null;
   return invitation;
 };
 
@@ -135,8 +135,8 @@ const parsePrefillPayload = (raw: string): PayloadParseResult => {
     return {
       data: {
         email,
-        organizationName: orgName,
-        organizationSlug: orgSlug,
+        practiceName: orgName,
+        practiceSlug: orgSlug,
         intakeId,
         conversationId,
         payloadType
@@ -174,7 +174,7 @@ const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; chil
 export const AcceptInvitationPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { session, isPending, activeOrganizationId } = useSessionContext();
+  const { session, isPending, activePracticeId } = useSessionContext();
   const { showError, showSuccess } = useToastContext();
   const [inviteState, setInviteState] = useState<InviteFetchState>({ status: 'idle' });
   const [accepting, setAccepting] = useState(false);
@@ -191,8 +191,8 @@ export const AcceptInvitationPage = () => {
   const flowType = invitationId ? 'invite' : dataParam ? 'intake' : 'invalid';
   const prefill = payloadResult.data;
   const invitedEmail = prefill?.email ?? '';
-  const organizationName = prefill?.organizationName ?? '';
-  const organizationSlug = prefill?.organizationSlug ?? '';
+  const practiceName = prefill?.practiceName ?? '';
+  const practiceSlug = prefill?.practiceSlug ?? '';
   const intakeConversationId = prefill?.conversationId ?? '';
   const payloadType = prefill?.payloadType?.toLowerCase() ?? '';
 
@@ -296,8 +296,8 @@ export const AcceptInvitationPage = () => {
   const handleAccept = useCallback(async () => {
     if (inviteState.status !== 'ready') return;
     const { invitation } = inviteState;
-    if (!invitation.organizationSlug) {
-      setInviteState({ status: 'error', message: 'Invitation is missing the organization slug.', invitationId });
+    if (!invitation.practiceSlug) {
+      setInviteState({ status: 'error', message: 'Invitation is missing the practice slug.', invitationId });
       setRecipientMismatch(false);
       return;
     }
@@ -308,7 +308,6 @@ export const AcceptInvitationPage = () => {
       const acceptResult = await (client as unknown as {
         organization: {
           acceptInvitation: (args: { invitationId: string }) => Promise<unknown>;
-          setActive: (args: { organizationId: string }) => Promise<unknown>;
         };
       }).organization.acceptInvitation({ invitationId: invitation.id });
 
@@ -317,14 +316,8 @@ export const AcceptInvitationPage = () => {
         throw new Error(errorMessage || 'Failed to accept invitation');
       }
 
-      await (client as unknown as {
-        organization: {
-          setActive: (args: { organizationId: string }) => Promise<unknown>;
-        };
-      }).organization.setActive({ organizationId: invitation.organizationId });
-
       showSuccess('Invitation accepted', 'You now have access to the practice.');
-      navigate(`/public/${encodeURIComponent(invitation.organizationSlug)}`, true);
+      navigate(`/public/${encodeURIComponent(invitation.practiceSlug)}`, true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to accept invitation.';
       showError('Invitation error', message);
@@ -339,8 +332,8 @@ export const AcceptInvitationPage = () => {
 
   const handleContinueIntake = useCallback(async () => {
     if (!intakeConversationId) {
-      if (organizationSlug) {
-        navigate(`/public/${encodeURIComponent(organizationSlug)}`, true);
+      if (practiceSlug) {
+        navigate(`/public/${encodeURIComponent(practiceSlug)}`, true);
       }
       return;
     }
@@ -348,94 +341,73 @@ export const AcceptInvitationPage = () => {
     setIsLinkingConversation(true);
     try {
       const client = getClient();
-      const previousOrgId = activeOrganizationId;
-      let targetOrgId = activeOrganizationId;
-      let didSwitch = false;
+      let targetPracticeId = activePracticeId;
 
-      const { data: orgs } = await (client as unknown as {
-        organization: { list: () => Promise<{ data?: OrganizationSummary[] }> }
+      const { data: practices } = await (client as unknown as {
+        organization: { list: () => Promise<{ data?: PracticeSummary[] }> }
       }).organization.list();
-      const orgList = Array.isArray(orgs) ? orgs : [];
+      const practiceList = Array.isArray(practices) ? practices : [];
 
-      let match: OrganizationSummary | null = null;
-      if (organizationSlug) {
-        match = orgList.find((o) => o.slug === organizationSlug || o.id === organizationSlug) ?? null;
+      let match: PracticeSummary | null = null;
+      if (practiceSlug) {
+        match = practiceList.find((p) => p.slug === practiceSlug || p.id === practiceSlug) ?? null;
         if (!match) {
-          console.error('[AcceptInvitationPage] Organization slug not found', {
-            organizationSlug,
-            targetOrgId,
-            orgList
+          console.error('[AcceptInvitationPage] Practice slug not found', {
+            practiceSlug,
+            targetPracticeId,
+            practiceList
           });
-          throw new Error('Unable to find the selected organization.');
+          throw new Error('Unable to find the selected practice.');
         }
-      } else if (targetOrgId) {
-        match = orgList.find((o) => o.id === targetOrgId) ?? null;
+      } else if (targetPracticeId) {
+        match = practiceList.find((p) => p.id === targetPracticeId) ?? null;
         if (!match) {
-          const missingOrgId = targetOrgId;
-          targetOrgId = null;
-          console.error('[AcceptInvitationPage] Active organization missing from list', {
-            organizationSlug,
-            targetOrgId,
-            missingOrgId,
-            orgList
+          const missingPracticeId = targetPracticeId;
+          targetPracticeId = null;
+          console.error('[AcceptInvitationPage] Active practice missing from list', {
+            practiceSlug,
+            targetPracticeId,
+            missingPracticeId,
+            practiceList
           });
-          throw new Error('You do not have access to the selected organization.');
+          throw new Error('You do not have access to the selected practice.');
         }
       }
 
       if (match) {
-        targetOrgId = match.id;
-        if (targetOrgId !== activeOrganizationId) {
-          await (client as unknown as {
-            organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
-          }).organization.setActive({ organizationId: targetOrgId });
-          didSwitch = true;
-        }
+        targetPracticeId = match.id;
       }
 
-      if (!targetOrgId) {
-        console.error('[AcceptInvitationPage] No active organization context available', {
-          organizationSlug,
-          targetOrgId,
-          orgList
+      if (!targetPracticeId) {
+        console.error('[AcceptInvitationPage] No active practice context available', {
+          practiceSlug,
+          targetPracticeId,
+          practiceList
         });
-        throw new Error('Unable to determine your organization for this conversation.');
+        throw new Error('Unable to determine your practice for this conversation.');
       }
 
-      try {
-        await linkConversationToUser(intakeConversationId, targetOrgId);
-      } catch (linkError) {
-        if (didSwitch && previousOrgId) {
-          try {
-            await (client as unknown as {
-              organization: { setActive: (args: { organizationId: string }) => Promise<unknown> };
-            }).organization.setActive({ organizationId: previousOrgId });
-          } catch (revertError) {
-            console.error('[AcceptInvitationPage] Failed to revert active organization', revertError);
-          }
-        }
-        throw linkError;
-      }
+      await linkConversationToUser(intakeConversationId, targetPracticeId);
       
       const matchedSlug = match && typeof match.slug === 'string' && match.slug.trim().length > 0
         ? match.slug.trim()
         : '';
-      const finalSlug = organizationSlug || matchedSlug;
+      const finalSlug = practiceSlug || matchedSlug;
       if (!finalSlug) {
         if (match) {
-          console.error('[AcceptInvitationPage] Matched organization missing slug', {
-            targetOrgId,
+          console.error('[AcceptInvitationPage] Matched practice missing slug', {
+            targetPracticeId,
             match
           });
         } else {
-          console.error('[AcceptInvitationPage] Missing organization slug for navigation', {
-            organizationSlug,
-            targetOrgId,
+          console.error('[AcceptInvitationPage] Missing practice slug for navigation', {
+            practiceSlug,
+            targetPracticeId,
             match,
-            orgList
+            practiceList
           });
         }
-        throw new Error('Organization slug is missing. Please contact support.');
+        throw new Error('Practice slug is missing. Please contact support.');
       }
       navigate(
         `/public/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
@@ -447,7 +419,7 @@ export const AcceptInvitationPage = () => {
     } finally {
       setIsLinkingConversation(false);
     }
-  }, [activeOrganizationId, intakeConversationId, navigate, organizationSlug, showError]);
+  }, [activePracticeId, intakeConversationId, navigate, practiceSlug, showError]);
 
   if (isPending) {
     return <LoadingScreen />;
@@ -471,8 +443,8 @@ export const AcceptInvitationPage = () => {
   }
 
   if (!isAuthenticated) {
-    const inviterLabel = organizationName || 'the practice';
-    const subtitle = organizationName
+    const inviterLabel = practiceName || 'the practice';
+    const subtitle = practiceName
       ? `Sign up to accept ${inviterLabel}'s invitation to join Blawby.`
       : 'Sign up to accept your invitation to join Blawby.';
 
@@ -483,7 +455,7 @@ export const AcceptInvitationPage = () => {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-input-text">
-            Accept your invitation to sign up{organizationName ? ` | ${organizationName}` : ''}
+            Accept your invitation to sign up{practiceName ? ` | ${practiceName}` : ''}
           </h1>
           <p className="mt-2 text-sm text-input-placeholder">
             {subtitle}
@@ -511,11 +483,11 @@ export const AcceptInvitationPage = () => {
         </div>
         <h1 className="text-xl font-semibold text-input-text">You’re signed in</h1>
         <p className="mt-2 text-sm text-input-placeholder">
-          Continue to {organizationName || organizationSlug} to finish your intake.
+          Continue to {practiceName || practiceSlug} to finish your intake.
         </p>
         <div className="mt-4 space-y-2 text-sm text-input-placeholder">
           <div>
-            <span className="font-medium text-input-text">Practice:</span> {organizationName || organizationSlug}
+            <span className="font-medium text-input-text">Practice:</span> {practiceName || practiceSlug}
           </div>
           <div>
             <span className="font-medium text-input-text">Email:</span> {invitedEmail}
@@ -599,12 +571,12 @@ export const AcceptInvitationPage = () => {
       </div>
       <h1 className="text-xl font-semibold text-input-text">Accept invitation</h1>
       <p className="mt-2 text-sm text-input-placeholder">
-        You&apos;ve been invited to join {invitation.organizationName ?? 'this practice'}.
+        You&apos;ve been invited to join {invitation.practiceName ?? 'this practice'}.
       </p>
       <div className="mt-4 space-y-2 text-sm text-input-placeholder">
-        {invitation.organizationSlug && (
+        {invitation.practiceSlug && (
           <div>
-            <span className="font-medium text-input-text">Practice:</span> {invitation.organizationName || invitation.organizationSlug}
+            <span className="font-medium text-input-text">Practice:</span> {invitation.practiceName || invitation.practiceSlug}
           </div>
         )}
         {(invitation.inviterName || invitation.inviterEmail) && (

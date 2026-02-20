@@ -5,6 +5,7 @@
 
 import { useLocation } from 'preact-iso';
 import { useMemo } from 'preact/hooks';
+import { rewriteLegacySettingsPath } from '@/shared/utils/workspace';
 
 /**
  * Hook for programmatic navigation
@@ -22,7 +23,8 @@ export function useNavigation() {
      * @param replace - Whether to replace the current history entry instead of adding a new one
      */
     navigate: (url: string, replace = false) => {
-      location.route(url, replace);
+      const resolvedUrl = rewriteLegacySettingsPath(location.path, url);
+      location.route(resolvedUrl, replace);
     },
 
     /**
