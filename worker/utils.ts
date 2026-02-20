@@ -1,5 +1,4 @@
 import type { Env } from './types';
-import { Logger } from './utils/logger';
 
 export async function parseJsonBody(request: Request) {
   try {
@@ -14,95 +13,15 @@ export async function parseJsonBody(request: Request) {
 // Agent handles matter questions - no manual storage needed
 
 export async function createMatterRecord(
-  env: Env,
-  practiceId: string,
-  sessionId: string,
-  service: string,
-  description: string,
-  urgency: string = 'normal',
-  ctx?: ExecutionContext
+  _env: Env,
+  _practiceId: string,
+  _sessionId: string,
+  _service: string,
+  _description: string,
+  _urgency: string = 'normal',
+  _ctx?: ExecutionContext
 ): Promise<string> {
-  try {
-    const matterId = crypto.randomUUID();
-    const year = new Date().getFullYear();
-    const matterNumberResult = await env.DB.prepare(`
-      SELECT COUNT(*) as count FROM matters 
-      WHERE practice_id = ? AND strftime('%Y', created_at) = ?
-    `).bind(practiceId, year.toString()).first();
-    const count = (matterNumberResult as { count?: number })?.count || 0;
-    const matterNumber = `MAT-${year}-${(count + 1).toString().padStart(3, '0')}`;
-    await env.DB.prepare(`
-      INSERT INTO matters (
-        id, practice_id, client_name, matter_type, title, description, status, priority, 
-        lead_source, matter_number, custom_fields, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 'lead', ?, 'website', ?, ?, datetime('now'))
-    `).bind(
-      matterId,
-      practiceId,
-      'Client (AI Intake)', // Default client name for AI-generated matters
-      service,
-      `${service} Matter`,
-      description,
-      urgency === 'urgent' ? 'high' : urgency === 'somewhat urgent' ? 'normal' : 'low',
-      matterNumber,
-      JSON.stringify({ sessionId, source: 'ai-intake' })
-    ).run();
-    
-    // Create activity event for matter creation (non-blocking)
-    const createActivityEvent = async () => {
-      try {
-        const { ActivityService } = await import('./services/ActivityService');
-        const activityService = new ActivityService(env);
-        
-        await activityService.createEvent({
-          type: 'matter_event',
-          eventType: 'matter_created',
-          title: 'Matter Created',
-          description: `New ${service} matter created: ${matterNumber}`,
-          eventDate: new Date().toISOString(),
-          actorType: 'system',
-          actorId: undefined, // Don't populate created_by_lawyer_id with sessionId
-          metadata: {
-            matterId,
-            practiceId,
-            sessionId,
-            service,
-            description,
-            urgency,
-            matterNumber,
-            source: 'ai-intake'
-          }
-        }, practiceId);
-        
-        Logger.info('Activity event created for matter creation:', { matterId, matterNumber });
-      } catch (error) {
-        Logger.warn('Failed to create activity event for matter creation:', error);
-        // Errors are swallowed - don't throw back to caller
-      }
-    };
-    
-    // Dispatch asynchronously (fire-and-forget)
-    if (ctx) {
-      // Use ctx.waitUntil if execution context is available
-      ctx.waitUntil(createActivityEvent());
-    } else {
-      // Fallback to fire-and-forget with bounded timeout
-      const timeoutId = setTimeout(() => {
-        Logger.warn('Activity event creation timed out in fire-and-forget mode');
-      }, 5000);
-      
-      createActivityEvent()
-        .finally(() => clearTimeout(timeoutId))
-        .catch(error => {
-          Logger.warn('Activity event creation failed in fire-and-forget mode:', error);
-        });
-    }
-    
-    return matterId;
-  } catch (error) {
-    Logger.warn('Failed to create matter record:', error);
-    throw error;
-  }
+  throw new Error('Local matter creation has been removed; use backend matter APIs.');
 }
 
 // Agent handles AI summaries - no manual storage needed

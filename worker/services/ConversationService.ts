@@ -252,18 +252,6 @@ export class ConversationService {
       updated_at: getString(record.updated_at)
     };
 
-    // Populate lead property if matter record joined and status is 'lead'
-    const leadId = getNullableString(record.lead_id);
-    if (leadId && getString(record.lead_status) === 'lead') {
-      conversation.lead = {
-        is_lead: true,
-        lead_id: leadId,
-        matter_id: getNullableString(record.matter_id) || undefined,
-        lead_source: getNullableString(record.lead_source),
-        created_at: getNullableString(record.lead_created_at)
-      };
-    }
-
     return conversation;
   }
 
@@ -272,11 +260,8 @@ export class ConversationService {
    */
   async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT 
-        c.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      SELECT c.*
       FROM conversations c
-      LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.id = ? AND c.practice_id = ?
     `).bind(conversationId, practiceId).first<Record<string, unknown>>();
 
@@ -293,11 +278,8 @@ export class ConversationService {
    */
   async getConversationById(conversationId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT 
-        c.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      SELECT c.*
       FROM conversations c
-      LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.id = ?
     `).bind(conversationId).first<Record<string, unknown>>();
 
@@ -370,11 +352,8 @@ export class ConversationService {
     // Build WHERE clause conditionally to avoid SQL keyword interpolation
     const userIdCondition = isAnonymous ? 'AND c.user_id IS NULL' : 'AND c.user_id IS NOT NULL';
     const query = `
-      SELECT 
-        c.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      SELECT c.*
       FROM conversations c
-      LEFT JOIN matters m ON c.matter_id = m.id
       WHERE c.practice_id = ? 
         AND EXISTS (SELECT 1 FROM json_each(c.participants) WHERE json_each.value = ?)
         ${userIdCondition}
@@ -415,7 +394,6 @@ export class ConversationService {
       ? `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -425,15 +403,11 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
-      LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE conversations.practice_id = ?
     `
       : `
-      SELECT 
-        conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
+      SELECT conversations.*
       FROM conversations
-      LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE conversations.practice_id = ?
     `;
     const bindings: unknown[] = includeReadState
@@ -478,7 +452,6 @@ export class ConversationService {
     let query = `
       SELECT 
         conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -488,7 +461,6 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
-      LEFT JOIN matters m ON conversations.matter_id = m.id
       WHERE EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)
     `;
     const bindings: unknown[] = [options.userId, options.userId];
@@ -574,21 +546,6 @@ export class ConversationService {
       return conversation;
     }
 
-    const matterRecord = await this.env.DB.prepare(`
-      SELECT id, practice_id
-      FROM matters
-      WHERE id = ?
-      LIMIT 1
-    `).bind(matterId).first<{ id: string; practice_id: string }>();
-
-    if (!matterRecord) {
-      throw HttpErrors.notFound(`Matter ${matterId} not found`);
-    }
-
-    if (matterRecord.practice_id !== practiceId) {
-      throw HttpErrors.forbidden('Matter does not belong to this practice');
-    }
-
     const now = new Date().toISOString();
     await this.env.DB.prepare(`
       UPDATE conversations
@@ -619,36 +576,6 @@ export class ConversationService {
     `).bind(now, conversationId, practiceId).run();
 
     return this.getConversation(conversationId, practiceId);
-  }
-
-  /**
-   * List conversations linked to a matter
-   */
-  async listByMatterId(
-    matterId: string,
-    practiceId: string
-  ): Promise<Conversation[]> {
-    const records = await this.env.DB.prepare(`
-      SELECT
-        conversations.*,
-        m.id as lead_id,
-        m.lead_source,
-        m.created_at as lead_created_at,
-        m.status as lead_status
-      FROM conversations
-      LEFT JOIN matters m ON conversations.matter_id = m.id
-      WHERE conversations.matter_id = ?
-        AND conversations.practice_id = ?
-      ORDER BY (conversations.last_message_at IS NULL),
-               conversations.last_message_at DESC,
-               conversations.created_at DESC
-    `).bind(matterId, practiceId).all<Record<string, unknown>>();
-
-    if (!records.results || records.results.length === 0) {
-      return [];
-    }
-
-    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   /**
@@ -1390,74 +1317,6 @@ export class ConversationService {
         read_status: readStatus
       }
     });
-  }
-
-  /**
-   * List conversations for a practice workspace (all practice conversations).
-   */
-  async getPracticeConversations(options: {
-    practiceId: string;
-    userId?: string;
-    status?: 'active' | 'archived' | 'closed';
-    limit?: number;
-    offset?: number;
-    sortBy?: 'last_message_at' | 'created_at' | 'priority';
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<Conversation[]> {
-    const limit = Math.min(options.limit || 50, 100);
-    const offset = options.offset || 0;
-    const sortBy = options.sortBy || 'last_message_at';
-    const sortOrder = options.sortOrder || 'desc';
-
-    const includeReadState = Boolean(options.userId);
-    let query = includeReadState
-      ? `
-      SELECT 
-        conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status,
-        CASE
-          WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
-            THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
-          ELSE 0
-        END AS unread_count
-      FROM conversations
-      LEFT JOIN conversation_read_state
-        ON conversation_read_state.conversation_id = conversations.id
-       AND conversation_read_state.user_id = ?
-      LEFT JOIN matters m ON conversations.matter_id = m.id
-      WHERE conversations.practice_id = ?
-    `
-      : `
-      SELECT 
-        conversations.*,
-        m.id as lead_id, m.lead_source, m.created_at as lead_created_at, m.status as lead_status
-      FROM conversations
-      LEFT JOIN matters m ON conversations.matter_id = m.id
-      WHERE conversations.practice_id = ?
-    `;
-    const bindings: unknown[] = includeReadState
-      ? [options.userId, options.practiceId]
-      : [options.practiceId];
-
-    if (options.status) {
-      query += ' AND conversations.status = ?';
-      bindings.push(options.status);
-    }
-
-    const sortColumnMap: Record<string, string> = {
-      'last_message_at': 'COALESCE(conversations.last_message_at, conversations.created_at)',
-      'created_at': 'conversations.created_at',
-      'priority': 'conversations.priority'
-    };
-    const validSortColumn = sortColumnMap[sortBy] || sortColumnMap['last_message_at'];
-    const validSortOrder = (sortOrder === 'asc' || sortOrder === 'desc') ? sortOrder.toUpperCase() : 'DESC';
-
-    query += ` ORDER BY ${validSortColumn} ${validSortOrder} LIMIT ? OFFSET ?`;
-    bindings.push(limit, offset);
-
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
-
-    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   private async notifyMembershipChanged(conversationId: string, removedUserId?: string): Promise<void> {

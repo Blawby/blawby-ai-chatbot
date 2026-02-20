@@ -67,7 +67,7 @@ interface UseMessageHandlingOptions {
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
-  onError?: (error: any, context?: Record<string, unknown>) => void;
+  onError?: (error: unknown, context?: Record<string, unknown>) => void;
 }
 
 const CHAT_PROTOCOL_VERSION = 1;
@@ -589,7 +589,6 @@ export const useMessageHandling = ({
       role: 'assistant',
       content: '',
       isUser: false,
-      isStreaming: true,
       timestamp: Date.now(),
       userId: null,
       reply_to_message_id: null,
@@ -1525,7 +1524,8 @@ export const useMessageHandling = ({
     };
     await updateConversationMetadata({
       intakeSlimContactDraft: nextDraft,
-      intakeAiBriefActive: false
+      intakeAiBriefActive: false,
+      ...(practiceSlug ? { practiceSlug } : {}),
     });
 
     const practiceContextId = (practiceId ?? '').trim();
@@ -1567,7 +1567,7 @@ export const useMessageHandling = ({
     } catch (error) {
       console.error('[Intake] Failed to persist decision prompt message', { conversationId, practiceContextId, error });
     }
-  }, [applyServerMessages, conversationId, practiceId, updateConversationMetadata]);
+  }, [applyServerMessages, conversationId, practiceId, practiceSlug, updateConversationMetadata]);
 
   const handleBuildBrief = useCallback(async () => {
     const patch: ConversationMetadata = { intakeAiBriefActive: true };
@@ -1811,12 +1811,94 @@ export const useMessageHandling = ({
 
   const handleSubmitNow = useCallback(async () => {
     if (!slimContactDraft) return;
-    const merged = buildContactData(
-      slimContactDraft,
-      conversationMetadataRef.current?.intakeConversationState ?? null
-    );
-    await handleContactFormSubmit(merged);
-  }, [buildContactData, handleContactFormSubmit, slimContactDraft]);
+    if (!conversationId || !practiceId) return;
+
+    try {
+      // Call the worker submission bridge.
+      // The worker reads practiceSlug, slimContactDraft, and intakeConversationState
+      // from D1 and maps them to the backend intake create payload.
+      const response = await fetch(
+        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `Intake submission failed (HTTP ${response.status})`);
+      }
+
+      const result = await response.json() as {
+        success: boolean;
+        data: {
+          intake_uuid: string;
+          status: string;
+          payment_link_url: string | null;
+        };
+      };
+
+      if (!result.success || !result.data?.intake_uuid) {
+        throw new Error('Intake submission returned an unexpected response');
+      }
+
+      const { intake_uuid: intakeUuid, payment_link_url: paymentLinkUrl } = result.data;
+
+      if (paymentLinkUrl) {
+        // Practice requires payment — redirect to Stripe payment link.
+        // Store a pending flag so we can confirm on return.
+        if (typeof window !== 'undefined') {
+          const returnTo = `${window.location.pathname}${window.location.search}`;
+          window.sessionStorage.setItem(
+            `intakePaymentPending:${intakeUuid}`,
+            JSON.stringify({ conversationId, practiceId, returnTo })
+          );
+        }
+        window.location.href = paymentLinkUrl;
+        return;
+      }
+
+      // Free / payment-bypassed intake — post confirmation system message.
+      const practiceName =
+        (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
+        ?? 'the practice';
+
+      const messageId = `system-intake-submit-${intakeUuid}`;
+      const alreadyPosted = messagesRef.current.some((m) => m.id === messageId);
+      if (!alreadyPosted) {
+        try {
+          const persistedMessage = await postSystemMessage(conversationId, practiceId, {
+            clientId: messageId,
+            content: `Your intake has been submitted. ${practiceName} will review it and follow up with you here shortly.`,
+            metadata: { intakeUuid, intakeSubmitted: true },
+          });
+          if (persistedMessage) applyServerMessages([persistedMessage]);
+        } catch (msgError) {
+          // Non-fatal — intake is already created on the backend
+          console.warn('[handleSubmitNow] Failed to post confirmation message', msgError);
+        }
+      }
+
+      // Update local CTA state so the UI transitions to pending_review
+      const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+      await updateConversationMetadata({
+        intakeConversationState: { ...current, ctaResponse: 'ready' },
+      });
+
+    } catch (error) {
+      console.error('[handleSubmitNow] Intake submission failed', error);
+      onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+    }
+  }, [
+    applyServerMessages,
+    conversationId,
+    onError,
+    practiceId,
+    slimContactDraft,
+    updateConversationMetadata,
+  ]);
 
   const addMessage = useCallback((message: ChatMessageUI) => {
     setMessages(prev => [...prev, message]);

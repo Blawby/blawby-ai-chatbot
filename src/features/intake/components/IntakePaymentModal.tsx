@@ -140,7 +140,6 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
             amount={paymentRequest.amount}
             currency={paymentRequest.currency}
             intakeUuid={paymentRequest.intakeUuid}
-            practiceId={paymentRequest.practiceId}
             conversationId={paymentRequest.conversationId}
             onSuccess={onSuccess}
           />

@@ -76,6 +76,7 @@ interface MessageProps {
 		isSubmitting?: boolean;
 		onAccept: () => void;
 		onReject: () => void;
+		onConvert?: () => void;
 	};
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];

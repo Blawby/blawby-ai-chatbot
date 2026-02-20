@@ -1,5 +1,6 @@
-import { MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
 import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
+
+export type MatterWorkflowStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 
 type BaseBadgeVariant = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed';
 

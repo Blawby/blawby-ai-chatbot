@@ -66,6 +66,7 @@ interface MessageActionsProps {
 		isSubmitting?: boolean;
 		onAccept: () => void;
 		onReject: () => void;
+		onConvert?: () => void;
 	};
 	intakeConversationState?: IntakeConversationState | null;
 	quickReplies?: string[];
@@ -169,22 +170,35 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3">
 					{leadReview.canReview ? (
 						<div className="flex flex-col gap-2 sm:flex-row">
-							<Button
-								variant="primary"
-								size="sm"
-								onClick={leadReview.onAccept}
-								disabled={leadReview.isSubmitting}
-							>
-								{t('leadReview.accept')}
-							</Button>
-							<Button
-								variant="secondary"
-								size="sm"
-								onClick={leadReview.onReject}
-								disabled={leadReview.isSubmitting}
-							>
-								{t('leadReview.decline')}
-							</Button>
+							{leadReview.onConvert ? (
+								<Button
+									variant="primary"
+									size="sm"
+									onClick={leadReview.onConvert}
+									disabled={leadReview.isSubmitting}
+								>
+									Convert to matter
+								</Button>
+							) : (
+								<>
+									<Button
+										variant="primary"
+										size="sm"
+										onClick={leadReview.onAccept}
+										disabled={leadReview.isSubmitting}
+									>
+										{t('leadReview.accept')}
+									</Button>
+									<Button
+										variant="secondary"
+										size="sm"
+										onClick={leadReview.onReject}
+										disabled={leadReview.isSubmitting}
+									>
+										{t('leadReview.decline')}
+									</Button>
+								</>
+							)}
 						</div>
 					) : (
 						<div className="text-xs text-input-placeholder">

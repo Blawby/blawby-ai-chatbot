@@ -85,8 +85,6 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const {
     currentPractice,
-    acceptMatter,
-    rejectMatter
   } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
     fetchInvitations: workspace !== 'public'
@@ -103,6 +101,7 @@ export function MainApp({
     ?? currentPractice?.slug
     ?? practiceConfig?.slug
     ?? undefined;
+  const effectivePracticeSlug = practiceSlug ?? resolvedPracticeSlug ?? null;
 
   const resolvedPublicPracticeSlug = useMemo(() => {
     if (!isPublicWorkspace) return null;
@@ -721,13 +720,15 @@ export function MainApp({
   const leadReviewActions = useMemo(() => {
     if (workspace !== 'practice') return undefined;
     if (!practiceId || !activeConversationId) return undefined;
+    const mattersBasePath = getWorkspaceMattersPath('practice', effectivePracticeSlug);
+    if (!mattersBasePath) return undefined;
     return {
       practiceId,
       practiceName: resolvedPracticeName,
       conversationId: activeConversationId,
       canReviewLeads,
-      acceptMatter,
-      rejectMatter
+      mattersBasePath,
+      navigateTo: (path: string) => navigate(path),
     };
   }, [
     workspace,
@@ -735,8 +736,8 @@ export function MainApp({
     activeConversationId,
     resolvedPracticeName,
     canReviewLeads,
-    acceptMatter,
-    rejectMatter
+    effectivePracticeSlug,
+    navigate,
   ]);
 
 
@@ -1080,7 +1081,6 @@ export function MainApp({
     }
     return practiceWorkspaceView;
   }, [activeConversationId, practiceWorkspaceView, workspace]);
-  const effectivePracticeSlug = practiceSlug ?? resolvedPracticeSlug ?? null;
   const practiceMattersPath = useMemo(() => {
     return getWorkspaceMattersPath('practice', effectivePracticeSlug);
   }, [effectivePracticeSlug]);

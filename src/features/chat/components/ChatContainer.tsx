@@ -16,7 +16,6 @@ import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
-import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { getChatPatterns } from '../config/chatPatterns';
@@ -93,9 +92,8 @@ export interface ChatContainerProps {
     practiceName: string;
     conversationId: string;
     canReviewLeads: boolean;
-    acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
-    rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
-    onLeadStatusChange?: () => void;
+    mattersBasePath: string;
+    navigateTo: (path: string) => void;
   };
 
   // Input control prop

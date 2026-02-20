@@ -9,7 +9,6 @@ import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
-import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
 
@@ -52,9 +51,8 @@ interface VirtualMessageListProps {
         practiceName: string;
         conversationId: string;
         canReviewLeads: boolean;
-        acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
-        rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
-        onLeadStatusChange?: () => void;
+        mattersBasePath: string;
+        navigateTo: (path: string) => void;
     };
     hasMoreMessages?: boolean;
     isLoadingMoreMessages?: boolean;
@@ -152,6 +150,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     };
     const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
     const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
+    const [leadTriageStatus, setLeadTriageStatus] = useState<Record<string, string>>({});
+    const triageStatusRequestedRef = useRef(new Set<string>());
     const isMountedRef = useRef(true);
 
     useEffect(() => {
@@ -179,6 +179,49 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
         });
     }, [startIndex, hasMoreMessages, isLoadingMoreMessages, onLoadMoreMessages]);
+
+    useEffect(() => {
+        if (!leadReviewActions || !isPracticeViewer) {
+            return;
+        }
+        const intakeUuids = dedupedMessages
+            .map((message) => {
+                const metadata = message.metadata;
+                if (!metadata || typeof metadata !== 'object') return null;
+                const meta = metadata as Record<string, unknown>;
+                if (meta.intakeSubmitted !== true) return null;
+                return typeof meta.intakeUuid === 'string' ? meta.intakeUuid : null;
+            })
+            .filter((value): value is string => Boolean(value));
+
+        intakeUuids.forEach((intakeUuid) => {
+            if (leadTriageStatus[intakeUuid]) return;
+            if (triageStatusRequestedRef.current.has(intakeUuid)) return;
+            triageStatusRequestedRef.current.add(intakeUuid);
+
+            void fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+                credentials: 'include',
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errData = await response.json().catch(() => ({})) as { error?: string; message?: string };
+                        throw new Error(errData.message ?? errData.error ?? `HTTP ${response.status}`);
+                    }
+                    const payload = await response.json() as {
+                        success?: boolean;
+                        data?: { triage_status?: string };
+                    };
+                    const triageStatus = payload.data?.triage_status;
+                    if (typeof triageStatus === 'string' && triageStatus.length > 0) {
+                        setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
+                    }
+                })
+                .catch((error) => {
+                    console.warn('[VirtualMessageList] Failed to hydrate intake triage status', { intakeUuid, error });
+                    triageStatusRequestedRef.current.delete(intakeUuid);
+                });
+        });
+    }, [dedupedMessages, isPracticeViewer, leadReviewActions, leadTriageStatus]);
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -236,43 +279,57 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!metadata || typeof metadata !== 'object') {
             return undefined;
         }
-        const systemKey = (metadata as Record<string, unknown>).systemMessageKey;
-        if (systemKey !== 'intake_summary') {
-            return undefined;
-        }
-        const leadId = typeof (metadata as Record<string, unknown>).leadId === 'string'
-            ? (metadata as Record<string, unknown>).leadId as string
-            : (typeof (metadata as Record<string, unknown>).matterId === 'string'
-                ? (metadata as Record<string, unknown>).matterId as string
-                : null);
-        if (!leadId || !leadReviewActions.practiceId || !leadReviewActions.conversationId) {
-            return undefined;
-        }
+        const meta = metadata as Record<string, unknown>;
 
-        const isSubmittingState = Boolean(leadActionState[leadId]);
+        // New trigger: system message written by handleSubmitNow
+        if (meta.intakeSubmitted !== true) {
+            return undefined;
+        }
+        const intakeUuid = typeof meta.intakeUuid === 'string' ? meta.intakeUuid : null;
+        if (!intakeUuid || !leadReviewActions.practiceId || !leadReviewActions.conversationId) {
+            return undefined;
+        }
+        const triageStatus = typeof meta.triageStatus === 'string'
+            ? meta.triageStatus
+            : (typeof meta.triage_status === 'string' ? meta.triage_status : null);
+
+        const isSubmittingState = Boolean(leadActionState[intakeUuid]);
+        const resolvedTriageStatus = triageStatus ?? leadTriageStatus[intakeUuid] ?? null;
+        const isAccepted = resolvedTriageStatus === 'accepted';
 
         const runLeadAction = async (action: 'accept' | 'reject') => {
-            const isSubmittingNow = Boolean(leadActionState[leadId]);
-            if (!leadReviewActions.canReviewLeads || isSubmittingNow || submittingRef.current[leadId]) {
+            if (!leadReviewActions.canReviewLeads || isSubmittingState || submittingRef.current[intakeUuid]) {
                 return;
             }
-            submittingRef.current[leadId] = true;
-            setLeadActionState((prev) => ({ ...prev, [leadId]: action }));
+            submittingRef.current[intakeUuid] = true;
+            setLeadActionState((prev) => ({ ...prev, [intakeUuid]: action }));
             try {
-                let result: MatterTransitionResult;
-                if (action === 'accept') {
-                    result = await leadReviewActions.acceptMatter(leadReviewActions.practiceId, leadId);
-                } else {
-                    result = await leadReviewActions.rejectMatter(leadReviewActions.practiceId, leadId);
-                }
+                // Call backend intake status endpoint directly
+                const response = await fetch(
+                    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+                    {
+                        method: 'PATCH',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            status: action === 'accept' ? 'accepted' : 'declined',
+                            ...(action === 'reject' ? { reason: 'Declined by practice.' } : {}),
+                        }),
+                    }
+                );
 
-                if (result.error || result.success !== true) {
-                    throw new Error(result.error || 'The action could not be completed at this time.');
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({})) as { error?: string; message?: string };
+                    throw new Error(errData.message ?? errData.error ?? `HTTP ${response.status}`);
                 }
+                setLeadTriageStatus((prev) => ({
+                    ...prev,
+                    [intakeUuid]: action === 'accept' ? 'accepted' : 'declined',
+                }));
 
                 const practiceName = leadReviewActions.practiceName || 'The practice';
                 const content = action === 'accept'
-                    ? `${practiceName} has joined the conversation.`
+                    ? `${practiceName} has accepted your consultation request.`
                     : `${practiceName} was unable to take your request at this time.`;
 
                 let systemMessageFailed = false;
@@ -285,7 +342,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             content,
                             metadata: {
                                 systemMessageKey: action === 'accept' ? 'lead_accepted' : 'lead_declined',
-                                leadId
+                                intakeUuid,
+                                triageStatus: action === 'accept' ? 'accepted' : 'declined',
+                                triage_status: action === 'accept' ? 'accepted' : 'declined',
                             }
                         }
                     );
@@ -294,26 +353,23 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     systemMessageFailed = true;
                 }
 
-                const notificationText = systemMessageFailed
-                    ? 'Attempted to notify client; notification failed.'
-                    : (action === 'accept' ? 'The client has been notified.' : 'The client has been notified of the decline.');
-
                 showSuccess(
-                    action === 'accept' ? 'Lead accepted' : 'Lead declined',
-                    notificationText
+                    action === 'accept' ? 'Intake accepted' : 'Intake declined',
+                    systemMessageFailed
+                        ? 'Status updated; client notification failed.'
+                        : (action === 'accept' ? 'Client has been notified.' : 'Client has been notified of the decline.')
                 );
-                leadReviewActions.onLeadStatusChange?.();
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Failed to update lead';
+                const message = err instanceof Error ? err.message : 'Failed to update intake';
                 showError('Action failed', message);
             } finally {
                 if (isMountedRef.current) {
                     setLeadActionState((prev) => {
                         const next = { ...prev };
-                        delete next[leadId];
+                        delete next[intakeUuid];
                         return next;
                     });
-                    delete submittingRef.current[leadId];
+                    delete submittingRef.current[intakeUuid];
                 }
             }
         };
@@ -322,7 +378,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             canReview: leadReviewActions.canReviewLeads,
             isSubmitting: isSubmittingState,
             onAccept: () => void runLeadAction('accept'),
-            onReject: () => void runLeadAction('reject')
+            onReject: () => void runLeadAction('reject'),
+            onConvert: isAccepted ? () => {
+                const params = new URLSearchParams({ convertIntake: intakeUuid });
+                leadReviewActions.navigateTo(`${leadReviewActions.mattersBasePath}/new?${params.toString()}`);
+            } : undefined,
         };
     };
 

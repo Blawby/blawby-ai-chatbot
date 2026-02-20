@@ -1,8 +1,7 @@
 import { FunctionalComponent } from 'preact';
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
-import { MatterStatusBadge } from './StatusBadge';
-import { MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
+import { MatterStatusBadge, type MatterWorkflowStatus } from './StatusBadge';
 
 interface MatterCanvasProps {
   matterId?: string;

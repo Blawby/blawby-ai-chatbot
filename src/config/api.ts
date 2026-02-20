@@ -151,9 +151,3 @@ export const getConversationMessageReactionsEndpoint = (conversationId: string, 
   const config = getApiConfig();
   return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`;
 };
-
-// Intake confirmation endpoint - handled by local worker
-export const getIntakeConfirmEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/intakes/confirm`;
-};

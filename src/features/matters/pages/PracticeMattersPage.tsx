@@ -97,6 +97,7 @@ import {
 type MatterTabId = 'all' | 'open' | 'closed';
 type DetailTabId = 'overview' | 'time' | 'messages';
 type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
+type IntakeTriageStatus = 'pending_review' | 'accepted' | 'declined' | string;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -130,6 +131,11 @@ const buildTabs = (counts: { open: number; closed: number; all: number }): TabIt
 ];
 
 const PAGE_SIZE = 50;
+
+const resolveQueryValue = (value?: string | string[] | null) => {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+};
 
 // ---------------------------------------------------------------------------
 // Small local components
@@ -249,6 +255,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const selectedMatterId = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
+  const convertIntakeUuid = useMemo(
+    () => resolveQueryValue(location.query?.convertIntake),
+    [location.query?.convertIntake]
+  );
   const conversationBasePath = basePath.endsWith('/matters')
     ? basePath.replace(/\/matters$/, '/conversations')
     : '/practice/conversations';
@@ -314,6 +324,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [convertInitialValues, setConvertInitialValues] = useState<Partial<MatterFormState> | undefined>(undefined);
+  const [convertLoading, setConvertLoading] = useState(false);
+  const [convertError, setConvertError] = useState<string | null>(null);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isMounted = useRef(true);
@@ -506,6 +519,61 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       .catch((error) => console.warn('[PracticeMattersPage] Failed to load practice services', error))
       .finally(() => setServicesLoading(false));
   }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails, practiceDetails]);
+
+  useEffect(() => {
+    if (!convertIntakeUuid || !activePracticeId) {
+      setConvertInitialValues(undefined);
+      setConvertLoading(false);
+      setConvertError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setConvertLoading(true);
+    setConvertError(null);
+
+    fetch(`/api/practice/client-intakes/${encodeURIComponent(convertIntakeUuid)}/status`, {
+      credentials: 'include',
+      signal: controller.signal
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({})) as { message?: string; error?: string };
+          throw new Error(errData.message ?? errData.error ?? `Failed to load intake (HTTP ${response.status})`);
+        }
+        const payload = await response.json() as {
+          success?: boolean;
+          data?: {
+            description?: string;
+            opposing_party?: string;
+            urgency?: MatterFormState['urgency'];
+            triage_status?: IntakeTriageStatus;
+          };
+        };
+        const intake = payload.data ?? {};
+        setConvertInitialValues({
+          description: typeof intake.description === 'string' ? intake.description : '',
+          opposingParty: typeof intake.opposing_party === 'string' ? intake.opposing_party : '',
+          urgency: intake.urgency === 'routine' || intake.urgency === 'time_sensitive' || intake.urgency === 'emergency'
+            ? intake.urgency
+            : '',
+          status: intake.triage_status === 'accepted' ? 'engagement_pending' : 'engagement_pending',
+        });
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Failed to load intake details';
+        setConvertError(message);
+        console.warn('[PracticeMattersPage] Failed to preload intake for conversion', error);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setConvertLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, convertIntakeUuid]);
 
   // ── Data fetching: matters list ───────────────────────────────────────────
   useEffect(() => {
@@ -745,6 +813,46 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     refreshMatters();
     createdMatterIdRef.current = created?.id ?? null;
   }, [activePracticeId, refreshMatters]);
+
+  const handleConvertIntake = useCallback(async (values: MatterFormState) => {
+    if (!activePracticeId || !convertIntakeUuid) {
+      throw new Error('Practice ID and intake UUID are required to convert an intake.');
+    }
+
+    const response = await fetch(
+      `/api/practice/client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
+      {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          billing_type: values.billingType || undefined,
+          responsible_attorney_id: values.responsibleAttorneyId || undefined,
+          practice_service_id: values.practiceAreaId || undefined,
+          title: values.title || undefined,
+          status: values.status || 'engagement_pending',
+          open_date: values.openDate || undefined,
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({})) as { message?: string; error?: string };
+      throw new Error(err.message ?? err.error ?? `Intake conversion failed (HTTP ${response.status})`);
+    }
+
+    const payload = await response.json() as {
+      matter?: { id?: string };
+      data?: { matter?: { id?: string } };
+    };
+    const matterId = payload.matter?.id ?? payload.data?.matter?.id;
+    if (!matterId) {
+      throw new Error('Intake conversion response did not include a matter ID.');
+    }
+
+    refreshMatters();
+    goToDetail(matterId);
+  }, [activePracticeId, convertIntakeUuid, goToDetail, refreshMatters]);
 
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId || !selectedMatterId) return;
@@ -1107,6 +1215,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   // Render — create route
   // =========================================================================
   if (isCreateRoute) {
+    const submitHandler = convertIntakeUuid ? handleConvertIntake : handleCreateMatter;
+    const shouldDeferCreateForm = Boolean(convertIntakeUuid && convertLoading && !convertInitialValues);
     return (
       <Page className="min-h-full">
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
@@ -1115,24 +1225,35 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             onNavigate={navigate}
           />
           <PageHeader
-            title="Create Matter"
-            subtitle="Capture matter details, billing structure, and assignment in one place."
+            title={convertIntakeUuid ? 'Convert Intake to Matter' : 'Create Matter'}
+            subtitle={convertIntakeUuid
+              ? 'Finalize intake details and convert this intake into a new matter.'
+              : 'Capture matter details, billing structure, and assignment in one place.'}
             actions={<Button size="sm" variant="secondary" onClick={goToList}>Back to matters</Button>}
           />
-          <MatterCreateForm
-            onClose={() => {
-              const id = createdMatterIdRef.current;
-              createdMatterIdRef.current = null;
-              if (id) { goToDetail(id); return; }
-              goToList();
-            }}
-            onSubmit={handleCreateMatter}
-            practiceId={activePracticeId}
-            clients={clientOptions}
-            practiceAreas={practiceAreaOptions}
-            practiceAreasLoading={servicesLoading}
-            assignees={assigneeOptions}
-          />
+          {convertError && <ErrorBanner>{convertError}</ErrorBanner>}
+          {convertIntakeUuid && convertLoading && !convertInitialValues ? (
+            <Panel className="p-6">
+              <LoadingState message="Loading intake details..." />
+            </Panel>
+          ) : null}
+          {!shouldDeferCreateForm ? (
+            <MatterCreateForm
+              onClose={() => {
+                const id = createdMatterIdRef.current;
+                createdMatterIdRef.current = null;
+                if (id) { goToDetail(id); return; }
+                goToList();
+              }}
+              onSubmit={submitHandler}
+              practiceId={activePracticeId}
+              clients={clientOptions}
+              practiceAreas={practiceAreaOptions}
+              practiceAreasLoading={servicesLoading}
+              assignees={assigneeOptions}
+              initialValues={convertInitialValues}
+            />
+          ) : null}
         </div>
       </Page>
     );
