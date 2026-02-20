@@ -97,7 +97,7 @@
     "eslint-plugin-preact": "^0.1.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "happy-dom": "^18.0.1",
+    "happy-dom": "^20.6.3",
     "jsdom": "^26.1.0",
     "node-fetch": "^3.3.2",
     "open": "^10.2.0",
