@@ -141,7 +141,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                     onClick={() => handleUseCaseSelect(option.id)}
                     className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 backdrop-blur-xl ${
                       isSelected
-                        ? 'border-accent-500/50 bg-accent-500/10 shadow-lg shadow-accent-500/10'
+                        ? 'border-accent-500/60 bg-accent-500 shadow-lg shadow-accent-500/25'
                         : 'surface-subtle surface-hover'
                     }`}
                   >
@@ -149,7 +149,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                       <div className="flex items-center space-x-3">
                         <Icon className={`h-6 w-6 ${
                           isSelected 
-                            ? 'text-accent-500' 
+                            ? 'text-[rgb(var(--accent-foreground))]' 
                             : 'text-input-placeholder'
                         }`} />
                           <span className={`text-sm font-medium ${
@@ -161,7 +161,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                         </span>
                       </div>
                       {isSelected && (
-                        <CheckIcon className="h-5 w-5 text-accent-500" />
+                        <CheckIcon className="h-5 w-5 text-[rgb(var(--accent-foreground))]" />
                       )}
                     </div>
                   </button>

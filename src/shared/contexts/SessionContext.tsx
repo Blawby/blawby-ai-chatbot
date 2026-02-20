@@ -77,18 +77,58 @@ function AuthenticatedSessionProvider({
   error: unknown;
   sessionKey: string | null;
 }) {
-  const activeMemberRoleState = useActiveMemberRole();
   const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
   const activePracticeId = getActivePracticeId(sessionData);
 
+  // Only fetch role when we have an active practice context.
+  // Avoids noisy 400s from Better Auth organization role endpoint on public/onboarding routes.
+  if (!sessionKey || isAnonymous || !activePracticeId) {
+    const value = buildSessionContextValue({ sessionData, isPending, error });
+    return (
+      <SessionContext.Provider value={value}>
+        {children}
+      </SessionContext.Provider>
+    );
+  }
+
+  return (
+    <AuthenticatedSessionProviderWithRole
+      sessionData={sessionData}
+      isPending={isPending}
+      error={error}
+      sessionKey={sessionKey}
+      activePracticeId={activePracticeId}
+    >
+      {children}
+    </AuthenticatedSessionProviderWithRole>
+  );
+}
+
+function AuthenticatedSessionProviderWithRole({
+  children,
+  sessionData,
+  isPending,
+  error,
+  sessionKey,
+  activePracticeId
+}: {
+  children: ComponentChildren;
+  sessionData: SessionData | null | undefined;
+  isPending: boolean;
+  error: unknown;
+  sessionKey: string;
+  activePracticeId: string;
+}) {
+  const activeMemberRoleState = useActiveMemberRole();
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!sessionKey || isAnonymous || !activePracticeId) return;
+    if (!sessionKey || !activePracticeId) return;
 
     const refetch = activeMemberRoleState?.refetch;
     if (typeof refetch !== 'function') return;
     void refetch({ query: { organizationId: activePracticeId } });
-  }, [activeMemberRoleState?.refetch, activePracticeId, isAnonymous, sessionKey]);
+  }, [activeMemberRoleState?.refetch, activePracticeId, sessionKey]);
 
   const value = buildSessionContextValue({ sessionData, isPending, error, activeMemberRoleState });
 

@@ -18,9 +18,15 @@ interface PersonalInfoStepProps {
   data: PersonalInfoData;
   onComplete: (data: PersonalInfoData) => void;
   isSubmitting?: boolean;
+  requireName?: boolean;
 }
 
-const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitting = false }: PersonalInfoStepProps) => {
+const PersonalInfoStep = ({
+  data: _data,
+  onComplete,
+  isSubmitting: parentSubmitting = false,
+  requireName = true
+}: PersonalInfoStepProps) => {
   const { t } = useTranslation('common');
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const mountedRef = useRef<boolean>(true);
@@ -72,31 +78,33 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
               await handleSubmit(formData);
             }} 
             initialData={_data}
-            schema={schemas.onboarding.personalInfo}
+            schema={requireName ? schemas.onboarding.personalInfo : schemas.onboarding.personalInfoNoName}
           >
             <div className="space-y-4">
               {/* Full Name */}
-              <FormField name="fullName">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        required
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.fullNamePlaceholder')}
-                        icon={<UserIcon className="h-5 w-5 text-input-placeholder" />}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
+              {requireName && (
+                <FormField name="fullName">
+                  {({ value, error, onChange }) => (
+                    <FormItem>
+                      <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          required
+                          value={(value as string) || ''}
+                          onChange={(value) => onChange(value)}
+                          placeholder={t('onboarding.step1.fullNamePlaceholder')}
+                          icon={<UserIcon className="h-5 w-5 text-input-placeholder" />}
+                          error={error?.message}
+                        />
+                      </FormControl>
+                      {error && (
+                        <FormMessage>{error.message}</FormMessage>
+                      )}
+                    </FormItem>
+                  )}
+                </FormField>
+              )}
 
               {/* Birthday */}
               <FormField name="birthday">

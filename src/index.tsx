@@ -72,16 +72,33 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
+    const isPublicIntakeRoute =
+      location.path.startsWith('/public/') ||
+      location.path.startsWith('/client/') ||
+      location.path.startsWith('/pay');
     if (typeof window !== 'undefined') {
       try {
         const pendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
         if (pendingPath) {
-          window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-          if (pendingPath.startsWith('/') && !pendingPath.startsWith('//')) {
-            if (!location.path.startsWith('/auth/awaiting-invite')) {
-              navigate(pendingPath, true);
-            }
+          const currentUrl = location.url.startsWith('/')
+            ? location.url
+            : `/${location.url.replace(/^\/+/, '')}`;
+          const isValidPendingPath = pendingPath.startsWith('/') && !pendingPath.startsWith('//');
+          const isAuthReturnRoute = location.path.startsWith('/auth');
+
+          if (!isValidPendingPath) {
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+          } else if (pendingPath === currentUrl) {
+            // Already at the target path; consume it without triggering another navigation.
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+          } else if (isAuthReturnRoute) {
+            // Only auto-redirect from auth return routes to avoid flicker on normal public page refresh.
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+            navigate(pendingPath, true);
             return;
+          } else {
+            // Stale pending path outside auth flow; consume it to prevent repeated soft redirects.
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
           }
         }
       } catch (error) {
@@ -97,7 +114,10 @@ function AppShell() {
     }
     const user = session?.user;
     const requiresOnboarding =
-      Boolean(user) && !user?.isAnonymous && user?.onboardingComplete !== true;
+      Boolean(user) &&
+      !user?.isAnonymous &&
+      user?.onboardingComplete !== true &&
+      !isPublicIntakeRoute;
 
     if (requiresOnboarding) {
       if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
@@ -118,7 +138,16 @@ function AppShell() {
       const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
       navigate(fallback, true);
     }
-  }, [currentPractice, defaultWorkspace, location.path, location.url, navigate, practices, session?.user, sessionPending]);
+  }, [
+    currentPractice,
+    defaultWorkspace,
+    location.path,
+    location.url,
+    navigate,
+    practices,
+    session?.user,
+    sessionPending
+  ]);
 
   return (
     <ToastProvider>

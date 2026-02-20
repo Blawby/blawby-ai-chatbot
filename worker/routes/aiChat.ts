@@ -101,7 +101,7 @@ const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): strin
   if (typeof fields.hasDocuments !== 'boolean') {
     return 'Do you have any documents related to this situation?';
   }
-  return 'Thanks — would you like to submit your request now?';
+  return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
 };
 
 const shouldShowIntakeCtaForReply = (reply: string): boolean => {
@@ -114,7 +114,7 @@ const shouldShowIntakeCtaForReply = (reply: string): boolean => {
   ) {
     return true;
   }
-  return /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|submit your consultation|connect you with the right attorney|would you like to submit)/i.test(reply);
+  return /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|submit your consultation|connect you with the right attorney|would you like to submit|would you like to continue now)/i.test(reply);
 };
 
 const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null): Record<string, unknown> | null => {
