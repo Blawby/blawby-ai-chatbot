@@ -237,12 +237,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (canHandleCta && onIntakeCtaResponse) {
       if (isAffirmative) {
         (async () => {
-          try {
-            await handleSubmitNowAction();
-          } catch (error) {
-            console.error('Failed to submit via chat shortcut', error);
-            throw error;
-          }
+          await handleSubmitNowAction();
         })();
         setInputValue('');
         setReplyTarget(null);
@@ -559,12 +554,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           size="sm"
                           className="w-full"
                           onClick={async () => {
-                            try {
-                              await handleSubmitNowAction();
-                            } catch (error) {
-                              console.error('Failed to submit via footer CTA', error);
-                              throw error;
-                            }
+                            await handleSubmitNowAction();
                           }}
                         >
                           {t('chat.submitRequest')}

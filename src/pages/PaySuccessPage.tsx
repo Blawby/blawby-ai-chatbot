@@ -72,7 +72,7 @@ export const PaySuccessPage: FunctionComponent = () => {
         try {
           resolvedUuid = await fetchPostPayStatus(sessionId);
         } catch (error) {
-          setMessage('Payment confirmed, but we encountered a confirmation error. Please contact support if needed.');
+          setMessage("We couldn't verify your payment; please check your account or contact support.");
           console.error('[PaySuccessPage] Error confirming payment:', error);
           return;
         }

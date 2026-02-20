@@ -31,7 +31,7 @@ const sanitizeReturnTo = (value?: string) => {
   return trimmed.startsWith('/') && !trimmed.startsWith('//') ? trimmed : undefined;
 };
 
-const PAID_STATUSES = new Set(['succeeded', 'completed', 'paid', 'complete']);
+const PAID_STATUSES = new Set(['succeeded', 'completed', 'paid', 'complete', 'captured']);
 const STRIPE_PAYMENT_HOSTS = ['checkout.stripe.com', '.stripe.com'];
 
 const normalizeStatus = (value?: string | null) => {
@@ -40,7 +40,11 @@ const normalizeStatus = (value?: string | null) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-export const isPaidIntakeStatus = (status?: string | null): boolean => {
+export const isPaidIntakeStatus = (status?: unknown, succeededAt?: unknown): boolean => {
+  if (typeof succeededAt === 'string' && succeededAt.trim().length > 0) {
+    return true;
+  }
+  if (typeof status !== 'string') return false;
   const normalized = normalizeStatus(status);
   return normalized ? PAID_STATUSES.has(normalized) : false;
 };

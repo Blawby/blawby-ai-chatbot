@@ -5,8 +5,9 @@ import type { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { submitContactForm } from '@/shared/utils/forms';
+import axios from 'axios';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
-import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { buildIntakePaymentUrl, isPaidIntakeStatus, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import {
@@ -69,7 +70,7 @@ interface UseMessageHandlingOptions {
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
-  onError?: (error: string) => void;
+  onError?: (error: any, context?: Record<string, unknown>) => void;
 }
 
 const CHAT_PROTOCOL_VERSION = 1;
@@ -173,17 +174,6 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
   return hasPayload ? request : undefined;
 };
 
-const PAID_INTAKE_STATUSES = new Set(['paid', 'succeeded', 'completed', 'captured']);
-
-const isPaidIntakeStatus = (status: unknown, succeededAt?: unknown): boolean => {
-  if (typeof succeededAt === 'string' && succeededAt.trim().length > 0) {
-    return true;
-  }
-  if (typeof status !== 'string') return false;
-  const normalized = status.trim().toLowerCase();
-  return normalized.length > 0 && PAID_INTAKE_STATUSES.has(normalized);
-};
-
 const fetchIntakePaidStatus = async (intakeUuid: string, signal?: AbortSignal): Promise<boolean> => {
   const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
     credentials: 'include',
@@ -281,7 +271,7 @@ export const useMessageHandling = ({
           error
         });
         onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
-        const is409Conflict = error instanceof Error && (error as any)?.status === 409;
+        const is409Conflict = axios.isAxiosError(error) && error.response?.status === 409;
         if (is409Conflict) {
           if (!cancelled) {
             setIsConversationLinkReady(true);
@@ -2562,7 +2552,9 @@ Address: ${contactData.address ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.o
         await postPaymentConfirmation(intakeUuid, 'the practice');
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
+        onError?.(error, { source: 'fetchIntakePaidStatus', intakeUuid });
         console.warn('[Intake] Failed to reconcile payment status on refresh', error);
+        throw error;
       }
     };
 
