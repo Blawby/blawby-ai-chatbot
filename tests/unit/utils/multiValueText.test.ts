@@ -27,8 +27,26 @@ describe('multiValueText helpers', () => {
     expect(serializeMultiValueText(['Hon. A. Smith', 'Opposing Co'])).toBe('Hon. A. Smith; Opposing Co');
   });
 
+  it('serializes an empty list as an empty string', () => {
+    expect(serializeMultiValueText([])).toBe('');
+  });
+
   it('normalizes and deduplicates while serializing', () => {
     expect(serializeMultiValueText(['  Acme Corp  ', '', 'acme corp', 'Beta LLC'])).toBe('Acme Corp; Beta LLC');
+  });
+
+  it('collapses internal repeated spaces while parsing', () => {
+    expect(parseMultiValueText('John  Smith')).toEqual(['John Smith']);
+  });
+
+  it('parses a single value without delimiters', () => {
+    expect(parseMultiValueText('Smith')).toEqual(['Smith']);
+  });
+
+  it('round-trips values containing semicolons using escaping', () => {
+    const serialized = serializeMultiValueText(['Smith, Jr.; Esq.', 'Acme Corp']);
+    expect(serialized).toBe('Smith, Jr.\\; Esq.; Acme Corp');
+    expect(parseMultiValueText(serialized)).toEqual(['Smith, Jr.; Esq.', 'Acme Corp']);
   });
 
   it('supports parse/serialize round-trip stability', () => {

@@ -394,6 +394,7 @@
 
   .segmented-toggle-thumb {
     @apply pointer-events-none absolute top-1 bottom-1 rounded-full bg-accent-500;
+
     transition: left 300ms ease-out, width 300ms ease-out;
     box-shadow: var(--glass-rim-subtle),
                 0 2px 8px rgb(var(--accent-500) / 0.25);

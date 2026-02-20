@@ -1,4 +1,5 @@
 const DELIMITER = ';';
+const ESCAPE = '\\';
 
 const normalizeEntries = (values: string[]): string[] => {
   const seen = new Set<string>();
@@ -17,11 +18,48 @@ const normalizeEntries = (values: string[]): string[] => {
   return normalized;
 };
 
+const escapeEntry = (value: string): string =>
+  value
+    .replace(/\\/g, `${ESCAPE}${ESCAPE}`)
+    .replace(/;/g, `${ESCAPE}${DELIMITER}`);
+
+const splitEscaped = (value: string): string[] => {
+  const entries: string[] = [];
+  let current = '';
+
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i];
+
+    if (char === ESCAPE && i + 1 < value.length) {
+      const next = value[i + 1];
+      // Only treat escaped delimiter/backslash specially.
+      if (next === DELIMITER || next === ESCAPE) {
+        current += next;
+        i += 1;
+        continue;
+      }
+    }
+
+    if (char === DELIMITER) {
+      entries.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  entries.push(current);
+  return entries;
+};
+
 export const parseMultiValueText = (value: string | null | undefined): string[] => {
   if (typeof value !== 'string') return [];
   if (value.trim() === '') return [];
-  return normalizeEntries(value.split(DELIMITER));
+  return normalizeEntries(splitEscaped(value));
 };
 
 export const serializeMultiValueText = (values: string[]): string =>
-  normalizeEntries(values).join(`${DELIMITER} `);
+  normalizeEntries(values)
+    .map(escapeEntry)
+    .join(`${DELIMITER} `);

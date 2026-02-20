@@ -31,9 +31,7 @@ export const SettingSelect = ({
           value={value}
           options={options}
           onChange={onChange}
-          className={cn(
-            'min-w-[180px] [&_[role=combobox]]:rounded-none'
-          )}
+          className="min-w-[180px] [&_[role=combobox]]:rounded-none"
           clearable={false}
           searchable={false}
         />
