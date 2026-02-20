@@ -270,7 +270,6 @@ export const useMessageHandling = ({
           practiceId,
           error
         });
-        onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
         const is409Conflict = axios.isAxiosError(error) && error.response?.status === 409;
         if (is409Conflict) {
           if (!cancelled) {
@@ -278,6 +277,7 @@ export const useMessageHandling = ({
           }
           return;
         }
+        onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
       } finally {
         if (!cancelled) {
           setIsConversationLinkReady(true);
