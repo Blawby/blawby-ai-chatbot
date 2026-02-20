@@ -435,8 +435,8 @@
   .chat-markdown {
     @apply leading-relaxed break-words;
     /* Prevent pre/code from blowing out narrow containers */
-    overflow-wrap: break-word;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+    word-break: normal;
   }
 
   /* ── Headings ──────────────────────────────────────────── */

@@ -1360,8 +1360,13 @@ export const useMessageHandling = ({
           }
 
           // Persisted event — worker has saved the message, WebSocket will deliver it.
-          // Store the expected ID so applyServerMessages can swap out the bubble.
+          // Check if the message already exists (race condition: WebSocket arrived before SSE).
           if (parsed.persisted === true && typeof parsed.messageId === 'string') {
+            const messageExists = messages.some(m => m.id === parsed.messageId);
+            if (messageExists) {
+              removeStreamingBubble(bubbleId);
+              return;
+            }
             pendingStreamMessageIdRef.current = parsed.messageId;
             return;
           }
@@ -1429,7 +1434,6 @@ export const useMessageHandling = ({
     addStreamingBubble,
     appendStreamingToken,
     applyIntakeFields,
-    applyServerMessages,
     conversationId,
     messages,
     mode,
