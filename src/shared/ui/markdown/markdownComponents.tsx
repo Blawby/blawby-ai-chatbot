@@ -121,8 +121,8 @@ export const markdownComponents: Components = {
     );
   },
 
-  code({ className, children, ...props }) {
-    const isBlock = Boolean(className);
+  code({ className, children, inline, ...props }) {
+    const isBlock = inline !== true;
     if (isBlock) {
       return (
         <code className="block font-mono text-sm leading-relaxed text-gray-100" {...props}>
