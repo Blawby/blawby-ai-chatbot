@@ -1,8 +1,42 @@
-import { memo } from 'preact/compat';
+import { memo, useEffect, useState } from 'preact/compat';
 import type { FunctionComponent } from 'preact';
-import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
+
+// Custom hook to dynamically import react-markdown on client
+function useReactMarkdown() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadMarkdown = async () => {
+      try {
+        const mod = await import('react-markdown');
+        if (mounted) {
+          setReactMarkdown(() => mod.default);
+          setError(null);
+        }
+      } catch (err) {
+        if (mounted) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to load markdown component';
+          setError(errorMsg);
+          setReactMarkdown(null);
+        }
+      }
+    };
+
+    void loadMarkdown();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return { component: ReactMarkdown, error };
+}
 
 interface ChatMarkdownProps {
   text: string;
@@ -31,6 +65,8 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   variant = 'default',
   size = 'md',
 }) => {
+  const { component: ReactMarkdown, error: markdownError } = useReactMarkdown();
+
   if (!text) return null;
 
   const classes = [
@@ -47,9 +83,15 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
 
   return (
     <div className={classes}>
-      <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
-        {text}
-      </ReactMarkdown>
+      {markdownError ? (
+        <div className="text-red-500 text-sm">Failed to load markdown: {markdownError}</div>
+      ) : ReactMarkdown ? (
+        <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+          {text}
+        </ReactMarkdown>
+      ) : (
+        <div className="text-gray-500 text-sm">Loading markdown...</div>
+      )}
       {streamingCursor}
     </div>
   );
