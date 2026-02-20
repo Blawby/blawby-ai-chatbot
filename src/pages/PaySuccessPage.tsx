@@ -63,6 +63,7 @@ export const PaySuccessPage: FunctionComponent = () => {
     hasRunRef.current = true;
 
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const finalize = async () => {
       let resolvedUuid = intakeUuid;
       if (!resolvedUuid && sessionId) {
@@ -81,7 +82,7 @@ export const PaySuccessPage: FunctionComponent = () => {
           setIsRedirecting(true);
           setMessage('Payment confirmed. Redirecting back to your conversation…');
           // Small delay to ensure session/cookies settle before route fetches.
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             if (!cancelled) {
               navigate(returnTo, true);
             }
@@ -103,6 +104,7 @@ export const PaySuccessPage: FunctionComponent = () => {
 
     return () => {
       cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [intakeUuid, isAnonymous, isPending, navigate, returnTo, sessionId]);
 

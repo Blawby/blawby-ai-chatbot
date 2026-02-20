@@ -122,7 +122,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		: strengthTier === 'good'
 			? t('chat.cta.reviewSubmit')
 			: strengthTier === 'basic'
-				? t('chat.submitNow')
+				? t('chat.continue')
 				: t('chat.cta.continue');
 	const ctaSecondaryLabel = strengthTier === 'strong'
 		? t('chat.cta.addMore')
@@ -221,7 +221,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							onIntakeCtaResponse?.('ready');
 						}}
 					>
-						{t('chat.submitNow')}
+						{t('chat.continue')}
 					</Button>
 					<Button variant="secondary" size="sm" onClick={() => onBuildBrief?.()}>
 						{t('chat.buildStrongerBrief')}

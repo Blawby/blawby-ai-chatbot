@@ -101,7 +101,7 @@ const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): strin
   if (typeof fields.hasDocuments !== 'boolean') {
     return 'Do you have any documents related to this situation?';
   }
-  return 'Would you like to sign up now, or build a stronger brief first so we can match you with the right attorney?';
+  return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
 };
 
 const shouldShowIntakeCtaForReply = (reply: string): boolean => {

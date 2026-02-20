@@ -26,7 +26,7 @@ export const AwaitingInvitePage: FunctionComponent = () => {
   const conversationId = resolveQueryValue(location.query?.conversationId);
 
   const handleTriggerInvite = useCallback(async () => {
-    if (!intakeUuid || isAnonymous) return;
+    if (!intakeUuid) return;
     setStatus('loading');
     setErrorMessage('');
 
@@ -85,7 +85,7 @@ export const AwaitingInvitePage: FunctionComponent = () => {
       setErrorMessage(message);
       setStatus('error');
     }
-  }, [conversationId, intakeUuid, isAnonymous, practiceName, practiceSlug]);
+  }, [conversationId, intakeUuid, practiceName, practiceSlug]);
 
   useEffect(() => {
     if (hasRunRef.current) return;
@@ -148,7 +148,9 @@ export const AwaitingInvitePage: FunctionComponent = () => {
             <Button
               variant="primary"
               onClick={handleTriggerInvite}
-              disabled={status === 'loading'}
+              disabled={status === 'loading' || isAnonymous || !intakeUuid}
+              aria-disabled={isAnonymous || !intakeUuid}
+              title={isAnonymous ? 'Please sign in to resend confirmation' : !intakeUuid ? 'Missing intake details' : ''}
             >
               Resend confirmation email
             </Button>
