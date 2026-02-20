@@ -23,6 +23,7 @@ import { type MatterFormState } from '@/features/matters/components/MatterCreate
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { cn } from '@/shared/utils/cn';
 import { asMajor } from '@/shared/utils/money';
+import { parseMultiValueText, serializeMultiValueText } from '@/features/matters/utils/multiValueText';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -436,17 +437,31 @@ export const MatterDetailsPanel = ({
           )}
           {editing === 'parties' ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              <InlineInput
+              <Combobox
+                id="matter-detail-opposing-party"
                 label="Opposing party"
-                value={draftParties.opposingParty}
-                onChange={(v) => setDraftParties((d) => ({ ...d, opposingParty: v }))}
                 placeholder="Enter opposing party"
+                value={parseMultiValueText(draftParties.opposingParty)}
+                onChange={(values) =>
+                  setDraftParties((d) => ({ ...d, opposingParty: serializeMultiValueText(values) }))
+                }
+                options={[]}
+                multiple
+                allowCustomValues
+                addNewLabel="Add opposing party"
               />
-              <InlineInput
+              <Combobox
+                id="matter-detail-opposing-counsel"
                 label="Opposing counsel"
-                value={draftParties.opposingCounsel}
-                onChange={(v) => setDraftParties((d) => ({ ...d, opposingCounsel: v }))}
                 placeholder="Enter opposing counsel"
+                value={parseMultiValueText(draftParties.opposingCounsel)}
+                onChange={(values) =>
+                  setDraftParties((d) => ({ ...d, opposingCounsel: serializeMultiValueText(values) }))
+                }
+                options={[]}
+                multiple
+                allowCustomValues
+                addNewLabel="Add opposing counsel"
               />
             </div>
           ) : (
@@ -475,11 +490,18 @@ export const MatterDetailsPanel = ({
                 onChange={(v) => setDraftJurisdiction((d) => ({ ...d, court: v }))}
                 placeholder="e.g. Superior Court of CA"
               />
-              <InlineInput
+              <Combobox
+                id="matter-detail-judge"
                 label="Judge"
-                value={draftJurisdiction.judge}
-                onChange={(v) => setDraftJurisdiction((d) => ({ ...d, judge: v }))}
                 placeholder="e.g. Hon. A. Smith"
+                value={parseMultiValueText(draftJurisdiction.judge)}
+                onChange={(values) =>
+                  setDraftJurisdiction((d) => ({ ...d, judge: serializeMultiValueText(values) }))
+                }
+                options={[]}
+                multiple
+                allowCustomValues
+                addNewLabel="Add judge"
               />
             </div>
           ) : (

@@ -24,7 +24,7 @@
     "test:worker": "vitest run -c config/vitest/vitest.config.worker.ts",
     "test:component": "vitest run -c config/vitest/vitest.config.component.ts",
     "db:reset": "./scripts/reset-dev-db.sh",
-    "db:init": "npx wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql",
+    "db:init": "npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/schema.sql",
     "validate:lawyer-api-migration": "tsx scripts/validate-lawyer-api-migration.ts",
     "test:all": "npm run test",
     "test:watch": "vitest --watch -c config/vitest/vitest.config.unit.ts",

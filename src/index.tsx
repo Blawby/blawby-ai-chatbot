@@ -176,9 +176,10 @@ function LegacySettingsRoute() {
     const settingsBase = `/${workspacePrefix}/${encodeURIComponent(resolvedSlug)}/settings`;
     const targetPath = buildSettingsPath(settingsBase, legacySubPath || undefined);
     // Preserve query parameters when redirecting
-    const fullPath = location.search ? targetPath + location.search : targetPath;
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const fullPath = search ? targetPath + search : targetPath;
     navigate(fullPath, true);
-  }, [defaultWorkspace, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug, location.search]);
+  }, [defaultWorkspace, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
 
   if (!practicesLoading && (!resolvedSlug || !resolvedPractice)) return <App404 />;
 

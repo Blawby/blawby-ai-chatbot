@@ -101,7 +101,7 @@ export const SettingsPage = ({
   // Redirect legacy 'organization' URLs to 'practice'
   useEffect(() => {
     if (currentPage === 'organization') {
-      navigate(toSettingsPath('practice'), { replace: true });
+      navigate(toSettingsPath('practice'), true);
     }
   }, [currentPage, navigate, toSettingsPath]);
   
@@ -110,7 +110,7 @@ export const SettingsPage = ({
       return;
     }
     if (!canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
-      navigate(toSettingsPath(), { replace: true });
+      navigate(toSettingsPath(), true);
     }
   }, [canShowPracticeSettings, currentPage, navigate, sessionPending, toSettingsPath]);
 
