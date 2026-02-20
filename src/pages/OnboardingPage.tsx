@@ -49,7 +49,7 @@ const OnboardingPage = () => {
 
   const fallbackPath = useMemo(() => {
     if (requestedReturnPath) return requestedReturnPath;
-    if (practicesLoading) return '/';
+    if (practicesLoading) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     if (!fallbackSlug && defaultWorkspace === 'practice') return '/pricing';
     return getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
@@ -65,7 +65,7 @@ const OnboardingPage = () => {
       navigate('/auth?mode=signup', true);
       return;
     }
-    if (userOnboardingComplete) {
+    if (userOnboardingComplete && fallbackPath) {
       navigate(fallbackPath, true);
     }
   }, [
@@ -96,8 +96,8 @@ const OnboardingPage = () => {
     <SetupShell>
       <div className="min-h-screen bg-transparent flex flex-col">
         <OnboardingFlow
-          onClose={() => navigate(fallbackPath, true)}
-          onComplete={() => navigate(fallbackPath, true)}
+          onClose={() => fallbackPath && navigate(fallbackPath, true)}
+          onComplete={() => fallbackPath && navigate(fallbackPath, true)}
           active
         />
       </div>

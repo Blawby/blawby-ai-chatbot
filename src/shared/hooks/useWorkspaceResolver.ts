@@ -1,4 +1,4 @@
-import { useMemo } from 'preact/hooks';
+import { useMemo, useCallback } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import type { WorkspacePreference } from '@/shared/types/workspace';
@@ -33,11 +33,11 @@ export function useWorkspaceResolver(): UseWorkspaceResolverResult {
   const hasPracticeAccess = Boolean(currentPractice?.id || practices.length > 0);
   const defaultWorkspace: WorkspacePreference = hasPracticeAccess ? 'practice' : 'client';
 
-  const resolvePracticeBySlug = (slug?: string | null): Practice | null => {
+  const resolvePracticeBySlug = useCallback((slug?: string | null): Practice | null => {
     const normalized = typeof slug === 'string' ? slug.trim() : '';
     if (!normalized) return null;
     return practiceBySlug.get(normalized) ?? (currentPractice?.slug === normalized ? currentPractice : null);
-  };
+  }, [practiceBySlug, currentPractice]);
 
   return {
     isPending,

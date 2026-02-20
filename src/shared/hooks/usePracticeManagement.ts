@@ -194,6 +194,12 @@ interface UsePracticeManagementOptions {
    * them into the practice list snapshot.
    */
   fetchPracticeDetails?: boolean;
+  /**
+   * Optional practice slug to resolve as the active practice.
+   * If provided, will search for a matching practice in the list.
+   * Falls back to the first practice if not found or not provided.
+   */
+  practiceSlug?: string | null;
 }
 
 interface UsePracticeManagementReturn {
@@ -623,6 +629,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
     fetchPracticeDetails = false,
+    practiceSlug,
   } = options;
   const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
@@ -823,7 +830,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
           .filter((practice) => practice.id.length > 0);
 
-        const currentPracticeNext = normalizedList[0] || null;
+        let currentPracticeNext: Practice | null = null;
+        if (practiceSlug) {
+          const foundBySlug = normalizedList.find((p) => p.slug === practiceSlug);
+          currentPracticeNext = foundBySlug || null;
+        }
+        if (!currentPracticeNext) {
+          currentPracticeNext = normalizedList[0] || null;
+        }
         let details: PracticeDetails | null = null;
         let stripeDetailsSubmitted: boolean | null = ENABLE_PAYOUT_STATUS ? null : false;
         if (currentPracticeNext) {
@@ -908,7 +922,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [fetchPracticeDetails, isAnonymous, session]);
+  }, [fetchPracticeDetails, isAnonymous, session, practiceSlug]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {

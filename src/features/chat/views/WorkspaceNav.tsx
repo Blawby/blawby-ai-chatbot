@@ -126,15 +126,11 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   const customButtons = items
     ? items.map((item) => {
         const Icon = item.icon;
-        return (
-          <div key={item.id}>
-            {renderButton(
-              item.id,
-              <Icon className="h-5 w-5" aria-hidden="true" />,
-              item.label,
-              { isAction: item.isAction, variant: item.variant, onClick: item.onClick }
-            )}
-          </div>
+        return renderButton(
+          item.id,
+          <Icon className="h-5 w-5" aria-hidden="true" />,
+          item.label,
+          { isAction: item.isAction, variant: item.variant, onClick: item.onClick }
         );
       })
     : null;

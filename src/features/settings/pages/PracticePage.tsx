@@ -531,9 +531,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   useEffect(() => {
     if (location.query?.setup === 'contact' && !isContactModalOpen) {
       openContactModal();
-      navigate(toSettingsPath('practice'), true);
+      navigate(buildSettingsPath(settingsBasePath, 'practice'), true);
     }
-  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal, toSettingsPath]);
+  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal, settingsBasePath]);
 
   const handleTogglePublic = async (nextValue: boolean) => {
     await saveOnboardingSettings(

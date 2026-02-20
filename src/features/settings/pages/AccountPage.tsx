@@ -86,14 +86,12 @@ export const AccountPage = ({
   const avatarObjectUrlRef = useRef<string | null>(null);
   
 
-  const hasSubscription = canAccessPractice;
-  
   // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {
-    if (!hasSubscription) return null;
+    if (!currentSubscription) return null;
     return parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
            parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
-  }, [hasSubscription, currentSubscription?.currentPeriodEnd, currentPractice?.subscriptionPeriodEnd]);
+  }, [currentSubscription, currentPractice?.subscriptionPeriodEnd]);
 
   const clearLocalAuthState = useCallback(() => {
     try {
@@ -175,6 +173,7 @@ export const AccountPage = ({
   const hasActiveSubscription = currentSubscription !== null && 
     ['active', 'trialing', 'past_due'].includes((currentSubscription.status || '').toLowerCase());
   const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
+  const hasSubscription = Boolean(hasActiveSubscription || currentSubscription);
   const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
   const isDeleteBlocked = deletionBlockedBySubscription;
   const deletionBlockedMessage = (() => {
@@ -752,11 +751,10 @@ export const AccountPage = ({
                       <DropdownMenuItem
                         onSelect={() => {
                           if (!currentPractice) return;
+                          if (!origin) throw new Error('Missing window.location.origin; cannot create Stripe returnUrl');
                           void openBillingPortal({
                             practiceId: currentPractice.id,
-                            returnUrl: origin
-                              ? `${origin}${toSettingsPath('account')}?sync=1`
-                              : `${toSettingsPath('account')}?sync=1`
+                            returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
                           });
                         }}
                       >
@@ -809,12 +807,14 @@ export const AccountPage = ({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => currentPractice && openBillingPortal({
-                practiceId: currentPractice.id,
-                returnUrl: origin
-                  ? `${origin}${toSettingsPath('account')}?sync=1`
-                  : `${toSettingsPath('account')}?sync=1`
-              })}
+              onClick={() => {
+                if (!currentPractice) return;
+                if (!origin) throw new Error('Missing window.location.origin; cannot create Stripe returnUrl');
+                void openBillingPortal({
+                  practiceId: currentPractice.id,
+                  returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
+                });
+              }}
               disabled={!currentPractice || !isOwner || !canManageBilling || submitting}
             >
               {t('settings:account.payments.manage')}
@@ -847,12 +847,14 @@ export const AccountPage = ({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => currentPractice && openBillingPortal({
-                    practiceId: currentPractice.id,
-                    returnUrl: origin
-                      ? `${origin}${toSettingsPath('account')}?sync=1`
-                      : `${toSettingsPath('account')}?sync=1`
-                  })}
+                  onClick={() => {
+                    if (!currentPractice) return;
+                    if (!origin) throw new Error('Missing window.location.origin; cannot create Stripe returnUrl');
+                    void openBillingPortal({
+                      practiceId: currentPractice.id,
+                      returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
+                    });
+                  }}
                   disabled={!currentPractice || !isOwner || !canManageBilling}
                   data-testid="account-delete-action"
                 >

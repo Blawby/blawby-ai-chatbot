@@ -666,7 +666,7 @@ function PublicPracticeRoute({
     return <LoadingScreen />;
   }
 
-  if (!sessionIsPending && session?.user && !session.user.isAnonymous && practicesLoading && !resolvedPracticeId) {
+  if (!sessionIsPending && session?.user && !session.user.isAnonymous && practicesLoading) {
     return <LoadingScreen />;
   }
 
