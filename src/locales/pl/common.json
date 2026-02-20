@@ -279,8 +279,8 @@
   },
   "intake": {
     "authTitle": "Jesteś prawie gotowy",
-    "authDescription": "Utwórz bezpłatne konto, aby kontynuować najem i otrzymywać aktualizacje od {{practice}}. Wyślemy Ci link potwierdzający pocztą e-mail.",
-    "authDescriptionFallback": "Utwórz bezpłatne konto, aby kontynuować najem i otrzymywać aktualizacje. Wyślemy Ci link potwierdzający pocztą e-mail."
+    "authDescription": "Utwórz bezpłatne konto, aby kontynuować rejestrację i otrzymywać aktualizacje od {{practice}}. Wyślemy Ci link potwierdzający pocztą e-mail.",
+    "authDescriptionFallback": "Utwórz bezpłatne konto, aby kontynuować rejestrację i otrzymywać aktualizacje. Wyślemy Ci link potwierdzający pocztą e-mail."
   },
   "leadReview": {
     "accept": "Zaakceptuj",

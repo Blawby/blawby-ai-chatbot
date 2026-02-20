@@ -286,7 +286,7 @@
   "leadReview": {
     "accept": "Kabul Et",
     "decline": "Reddet",
-    "convert": "Davanın İçine Dönüştür",
+    "convert": "Dosyaya Dönüştür",
     "noPermission": "Bu adayı inceleme izniniz yok"
   }
 }
