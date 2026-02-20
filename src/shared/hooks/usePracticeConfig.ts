@@ -78,7 +78,8 @@ export const usePracticeConfig = ({
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 
-  // Use ref to track if we've already fetched for this practiceId
+  // Use ref to track if we've already fetched for this practiceId and auth mode
+  // Cache key format: "${practiceId}|${isAuthenticated?'auth':'unauth'}"
   const fetchedPracticeIds = useRef<Set<string>>(new Set());
   
   // Track current request to prevent stale responses from clobbering state
@@ -87,15 +88,22 @@ export const usePracticeConfig = ({
     abortController: AbortController;
   } | null>(null);
 
+  // Helper to create cache key including auth mode
+  const getCacheKey = useCallback((pId: string, isAuth: boolean): string => {
+    return `${pId}|${isAuth ? 'auth' : 'unauth'}`;
+  }, []);
+
   // Fetch practice configuration
   const fetchPracticeConfig = useCallback(async (currentPracticeId: string) => {
     const requestedPracticeId = currentPracticeId;
-    if (fetchedPracticeIds.current.has(currentPracticeId)) {
-      return; // Don't fetch if we've already fetched for this practiceId
+    const cacheKey = getCacheKey(currentPracticeId, isAuthenticated);
+    
+    if (fetchedPracticeIds.current.has(cacheKey)) {
+      return; // Don't fetch if we've already fetched for this practiceId+auth mode
     }
 
     // Mark as fetching immediately to prevent duplicate calls
-    fetchedPracticeIds.current.add(currentPracticeId);
+    fetchedPracticeIds.current.add(cacheKey);
 
     // Abort any existing request
     if (currentRequestRef.current) {
@@ -117,7 +125,7 @@ export const usePracticeConfig = ({
         currentRequestRef.current.practiceId !== requestedPracticeId ||
         controller.signal.aborted;
       if (isStale) {
-        fetchedPracticeIds.current.delete(currentPracticeId);
+        fetchedPracticeIds.current.delete(cacheKey);
       }
       return isStale;
     };
@@ -156,7 +164,7 @@ export const usePracticeConfig = ({
         }
 
         // No public details available - mark as not found for unauthenticated access.
-        fetchedPracticeIds.current.delete(currentPracticeId);
+        fetchedPracticeIds.current.delete(cacheKey);
         setPracticeNotFound(true);
         setIsLoading(false);
         return;
@@ -213,13 +221,13 @@ export const usePracticeConfig = ({
       } else {
         // Practice not found in the list - this indicates a 404-like scenario
         // Remove from fetched set so it can be retried
-        fetchedPracticeIds.current.delete(currentPracticeId);
+        fetchedPracticeIds.current.delete(cacheKey);
         setPracticeNotFound(true);
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         // Request was aborted; allow a new attempt to proceed
-        fetchedPracticeIds.current.delete(currentPracticeId);
+        fetchedPracticeIds.current.delete(cacheKey);
         return;
       }
       console.warn('Failed to fetch practice config:', error);
@@ -233,20 +241,21 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  }, [allowUnauthenticated]);
+  }, [allowUnauthenticated, isAuthenticated]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {
     setPracticeNotFound(false);
     // Remove from fetched set so we can retry
-    fetchedPracticeIds.current.delete(practiceId);
+    const cacheKey = getCacheKey(practiceId, isAuthenticated);
+    fetchedPracticeIds.current.delete(cacheKey);
     // Clear any current request to allow retry
     if (currentRequestRef.current) {
       currentRequestRef.current.abortController.abort();
       currentRequestRef.current = null;
     }
     fetchPracticeConfig(practiceId);
-  }, [practiceId, fetchPracticeConfig]);
+  }, [practiceId, fetchPracticeConfig, getCacheKey, isAuthenticated]);
 
   // Fetch practice config when explicit practiceId changes
   useEffect(() => {
@@ -271,9 +280,10 @@ export const usePracticeConfig = ({
     if (refreshKey === undefined) return;
     if (refreshKeyRef.current === refreshKey) return;
     refreshKeyRef.current = refreshKey;
-    fetchedPracticeIds.current.delete(practiceId);
+    const cacheKey = getCacheKey(practiceId, isAuthenticated);
+    fetchedPracticeIds.current.delete(cacheKey);
     fetchPracticeConfig(practiceId);
-  }, [fetchPracticeConfig, practiceId, refreshKey]);
+  }, [fetchPracticeConfig, practiceId, refreshKey, isAuthenticated, getCacheKey]);
 
   return {
     practiceId,

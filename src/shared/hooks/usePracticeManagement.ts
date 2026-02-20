@@ -708,11 +708,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     return workspaceData[practiceId]?.[resource] || [];
   }, [workspaceData]);
 
+  // Track the last practice slug we selected to detect when it changes
+  const lastSelectedSlugRef = useRef<string | undefined>();
+
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
-      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails)) {
+      // Check if practiceSlug has changed - if so, we need to re-select even if already fetched
+      const slugChanged = lastSelectedSlugRef.current !== practiceSlug;
+      
+      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
         return;
       }
 
@@ -737,6 +743,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         setCurrentPractice(snapshot.currentPractice);
         setLoading(false);
         practicesFetchedRef.current = true;
+        // Track that we've selected this slug
+        lastSelectedSlugRef.current = practiceSlug;
       };
 
       const hydrateSnapshotDetails = async (snapshot: SharedPracticeSnapshot) => {
