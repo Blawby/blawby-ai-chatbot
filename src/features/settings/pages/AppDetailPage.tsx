@@ -14,6 +14,8 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 interface AppDetailPageProps {
   app: App;
@@ -28,6 +30,25 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const isComingSoon = Boolean(app.comingSoon);
+
+  const { practices, currentPractice } = useWorkspaceResolver();
+  const slug = currentPractice?.slug ?? practices[0]?.slug ?? 'your-practice-slug';
+  const [copiedScript, setCopiedScript] = useState(false);
+
+  const messengerSnippet = `<script>
+  window.BlawbyWidget = {
+    practiceSlug: '${slug}',
+  };
+</script>
+<script src="https://ai.blawby.com/widget-loader.js" defer></script>`;
+
+  const copySnippet = () => {
+    navigator.clipboard.writeText(messengerSnippet).then(() => {
+      setCopiedScript(true);
+      setTimeout(() => setCopiedScript(false), 2000);
+      showSuccess('Code copied to clipboard', 'You can now paste it into your website.');
+    });
+  };
 
   const handleConnectClick = () => {
     setShowConnectModal(true);
@@ -126,17 +147,19 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               variant={app.connected ? 'secondary' : 'primary'}
               size="sm"
               onClick={app.connected ? handleDisconnect : handleConnectClick}
-              disabled={isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
+              disabled={app.id === 'blawby-messenger' || isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
             >
               {isConnecting
                 ? t('common:actions.loading')
                 : isDisconnecting
                   ? t('common:actions.loading')
-                  : app.connected
-                    ? t('settings:apps.clio.disconnect')
-                    : isComingSoon
-                      ? t('settings:apps.comingSoon')
-                      : t('settings:apps.clio.connect')}
+                  : app.id === 'blawby-messenger'
+                    ? 'Enabled'
+                    : app.connected
+                      ? t('settings:apps.clio.disconnect')
+                      : isComingSoon
+                        ? t('settings:apps.comingSoon')
+                        : t('settings:apps.clio.connect')}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -161,6 +184,47 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
       </div>
 
       <SectionDivider />
+
+      {/* Blawby Messenger custom integration block */}
+      {app.id === 'blawby-messenger' && (
+        <>
+          <SettingSection title="Integration Guide" className="py-6">
+            <div className="space-y-4">
+              <p className="text-sm text-secondary">
+                To add the chat widget to your website, copy the code snippet below and paste it into the <code>&lt;head&gt;</code> or just before the closing <code>&lt;/body&gt;</code> tag of your website.
+              </p>
+              
+              <div className="relative group">
+                <pre className="bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30">
+                  {messengerSnippet}
+                </pre>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
+                  icon={copiedScript ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
+                  onClick={copySnippet}
+                >
+                  {copiedScript ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+
+              <div className="rounded-md bg-accent-500/10 p-4 border border-accent-500/20 mt-4">
+                <h4 className="text-sm font-medium text-accent-400 mb-2">Advanced: Custom Domain Linking</h4>
+                <p className="text-sm text-secondary mb-3">
+                  To eliminate third-party cookie restrictions and make the chat widget seamlessly part of your site, point a subdomain (e.g., <code>chat.yourfirm.com</code>) to Blawby using a CNAME record.
+                </p>
+                <ul className="list-disc list-inside text-sm text-secondary space-y-1">
+                  <li>Create a CNAME record for your subdomain pointing to <code>blawby.com</code></li>
+                  <li>In the widget snippet above, add: <code>baseUrl: 'https://chat.yourfirm.com'</code></li>
+                </ul>
+              </div>
+            </div>
+          </SettingSection>
+
+          <SectionDivider />
+        </>
+      )}
 
       {/* Information */}
       <SettingSection title={t('settings:apps.clio.information')} className="py-6">
