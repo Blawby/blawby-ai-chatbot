@@ -346,6 +346,7 @@ export const useConversation = ({
   // ── realtime state reset ───────────────────────────────────────────────────
 
   const resetRealtimeState = useCallback(() => {
+    flushPendingAcks(new Error('reset realtime state'));
     messageIdSetRef.current.clear();
     pendingClientMessageRef.current.clear();
     lastSeqRef.current = 0;
@@ -353,7 +354,7 @@ export const useConversation = ({
     reactionLoadedRef.current.clear();
     reactionFetchRef.current.clear();
     pendingStreamMessageIdRef.current = null;
-  }, []);
+  }, [flushPendingAcks]);
 
   // ── send frame (used by WS handlers and exposed for useChatComposer) ───────
 
