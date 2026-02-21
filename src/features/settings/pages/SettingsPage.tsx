@@ -253,6 +253,7 @@ export const SettingsPage = ({
           variant="sidebar"
           activeTab="settings"
           onSelectTab={() => undefined}
+          showLogo={false}
           items={navigationItems}
           activeItemId={activeNavigationId}
           onSelectItem={handleNavigation}
@@ -336,6 +337,7 @@ export const SettingsPage = ({
             variant="sidebar"
             activeTab="settings"
             onSelectTab={() => undefined}
+            showLogo={false}
             items={navigationItems}
             activeItemId={activeNavigationId}
             onSelectItem={handleNavigation}

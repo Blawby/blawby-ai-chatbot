@@ -15,6 +15,15 @@ const normalizePaymentStatus = (status?: string): string | null => {
   return normalized.length > 0 ? normalized : null;
 };
 
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+const isIsoDateTime = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (!ISO_DATE_TIME_PATTERN.test(trimmed)) return false;
+  return Number.isFinite(Date.parse(trimmed));
+};
+
 /**
  * Proxy for POST /api/practice/client-intakes/create
  *
@@ -56,7 +65,11 @@ export async function handlePracticeIntakeCreate(request: Request, env: Env): Pr
         // Map court_date (ISO8601 date)
         const courtDate = typeof intakeFields.courtDate === 'string' ? intakeFields.courtDate.trim() : '';
         if (courtDate) {
-          body.court_date = courtDate;
+          if (isIsoDateTime(courtDate)) {
+            body.court_date = courtDate;
+          } else {
+            console.warn('[Intake] Skipping non-ISO courtDate from AI fields', { courtDate });
+          }
         }
 
         // Map desired_outcome

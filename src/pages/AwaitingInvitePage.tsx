@@ -4,6 +4,7 @@ import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getPublicPracticeDetails, linkConversationToUser, triggerIntakeInvitation } from '@/shared/lib/apiClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return '';
@@ -13,6 +14,7 @@ const resolveQueryValue = (value?: string | string[]) => {
 export const AwaitingInvitePage: FunctionComponent = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
+  const { isPending: sessionPending, isAnonymous } = useSessionContext();
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [wasAlreadySent, setWasAlreadySent] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -87,12 +89,18 @@ export const AwaitingInvitePage: FunctionComponent = () => {
 
   useEffect(() => {
     if (hasRunRef.current) return;
-    hasRunRef.current = true;
+    if (sessionPending) return;
+    if (isAnonymous) {
+      setStatus('error');
+      setErrorMessage('Please sign in first to continue your intake.');
+      return;
+    }
     if (!intakeUuid) {
       setStatus('error');
       setErrorMessage('Missing intake details. Please contact support.');
       return;
     }
+    hasRunRef.current = true;
     if (typeof window !== 'undefined') {
       try {
         window.sessionStorage.removeItem('intakeAwaitingInvitePath');
@@ -110,7 +118,7 @@ export const AwaitingInvitePage: FunctionComponent = () => {
       }
     }
     void handleTriggerInvite();
-  }, [handleTriggerInvite, intakeUuid]);
+  }, [handleTriggerInvite, intakeUuid, isAnonymous, sessionPending]);
 
   const heading = practiceName
     ? `You are almost done with ${practiceName}`
@@ -140,7 +148,9 @@ export const AwaitingInvitePage: FunctionComponent = () => {
             <Button
               variant="primary"
               onClick={handleTriggerInvite}
-              disabled={status === 'loading'}
+              disabled={status === 'loading' || isAnonymous || !intakeUuid}
+              aria-disabled={isAnonymous || !intakeUuid}
+              title={isAnonymous ? 'Please sign in to resend confirmation' : !intakeUuid ? 'Missing intake details' : ''}
             >
               Resend confirmation email
             </Button>

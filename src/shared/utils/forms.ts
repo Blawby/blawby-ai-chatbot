@@ -394,7 +394,7 @@ export async function submitContactForm(
       ...(description ? { description } : { description: '' }), // Always include description
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
       ...(formPayload.address ? { address: formPayload.address } : {}),
-      user_id: resolvedUserId,
+      ...(resolvedUserId ? { user_id: resolvedUserId } : {}),
       on_behalf_of: '' // Always include on_behalf_of
     };
 

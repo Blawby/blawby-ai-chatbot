@@ -10,6 +10,8 @@ interface AuthPromptModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   practiceName?: string | null;
+  initialEmail?: string;
+  initialName?: string;
   title?: string;
   description?: string;
   callbackURL?: string;
@@ -20,6 +22,8 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
   onClose,
   onSuccess,
   practiceName,
+  initialEmail,
+  initialName,
   title,
   description,
   callbackURL
@@ -56,6 +60,8 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
         <AuthForm
           mode={currentMode}
           defaultMode="signup"
+          initialEmail={initialEmail}
+          initialName={initialName}
           onModeChange={(mode) => setCurrentMode(mode)}
           callbackURL={callbackURL}
           onSuccess={async () => {

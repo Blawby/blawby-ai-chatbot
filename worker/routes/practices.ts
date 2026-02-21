@@ -148,6 +148,20 @@ async function notifyIntakeDecision(options: {
   const intakeUuid = typeof customFields?.intakeUuid === 'string' ? customFields.intakeUuid : null;
   if (!sessionId) return;
 
+  let inviteSent: boolean | null = null;
+  if (decision === 'accepted' && intakeUuid) {
+    try {
+      const inviteResult = await RemoteApiService.triggerPracticeClientIntakeInvite(
+        env,
+        intakeUuid,
+        options.request
+      );
+      inviteSent = inviteResult.success;
+    } catch (error) {
+      console.error('[Practices] Failed to trigger intake invite', { error, intakeUuid, decision });
+    }
+  }
+
   const conversationService = new ConversationService(env);
   try {
     await conversationService.attachMatter(sessionId, practiceId, matterId);
@@ -194,7 +208,8 @@ async function notifyIntakeDecision(options: {
         intakeDecision: decision,
         actorUserId,
         reason: reason ?? null,
-        intakeUuid: intakeUuid ?? null
+        intakeUuid: intakeUuid ?? null,
+        inviteSent
       },
       recipientUserId: conversationUserId ?? undefined,
       request: options.request

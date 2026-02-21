@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import axios from 'axios';
 import { z } from 'zod';
 import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -66,9 +67,14 @@ export const usePracticeConfig = ({
 }: UsePracticeConfigOptions = {}) => {
   const { session } = useSessionContext();
   const isAuthenticated = Boolean(session?.user);
+  const authCacheMode: 'public' | 'auth' | 'unauth' = allowUnauthenticated
+    ? 'public'
+    : (isAuthenticated ? 'auth' : 'unauth');
+  const canFetch = allowUnauthenticated || isAuthenticated;
   const practiceId = typeof explicitPracticeId === 'string' ? explicitPracticeId.trim() : '';
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>(() => buildDefaultPracticeConfig());
   const refreshKeyRef = useRef<string | number | null | undefined>(refreshKey);
 
@@ -89,14 +95,14 @@ export const usePracticeConfig = ({
   } | null>(null);
 
   // Helper to create cache key including auth mode
-  const getCacheKey = useCallback((pId: string, isAuth: boolean): string => {
-    return `${pId}|${isAuth ? 'auth' : 'unauth'}`;
+  const getCacheKey = useCallback((pId: string, mode: 'public' | 'auth' | 'unauth'): string => {
+    return `${pId}|${mode}`;
   }, []);
 
   // Fetch practice configuration
   const fetchPracticeConfig = useCallback(async (currentPracticeId: string) => {
     const requestedPracticeId = currentPracticeId;
-    const cacheKey = getCacheKey(currentPracticeId, isAuthenticated);
+    const cacheKey = getCacheKey(currentPracticeId, authCacheMode);
     
     if (fetchedPracticeIds.current.has(cacheKey)) {
       return; // Don't fetch if we've already fetched for this practiceId+auth mode
@@ -118,6 +124,7 @@ export const usePracticeConfig = ({
     };
 
     setIsLoading(true);
+    setLoadError(null);
 
     const isStaleRequest = (): boolean => {
       const isStale =
@@ -159,6 +166,7 @@ export const usePracticeConfig = ({
 
           setPracticeConfig(config);
           setPracticeNotFound(false);
+          setLoadError(null);
           setIsLoading(false);
           return;
         }
@@ -166,6 +174,7 @@ export const usePracticeConfig = ({
         // No public details available - mark as not found for unauthenticated access.
         fetchedPracticeIds.current.delete(cacheKey);
         setPracticeNotFound(true);
+        setLoadError(null);
         setIsLoading(false);
         return;
       }
@@ -181,8 +190,12 @@ export const usePracticeConfig = ({
           practice = PracticeSchema.parse(practiceData as unknown as Record<string, unknown>);
         }
       } catch (e) {
-        // If direct fetch fails, fall through to list approach when authenticated
-        console.debug('[usePracticeConfig] Direct practice fetch failed, falling back to list', e);
+        // Only treat 404 as "not found". Re-throw all other errors.
+        if (axios.isAxiosError(e) && e.response?.status === 404) {
+          practice = undefined;
+        } else {
+          throw e;
+        }
       }
 
       // Check again before processing practice data
@@ -218,20 +231,27 @@ export const usePracticeConfig = ({
 
         setPracticeConfig(config);
         setPracticeNotFound(false);
+        setLoadError(null);
       } else {
         // Practice not found in the list - this indicates a 404-like scenario
         // Remove from fetched set so it can be retried
         fetchedPracticeIds.current.delete(cacheKey);
         setPracticeNotFound(true);
+        setLoadError(null);
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (
+        (error instanceof Error && error.name === 'AbortError') ||
+        (axios.isAxiosError(error) && error.code === 'ERR_CANCELED')
+      ) {
         // Request was aborted; allow a new attempt to proceed
         fetchedPracticeIds.current.delete(cacheKey);
         return;
       }
       console.warn('Failed to fetch practice config:', error);
-      setPracticeNotFound(true);
+      // Keep "not found" strictly for null/404 cases; transient/runtime errors should not render 404 UI.
+      setPracticeNotFound(false);
+      setLoadError(error instanceof Error ? error.message : 'Failed to load practice configuration');
       onErrorRef.current?.('Failed to load practice configuration');
     } finally {
       // Clear the current request ref and reset loading state
@@ -241,13 +261,14 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  }, [allowUnauthenticated, isAuthenticated]);
+  }, [allowUnauthenticated, authCacheMode, getCacheKey]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {
     setPracticeNotFound(false);
+    setLoadError(null);
     // Remove from fetched set so we can retry
-    const cacheKey = getCacheKey(practiceId, isAuthenticated);
+    const cacheKey = getCacheKey(practiceId, authCacheMode);
     fetchedPracticeIds.current.delete(cacheKey);
     // Clear any current request to allow retry
     if (currentRequestRef.current) {
@@ -255,14 +276,15 @@ export const usePracticeConfig = ({
       currentRequestRef.current = null;
     }
     fetchPracticeConfig(practiceId);
-  }, [practiceId, fetchPracticeConfig, getCacheKey, isAuthenticated]);
+  }, [practiceId, fetchPracticeConfig, getCacheKey, authCacheMode]);
 
   // Fetch practice config when explicit practiceId changes
   useEffect(() => {
-    if ((isAuthenticated || allowUnauthenticated) && practiceId) {
+    if (canFetch && practiceId) {
       fetchPracticeConfig(practiceId);
     } else if (!practiceId) {
       setPracticeNotFound(false);
+      setLoadError(null);
       setIsLoading(false);
       setPracticeConfig(buildDefaultPracticeConfig());
     }
@@ -273,23 +295,24 @@ export const usePracticeConfig = ({
         currentRequestRef.current.abortController.abort();
       }
     };
-  }, [practiceId, isAuthenticated, allowUnauthenticated, fetchPracticeConfig]);
+  }, [practiceId, canFetch, fetchPracticeConfig]);
 
   useEffect(() => {
     if (!practiceId) return;
     if (refreshKey === undefined) return;
     if (refreshKeyRef.current === refreshKey) return;
     refreshKeyRef.current = refreshKey;
-    const cacheKey = getCacheKey(practiceId, isAuthenticated);
+    const cacheKey = getCacheKey(practiceId, authCacheMode);
     fetchedPracticeIds.current.delete(cacheKey);
     fetchPracticeConfig(practiceId);
-  }, [fetchPracticeConfig, practiceId, refreshKey, isAuthenticated, getCacheKey]);
+  }, [fetchPracticeConfig, practiceId, refreshKey, authCacheMode, getCacheKey]);
 
   return {
     practiceId,
     practiceConfig,
     practiceNotFound,
+    loadError,
     isLoading,
     handleRetryPracticeConfig,
   };
-}; 
+};

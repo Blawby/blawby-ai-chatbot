@@ -86,13 +86,51 @@ export class RemoteApiService {
         clearTimeout(timeoutId);
 
       if (!response.ok) {
+        let parsedBody: unknown = null;
+        let rawBody = '';
+        try {
+          rawBody = await response.text();
+          if (rawBody.trim()) {
+            parsedBody = JSON.parse(rawBody);
+          }
+        } catch {
+          parsedBody = rawBody || null;
+        }
+
+        const parsedRecord = parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)
+          ? parsedBody as Record<string, unknown>
+          : null;
+        const upstreamMessage =
+          (parsedRecord && typeof parsedRecord.error === 'string' && parsedRecord.error.trim()) ||
+          (parsedRecord && typeof parsedRecord.message === 'string' && parsedRecord.message.trim()) ||
+          '';
+        const message = upstreamMessage || `Remote API error: ${response.statusText}`;
+
         if (response.status === 404) {
-          throw HttpErrors.notFound(`Practice not found: ${endpoint}`);
+          throw HttpErrors.notFound(message, { endpoint, upstream: parsedBody });
         }
         if (response.status === 401) {
-          throw HttpErrors.unauthorized('Authentication required');
+          throw HttpErrors.unauthorized(message, { endpoint, upstream: parsedBody });
         }
-        throw HttpErrors.internalServerError(`Remote API error: ${response.statusText}`);
+        if (response.status === 400) {
+          throw HttpErrors.badRequest(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 402) {
+          throw HttpErrors.paymentRequired(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 403) {
+          throw HttpErrors.forbidden(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 409) {
+          throw HttpErrors.conflict(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 422) {
+          throw HttpErrors.unprocessableEntity(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 429) {
+          throw HttpErrors.tooManyRequests(message, { endpoint, upstream: parsedBody });
+        }
+        throw new HttpError(response.status, message, { endpoint, upstream: parsedBody });
       }
 
       return response;
@@ -675,6 +713,47 @@ export class RemoteApiService {
     } catch (error) {
       if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
         return null;
+      }
+      throw error;
+    }
+  }
+
+  static async triggerPracticeClientIntakeInvite(
+    env: Env,
+    intakeUuid: string,
+    request?: Request
+  ): Promise<{ success: boolean; message?: string }> {
+    if (!intakeUuid) {
+      return { success: false };
+    }
+
+    try {
+      const response = await this.fetchFromRemoteApi(
+        env,
+        `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`,
+        request,
+        {
+          method: 'POST',
+          body: JSON.stringify({})
+        }
+      );
+
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+      } | null;
+
+      if (payload && typeof payload === 'object') {
+        return {
+          success: payload.success !== false,
+          message: typeof payload.message === 'string' ? payload.message : undefined
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 403 || error.status === 404)) {
+        return { success: false };
       }
       throw error;
     }

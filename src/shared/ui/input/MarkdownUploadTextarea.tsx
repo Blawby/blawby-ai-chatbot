@@ -11,6 +11,8 @@ import {
 import { cn } from '@/shared/utils/cn';
 import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
+import remarkGfm from 'remark-gfm';
+import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
 
 // Custom hook to dynamically import react-markdown on client
 function useReactMarkdown() {
@@ -393,7 +395,9 @@ export const MarkdownUploadTextarea = ({
                     </button>
                   </div>
                 ) : ReactMarkdown ? (
-                  <ReactMarkdown>{value}</ReactMarkdown>
+                  <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+                    {value}
+                  </ReactMarkdown>
                 ) : (
                   <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500">
                     Loading preview…

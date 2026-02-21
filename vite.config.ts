@@ -141,6 +141,8 @@ const createWorkerProxyConfig = (): ProxyOptions => ({
 	},
 });
 
+import { createRequire } from 'module';
+
 const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	const entries: Record<string, ProxyOptions> = {};
 
@@ -152,12 +154,57 @@ const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	return entries;
 };
 
+// Plugin to fix decode-named-character-reference during prerendering
+const fixDecodeNamedCharacterReference = (): Plugin => {
+	return {
+		name: 'fix-decode-named-character-reference',
+		configResolved(config) {
+			// Override the conditions to force non-DOM version during build
+			config.build.rollupOptions = {
+				...config.build.rollupOptions,
+				onwarn(warning, warn) {
+					// Suppress warnings about this specific package
+					if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+					warn(warning);
+				}
+			};
+		},
+		resolveId(id, importer) {
+			if (id === 'decode-named-character-reference') {
+				// Dynamically resolve the package entry instead of hardcoding a pnpm path.
+				// We want the non-DOM build (default export) so use Node resolution with
+				// appropriate conditions. If resolution fails, log and return null so
+				// Vite can fall back or surface an error.
+				try {
+					const req = createRequire(import.meta.url);
+					// require.resolve will respect "exports" and choose the default
+					// entry, which in this package is the non-DOM index.js.
+					const resolved = req.resolve('decode-named-character-reference', { paths: [__dirname] });
+					return resolved;
+				} catch (err) {
+					console.error('[vite] failed to resolve decode-named-character-reference:', err);
+					return null;
+				}
+			}
+			return null;
+		},
+		load(id) {
+			if (id.includes('decode-named-character-reference') && id.endsWith('index.js')) {
+				// Return the content of the non-DOM version
+				return null; // Let Vite handle loading the file
+			}
+			return null;
+		}
+	};
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
 		envPrefix: ['VITE_'],
 		plugins: [
+			fixDecodeNamedCharacterReference(),
 			preact({
 				prerender: {
 					enabled: true,

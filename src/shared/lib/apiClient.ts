@@ -1288,22 +1288,50 @@ function extractPublicPracticeId(payload: unknown): string | null {
   if (!isRecord(payload)) {
     return null;
   }
-  const direct = toNullableString(
-    payload.practiceId ??
-    payload.practice_id ??
-    payload.organizationId ??
-    payload.organization_id
-  );
-  if (direct) {
-    return direct;
+
+  const extractFromRecord = (value: Record<string, unknown>): string | null => {
+    const direct = toNullableString(
+      value.practiceId ??
+      value.practice_id ??
+      value.organizationId ??
+      value.organization_id ??
+      value.id
+    );
+    return direct ?? null;
+  };
+
+  const candidates: Record<string, unknown>[] = [];
+  const pushCandidate = (value: unknown) => {
+    if (isRecord(value)) {
+      candidates.push(value);
+    }
+  };
+
+  pushCandidate(payload);
+  pushCandidate(payload.organization);
+  pushCandidate(payload.practice);
+
+  if ('details' in payload && isRecord(payload.details)) {
+    pushCandidate(payload.details);
+    pushCandidate(payload.details.data);
+    pushCandidate(payload.details.organization);
+    pushCandidate(payload.details.practice);
   }
-  const organization = payload.organization;
-  if (isRecord(organization)) {
-    const orgId = toNullableString(organization.id ?? organization.practiceId ?? organization.practice_id);
-    if (orgId) {
-      return orgId;
+
+  if ('data' in payload && isRecord(payload.data)) {
+    pushCandidate(payload.data);
+    pushCandidate(payload.data.details);
+    pushCandidate(payload.data.organization);
+    pushCandidate(payload.data.practice);
+  }
+
+  for (const candidate of candidates) {
+    const id = extractFromRecord(candidate);
+    if (id) {
+      return id;
     }
   }
+
   return null;
 }
 

@@ -1,7 +1,7 @@
 import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
-import type { Env } from '../types.js';
+import { HttpError, type Env } from '../types.js';
 import { ConversationService, type Conversation } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
@@ -36,6 +36,14 @@ const isValidContactFormMetadata = (metadata: Record<string, unknown> | null | u
 type PracticeContextResolution = {
   practiceId: string;
   isMember: boolean;
+  memberRole?: string;
+};
+
+const STAFF_MEMBER_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal']);
+
+const isStaffMemberRole = (role: string | undefined): boolean => {
+  if (!role) return false;
+  return STAFF_MEMBER_ROLES.has(role);
 };
 
 const resolvePracticeContext = async (options: {
@@ -55,7 +63,8 @@ const resolvePracticeContext = async (options: {
 
   return {
     practiceId,
-    isMember: membership.isMember
+    isMember: membership.isMember,
+    memberRole: membership.memberRole
   };
 };
 
@@ -137,7 +146,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
     } else {
       const membership = await checkPracticeMembership(request, env, conversation.practice_id);
-      if (!membership.isMember) {
+      if (!isStaffMemberRole(membership.memberRole)) {
         await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
       }
     }
@@ -169,7 +178,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
     } else {
       const membership = await checkPracticeMembership(request, env, conversationPracticeId);
-      if (!membership.isMember) {
+      if (!isStaffMemberRole(membership.memberRole)) {
         await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
       }
     }
@@ -248,7 +257,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
     } else {
       const membership = await checkPracticeMembership(request, env, conversationPracticeId);
-      if (!membership.isMember) {
+      if (!isStaffMemberRole(membership.memberRole)) {
         await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
       }
     }
@@ -318,7 +327,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     } else {
       const membership = await checkPracticeMembership(request, env, practiceId);
       isMember = membership.isMember;
-      if (membership.isMember) {
+      if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
         await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
@@ -479,7 +488,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       return createJsonResponse({ conversation }); // Single object
     }
 
-    if (practiceContext.isMember) {
+    if (practiceContext.isMember && isStaffMemberRole(practiceContext.memberRole)) {
       await requirePracticeMember(request, env, practiceId, 'paralegal');
 
       const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
@@ -560,7 +569,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } else {
       const membership = await checkPracticeMembership(request, env, practiceId);
-      if (membership.isMember) {
+      if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
         await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
@@ -620,7 +629,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
-    const body = await parseJsonBody(request) as { userId?: string | null };
+    const body = await parseJsonBody(request) as { userId?: string | null; anonymousSessionId?: string | null };
 
     if (authContext.isAnonymous) {
       throw HttpErrors.unauthorized('Sign in is required to link a conversation');
@@ -631,8 +640,24 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.forbidden('Cannot link conversation to a different user');
     }
 
-    // Validate user has access to the conversation
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    // Allow authenticated users to claim anonymous conversations on first load.
+    // This supports direct refresh on /public/:slug/conversations/:id after auth.
+    // Require explict ownership proof before allowing claim.
+    try {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    } catch (error) {
+      if (!(error instanceof HttpError) || error.status !== 403) {
+        throw error;
+      }
+      const conversation = await conversationService.getConversation(conversationId, practiceId);
+      if (conversation.user_id) {
+        throw error;
+      }
+      // Require ownership proof
+      if (!body.anonymousSessionId || body.anonymousSessionId !== (conversation as any).anonymous_session_id) {
+        throw error;
+      }
+    }
 
     const conversation = await conversationService.linkConversationToUser(
       conversationId,

@@ -89,6 +89,7 @@ interface MessageProps {
 	};
 	onOpenSidebar?: () => void;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
+	isStreaming?: boolean;
 	isLoading?: boolean;
 	toolMessage?: string;
 	id?: string;
@@ -139,6 +140,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onReplyPreviewClick,
 	onReply,
 	onToggleReaction,
+	isStreaming = false,
 	isLoading,
 	toolMessage,
 	id: _id,
@@ -154,7 +156,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onQuickReply
 }) => {
 	const hasContent = Boolean(content);
-	const isStreaming = false; // No streaming for user-to-user chat
 	const shouldShowIndicator = isLoading && !hasContent;
 	
 	const hasOnlyMedia = files.length > 0 && !content && files.every(file => 

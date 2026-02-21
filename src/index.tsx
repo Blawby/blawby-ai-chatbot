@@ -22,6 +22,7 @@ import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
   buildSettingsPath,
+  getValidatedSettingsReturnPath,
   getSettingsReturnPath,
   getWorkspaceHomePath,
   setSettingsReturnPath
@@ -59,7 +60,14 @@ function AppShell() {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
-  const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver();
+  const shouldFetchWorkspacePractices =
+    !location.path.startsWith('/public/') &&
+    !location.path.startsWith('/auth') &&
+    !location.path.startsWith('/pricing') &&
+    !location.path.startsWith('/pay');
+  const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
+    autoFetchPractices: shouldFetchWorkspacePractices
+  });
 
   const handleRouteChange = useCallback((url: string) => {
     if (typeof window === 'undefined') return;
@@ -71,16 +79,33 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
+    const isPublicIntakeRoute =
+      location.path.startsWith('/public/') ||
+      location.path.startsWith('/client/') ||
+      location.path.startsWith('/pay');
     if (typeof window !== 'undefined') {
       try {
         const pendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
         if (pendingPath) {
-          window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-          if (pendingPath.startsWith('/') && !pendingPath.startsWith('//')) {
-            if (!location.path.startsWith('/auth/awaiting-invite')) {
-              navigate(pendingPath, true);
-            }
+          const currentUrl = location.url.startsWith('/')
+            ? location.url
+            : `/${location.url.replace(/^\/+/, '')}`;
+          const isValidPendingPath = pendingPath.startsWith('/') && !pendingPath.startsWith('//');
+          const isAuthReturnRoute = location.path.startsWith('/auth');
+
+          if (!isValidPendingPath) {
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+          } else if (pendingPath === currentUrl) {
+            // Already at the target path; consume it without triggering another navigation.
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+          } else if (isAuthReturnRoute) {
+            // Only auto-redirect from auth return routes to avoid flicker on normal public page refresh.
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
+            navigate(pendingPath, true);
             return;
+          } else {
+            // Stale pending path outside auth flow; consume it to prevent repeated soft redirects.
+            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
           }
         }
       } catch (error) {
@@ -96,7 +121,10 @@ function AppShell() {
     }
     const user = session?.user;
     const requiresOnboarding =
-      Boolean(user) && !user?.isAnonymous && user?.onboardingComplete !== true;
+      Boolean(user) &&
+      !user?.isAnonymous &&
+      user?.onboardingComplete !== true &&
+      !isPublicIntakeRoute;
 
     if (requiresOnboarding) {
       if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
@@ -117,7 +145,16 @@ function AppShell() {
       const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
       navigate(fallback, true);
     }
-  }, [currentPractice, defaultWorkspace, location.path, location.url, navigate, practices, session?.user, sessionPending]);
+  }, [
+    currentPractice,
+    defaultWorkspace,
+    location.path,
+    location.url,
+    navigate,
+    practices,
+    session?.user,
+    sessionPending
+  ]);
 
   return (
     <ToastProvider>
@@ -162,6 +199,27 @@ function AppShell() {
   );
 }
 
+function RouteLoadError({
+  message,
+  onRetry
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="text-sm text-input-text">Failed to load this page: {message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-md border border-input-border px-3 py-1.5 text-sm text-input-text hover:bg-hover-background"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
 function LegacySettingsRoute() {
   const location = useLocation();
   const { defaultWorkspace, currentPractice, practices, practicesLoading } = useWorkspaceResolver();
@@ -169,6 +227,14 @@ function LegacySettingsRoute() {
   const resolvedPractice = currentPractice ?? practices[0] ?? null;
   const resolvedSlug = resolvedPractice?.slug ?? null;
   const legacySubPath = location.path.replace(/^\/settings\/?/, '');
+  const legacySearch = useMemo(() => {
+    const queryIndex = location.url.indexOf('?');
+    if (queryIndex < 0) return '';
+    const hashIndex = location.url.indexOf('#', queryIndex);
+    return hashIndex < 0
+      ? location.url.slice(queryIndex)
+      : location.url.slice(queryIndex, hashIndex);
+  }, [location.url]);
 
   useEffect(() => {
     if (practicesLoading || !resolvedSlug || !resolvedPractice) return;
@@ -176,10 +242,9 @@ function LegacySettingsRoute() {
     const settingsBase = `/${workspacePrefix}/${encodeURIComponent(resolvedSlug)}/settings`;
     const targetPath = buildSettingsPath(settingsBase, legacySubPath || undefined);
     // Preserve query parameters when redirecting
-    const search = typeof window !== 'undefined' ? window.location.search : '';
-    const fullPath = search ? targetPath + search : targetPath;
+    const fullPath = legacySearch ? targetPath + legacySearch : targetPath;
     navigate(fullPath, true);
-  }, [defaultWorkspace, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
+  }, [defaultWorkspace, legacySearch, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
 
   if (!practicesLoading && (!resolvedSlug || !resolvedPractice)) return <App404 />;
 
@@ -210,7 +275,10 @@ function WorkspaceSettingsRoute({
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
     const fallback = workspaceKey ? getWorkspaceHomePath(workspaceKey, slug, '/') : '/';
-    navigate(returnPath ?? fallback, true);
+    const validatedReturnPath = workspaceKey
+      ? getValidatedSettingsReturnPath(returnPath, workspaceKey, slug)
+      : null;
+    navigate(validatedReturnPath ?? fallback, true);
   }, [navigate, slug, workspaceKey]);
 
   if (!slug || !workspaceKey) {
@@ -473,7 +541,7 @@ function ClientPracticeRoute({
     } else if (!isAuthenticatedClient && workspaceView === 'matters') {
       navigate(`/client/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending, session]);
+  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending]);
 
   if (isLoading || sessionIsPending || practicesLoading) {
     return <LoadingScreen />;
@@ -533,30 +601,27 @@ function PublicPracticeRoute({
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
-  const {
-    practicesLoading,
-    resolvePracticeBySlug
-  } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
 
   const slug = (practiceSlug ?? '').trim();
-  const slugPractice = resolvePracticeBySlug(slug);
 
   const {
     practiceConfig,
     practiceNotFound,
-    isLoading
+    loadError,
+    isLoading,
+    handleRetryPracticeConfig
   } = usePracticeConfig({
     onError: handlePracticeError,
     practiceId: slug,
     allowUnauthenticated: true
   });
   const resolvedPracticeId = useMemo(
-    () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : '') || slugPractice?.id || '',
-    [practiceConfig.id, slugPractice?.id]
+    () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : ''),
+    [practiceConfig.id]
   );
 
   // Handle anonymous sign-in for widget users (clients chatting with practices)
@@ -648,7 +713,7 @@ function PublicPracticeRoute({
     } else if (!isAuthenticatedClient && workspaceView === 'matters') {
       navigate(`/public/${encodeURIComponent(slug)}`, true);
     }
-  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending, session]);
+  }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -662,15 +727,11 @@ function PublicPracticeRoute({
     return <App404 />;
   }
 
+  if (loadError) {
+    return <RouteLoadError message={loadError} onRetry={handleRetryPracticeConfig} />;
+  }
+
   if (!resolvedPracticeId) {
-    return <LoadingScreen />;
-  }
-
-  if (sessionIsPending) {
-    return <LoadingScreen />;
-  }
-
-  if (!sessionIsPending && session?.user && !session.user.isAnonymous && practicesLoading) {
     return <LoadingScreen />;
   }
 

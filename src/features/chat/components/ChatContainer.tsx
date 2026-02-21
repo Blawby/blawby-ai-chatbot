@@ -16,7 +16,6 @@ import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import type { MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
@@ -171,6 +170,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const isMobile = useMobileDetection();
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
+  const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
@@ -237,16 +237,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (canHandleCta && onIntakeCtaResponse) {
       if (isAffirmative) {
         (async () => {
-          if (onSubmitNow) {
-            try {
-              await onSubmitNow();
-            } catch (error) {
-              console.error('Failed to submit via chat shortcut', error);
-              onIntakeCtaResponse('ready');
-            }
-          } else {
-            onIntakeCtaResponse('ready');
-          }
+          await handleSubmitNowAction();
         })();
         setInputValue('');
         setReplyTarget(null);
@@ -289,6 +280,51 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
+  const onSubmitNowRef = useRef(onSubmitNow);
+  useEffect(() => {
+    onSubmitNowRef.current = onSubmitNow;
+  }, [onSubmitNow]);
+
+  const handleSubmitNowAction = async () => {
+    if (isAnonymousUser) {
+      setPendingSubmitAfterAuth(true);
+      onAuthPromptRequest?.();
+      return;
+    }
+    if (onSubmitNow) {
+      await onSubmitNow();
+      return;
+    }
+    onIntakeCtaResponse?.('ready');
+  };
+
+  useEffect(() => {
+    if (!pendingSubmitAfterAuth) return;
+    if (isAnonymousUser) return;
+    if (!onSubmitNowRef.current) {
+      onIntakeCtaResponse?.('ready');
+      setPendingSubmitAfterAuth(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await onSubmitNowRef.current?.();
+      } catch (error) {
+        console.error('Failed to continue intake after auth', error);
+      } finally {
+        if (!cancelled) {
+          setPendingSubmitAfterAuth(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAnonymousUser, pendingSubmitAfterAuth]);
+
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -319,6 +355,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const handleAuthPromptClose = () => {
     setPendingPaymentRequest(null);
+    setPendingSubmitAfterAuth(false);
     onAuthPromptClose?.();
   };
 
@@ -350,14 +387,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (!paymentRequest) {
       handleClosePayment();
       return;
-    }
-
-    if (paymentRequest.intakeUuid && !isAnonymousUser) {
-      try {
-        await triggerIntakeInvitation(paymentRequest.intakeUuid);
-      } catch (error) {
-        console.error('[Chat] Failed to trigger intake invitation', error);
-      }
     }
 
     const isValidUuid = typeof paymentRequest.intakeUuid === 'string'
@@ -463,7 +492,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     intakeConversationState={intakeConversationState}
                     onQuickReply={handleQuickReply}
                     onIntakeCtaResponse={onIntakeCtaResponse}
-                    onSubmitNow={onSubmitNow}
+                    onSubmitNow={handleSubmitNowAction}
                     onBuildBrief={onBuildBrief}
                     modeSelectorActions={onSelectMode ? {
                       onAskQuestion: handleAskQuestion,
@@ -531,16 +560,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           size="sm"
                           className="w-full"
                           onClick={async () => {
-                            if (onSubmitNow) {
-                              try {
-                                await onSubmitNow();
-                              } catch (error) {
-                                console.error('Failed to submit via footer CTA', error);
-                                onIntakeCtaResponse?.('ready');
-                              }
-                              return;
-                            }
-                            onIntakeCtaResponse?.('ready');
+                            await handleSubmitNowAction();
                           }}
                         >
                           {t('chat.submitRequest')}
@@ -559,6 +579,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         isOpen={showAuthPrompt}
         onClose={handleAuthPromptClose}
         practiceName={practiceConfig?.name}
+        initialName={slimContactDraft?.name}
+        initialEmail={slimContactDraft?.email}
         onSuccess={handleAuthSuccess}
         title={authPromptTitle}
         description={authPromptDescription}
