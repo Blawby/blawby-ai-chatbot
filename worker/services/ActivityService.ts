@@ -48,9 +48,8 @@ export class ActivityService {
         metadata,
         created_at
       FROM matter_events 
-      WHERE matter_id = ? AND matter_id IN (
-        SELECT id FROM matters WHERE practice_id = ?
-      )
+      WHERE matter_id = ?
+        AND practice_id = ?
       ORDER BY event_date DESC, created_at DESC
     `);
     
@@ -160,7 +159,7 @@ export class ActivityService {
           created_at
         FROM matter_events 
         WHERE (? IS NULL OR matter_id = ?)
-          AND matter_id IN (SELECT id FROM matters WHERE practice_id = ?)
+          AND practice_id = ?
           AND (? IS NULL OR event_date >= ?)
           AND (? IS NULL OR event_date <= ?)
           AND (? IS NULL OR event_type IN (SELECT value FROM json_each(?)))
@@ -246,7 +245,7 @@ export class ActivityService {
         WITH combined_events AS (
           SELECT id FROM matter_events 
           WHERE (? IS NULL OR matter_id = ?)
-            AND matter_id IN (SELECT id FROM matters WHERE practice_id = ?)
+            AND practice_id = ?
             AND (? IS NULL OR event_date >= ?)
             AND (? IS NULL OR event_date <= ?)
             AND (? IS NULL OR event_type IN (SELECT value FROM json_each(?)))
@@ -292,13 +291,14 @@ export class ActivityService {
     if (event.type === 'matter_event') {
       const stmt = this.env.DB.prepare(`
         INSERT INTO matter_events (
-          id, matter_id, event_type, title, description, event_date,
+          id, practice_id, matter_id, event_type, title, description, event_date,
           created_by_lawyer_id, metadata, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
       await stmt.bind(
         eventId,
+        _practiceId,
         event.metadata?.matterId,
         event.eventType,
         event.title,

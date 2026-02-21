@@ -276,5 +276,16 @@
       "addMore": "Thêm",
       "notYet": "Chưa phải lúc này"
     }
+  },
+  "intake": {
+    "authTitle": "Bạn sắp hoàn tất",
+    "authDescription": "Tạo tài khoản miễn phí để tiếp tục nhập thông tin của bạn và nhận cập nhật từ {{practice}}. Chúng tôi sẽ gửi cho bạn một liên kết xác nhận qua email.",
+    "authDescriptionFallback": "Tạo tài khoản miễn phí để tiếp tục nhập thông tin của bạn và nhận cập nhật. Chúng tôi sẽ gửi cho bạn một liên kết xác nhận qua email."
+  },
+  "leadReview": {
+    "accept": "Chấp nhận",
+    "decline": "Từ chối",
+    "convert": "Chuyển đổi thành vụ án",
+    "noPermission": "Bạn không có quyền xem xét khách hàng tiềm năng này"
   }
 }

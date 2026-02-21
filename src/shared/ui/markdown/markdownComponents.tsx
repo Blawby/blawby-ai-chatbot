@@ -76,10 +76,11 @@ const CopyButton = ({ text }: { text: string }) => {
 
 export const markdownComponents: Components = {
   a({ href, children, ...props }) {
-    const isExternal = href?.startsWith('http') || href?.startsWith('//');
+    const hrefValue = typeof href === 'string' ? href : undefined;
+    const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
     return (
       <a
-        href={href}
+        href={hrefValue}
         {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         className="text-accent-500 hover:text-accent-400 underline underline-offset-2 transition-colors duration-150"
         {...props}
@@ -134,8 +135,8 @@ export const markdownComponents: Components = {
     );
   },
 
-  code({ className, children, inline, ...props }) {
-    const isBlock = inline !== true;
+  code({ className, children, ...props }) {
+    const isBlock = typeof className === 'string' && className.includes('language-');
     if (isBlock) {
       return (
         <code className="block font-mono text-sm leading-relaxed text-gray-100" {...props}>

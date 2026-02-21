@@ -2,12 +2,13 @@ import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError, type Env } from '../types.js';
-import { ConversationService, type Conversation } from '../services/ConversationService.js';
+import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
+import { handleSubmitIntake } from './submitIntake.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
@@ -16,7 +17,8 @@ const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-contact-form',
   'system-submission-confirm',
   'system-lead-accepted',
-  'system-lead-declined'
+  'system-lead-declined',
+  'system-intake-submit'
 ]);
 
 const isAllowedSystemMessageId = (clientId: string): boolean => {
@@ -74,51 +76,6 @@ function createJsonResponse(data: unknown, headers?: Record<string, string>): Re
     headers: { 'Content-Type': 'application/json', ...(headers ?? {}) }
   });
 }
-
-const annotateLeadConversations = async (
-  env: Env,
-  practiceId: string,
-  conversations: Conversation[]
-): Promise<Conversation[]> => {
-  const matterIds = conversations
-    .map((conversation) => conversation.matter_id)
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
-
-  if (matterIds.length === 0) {
-    return conversations;
-  }
-
-  const placeholders = matterIds.map(() => '?').join(', ');
-  const query = `
-    SELECT id, status, lead_source as leadSource, created_at as createdAt
-      FROM matters
-     WHERE practice_id = ?
-       AND id IN (${placeholders})
-  `;
-  const results = await env.DB.prepare(query)
-    .bind(practiceId, ...matterIds)
-    .all<{ id: string; status: string; leadSource?: string | null; createdAt?: string | null }>();
-
-  const leadMap = new Map(results.results?.map((row) => [row.id, row]) ?? []);
-
-  return conversations.map((conversation) => {
-    const matterId = conversation.matter_id ?? null;
-    const record = matterId ? leadMap.get(matterId) : null;
-    if (!record || record.status !== 'lead') {
-      return conversation;
-    }
-    return {
-      ...conversation,
-      lead: {
-        is_lead: true,
-        lead_id: record.id,
-        matter_id: record.id,
-        lead_source: record.leadSource ?? null,
-        created_at: record.createdAt ?? null
-      }
-    };
-  });
-};
 
 export async function handleConversations(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -493,31 +450,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
       const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-      const validSortBy = ['last_message_at', 'created_at', 'priority'] as const;
-      const validSortOrder = ['asc', 'desc'] as const;
-      const sortByParam = url.searchParams.get('sortBy') || 'last_message_at';
-      const sortOrderParam = url.searchParams.get('sortOrder') || 'desc';
-      const sortBy = validSortBy.includes(sortByParam as typeof validSortBy[number])
-        ? (sortByParam as typeof validSortBy[number])
-        : 'last_message_at';
-      const sortOrder = validSortOrder.includes(sortOrderParam as typeof validSortOrder[number])
-        ? (sortOrderParam as typeof validSortOrder[number])
-        : 'desc';
-
-      const conversations = await conversationService.getPracticeConversations({
+      const conversations = await conversationService.getConversations({
         practiceId,
         userId,
         status: status || undefined,
-        limit,
-        offset,
-        sortBy,
-        sortOrder
+        limit
       });
-
-      const conversationsWithLead = await annotateLeadConversations(env, practiceId, conversations);
-
-      return createJsonResponse({ conversations: conversationsWithLead });
+      return createJsonResponse({ conversations });
     }
     
     // Signed-in client: Return list of their conversations with this practice
@@ -654,7 +593,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         throw error;
       }
       // Require ownership proof
-      if (!body.anonymousSessionId || body.anonymousSessionId !== (conversation as any).anonymous_session_id) {
+      const conversationAnonymousSessionId =
+        (conversation as { anonymous_session_id?: string | null }).anonymous_session_id;
+      if (!body.anonymousSessionId || body.anonymousSessionId !== conversationAnonymousSessionId) {
         throw error;
       }
     }
@@ -751,6 +692,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     );
 
     return createJsonResponse(conversation);
+  }
+
+  // POST /api/conversations/:id/submit-intake
+  // Submission bridge: maps D1 conversation metadata -> backend client-intakes/create
+  if (segments.length === 4 && segments[3] === 'submit-intake' && request.method === 'POST') {
+    const conversationId = segments[2];
+    return handleSubmitIntake(request, env, conversationId);
   }
 
   throw HttpErrors.methodNotAllowed('Unsupported method for conversations endpoint');

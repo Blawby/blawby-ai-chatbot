@@ -72,20 +72,6 @@ const setMembersForPractice = (practiceId: string, nextMembers: Member[]) => {
 // Types
 export type Role = PracticeRole;
 export type BusinessOnboardingStatus = 'not_required' | 'pending' | 'completed' | 'skipped';
-export type MatterWorkflowStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
-
-export interface MatterTransitionResult {
-  matterId: string;
-  status: MatterWorkflowStatus;
-  previousStatus: MatterWorkflowStatus;
-  updatedAt: string;
-  acceptedBy?: {
-    userId: string;
-    acceptedAt: string | null;
-  } | null;
-  success?: boolean;
-  error?: string;
-}
 
 // Practice interface - matches apiClient.ts but kept here for backward compatibility
 // and to include additional properties specific to practice management
@@ -230,11 +216,6 @@ interface UsePracticeManagementReturn {
   // Workspace data
   getWorkspaceData: (practiceId: string, resource: string) => Record<string, unknown>[];
   fetchWorkspaceData: (practiceId: string, resource: string) => Promise<void>;
-  
-  // Matter workflows
-  acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
-  rejectMatter: (practiceId: string, matterId: string, reason?: string) => Promise<MatterTransitionResult>;
-  updateMatterStatus: (practiceId: string, matterId: string, status: MatterWorkflowStatus, reason?: string) => Promise<MatterTransitionResult>;
   
   refetch: () => Promise<void>;
 }
@@ -531,65 +512,6 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   return {
     ...practice,
     ...patch
-  };
-}
-
-function normalizeWorkflowStatus(value: unknown): MatterWorkflowStatus {
-  const str = typeof value === 'string' ? value.toLowerCase() : '';
-  switch (str) {
-    case 'lead':
-    case 'open':
-    case 'in_progress':
-    case 'completed':
-    case 'archived':
-      return str;
-    default:
-      try {
-        // Use app logger if available; fallback to console
-        const maybeLogger = (globalThis as unknown as { appLogger?: { warn: (msg: string, data?: unknown) => void } }).appLogger;
-        if (maybeLogger && typeof maybeLogger.warn === 'function') {
-          maybeLogger.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
-        } else {
-          console.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
-        }
-      } catch (e) { void e; }
-      return 'lead';
-  }
-}
-
-function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
-  if (!raw || typeof raw !== 'object' || raw === null) {
-    throw new Error('Invalid matter transition response');
-  }
-
-  const record = raw as Record<string, unknown>;
-  const acceptedByRaw = record.acceptedBy as Record<string, unknown> | null | undefined;
-  const acceptedBy = acceptedByRaw && typeof acceptedByRaw === 'object'
-    ? {
-        userId: typeof acceptedByRaw.userId === 'string'
-          ? acceptedByRaw.userId
-          : String(acceptedByRaw.userId ?? ''),
-        acceptedAt: typeof acceptedByRaw.acceptedAt === 'string'
-          ? acceptedByRaw.acceptedAt
-          : null
-      }
-    : null;
-
-  return {
-    matterId: typeof record.matterId === 'string'
-      ? record.matterId
-      : String(record.matterId ?? ''),
-    status: normalizeWorkflowStatus(record.status),
-    previousStatus: normalizeWorkflowStatus(record.previousStatus),
-    updatedAt: (() => {
-      if (typeof record.updatedAt !== 'string' || record.updatedAt.trim().length === 0) {
-        throw new Error('Missing or invalid updatedAt in matter transition response');
-      }
-      return record.updatedAt;
-    })(),
-    acceptedBy,
-    success: typeof record.success === 'boolean' ? record.success : undefined,
-    error: typeof record.error === 'string' ? record.error : undefined
   };
 }
 
@@ -1379,82 +1301,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [workspaceCall]);
 
-  const acceptMatter = useCallback(async (practiceId: string, matterId: string): Promise<MatterTransitionResult> => {
-    if (!practiceId || !matterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-
-    // Deterministic idempotency key derived from operation params
-    const idempotencyKey = `matter:${practiceId}:${matterId}:accept`;
-    const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}/accept`;
-    const response = await workspaceCall(endpoint, {
-      method: 'POST',
-      headers: {
-        'Idempotency-Key': idempotencyKey
-      }
-    });
-
-    const result = normalizeMatterTransitionResult(response);
-    if (result.success === false || (typeof result.error === 'string' && result.error.trim().length > 0)) {
-      throw new Error(`Matter accept failed: ${result.error || 'Unknown error'}`);
-    }
-    return result;
-  }, [workspaceCall]);
-
-  const rejectMatter = useCallback(async (practiceId: string, matterId: string, reason?: string): Promise<MatterTransitionResult> => {
-    if (!practiceId || !matterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-
-    const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}/reject`;
-    const payload: Record<string, unknown> = {};
-    if (typeof reason === 'string' && reason.trim().length > 0) {
-      payload.reason = reason.trim();
-    }
-
-    const response = await workspaceCall(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: {
-        // Deterministic idempotency key derived from operation params
-        'Idempotency-Key': `matter:${practiceId}:${matterId}:reject:${payload.reason ?? ''}`
-      }
-    });
-
-    const result = normalizeMatterTransitionResult(response);
-    if (result.success === false || (typeof result.error === 'string' && result.error.trim().length > 0)) {
-      throw new Error(`Matter reject failed: ${result.error || 'Unknown error'}`);
-    }
-    return result;
-  }, [workspaceCall]);
-
-  const updateMatterStatus = useCallback(async (practiceId: string, matterId: string, status: MatterWorkflowStatus, reason?: string): Promise<MatterTransitionResult> => {
-    if (!practiceId || !matterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-
-    const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}/status`;
-    const payload: Record<string, unknown> = { status };
-    if (typeof reason === 'string' && reason.trim().length > 0) {
-      payload.reason = reason.trim();
-    }
-
-    const response = await workspaceCall(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-      headers: {
-        // Deterministic idempotency key derived from operation params
-        'Idempotency-Key': `matter:${practiceId}:${matterId}:status:${status}:${payload.reason ?? ''}`
-      }
-    });
-
-    const result = normalizeMatterTransitionResult(response);
-    if (result.success === false || (typeof result.error === 'string' && result.error.trim().length > 0)) {
-      throw new Error(`Matter status update failed: ${result.error || 'Unknown error'}`);
-    }
-    return result;
-  }, [workspaceCall]);
-
   // Refetch all data
   const refetch = useCallback(async () => {
     // Reset the fetched flag to ensure we actually refetch
@@ -1515,9 +1361,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     declineInvitation,
     getWorkspaceData,
     fetchWorkspaceData,
-    acceptMatter,
-    rejectMatter,
-    updateMatterStatus,
     refetch,
   };
 }

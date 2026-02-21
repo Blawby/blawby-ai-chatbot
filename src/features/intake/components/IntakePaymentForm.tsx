@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
-import { getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
+import { getConversationWsEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 
@@ -11,7 +11,6 @@ interface IntakePaymentFormProps {
   amount?: MinorAmount;
   currency?: string;
   intakeUuid?: string;
-  practiceId?: string;
   conversationId?: string;
   onSuccess?: () => void | Promise<void>;
 }
@@ -37,7 +36,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   amount,
   currency,
   intakeUuid,
-  practiceId,
   conversationId,
   onSuccess
 }) => {
@@ -69,35 +67,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     () => formatIntakeAmount(amount, currency, locale),
     [amount, currency, locale]
   );
-
-  const confirmIntakeLead = useCallback(async (): Promise<boolean> => {
-    if (!intakeUuid || !practiceId || !conversationId) {
-      return false;
-    }
-    try {
-      const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          intakeUuid,
-          conversationId
-        })
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { error?: string } | null;
-        const detail = payload?.error ? ` (${payload.error})` : '';
-        console.warn(`[IntakePayment] Intake confirmation failed: ${response.status}${detail}`);
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.warn('[IntakePayment] Intake confirmation failed', error);
-      return false;
-    }
-  }, [conversationId, intakeUuid, practiceId]);
 
   const waitForPaymentConfirmation = useCallback(async (timeoutMs = 20000, signal?: AbortSignal): Promise<string | null> => {
     if (!conversationId || !intakeUuid) {
@@ -285,19 +254,16 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         return;
       }
 
-      if (paymentIntentStatus === 'succeeded' || paymentIntentStatus === 'processing') {
-        const confirmed = await confirmIntakeLead();
-        if (!isMountedRef.current) return;
-        if (confirmed) {
-          setStatus('succeeded');
-          paymentSucceeded = true;
-          await handlePostPaymentSuccess();
-          return;
-        }
-        console.warn('[IntakePayment] Intake confirmation did not succeed after payment intent result', {
-          intakeUuid,
-          paymentIntentStatus
-        });
+      if (paymentIntentStatus === 'succeeded') {
+        setStatus('succeeded');
+        paymentSucceeded = true;
+        await handlePostPaymentSuccess();
+        return;
+      }
+
+      if (paymentIntentStatus === 'processing') {
+        setStatus('processing');
+        return;
       }
 
       const waitController = new AbortController();
@@ -309,20 +275,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
       if (!isMountedRef.current) return;
         if (wsStatus && isPaidIntakeStatus(wsStatus)) {
-          const confirmed = await confirmIntakeLead();
-          if (!isMountedRef.current) return;
-          if (!confirmed) {
-          const retryConfirmed = await confirmIntakeLead();
-          if (!isMountedRef.current) return;
-          if (!retryConfirmed) {
-            setPaymentSubmitted(false);
-            setStatus('failed');
-            setErrorMessage(
-              'Payment was received, but we could not confirm your intake. Please refresh or contact support.'
-            );
-            return;
-          }
-        }
         setStatus('succeeded');
         paymentSucceeded = true;
         await handlePostPaymentSuccess();
@@ -352,8 +304,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   }, [
     stripe,
     elements,
-    intakeUuid,
-    confirmIntakeLead,
     handlePostPaymentSuccess,
     TERMINAL_FAILURE_STATUSES,
     waitForPaymentConfirmation

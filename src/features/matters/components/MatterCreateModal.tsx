@@ -47,7 +47,7 @@ interface MatterFormModalProps {
   initialValues?: Partial<MatterFormState>;
 }
 
-type MatterCreateModalProps = Omit<MatterFormModalProps, 'mode' | 'initialValues'>;
+type MatterCreateModalProps = Omit<MatterFormModalProps, 'mode'>;
 
 interface MatterEditModalProps extends Omit<MatterFormModalProps, 'mode'> {
   initialValues: Partial<MatterFormState>;

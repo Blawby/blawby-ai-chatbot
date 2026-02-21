@@ -276,5 +276,16 @@
       "addMore": "追加する",
       "notYet": "まだです"
     }
+  },
+  "intake": {
+    "authTitle": "もうすぐ完了です",
+    "authDescription": "無料アカウントを作成して、インテークを続行し、{{practice}}からの更新を受け取ります。確認リンクをメールで送信します。",
+    "authDescriptionFallback": "無料アカウントを作成して、インテークを続行し、更新を受け取ります。確認リンクをメールで送信します。"
+  },
+  "leadReview": {
+    "accept": "承認",
+    "decline": "却下",
+    "convert": "案件に変換",
+    "noPermission": "このリードをレビューする権限がありません"
   }
 }

@@ -277,5 +277,16 @@
       "addMore": "Daha fazla ekle",
       "notYet": "Henüz değil"
     }
+  },
+  "intake": {
+    "authTitle": "Neredeyse tamamlandı",
+    "authDescription": "Kabulünüzü devam ettirmek ve {{practice}} adresinden güncellemeler almak için ücretsiz bir hesap oluşturun. Size e-posta yoluyla bir doğrulama bağlantısı göndereceğiz.",
+    "authDescriptionFallback": "Kabulünüzü devam ettirmek ve güncellemeler almak için ücretsiz bir hesap oluşturun. Size e-posta yoluyla bir doğrulama bağlantısı göndereceğiz."
+  },
+  "leadReview": {
+    "accept": "Kabul Et",
+    "decline": "Reddet",
+    "convert": "Dosyaya Dönüştür",
+    "noPermission": "Bu adayı inceleme izniniz yok"
   }
 }

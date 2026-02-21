@@ -276,5 +276,16 @@
       "addMore": "Ajouter plus",
       "notYet": "Pas encore"
     }
+  },
+  "intake": {
+    "authTitle": "Vous êtes presque prêt",
+    "authDescription": "Créez un compte gratuit pour continuer votre demande et recevoir des mises à jour de {{practice}}. Nous vous enverrons un lien de confirmation par courrier électronique.",
+    "authDescriptionFallback": "Créez un compte gratuit pour continuer votre demande et recevoir des mises à jour. Nous vous enverrons un lien de confirmation par courrier électronique."
+  },
+  "leadReview": {
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "convert": "Convertir en dossier",
+    "noPermission": "Vous n'avez pas la permission d'examiner cette piste"
   }
 }

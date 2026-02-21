@@ -276,5 +276,16 @@
       "addMore": "添加更多",
       "notYet": "尚未"
     }
+  },
+  "intake": {
+    "authTitle": "您即将完成",
+    "authDescription": "创建一个免费帐户以继续您的咨询并从 {{practice}} 获取更新。我们将通过电子邮件发送确认链接。",
+    "authDescriptionFallback": "创建一个免费帐户以继续您的咨询并获取更新。我们将通过电子邮件发送确认链接。"
+  },
+  "leadReview": {
+    "accept": "接受",
+    "decline": "拒绝",
+    "convert": "转换为案件",
+    "noPermission": "您没有权限审查此线索"
   }
 }
