@@ -148,7 +148,7 @@ export function useConversationSetup({
     if (isPublicWorkspace) return;
     if (sessionIsPending || !session?.user?.id || !practiceId) return;
     if (activeConversationId) return;
-    if (isCreatingConversation) return;
+    if (isCreatingRef.current) return;
     if (conversationRestoreAttemptedRef.current) return;
     conversationRestoreAttemptedRef.current = true;
 
@@ -157,7 +157,6 @@ export function useConversationSetup({
     });
   }, [
     activeConversationId,
-    isCreatingConversation,
     isPublicWorkspace,
     practiceId,
     restoreConversationFromCache,
@@ -190,7 +189,7 @@ export function useConversationSetup({
     isSelectingRef.current = true;
     try {
       let convId = activeConversationId;
-      if (!convId && !isCreatingConversation) {
+      if (!convId && !isCreatingRef.current) {
         convId = await createConversation();
       }
       if (!convId || !practiceId) return;
@@ -207,7 +206,6 @@ export function useConversationSetup({
     activeConversationId,
     applyConversationMode,
     createConversation,
-    isCreatingConversation,
     onError,
     practiceId,
   ]);
