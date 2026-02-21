@@ -49,11 +49,8 @@ export function useConversationSetup({
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const isSelectingRef = useRef(false);
+  const isCreatingRef = useRef(false);
   const conversationRestoreAttemptedRef = useRef(false);
-
-  useEffect(() => {
-    onModeChange(conversationMode);
-  }, [conversationMode, onModeChange]);
 
   // Decode route conversation ID safely
   const normalizedRouteConversationId = routeConversationId
@@ -87,9 +84,10 @@ export function useConversationSetup({
 
   const createConversation = useCallback(async (): Promise<string | null> => {
     if (isPracticeWorkspace) return null;
-    if (!practiceId || !session?.user || isCreatingConversation) return null;
+    if (!practiceId || !session?.user || isCreatingRef.current) return null;
 
     try {
+      isCreatingRef.current = true;
       setIsCreatingConversation(true);
       const params = new URLSearchParams({ practiceId });
       const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
@@ -117,9 +115,10 @@ export function useConversationSetup({
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       throw new Error(message);
     } finally {
+      isCreatingRef.current = false;
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
+  }, [isPracticeWorkspace, practiceId, session?.user]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !session?.user) return null;
@@ -134,7 +133,6 @@ export function useConversationSetup({
         credentials: 'include',
       });
       if (!response.ok) {
-        window.localStorage.removeItem(conversationCacheKey);
         return null;
       }
       setConversationId(cached);
@@ -175,6 +173,7 @@ export function useConversationSetup({
     if (!practiceId) return;
     await updateConversationMetadata(convId, practiceId, { mode: nextMode });
     setConversationMode(nextMode);
+    onModeChange(nextMode);
     void logConversationEvent(convId, practiceId, 'mode_selected', { mode: nextMode, source });
     if (nextMode === 'REQUEST_CONSULTATION') {
       startConsultFlow(convId);
@@ -198,6 +197,7 @@ export function useConversationSetup({
       await applyConversationMode(nextMode, convId, source, startConsultFlow);
     } catch (error) {
       setConversationMode(null);
+      onModeChange(null);
       const message = error instanceof Error ? error.message : 'Unable to start conversation';
       onError?.(message);
     } finally {
@@ -223,6 +223,7 @@ export function useConversationSetup({
       return newId;
     } catch (error) {
       setConversationMode(null);
+      onModeChange(null);
       throw error;
     } finally {
       isSelectingRef.current = false;

@@ -93,9 +93,6 @@ export const usePaymentStatus = ({
     const messageId = `system-payment-confirm-${uuid}`;
     if (processedPaymentUuidsRef.current.has(uuid)) return;
 
-    // Mark as confirmed in parent state immediately so UI gates update
-    onPaymentConfirmed(uuid);
-
     // Check if a confirmation already exists in the current message list
     // (handled by the caller via latestIntakeSubmission / verifiedPaidIntakeUuids)
 
@@ -112,6 +109,8 @@ export const usePaymentStatus = ({
       if (signal?.aborted) return;
 
       if (persistedMessage) {
+        // Mark as confirmed in parent state ONLY after persistence success
+        onPaymentConfirmed(uuid);
         applyServerMessages([persistedMessage]);
         setPaymentRetryNotice(null);
       } else {

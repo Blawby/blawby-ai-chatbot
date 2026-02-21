@@ -46,6 +46,17 @@
   var Z = cfg.zIndex;
   var GAP = 20; // px gap from edge of viewport
 
+  // Compute contrasting foreground color for the launcher (white or black)
+  var foregroundColor = (function (hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+  })(cfg.primaryColor);
+
   // A unique ID prefix so multiple widgets can coexist on a page safely
   var ID = 'blawby-widget-' + cfg.practiceSlug.replace(/[^a-z0-9]/gi, '-');
 
@@ -171,7 +182,7 @@
   chatIcon.setAttribute('height', '24');
   chatIcon.setAttribute('viewBox', '0 0 24 24');
   chatIcon.setAttribute('fill', 'none');
-  chatIcon.setAttribute('stroke', 'white');
+  chatIcon.setAttribute('stroke', foregroundColor);
   chatIcon.setAttribute('stroke-width', '2');
   chatIcon.setAttribute('stroke-linecap', 'round');
   chatIcon.setAttribute('stroke-linejoin', 'round');
@@ -185,7 +196,7 @@
   closeIcon.setAttribute('height', '22');
   closeIcon.setAttribute('viewBox', '0 0 24 24');
   closeIcon.setAttribute('fill', 'none');
-  closeIcon.setAttribute('stroke', 'white');
+  closeIcon.setAttribute('stroke', foregroundColor);
   closeIcon.setAttribute('stroke-width', '2.5');
   closeIcon.setAttribute('stroke-linecap', 'round');
   closeIcon.setAttribute('aria-hidden', 'true');

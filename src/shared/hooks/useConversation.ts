@@ -174,6 +174,7 @@ export const useConversation = ({
   const pendingAckRef = useRef(new Map<string, {
     resolve: (ack: { messageId: string; seq: number; serverTs: string; clientId: string }) => void;
     reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
   }>());
 
   // Streaming bubble refs
@@ -324,7 +325,10 @@ export const useConversation = ({
   }, [updateSocketReady]);
 
   const flushPendingAcks = useCallback((error: Error) => {
-    for (const pending of pendingAckRef.current.values()) pending.reject(error);
+    for (const pending of pendingAckRef.current.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
     pendingAckRef.current.clear();
   }, []);
 
@@ -436,7 +440,11 @@ export const useConversation = ({
     if (!clientId || !messageId || !serverTs || !Number.isFinite(seqValue)) return;
 
     const pending = pendingAckRef.current.get(clientId);
-    if (pending) { pending.resolve({ messageId, seq: seqValue, serverTs, clientId }); pendingAckRef.current.delete(clientId); }
+    if (pending) {
+      clearTimeout(pending.timer);
+      pending.resolve({ messageId, seq: seqValue, serverTs, clientId });
+      pendingAckRef.current.delete(clientId);
+    }
     messageIdSetRef.current.add(messageId);
     lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
 
@@ -615,7 +623,14 @@ export const useConversation = ({
         case 'error': {
           const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
           const reqId = typeof frame.request_id === 'string' ? frame.request_id : null;
-          if (reqId) { const p = pendingAckRef.current.get(reqId); if (p) { p.reject(new Error(msg)); pendingAckRef.current.delete(reqId); } }
+          if (reqId) {
+            const p = pendingAckRef.current.get(reqId);
+            if (p) {
+              clearTimeout(p.timer);
+              p.reject(new Error(msg));
+              pendingAckRef.current.delete(reqId);
+            }
+          }
           onError?.(msg); return;
         }
         default: return;

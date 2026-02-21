@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
 export const useTheme = () => {
   const [isDark, setIsDark] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const themeOverrideRef = useRef<string | null>(null);
   
   useEffect(() => {
     // Guard against non-browser environments
@@ -27,6 +28,7 @@ export const useTheme = () => {
     // Check for theme override in URL
     const params = new URLSearchParams(window.location.search);
     const themeOverride = params.get('theme');
+    themeOverrideRef.current = themeOverride;
     
     // Compute initial shouldBeDark using override, savedTheme, or media query
     const shouldBeDark = themeOverride === 'dark' || 
@@ -36,8 +38,8 @@ export const useTheme = () => {
     setIsDark(shouldBeDark);
     document.documentElement.classList.toggle('dark', shouldBeDark);
     
-    // If no saved theme and no URL override, attach a 'change' listener to the media query
-    if (!savedTheme && !themeOverride) {
+    // If no saved theme and no explicit 'light'/'dark' URL override, attach a 'change' listener
+    if (!savedTheme && !['light', 'dark'].includes(themeOverride || '')) {
       const handleMediaChange = (e: MediaQueryListEvent) => {
         setIsDark(e.matches);
         document.documentElement.classList.toggle('dark', e.matches);
@@ -61,6 +63,10 @@ export const useTheme = () => {
     if (typeof document === 'undefined') return;
     
     document.documentElement.classList.toggle('dark', isDark);
+    
+    // Skip persistence if a theme override is present in the URL
+    if (themeOverrideRef.current) return;
+
     try {
       localStorage.setItem('theme', isDark ? 'dark' : 'light');
     } catch (error) {

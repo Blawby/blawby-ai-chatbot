@@ -11,7 +11,7 @@ import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Input } from '@/shared/ui/input';
 import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useTranslation } from '@/shared/i18n/hooks';
+import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
@@ -191,10 +191,16 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
       {/* Blawby Messenger custom integration block */}
       {app.id === 'blawby-messenger' && (
         <>
-          <SettingSection title="Integration Guide" className="py-6">
+          <SettingSection title={t('settings:apps.messenger.integrationGuide.title')} className="py-6">
             <div className="space-y-4">
               <p className="text-sm text-secondary">
-                To add the chat widget to your website, copy the code snippet below and paste it into the <code>&lt;head&gt;</code> or just before the closing <code>&lt;/body&gt;</code> tag of your website.
+                <Trans
+                  i18nKey="settings:apps.messenger.integrationGuide.description"
+                  components={[
+                    <code key="head" />,
+                    <code key="body" />
+                  ]}
+                />
               </p>
               
               <div className="relative group">
@@ -204,7 +210,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
                   icon={copiedScript ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
                   onClick={copySnippet}
                 >
@@ -213,13 +219,28 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </div>
 
               <div className="rounded-md bg-accent-500/10 p-4 border border-accent-500/20 mt-4">
-                <h4 className="text-sm font-medium text-accent-400 mb-2">Advanced: Custom Domain Linking</h4>
+                <h4 className="text-sm font-medium text-accent-400 mb-2">
+                  {t('settings:apps.messenger.integrationGuide.advanced.title')}
+                </h4>
                 <p className="text-sm text-secondary mb-3">
-                  To eliminate third-party cookie restrictions and make the chat widget seamlessly part of your site, point a subdomain (e.g., <code>chat.yourfirm.com</code>) to Blawby using a CNAME record.
+                  <Trans
+                    i18nKey="settings:apps.messenger.integrationGuide.advanced.description"
+                    components={[<code key="subdomain" />]}
+                  />
                 </p>
                 <ul className="list-disc list-inside text-sm text-secondary space-y-1">
-                  <li>Create a CNAME record for your subdomain pointing to <code>blawby.com</code></li>
-                  <li>In the widget snippet above, add: <code>baseUrl: &apos;https://chat.yourfirm.com&apos;</code></li>
+                  <li>
+                    <Trans
+                      i18nKey="settings:apps.messenger.integrationGuide.advanced.steps.cname"
+                      components={[<code key="cname" />]}
+                    />
+                  </li>
+                  <li>
+                    <Trans
+                      i18nKey="settings:apps.messenger.integrationGuide.advanced.steps.snippet"
+                      components={[<code key="baseurl" />]}
+                    />
+                  </li>
                 </ul>
               </div>
             </div>

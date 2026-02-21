@@ -86,7 +86,6 @@ export function MainApp({
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
 
   const { navigate } = useNavigation();
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const { showError, showInfo } = useToastContext();
   const showErrorRef = useRef(showError);
   useEffect(() => { showErrorRef.current = showError; }, [showError]);
@@ -98,7 +97,26 @@ export function MainApp({
   });
 
   // ── workspace routing — single source of truth ────────────────────────────
-  const routing = (session as { routing?: Parameters<typeof useWorkspaceRouting>[0]['routing'] } | null)?.routing ?? null;
+  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole, routingClaims } = useSessionContext();
+
+  // ── practice details (accent color, description) ──────────────────────────
+  // We resolve the initial IDs needed for details fetching via a simple pattern
+  // to avoid a full routing hook cycle before the details are available.
+  const practiceDetailsId = (workspace === 'public')
+    ? (publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
+    : practiceId;
+  const practiceDetailsSlug = (workspace === 'public')
+    ? publicPracticeSlug
+    : (workspace === 'client')
+      ? clientPracticeSlug
+      : (currentPractice?.slug ?? practiceConfig.slug ?? null);
+
+  const { details: practiceDetails, fetchDetails: fetchPracticeDetails, hasDetails: hasPracticeDetails } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug);
+
+  useEffect(() => {
+    if (!practiceDetailsId || hasPracticeDetails) return;
+    void fetchPracticeDetails();
+  }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
 
   const {
     isPublicWorkspace,
@@ -112,8 +130,8 @@ export function MainApp({
     resolvedClientPracticeSlug,
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedPracticeDescription,
-    resolvedAccentColor,
+    resolvedPracticeDescription: fullDescription,
+    resolvedAccentColor: fullAccentColor,
     normalizedRouteConversationId,
     conversationsBasePath,
     conversationBackPath,
@@ -134,50 +152,10 @@ export function MainApp({
     routeConversationId,
     isWidget,
     currentPractice,
-    activeMemberRole,
-    session,
-    routing,
-    // practiceDetails injected below after the hook that fetches them
-  });
-
-  // ── practice details (accent color, description) ──────────────────────────
-  const practiceDetailsId = isPublicWorkspace
-    ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
-    : practiceId;
-  const practiceDetailsSlug = isPublicWorkspace
-    ? resolvedPublicPracticeSlug
-    : isClientWorkspace
-      ? resolvedClientPracticeSlug
-      : (currentPractice?.slug ?? practiceConfig.slug ?? null);
-
-  const { details: practiceDetails, fetchDetails: fetchPracticeDetails, hasDetails: hasPracticeDetails } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug);
-
-  useEffect(() => {
-    if (!practiceDetailsId || hasPracticeDetails) return;
-    void fetchPracticeDetails();
-  }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
-
-  // Re-run workspace routing with practiceDetails available.
-  // We call it a second time so that resolvedPracticeDescription and
-  // resolvedAccentColor are derived from the fully-loaded details object.
-  // Both calls are cheap (pure memo) — only the second has practiceDetails.
-  const {
-    resolvedPracticeDescription: fullDescription,
-    resolvedAccentColor: fullAccentColor,
-  } = useWorkspaceRouting({
-    practiceId,
-    practiceConfig,
-    workspace,
-    publicPracticeSlug,
-    clientPracticeSlug,
-    practiceSlug,
-    routeConversationId,
-    isWidget,
-    currentPractice,
     practiceDetails,
     activeMemberRole,
     session,
-    routing,
+    routing: routingClaims,
   });
 
   useEffect(() => {

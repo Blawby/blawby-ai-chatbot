@@ -20,7 +20,7 @@ import { useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
-import { initialIntakeState, type IntakeConversationState } from '@/shared/types/intake';
+import { initialIntakeState, type IntakeConversationState, type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -29,27 +29,7 @@ const SESSION_READY_TIMEOUT_MS = 8_000;
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export type IntakeFieldsPayload = {
-  practiceArea?: string;
-  practiceAreaName?: string;
-  description?: string;
-  urgency?: 'routine' | 'time_sensitive' | 'emergency';
-  opposingParty?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  desiredOutcome?: string;
-  courtDate?: string;
-  income?: string;
-  householdSize?: number;
-  hasDocuments?: boolean;
-  eligibilitySignals?: string[];
-  caseStrength?: 'needs_more_info' | 'developing' | 'strong';
-  missingSummary?: string | null;
-};
+
 
 export interface UseChatComposerOptions {
   practiceId?: string;
@@ -72,6 +52,7 @@ export interface UseChatComposerOptions {
   pendingAckRef: React.MutableRefObject<Map<string, {
     resolve: (ack: { messageId: string; seq: number; serverTs: string; clientId: string }) => void;
     reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
   }>>;
   pendingStreamMessageIdRef: React.MutableRefObject<string | null>;
   orphanTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
@@ -134,7 +115,6 @@ export const useChatComposer = ({
   const intentAbortRef = useRef<AbortController | null>(null);
   const hasLoggedIntentRef = useRef(false);
   const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
-  const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
   // ── session readiness guard ───────────────────────────────────────────────
@@ -206,27 +186,29 @@ export const useChatComposer = ({
     const ACK_TIMEOUT = 10000;
     const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
       const timer = setTimeout(() => {
-        ackTimerRef.current = null;
-        pendingAckRef.current.delete(clientId);
-        reject(new Error('Server acknowledgement timed out.'));
+        const pending = pendingAckRef.current.get(clientId);
+        if (pending) {
+          pendingAckRef.current.delete(clientId);
+          reject(new Error('Server acknowledgement timed out.'));
+        }
       }, ACK_TIMEOUT);
-      ackTimerRef.current = timer;
 
       pendingAckRef.current.set(clientId, {
+        timer,
         resolve: (ack) => {
-          if (ackTimerRef.current) {
-            clearTimeout(ackTimerRef.current);
-            ackTimerRef.current = null;
+          const pending = pendingAckRef.current.get(clientId);
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingAckRef.current.delete(clientId);
           }
-          pendingAckRef.current.delete(clientId);
           resolve(ack);
         },
         reject: (err) => {
-          if (ackTimerRef.current) {
-            clearTimeout(ackTimerRef.current);
-            ackTimerRef.current = null;
+          const pending = pendingAckRef.current.get(clientId);
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingAckRef.current.delete(clientId);
           }
-          pendingAckRef.current.delete(clientId);
           reject(err);
         }
       });
@@ -251,11 +233,11 @@ export const useChatComposer = ({
         request_id: clientId,
       });
     } catch (error) {
-      if (ackTimerRef.current) {
-        clearTimeout(ackTimerRef.current);
-        ackTimerRef.current = null;
+      const pending = pendingAckRef.current.get(clientId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pendingAckRef.current.delete(clientId);
       }
-      pendingAckRef.current.delete(clientId);
       if (!isMountedRef.current) throw error;
       pendingClientMessageRef.current.delete(clientId);
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
@@ -528,9 +510,12 @@ export const useChatComposer = ({
       abortControllerRef.current?.abort();
       intentAbortRef.current?.abort();
       if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
-      if (ackTimerRef.current) clearTimeout(ackTimerRef.current);
+      pendingAckRef.current.forEach(item => {
+        clearTimeout(item.timer);
+      });
+      pendingAckRef.current.clear();
     };
-  }, [orphanTimerRef]);
+  }, [orphanTimerRef, pendingAckRef]);
 
   return {
     sendMessage,
