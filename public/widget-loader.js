@@ -287,4 +287,4 @@
   };
   w.BlawbyWidget = Object.assign(w.BlawbyWidget || {}, api);
 
-}(window, document));
+})(window, document);

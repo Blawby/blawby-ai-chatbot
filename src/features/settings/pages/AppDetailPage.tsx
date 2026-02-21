@@ -37,7 +37,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
 
   const messengerSnippet = `<script>
   window.BlawbyWidget = {
-    practiceSlug: '${slug}',
+    practiceSlug: ${JSON.stringify(slug)},
   };
 </script>
 <script src="https://ai.blawby.com/widget-loader.js" defer></script>`;
@@ -46,7 +46,10 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     navigator.clipboard.writeText(messengerSnippet).then(() => {
       setCopiedScript(true);
       setTimeout(() => setCopiedScript(false), 2000);
-      showSuccess('Code copied to clipboard', 'You can now paste it into your website.');
+      showSuccess(t('settings:apps.copySnippetSuccess.title'), t('settings:apps.copySnippetSuccess.body'));
+    }).catch((err) => {
+      console.error('Failed to copy snippet:', err);
+      showError(t('settings:apps.copySnippetError.title'), t('settings:apps.copySnippetError.body'));
     });
   };
 
@@ -154,7 +157,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 : isDisconnecting
                   ? t('common:actions.loading')
                   : app.id === 'blawby-messenger'
-                    ? 'Enabled'
+                    ? t('settings:apps.enabled')
                     : app.connected
                       ? t('settings:apps.clio.disconnect')
                       : isComingSoon
@@ -205,7 +208,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   icon={copiedScript ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
                   onClick={copySnippet}
                 >
-                  {copiedScript ? 'Copied' : 'Copy'}
+                  {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
                 </Button>
               </div>
 
@@ -216,7 +219,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 </p>
                 <ul className="list-disc list-inside text-sm text-secondary space-y-1">
                   <li>Create a CNAME record for your subdomain pointing to <code>blawby.com</code></li>
-                  <li>In the widget snippet above, add: <code>baseUrl: 'https://chat.yourfirm.com'</code></li>
+                  <li>In the widget snippet above, add: <code>baseUrl: &apos;https://chat.yourfirm.com&apos;</code></li>
                 </ul>
               </div>
             </div>

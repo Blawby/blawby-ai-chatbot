@@ -62,6 +62,17 @@
     "title": "Apps",
     "description": "Connect third-party services to enhance your workflow",
     "comingSoon": "Coming soon",
+    "enabled": "Enabled",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copySnippetSuccess": {
+      "title": "Code copied",
+      "body": "The widget snippet has been copied to your clipboard."
+    },
+    "copySnippetError": {
+      "title": "Copy failed",
+      "body": "Unable to copy to clipboard. Please select and copy the code manually."
+    },
     "clio": {
       "name": "Clio",
       "description": "Connect your Clio account to sync matters, contacts, and calendar events.",

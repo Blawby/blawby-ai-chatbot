@@ -531,7 +531,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
             <div className="sticky bottom-0 z-[1000] w-full">
               {shouldShowSlimForm && onSlimFormContinue ? (
-                <div className="pl-4 pr-4 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
+                <div className="px-4 pb-6 pt-4 bg-surface-overlay/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/5 max-h-[80dvh] overflow-y-auto shadow-2xl flex flex-col w-full animate-float-in">
+                  <div className="w-12 h-1.5 bg-input-placeholder/20 rounded-full mx-auto mb-6 shrink-0" />
                   <ContactForm
                     onSubmit={onSlimFormContinue}
                     fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}

@@ -24,8 +24,13 @@ export const useTheme = () => {
     // Create matchMedia query object for system preference
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
-    // Compute initial shouldBeDark using savedTheme if present, otherwise use media query
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && mediaQuery.matches);
+    // Check for theme override in URL
+    const params = new URLSearchParams(window.location.search);
+    const themeOverride = params.get('theme');
+    
+    // Compute initial shouldBeDark using override, savedTheme, or media query
+    const shouldBeDark = themeOverride === 'dark' || 
+                        (themeOverride !== 'light' && (savedTheme === 'dark' || (!savedTheme && mediaQuery.matches)));
     
     // Set state and document class accordingly
     setIsDark(shouldBeDark);

@@ -55,15 +55,15 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
-      <section className="relative z-10 px-6 pb-12 pt-8 text-white">
+      <section className="relative z-10 px-6 pb-12 pt-8 text-input-text">
         <div className="flex items-center gap-3">
           <Avatar
             src={practiceLogo}
             name={resolvedName}
             size="lg"
-            className="ring-2 ring-white/30"
+            className="ring-2 ring-white/10"
           />
-          <div className="text-lg font-semibold tracking-wide text-white">{resolvedName}</div>
+          <div className="text-lg font-semibold tracking-wide text-input-text">{resolvedName}</div>
         </div>
 
         <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">

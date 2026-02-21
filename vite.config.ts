@@ -89,7 +89,7 @@ const criticalCssPlugin = (): Plugin => {
 				const processed = await critters.process(html, { path: 'dist/index.html' });
 				await fs.writeFile('dist/index.html', processed);
 				console.log('✅ Critical CSS inlined successfully');
-			} catch (e) { console.error("Static HTML serve error:", e);
+			} catch (e) {
 				console.error('Error processing critical CSS:', e);
 				// Don't fail the build if critical CSS extraction fails
 			}
@@ -208,14 +208,22 @@ const serveStaticHtmlPlugin = (): Plugin => {
 				if (req.url && (req.url.endsWith('.html') || req.url.endsWith('.js')) && req.url !== '/index.html') {
 					// Clean URL of query params
 					const urlPath = req.url.split('?')[0];
-					const publicPath = resolve(process.cwd(), 'public', urlPath.slice(1));
+					const publicDir = resolve(process.cwd(), 'public');
+					// Path traversal protection: resolve full path and ensure it's within publicDir
+					const requestedPath = resolve(publicDir, urlPath.replace(/^\/+/, ''));
+
+					if (!requestedPath.startsWith(publicDir)) {
+						next();
+						return;
+					}
+
 					try {
-						const content = await fs.readFile(publicPath, 'utf-8');
+						const content = await fs.readFile(requestedPath, 'utf-8');
 						res.setHeader('Content-Type', req.url.endsWith('.js') ? 'application/javascript' : 'text/html');
 						res.end(content);
 						return;
-					} catch (e) { console.error("Static serve error:", e);
-						// File not found in public/, let Vite handle it
+					} catch (e) {
+						// File not found in public/, let Vite handle it (SPA fallback or 404)
 					}
 				}
 				next();

@@ -16,14 +16,21 @@
     --error-foreground: 248 113 113;
 
     /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
-    --glass-rim-strong:   inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
-                          inset 0 0 3px 1px rgba(255, 255, 255, 0.25);
-    --glass-rim-medium:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.50),
-                          inset 0 0 2px 1px rgba(255, 255, 255, 0.15);
-    --glass-rim-subtle:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.30),
-                          inset 0 0 2px 1px rgba(255, 255, 255, 0.08);
+    --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
+      inset 0 0 3px 1px rgba(255, 255, 255, 0.25);
+    --glass-rim-medium: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.50),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.15);
+    --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.30),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.08);
 
     --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
+  }
+
+  /* Subdue glass rims in widget mode to minimize 'extra strokes' */
+  [data-widget="true"] .glass-card,
+  [data-widget="true"] .glass-panel,
+  [data-widget="true"] .glass-input {
+    box-shadow: var(--shadow-glass);
   }
 
   .dark {
@@ -35,12 +42,12 @@
     --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
 
     /* Slightly brighter rims in dark mode — more contrast against dark bg */
-    --glass-rim-strong:   inset 2px 2px 0px -2px rgba(255, 255, 255, 0.78),
-                          inset 0 0 3px 1px rgba(255, 255, 255, 0.28);
-    --glass-rim-medium:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.60),
-                          inset 0 0 2px 1px rgba(255, 255, 255, 0.18);
-    --glass-rim-subtle:   inset 1px 1px 0px -1px rgba(255, 255, 255, 0.36),
-                          inset 0 0 2px 1px rgba(255, 255, 255, 0.10);
+    --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.78),
+      inset 0 0 3px 1px rgba(255, 255, 255, 0.28);
+    --glass-rim-medium: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.60),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.18);
+    --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.36),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.10);
   }
 
   body {
@@ -57,6 +64,7 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
+
   *::-webkit-scrollbar {
     width: 0;
     height: 0;
@@ -66,11 +74,18 @@
   a {
     @apply text-accent-500 hover:text-accent-600 transition-colors duration-200;
   }
+
   .dark a {
     @apply text-accent-400 hover:text-accent-300;
   }
-  .link-plain { @apply no-underline font-normal; }
-  .link-btn   { @apply no-underline font-bold; }
+
+  .link-plain {
+    @apply no-underline font-normal;
+  }
+
+  .link-btn {
+    @apply no-underline font-bold;
+  }
 
   /* Hide scrollbars when modal is open */
   body.modal-open .overflow-y-auto,
@@ -78,6 +93,7 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
+
   body.modal-open .overflow-y-auto::-webkit-scrollbar,
   body.modal-open .overflow-auto::-webkit-scrollbar {
     display: none;
@@ -93,10 +109,12 @@
       height: 100vh;
       height: 100dvh;
     }
+
     .pt-16 {
       padding-top: 4rem;
       padding-top: max(4rem, env(safe-area-inset-top, 0px));
     }
+
     .pt-safe {
       padding-top: env(safe-area-inset-top, 0px);
     }
@@ -124,6 +142,7 @@
   .glass-card-hover {
     @apply transition-all duration-300;
   }
+
   .glass-card-hover:hover {
     @apply bg-white/10 -translate-y-0.5;
 
@@ -145,10 +164,11 @@
     border: none;
     box-shadow: var(--glass-rim-subtle), var(--shadow-glass);
   }
+
   .glass-input:focus {
     outline: none;
     box-shadow: var(--glass-rim-medium),
-                0 0 0 2px rgb(var(--accent-500) / 0.3);
+      0 0 0 2px rgb(var(--accent-500) / 0.3);
   }
 
   /* Semantic surface helpers */
@@ -162,6 +182,7 @@
   .surface-hover {
     @apply transition-all duration-200;
   }
+
   .surface-hover:hover {
     @apply bg-black/10 dark:bg-white/10;
 
@@ -185,165 +206,235 @@
 
   /* Base shared across all button variants */
   .btn {
-    @apply inline-flex items-center justify-center rounded-full font-medium
-           transition-all duration-200 focus:outline-none focus:ring-2
-           focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed
-           backdrop-blur-xl active:scale-[0.98] select-none
-           px-4 py-2 text-sm;
+    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-xl active:scale-[0.98] select-none px-4 py-2 text-sm;
     border: none;
   }
 
   /* Sizes */
-  .btn-xs { @apply px-2.5 py-1 text-xs; }
-  .btn-sm { @apply px-3 py-1.5 text-xs; }
-  .btn-md { @apply px-4 py-2 text-sm; }
-  .btn-lg { @apply px-6 py-3 text-base; }
+  .btn-xs {
+    @apply px-2.5 py-1 text-xs;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-md {
+    @apply px-4 py-2 text-sm;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
 
   /* Icon-only size helpers (pair with a variant) */
-  .btn-icon-xs { @apply w-9 h-9 p-0 text-xs; }
-  .btn-icon-sm { @apply w-11 h-11 p-0 text-xs; }
-  .btn-icon-md { @apply w-11 h-11 p-0 text-sm; }
-  .btn-icon-lg { @apply w-12 h-12 p-0 text-base; }
+  .btn-icon-xs {
+    @apply w-9 h-9 p-0 text-xs;
+  }
+
+  .btn-icon-sm {
+    @apply w-11 h-11 p-0 text-xs;
+  }
+
+  .btn-icon-md {
+    @apply w-11 h-11 p-0 text-sm;
+  }
+
+  .btn-icon-lg {
+    @apply w-12 h-12 p-0 text-base;
+  }
 
   /* Primary — solid accent */
   .btn-primary {
     background-color: rgb(var(--accent-500));
     color: rgb(var(--accent-foreground));
     box-shadow: var(--glass-rim-medium),
-                0 4px 16px rgb(var(--accent-500) / 0.3);
+      0 4px 16px rgb(var(--accent-500) / 0.3);
   }
+
   .btn-primary:hover:not(:disabled) {
     background-color: rgb(var(--accent-600));
-    box-shadow:    var(--glass-rim-strong),
-                0 6px 20px rgb(var(--accent-500) / 0.4);
+    box-shadow: var(--glass-rim-strong),
+      0 6px 20px rgb(var(--accent-500) / 0.4);
   }
-  .btn-primary:focus { @apply ring-accent-500/50; }
+
+  .btn-primary:focus {
+    @apply ring-accent-500/50;
+  }
 
   /* Secondary — neutral glass */
   .btn-secondary {
     @apply bg-white/5 backdrop-blur-xl text-input-text;
     box-shadow: var(--glass-rim-subtle);
   }
+
   .btn-secondary:hover:not(:disabled) {
     @apply bg-white/15;
     box-shadow: var(--glass-rim-medium);
   }
-  .btn-secondary:focus { @apply ring-white/20; }
+
+  .btn-secondary:focus {
+    @apply ring-white/20;
+  }
 
   /* Ghost — no bg until hover */
   .btn-ghost {
     @apply bg-transparent text-input-text;
     box-shadow: none;
   }
+
   .btn-ghost:hover:not(:disabled) {
     @apply bg-white/10;
     box-shadow: var(--glass-rim-subtle);
   }
-  .btn-ghost:focus { @apply ring-white/20; }
+
+  .btn-ghost:focus {
+    @apply ring-white/20;
+  }
 
   /* Icon — same as ghost, used for icon-only controls */
   .btn-icon {
     @apply bg-transparent text-input-text;
     box-shadow: none;
   }
+
   .btn-icon:hover:not(:disabled) {
     @apply bg-white/10;
     box-shadow: var(--glass-rim-subtle);
   }
-  .btn-icon:focus { @apply ring-white/20; }
+
+  .btn-icon:focus {
+    @apply ring-white/20;
+  }
 
   /* Inverted — for use on dark surfaces */
   .btn-inverted {
     @apply bg-white/20 backdrop-blur-2xl text-white;
     box-shadow: var(--glass-rim-medium), 0 4px 12px rgb(0 0 0 / 0.2);
   }
+
   .btn-inverted:hover:not(:disabled) {
     @apply bg-white/30;
     box-shadow: var(--glass-rim-strong), 0 6px 16px rgb(0 0 0 / 0.3);
   }
-  .btn-inverted:focus { @apply ring-white/30; }
+
+  .btn-inverted:focus {
+    @apply ring-white/30;
+  }
 
   /* Danger — red glass */
   .btn-danger {
     @apply bg-red-500/10 backdrop-blur-xl text-red-400;
     box-shadow: var(--glass-rim-subtle);
   }
+
   .btn-danger:hover:not(:disabled) {
     @apply bg-red-500/20 text-red-300;
     box-shadow: var(--glass-rim-medium);
   }
-  .btn-danger:focus { @apply ring-red-500/50; }
+
+  .btn-danger:focus {
+    @apply ring-red-500/50;
+  }
 
   /* Warning — orange destructive */
   .btn-warning {
     @apply bg-orange-500/10 backdrop-blur-xl text-orange-400;
     box-shadow: var(--glass-rim-subtle);
   }
+
   .btn-warning:hover:not(:disabled) {
     @apply bg-orange-500/20 text-orange-300;
     box-shadow: var(--glass-rim-medium);
   }
-  .btn-warning:focus { @apply ring-orange-500/50; }
+
+  .btn-warning:focus {
+    @apply ring-orange-500/50;
+  }
 
   /* Danger ghost — red text, no bg until hover */
   .btn-danger-ghost {
     @apply bg-transparent text-red-500 dark:text-red-400;
     box-shadow: none;
   }
+
   .btn-danger-ghost:hover:not(:disabled) {
     @apply bg-red-500/10 text-red-400 dark:text-red-300;
     box-shadow: var(--glass-rim-subtle);
   }
-  .btn-danger-ghost:focus { @apply ring-red-500/50; }
+
+  .btn-danger-ghost:focus {
+    @apply ring-red-500/50;
+  }
 
   /* Accent ghost — accent text, no bg until hover */
   .btn-accent-ghost {
     @apply bg-transparent text-accent-500;
     box-shadow: none;
   }
+
   .btn-accent-ghost:hover:not(:disabled) {
     @apply bg-accent-500/10 text-accent-400;
     box-shadow: var(--glass-rim-subtle);
   }
-  .btn-accent-ghost:focus { @apply ring-accent-500/50; }
+
+  .btn-accent-ghost:focus {
+    @apply ring-accent-500/50;
+  }
 
   /* Outline — clear bg, defined rim */
   .btn-outline {
     @apply bg-transparent backdrop-blur-sm text-input-text;
     box-shadow: var(--glass-rim-subtle);
   }
+
   .btn-outline:hover:not(:disabled) {
     @apply bg-white/5;
     box-shadow: var(--glass-rim-medium);
   }
-  .btn-outline:focus { @apply ring-white/20; }
+
+  .btn-outline:focus {
+    @apply ring-white/20;
+  }
 
   /* Link — text only, no glass */
   .btn-link {
     @apply bg-transparent text-accent-500 shadow-none rounded-none;
     box-shadow: none;
   }
-  .btn-link:hover:not(:disabled) { @apply text-accent-400 underline; }
-  .btn-link:focus { @apply ring-accent-500/50; }
+
+  .btn-link:hover:not(:disabled) {
+    @apply text-accent-400 underline;
+  }
+
+  .btn-link:focus {
+    @apply ring-accent-500/50;
+  }
 
   /* Menu item — full width, left-aligned, used in dropdowns/nav */
   .btn-menu-item {
     @apply w-full rounded-xl px-3 py-2.5 text-left text-sm text-input-text bg-transparent justify-between;
     box-shadow: none;
   }
+
   .btn-menu-item:hover:not(:disabled) {
     @apply bg-white/10;
   }
-  .btn-menu-item:focus { @apply ring-white/20; }
+
+  .btn-menu-item:focus {
+    @apply ring-white/20;
+  }
 
   /* Tab — for segmented navigation */
   .btn-tab {
     @apply bg-transparent text-input-placeholder rounded-lg px-3 py-1.5 text-sm;
     box-shadow: none;
   }
+
   .btn-tab:hover:not(:disabled) {
     @apply bg-white/5 text-input-text;
   }
+
   .btn-tab[aria-selected="true"],
   .btn-tab.active {
     @apply bg-white/10 text-input-text;
@@ -354,7 +445,7 @@
   .nav-item-active {
     @apply bg-white/10 text-accent-400 border-transparent backdrop-blur-xl;
     box-shadow: var(--glass-rim-subtle),
-                0 2px 8px rgb(var(--accent-500) / 0.12);
+      0 2px 8px rgb(var(--accent-500) / 0.12);
   }
 
   .nav-item-inactive {
@@ -397,7 +488,7 @@
 
     transition: left 300ms ease-out, width 300ms ease-out;
     box-shadow: var(--glass-rim-subtle),
-                0 2px 8px rgb(var(--accent-500) / 0.25);
+      0 2px 8px rgb(var(--accent-500) / 0.25);
   }
 
   .segmented-toggle-item {
@@ -459,12 +550,32 @@
     margin-top: 0;
   }
 
-  .chat-markdown h1 { font-size: 1.45em; }
-  .chat-markdown h2 { font-size: 1.2em; }
-  .chat-markdown h3 { font-size: 1.05em; }
-  .chat-markdown h4 { font-size: 1em; @apply font-medium; }
-  .chat-markdown h5 { font-size: 0.9em; @apply font-medium text-input-placeholder; }
-  .chat-markdown h6 { font-size: 0.85em; @apply font-medium text-input-placeholder; }
+  .chat-markdown h1 {
+    font-size: 1.45em;
+  }
+
+  .chat-markdown h2 {
+    font-size: 1.2em;
+  }
+
+  .chat-markdown h3 {
+    font-size: 1.05em;
+  }
+
+  .chat-markdown h4 {
+    font-size: 1em;
+    @apply font-medium;
+  }
+
+  .chat-markdown h5 {
+    font-size: 0.9em;
+    @apply font-medium text-input-placeholder;
+  }
+
+  .chat-markdown h6 {
+    font-size: 0.85em;
+    @apply font-medium text-input-placeholder;
+  }
 
   /* ── Paragraphs ────────────────────────────────────────── */
 
@@ -472,14 +583,17 @@
     margin-top: 0;
     margin-bottom: 0.7em;
   }
+
   .chat-markdown p:last-child {
     margin-bottom: 0;
   }
-  .chat-markdown li > p {
+
+  .chat-markdown li>p {
     margin: 0;
     display: inline;
   }
-  .chat-markdown li > p + p {
+
+  .chat-markdown li>p+p {
     display: block;
     margin-top: 0.35em;
   }
@@ -492,28 +606,41 @@
     margin-bottom: 0.7em;
     padding-left: 1.4em;
   }
+
   .chat-markdown ul:last-child,
   .chat-markdown ol:last-child {
     margin-bottom: 0;
   }
 
   /* Nested lists — tighter, no extra bottom margin */
-  .chat-markdown li > ul,
-  .chat-markdown li > ol {
+  .chat-markdown li>ul,
+  .chat-markdown li>ol {
     margin-top: 0.2em;
     margin-bottom: 0;
   }
 
-  .chat-markdown ul { list-style-type: disc; }
-  .chat-markdown ol { list-style-type: decimal; }
-  .chat-markdown ul ul { list-style-type: circle; }
-  .chat-markdown ul ul ul { list-style-type: square; }
+  .chat-markdown ul {
+    list-style-type: disc;
+  }
+
+  .chat-markdown ol {
+    list-style-type: decimal;
+  }
+
+  .chat-markdown ul ul {
+    list-style-type: circle;
+  }
+
+  .chat-markdown ul ul ul {
+    list-style-type: square;
+  }
 
   .chat-markdown li {
     /* Tight but not cramped — adjust to taste */
     margin-bottom: 0.25em;
     @apply text-input-text;
   }
+
   .chat-markdown li:last-child {
     margin-bottom: 0;
   }
@@ -528,8 +655,13 @@
 
   /* ── Inline elements ───────────────────────────────────── */
 
-  .chat-markdown strong { @apply font-semibold text-input-text; }
-  .chat-markdown em     { @apply italic; }
+  .chat-markdown strong {
+    @apply font-semibold text-input-text;
+  }
+
+  .chat-markdown em {
+    @apply italic;
+  }
 
   .chat-markdown del,
   .chat-markdown s {
@@ -552,44 +684,65 @@
 
   /* When markdown is the only child of a tight container,
      remove the trailing margin on whatever element closes it */
-  .chat-markdown > :last-child {
+  .chat-markdown> :last-child {
     margin-bottom: 0 !important;
   }
 
   /* ── Streaming cursor ──────────────────────────────────── */
 
   .chat-markdown .chat-cursor {
-    @apply inline-block align-middle ml-1 h-2 w-2 rounded-full
-           bg-accent-500/80 animate-pulse;
+    @apply inline-block align-middle ml-1 h-2 w-2 rounded-full bg-accent-500/80 animate-pulse;
   }
 
   /* ============================================================
      FILE DISPLAY
      ============================================================ */
 
-  .file-display        { @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200; }
-  .file-display-icon   { @apply flex-shrink-0; }
-  .file-display-info   { @apply flex-1 min-w-0; }
-  .file-display-name   { @apply text-sm font-medium text-input-text truncate; }
-  .file-display-type   { @apply text-xs text-input-placeholder; }
-  .file-display-remove {
-    @apply flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center
-           bg-red-500/20 hover:bg-red-500/30 transition-colors;
+  .file-display {
+    @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200;
   }
-  .file-display-remove-icon { @apply w-3.5 h-3.5 text-white; }
+
+  .file-display-icon {
+    @apply flex-shrink-0;
+  }
+
+  .file-display-info {
+    @apply flex-1 min-w-0;
+  }
+
+  .file-display-name {
+    @apply text-sm font-medium text-input-text truncate;
+  }
+
+  .file-display-type {
+    @apply text-xs text-input-placeholder;
+  }
+
+  .file-display-remove {
+    @apply flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-red-500/20 hover:bg-red-500/30 transition-colors;
+  }
+
+  .file-display-remove-icon {
+    @apply w-3.5 h-3.5 text-white;
+  }
 
   /* ============================================================
      MESSAGE COMPOSER
      ============================================================ */
 
   .message-composer-container {
-    @apply flex flex-col w-full relative p-2 min-h-[48px] gap-2
-           h-auto overflow-visible bg-transparent;
+    @apply flex flex-col w-full relative p-2 min-h-[48px] gap-2 h-auto overflow-visible bg-transparent;
     border: none;
     box-shadow: none;
   }
-  .message-composer-preview-container { @apply flex gap-2 overflow-x-auto scrollbar-hide; }
-  .message-composer-input-row         { @apply flex items-center gap-3 w-full; }
+
+  .message-composer-preview-container {
+    @apply flex gap-2 overflow-x-auto scrollbar-hide;
+  }
+
+  .message-composer-input-row {
+    @apply flex items-center gap-3 w-full;
+  }
 
   /* ============================================================
      MESSAGE LIST
@@ -602,19 +755,19 @@
     box-shadow: none;
     backdrop-filter: none;
   }
+
   .message-list-item {
     border: 0;
     background-color: transparent;
     box-shadow: none;
   }
-  .message-list-item + .message-list-item { margin-top: 0; }
+
+  .message-list-item+.message-list-item {
+    margin-top: 0;
+  }
 
   .message-action-popover {
-    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1
-           rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0
-           backdrop-blur-sm transition-opacity duration-150
-           group-hover:flex group-hover:opacity-100
-           group-focus-within:flex group-focus-within:opacity-100;
+    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
   }
 
   .message-action-btn {
@@ -627,8 +780,7 @@
   }
 
   .message-reaction-chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5
-           px-2 py-0.5 text-xs text-input-text transition;
+    @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-input-text transition;
     box-shadow: none;
   }
 
@@ -649,118 +801,389 @@
      TYPOGRAPHY TOKENS
      ============================================================ */
 
-  .text-heading      { @apply text-input-text font-bold; }
-  .text-body-primary { @apply text-input-text; }
-  .text-secondary    { @apply text-input-placeholder; }
-  .text-body         { @apply text-input-text; }
+  .text-heading {
+    @apply text-input-text font-bold;
+  }
+
+  .text-body-primary {
+    @apply text-input-text;
+  }
+
+  .text-secondary {
+    @apply text-input-placeholder;
+  }
+
+  .text-body {
+    @apply text-input-text;
+  }
 }
 
 @layer utilities {
 
   /* Accordion */
-  [data-state="open"]   [data-slot="accordion-trigger"] svg { transform: rotate(180deg); }
-  [data-state="closed"] [data-slot="accordion-content"]     { display: none; }
-  [data-state="open"]   [data-slot="accordion-content"]     { display: block; }
+  [data-state="open"] [data-slot="accordion-trigger"] svg {
+    transform: rotate(180deg);
+  }
+
+  [data-state="closed"] [data-slot="accordion-content"] {
+    display: none;
+  }
+
+  [data-state="open"] [data-slot="accordion-content"] {
+    display: block;
+  }
 
   /* Scrollbar hide */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 
   /* ============================================================
      RTL SUPPORT
      ============================================================ */
 
-  [dir="rtl"] .ml-auto  { margin-left: unset;  margin-right: auto; }
-  [dir="rtl"] .mr-auto  { margin-right: unset; margin-left: auto; }
-  [dir="rtl"] .text-left  { text-align: right; }
-  [dir="rtl"] .text-right { text-align: left; }
+  [dir="rtl"] .ml-auto {
+    margin-left: unset;
+    margin-right: auto;
+  }
+
+  [dir="rtl"] .mr-auto {
+    margin-right: unset;
+    margin-left: auto;
+  }
+
+  [dir="rtl"] .text-left {
+    text-align: right;
+  }
+
+  [dir="rtl"] .text-right {
+    text-align: left;
+  }
 
   [dir="rtl"] .chat-markdown ul,
-  [dir="rtl"] .chat-markdown ol { margin-left: 0; margin-right: 1.4em; }
+  [dir="rtl"] .chat-markdown ol {
+    margin-left: 0;
+    margin-right: 1.4em;
+  }
 
   [dir="rtl"] .chat-markdown blockquote {
-    padding-left: 0; padding-right: 1rem;
-    border-left: none; border-right: 4px solid;
+    padding-left: 0;
+    padding-right: 1rem;
+    border-left: none;
+    border-right: 4px solid;
     @apply border-gray-200 dark:border-gray-700;
   }
 
-  [dir="rtl"] .chat-markdown .chat-cursor { margin-left: 0; margin-right: 0.5rem; }
+  [dir="rtl"] .chat-markdown .chat-cursor {
+    margin-left: 0;
+    margin-right: 0.5rem;
+  }
 
   /* Margins */
-  [dir="rtl"] .ml-1  { margin-left: unset; margin-right: 0.25rem; }
-  [dir="rtl"] .ml-2  { margin-left: unset; margin-right: 0.5rem; }
-  [dir="rtl"] .ml-3  { margin-left: unset; margin-right: 0.75rem; }
-  [dir="rtl"] .ml-4  { margin-left: unset; margin-right: 1rem; }
-  [dir="rtl"] .ml-5  { margin-left: unset; margin-right: 1.25rem; }
-  [dir="rtl"] .ml-6  { margin-left: unset; margin-right: 1.5rem; }
-  [dir="rtl"] .ml-8  { margin-left: unset; margin-right: 2rem; }
-  [dir="rtl"] .ml-10 { margin-left: unset; margin-right: 2.5rem; }
-  [dir="rtl"] .ml-12 { margin-left: unset; margin-right: 3rem; }
+  [dir="rtl"] .ml-1 {
+    margin-left: unset;
+    margin-right: 0.25rem;
+  }
 
-  [dir="rtl"] .mr-1  { margin-right: unset; margin-left: 0.25rem; }
-  [dir="rtl"] .mr-2  { margin-right: unset; margin-left: 0.5rem; }
-  [dir="rtl"] .mr-3  { margin-right: unset; margin-left: 0.75rem; }
-  [dir="rtl"] .mr-4  { margin-right: unset; margin-left: 1rem; }
-  [dir="rtl"] .mr-5  { margin-right: unset; margin-left: 1.25rem; }
-  [dir="rtl"] .mr-6  { margin-right: unset; margin-left: 1.5rem; }
-  [dir="rtl"] .mr-8  { margin-right: unset; margin-left: 2rem; }
-  [dir="rtl"] .mr-10 { margin-right: unset; margin-left: 2.5rem; }
-  [dir="rtl"] .mr-12 { margin-right: unset; margin-left: 3rem; }
+  [dir="rtl"] .ml-2 {
+    margin-left: unset;
+    margin-right: 0.5rem;
+  }
+
+  [dir="rtl"] .ml-3 {
+    margin-left: unset;
+    margin-right: 0.75rem;
+  }
+
+  [dir="rtl"] .ml-4 {
+    margin-left: unset;
+    margin-right: 1rem;
+  }
+
+  [dir="rtl"] .ml-5 {
+    margin-left: unset;
+    margin-right: 1.25rem;
+  }
+
+  [dir="rtl"] .ml-6 {
+    margin-left: unset;
+    margin-right: 1.5rem;
+  }
+
+  [dir="rtl"] .ml-8 {
+    margin-left: unset;
+    margin-right: 2rem;
+  }
+
+  [dir="rtl"] .ml-10 {
+    margin-left: unset;
+    margin-right: 2.5rem;
+  }
+
+  [dir="rtl"] .ml-12 {
+    margin-left: unset;
+    margin-right: 3rem;
+  }
+
+  [dir="rtl"] .mr-1 {
+    margin-right: unset;
+    margin-left: 0.25rem;
+  }
+
+  [dir="rtl"] .mr-2 {
+    margin-right: unset;
+    margin-left: 0.5rem;
+  }
+
+  [dir="rtl"] .mr-3 {
+    margin-right: unset;
+    margin-left: 0.75rem;
+  }
+
+  [dir="rtl"] .mr-4 {
+    margin-right: unset;
+    margin-left: 1rem;
+  }
+
+  [dir="rtl"] .mr-5 {
+    margin-right: unset;
+    margin-left: 1.25rem;
+  }
+
+  [dir="rtl"] .mr-6 {
+    margin-right: unset;
+    margin-left: 1.5rem;
+  }
+
+  [dir="rtl"] .mr-8 {
+    margin-right: unset;
+    margin-left: 2rem;
+  }
+
+  [dir="rtl"] .mr-10 {
+    margin-right: unset;
+    margin-left: 2.5rem;
+  }
+
+  [dir="rtl"] .mr-12 {
+    margin-right: unset;
+    margin-left: 3rem;
+  }
 
   /* Paddings */
-  [dir="rtl"] .pl-1  { padding-left: unset; padding-right: 0.25rem; }
-  [dir="rtl"] .pl-2  { padding-left: unset; padding-right: 0.5rem; }
-  [dir="rtl"] .pl-3  { padding-left: unset; padding-right: 0.75rem; }
-  [dir="rtl"] .pl-4  { padding-left: unset; padding-right: 1rem; }
-  [dir="rtl"] .pl-5  { padding-left: unset; padding-right: 1.25rem; }
-  [dir="rtl"] .pl-6  { padding-left: unset; padding-right: 1.5rem; }
-  [dir="rtl"] .pl-8  { padding-left: unset; padding-right: 2rem; }
-  [dir="rtl"] .pl-10 { padding-left: unset; padding-right: 2.5rem; }
-  [dir="rtl"] .pl-12 { padding-left: unset; padding-right: 3rem; }
+  [dir="rtl"] .pl-1 {
+    padding-left: unset;
+    padding-right: 0.25rem;
+  }
 
-  [dir="rtl"] .pr-1  { padding-right: unset; padding-left: 0.25rem; }
-  [dir="rtl"] .pr-2  { padding-right: unset; padding-left: 0.5rem; }
-  [dir="rtl"] .pr-3  { padding-right: unset; padding-left: 0.75rem; }
-  [dir="rtl"] .pr-4  { padding-right: unset; padding-left: 1rem; }
-  [dir="rtl"] .pr-5  { padding-right: unset; padding-left: 1.25rem; }
-  [dir="rtl"] .pr-6  { padding-right: unset; padding-left: 1.5rem; }
-  [dir="rtl"] .pr-8  { padding-right: unset; padding-left: 2rem; }
-  [dir="rtl"] .pr-10 { padding-right: unset; padding-left: 2.5rem; }
-  [dir="rtl"] .pr-12 { padding-right: unset; padding-left: 3rem; }
+  [dir="rtl"] .pl-2 {
+    padding-left: unset;
+    padding-right: 0.5rem;
+  }
+
+  [dir="rtl"] .pl-3 {
+    padding-left: unset;
+    padding-right: 0.75rem;
+  }
+
+  [dir="rtl"] .pl-4 {
+    padding-left: unset;
+    padding-right: 1rem;
+  }
+
+  [dir="rtl"] .pl-5 {
+    padding-left: unset;
+    padding-right: 1.25rem;
+  }
+
+  [dir="rtl"] .pl-6 {
+    padding-left: unset;
+    padding-right: 1.5rem;
+  }
+
+  [dir="rtl"] .pl-8 {
+    padding-left: unset;
+    padding-right: 2rem;
+  }
+
+  [dir="rtl"] .pl-10 {
+    padding-left: unset;
+    padding-right: 2.5rem;
+  }
+
+  [dir="rtl"] .pl-12 {
+    padding-left: unset;
+    padding-right: 3rem;
+  }
+
+  [dir="rtl"] .pr-1 {
+    padding-right: unset;
+    padding-left: 0.25rem;
+  }
+
+  [dir="rtl"] .pr-2 {
+    padding-right: unset;
+    padding-left: 0.5rem;
+  }
+
+  [dir="rtl"] .pr-3 {
+    padding-right: unset;
+    padding-left: 0.75rem;
+  }
+
+  [dir="rtl"] .pr-4 {
+    padding-right: unset;
+    padding-left: 1rem;
+  }
+
+  [dir="rtl"] .pr-5 {
+    padding-right: unset;
+    padding-left: 1.25rem;
+  }
+
+  [dir="rtl"] .pr-6 {
+    padding-right: unset;
+    padding-left: 1.5rem;
+  }
+
+  [dir="rtl"] .pr-8 {
+    padding-right: unset;
+    padding-left: 2rem;
+  }
+
+  [dir="rtl"] .pr-10 {
+    padding-right: unset;
+    padding-left: 2.5rem;
+  }
+
+  [dir="rtl"] .pr-12 {
+    padding-right: unset;
+    padding-left: 3rem;
+  }
 
   /* Positioning */
-  [dir="rtl"] .left-0  { left: unset; right: 0; }
-  [dir="rtl"] .left-1  { left: unset; right: 0.25rem; }
-  [dir="rtl"] .left-2  { left: unset; right: 0.5rem; }
-  [dir="rtl"] .left-3  { left: unset; right: 0.75rem; }
-  [dir="rtl"] .left-4  { left: unset; right: 1rem; }
-  [dir="rtl"] .left-5  { left: unset; right: 1.25rem; }
-  [dir="rtl"] .left-6  { left: unset; right: 1.5rem; }
-  [dir="rtl"] .left-8  { left: unset; right: 2rem; }
-  [dir="rtl"] .left-10 { left: unset; right: 2.5rem; }
-  [dir="rtl"] .left-12 { left: unset; right: 3rem; }
+  [dir="rtl"] .left-0 {
+    left: unset;
+    right: 0;
+  }
 
-  [dir="rtl"] .right-0  { right: unset; left: 0; }
-  [dir="rtl"] .right-1  { right: unset; left: 0.25rem; }
-  [dir="rtl"] .right-2  { right: unset; left: 0.5rem; }
-  [dir="rtl"] .right-3  { right: unset; left: 0.75rem; }
-  [dir="rtl"] .right-4  { right: unset; left: 1rem; }
-  [dir="rtl"] .right-5  { right: unset; left: 1.25rem; }
-  [dir="rtl"] .right-6  { right: unset; left: 1.5rem; }
-  [dir="rtl"] .right-8  { right: unset; left: 2rem; }
-  [dir="rtl"] .right-10 { right: unset; left: 2.5rem; }
-  [dir="rtl"] .right-12 { right: unset; left: 3rem; }
+  [dir="rtl"] .left-1 {
+    left: unset;
+    right: 0.25rem;
+  }
+
+  [dir="rtl"] .left-2 {
+    left: unset;
+    right: 0.5rem;
+  }
+
+  [dir="rtl"] .left-3 {
+    left: unset;
+    right: 0.75rem;
+  }
+
+  [dir="rtl"] .left-4 {
+    left: unset;
+    right: 1rem;
+  }
+
+  [dir="rtl"] .left-5 {
+    left: unset;
+    right: 1.25rem;
+  }
+
+  [dir="rtl"] .left-6 {
+    left: unset;
+    right: 1.5rem;
+  }
+
+  [dir="rtl"] .left-8 {
+    left: unset;
+    right: 2rem;
+  }
+
+  [dir="rtl"] .left-10 {
+    left: unset;
+    right: 2.5rem;
+  }
+
+  [dir="rtl"] .left-12 {
+    left: unset;
+    right: 3rem;
+  }
+
+  [dir="rtl"] .right-0 {
+    right: unset;
+    left: 0;
+  }
+
+  [dir="rtl"] .right-1 {
+    right: unset;
+    left: 0.25rem;
+  }
+
+  [dir="rtl"] .right-2 {
+    right: unset;
+    left: 0.5rem;
+  }
+
+  [dir="rtl"] .right-3 {
+    right: unset;
+    left: 0.75rem;
+  }
+
+  [dir="rtl"] .right-4 {
+    right: unset;
+    left: 1rem;
+  }
+
+  [dir="rtl"] .right-5 {
+    right: unset;
+    left: 1.25rem;
+  }
+
+  [dir="rtl"] .right-6 {
+    right: unset;
+    left: 1.5rem;
+  }
+
+  [dir="rtl"] .right-8 {
+    right: unset;
+    left: 2rem;
+  }
+
+  [dir="rtl"] .right-10 {
+    right: unset;
+    left: 2.5rem;
+  }
+
+  [dir="rtl"] .right-12 {
+    right: unset;
+    left: 3rem;
+  }
 
   /* ============================================================
      ANIMATIONS
      ============================================================ */
 
   @keyframes float-in {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  .animate-float-in { animation: float-in 600ms ease-out both; }
+
+  .animate-float-in {
+    animation: float-in 600ms ease-out both;
+  }
 }
