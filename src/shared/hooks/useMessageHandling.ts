@@ -1525,7 +1525,7 @@ export const useMessageHandling = ({
     await updateConversationMetadata({
       intakeSlimContactDraft: nextDraft,
       intakeAiBriefActive: false,
-      ...(practiceSlug ? { practiceSlug } : {}),
+      practiceSlug: practiceSlug ?? practiceId,
     });
 
     const practiceContextId = (practiceId ?? '').trim();

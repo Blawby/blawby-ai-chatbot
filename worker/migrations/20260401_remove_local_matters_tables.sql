@@ -235,7 +235,7 @@ SELECT
   me.created_at,
   me.updated_at
 FROM matter_events me
-INNER JOIN matters m ON m.id = me.matter_id;
+LEFT JOIN matters m ON m.id = me.matter_id;
 
 DROP TABLE matter_events;
 ALTER TABLE matter_events_new RENAME TO matter_events;

@@ -532,13 +532,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     setConvertLoading(true);
     setConvertError(null);
 
-    fetch(`/api/practice/client-intakes/${encodeURIComponent(convertIntakeUuid)}/status`, {
+    fetch(`/api/practice/${encodeURIComponent(activePracticeId)}/client-intakes/${encodeURIComponent(convertIntakeUuid)}/status`, {
       credentials: 'include',
       signal: controller.signal
     })
       .then(async (response) => {
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({})) as { message?: string; error?: string };
+          const errData = await response.json() as { message?: string; error?: string };
           throw new Error(errData.message ?? errData.error ?? `Failed to load intake (HTTP ${response.status})`);
         }
         const payload = await response.json() as {
@@ -820,7 +820,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
 
     const response = await fetch(
-      `/api/practice/client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
+      `/api/practice/${encodeURIComponent(activePracticeId)}/client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
       {
         method: 'PATCH',
         credentials: 'include',
@@ -837,7 +837,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     );
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({})) as { message?: string; error?: string };
+      const err = await response.json() as { message?: string; error?: string };
       throw new Error(err.message ?? err.error ?? `Intake conversion failed (HTTP ${response.status})`);
     }
 
@@ -851,8 +851,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
 
     refreshMatters();
-    goToDetail(matterId);
-  }, [activePracticeId, convertIntakeUuid, goToDetail, refreshMatters]);
+    createdMatterIdRef.current = matterId;
+  }, [activePracticeId, convertIntakeUuid, refreshMatters]);
 
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId || !selectedMatterId) return;

@@ -163,21 +163,12 @@ export async function handleSubmitIntake(
   // Validate participant access
   await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
 
-  // Load conversation + user_info from D1
+  // Resolve slug — stored during handleSlimFormContinue
+  // Note: We don't guard on intakeUuid here; instead rely on DB constraint to prevent duplicates
+  // This avoids the race condition between read and write
   const conversation = await conversationService.getConversation(conversationId, practiceId);
   const userInfo = (conversation.user_info ?? {}) as ConversationUserInfo;
 
-  // Guard: don't double-submit
-  if (userInfo.intakeUuid) {
-    Logger.warn('[submitIntake] Duplicate submission attempt', {
-      conversationId,
-      practiceId,
-      existingIntakeUuid: userInfo.intakeUuid,
-    });
-    throw HttpErrors.conflict('Intake already submitted for this conversation');
-  }
-
-  // Resolve slug — stored during handleSlimFormContinue
   const slug = typeof userInfo.practiceSlug === 'string' ? userInfo.practiceSlug.trim() : '';
   if (!slug) {
     throw HttpErrors.badRequest('Practice slug not found on conversation — cannot submit intake');
@@ -211,13 +202,14 @@ export async function handleSubmitIntake(
   const backendPayload = await backendResponse.json().catch(() => null) as BackendIntakeCreateResponse | null;
 
   if (!backendPayload?.success || !backendPayload.data?.uuid) {
+    const errorDetails = backendPayload?.error ?? 'No uuid returned';
     Logger.error('[submitIntake] Backend intake create failed', {
       conversationId,
       practiceId,
-      error: backendPayload?.error ?? 'No uuid returned',
+      error: errorDetails,
     });
     throw HttpErrors.internalServerError(
-      backendPayload?.error ?? 'Failed to create intake — please try again'
+      'Failed to create intake — please try again'
     );
   }
 
@@ -229,9 +221,22 @@ export async function handleSubmitIntake(
     intakeUuid,
   };
 
-  await conversationService.updateConversation(conversationId, practiceId, {
-    metadata: updatedUserInfo,
-  });
+  try {
+    await conversationService.updateConversation(conversationId, practiceId, {
+      metadata: updatedUserInfo,
+    });
+  } catch (error) {
+    // If update fails (e.g., duplicate intakeUuid due to race), treat as conflict
+    if (error instanceof Error && error.message?.includes('UNIQUE')) {
+      Logger.warn('[submitIntake] Conflict on intakeUuid write (likely duplicate submission)', {
+        conversationId,
+        practiceId,
+        intakeUuid,
+      });
+      throw HttpErrors.conflict('Intake already submitted for this conversation');
+    }
+    throw error;
+  }
 
   Logger.info('[submitIntake] Intake created and uuid persisted', {
     conversationId,
