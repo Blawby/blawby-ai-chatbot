@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { useActiveMemberRole, useTypedSession } from '@/shared/lib/authClient';
+import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -11,6 +12,13 @@ export interface SessionContextValue {
   activePracticeId: string | null;
   activeMemberRole: string | null;
   activeMemberRoleLoading: boolean;
+  /**
+   * Backend-computed routing claims from GET /auth/get-session.
+   * Present when the backend routing PR #101 is deployed.
+   * Falls back to null — callers should use useWorkspaceResolver which
+   * handles both the claims path and the legacy fallback path.
+   */
+  routingClaims: RoutingClaims | null;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -52,6 +60,9 @@ const buildSessionContextValue = ({
   const activeMemberRole = activeMemberRoleState?.data?.role ?? null;
   const activeMemberRoleLoading = activeMemberRoleState?.isPending ?? false;
 
+  // Parse backend routing claims if present (PR #101)
+  const routingClaims = parseRoutingClaims(sessionData);
+
   return {
     session: sessionData ?? null,
     isPending,
@@ -61,6 +72,7 @@ const buildSessionContextValue = ({
     activePracticeId,
     activeMemberRole,
     activeMemberRoleLoading,
+    routingClaims,
   };
 };
 

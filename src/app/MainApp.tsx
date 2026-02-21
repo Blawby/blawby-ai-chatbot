@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
@@ -8,11 +8,11 @@ import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
+import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
+import { useWorkspaceRouting } from '@/shared/hooks/useWorkspaceRouting';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
-import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import { useNavigation } from '@/shared/utils/navigation';
-import { getWorkspaceConversationsPath, getWorkspaceMattersPath } from '@/shared/utils/workspace';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -23,11 +23,7 @@ import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useTranslation } from '@/shared/i18n/hooks';
-
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import { logConversationEvent } from '@/shared/lib/conversationApi';
-import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
-import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
 import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
@@ -38,21 +34,20 @@ import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeC
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
+// ─── types ────────────────────────────────────────────────────────────────────
+
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+
 /**
  * LayoutMode controls how ChatContainer renders its shell.
- *
- * - 'desktop'  – sidebar/practice view, full chrome
- * - 'mobile'   – authenticated client on a phone, bottom-nav chrome
- * - 'widget'   – public chat embedded inside a 3rd-party site via an iframe
- *               (transparent background, no rounded container, fills the iframe)
- *
- * @deprecated 'embed' is the old name for 'widget'. It is kept for backwards
- *             compat but should not be used in new code.
+ * - 'desktop' – practice dashboard, full chrome
+ * - 'mobile'  – authenticated client on phone
+ * - 'widget'  – embedded in 3rd-party site via iframe (?v=widget)
  */
-export type LayoutMode = 'widget' | 'embed' | 'mobile' | 'desktop';
+export type LayoutMode = 'widget' | 'mobile' | 'desktop';
 
-// Main application component (non-auth pages)
+// ─── component ────────────────────────────────────────────────────────────────
+
 export function MainApp({
   practiceId,
   practiceConfig,
@@ -66,7 +61,7 @@ export function MainApp({
   clientWorkspaceView,
   clientPracticeSlug,
   practiceSlug,
-  isWidget = false
+  isWidget = false,
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
@@ -80,254 +75,203 @@ export function MainApp({
   clientWorkspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
   practiceSlug?: string;
-  /** True when the page is being rendered inside a 3rd-party site iframe via ?v=widget */
   isWidget?: boolean;
 }) {
-  // Core state
+  // ── UI state ───────────────────────────────────────────────────────────────
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const { navigate } = useNavigation();
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
-  const conversationRestoreAttemptedRef = useRef(false);
 
-  // Data & Hooks (Moved up)
+  const { navigate } = useNavigation();
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
-  const {
-    currentPractice,
-  } = usePracticeManagement({
-    autoFetchPractices: workspace !== 'public',
-    fetchInvitations: workspace !== 'public'
-  });
-
-  const isPublicWorkspace = workspace === 'public';
-  const resolvedPracticeLogo = isPublicWorkspace
-    ? (practiceConfig.profileImage ?? null)
-    : (currentPractice?.logo ?? practiceConfig?.profileImage ?? null);
-  const resolvedPracticeName = isPublicWorkspace
-    ? (practiceConfig.name ?? '')
-    : (currentPractice?.name ?? practiceConfig.name ?? '');
-  const resolvedPracticeSlug = practiceSlug
-    ?? currentPractice?.slug
-    ?? practiceConfig?.slug
-    ?? undefined;
-  const effectivePracticeSlug = practiceSlug ?? resolvedPracticeSlug ?? null;
-
-  const resolvedPublicPracticeSlug = useMemo(() => {
-    if (!isPublicWorkspace) return null;
-    return publicPracticeSlug ?? practiceConfig.slug ?? null;
-  }, [isPublicWorkspace, practiceConfig.slug, publicPracticeSlug]);
-  const resolvedClientPracticeSlug = useMemo(() => {
-    if (workspace !== 'client') return null;
-    return clientPracticeSlug ?? practiceConfig.slug ?? null;
-  }, [clientPracticeSlug, practiceConfig.slug, workspace]);
-  const publicConversationsBasePath = useMemo(() => {
-    if (!resolvedPublicPracticeSlug) return null;
-    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations`;
-  }, [resolvedPublicPracticeSlug]);
-  const conversationResetKey = useMemo(() => {
-    if (isPublicWorkspace) return resolvedPublicPracticeSlug ?? '';
-    return practiceId;
-  }, [isPublicWorkspace, practiceId, resolvedPublicPracticeSlug]);
-
-  useEffect(() => {
-    setConversationId(null);
-    setConversationMode(null);
-    conversationRestoreAttemptedRef.current = false;
-  }, [conversationResetKey]);
-
-  const normalizedRouteConversationId = useMemo(() => {
-    if (!routeConversationId) return null;
-    try {
-      return decodeURIComponent(routeConversationId);
-    } catch (error) {
-      console.warn('[MainApp] Failed to decode conversation id from route params', {
-        id: routeConversationId,
-        error
-      });
-      return routeConversationId;
-    }
-  }, [routeConversationId]);
-
-  const activeConversationId = normalizedRouteConversationId ?? conversationId;
-
-  const isAnonymousUser = isAnonymous;
-  const isPracticeWorkspace = workspace === 'practice';
-  const isAuthenticatedClient = Boolean(
-    workspace === 'public' &&
-    session?.user &&
-    !session.user.isAnonymous &&
-    normalizePracticeRole(activeMemberRole) === 'client'
-  );
-  const conversationCacheKey = useMemo(() => {
-    if (isPublicWorkspace) {
-      return null;
-    }
-    if (!practiceId || !session?.user?.id) {
-      return null;
-    }
-    return `chat:lastConversation:${workspace}:${practiceId}:${session.user.id}`;
-  }, [isPublicWorkspace, practiceId, session?.user?.id, workspace]);
-  const effectivePracticeId = useMemo(() => {
-    if (isPublicWorkspace) {
-      if (
-        practiceConfig.id &&
-        resolvedPublicPracticeSlug &&
-        practiceConfig.slug === resolvedPublicPracticeSlug
-      ) {
-        return practiceConfig.id;
-      }
-      return practiceId || undefined;
-    }
-    return practiceId || undefined;
-  }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, resolvedPublicPracticeSlug]);
-
-  // Practice data is now passed as props
-
-  // Using our custom practice system instead of Better Auth's organization plugin
-  // Removed unused submitUpgrade
   const { showError, showInfo } = useToastContext();
   const showErrorRef = useRef(showError);
-  const practiceWelcomeCheckRef = useRef(false);
-  const isSelectingRef = useRef(false);
-  useEffect(() => {
-    showErrorRef.current = showError;
-  }, [showError]);
+  useEffect(() => { showErrorRef.current = showError; }, [showError]);
 
+  // ── practice data ──────────────────────────────────────────────────────────
+  const { currentPractice } = usePracticeManagement({
+    autoFetchPractices: workspace !== 'public',
+    fetchInvitations: workspace !== 'public',
+  });
 
-  const practiceDetailsId = workspace === 'public'
+  // ── workspace routing — single source of truth ────────────────────────────
+  const routing = (session as { routing?: Parameters<typeof useWorkspaceRouting>[0]['routing'] } | null)?.routing ?? null;
+
+  const {
+    isPublicWorkspace,
+    isPracticeWorkspace,
+    isClientWorkspace,
+    isAuthenticatedClient,
+    effectivePracticeId,
+    effectivePracticeSlug,
+    resolvedPracticeSlug,
+    resolvedPublicPracticeSlug,
+    resolvedClientPracticeSlug,
+    resolvedPracticeName,
+    resolvedPracticeLogo,
+    resolvedPracticeDescription,
+    resolvedAccentColor,
+    normalizedRouteConversationId,
+    conversationsBasePath,
+    conversationBackPath,
+    practiceMattersPath,
+    publicConversationsBasePath,
+    conversationResetKey,
+    layoutMode,
+    currentUserRole,
+    canReviewLeads,
+    workspaceAccess,
+  } = useWorkspaceRouting({
+    practiceId,
+    practiceConfig,
+    workspace,
+    publicPracticeSlug,
+    clientPracticeSlug,
+    practiceSlug,
+    routeConversationId,
+    isWidget,
+    currentPractice,
+    activeMemberRole,
+    session,
+    routing,
+    // practiceDetails injected below after the hook that fetches them
+  });
+
+  // ── practice details (accent color, description) ──────────────────────────
+  const practiceDetailsId = isPublicWorkspace
     ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
     : practiceId;
-  const practiceDetailsSlug = workspace === 'public'
+  const practiceDetailsSlug = isPublicWorkspace
     ? resolvedPublicPracticeSlug
-    : workspace === 'client'
+    : isClientWorkspace
       ? resolvedClientPracticeSlug
       : (currentPractice?.slug ?? practiceConfig.slug ?? null);
-  const {
-    details: practiceDetails,
-    fetchDetails: fetchPracticeDetails,
-    hasDetails: hasPracticeDetails
-  } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug);
+
+  const { details: practiceDetails, fetchDetails: fetchPracticeDetails, hasDetails: hasPracticeDetails } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug);
 
   useEffect(() => {
     if (!practiceDetailsId || hasPracticeDetails) return;
     void fetchPracticeDetails();
   }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
 
+  // Re-run workspace routing with practiceDetails available.
+  // We call it a second time so that resolvedPracticeDescription and
+  // resolvedAccentColor are derived from the fully-loaded details object.
+  // Both calls are cheap (pure memo) — only the second has practiceDetails.
+  const {
+    resolvedPracticeDescription: fullDescription,
+    resolvedAccentColor: fullAccentColor,
+  } = useWorkspaceRouting({
+    practiceId,
+    practiceConfig,
+    workspace,
+    publicPracticeSlug,
+    clientPracticeSlug,
+    practiceSlug,
+    routeConversationId,
+    isWidget,
+    currentPractice,
+    practiceDetails,
+    activeMemberRole,
+    session,
+    routing,
+  });
+
   useEffect(() => {
-    if (workspace === 'public' || workspace === 'client') {
-      initializeAccentColor(practiceConfig.accentColor);
-      return;
-    }
-    const practiceAccentColor = practiceDetails?.accentColor
-      ?? currentPractice?.accentColor
-      ?? practiceConfig.accentColor;
-    initializeAccentColor(practiceAccentColor);
-  }, [
-    currentPractice?.accentColor,
-    practiceConfig.accentColor,
-    practiceDetails?.accentColor,
-    workspace
-  ]);
+    initializeAccentColor(fullAccentColor);
+  }, [fullAccentColor]);
 
+  // ── reset conversation when practice context changes ───────────────────────
+  useEffect(() => {
+    setConversationMode(null);
+  }, [conversationResetKey]);
 
+  // ── conversation setup ─────────────────────────────────────────────────────
+  const {
+    conversationId: setupConversationId,
+    isCreatingConversation,
+    createConversation,
+    applyConversationMode,
+  } = useConversationSetup({
+    practiceId,
+    workspace,
+    routeConversationId: normalizedRouteConversationId,
+    session,
+    sessionIsPending,
+    isPracticeWorkspace,
+    isPublicWorkspace,
+    onModeChange: setConversationMode,
+    onError: (msg) => showErrorRef.current?.(msg),
+  });
 
+  const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
+
+  // ── message handling ───────────────────────────────────────────────────────
   const handleMessageError = useCallback((error: string | Error) => {
     const message = typeof error === 'string' ? error : error.message;
-    const normalized = message.toLowerCase();
-    if (normalized.includes('chat connection closed')) {
-      return;
-    }
+    if (message.toLowerCase().includes('chat connection closed')) return;
     console.error('Message handling error:', error);
     showErrorRef.current?.(message || 'We hit a snag sending that message.');
   }, []);
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
-    if (metadata?.mode) {
-      setConversationMode(metadata.mode);
-    }
+    if (metadata?.mode) setConversationMode(metadata.mode);
   }, []);
 
-  const realMessageHandling = useMessageHandling({
+  const messageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
     practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: activeConversationId ?? undefined,
-    linkAnonymousConversationOnLoad: workspace === 'public',
+    linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
-    onError: handleMessageError
+    onError: handleMessageError,
   });
 
-  const messages = realMessageHandling.messages;
-  const addMessage = realMessageHandling.addMessage;
-  const clearMessages = realMessageHandling.clearMessages;
-  const requestMessageReactions = realMessageHandling.requestMessageReactions;
-  const toggleMessageReaction = realMessageHandling.toggleMessageReaction;
-  const conversationMetadata = realMessageHandling.conversationMetadata;
-  const intakeStatus = realMessageHandling.intakeStatus;
-  const intakeConversationState = realMessageHandling.intakeConversationState;
-  const handleIntakeCtaResponse = realMessageHandling.handleIntakeCtaResponse;
-  const slimContactDraft = realMessageHandling.slimContactDraft;
-  const handleSlimFormContinue = realMessageHandling.handleSlimFormContinue;
-  const handleBuildBrief = realMessageHandling.handleBuildBrief;
-  const handleSubmitNow = realMessageHandling.handleSubmitNow;
-  const startConsultFlow = realMessageHandling.startConsultFlow;
-  const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
-  const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
-  const ingestServerMessages = realMessageHandling.ingestServerMessages;
-  const messagesReady = realMessageHandling.messagesReady;
-  const hasMoreMessages = realMessageHandling.hasMoreMessages;
-  const isLoadingMoreMessages = realMessageHandling.isLoadingMoreMessages;
-  const loadMoreMessages = realMessageHandling.loadMoreMessages;
+  const {
+    messages, conversationMetadata, sendMessage, addMessage, clearMessages,
+    requestMessageReactions, toggleMessageReaction,
+    intakeStatus, intakeConversationState, handleIntakeCtaResponse,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
+    startConsultFlow, updateConversationMetadata, isConsultFlowActive,
+    ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
+    loadMoreMessages, isSocketReady,
+  } = messageHandling;
 
+  useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
+
+  // ── intake auth prompt ─────────────────────────────────────────────────────
   const intakeUuid = intakeStatus?.intakeUuid ?? null;
+  const { t } = useTranslation('common');
+
   const intakeAuthTarget = useMemo(() => {
-    if (!isPublicWorkspace) return null;
-    if (!intakeUuid) return null;
+    if (!isPublicWorkspace || !intakeUuid) return null;
     if (intakeStatus?.paymentRequired && !intakeStatus?.paymentReceived) return null;
     return intakeUuid;
-  }, [
-    intakeUuid,
-    intakeStatus?.paymentReceived,
-    intakeStatus?.paymentRequired,
-    isPublicWorkspace
-  ]);
+  }, [intakeUuid, intakeStatus?.paymentReceived, intakeStatus?.paymentRequired, isPublicWorkspace]);
 
-  const { t } = useTranslation('common');
-  const shouldShowIntakeAuthPrompt = Boolean(
-    isAnonymousUser &&
-    intakeAuthTarget &&
-    dismissedIntakeAuthFor !== intakeAuthTarget
-  );
-  const shouldShowAuthPrompt = Boolean(
-    isAnonymousUser && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen)
-  );
+  const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
+  const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
 
   const intakeAuthTitle = t('intake.authTitle');
   const intakeAuthDescription = resolvedPracticeName
     ? t('intake.authDescription', { practice: resolvedPracticeName })
     : t('intake.authDescriptionFallback');
+
   const awaitingInvitePath = useMemo(() => {
     if (!isPublicWorkspace || !intakeUuid) return null;
-    const resolvedPracticeSlugLocal = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
+    const slug = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
     const params = new URLSearchParams();
     params.set('intakeUuid', intakeUuid);
-    if (resolvedPracticeSlugLocal) params.set('practiceSlug', resolvedPracticeSlugLocal);
+    if (slug) params.set('practiceSlug', slug);
     if (resolvedPracticeName) params.set('practiceName', resolvedPracticeName);
     if (activeConversationId) params.set('conversationId', activeConversationId);
     return `/auth/awaiting-invite?${params.toString()}`;
-  }, [
-    activeConversationId,
-    intakeUuid,
-    isPublicWorkspace,
-    practiceConfig.slug,
-    resolvedPracticeName,
-    resolvedPublicPracticeSlug
-  ]);
+  }, [activeConversationId, intakeUuid, isPublicWorkspace, practiceConfig.slug, resolvedPracticeName, resolvedPublicPracticeSlug]);
+
   const intakePostAuthPath = useMemo(() => {
     if (!isPublicWorkspace) return null;
     if (resolvedPublicPracticeSlug && activeConversationId) {
@@ -338,216 +282,61 @@ export function MainApp({
 
   const handleIntakeAuthSuccess = useCallback(async () => {
     if (!intakePostAuthPath) return;
-
-    if (intakeAuthTarget) {
-      setDismissedIntakeAuthFor(intakeAuthTarget);
-    }
+    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
     navigate(intakePostAuthPath, true);
-  }, [
-    intakePostAuthPath,
-    intakeAuthTarget,
-    navigate
-  ]);
+  }, [intakePostAuthPath, intakeAuthTarget, navigate]);
 
-  const handlePaymentAuthRequest = useCallback(() => {
-    setIsPaymentAuthPromptOpen(true);
-  }, []);
+  const handlePaymentAuthRequest = useCallback(() => { setIsPaymentAuthPromptOpen(true); }, []);
 
   const handleAuthPromptClose = useCallback(() => {
     if (typeof window !== 'undefined') {
-      try {
-        window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-      } catch (error) {
-        console.warn('[MainApp] Failed to clear intake awaiting path on auth prompt close', error);
-      }
+      try { window.sessionStorage.removeItem('intakeAwaitingInvitePath'); } catch { /* noop */ }
     }
-    if (isPaymentAuthPromptOpen) {
-      setIsPaymentAuthPromptOpen(false);
-    }
-    if (intakeAuthTarget) {
-      setDismissedIntakeAuthFor(intakeAuthTarget);
-    }
+    if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
+    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
   }, [intakeAuthTarget, isPaymentAuthPromptOpen]);
 
   const handleAuthPromptSuccess = useCallback(async () => {
-    if (isPaymentAuthPromptOpen) {
-      setIsPaymentAuthPromptOpen(false);
-    }
+    if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
     await handleIntakeAuthSuccess();
   }, [handleIntakeAuthSuccess, isPaymentAuthPromptOpen]);
 
   useEffect(() => {
-    if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') {
-      return;
-    }
-    try {
-      window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('[MainApp] Failed to persist intake awaiting path', error);
-      }
-    }
+    if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
+    try { window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath); } catch { /* noop */ }
   }, [intakePostAuthPath, shouldShowAuthPrompt]);
 
-  useEffect(() => {
-    clearMessages();
-  }, [practiceId, clearMessages]);
-
-  const createConversation = useCallback(async () => {
-    if (isPracticeWorkspace) return null;
-    if (!practiceId || !session?.user || isCreatingConversation) return null;
-
-    try {
-      setIsCreatingConversation(true);
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      const params = new URLSearchParams({ practiceId });
-      const url = `${getConversationsEndpoint()}?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          participantUserIds: [session.user.id],
-          metadata: { source: 'chat' },
-          practiceId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json() as { success: boolean; error?: string; data?: { id: string } };
-      if (!data.success || !data.data?.id) {
-        throw new Error(data.error || 'Failed to start conversation');
-      }
-
-      setConversationId(data.data.id);
-      return data.data.id;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      throw new Error(message);
-    } finally {
-      setIsCreatingConversation(false);
-    }
-  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
-
-  const restoreConversationFromCache = useCallback(async () => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-    if (!conversationCacheKey || !practiceId || !session?.user) {
-      return null;
-    }
-    const cached = window.localStorage.getItem(conversationCacheKey);
-    if (!cached) {
-      return null;
-    }
-    if (activeConversationId === cached) {
-      return cached;
-    }
-
-    try {
-      const params = new URLSearchParams({ practiceId });
-      const response = await fetch(
-        `${getConversationEndpoint(cached)}?${params.toString()}`,
-        {
-          method: 'GET',
-          credentials: 'include'
-        }
-      );
-      if (!response.ok) {
-        window.localStorage.removeItem(conversationCacheKey);
-        return null;
-      }
-      setConversationId(cached);
-      return cached;
-    } catch (error) {
-      console.warn('[MainApp] Failed to restore cached conversation', error);
-      return null;
-    }
-  }, [
-    conversationCacheKey,
-    activeConversationId,
-    practiceId,
-    session?.user
-  ]);
-
-  const applyConversationMode = useCallback(async (
-    nextMode: ConversationMode,
-    activeConversationId: string,
-    source: 'intro_gate' | 'composer_footer' | 'home_cta'
-  ) => {
-    if (!practiceId) return;
-    await updateConversationMetadata({
-      mode: nextMode
-    }, activeConversationId);
-    setConversationMode(nextMode);
-    void logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode, source });
-    if (nextMode === 'REQUEST_CONSULTATION') {
-      startConsultFlow(activeConversationId);
-      void logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
-    }
-  }, [
-    practiceId,
-    startConsultFlow,
-    updateConversationMetadata
-  ]);
+  // ── conversation mode selection ────────────────────────────────────────────
+  const isSelectingRef = useRef(false);
 
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
     source: 'intro_gate' | 'composer_footer'
   ) => {
+    if (isSelectingRef.current) return;
     try {
-      if (isSelectingRef.current) {
-        return;
-      }
       isSelectingRef.current = true;
-
       let currentConversationId = activeConversationId;
-      if (!currentConversationId && !isCreatingConversation) {
-        currentConversationId = await createConversation();
-      }
-      if (!currentConversationId || !practiceId) {
-        return;
-      }
-
-      await applyConversationMode(nextMode, currentConversationId, source);
+      if (!currentConversationId && !isCreatingConversation) currentConversationId = await createConversation();
+      if (!currentConversationId || !practiceId) return;
+      await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
     } catch (error) {
       setConversationMode(null);
-      const message = error instanceof Error ? error.message : 'Unable to start conversation';
-      showErrorRef.current?.(message);
+      showErrorRef.current?.(error instanceof Error ? error.message : 'Unable to start conversation');
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
     } finally {
       isSelectingRef.current = false;
     }
-  }, [
-    applyConversationMode,
-    activeConversationId,
-    createConversation,
-    isCreatingConversation,
-    practiceId
-  ]);
+  }, [applyConversationMode, activeConversationId, createConversation, isCreatingConversation, practiceId, startConsultFlow]);
 
   const handleStartNewConversation = useCallback(async (nextMode: ConversationMode): Promise<string> => {
+    if (isSelectingRef.current) throw new Error('Conversation start already in progress');
     try {
-      if (isSelectingRef.current) {
-        throw new Error('Conversation start already in progress');
-      }
       isSelectingRef.current = true;
-      if (!practiceId) {
-        throw new Error('Practice context is required');
-      }
+      if (!practiceId) throw new Error('Practice context is required');
       const newConversationId = await createConversation();
-      if (!newConversationId) {
-        throw new Error('Unable to create conversation');
-      }
-      await applyConversationMode(nextMode, newConversationId, 'home_cta');
+      if (!newConversationId) throw new Error('Unable to create conversation');
+      await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
       return newConversationId;
     } catch (error) {
       setConversationMode(null);
@@ -556,8 +345,9 @@ export function MainApp({
     } finally {
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, createConversation, practiceId]);
+  }, [applyConversationMode, createConversation, practiceId, startConsultFlow]);
 
+  // ── send message ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (
     message: string,
     attachments: FileAttachment[] = [],
@@ -565,375 +355,159 @@ export function MainApp({
   ) => {
     if (!activeConversationId) {
       showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
-      if (!isCreatingConversation) {
-        void createConversation();
-      }
+      if (!isCreatingConversation) void createConversation();
       return;
     }
+    await sendMessage(message, attachments, replyToMessageId ?? null);
+  }, [activeConversationId, isCreatingConversation, createConversation, sendMessage]);
 
-    await realMessageHandling.sendMessage(message, attachments, replyToMessageId ?? null);
-  }, [activeConversationId, isCreatingConversation, createConversation, realMessageHandling]);
-
+  // ── file upload ────────────────────────────────────────────────────────────
   const {
-    previewFiles,
-    uploadingFiles,
-    isDragging,
-    setIsDragging,
-    handleCameraCapture,
-    handleFileSelect,
-    removePreviewFile,
-    clearPreviewFiles,
-    cancelUpload,
-    isReadyToUpload
+    previewFiles, uploadingFiles, isDragging, setIsDragging,
+    handleCameraCapture, handleFileSelect, removePreviewFile,
+    clearPreviewFiles, cancelUpload, isReadyToUpload,
   } = useFileUploadWithContext({
     conversationId: activeConversationId ?? undefined,
     onError: (error) => {
-      // Handle file upload error
-
       console.error('File upload error:', error);
       showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
-    }
+    },
   });
 
-  // Session error handling removed - no longer using sessions
-
-  // Welcome modal state via server-truth + session debounce
-  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({
-    enabled: workspace !== 'public'
-  });
+  // ── welcome modals ─────────────────────────────────────────────────────────
+  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({ enabled: workspace !== 'public' });
   const showWelcomeModal = shouldShowWelcome && workspace !== 'public';
 
-  // Note: Auto-practice creation removed - clients don't need practices.
-  // Practice members (lawyers) will create practices through onboarding/upgrade flow.
-  // Clients chat with practices via widget (practiceId from URL), not their own practice.
-
-
-
-
-  // Check if we should show practice welcome modal
+  const practiceWelcomeCheckRef = useRef(false);
   useEffect(() => {
-    if (workspace !== 'practice') {
-      practiceWelcomeCheckRef.current = false;
-      setShowBusinessWelcome(false);
-      return;
-    }
-    if (sessionIsPending || isAnonymous || !session?.user?.id) {
-      setShowBusinessWelcome(false);
-      return;
-    }
+    if (workspace !== 'practice') { practiceWelcomeCheckRef.current = false; setShowBusinessWelcome(false); return; }
+    if (sessionIsPending || isAnonymous || !session?.user?.id) { setShowBusinessWelcome(false); return; }
     if (practiceWelcomeCheckRef.current) return;
     practiceWelcomeCheckRef.current = true;
-
-    const checkPracticeWelcome = async () => {
+    (async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const hasCompletedOnboarding = prefs?.completed === true;
-        const shouldShow = hasCompletedOnboarding && !prefs?.practice_welcome_shown;
-
-        if (import.meta.env.DEV) {
-          console.debug('[PRACTICE_WELCOME][CHECK] preferences', {
-            completed: prefs?.completed ?? null,
-            practice_welcome_shown: prefs?.practice_welcome_shown ?? null
-          });
-        }
-
-        setShowBusinessWelcome(shouldShow);
-      } catch (error) {
-        console.warn('[PRACTICE_WELCOME][CHECK] preferences fetch failed:', error);
+        setShowBusinessWelcome(prefs?.completed === true && !prefs?.practice_welcome_shown);
+      } catch (err) {
+        console.warn('[PRACTICE_WELCOME] Preferences fetch failed:', err);
         practiceWelcomeCheckRef.current = false;
         setShowBusinessWelcome(false);
       }
-    };
-
-    void checkPracticeWelcome();
+    })();
   }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
 
-  // Pricing modal removed; subscription tier derivation not needed here.
-
-  // User tier is now derived directly from practice - no need for custom event listeners
-
-  const shouldRequireModeSelection = workspace === 'public';
-  const isConversationReady = Boolean(activeConversationId && !isCreatingConversation);
-  const isAuthReady = Boolean(session?.user) && !sessionIsPending;
-  const isSessionReady = isConversationReady && isAuthReady;
-  const isSocketReady = isConversationReady && isAuthReady ? realMessageHandling.isSocketReady : false;
-  const isComposerDisabled = shouldRequireModeSelection && !conversationMode;
-  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
-
-  useEffect(() => {
-    if (isPublicWorkspace) return;
-    if (!isAuthReady) return;
-    if (!practiceId) return;
-    if (activeConversationId) return;
-    if (isCreatingConversation) return;
-    if (conversationRestoreAttemptedRef.current) return;
-    conversationRestoreAttemptedRef.current = true;
-
-    (async () => {
-      try {
-        const restored = await restoreConversationFromCache();
-        if (restored) {
-          return;
-        }
-      } catch {
-        conversationRestoreAttemptedRef.current = false;
-      }
-    })();
-  }, [
-    activeConversationId,
-    isAuthReady,
-    isCreatingConversation,
-    isPublicWorkspace,
-    practiceId,
-    restoreConversationFromCache,
-    session?.user?.id
-  ]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const inviteLink = readPendingPracticeInviteLink();
-    if (!inviteLink) {
-      return;
-    }
-
-    try {
-      const resolved = new URL(inviteLink, window.location.origin);
-      const sameOrigin = resolved.origin === window.location.origin;
-      if (sameOrigin) {
-        navigate(`${resolved.pathname}${resolved.search}${resolved.hash}`);
-        clearPendingPracticeInviteLink();
-        return;
-      }
-
-      const opened = window.open(resolved.toString(), '_blank', 'noopener');
-      if (opened) {
-        clearPendingPracticeInviteLink();
-        return;
-      }
-    } catch (error) {
-      console.warn('[Invite] Failed to navigate to invite link', error);
-    }
-
-    showInfo('Join your practice', 'Open your invite link to finish joining the practice.');
-  }, [navigate, showInfo]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!conversationCacheKey || !activeConversationId) return;
-    try {
-      window.localStorage.setItem(conversationCacheKey, activeConversationId);
-    } catch (e) {
-      console.warn('Failed to save conversation ID', e);
-    }
-  }, [conversationCacheKey, activeConversationId]);
-
-  const currentUserRole = normalizePracticeRole(activeMemberRole) ?? 'member';
-  const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
-  const leadReviewActions = useMemo(() => {
-    if (workspace !== 'practice') return undefined;
-    if (!practiceId || !activeConversationId) return undefined;
-    const mattersBasePath = getWorkspaceMattersPath('practice', effectivePracticeSlug);
-    if (!mattersBasePath) return undefined;
-    return {
-      practiceId,
-      practiceName: resolvedPracticeName,
-      conversationId: activeConversationId,
-      canReviewLeads,
-      mattersBasePath,
-      navigateTo: (path: string) => navigate(path),
-    };
-  }, [
-    workspace,
-    practiceId,
-    activeConversationId,
-    resolvedPracticeName,
-    canReviewLeads,
-    effectivePracticeSlug,
-    navigate,
-  ]);
-
-
-  useConversationSystemMessages({
-    conversationId: activeConversationId,
-    practiceId: effectivePracticeId,
-    practiceConfig,
-    messagesReady,
-    messages,
-    conversationMode,
-    isConsultFlowActive,
-    shouldRequireModeSelection,
-    ingestServerMessages
-  });
-
-  // Create stable callback references for keyboard handlers
-  const handleEscape = useCallback(() => {
-    if (previewFiles.length > 0) {
-      clearPreviewFiles();
-      setClearInputTrigger(prev => prev + 1);
-    }
-  }, [previewFiles.length, clearPreviewFiles]);
-
-  const handleFocusInput = useCallback(() => {
-    const textarea = document.querySelector('.message-input') as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.focus();
-    }
-  }, []);
-
-  // Setup global event handlers
-  useEffect(() => {
-    // Setup keyboard handlers
-    const cleanupKeyboard = setupGlobalKeyboardListeners({
-      onEscape: handleEscape,
-      onSubmit: () => {
-        // This will be handled by ChatContainer
-      },
-      onFocusInput: handleFocusInput
-    });
-
-    return () => {
-      cleanupKeyboard?.();
-    };
-  }, [handleEscape, handleFocusInput]);
-
-  // Setup scroll behavior
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-
-    const messageList = document.querySelector('.message-list');
-    if (!messageList) return;
-
-    let scrollTimer: number | null = null;
-
-    const handleScroll = () => {
-      // Add scrolling class when scrolling starts
-      messageList.classList.add('scrolling');
-
-      // Clear any existing timer
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-        scrollTimer = null;
-      }
-
-      // Set a timer to remove the scrolling class after scrolling stops
-      scrollTimer = window.setTimeout(() => {
-        messageList.classList.remove('scrolling');
-      }, 1000); // Hide scrollbar 1 second after scrolling stops
-    };
-
-    messageList.addEventListener('scroll', handleScroll);
-
-    return () => {
-      messageList.removeEventListener('scroll', handleScroll);
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-      }
-    };
-  }, []);
-
-  // Handle welcome modal using server-truth hook
-  const handleWelcomeComplete = async () => {
-    await markWelcomeAsShown();
-  };
-
-  const handleWelcomeClose = async () => {
-    await markWelcomeAsShown();
-  };
-
+  const handleWelcomeComplete = async () => { await markWelcomeAsShown(); };
+  const handleWelcomeClose = async () => { await markWelcomeAsShown(); };
   const handleBusinessWelcomeClose = async () => {
     setShowBusinessWelcome(false);
-    try {
-      await updatePreferencesCategory('onboarding', {
-        practice_welcome_shown: true
-      });
-    } catch (error) {
-      console.warn('[PRACTICE_WELCOME] Failed to update preferences', error);
+    try { await updatePreferencesCategory('onboarding', { practice_welcome_shown: true }); }
+    catch (err) {
+      console.warn('[PRACTICE_WELCOME] Failed to update preferences', err);
       showError('Update failed', 'We could not save your preference. You may see this prompt again.');
     }
     navigate('/settings/practice');
   };
 
-  // Handle media capture
+  // ── invite link handling ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const inviteLink = readPendingPracticeInviteLink();
+    if (!inviteLink) return;
+    try {
+      const resolved = new URL(inviteLink, window.location.origin);
+      if (resolved.origin === window.location.origin) {
+        navigate(`${resolved.pathname}${resolved.search}${resolved.hash}`);
+        clearPendingPracticeInviteLink();
+        return;
+      }
+      const opened = window.open(resolved.toString(), '_blank', 'noopener');
+      if (opened) { clearPendingPracticeInviteLink(); return; }
+    } catch (err) { console.warn('[Invite] Failed to navigate to invite link', err); }
+    showInfo('Join your practice', 'Open your invite link to finish joining the practice.');
+  }, [navigate, showInfo]);
+
+  // ── keyboard & scroll ──────────────────────────────────────────────────────
+  const handleEscape = useCallback(() => {
+    if (previewFiles.length > 0) { clearPreviewFiles(); setClearInputTrigger(prev => prev + 1); }
+  }, [previewFiles.length, clearPreviewFiles]);
+
+  const handleFocusInput = useCallback(() => {
+    (document.querySelector('.message-input') as HTMLTextAreaElement | null)?.focus();
+  }, []);
+
+  useEffect(() => {
+    const cleanup = setupGlobalKeyboardListeners({ onEscape: handleEscape, onSubmit: () => {}, onFocusInput: handleFocusInput });
+    return () => { cleanup?.(); };
+  }, [handleEscape, handleFocusInput]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const messageList = document.querySelector('.message-list');
+    if (!messageList) return;
+    let scrollTimer: number | null = null;
+    const handleScroll = () => {
+      messageList.classList.add('scrolling');
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => { messageList.classList.remove('scrolling'); }, 1000);
+    };
+    messageList.addEventListener('scroll', handleScroll);
+    return () => { messageList.removeEventListener('scroll', handleScroll); if (scrollTimer) clearTimeout(scrollTimer); };
+  }, []);
+
+  // ── media capture ──────────────────────────────────────────────────────────
   const handleMediaCaptureWrapper = async (blob: Blob, type: 'audio' | 'video') => {
     try {
-      // Create a File object from the blob
-      const fileName = `Recording_${new Date().toISOString()}.${type === 'audio' ? 'webm' : 'mp4'}`;
-      const file = new File([blob], fileName, { type: blob.type });
-
-      // Upload the file to backend and get metadata
+      const ext = type === 'audio' ? 'webm' : 'mp4';
+      const file = new File([blob], `Recording_${new Date().toISOString()}.${ext}`, { type: blob.type });
       const uploadedFiles = await handleFileSelect([file]);
-
-      // Send a message with the uploaded file metadata
       await handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
-
-    } catch (_error) {
-      // Handle media upload error
-
-      console.error('Failed to upload captured media:', _error);
+    } catch (err) {
+      console.error('Failed to upload captured media:', err);
       showErrorRef.current?.('Failed to upload recording. Please try again.');
     }
   };
 
-  const resolvedPracticeDescription = practiceDetails?.description
-    ?? currentPractice?.description
-    ?? practiceConfig?.description
-    ?? '';
+  // ── conversation header ────────────────────────────────────────────────────
   const filteredMessagesForHeader = useMemo(() => {
-    const base = messages.filter((message) =>
-      message.metadata?.systemMessageKey !== 'ask_question_help'
-    );
-    const hasNonSystemMessages = base.some((message) => message.role !== 'system');
-    return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
+    const base = messages.filter(m => m.metadata?.systemMessageKey !== 'ask_question_help');
+    const hasNonSystem = base.some(m => m.role !== 'system');
+    return hasNonSystem ? base.filter(m => m.metadata?.systemMessageKey !== 'intro') : base;
   }, [messages]);
+
   const headerPresenceStatus = typeof isSocketReady === 'boolean'
     ? (isSocketReady ? 'active' : 'inactive')
     : undefined;
+
   const headerActiveTimeLabel = useMemo(() => {
-    if (headerPresenceStatus === 'active') {
-      return 'Active';
-    }
-    const lastTimestamp = [...filteredMessagesForHeader]
-      .reverse()
-      .find((message) => typeof message.timestamp === 'number')?.timestamp;
-    if (!lastTimestamp) {
-      return 'Inactive';
-    }
+    if (headerPresenceStatus === 'active') return 'Active';
+    const lastTimestamp = [...filteredMessagesForHeader].reverse().find(m => typeof m.timestamp === 'number')?.timestamp;
+    if (!lastTimestamp) return 'Inactive';
     const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
     return relative ? `Active ${relative}` : 'Inactive';
   }, [filteredMessagesForHeader, headerPresenceStatus]);
-  const conversationsBasePath = useMemo(() => {
-    if (workspace === 'practice') {
-      return getWorkspaceConversationsPath('practice', resolvedPracticeSlug);
-    }
-    if (workspace === 'client') {
-      return getWorkspaceConversationsPath('client', resolvedClientPracticeSlug);
-    }
-    return publicConversationsBasePath;
-  }, [publicConversationsBasePath, resolvedClientPracticeSlug, resolvedPracticeSlug, workspace]);
-  const conversationBackPath = useMemo(() => {
-    if (workspace === 'public') {
-      return resolvedPublicPracticeSlug
-        ? `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}`
-        : '/public';
-    }
-    return conversationsBasePath;
-  }, [conversationsBasePath, resolvedPublicPracticeSlug, workspace]);
+
+  const leadReviewActions = useMemo(() => {
+    if (!isPracticeWorkspace || !practiceId || !activeConversationId || !practiceMattersPath) return undefined;
+    return {
+      practiceId,
+      practiceName: resolvedPracticeName,
+      conversationId: activeConversationId,
+      canReviewLeads,
+      mattersBasePath: practiceMattersPath,
+      navigateTo: (path: string) => navigate(path),
+    };
+  }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
+
   const headerRightSlot = useMemo(() => {
-    if (workspace === 'practice') {
-      return (
-        <PracticeConversationHeaderMenu
-          practiceId={practiceId}
-          conversationId={activeConversationId ?? undefined}
-        />
-      );
+    if (isPracticeWorkspace) {
+      return <PracticeConversationHeaderMenu practiceId={practiceId} conversationId={activeConversationId ?? undefined} />;
     }
     if (conversationMode === 'REQUEST_CONSULTATION') {
       return <BriefStrengthIndicator intakeConversationState={intakeConversationState} />;
     }
     return undefined;
-  }, [workspace, practiceId, activeConversationId, conversationMode, intakeConversationState]);
+  }, [isPracticeWorkspace, practiceId, activeConversationId, conversationMode, intakeConversationState]);
+
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
     return (
@@ -947,113 +521,126 @@ export function MainApp({
       />
     );
   }, [
-    activeConversationId,
-    conversationBackPath,
-    conversationsBasePath,
-    headerActiveTimeLabel,
-    headerPresenceStatus,
-    headerRightSlot,
-    navigate,
-    resolvedPracticeLogo,
-    resolvedPracticeName
+    activeConversationId, conversationBackPath, conversationsBasePath,
+    headerActiveTimeLabel, headerPresenceStatus, headerRightSlot,
+    navigate, resolvedPracticeLogo, resolvedPracticeName,
   ]);
 
-  // Handle navigation to chats - removed since bottom nav is disabled
+  // ── system messages ────────────────────────────────────────────────────────
+  useConversationSystemMessages({
+    conversationId: activeConversationId,
+    practiceId: effectivePracticeId,
+    practiceConfig,
+    messagesReady,
+    messages,
+    conversationMode,
+    isConsultFlowActive,
+    shouldRequireModeSelection: isPublicWorkspace,
+    ingestServerMessages,
+  });
+
+  // ── derived layout flags ───────────────────────────────────────────────────
+  const isConversationReady = Boolean(activeConversationId && !isCreatingConversation);
+  const isAuthReady = Boolean(session?.user) && !sessionIsPending;
+  const isSessionReady = isConversationReady && isAuthReady;
+  const effectiveIsSocketReady = isConversationReady && isAuthReady ? isSocketReady : false;
+  const isComposerDisabled = isPublicWorkspace && !conversationMode;
+  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
-  // 'widget' mode is for public workspaces embedded in a 3rd-party site via iframe.
-  // 'embed' is the legacy alias for widget — kept so old code continues to work.
-  // Practice workspace always gets 'desktop'; authenticated client gets 'mobile'.
-  const layoutMode: LayoutMode = workspace === 'practice'
-    ? 'desktop'
-    : workspace === 'client'
-      ? 'mobile'
-      : isWidget
-        ? 'widget'
-        : 'embed';
-
+  // ── chat panel ─────────────────────────────────────────────────────────────
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {shouldShowChatPlaceholder ? (
         <div className="flex-1 flex items-center justify-center text-sm text-input-placeholder">
-          {workspace === 'practice'
+          {isPracticeWorkspace
             ? 'Select a conversation to view the thread.'
             : 'Open a practice link to start chatting.'}
         </div>
       ) : (
-        <>
-          <div className="flex-1 min-h-0">
-            <ChatContainer
-              messages={messages}
-              conversationTitle={conversationMetadata?.title ?? null}
-              onSendMessage={handleSendMessage}
-              onAddMessage={addMessage}
-              onSelectMode={handleModeSelection}
-              onToggleReaction={toggleMessageReaction}
-              onRequestReactions={requestMessageReactions}
-              composerDisabled={isComposerDisabled}
-              isPublicWorkspace={workspace === 'public'}
-              leadReviewActions={leadReviewActions}
-              messagesReady={messagesReady}
-              headerContent={conversationHeaderContent}
-              heightClassName={layoutMode === 'desktop' ? undefined : 'h-full'}
-              useFrame={layoutMode === 'desktop'}
-              layoutMode={layoutMode}
-              practiceConfig={{
-                name: resolvedPracticeName,
-                profileImage: resolvedPracticeLogo,
-                practiceId,
-                description: resolvedPracticeDescription,
-                slug: resolvedPracticeSlug,
-                introMessage: practiceConfig.introMessage
-              }}
-              onOpenSidebar={undefined}
-              practiceId={practiceId}
-              previewFiles={previewFiles}
-              uploadingFiles={uploadingFiles}
-              removePreviewFile={removePreviewFile}
-              clearPreviewFiles={clearPreviewFiles}
-              handleCameraCapture={handleCameraCapture}
-              handleFileSelect={async (files: File[]) => {
-                await handleFileSelect(files);
-              }}
-              cancelUpload={cancelUpload}
-              handleMediaCapture={handleMediaCaptureWrapper}
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-              clearInput={clearInputTrigger}
-              isReadyToUpload={isReadyToUpload}
-              isSessionReady={isSessionReady}
-              isSocketReady={isSocketReady}
-              intakeStatus={intakeStatus}
-              intakeConversationState={intakeConversationState}
-              onIntakeCtaResponse={handleIntakeCtaResponse}
-              slimContactDraft={slimContactDraft}
-              onSlimFormContinue={handleSlimFormContinue}
-              onBuildBrief={handleBuildBrief}
-              onSubmitNow={handleSubmitNow}
-              isAnonymousUser={isAnonymousUser}
-              canChat={canChat}
-              hasMoreMessages={hasMoreMessages}
-              isLoadingMoreMessages={isLoadingMoreMessages}
-              onLoadMoreMessages={loadMoreMessages}
-              showAuthPrompt={shouldShowAuthPrompt}
-              authPromptTitle={intakeAuthTitle}
-              authPromptDescription={intakeAuthDescription}
-              authPromptCallbackUrl={awaitingInvitePath ?? undefined}
-              onAuthPromptRequest={isAnonymousUser ? handlePaymentAuthRequest : undefined}
-              onAuthPromptClose={handleAuthPromptClose}
-              onAuthPromptSuccess={handleAuthPromptSuccess}
-            />
-          </div>
-        </>
+        <div className="flex-1 min-h-0">
+          <ChatContainer
+            messages={messages}
+            conversationTitle={conversationMetadata?.title ?? null}
+            onSendMessage={handleSendMessage}
+            onAddMessage={addMessage}
+            onSelectMode={handleModeSelection}
+            onToggleReaction={toggleMessageReaction}
+            onRequestReactions={requestMessageReactions}
+            composerDisabled={isComposerDisabled}
+            isPublicWorkspace={isPublicWorkspace}
+            leadReviewActions={leadReviewActions}
+            messagesReady={messagesReady}
+            headerContent={conversationHeaderContent}
+            heightClassName={layoutMode === 'desktop' ? undefined : 'h-full'}
+            useFrame={layoutMode === 'desktop'}
+            layoutMode={layoutMode}
+            practiceConfig={{
+              name: resolvedPracticeName,
+              profileImage: resolvedPracticeLogo,
+              practiceId,
+              description: fullDescription,
+              slug: resolvedPracticeSlug,
+              introMessage: practiceConfig.introMessage,
+            }}
+            onOpenSidebar={undefined}
+            practiceId={practiceId}
+            previewFiles={previewFiles}
+            uploadingFiles={uploadingFiles}
+            removePreviewFile={removePreviewFile}
+            clearPreviewFiles={clearPreviewFiles}
+            handleCameraCapture={handleCameraCapture}
+            handleFileSelect={async (files: File[]) => { await handleFileSelect(files); }}
+            cancelUpload={cancelUpload}
+            handleMediaCapture={handleMediaCaptureWrapper}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+            clearInput={clearInputTrigger}
+            isReadyToUpload={isReadyToUpload}
+            isSessionReady={isSessionReady}
+            isSocketReady={effectiveIsSocketReady}
+            intakeStatus={intakeStatus}
+            intakeConversationState={intakeConversationState}
+            onIntakeCtaResponse={handleIntakeCtaResponse}
+            slimContactDraft={slimContactDraft}
+            onSlimFormContinue={handleSlimFormContinue}
+            onBuildBrief={handleBuildBrief}
+            onSubmitNow={handleSubmitNow}
+            isAnonymousUser={isAnonymous}
+            canChat={canChat}
+            hasMoreMessages={hasMoreMessages}
+            isLoadingMoreMessages={isLoadingMoreMessages}
+            onLoadMoreMessages={loadMoreMessages}
+            showAuthPrompt={shouldShowAuthPrompt}
+            authPromptTitle={intakeAuthTitle}
+            authPromptDescription={intakeAuthDescription}
+            authPromptCallbackUrl={awaitingInvitePath ?? undefined}
+            onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
+            onAuthPromptClose={handleAuthPromptClose}
+            onAuthPromptSuccess={handleAuthPromptSuccess}
+          />
+        </div>
       )}
     </div>
   );
 
+  // ── workspace views ────────────────────────────────────────────────────────
 
+  const resolvedClientWorkspaceView = useMemo<WorkspaceView | null>(() => {
+    if (!isClientWorkspace) return null;
+    if (!clientWorkspaceView) return 'home';
+    if (clientWorkspaceView === 'conversation' && !activeConversationId) return 'list';
+    return clientWorkspaceView;
+  }, [activeConversationId, clientWorkspaceView, isClientWorkspace]);
 
-  const publicWorkspaceContent = workspace === 'public' ? (
+  const resolvedPracticeWorkspaceView = useMemo<WorkspaceView | null>(() => {
+    if (!isPracticeWorkspace) return null;
+    if (!practiceWorkspaceView) return 'home';
+    if (practiceWorkspaceView === 'conversation' && !activeConversationId) return 'list';
+    return practiceWorkspaceView;
+  }, [activeConversationId, isPracticeWorkspace, practiceWorkspaceView]);
+
+  const publicWorkspaceContent = isPublicWorkspace ? (
     <WorkspacePage
       view={publicWorkspaceView ?? 'conversation'}
       practiceId={practiceId}
@@ -1068,16 +655,7 @@ export function MainApp({
     />
   ) : null;
 
-  const resolvedClientWorkspaceView = useMemo<WorkspaceView | null>(() => {
-    if (workspace !== 'client') return null;
-    if (!clientWorkspaceView) return 'home';
-    if (clientWorkspaceView === 'conversation' && !activeConversationId) {
-      return 'list';
-    }
-    return clientWorkspaceView;
-  }, [activeConversationId, clientWorkspaceView, workspace]);
-
-  const clientWorkspaceContent = workspace === 'client' ? (
+  const clientWorkspaceContent = isClientWorkspace ? (
     <WorkspacePage
       view={resolvedClientWorkspaceView ?? 'home'}
       practiceId={practiceId}
@@ -1094,18 +672,7 @@ export function MainApp({
     />
   ) : null;
 
-  const resolvedPracticeWorkspaceView = useMemo<WorkspaceView | null>(() => {
-    if (workspace !== 'practice') return null;
-    if (!practiceWorkspaceView) return 'home';
-    if (practiceWorkspaceView === 'conversation' && !activeConversationId) {
-      return 'list';
-    }
-    return practiceWorkspaceView;
-  }, [activeConversationId, practiceWorkspaceView, workspace]);
-  const practiceMattersPath = useMemo(() => {
-    return getWorkspaceMattersPath('practice', effectivePracticeSlug);
-  }, [effectivePracticeSlug]);
-  const practiceWorkspaceContent = workspace === 'practice' ? (
+  const practiceWorkspaceContent = isPracticeWorkspace ? (
     <WorkspacePage
       view={resolvedPracticeWorkspaceView ?? 'home'}
       practiceId={practiceId}
@@ -1118,50 +685,36 @@ export function MainApp({
       workspace="practice"
       onStartNewConversation={handleStartNewConversation}
       chatView={chatPanel}
-      mattersView={
-        practiceMattersPath ? (
-          <PracticeMattersPage
-            basePath={practiceMattersPath}
-          />
-        ) : null
-      }
+      mattersView={practiceMattersPath ? <PracticeMattersPage basePath={practiceMattersPath} /> : null}
       clientsView={<PracticeClientsPage />}
     />
   ) : null;
 
-  const mainContent = workspace === 'practice'
+  const mainContent = isPracticeWorkspace
     ? practiceWorkspaceContent
-    : (workspace === 'client' ? clientWorkspaceContent : publicWorkspaceContent);
+    : isClientWorkspace
+      ? clientWorkspaceContent
+      : publicWorkspaceContent;
 
-  // In widget mode the iframe owns its own dimensions — use h-full instead of
-  // min-h-dvh so the chat fills exactly the popup container created by widget-loader.js.
-  const rootClassName = isWidget
-    ? 'h-full w-full overflow-hidden'
-    : 'min-h-dvh w-full';
+  // ── render ─────────────────────────────────────────────────────────────────
+  const rootClassName = isWidget ? 'h-full w-full overflow-hidden' : 'min-h-dvh w-full';
 
-  // Render the main app
   return (
     <>
       {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
       <div className={rootClassName} {...(isWidget ? { 'data-widget': 'true' } : {})}>
         {mainContent}
       </div>
-
-      {/* Welcome & Business modals — not shown in widget mode */}
       {!isWidget && (
         <>
           <WelcomeModal
             isOpen={showWelcomeModal}
             onClose={handleWelcomeClose}
             onComplete={handleWelcomeComplete}
-            workspace={workspace === 'practice' ? 'practice' : 'client'}
+            workspace={isPracticeWorkspace ? 'practice' : 'client'}
           />
-
           {showBusinessWelcome && (
-            <BusinessWelcomePrompt
-              isOpen={showBusinessWelcome}
-              onClose={handleBusinessWelcomeClose}
-            />
+            <BusinessWelcomePrompt isOpen={showBusinessWelcome} onClose={handleBusinessWelcomeClose} />
           )}
         </>
       )}

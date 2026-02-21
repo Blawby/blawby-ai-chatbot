@@ -39,6 +39,14 @@ export interface ConversationMetadata {
   intakeConversationState?: import('./intake').IntakeConversationState;
   intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
   intakeAiBriefActive?: boolean;
+  intakeUuid?: string | null;
+  intakePaymentRequired?: boolean;
+  intakePaymentReceived?: boolean;
+  intakeSubmitted?: boolean;
+  intakeCompleted?: boolean;
+  intakeDecision?: string | null;
+  practiceName?: string;
+  practiceSlug?: string;
   [key: string]: unknown;
 }
 

@@ -76,10 +76,6 @@ export interface ChatContainerProps {
     name: string;
     email: string;
     phone: string;
-    city: string;
-    state: string;
-    opposingParty?: string;
-    description?: string;
   } | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
@@ -428,16 +424,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   /**
    * Layout mode resolution:
-   * - 'widget'  → public chat inside a 3rd-party iframe. No centering or max-width.
-   *               The loader script outside owns the container shape.
-   * - 'embed'   → legacy internal preview (practice dashboard simulator).
-   *               Keeps the old 420px centered behavior.
+   * - 'widget'  → public chat (iframe or direct). No centering or max-width.
    * - 'desktop' → full-chrome practice workspace.
    * - 'mobile'  → authenticated client mobile view.
    *
    * useFrame=false is a legacy escape hatch for desktop mode.
    */
-  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'embed');
+  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'widget');
   const isWidgetMode = resolvedLayoutMode === 'widget';
   const isDesktopMode = resolvedLayoutMode === 'desktop';
 
@@ -535,8 +528,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   <div className="w-12 h-1.5 bg-input-placeholder/20 rounded-full mx-auto mb-6 shrink-0" />
                   <ContactForm
                     onSubmit={onSlimFormContinue}
-                    fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}
-                    required={['name', 'email', 'phone', 'city', 'state']}
+                    fields={['name', 'email', 'phone']}
+                    required={['name', 'email', 'phone']}
                     initialValues={slimContactDraft ?? undefined}
                     variant="plain"
                     showSubmitButton={true}
@@ -572,8 +565,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     if (!isPublicWorkspace) return null;
                     if (!intakeConversationState) return null;
                     if (intakeConversationState.ctaResponse === 'ready') return null;
-                    const MIN_NOT_YET_COUNT_FOR_CTA = 2;
-                    if ((intakeConversationState.notYetCount ?? 0) < MIN_NOT_YET_COUNT_FOR_CTA) return null;
+                    if (!intakeConversationState.ctaShown) return null;
                     return (
                       <div className="mt-2">
                         <Button
