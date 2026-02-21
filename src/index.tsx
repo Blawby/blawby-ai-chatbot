@@ -607,6 +607,8 @@ function PublicPracticeRoute({
   }, []);
 
   const slug = (practiceSlug ?? '').trim();
+  // Widget mode: public URL with ?v=widget param means we're inside a 3rd-party iframe.
+  const isWidget = location.query?.v === 'widget';
 
   const {
     practiceConfig,
@@ -760,6 +762,7 @@ function PublicPracticeRoute({
         publicPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
         publicWorkspaceView={workspaceView}
+        isWidget={isWidget}
       />
     </>
   );

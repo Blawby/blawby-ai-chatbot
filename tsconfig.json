@@ -55,6 +55,8 @@
 		"playwright/reports",
 		"public/mockServiceWorker.js",
 		"public/sw.js",
+		"public/widget-loader.js",
+		"public/widget-test.html",
 		"**/*.stories.tsx",
 		"**/*.stories.ts"
 	]

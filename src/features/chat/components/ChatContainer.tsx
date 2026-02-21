@@ -426,17 +426,39 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
   };
 
+  /**
+   * Layout mode resolution:
+   * - 'widget'  → public chat inside a 3rd-party iframe. No centering or max-width.
+   *               The loader script outside owns the container shape.
+   * - 'embed'   → legacy internal preview (practice dashboard simulator).
+   *               Keeps the old 420px centered behavior.
+   * - 'desktop' → full-chrome practice workspace.
+   * - 'mobile'  → authenticated client mobile view.
+   *
+   * useFrame=false is a legacy escape hatch for desktop mode.
+   */
   const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'embed');
-  const shouldFrame = resolvedLayoutMode !== 'desktop';
+  const isWidgetMode = resolvedLayoutMode === 'widget';
+  const isDesktopMode = resolvedLayoutMode === 'desktop';
+
   const containerClassName = `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden bg-transparent border-0 rounded-none shadow-none`;
-  const mainClassName = isPublicWorkspace && !shouldFrame
+
+  // mainClassName: widget and desktop have no centering wrapper; legacy embed does.
+  const mainClassName = isDesktopMode
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
-    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
-  const frameClassName = !shouldFrame
+    : isWidgetMode
+      ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden relative bg-transparent'
+      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
+
+  // frameClassName: widget fills 100%; embed caps at 420px (legacy preview); desktop is unconstrained.
+  const frameClassName = isDesktopMode
     ? 'flex flex-col flex-1 min-h-0 w-full'
-    : (isPublicWorkspace
-      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
-      : 'flex flex-col flex-1 min-h-0 w-full');
+    : isWidgetMode
+      ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+      : (isPublicWorkspace
+        ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+        : 'flex flex-col flex-1 min-h-0 w-full');
+
 
   const handleReply = (target: ReplyTarget) => {
     setReplyTarget(target);

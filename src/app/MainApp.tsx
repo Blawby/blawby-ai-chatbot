@@ -39,7 +39,18 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
 type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
-export type LayoutMode = 'embed' | 'mobile' | 'desktop';
+/**
+ * LayoutMode controls how ChatContainer renders its shell.
+ *
+ * - 'desktop'  – sidebar/practice view, full chrome
+ * - 'mobile'   – authenticated client on a phone, bottom-nav chrome
+ * - 'widget'   – public chat embedded inside a 3rd-party site via an iframe
+ *               (transparent background, no rounded container, fills the iframe)
+ *
+ * @deprecated 'embed' is the old name for 'widget'. It is kept for backwards
+ *             compat but should not be used in new code.
+ */
+export type LayoutMode = 'widget' | 'embed' | 'mobile' | 'desktop';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -54,7 +65,8 @@ export function MainApp({
   practiceWorkspaceView,
   clientWorkspaceView,
   clientPracticeSlug,
-  practiceSlug
+  practiceSlug,
+  isWidget = false
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
@@ -68,6 +80,8 @@ export function MainApp({
   clientWorkspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
   practiceSlug?: string;
+  /** True when the page is being rendered inside a 3rd-party site iframe via ?v=widget */
+  isWidget?: boolean;
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -947,9 +961,16 @@ export function MainApp({
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
+  // 'widget' mode is for public workspaces embedded in a 3rd-party site via iframe.
+  // 'embed' is the legacy alias for widget — kept so old code continues to work.
+  // Practice workspace always gets 'desktop'; authenticated client gets 'mobile'.
   const layoutMode: LayoutMode = workspace === 'practice'
     ? 'desktop'
-    : (workspace === 'client' ? 'mobile' : 'embed');
+    : workspace === 'client'
+      ? 'mobile'
+      : isWidget
+        ? 'widget'
+        : 'embed';
 
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -1111,28 +1132,38 @@ export function MainApp({
   const mainContent = workspace === 'practice'
     ? practiceWorkspaceContent
     : (workspace === 'client' ? clientWorkspaceContent : publicWorkspaceContent);
+
+  // In widget mode the iframe owns its own dimensions — use h-full instead of
+  // min-h-dvh so the chat fills exactly the popup container created by widget-loader.js.
+  const rootClassName = isWidget
+    ? 'h-full w-full overflow-hidden'
+    : 'min-h-dvh w-full';
+
   // Render the main app
   return (
     <>
-      <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
-      <div className="min-h-dvh w-full">
+      {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
+      <div className={rootClassName} {...(isWidget ? { 'data-widget': 'true' } : {})}>
         {mainContent}
       </div>
 
-      {/* Welcome Modal */}
-      <WelcomeModal
-        isOpen={showWelcomeModal}
-        onClose={handleWelcomeClose}
-        onComplete={handleWelcomeComplete}
-        workspace={workspace === 'practice' ? 'practice' : 'client'}
-      />
+      {/* Welcome & Business modals — not shown in widget mode */}
+      {!isWidget && (
+        <>
+          <WelcomeModal
+            isOpen={showWelcomeModal}
+            onClose={handleWelcomeClose}
+            onComplete={handleWelcomeComplete}
+            workspace={workspace === 'practice' ? 'practice' : 'client'}
+          />
 
-      {/* Business Welcome Modal */}
-      {showBusinessWelcome && (
-        <BusinessWelcomePrompt
-          isOpen={showBusinessWelcome}
-          onClose={handleBusinessWelcomeClose}
-        />
+          {showBusinessWelcome && (
+            <BusinessWelcomePrompt
+              isOpen={showBusinessWelcome}
+              onClose={handleBusinessWelcomeClose}
+            />
+          )}
+        </>
       )}
     </>
   );
