@@ -20,6 +20,7 @@ import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
 import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CheckIcon } from '@heroicons/react/20/solid';
 import type { UserLinks, EmailSettings } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -283,7 +284,7 @@ export const AccountPage = ({
       return [] as PlanFeature[];
     }
     return backendFeatures.map((feature): PlanFeature => ({
-      icon: PlusIcon,
+      icon: CheckIcon,
       text: feature
     }));
   })();
@@ -747,7 +748,7 @@ export const AccountPage = ({
                         {t('settings:account.plan.manage')}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="min-w-[220px]">
                       <DropdownMenuItem
                         onSelect={() => {
                           if (!currentPractice) return;
@@ -764,7 +765,7 @@ export const AccountPage = ({
                           });
                         }}
                       >
-                        <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                        <span className="flex items-center gap-2 whitespace-nowrap text-red-600 dark:text-red-400">
                           <XMarkIcon className="h-4 w-4" />
                           {t('settings:account.plan.cancelSubscription')}
                         </span>
@@ -853,6 +854,7 @@ export const AccountPage = ({
           {/* Delete account Section */}
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
+            description={isDeleteBlocked ? deletionBlockedMessage : undefined}
           >
             {isDeleteBlocked ? (
               <div className="flex items-center gap-2">
@@ -889,11 +891,6 @@ export const AccountPage = ({
               </SettingsDangerButton>
             )}
           </SettingRow>
-          {isDeleteBlocked && deletionBlockedMessage && (
-            <SettingsHelperText className="mt-2">
-              {deletionBlockedMessage}
-            </SettingsHelperText>
-          )}
 
       <SectionDivider />
 

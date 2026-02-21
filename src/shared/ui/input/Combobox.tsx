@@ -47,6 +47,8 @@ type BaseProps = {
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
   className?: string;
   disabled?: boolean;
+  /** Show clear icon for single-select values. Default: true */
+  clearable?: boolean;
   /** Show search input inside dropdown. Default: true */
   searchable?: boolean;
   /** Allow typing a value not in the list. Default: false */
@@ -191,6 +193,7 @@ export function Combobox({
   multiple,
   className,
   disabled = false,
+  clearable = true,
   searchable = true,
   allowCustomValues = false,
   addNewLabel = 'Add',
@@ -470,7 +473,7 @@ export function Combobox({
       </span>
 
       {/* Clear or chevron */}
-      {hasValue && !isMultiple ? (
+      {hasValue && !isMultiple && clearable ? (
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}

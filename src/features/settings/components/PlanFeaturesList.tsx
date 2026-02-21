@@ -21,7 +21,7 @@ export const PlanFeaturesList = ({
     <div className={cn('space-y-2', className)}>
       {features.map((feature, index) => (
         <div key={index} className="flex items-center gap-3">
-          <div className="text-input-placeholder">
+          <div className="text-accent-500">
             {typeof feature.icon === 'function'
               ? <Icon icon={feature.icon as ComponentType<JSX.SVGAttributes<SVGSVGElement>>} className="w-5 h-5" />
               : feature.icon}

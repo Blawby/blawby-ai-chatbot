@@ -31,6 +31,7 @@ import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { parseMultiValueText, serializeMultiValueText } from '@/features/matters/utils/multiValueText';
 
 type MatterFormMode = 'create' | 'edit';
 
@@ -432,21 +433,23 @@ const MatterFormModalInner = ({
           <FormGrid>
             <Combobox
               label="Judge"
-              value={formState.judge}
-              onChange={(value) => updateForm('judge', value)}
+              value={parseMultiValueText(formState.judge)}
+              onChange={(values) => updateForm('judge', serializeMultiValueText(values))}
               placeholder="e.g. Hon. A. Smith"
               options={[]}
               leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              multiple
               allowCustomValues
               addNewLabel="Add judge"
             />
             <Combobox
               label="Opposing party"
-              value={formState.opposingParty}
-              onChange={(value) => updateForm('opposingParty', value)}
+              value={parseMultiValueText(formState.opposingParty)}
+              onChange={(values) => updateForm('opposingParty', serializeMultiValueText(values))}
               placeholder="Enter opposing party"
               options={[]}
               leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              multiple
               allowCustomValues
               addNewLabel="Add opposing party"
             />
@@ -454,11 +457,12 @@ const MatterFormModalInner = ({
           <FormGrid>
             <Combobox
               label="Opposing counsel"
-              value={formState.opposingCounsel}
-              onChange={(value) => updateForm('opposingCounsel', value)}
+              value={parseMultiValueText(formState.opposingCounsel)}
+              onChange={(values) => updateForm('opposingCounsel', serializeMultiValueText(values))}
               placeholder="Enter opposing counsel"
               options={[]}
               leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              multiple
               allowCustomValues
               addNewLabel="Add opposing counsel"
             />

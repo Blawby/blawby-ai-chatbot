@@ -31,9 +31,8 @@ export const SettingSelect = ({
           value={value}
           options={options}
           onChange={onChange}
-          className={cn(
-            'min-w-[180px] rounded-full border border-line-glass/30 bg-white/[0.04] px-4 py-2 text-sm text-input-text hover:bg-white/[0.08] focus:ring-2 focus:ring-accent-500'
-          )}
+          className="min-w-[180px] [&_[role=combobox]]:rounded-xl"
+          clearable={false}
           searchable={false}
         />
       </div>

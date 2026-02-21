@@ -24,8 +24,12 @@ export const SegmentedToggle = <T extends string>({
   disabled = false
 }: SegmentedToggleProps<T>) => {
   const count = options.length;
+  const safeCount = Math.max(1, count);
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
-  const itemWidth = count > 0 ? 100 / count : 100;
+  const itemWidth = 100 / safeCount;
+  const thumbInsetRem = 0.25;
+  const thumbInset = `${thumbInsetRem}rem`;
+  const thumbTrackWidth = `100% - ${thumbInsetRem * 2}rem`;
 
   return (
       <div
@@ -41,9 +45,8 @@ export const SegmentedToggle = <T extends string>({
         aria-hidden="true"
         className="segmented-toggle-thumb"
         style={{
-          left: '0.25rem',
-          width: `calc(${itemWidth}% - 0.5rem)`,
-          transform: `translateX(${activeIndex * 100}%)`
+          left: `calc(${thumbInset} + ((${thumbTrackWidth}) / ${safeCount}) * ${activeIndex})`,
+          width: `calc((${thumbTrackWidth}) / ${safeCount})`
         }}
       />
       {options.map((option) => {

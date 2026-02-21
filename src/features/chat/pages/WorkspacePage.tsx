@@ -683,6 +683,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               Public preview
             </div>
             <SegmentedToggle<PreviewTab>
+              className="w-full max-w-[360px]"
               value={previewTab}
               options={previewTabOptions.map((option) => ({
                 value: option.id,
