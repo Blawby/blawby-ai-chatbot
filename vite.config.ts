@@ -89,7 +89,7 @@ const criticalCssPlugin = (): Plugin => {
 				const processed = await critters.process(html, { path: 'dist/index.html' });
 				await fs.writeFile('dist/index.html', processed);
 				console.log('✅ Critical CSS inlined successfully');
-			} catch (e) {
+			} catch (e) { console.error("Static HTML serve error:", e);
 				console.error('Error processing critical CSS:', e);
 				// Don't fail the build if critical CSS extraction fails
 			}
@@ -213,7 +213,7 @@ const serveStaticHtmlPlugin = (): Plugin => {
 						res.setHeader('Content-Type', 'text/html');
 						res.end(content);
 						return;
-					} catch (e) {
+					} catch (e) { console.error("Static HTML serve error:", e);
 						// File not found in public/, let Vite handle it
 					}
 				}

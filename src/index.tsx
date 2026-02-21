@@ -41,6 +41,24 @@ const LoadingScreen = () => (
   </div>
 );
 
+// PWA Cache Trap Breaker (Development Only)
+// Since we disabled the PWA in dev, old workers from previous sessions aggressively intercept 
+// navigation requests (like /widget-test.html) and serve the SPA shell, trapping the user.
+if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    let unregistered = false;
+    for (const registration of registrations) {
+      registration.unregister();
+      unregistered = true;
+      console.warn('⚠️ Unregistered rogue development service worker.');
+    }
+    if (unregistered) {
+      console.warn('🔄 Reloading page to escape SPA cache trap...');
+      window.location.reload();
+    }
+  });
+}
+
 // Client routes align with public structure
 
 // Main App component with routing

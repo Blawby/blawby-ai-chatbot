@@ -114,8 +114,8 @@
     // Forcibly remove any lingering PWA Service Workers from previous dev sessions
     // that might intercept this HTML file and route it to the SPA.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
           registration.unregister();
           console.log('Unregistered stale service worker.');
         }
@@ -147,32 +147,50 @@
 
   <script>
     // ── Widget configuration ──────────────────────────────────────────────
-    // In a real website, replace this with your actual practice slug.
-    // The practiceSlug is shown in Settings → Practice → Workspace URL.
-    var PRACTICE_SLUG = 'paul-yahoo'; // <-- replace with your slug
 
-    window.BlawbyWidget = {
-      practiceSlug: PRACTICE_SLUG,
-      // Override baseUrl to point at local dev server for testing.
-      // Remove this line (or set to 'https://ai.blawby.com') in production.
-      baseUrl: window.location.origin,
-      position: 'bottom-right',
-      primaryColor: '#10B981',
-    };
+    // Test environment helper: Fetch the first active practice from the user's
+    // database so the iframe actually renders a real chat interface!
+    // (If we use a fake slug, the iframe will 404 and cover the screen).
 
-    // Show the snippet in the card
     var snippetEl = document.getElementById('snippet-preview');
-    snippetEl.textContent = [
-      '<script>',
-      '  window.BlawbyWidget = {',
-      '    practiceSlug: \'' + PRACTICE_SLUG + '\'',
-      '  };',
-      '<\/script>',
-      '<script src="https://ai.blawby.com/widget-loader.js" defer><\/script>',
-    ].join('\n');
+    snippetEl.textContent = "Loading configuration...";
+
+    fetch('/api/practice/list', { credentials: 'omit' })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var slug = (data.practices && data.practices.length > 0 && data.practices[0].slug)
+          ? data.practices[0].slug
+          : 'fallback-slug';
+
+        console.log('Using practice slug for testing:', slug);
+
+        window.BlawbyWidget = {
+          practiceSlug: slug,
+          baseUrl: window.location.origin, // point to local dev server
+          position: 'bottom-right',
+          primaryColor: '#10B981',
+        };
+
+        // Inject the loader script dynamically now that we have the slug
+        var loader = document.createElement('script');
+        loader.src = '/widget-loader.js';
+        loader.defer = true;
+        document.body.appendChild(loader);
+
+        snippetEl.textContent = [
+          '<script>',
+          '  window.BlawbyWidget = {',
+          '    practiceSlug: \'' + slug + '\'',
+          '  };',
+          '<\/script>',
+          '<script src="https://ai.blawby.com/widget-loader.js" defer><\/script>',
+        ].join('\n');
+      })
+      .catch(function (err) {
+        snippetEl.textContent = "Failed to load practice. Ensure backend is running.";
+        console.error('Failed to fetch test slug', err);
+      });
   </script>
-  <!-- Widget loader — in production use src="https://ai.blawby.com/widget-loader.js" -->
-  <script src="/widget-loader.js" defer></script>
 </body>
 
 </html>
