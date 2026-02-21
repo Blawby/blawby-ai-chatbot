@@ -259,4 +259,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **Built with ❤️ using Cloudflare Workers AI and Preact**
 
-*Last updated: $(date)*
+Sat Feb 21, 2026
