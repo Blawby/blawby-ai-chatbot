@@ -76,10 +76,6 @@ export interface ChatContainerProps {
     name: string;
     email: string;
     phone: string;
-    city: string;
-    state: string;
-    opposingParty?: string;
-    description?: string;
   } | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
@@ -426,17 +422,36 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
   };
 
-  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'embed');
-  const shouldFrame = resolvedLayoutMode !== 'desktop';
+  /**
+   * Layout mode resolution:
+   * - 'widget'  → public chat (iframe or direct). No centering or max-width.
+   * - 'desktop' → full-chrome practice workspace.
+   * - 'mobile'  → authenticated client mobile view.
+   *
+   * useFrame=false is a legacy escape hatch for desktop mode.
+   */
+  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'widget');
+  const isWidgetMode = resolvedLayoutMode === 'widget';
+  const isDesktopMode = resolvedLayoutMode === 'desktop';
+
   const containerClassName = `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden bg-transparent border-0 rounded-none shadow-none`;
-  const mainClassName = isPublicWorkspace && !shouldFrame
+
+  // mainClassName: widget and desktop have no centering wrapper; legacy embed does.
+  const mainClassName = isDesktopMode
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
-    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
-  const frameClassName = !shouldFrame
+    : isWidgetMode
+      ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden relative bg-transparent'
+      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
+
+  // frameClassName: widget fills 100%; embed caps at 420px (legacy preview); desktop is unconstrained.
+  const frameClassName = isDesktopMode
     ? 'flex flex-col flex-1 min-h-0 w-full'
-    : (isPublicWorkspace
-      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
-      : 'flex flex-col flex-1 min-h-0 w-full');
+    : isWidgetMode
+      ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+      : (isPublicWorkspace
+        ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+        : 'flex flex-col flex-1 min-h-0 w-full');
+
 
   const handleReply = (target: ReplyTarget) => {
     setReplyTarget(target);
@@ -509,11 +524,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
             <div className="sticky bottom-0 z-[1000] w-full">
               {shouldShowSlimForm && onSlimFormContinue ? (
-                <div className="pl-4 pr-4 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
+                <div className="px-4 pb-6 pt-4 bg-surface-overlay/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/5 max-h-[80dvh] overflow-y-auto shadow-2xl flex flex-col w-full animate-float-in">
+                  <div className="w-12 h-1.5 bg-input-placeholder/20 rounded-full mx-auto mb-6 shrink-0" />
                   <ContactForm
                     onSubmit={onSlimFormContinue}
-                    fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}
-                    required={['name', 'email', 'phone', 'city', 'state']}
+                    fields={['name', 'email', 'phone']}
+                    required={['name', 'email', 'phone']}
                     initialValues={slimContactDraft ?? undefined}
                     variant="plain"
                     showSubmitButton={true}
@@ -549,8 +565,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     if (!isPublicWorkspace) return null;
                     if (!intakeConversationState) return null;
                     if (intakeConversationState.ctaResponse === 'ready') return null;
-                    const MIN_NOT_YET_COUNT_FOR_CTA = 2;
-                    if ((intakeConversationState.notYetCount ?? 0) < MIN_NOT_YET_COUNT_FOR_CTA) return null;
+                    if (!intakeConversationState.ctaShown) return null;
                     return (
                       <div className="mt-2">
                         <Button

@@ -14,10 +14,6 @@ export interface SlimContactDraft {
   name: string;
   email: string;
   phone: string;
-  city: string;
-  state: string;
-  opposingParty?: string;
-  description?: string;
 }
 
 export interface IntakeConversationState {
@@ -71,3 +67,33 @@ export const initialIntakeState: IntakeConversationState = {
   ctaResponse: null,
   notYetCount: 0
 };
+
+export type IntakeFieldsPayload = {
+  practiceArea?: string;
+  practiceAreaName?: string;
+  description?: string;
+  urgency?: IntakeUrgency;
+  opposingParty?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  desiredOutcome?: string;
+  courtDate?: string;
+  income?: string;
+  householdSize?: number;
+  hasDocuments?: boolean;
+  eligibilitySignals?: string[];
+  caseStrength?: IntakeCaseStrength;
+  missingSummary?: string | null;
+};
+
+export interface DerivedIntakeStatus {
+  step: IntakeStep;
+  decision?: string;
+  intakeUuid?: string;
+  paymentRequired?: boolean;
+  paymentReceived?: boolean;
+}

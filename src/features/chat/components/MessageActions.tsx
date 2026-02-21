@@ -249,44 +249,15 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							{intakeConversationState.missingSummary}
 						</p>
 					)}
-					{canShowNotYet ? (
-						<div className="flex flex-col gap-2 sm:flex-row">
-							{strengthTier === 'basic' ? (
-								<Button variant="primary" size="sm" onClick={() => {
-                  if (onSubmitNow) {
-                    void onSubmitNow();
-                    return;
-                  }
-                  onIntakeCtaResponse?.('ready');
-                }}>
-									{ctaPrimaryLabel}
-								</Button>
-							) : (
-								<Button variant="primary" size="sm" onClick={() => {
-									if (onSubmitNow) {
-										void onSubmitNow();
-										return;
-									}
-									onIntakeCtaResponse?.('ready');
-								}}>
-									{ctaPrimaryLabel}
-								</Button>
-							)}
-							<Button variant="secondary" size="sm" onClick={() => onIntakeCtaResponse?.('not_yet')}>
-								{ctaSecondaryLabel}
-							</Button>
-						</div>
-					) : (
-						<Button variant="primary" size="sm" onClick={() => {
-							if (onSubmitNow) {
-								void onSubmitNow();
-								return;
-							}
-							onIntakeCtaResponse?.('ready');
-						}}>
-							{t('chat.cta.submitConsultationRequest')}
-						</Button>
-					)}
+					<Button variant="primary" size="sm" onClick={() => {
+						if (onSubmitNow) {
+							void onSubmitNow();
+							return;
+						}
+						onIntakeCtaResponse?.('ready');
+					}}>
+						{t('chat.submitRequest')}
+					</Button>
 				</div>
 			)}
 			{/* Display matter canvas */}

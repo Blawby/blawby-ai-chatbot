@@ -22,6 +22,18 @@ export interface App {
 
 export const mockApps: App[] = [
   {
+    id: 'blawby-messenger',
+    name: 'Website Messenger',
+    description: 'Embed the Blawby AI chatbot directly on your law firm\'s website to capture leads and answer client questions instantly.',
+    category: 'Client Intake',
+    developer: 'Blawby',
+    website: 'https://ai.blawby.com',
+    privacyPolicy: 'https://ai.blawby.com/privacy',
+    logo: '/favicon.svg', // Assumes Blawby logo is available at this path
+    connected: true,      // Natively enabled, no OAuth flow needed
+    comingSoon: false,
+  },
+  {
     id: 'clio',
     name: 'Clio',
     description: 'Connect your Clio account to sync matters, contacts, and calendar events.',

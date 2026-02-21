@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import type { WorkspacePreference } from '@/shared/types/workspace';
+import type { RoutingClaims } from '@/shared/types/routing';
 
 interface UseWorkspaceResolverResult {
   isPending: boolean;
@@ -11,6 +12,11 @@ interface UseWorkspaceResolverResult {
   hasPracticeAccess: boolean;
   defaultWorkspace: WorkspacePreference;
   resolvePracticeBySlug: (slug?: string | null) => Practice | null;
+  /**
+   * Backend routing claims when available (backend PR #101).
+   * Null when the backend is running a pre-#101 build.
+   */
+  routingClaims: RoutingClaims | null;
 }
 
 interface UseWorkspaceResolverOptions {
@@ -19,7 +25,7 @@ interface UseWorkspaceResolverOptions {
 
 export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}): UseWorkspaceResolverResult {
   const { autoFetchPractices = true } = options;
-  const { isPending } = useSessionContext();
+  const { isPending, routingClaims } = useSessionContext();
   const {
     practices,
     currentPractice,
@@ -35,8 +41,17 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
     return map;
   }, [practices]);
 
-  const hasPracticeAccess = Boolean(currentPractice?.id || practices.length > 0);
-  const defaultWorkspace: WorkspacePreference = hasPracticeAccess ? 'practice' : 'client';
+  /**
+   * Prefer the backend routing claim when available.
+   * Fall back to local practice-list heuristic (legacy path).
+   */
+  const hasPracticeAccess = routingClaims
+    ? routingClaims.workspace_access.practice
+    : Boolean(currentPractice?.id || practices.length > 0);
+
+  const defaultWorkspace: WorkspacePreference = routingClaims
+    ? (routingClaims.default_workspace === 'public' ? 'client' : routingClaims.default_workspace)
+    : hasPracticeAccess ? 'practice' : 'client';
 
   const resolvePracticeBySlug = useCallback((slug?: string | null): Practice | null => {
     const normalized = typeof slug === 'string' ? slug.trim() : '';
@@ -51,6 +66,7 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
     currentPractice,
     hasPracticeAccess,
     defaultWorkspace,
-    resolvePracticeBySlug
+    resolvePracticeBySlug,
+    routingClaims,
   };
 }
