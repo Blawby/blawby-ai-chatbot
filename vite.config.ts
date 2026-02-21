@@ -251,8 +251,13 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					// Workbox options
 					globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
 					navigateFallbackDenylist: [
+						// Never route API or auth requests through the SPA
 						/^\/api\//,
 						/^\/__better-auth__/,
+						// Never intercept static HTML files (widget-test.html etc.)
+						// or the widget loader script — serve them directly from Cloudflare
+						/\/widget-[^/]+$/,
+						/\.html$/,
 					],
 					runtimeCaching: [
 						{

@@ -1,0 +1,38 @@
+# Cloudflare Pages HTTP headers
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+# ── Widget iframe embedding ───────────────────────────────────────────────────
+# Public practice pages with ?v=widget must be embeddable from any origin.
+# We use `frame-ancestors *` instead of X-Frame-Options because:
+#   - X-Frame-Options doesn't support wildcards in modern browsers
+#   - CSP frame-ancestors takes precedence over X-Frame-Options
+#
+# NOTE: When a practice uses a Link Domain (custom Cloudflare hostname),
+# the origin of the iframe IS the practice's own domain, so 1st-party cookies
+# work automatically and no special CORS is needed there.
+#
+# The widget-loader.js is served from the Blawby origin and injects an iframe
+# pointing at /public/:slug?v=widget — the CSP below permits any site to embed it.
+/public/*
+  Content-Security-Policy: frame-ancestors *
+
+# ── widget-loader.js — allow any site to load this script ────────────────────
+/widget-loader.js
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=300, stale-while-revalidate=3600
+  Content-Type: application/javascript; charset=utf-8
+
+# ── Static assets — long-lived cache ─────────────────────────────────────────
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# ── Service worker — must not be cached ──────────────────────────────────────
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# ── Default security headers for all pages ───────────────────────────────────
+/*
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(self)

@@ -1,3 +1,31 @@
-/api/*              /api/:splat        200
-/__better-auth__/*  /__better-auth__/:splat 200
-/*                  /index.html        200
+# Cloudflare Pages routing rules
+# Order matters: Cloudflare reads from top to bottom and stops at first match.
+
+# ── API & Auth (Worker handles these) ────────────────────────────────────────
+/api/*                  /api/:splat                         200
+/__better-auth__/*      /__better-auth__/:splat             200
+
+# ── Static files in public/ (serve directly, never fall through to the SPA) ──
+# Widget integration files
+/widget-loader.js       /widget-loader.js                   200
+/widget-test.html       /widget-test.html                   200
+
+# Standard public assets — explicit pass-throughs so the SPA catch-all below
+# never intercepts real file requests (avoids PWA service worker confusion too).
+/robots.txt             /robots.txt                         200
+/sitemap.xml            /sitemap.xml                        200
+/manifest.webmanifest   /manifest.webmanifest               200
+/sw.js                  /sw.js                              200
+/favicon*               /favicon:splat                      200
+/*.png                  /:splat.png                         200
+/*.jpg                  /:splat.jpg                         200
+/*.svg                  /:splat.svg                         200
+/*.webp                 /:splat.webp                        200
+/*.ico                  /:splat.ico                         200
+/*.woff2                /:splat.woff2                       200
+/*.woff                 /:splat.woff                        200
+
+# ── SPA catch-all — must be LAST ─────────────────────────────────────────────
+# All remaining navigation requests (public, client, practice routes) are
+# served via index.html and handled by the Preact router client-side.
+/*                      /index.html                         200
