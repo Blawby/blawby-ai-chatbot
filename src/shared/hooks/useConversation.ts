@@ -289,6 +289,7 @@ export const useConversation = ({
         : undefined,
       paymentRequest: parsePaymentRequestMetadata(msg.metadata),
       isUser,
+      seq: msg.seq,
     };
   }, [currentUserId]);
 
@@ -686,26 +687,23 @@ export const useConversation = ({
           const fetchedMessages = data.data.messages ?? [];
           const fetchedUIMessages = fetchedMessages.map(toUIMessage);
           
+          // Prepare merged set for sequence calculation outside state setter
+          const mergedBeforeState = [...fetchedUIMessages, ...messagesRef.current];
+          const maxSeq = mergedBeforeState.reduce((max, m) => {
+            return typeof m.seq === 'number' ? Math.max(max, m.seq) : max;
+          }, lastSeqRef.current);
+
+          if (maxSeq > lastSeqRef.current) {
+            lastSeqRef.current = maxSeq;
+            sendReadUpdate(maxSeq);
+          }
+
           setMessages(prev => {
-            // Keep any messages that are already in the set (e.g. arrived via WS during fetch)
             const existingIds = new Set(prev.map(m => m.id));
             const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
             const merged = [...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp);
             
-            // Update the ID set
             merged.forEach(m => messageIdSetRef.current.add(m.id));
-            
-            // Re-compute sequence tracking
-            const maxSeq = merged.reduce((max, m) => {
-              const seq = (m as any).seq;
-              return typeof seq === 'number' ? Math.max(max, seq) : max;
-            }, lastSeqRef.current);
-            
-            if (maxSeq > lastSeqRef.current) {
-              lastSeqRef.current = maxSeq;
-              sendReadUpdate(maxSeq);
-            }
-            
             return merged;
           });
           

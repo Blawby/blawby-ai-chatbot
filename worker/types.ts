@@ -538,4 +538,5 @@ export interface UIMessageExtras {
 // isUser reflects the current session user, not the message role alone.
 export interface ChatMessageUI extends ChatMessage, UIMessageExtras {
   isUser: boolean;
+  seq?: number;
 }

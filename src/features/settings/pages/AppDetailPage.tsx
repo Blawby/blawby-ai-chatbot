@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
 import { AppConnectionModal } from '@/features/settings/components/AppConnectionModal';
