@@ -202,18 +202,19 @@ const fixDecodeNamedCharacterReference = (): Plugin => {
 const serveStaticHtmlPlugin = (): Plugin => {
 	return {
 		name: 'serve-static-html',
+		enforce: 'pre',
 		configureServer(server) {
 			server.middlewares.use(async (req, res, next) => {
-				if (req.url && req.url.endsWith('.html') && req.url !== '/index.html') {
+				if (req.url && (req.url.endsWith('.html') || req.url.endsWith('.js')) && req.url !== '/index.html') {
 					// Clean URL of query params
 					const urlPath = req.url.split('?')[0];
 					const publicPath = resolve(process.cwd(), 'public', urlPath.slice(1));
 					try {
 						const content = await fs.readFile(publicPath, 'utf-8');
-						res.setHeader('Content-Type', 'text/html');
+						res.setHeader('Content-Type', req.url.endsWith('.js') ? 'application/javascript' : 'text/html');
 						res.end(content);
 						return;
-					} catch (e) { console.error("Static HTML serve error:", e);
+					} catch (e) { console.error("Static serve error:", e);
 						// File not found in public/, let Vite handle it
 					}
 				}
