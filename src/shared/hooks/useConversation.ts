@@ -683,12 +683,33 @@ export const useConversation = ({
         if (isLoadMore) {
           applyServerMessages(data.data.messages ?? []);
         } else {
-          const uiMessages = data.data.messages.map(toUIMessage);
-          messageIdSetRef.current = new Set(data.data.messages.map(m => m.id));
-          lastSeqRef.current = data.data.messages.reduce((max, m) => Math.max(max, m.seq), 0);
-          setMessages(prev => (uiMessages.length === 0 && prev.length > 0) ? prev : uiMessages);
+          const fetchedMessages = data.data.messages ?? [];
+          const fetchedUIMessages = fetchedMessages.map(toUIMessage);
+          
+          setMessages(prev => {
+            // Keep any messages that are already in the set (e.g. arrived via WS during fetch)
+            const existingIds = new Set(prev.map(m => m.id));
+            const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
+            const merged = [...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp);
+            
+            // Update the ID set
+            merged.forEach(m => messageIdSetRef.current.add(m.id));
+            
+            // Re-compute sequence tracking
+            const maxSeq = merged.reduce((max, m) => {
+              const seq = (m as any).seq;
+              return typeof seq === 'number' ? Math.max(max, seq) : max;
+            }, lastSeqRef.current);
+            
+            if (maxSeq > lastSeqRef.current) {
+              lastSeqRef.current = maxSeq;
+              sendReadUpdate(maxSeq);
+            }
+            
+            return merged;
+          });
+          
           setMessagesReady(true);
-          sendReadUpdate(lastSeqRef.current);
         }
         setHasMoreMessages(Boolean(data.data.hasMore));
         setNextCursor(data.data.cursor ?? null);

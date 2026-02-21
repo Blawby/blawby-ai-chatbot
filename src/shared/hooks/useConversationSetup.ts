@@ -178,7 +178,7 @@ export function useConversationSetup({
       startConsultFlow(convId);
       void logConversationEvent(convId, practiceId, 'consult_flow_started', { source });
     }
-  }, [practiceId]);
+  }, [logConversationEvent, onModeChange, practiceId, setConversationMode, updateConversationMetadata]);
 
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
@@ -206,8 +206,10 @@ export function useConversationSetup({
     activeConversationId,
     applyConversationMode,
     createConversation,
+    onModeChange,
     onError,
     practiceId,
+    setConversationMode,
   ]);
 
   const handleStartNewConversation = useCallback(async (nextMode: ConversationMode, startConsultFlow: (id: string) => void): Promise<string> => {
@@ -226,7 +228,7 @@ export function useConversationSetup({
     } finally {
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, createConversation, practiceId]);
+  }, [applyConversationMode, createConversation, onModeChange, practiceId, setConversationMode]);
 
   return {
     conversationId,

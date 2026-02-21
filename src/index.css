@@ -26,13 +26,6 @@
     --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
   }
 
-  /* Subdue glass rims in widget mode to minimize 'extra strokes' */
-  [data-widget="true"] .glass-card,
-  [data-widget="true"] .glass-panel,
-  [data-widget="true"] .glass-input {
-    box-shadow: var(--shadow-glass);
-  }
-
   .dark {
     --surface-base: 3 7 18;
     --surface-overlay: 10 15 26;
@@ -169,6 +162,13 @@
     outline: none;
     box-shadow: var(--glass-rim-medium),
       0 0 0 2px rgb(var(--accent-500) / 0.3);
+  }
+
+  /* Subdue glass rims in widget mode to minimize 'extra strokes' */
+  [data-widget="true"] .glass-card,
+  [data-widget="true"] .glass-panel,
+  [data-widget="true"] .glass-input {
+    box-shadow: var(--shadow-glass);
   }
 
   /* Semantic surface helpers */

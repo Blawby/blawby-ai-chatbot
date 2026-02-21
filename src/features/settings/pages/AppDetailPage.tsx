@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
 import { AppConnectionModal } from '@/features/settings/components/AppConnectionModal';
@@ -32,8 +32,15 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const isComingSoon = Boolean(app.comingSoon);
 
   const { practices, currentPractice } = useWorkspaceResolver();
-  const slug = currentPractice?.slug ?? practices[0]?.slug ?? 'your-practice-slug';
+  const slug = currentPractice?.slug ?? practices[0]?.slug;
   const [copiedScript, setCopiedScript] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
 
   const messengerSnippet = `<script>
   window.BlawbyWidget = {
@@ -45,7 +52,8 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const copySnippet = () => {
     navigator.clipboard.writeText(messengerSnippet).then(() => {
       setCopiedScript(true);
-      setTimeout(() => setCopiedScript(false), 2000);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedScript(false), 2000);
       showSuccess(t('settings:apps.copySnippetSuccess.title'), t('settings:apps.copySnippetSuccess.body'));
     }).catch((err) => {
       console.error('Failed to copy snippet:', err);
@@ -204,22 +212,30 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </p>
               
               <div className="relative group">
-                <pre className="bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30">
-                  {messengerSnippet}
+                <pre className={`bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30 ${!slug ? 'opacity-50 grayscale' : ''}`}>
+                  {slug ? messengerSnippet : t('settings:apps.messenger.placeholder')}
                 </pre>
                 <Button
                   variant="secondary"
                   size="sm"
+                  disabled={!slug}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
                   icon={copiedScript ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
                   onClick={copySnippet}
                 >
                   {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
                 </Button>
+                {!slug && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-elevation-1/40 backdrop-blur-[1px] rounded-lg">
+                    <span className="text-xs font-medium text-secondary bg-elevation-3 px-3 py-1.5 rounded-full border border-line-glass/20 shadow-xl">
+                      {t('settings:apps.messenger.missingSlugWarning')}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-md bg-accent-500/10 p-4 border border-accent-500/20 mt-4">
-                <h4 className="text-sm font-medium text-accent-400 mb-2">
+                <h4 className="text-sm font-medium text-[rgb(var(--accent-foreground))] mb-2 opacity-90">
                   {t('settings:apps.messenger.integrationGuide.advanced.title')}
                 </h4>
                 <p className="text-sm text-secondary mb-3">

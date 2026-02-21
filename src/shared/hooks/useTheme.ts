@@ -27,7 +27,8 @@ export const useTheme = () => {
     
     // Check for theme override in URL
     const params = new URLSearchParams(window.location.search);
-    const themeOverride = params.get('theme');
+    const themeParam = params.get('theme');
+    const themeOverride = (themeParam === 'dark' || themeParam === 'light') ? themeParam : null;
     themeOverrideRef.current = themeOverride;
     
     // Compute initial shouldBeDark using override, savedTheme, or media query
