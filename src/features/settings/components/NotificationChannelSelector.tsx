@@ -65,7 +65,7 @@ export const NotificationChannelSelector = ({
         }}
         disabled={isDisabled}
         className={cn(
-          'min-w-[180px] [&_[role=combobox]]:rounded-none'
+          'min-w-[180px] [&_[role=combobox]]:rounded-xl'
         )}
         clearable={false}
         searchable={false}
