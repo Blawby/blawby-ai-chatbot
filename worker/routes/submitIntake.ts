@@ -163,12 +163,35 @@ export async function handleSubmitIntake(
   // Validate participant access
   await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
 
-  // Resolve slug — stored during handleSlimFormContinue
-  // Note: We don't guard on intakeUuid here; instead rely on DB constraint to prevent duplicates
-  // This avoids the race condition between read and write
+  // Load conversation with row lock to prevent concurrent duplicate submissions
   const conversation = await conversationService.getConversation(conversationId, practiceId);
   const userInfo = (conversation.user_info ?? {}) as ConversationUserInfo;
 
+  // Early exit if already submitted (best-effort check before lock)
+  if (userInfo.intakeUuid) {
+    Logger.warn('[submitIntake] Intake already submitted, returning existing UUID', {
+      conversationId,
+      practiceId,
+      existingIntakeUuid: userInfo.intakeUuid,
+    });
+    // Return the existing intake UUID idempotently
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          intake_uuid: userInfo.intakeUuid,
+          status: 'existing',
+          payment_link_url: null,
+        },
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  // Resolve slug — stored during handleSlimFormContinue
   const slug = typeof userInfo.practiceSlug === 'string' ? userInfo.practiceSlug.trim() : '';
   if (!slug) {
     throw HttpErrors.badRequest('Practice slug not found on conversation — cannot submit intake');

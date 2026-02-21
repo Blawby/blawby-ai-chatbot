@@ -538,7 +538,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     })
       .then(async (response) => {
         if (!response.ok) {
-          const errData = await response.json() as { message?: string; error?: string };
+          let errData: { message?: string; error?: string } = {};
+          try {
+            const jsonBody = await response.json();
+            errData = jsonBody as { message?: string; error?: string };
+          } catch {
+            const textBody = await response.text();
+            const message = textBody || `Failed to load intake (HTTP ${response.status})`;
+            throw new Error(message);
+          }
           throw new Error(errData.message ?? errData.error ?? `Failed to load intake (HTTP ${response.status})`);
         }
         const payload = await response.json() as {
@@ -837,7 +845,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     );
 
     if (!response.ok) {
-      const err = await response.json() as { message?: string; error?: string };
+      let err: { message?: string; error?: string } = {};
+      try {
+        const jsonBody = await response.json();
+        err = jsonBody as { message?: string; error?: string };
+      } catch {
+        const textBody = await response.text();
+        const message = textBody || `Intake conversion failed (HTTP ${response.status})`;
+        throw new Error(message);
+      }
       throw new Error(err.message ?? err.error ?? `Intake conversion failed (HTTP ${response.status})`);
     }
 
