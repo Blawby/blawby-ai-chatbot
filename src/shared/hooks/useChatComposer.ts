@@ -134,6 +134,8 @@ export const useChatComposer = ({
   const intentAbortRef = useRef<AbortController | null>(null);
   const hasLoggedIntentRef = useRef(false);
   const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
+  const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   // ── session readiness guard ───────────────────────────────────────────────
 
@@ -204,18 +206,26 @@ export const useChatComposer = ({
     const ACK_TIMEOUT = 10000;
     const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
       const timer = setTimeout(() => {
+        ackTimerRef.current = null;
         pendingAckRef.current.delete(clientId);
         reject(new Error('Server acknowledgement timed out.'));
       }, ACK_TIMEOUT);
+      ackTimerRef.current = timer;
 
       pendingAckRef.current.set(clientId, {
         resolve: (ack) => {
-          clearTimeout(timer);
+          if (ackTimerRef.current) {
+            clearTimeout(ackTimerRef.current);
+            ackTimerRef.current = null;
+          }
           pendingAckRef.current.delete(clientId);
           resolve(ack);
         },
         reject: (err) => {
-          clearTimeout(timer);
+          if (ackTimerRef.current) {
+            clearTimeout(ackTimerRef.current);
+            ackTimerRef.current = null;
+          }
           pendingAckRef.current.delete(clientId);
           reject(err);
         }
@@ -241,13 +251,19 @@ export const useChatComposer = ({
         request_id: clientId,
       });
     } catch (error) {
+      if (ackTimerRef.current) {
+        clearTimeout(ackTimerRef.current);
+        ackTimerRef.current = null;
+      }
       pendingAckRef.current.delete(clientId);
+      if (!isMountedRef.current) throw error;
       pendingClientMessageRef.current.delete(clientId);
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
     }
 
     return ackPromise.catch(error => {
+      if (!isMountedRef.current) throw error;
       pendingClientMessageRef.current.delete(clientId);
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
@@ -288,8 +304,10 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.error === true) {
-        removeStreamingBubble(bubbleId);
-        onError?.(typeof parsed.message === 'string' ? parsed.message : 'Something went wrong. Please try again.');
+        if (isMountedRef.current) {
+          removeStreamingBubble(bubbleId);
+          onError?.(typeof parsed.message === 'string' ? parsed.message : 'Something went wrong. Please try again.');
+        }
         return;
       }
     };
@@ -472,6 +490,7 @@ export const useChatComposer = ({
       }
 
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error('[useChatComposer] Error sending message:', {
         error,
         errorMessage: error instanceof Error ? error.message : String(error),
@@ -503,10 +522,13 @@ export const useChatComposer = ({
 
   // Cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       abortControllerRef.current?.abort();
       intentAbortRef.current?.abort();
       if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
+      if (ackTimerRef.current) clearTimeout(ackTimerRef.current);
     };
   }, [orphanTimerRef]);
 
