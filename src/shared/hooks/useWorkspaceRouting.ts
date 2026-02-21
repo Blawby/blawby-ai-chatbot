@@ -269,8 +269,9 @@ export const useWorkspaceRouting = ({
   const layoutMode = useMemo((): LayoutMode => {
     if (isPracticeWorkspace) return 'desktop';
     if (isClientWorkspace) return 'mobile';
-    return 'widget';
-  }, [isClientWorkspace, isPracticeWorkspace]);
+    if (isPublicWorkspace && isWidget) return 'widget';
+    return 'mobile'; // Default for public non-widget view
+  }, [isClientWorkspace, isPracticeWorkspace, isPublicWorkspace, isWidget]);
 
   // ── role & permissions ────────────────────────────────────────────────────
 

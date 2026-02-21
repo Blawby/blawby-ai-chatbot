@@ -36,8 +36,8 @@ export const useTheme = () => {
     setIsDark(shouldBeDark);
     document.documentElement.classList.toggle('dark', shouldBeDark);
     
-    // If no saved theme, attach a 'change' listener to the media query
-    if (!savedTheme) {
+    // If no saved theme and no URL override, attach a 'change' listener to the media query
+    if (!savedTheme && !themeOverride) {
       const handleMediaChange = (e: MediaQueryListEvent) => {
         setIsDark(e.matches);
         document.documentElement.classList.toggle('dark', e.matches);

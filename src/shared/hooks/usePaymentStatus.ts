@@ -90,11 +90,11 @@ export const usePaymentStatus = ({
   ) => {
     if (!conversationId || !practiceId) return;
 
-    // Mark as confirmed in parent state immediately so UI gates update
-    onPaymentConfirmed(uuid);
-
     const messageId = `system-payment-confirm-${uuid}`;
     if (processedPaymentUuidsRef.current.has(uuid)) return;
+
+    // Mark as confirmed in parent state immediately so UI gates update
+    onPaymentConfirmed(uuid);
 
     // Check if a confirmation already exists in the current message list
     // (handled by the caller via latestIntakeSubmission / verifiedPaidIntakeUuids)
@@ -212,5 +212,6 @@ export const usePaymentStatus = ({
   return {
     paymentRetryNotice,
     setPaymentRetryNotice,
+    verifiedPaidIntakeUuids: processedPaymentUuidsRef.current,
   };
 };

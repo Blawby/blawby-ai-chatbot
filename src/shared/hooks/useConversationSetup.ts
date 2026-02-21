@@ -139,8 +139,9 @@ export function useConversationSetup({
       }
       setConversationId(cached);
       return cached;
-    } catch {
-      return null;
+    } catch (error) {
+      console.warn('[useConversationSetup] Failed to restore conversation from cache', error);
+      throw error;
     }
   }, [conversationCacheKey, activeConversationId, practiceId, session?.user]);
 

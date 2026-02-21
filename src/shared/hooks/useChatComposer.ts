@@ -16,7 +16,7 @@
  * Dependencies injected via options so this hook is independently testable.
  */
 
-import { useCallback, useRef } from 'preact/hooks';
+import { useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
@@ -142,6 +142,7 @@ export const useChatComposer = ({
     if (typeof window === 'undefined') throw new Error('Chat session is not available in this environment.');
     const start = Date.now();
     while (!sessionReadyRef.current) {
+      if (abortControllerRef.current?.signal.aborted) throw new Error('Session wait aborted');
       if (Date.now() - start > SESSION_READY_TIMEOUT_MS) throw new Error('Secure session is not ready yet. Please try again in a moment.');
       await new Promise(resolve => setTimeout(resolve, 200));
     }
@@ -182,7 +183,8 @@ export const useChatComposer = ({
   ) => {
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationIdRef.current;
-    if (!effectivePracticeId || !activeConversationId) return;
+    if (!effectivePracticeId) throw new Error('practiceId is required');
+    if (!activeConversationId) throw new Error('conversationId is required');
     if (!content.trim()) throw new Error('Message cannot be empty.');
 
     const clientId = createClientId();
@@ -199,8 +201,25 @@ export const useChatComposer = ({
     setMessages(prev => [...prev, tempMessage]);
     pendingClientMessageRef.current.set(clientId, tempId);
 
+    const ACK_TIMEOUT = 10000;
     const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
-      pendingAckRef.current.set(clientId, { resolve, reject });
+      const timer = setTimeout(() => {
+        pendingAckRef.current.delete(clientId);
+        reject(new Error('Server acknowledgement timed out.'));
+      }, ACK_TIMEOUT);
+
+      pendingAckRef.current.set(clientId, {
+        resolve: (ack) => {
+          clearTimeout(timer);
+          pendingAckRef.current.delete(clientId);
+          resolve(ack);
+        },
+        reject: (err) => {
+          clearTimeout(timer);
+          pendingAckRef.current.delete(clientId);
+          reject(err);
+        }
+      });
     });
 
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
@@ -296,22 +315,28 @@ export const useChatComposer = ({
 
     // Handle orphan bubble (no persisted event arrived)
     if (pendingStreamMessageIdRef.current === null) {
+      const bubbleIdToHandle = bubbleId;
+      let orphanedBubble: ChatMessageUI | null = null;
+      const orphanExpiryMs = 30_000;
+
       setMessages(prev => {
-        const bubble = prev.find(m => m.id === bubbleId);
-        if (!bubble) return prev;
-        if (!bubble.content.trim()) return prev.filter(m => m.id !== bubbleId);
-        const orphanExpiryMs = 30_000;
-        const orphanedBubble = {
+        const bubble = prev.find(m => m.id === bubbleIdToHandle);
+        if (!bubble || !bubble.content.trim()) return prev;
+        
+        orphanedBubble = {
           ...bubble,
           metadata: { ...bubble.metadata, isOrphan: true, orphanExpiryTime: Date.now() + orphanExpiryMs },
         };
-        const orphanTimer = setTimeout(() => {
-          setMessages(current => current.filter(m => m.id !== bubbleId));
+        return prev.map(m => m.id === bubbleIdToHandle ? orphanedBubble! : m);
+      });
+
+      if (orphanedBubble) {
+        if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = setTimeout(() => {
+          setMessages(current => current.filter(m => m.id !== bubbleIdToHandle));
           orphanTimerRef.current = null;
         }, orphanExpiryMs);
-        orphanTimerRef.current = orphanTimer;
-        return prev.map(m => m.id === bubbleId ? orphanedBubble : m);
-      });
+      }
     }
   }, [appendStreamingToken, applyIntakeFields, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
@@ -373,7 +398,9 @@ export const useChatComposer = ({
             catch (err) { console.warn('[useChatComposer] Failed to persist intent classification', err); }
           }
         } catch (intentError) {
-          if (intentError instanceof Error && intentError.name !== 'AbortError') throw intentError;
+          if (intentError instanceof Error && intentError.name !== 'AbortError') {
+            console.error('[useChatComposer] Intent classification failed:', intentError);
+          }
         }
       }
 
@@ -473,6 +500,15 @@ export const useChatComposer = ({
     hasLoggedIntentRef.current = false;
     intentAbortRef.current?.abort();
   }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      intentAbortRef.current?.abort();
+      if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
+    };
+  }, [orphanTimerRef]);
 
   return {
     sendMessage,

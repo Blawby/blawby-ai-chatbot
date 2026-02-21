@@ -202,11 +202,11 @@ export function useIntakeFlow({
     }
     await updateConversationMetadata(patch);
 
-    const state = conversationMetadataRef.current?.intakeConversationState;
+    const state = patch.intakeConversationState ?? current;
     const parts = ['I want to build a stronger brief.'];
-    if (state?.city && state?.state) parts.push(`My location is ${state.city}, ${state.state}.`);
-    if (state?.opposingParty?.trim()) parts.push(`Opposing party: ${state.opposingParty.trim()}.`);
-    if (state?.description?.trim()) parts.push(`My current description: ${state.description.trim()}.`);
+    if (state.city && state.state) parts.push(`My location is ${state.city}, ${state.state}.`);
+    if (state.opposingParty?.trim()) parts.push(`Opposing party: ${state.opposingParty.trim()}.`);
+    if (state.description?.trim()) parts.push(`My current description: ${state.description.trim()}.`);
 
     try {
       await sendMessage(parts.join(' '), []);
@@ -282,6 +282,8 @@ export function useIntakeFlow({
       }
       const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
       await updateConversationMetadata({
+        intakeUuid,
+        intakeSubmitted: true,
         intakeConversationState: { ...current, ctaResponse: 'ready' },
       });
     } catch (error) {
@@ -300,10 +302,15 @@ export function useIntakeFlow({
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
     try {
+      const sanitizedContactDetails = {
+        ...draft,
+        email: draft.email ? 'REDACTED' : undefined,
+        phone: draft.phone ? 'REDACTED' : undefined,
+      };
       await sendMessageOverWs(
         `Contact form submitted: ${draft.name}`,
         [],
-        { isContactFormSubmission: true, contactDetails: draft }
+        { isContactFormSubmission: true, contactDetails: sanitizedContactDetails }
       );
       await handleSlimFormContinue(draft);
     } catch (error) {
