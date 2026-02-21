@@ -198,12 +198,38 @@ const fixDecodeNamedCharacterReference = (): Plugin => {
 	};
 };
 
+// Plugin to force Vite to serve static HTML files from public/ instead of SPA fallback
+const serveStaticHtmlPlugin = (): Plugin => {
+	return {
+		name: 'serve-static-html',
+		configureServer(server) {
+			server.middlewares.use(async (req, res, next) => {
+				if (req.url && req.url.endsWith('.html') && req.url !== '/index.html') {
+					// Clean URL of query params
+					const urlPath = req.url.split('?')[0];
+					const publicPath = resolve(process.cwd(), 'public', urlPath.slice(1));
+					try {
+						const content = await fs.readFile(publicPath, 'utf-8');
+						res.setHeader('Content-Type', 'text/html');
+						res.end(content);
+						return;
+					} catch (e) {
+						// File not found in public/, let Vite handle it
+					}
+				}
+				next();
+			});
+		}
+	};
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
 		envPrefix: ['VITE_'],
 		plugins: [
+			serveStaticHtmlPlugin(),
 			fixDecodeNamedCharacterReference(),
 			preact({
 				prerender: {
@@ -221,9 +247,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				open: false, // Set to true to auto-open visualization after build
 				filename: 'dist/stats.html',
 			}),
-			// PWA support
+			// PWA support — disabled in dev so the service worker never intercepts
+			// static files (widget-test.html, widget-loader.js) during local development.
+			// In production, Cloudflare Pages + _headers/_redirects handle routing.
 			VitePWA({
 				registerType: 'autoUpdate',
+				// ↓ KEY: disable the SW in dev mode entirely
+				devOptions: {
+					enabled: false,
+				},
 				includeAssets: ['favicon.svg'],
 				manifest: {
 					name: 'Blawby Chat',
@@ -248,14 +280,19 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					]
 				},
 				workbox: {
-					// Workbox options
-					globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
+					// Precache app shell assets only — exclude static standalone pages
+					// and the widget script (they are served directly by Cloudflare Pages).
+					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp}'],
+					globIgnores: [
+						'widget-loader.js',
+						'widget-test.html',
+						'stats.html',
+					],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA
 						/^\/api\//,
 						/^\/__better-auth__/,
-						// Never intercept static HTML files (widget-test.html etc.)
-						// or the widget loader script — serve them directly from Cloudflare
+						// Never intercept standalone static pages or widget assets
 						/\/widget-[^/]+$/,
 						/\.html$/,
 					],

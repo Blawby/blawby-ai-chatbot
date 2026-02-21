@@ -168,8 +168,17 @@ function AppShell() {
           <Route path="/debug/styles" component={import.meta.env.DEV ? DebugStylesPage : App404} />
           <Route path="/debug/matters" component={import.meta.env.DEV ? DebugMatterPage : App404} />
           <Route path="/pay" component={PaySuccessPage} />
-          <Route path="/settings" component={LegacySettingsRoute} />
-          <Route path="/settings/*" component={LegacySettingsRoute} />
+          {/*
+           * Legacy /settings redirect layer.
+           * Old bookmarks and emails link to /settings or /settings/practice.
+           * These routes detect the user's workspace and redirect to the canonical
+           * /practice/:slug/settings or /client/:slug/settings path.
+           *
+           * TODO: Remove after backend PR #101 lands — routing claims from the
+           * session will let us derive the correct workspace without a round-trip.
+           */}
+          <Route path="/settings" component={SettingsRedirectRoute} />
+          <Route path="/settings/*" component={SettingsRedirectRoute} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
           <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
@@ -220,34 +229,40 @@ function RouteLoadError({
   );
 }
 
-function LegacySettingsRoute() {
+/**
+ * Redirects /settings and /settings/* to the canonical workspace-scoped
+ * settings path: /{practice|client}/:slug/settings[/*].
+ *
+ * This exists for backwards compatibility with old links. Once the backend
+ * routing PR (#101) delivers workspace claims in the session, this redirect
+ * can be computed server-side and this component deleted.
+ */
+function SettingsRedirectRoute() {
   const location = useLocation();
   const { defaultWorkspace, currentPractice, practices, practicesLoading } = useWorkspaceResolver();
   const { navigate } = useNavigation();
+
   const resolvedPractice = currentPractice ?? practices[0] ?? null;
   const resolvedSlug = resolvedPractice?.slug ?? null;
+
+  // Strip the /settings prefix to get the sub-path (e.g. 'practice', 'team')
   const legacySubPath = location.path.replace(/^\/settings\/?/, '');
-  const legacySearch = useMemo(() => {
-    const queryIndex = location.url.indexOf('?');
-    if (queryIndex < 0) return '';
-    const hashIndex = location.url.indexOf('#', queryIndex);
-    return hashIndex < 0
-      ? location.url.slice(queryIndex)
-      : location.url.slice(queryIndex, hashIndex);
-  }, [location.url]);
+
+  // Preserve query string + hash from the original URL
+  const suffixStart = location.url.indexOf('?') >= 0
+    ? location.url.indexOf('?')
+    : location.url.indexOf('#');
+  const urlSuffix = suffixStart >= 0 ? location.url.slice(suffixStart) : '';
 
   useEffect(() => {
     if (practicesLoading || !resolvedSlug || !resolvedPractice) return;
     const workspacePrefix = defaultWorkspace === 'practice' ? 'practice' : 'client';
     const settingsBase = `/${workspacePrefix}/${encodeURIComponent(resolvedSlug)}/settings`;
     const targetPath = buildSettingsPath(settingsBase, legacySubPath || undefined);
-    // Preserve query parameters when redirecting
-    const fullPath = legacySearch ? targetPath + legacySearch : targetPath;
-    navigate(fullPath, true);
-  }, [defaultWorkspace, legacySearch, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
+    navigate(urlSuffix ? targetPath + urlSuffix : targetPath, true);
+  }, [defaultWorkspace, urlSuffix, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
 
   if (!practicesLoading && (!resolvedSlug || !resolvedPractice)) return <App404 />;
-
   return <LoadingScreen />;
 }
 
