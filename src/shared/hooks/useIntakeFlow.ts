@@ -24,7 +24,6 @@ const sanitizeName = (name: string): string =>
 interface UseIntakeFlowOptions {
   conversationId: string | undefined;
   practiceId: string | undefined;
-  practiceSlug: string | undefined;
   conversationMetadata: ConversationMetadata | null;
   slimContactDraft: SlimContactDraft | null;
   conversationMetadataRef: React.MutableRefObject<ConversationMetadata | null>;
@@ -71,7 +70,6 @@ interface UseIntakeFlowResult {
 export function useIntakeFlow({
   conversationId,
   practiceId,
-  practiceSlug,
   conversationMetadata,
   slimContactDraft,
   conversationMetadataRef,
@@ -143,7 +141,6 @@ export function useIntakeFlow({
     const patch: ConversationMetadata = {
       intakeSlimContactDraft: nextDraft,
       intakeAiBriefActive: true,
-      practiceSlug: practiceSlug ?? practiceId,
     };
     if (conversationMetadataRef.current?.mode !== 'REQUEST_CONSULTATION') {
       patch.mode = 'REQUEST_CONSULTATION';
@@ -187,7 +184,6 @@ export function useIntakeFlow({
     conversationId,
     conversationMetadataRef,
     practiceId,
-    practiceSlug,
     updateConversationMetadata,
   ]);
 

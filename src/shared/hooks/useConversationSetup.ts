@@ -133,12 +133,11 @@ export function useConversationSetup({
         credentials: 'include',
       });
       if (!response.ok) {
-        return null;
+        throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
       }
       setConversationId(cached);
       return cached;
     } catch (error) {
-      console.warn('[useConversationSetup] Failed to restore conversation from cache', error);
       throw error;
     }
   }, [conversationCacheKey, activeConversationId, practiceId, session?.user]);
@@ -152,8 +151,9 @@ export function useConversationSetup({
     if (conversationRestoreAttemptedRef.current) return;
     conversationRestoreAttemptedRef.current = true;
 
-    void restoreConversationFromCache().catch(() => {
+    void restoreConversationFromCache().catch((err) => {
       conversationRestoreAttemptedRef.current = false;
+      onError?.(err instanceof Error ? err.message : 'Failed to restore conversation');
     });
   }, [
     activeConversationId,
@@ -161,6 +161,8 @@ export function useConversationSetup({
     practiceId,
     restoreConversationFromCache,
     session?.user?.id,
+    sessionIsPending,
+    onError,
   ]);
 
   const applyConversationMode = useCallback(async (

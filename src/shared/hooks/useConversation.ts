@@ -108,7 +108,6 @@ const getMessageCacheKey = (practiceId: string, conversationId: string) =>
 
 export interface UseConversationOptions {
   practiceId?: string;
-  practiceSlug?: string;
   conversationId?: string;
   linkAnonymousConversationOnLoad?: boolean;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
@@ -119,7 +118,6 @@ export interface UseConversationOptions {
 
 export const useConversation = ({
   practiceId,
-  practiceSlug,
   conversationId,
   linkAnonymousConversationOnLoad = false,
   onConversationMetadataUpdated,
@@ -698,12 +696,18 @@ export const useConversation = ({
             sendReadUpdate(maxSeq);
           }
 
+          // Update the ID set BEFORE state update to keep updater pure
+          fetchedUIMessages.forEach(m => messageIdSetRef.current.add(m.id));
+
           setMessages(prev => {
-            const existingIds = new Set(prev.map(m => m.id));
+            const existingIds = prev.reduce((set, m) => {
+              set.add(m.id);
+              return set;
+            }, new Set<string>());
+            
             const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
             const merged = [...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp);
             
-            merged.forEach(m => messageIdSetRef.current.add(m.id));
             return merged;
           });
           

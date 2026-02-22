@@ -33,7 +33,6 @@ const SESSION_READY_TIMEOUT_MS = 8_000;
 
 export interface UseChatComposerOptions {
   practiceId?: string;
-  practiceSlug?: string;
   conversationId?: string;
   mode?: ConversationMode | null;
 
@@ -78,7 +77,6 @@ const createClientId = (): string => {
 
 export const useChatComposer = ({
   practiceId,
-  practiceSlug,
   conversationId,
   mode,
   messages,
@@ -413,7 +411,6 @@ export const useChatComposer = ({
         { role: 'user' as const, content: trimmedMessage },
       ];
 
-      const resolvedPracticeSlug = (practiceSlug ?? '').trim() || undefined;
       const intakeSubmitted = messages.some(msg => msg.isUser && msg.metadata?.isContactFormSubmission);
 
       // ── streaming bubble ────────────────────────────────────────────────
@@ -431,7 +428,7 @@ export const useChatComposer = ({
           credentials: 'include',
           signal: abortController.signal,
           body: JSON.stringify({
-            conversationId, practiceId: resolvedPracticeId, practiceSlug: resolvedPracticeSlug,
+            conversationId, practiceId: resolvedPracticeId,
             mode: activeMode, intakeSubmitted, messages: aiMessages,
           }),
         });
@@ -489,7 +486,6 @@ export const useChatComposer = ({
     mode,
     onError,
     practiceId,
-    practiceSlug,
     processSSEStream,
     removeStreamingBubble,
     sendMessageOverWs,

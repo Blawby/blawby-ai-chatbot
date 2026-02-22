@@ -71,7 +71,7 @@
     },
     "copySnippetError": {
       "title": "Copy failed",
-      "body": "Unable to copy to clipboard. Please select and copy the code manually."
+      "body": "Unable to copy to clipboard. Please select and copy the widget snippet manually."
     },
     "clio": {
       "name": "Clio",
@@ -138,15 +138,7 @@
       "missingSlugWarning": "Workspace slug missing. Please check your practice settings.",
       "integrationGuide": {
         "title": "Integration Guide",
-        "description": "To add the chat widget to your website, copy the code snippet below and paste it into the <0>&lt;head&gt;</0> or just before the closing <1>&lt;/body&gt;</1> tag of your website.",
-        "advanced": {
-          "title": "Advanced: Custom Domain Linking",
-          "description": "To eliminate third-party cookie restrictions and make the chat widget seamlessly part of your site, point a subdomain (e.g., <0>chat.yourfirm.com</0>) to Blawby using a CNAME record.",
-          "steps": {
-            "cname": "Create a CNAME record for your subdomain pointing to <0>blawby.com</0>",
-            "snippet": "In the widget snippet above, add: <0>baseUrl: 'https://chat.yourfirm.com'</0>"
-          }
-        }
+        "description": "To add the chat widget to your website, copy the code snippet below and paste it into the <0>&lt;head&gt;</0> or just before the closing <1>&lt;/body&gt;</1> tag of your website."
       }
     }
   },

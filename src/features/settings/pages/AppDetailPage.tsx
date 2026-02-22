@@ -234,31 +234,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 )}
               </div>
 
-              <div className="rounded-md bg-accent-500/10 p-4 border border-accent-500/20 mt-4">
-                <h4 className="text-sm font-medium text-[rgb(var(--accent-foreground))] mb-2 opacity-90">
-                  {t('settings:apps.messenger.integrationGuide.advanced.title')}
-                </h4>
-                <p className="text-sm text-secondary mb-3">
-                  <Trans
-                    i18nKey="settings:apps.messenger.integrationGuide.advanced.description"
-                    components={[<code key="subdomain" />]}
-                  />
-                </p>
-                <ul className="list-disc list-inside text-sm text-secondary space-y-1">
-                  <li>
-                    <Trans
-                      i18nKey="settings:apps.messenger.integrationGuide.advanced.steps.cname"
-                      components={[<code key="cname" />]}
-                    />
-                  </li>
-                  <li>
-                    <Trans
-                      i18nKey="settings:apps.messenger.integrationGuide.advanced.steps.snippet"
-                      components={[<code key="baseurl" />]}
-                    />
-                  </li>
-                </ul>
-              </div>
+
             </div>
           </SettingSection>
 

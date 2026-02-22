@@ -8,7 +8,6 @@ import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
 
 export interface UseMessageHandlingOptions {
   practiceId?: string;
-  practiceSlug?: string;
   conversationId?: string;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
@@ -24,7 +23,6 @@ export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOp
 export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const {
     practiceId,
-    practiceSlug,
     conversationId,
     mode,
     onConversationMetadataUpdated,
@@ -35,7 +33,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   // 1. Core Transport & State
   const conversation = useConversation({
     practiceId,
-    practiceSlug,
     conversationId,
     linkAnonymousConversationOnLoad,
     onConversationMetadataUpdated,
@@ -46,7 +43,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const intake = useIntakeFlow({
     conversationId,
     practiceId,
-    practiceSlug,
     conversationMetadata: conversation.conversationMetadata,
     slimContactDraft: conversation.conversationMetadata?.intakeSlimContactDraft ?? null,
     conversationMetadataRef: conversation.conversationMetadataRef,
@@ -61,7 +57,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   // 3. User Actions & AI (Streaming, Intent, etc)
   const composer = useChatComposer({
     practiceId,
-    practiceSlug,
     conversationId,
     mode,
     messages: conversation.messages,

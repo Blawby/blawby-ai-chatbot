@@ -18,6 +18,10 @@
  *   launcherSize  – Size in pixels of the circular button (default: 56)
  *   zIndex        – CSS z-index for the widget layer      (default: 2147483647)
  *   label         – Accessible label for the launcher     (default: 'Chat with us')
+ *   onEvent       – Optional callback for all widget events
+ *   onChatStart   – Optional callback for first open ('chat_start')
+ *   pushDataLayerOnChatStart – Push dataLayer event on chat_start (default: false)
+ *   dataLayerEventName – chat start event name            (default: 'blawby_chat_start')
  */
 
 (function (w, d) {
@@ -31,6 +35,8 @@
     launcherSize: 56,
     zIndex: 2147483647,
     label: 'Chat with us',
+    pushDataLayerOnChatStart: false,
+    dataLayerEventName: 'blawby_chat_start',
   }, w.BlawbyWidget || {});
 
   if (!cfg.practiceSlug) {
@@ -63,6 +69,8 @@
   /* ── State ───────────────────────────────────────────────────────────── */
   var isOpen = false;
   var unreadCount = 0;
+  var hasStartedChat = false;
+  var listeners = {};
 
   /* ── Build DOM ───────────────────────────────────────────────────────── */
 
@@ -220,6 +228,7 @@
   /* ── Helpers ─────────────────────────────────────────────────────────── */
 
   function setOpen(next) {
+    var previousOpenState = isOpen;
     isOpen = next;
 
     if (next && !iframe.src) {
@@ -237,15 +246,26 @@
       setUnread(0);
       // Post open event so the iframe app knows it is visible
       postToIframe({ type: 'blawby:open' });
+      emitEvent('widget_opened', { wasOpen: previousOpenState });
+      if (!hasStartedChat) {
+        hasStartedChat = true;
+        emitEvent('chat_start', { conversationStarted: true });
+      }
     } else {
       postToIframe({ type: 'blawby:close' });
+      emitEvent('widget_closed', { wasOpen: previousOpenState });
     }
   }
 
   function setUnread(count) {
+    var previousUnreadCount = unreadCount;
     unreadCount = count;
     badge.textContent = count > 9 ? '9+' : String(count);
     badge.style.display = count > 0 && !isOpen ? 'flex' : 'none';
+    emitEvent('unread_changed', {
+      previousUnreadCount: previousUnreadCount,
+      unreadCount: unreadCount,
+    });
   }
 
   function postToIframe(msg) {
@@ -254,6 +274,72 @@
         iframe.contentWindow.postMessage(JSON.stringify(msg), cfg.baseUrl);
       }
     } catch (_) { /* cross-origin post may fail; safe to ignore */ }
+  }
+
+  function addListener(eventName, callback) {
+    if (typeof callback !== 'function') return;
+    var key = String(eventName || '*');
+    if (!Array.isArray(listeners[key])) listeners[key] = [];
+    listeners[key].push(callback);
+  }
+
+  function removeListener(eventName, callback) {
+    var key = String(eventName || '*');
+    var bucket = listeners[key];
+    if (!Array.isArray(bucket)) return;
+    listeners[key] = bucket.filter(function (fn) { return fn !== callback; });
+  }
+
+  function notifyListeners(eventName, payload) {
+    var all = (listeners['*'] || []).concat(listeners[eventName] || []);
+    for (var i = 0; i < all.length; i++) {
+      try { all[i](payload); } catch (err) {
+        console.warn('[BlawbyWidget] Event listener failed', err);
+      }
+    }
+  }
+
+  function maybePushDataLayer(payload) {
+    if (payload.type !== 'chat_start') return;
+    if (!cfg.pushDataLayerOnChatStart) return;
+    if (!w.dataLayer || typeof w.dataLayer.push !== 'function') return;
+    try {
+      w.dataLayer.push({
+        event: cfg.dataLayerEventName || 'blawby_chat_start',
+        blawby: payload,
+      });
+    } catch (err) {
+      console.warn('[BlawbyWidget] dataLayer push failed', err);
+    }
+  }
+
+  function emitEvent(eventName, detail) {
+    var payload = Object.assign({
+      type: eventName,
+      practiceSlug: cfg.practiceSlug,
+      isOpen: isOpen,
+      unreadCount: unreadCount,
+      timestamp: new Date().toISOString(),
+    }, detail || {});
+
+    if (typeof cfg.onEvent === 'function') {
+      try { cfg.onEvent(payload); } catch (err) {
+        console.warn('[BlawbyWidget] onEvent callback failed', err);
+      }
+    }
+
+    if (eventName === 'chat_start' && typeof cfg.onChatStart === 'function') {
+      try { cfg.onChatStart(payload); } catch (err) {
+        console.warn('[BlawbyWidget] onChatStart callback failed', err);
+      }
+    }
+
+    maybePushDataLayer(payload);
+    notifyListeners(eventName, payload);
+
+    try {
+      w.dispatchEvent(new CustomEvent('blawby:widget-event', { detail: payload }));
+    } catch (_) { /* CustomEvent may fail in legacy contexts; ignore */ }
   }
 
   /* ── postMessage bridge ──────────────────────────────────────────────── */
@@ -272,13 +358,16 @@
     switch (data.type) {
       case 'blawby:new-message':
         if (!isOpen) setUnread(unreadCount + 1);
+        emitEvent('iframe_new_message', {});
         break;
       case 'blawby:close-request':
         setOpen(false);
+        emitEvent('iframe_close_request', {});
         break;
       case 'blawby:ready':
         // Iframe signals it has mounted; send current visibility state
         postToIframe({ type: isOpen ? 'blawby:open' : 'blawby:close' });
+        emitEvent('iframe_ready', {});
         break;
     }
   });
@@ -295,6 +384,8 @@
     open:  function () { setOpen(true); },
     close: function () { setOpen(false); },
     toggle: function () { setOpen(!isOpen); },
+    on: function (eventName, callback) { addListener(eventName, callback); },
+    off: function (eventName, callback) { removeListener(eventName, callback); },
   };
   w.BlawbyWidget = Object.assign(w.BlawbyWidget || {}, api);
 
