@@ -42,14 +42,15 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     };
   }, []);
 
-  const messengerSnippet = `<script>
+  const messengerSnippet = slug ? `<script>
   window.BlawbyWidget = {
     practiceSlug: ${JSON.stringify(slug)},
   };
 </script>
-<script src="https://ai.blawby.com/widget-loader.js" defer></script>`;
+<script src="https://ai.blawby.com/widget-loader.js" defer></script>` : undefined;
 
   const copySnippet = () => {
+    if (!messengerSnippet) return;
     navigator.clipboard.writeText(messengerSnippet).then(() => {
       setCopiedScript(true);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);

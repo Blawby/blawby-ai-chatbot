@@ -249,7 +249,6 @@ export function WidgetApp({
           onRequestReactions={requestMessageReactions}
           composerDisabled={isComposerDisabled}
           isPublicWorkspace={true}
-          leadReviewActions={null}
           messagesReady={messagesReady}
           headerContent={<WorkspaceConversationHeader
               practiceName={practiceConfig.name}

@@ -236,12 +236,18 @@ export const useConversation = ({
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
     const runUpdate = async () => {
-      const current = conversationMetadataRef.current ?? {};
-      const nextMetadata = { ...current, ...patch };
+      const previous = conversationMetadataRef.current ?? {};
+      const nextMetadata = { ...previous, ...patch };
       applyConversationMetadata(nextMetadata);
-      const updated = await patchConversationMetadata(activeConversationId, practiceKey, nextMetadata);
-      applyConversationMetadata(updated?.user_info ?? nextMetadata);
-      return updated;
+
+      try {
+        const updated = await patchConversationMetadata(activeConversationId, practiceKey, nextMetadata);
+        applyConversationMetadata(updated?.user_info ?? nextMetadata);
+        return updated;
+      } catch (error) {
+        applyConversationMetadata(previous);
+        throw error;
+      }
     };
     const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
     metadataUpdateQueueRef.current = queued.catch(() => null);

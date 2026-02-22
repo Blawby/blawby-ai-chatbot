@@ -26,23 +26,35 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   });
 
   // 1. Fetch practice details (in parallel with session check)
-  const getPracticeDetails = RemoteApiService.getPublicPracticeDetails(env, slug, request).then(async (res) => {
-    if (!res.ok) throw new Error(`[Bootstrap] Error fetching practice details: ${res.status}`);
+  const getPracticeDetails = (async () => {
+    const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw HttpErrors.notFound('Practice not found');
+      }
+      const text = await res.text().catch(() => 'No body');
+      throw new Error(`[Bootstrap] Error fetching practice details: ${res.status} - ${text}`);
+    }
     return await res.json();
-  }).catch((err) => {
-    console.error(err);
-    throw HttpErrors.notFound('Practice not found');
-  });
+  })();
 
   // 2. Manage Session (Check session, if none, do anon sign-in)
   let responseCookies: string[] = [];
   let sessionData: unknown = null;
 
   try {
-    const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-      headers: upstreamHeaders
-    });
-    sessionData = await sessionRes.json().catch(() => null);
+    const sessionController = new AbortController();
+    const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
+
+    try {
+      const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+        headers: upstreamHeaders,
+        signal: sessionController.signal
+      });
+      sessionData = await sessionRes.json().catch(() => null);
+    } finally {
+      clearTimeout(sessionTimer);
+    }
 
     // Typing session data
     const typedSessionData = sessionData as { user?: { isAnonymous?: boolean } } | null;
@@ -53,25 +65,36 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       if (!anonHeaders.has('Content-Type')) {
         anonHeaders.set('Content-Type', 'application/json');
       }
-      const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
-        method: 'POST',
-        headers: anonHeaders,
-        body: '{}'
-      });
-      if (!anonRes.ok) {
-        throw new Error(`[Bootstrap] Anonymous sign-in failed: ${anonRes.status}`);
+      
+      const anonController = new AbortController();
+      const anonTimer = setTimeout(() => anonController.abort(), 5000);
+
+      try {
+        const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
+          method: 'POST',
+          headers: anonHeaders,
+          body: '{}',
+          signal: anonController.signal
+        });
+        if (!anonRes.ok) {
+          throw new Error(`[Bootstrap] Anonymous sign-in failed: ${anonRes.status}`);
+        }
+        
+        const setCookieHeaders = anonRes.headers.getSetCookie 
+          ? anonRes.headers.getSetCookie() 
+          : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
+        
+        responseCookies = responseCookies.concat(setCookieHeaders);
+        sessionData = await anonRes.json().catch(() => null);
+      } finally {
+        clearTimeout(anonTimer);
       }
-      
-      const setCookieHeaders = anonRes.headers.getSetCookie 
-        ? anonRes.headers.getSetCookie() 
-        : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
-      
-      responseCookies = responseCookies.concat(setCookieHeaders);
-      sessionData = await anonRes.json().catch(() => null);
     }
   } catch (err) {
-    console.error('[Bootstrap] Session fetch error:', err);
-    // Don't fail the whole bootstrap, just return no session so client can retry natively
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('[Bootstrap] Session operation timed out');
+    }
+    throw err;
   }
 
   // 3. Wait for practice details
@@ -111,7 +134,8 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   };
 
   const responseHeaders = new Headers({
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store'
   });
 
   // Forward Set-Cookie headers properly, handling multiple values

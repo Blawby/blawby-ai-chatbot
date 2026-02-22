@@ -615,9 +615,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        slimDrawerDragRef.current.pointerId = null;
-                        setSlimDrawerOffset(0);
-                        void handleSlimDrawerPointerUp(event);
+                        void dismissSlimForm('manual');
                       }
                     }}
                   />

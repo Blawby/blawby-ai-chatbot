@@ -43,7 +43,9 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
 
         const cacheKey = `blawby_widget_bootstrap_${slug}`;
 
-        const res = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`);
+        const res = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`, {
+          credentials: 'include',
+        });
         if (!res.ok) {
           throw new Error(`Failed to bootstrap widget (HTTP ${res.status})`);
         }

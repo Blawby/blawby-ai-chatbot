@@ -19,7 +19,7 @@ const MAX_TOTAL_LENGTH = 12000;
 const AI_TIMEOUT_MS = 8000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
-const HOURS_QUESTION_REGEX = /\b(hours?|open|opening hours|business hours|office hours|when are you open)\b/i;
+const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
 const SUBMIT_AFFIRMATION_REGEX = /^\s*(?:yes|yeah|yep|sure|ok|okay|go ahead|submit|do it|lets go|let's go|ready)\s*[.!]?\s*$/i;
 
@@ -804,6 +804,24 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       if (storedMessage) {
+        // Persist the merged intake state back to the conversation metadata
+        // so that it persists across devices/refreshes.
+        if (isIntakeMode && mergedIntakeState) {
+          try {
+            await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
+              metadata: {
+                ...conversationMetadata,
+                intakeConversationState: mergedIntakeState
+              }
+            });
+          } catch (metadataError) {
+            Logger.warn('Failed to persist merged intake state to conversation metadata', {
+              conversationId: body.conversationId,
+              error: metadataError instanceof Error ? metadataError.message : String(metadataError)
+            });
+          }
+        }
+
         // Send the persisted message ID so the client can reconcile the
         // temporary streaming bubble with the real message when it arrives
         // via WebSocket message.new

@@ -657,8 +657,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       );
       navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
     } catch (error) {
-      // Suppress "Session not ready" — the toast was already shown by MainApp.
-      if (error instanceof SessionNotReadyError) return;
+      // "Session not ready" — the toast was already shown by MainApp, but rethrow to follow fail-fast pattern
+      if (error instanceof SessionNotReadyError) throw error;
       console.error('[WorkspacePage] Failed to start conversation:', error);
       showError('Unable to start conversation', 'Please try again in a moment.');
     }

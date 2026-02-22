@@ -38,6 +38,7 @@ export interface UsePaymentStatusOptions {
   onPaymentConfirmed: (intakeUuid: string) => void;
   /** Called when a confirmation message is successfully persisted */
   applyServerMessages: (msgs: ConversationMessage[]) => void;
+  practiceName?: string;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
 }
 
@@ -73,6 +74,7 @@ export const usePaymentStatus = ({
   latestIntakeSubmission,
   onPaymentConfirmed,
   applyServerMessages,
+  practiceName,
   onError,
 }: UsePaymentStatusOptions) => {
   const [paymentRetryNotice, setPaymentRetryNotice] = useState<{ message: string; paymentUrl: string } | null>(null);
@@ -119,7 +121,7 @@ export const usePaymentStatus = ({
       processedPaymentUuidsRef.current.delete(uuid);
       const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
       console.warn('[usePaymentStatus] Failed to persist payment confirmation message', error);
-      onError?.(message);
+      onError?.(error);
       throw error;
     }
   }, [applyServerMessages, conversationId, onError, onPaymentConfirmed, practiceId]);
@@ -189,7 +191,7 @@ export const usePaymentStatus = ({
       try {
         const isPaid = await fetchIntakePaidStatus(intakeUuid, controller.signal);
         if (!isPaid || cancelled) return;
-        await postPaymentConfirmation(intakeUuid, 'the practice', controller.signal);
+        await postPaymentConfirmation(intakeUuid, practiceName || 'the practice', controller.signal);
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -201,7 +203,8 @@ export const usePaymentStatus = ({
     return () => { cancelled = true; controller.abort(); };
   }, [
     conversationId,
-    latestIntakeSubmission,
+    latestIntakeSubmission.intakeUuid,
+    latestIntakeSubmission.paymentRequired,
     onError,
     postPaymentConfirmation,
     practiceId,
