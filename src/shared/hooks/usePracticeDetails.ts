@@ -76,8 +76,9 @@ export const usePracticeDetails = (
     }
 
     // 3. Network fallback — choose the correct endpoint.
-    if (isLikelyUuid(practiceId) && !allowPublicFallback) {
-      // Authenticated path: practice-owner CMS context.
+    if (!allowPublicFallback) {
+      // Authenticated path: practice-owner CMS context. 
+      // Hits authorized endpoint; works with slug or UUID.
       const fetched = await getPracticeDetails(practiceId);
       setPracticeDetailsEntry(practiceId, fetched);
       return fetched;

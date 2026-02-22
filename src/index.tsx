@@ -678,7 +678,7 @@ function PublicPracticeRoute({
   // This runs immediately on mount, without waiting for practice details to load
   useEffect(() => {
     if (typeof window === 'undefined' || sessionIsPending) return;
-    if (isWidget || hasWidgetRuntimeContext()) return;
+    if (!isWidget && !hasWidgetRuntimeContext()) return;
 
     // Only attempt if no session exists
     if (!session?.user) {
@@ -815,7 +815,7 @@ function PublicPracticeRoute({
         publicPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
         workspaceView={workspaceView}
-        isWidget={isWidget}
+        isWidget={false}
       />
     </>
   );

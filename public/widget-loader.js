@@ -274,6 +274,10 @@
 
   container.appendChild(frameWrap);
   container.appendChild(launcher);
+  
+  // Set initial primary color variable on container to avoids flash
+  container.style.setProperty('--blawby-widget-primary-color', activePrimaryColor);
+
   d.body.appendChild(container);
 
   /* ── Helpers ─────────────────────────────────────────────────────────── */

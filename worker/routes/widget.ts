@@ -35,7 +35,11 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       const text = await res.text().catch(() => 'No body');
       throw new Error(`[Bootstrap] Error fetching practice details: ${res.status} - ${text}`);
     }
-    return await res.json();
+    try {
+      return await res.json();
+    } catch (parseErr) {
+      throw new Error(`[Bootstrap] Failed to parse JSON from upstream practice details: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
+    }
   })();
 
   // 2. Manage Session (Check session, if none, do anon sign-in)
@@ -127,6 +131,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
   // Create the response object
   const bootstrapResponse = {
+    practiceId,
     practiceDetails,
     session: sessionData,
     conversationId: conversationId,

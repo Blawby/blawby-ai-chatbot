@@ -14,6 +14,7 @@
 # The widget-loader.js is served from the Blawby origin and injects an iframe
 # pointing at /public/:slug?v=widget — the CSP below permits any site to embed it.
 /public/*
+  !Content-Security-Policy
   Content-Security-Policy: frame-ancestors *
 
 # ── widget-loader.js — allow any site to load this script ────────────────────

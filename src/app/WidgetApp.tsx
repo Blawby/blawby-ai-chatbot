@@ -27,7 +27,6 @@ export function WidgetApp({
   routeConversationId?: string;
   bootstrapSession?: { user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean } } | null;
 }) {
-  const [clearInputTrigger, setClearInputTrigger] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -118,11 +117,13 @@ export function WidgetApp({
     return cleanup;
   }, [createConversation, effectiveSession?.user, practiceId, routeConversationId, sessionIsPending, setupConversationId, retryTrigger]);
 
+  const { t } = useTranslation('common');
+
   const handleMessageError = useCallback((error: string | Error) => {
     const message = typeof error === 'string' ? error : error.message;
     if (message.toLowerCase().includes('chat connection closed')) return;
-    showErrorRef.current?.(message || 'We hit a snag sending that message.');
-  }, []);
+    showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
+  }, [t]);
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
     if (metadata?.mode) setConversationMode(metadata.mode);
@@ -149,7 +150,7 @@ export function WidgetApp({
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
-  const { t } = useTranslation('common');
+
 
   // Intake Auth (simplistic for widget, just redirecting or showing prompt if needed)
   const intakeUuid = intakeStatus?.intakeUuid ?? null;
@@ -270,7 +271,7 @@ export function WidgetApp({
           cancelUpload={cancelUpload}
           isRecording={isRecording}
           setIsRecording={setIsRecording}
-          clearInput={clearInputTrigger}
+          clearInput={0}
           isReadyToUpload={isReadyToUpload}
           isSessionReady={effectiveSession !== undefined && !sessionIsPending}
           isSocketReady={isSocketReady}

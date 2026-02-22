@@ -86,9 +86,9 @@ function buildWaterfall(records: RequestRecord[]): {
       criticalPath.push(rec);
     } else {
       const gapSincePrevious = rec.startedAt - maxResolvedAt;
-      // If this request started before all previous ones finished (small gap),
-      // it's parallel. Otherwise it waited → sequential.
-      if (gapSincePrevious < -PARALLEL_WINDOW_MS) {
+      // If this request started before (or within the tolerance of) all previous 
+      // ones finishing, it's parallel. Otherwise it waited → sequential.
+      if (gapSincePrevious <= PARALLEL_WINDOW_MS) {
         rec.isParallel = true;
         parallel.push(rec);
       } else {

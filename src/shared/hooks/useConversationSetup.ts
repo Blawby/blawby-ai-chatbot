@@ -171,7 +171,8 @@ export function useConversationSetup({
     conversationRestoreAttemptedRef.current = true;
 
     void restoreConversationFromCache().catch((err) => {
-      conversationRestoreAttemptedRef.current = false;
+      // Keep attemptedRef true to avoid infinite retry loops on mount; 
+      // the error is reported via onError.
       onError?.(err instanceof Error ? err.message : 'Failed to restore conversation');
     });
   }, [
