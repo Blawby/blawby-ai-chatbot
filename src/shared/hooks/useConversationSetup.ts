@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
-import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
+import { getConversationEndpoint, getConversationsEndpoint, getCurrentConversationEndpoint } from '@/config/api';
 import type { ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
@@ -84,12 +84,35 @@ export function useConversationSetup({
 
   const createConversation = useCallback(async (): Promise<string | null> => {
     if (isPracticeWorkspace) return null;
-    if (!practiceId || !session?.user || isCreatingRef.current) return null;
+    if (!practiceId || isCreatingRef.current) return null;
 
     try {
       isCreatingRef.current = true;
       setIsCreatingConversation(true);
       const params = new URLSearchParams({ practiceId });
+
+      // Public/widget flow should not depend on session.user being hydrated in
+      // client state; the backend can resolve anonymous identity from cookie.
+      if (isPublicWorkspace) {
+        const response = await fetch(`${getCurrentConversationEndpoint()}?${params}`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json() as { success?: boolean; error?: string; data?: { conversation?: { id?: string } }; conversation?: { id?: string } };
+        const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
+        if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
+        setConversationId(resolvedId);
+        return resolvedId;
+      }
+
+      if (!session?.user?.id) return null;
+
       const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,7 +141,7 @@ export function useConversationSetup({
       isCreatingRef.current = false;
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, practiceId, session?.user]);
+  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, session?.user?.id]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !session?.user) return null;
@@ -126,20 +149,16 @@ export function useConversationSetup({
     if (!cached) return null;
     if (activeConversationId === cached) return cached;
 
-    try {
-      const params = new URLSearchParams({ practiceId });
-      const response = await fetch(`${getConversationEndpoint(cached)}?${params}`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
-      }
-      setConversationId(cached);
-      return cached;
-    } catch (error) {
-      throw error;
+    const params = new URLSearchParams({ practiceId });
+    const response = await fetch(`${getConversationEndpoint(cached)}?${params}`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
     }
+    setConversationId(cached);
+    return cached;
   }, [conversationCacheKey, activeConversationId, practiceId, session?.user]);
 
   // Attempt to restore a previously cached conversation on mount (non-public workspaces)
@@ -172,7 +191,19 @@ export function useConversationSetup({
     startConsultFlow: (id: string) => void
   ) => {
     if (!practiceId) return;
-    await updateConversationMetadata(convId, practiceId, { mode: nextMode });
+
+    // Attempt to persist the mode to the backend, but don't block the UI
+    // if the server is temporarily unavailable (503, network flap, etc.).
+    try {
+      await updateConversationMetadata(convId, practiceId, { mode: nextMode });
+    } catch (persistError) {
+      const isServerError = persistError instanceof Error &&
+        /HTTP 5\d{2}/.test(persistError.message);
+      if (!isServerError) throw persistError; // rethrow client-side / auth errors
+      console.warn('[useConversationSetup] applyConversationMode: backend unavailable, applying mode locally', persistError);
+    }
+
+    // Apply locally regardless of backend status.
     setConversationMode(nextMode);
     onModeChange(nextMode);
     void logConversationEvent(convId, practiceId, 'mode_selected', { mode: nextMode, source });
@@ -180,7 +211,10 @@ export function useConversationSetup({
       startConsultFlow(convId);
       void logConversationEvent(convId, practiceId, 'consult_flow_started', { source });
     }
-  }, [logConversationEvent, onModeChange, practiceId, setConversationMode, updateConversationMetadata]);
+  // logConversationEvent and updateConversationMetadata are stable module-level
+  // imports — omitting them keeps the callback reference stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onModeChange, practiceId]);
 
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
@@ -245,4 +279,3 @@ export function useConversationSetup({
     applyConversationMode,
   };
 }
-

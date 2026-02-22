@@ -60,13 +60,12 @@ export function getWorkerApiUrl(): string {
 
 	let baseUrl: string;
 
-	// Prefer explicit override when provided.
-	if (import.meta.env.VITE_WORKER_API_URL) {
-		// ENV VAR: VITE_WORKER_API_URL (primary override)
-		baseUrl = import.meta.env.VITE_WORKER_API_URL;
-	} else if (typeof window !== 'undefined' && window.location?.origin) {
-		// Browser: same-origin to support session cookies.
+	// Browser: prefer same-origin to preserve auth/session cookies and avoid CORS in local dev.
+	if (typeof window !== 'undefined' && window.location?.origin) {
 		baseUrl = window.location.origin;
+	} else if (import.meta.env.VITE_WORKER_API_URL) {
+		// ENV VAR: VITE_WORKER_API_URL (primary override outside browser/runtime)
+		baseUrl = import.meta.env.VITE_WORKER_API_URL;
 	} else if (isDevelopment()) {
 		// Development: use localhost
 		baseUrl = 'http://localhost:8787';

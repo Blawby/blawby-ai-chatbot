@@ -19,10 +19,14 @@ const MAX_TOTAL_LENGTH = 12000;
 const AI_TIMEOUT_MS = 8000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
+const HOURS_QUESTION_REGEX = /\b(hours?|open|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const extractServiceNames = (details: Record<string, unknown> | null): string[] => {
   if (!details) return [];
@@ -65,6 +69,43 @@ const formatServiceList = (names: string[]): string => {
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
   if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
   return `${names.slice(0, 3).join(', ')}, and ${names.length - 3} more`;
+};
+
+const readStringField = (record: Record<string, unknown> | null, key: string): string | null => {
+  if (!record) return null;
+  const value = record[key];
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const hasNonEmptyStringField = (record: Record<string, unknown> | null | undefined, key: string): boolean => {
+  if (!record) return false;
+  const value = record[key];
+  return typeof value === 'string' && value.trim().length > 0;
+};
+
+const mergeIntakeState = (
+  base: Record<string, unknown> | null,
+  patch: Record<string, unknown> | null
+): Record<string, unknown> | null => {
+  if (!base && !patch) return null;
+  return { ...(base ?? {}), ...(patch ?? {}) };
+};
+
+const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null): boolean => {
+  if (!state) return false;
+  const caseStrength = typeof state.caseStrength === 'string' ? state.caseStrength : null;
+  if (caseStrength !== 'developing' && caseStrength !== 'strong') return false;
+
+  // Core intake readiness for showing CTA actions. This intentionally does not
+  // require every optional field; it only ensures we have enough context to
+  // offer "continue now" vs "build stronger brief".
+  const hasDescription = hasNonEmptyStringField(state, 'description');
+  const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
+  const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
+  const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome;
 };
 
 const normalizeApostrophes = (text: string): string => text.replace(/['']/g, '\'');
@@ -370,7 +411,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     practiceSlug || undefined
   );
 
-  const isIntakeMode = body.mode === 'REQUEST_CONSULTATION' && body.intakeSubmitted !== true && isPublic;
+  const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
+  const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
+  const effectiveMode = body.mode ?? storedMode;
+  const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
+    ? conversationMetadata.intakeConversationState as Record<string, unknown>
+    : null;
+  const slimDraft = isRecord(conversationMetadata?.intakeSlimContactDraft)
+    ? conversationMetadata.intakeSlimContactDraft as Record<string, unknown>
+    : null;
+  const hasSlimContactDraft = Boolean(
+    slimDraft && (
+      hasNonEmptyStringField(slimDraft, 'name') ||
+      hasNonEmptyStringField(slimDraft, 'email') ||
+      hasNonEmptyStringField(slimDraft, 'phone')
+    )
+  );
+  const intakeBriefActive = conversationMetadata?.intakeAiBriefActive === true;
+  const isIntakeMode = Boolean(
+    (effectiveMode === 'REQUEST_CONSULTATION' || hasSlimContactDraft || intakeBriefActive) &&
+    body.intakeSubmitted !== true &&
+    isPublic
+  );
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
@@ -387,6 +449,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   if (!details || !isPublic) {
     shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
+  } else if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
+    const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
+    const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
+    const website = readStringField(details, 'website');
+    const contactParts = [phone ? `phone: ${phone}` : null, email ? `email: ${email}` : null, website ? `website: ${website}` : null]
+      .filter((value): value is string => Boolean(value));
+    shortCircuitReply = contactParts.length > 0
+      ? `The practice has not published specific office hours here yet. You can contact them via ${contactParts.join(', ')}.`
+      : 'The practice has not published specific office hours here yet. Please click "Request consultation" to connect with the practice.';
   } else if (!isIntakeMode && hasLegalIntent) {
     shortCircuitReply = LEGAL_DISCLAIMER;
   } else if (!isIntakeMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
@@ -399,7 +470,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   if (shortCircuitReply !== null) {
     const shouldPromptConsultation =
-      shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply);
+      !hasSlimContactDraft &&
+      (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply));
 
     const storedMessage = await conversationService.sendSystemMessage({
       conversationId: body.conversationId,
@@ -657,16 +729,24 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
         if (matched) intakeFields.practiceAreaName = matched.name;
       }
+      const mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
 
       const shouldPromptConsultation =
-        shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply);
+        !hasSlimContactDraft &&
+        (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
 
       const intakeCaseStrength = typeof intakeFields?.caseStrength === 'string'
         ? intakeFields.caseStrength
         : null;
       const shouldShowIntakeCta =
-        (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong') &&
-        shouldShowIntakeCtaForReply(accumulatedReply);
+        isIntakeMode &&
+        (
+          shouldShowDeterministicIntakeCta(mergedIntakeState)
+          || (
+            (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong') &&
+            shouldShowIntakeCtaForReply(accumulatedReply)
+          )
+        );
 
       // Emit the done event before persisting — client can act on intakeFields
       // immediately without waiting for the DB write

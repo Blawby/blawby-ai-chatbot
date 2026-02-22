@@ -124,7 +124,8 @@ export const useConversation = ({
   onError,
 }: UseConversationOptions) => {
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
-  const sessionReady = Boolean(session?.user) && !sessionIsPending;
+  const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
+  const sessionReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousWidgetContext);
   const currentUserId = session?.user?.id ?? null;
 
   // ── state ──────────────────────────────────────────────────────────────────
@@ -299,10 +300,15 @@ export const useConversation = ({
   }, []);
 
   const initSocketReadyPromise = useCallback(() => {
-    wsReadyRef.current = new Promise((resolve, reject) => {
+    const nextReadyPromise = new Promise<void>((resolve, reject) => {
       wsReadyResolveRef.current = resolve;
       wsReadyRejectRef.current = reject;
     });
+    // This internal promise may be rejected during normal reconnect/close cycles
+    // before any consumer awaits it. Swallow unhandled-rejection noise while
+    // preserving rejection semantics for explicit awaiters.
+    nextReadyPromise.catch(() => {});
+    wsReadyRef.current = nextReadyPromise;
     isSocketReadyRef.current = false;
     updateSocketReady(false);
   }, [updateSocketReady]);

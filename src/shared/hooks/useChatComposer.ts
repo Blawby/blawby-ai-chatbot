@@ -33,7 +33,9 @@ const SESSION_READY_TIMEOUT_MS = 8_000;
 
 export interface UseChatComposerOptions {
   practiceId?: string;
+  practiceSlug?: string;
   conversationId?: string;
+  linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
 
   // Injected from useConversation
@@ -77,7 +79,9 @@ const createClientId = (): string => {
 
 export const useChatComposer = ({
   practiceId,
+  practiceSlug,
   conversationId,
+  linkAnonymousConversationOnLoad = false,
   mode,
   messages,
   messagesRef,
@@ -100,7 +104,8 @@ export const useChatComposer = ({
   onError,
 }: UseChatComposerOptions) => {
   const { session, isPending: sessionIsPending } = useSessionContext();
-  const sessionReady = Boolean(session?.user) && !sessionIsPending;
+  const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
+  const sessionReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousWidgetContext);
   const currentUserId = session?.user?.id ?? null;
 
   const sessionReadyRef = useRef(sessionReady);
@@ -368,6 +373,7 @@ export const useChatComposer = ({
       if (!shouldUseAi || trimmedMessage.length === 0) return;
 
       const resolvedPracticeId = (practiceId ?? '').trim();
+      const resolvedPracticeSlug = (practiceSlug ?? '').trim();
       if (!resolvedPracticeId) return;
 
       // ── intent classification (first message only) ──────────────────────
@@ -429,6 +435,7 @@ export const useChatComposer = ({
           signal: abortController.signal,
           body: JSON.stringify({
             conversationId, practiceId: resolvedPracticeId,
+            ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
             mode: activeMode, intakeSubmitted, messages: aiMessages,
           }),
         });
@@ -486,6 +493,7 @@ export const useChatComposer = ({
     mode,
     onError,
     practiceId,
+    practiceSlug,
     processSSEStream,
     removeStreamingBubble,
     sendMessageOverWs,

@@ -24,9 +24,10 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
-import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
-import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
+import { lazy } from 'preact/compat';
+const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
+const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
+const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
@@ -56,9 +57,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   publicPracticeSlug,
-  publicWorkspaceView,
-  practiceWorkspaceView,
-  clientWorkspaceView,
+  workspaceView,
   clientPracticeSlug,
   practiceSlug,
   isWidget = false,
@@ -70,9 +69,7 @@ export function MainApp({
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   publicPracticeSlug?: string;
-  publicWorkspaceView?: WorkspaceView;
-  practiceWorkspaceView?: WorkspaceView;
-  clientWorkspaceView?: WorkspaceView;
+  workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
   practiceSlug?: string;
   isWidget?: boolean;
@@ -100,13 +97,22 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole, routingClaims } = useSessionContext();
 
   // ── practice details (accent color, description) ──────────────────────────
-  // We resolve the initial IDs needed for details fetching via a simple pattern
-  // to avoid a full routing hook cycle before the details are available.
+  // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
+  // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
+  // the UUID (see usePracticeConfig lines 151-155), so using the UUID here gives
+  // usePracticeDetails an instant cache hit and eliminates the second network
+  // request on widget load.
+  //
+  // Fall-back chain: UUID from config → raw slug prop → config slug → practiceId.
+  // For client/practice workspaces the UUID practiceId is already correct.
   const practiceDetailsId = (workspace === 'public')
-    ? (publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
-    : practiceId;
+    ? (practiceConfig.id ?? publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
+    : (practiceConfig.id ?? practiceId);
+
+  // Slug hint is still forwarded so usePracticeDetails can use the public
+  // endpoint as a fallback when the store has no entry for this key.
   const practiceDetailsSlug = (workspace === 'public')
-    ? publicPracticeSlug
+    ? (publicPracticeSlug ?? practiceConfig.slug ?? null)
     : (workspace === 'client')
       ? clientPracticeSlug
       : (currentPractice?.slug ?? practiceConfig.slug ?? null);
@@ -136,12 +142,9 @@ export function MainApp({
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
-    publicConversationsBasePath,
     conversationResetKey,
     layoutMode,
-    currentUserRole,
     canReviewLeads,
-    workspaceAccess,
   } = useWorkspaceRouting({
     practiceId,
     practiceConfig,
@@ -201,7 +204,7 @@ export function MainApp({
 
   const messageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
-    practiceSlug: practiceConfig.slug ?? undefined,
+    practiceSlug: resolvedPracticeSlug ?? undefined,
     conversationId: activeConversationId ?? undefined,
     linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
@@ -307,13 +310,54 @@ export function MainApp({
     }
   }, [applyConversationMode, activeConversationId, createConversation, isCreatingConversation, practiceId, startConsultFlow]);
 
-  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode): Promise<string> => {
+  const handleSlimFormDismiss = useCallback(async () => {
+    if (conversationMode !== 'REQUEST_CONSULTATION') return;
+    await handleModeSelection('ASK_QUESTION', 'composer_footer');
+  }, [conversationMode, handleModeSelection]);
+
+  const handleStartNewConversation = useCallback(async (
+    nextMode: ConversationMode,
+    preferredConversationId?: string,
+    options?: { forceCreate?: boolean }
+  ): Promise<string> => {
     if (isSelectingRef.current) throw new Error('Conversation start already in progress');
+    isSelectingRef.current = true;
     try {
-      isSelectingRef.current = true;
       if (!practiceId) throw new Error('Practice context is required');
-      const newConversationId = await createConversation();
-      if (!newConversationId) throw new Error('Unable to create conversation');
+
+      // ── Reuse logic ────────────────────────────────────────────────────────
+      // Both ASK_QUESTION and REQUEST_CONSULTATION reuse a provided conversation
+      // when one exists.  forceCreate=true is only passed when the caller
+      // explicitly wants a fresh thread (e.g. "New conversation" button).
+      if (!options?.forceCreate) {
+        const reusableConversationId = preferredConversationId ?? activeConversationId ?? null;
+        if (reusableConversationId) {
+          await applyConversationMode(nextMode, reusableConversationId, 'home_cta', startConsultFlow);
+          return reusableConversationId;
+        }
+      }
+
+      // ── Create new conversation ─────────────────────────────────────────────
+      // createConversation returns null when the session user isn't available yet
+      // (anonymous sign-in still in-flight).  Poll briefly so we don't throw an
+      // error that leaves the user wondering what happened.
+      let newConversationId = await createConversation();
+      if (!newConversationId) {
+        // Wait up to 3 s in 300 ms increments for the session to settle.
+        const deadline = Date.now() + 3000;
+        while (!newConversationId && Date.now() < deadline) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 300));
+          newConversationId = await createConversation();
+        }
+      }
+
+      if (!newConversationId) {
+        // Session still not ready — surface a friendly toast and bail without
+        // throwing so the caller can handle gracefully.
+        showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
+        return Promise.reject(new Error('Session not ready'));
+      }
+
       await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
       return newConversationId;
     } catch (error) {
@@ -321,9 +365,10 @@ export function MainApp({
       console.warn('[MainApp] Failed to start new conversation', error);
       throw error;
     } finally {
+      // Always release the lock so subsequent clicks work.
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, createConversation, practiceId, startConsultFlow]);
+  }, [activeConversationId, applyConversationMode, createConversation, practiceId, startConsultFlow]);
 
   // ── send message ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (
@@ -495,12 +540,13 @@ export function MainApp({
         activeLabel={headerActiveTimeLabel}
         presenceStatus={headerPresenceStatus}
         onBack={() => navigate(conversationBackPath)}
+        loading={isCreatingConversation || !messagesReady}
         rightSlot={headerRightSlot}
       />
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    headerActiveTimeLabel, headerPresenceStatus, headerRightSlot,
+    headerActiveTimeLabel, headerPresenceStatus, headerRightSlot, isCreatingConversation, messagesReady,
     navigate, resolvedPracticeLogo, resolvedPracticeName,
   ]);
 
@@ -519,7 +565,10 @@ export function MainApp({
 
   // ── derived layout flags ───────────────────────────────────────────────────
   const isConversationReady = Boolean(activeConversationId && !isCreatingConversation);
-  const isAuthReady = Boolean(session?.user) && !sessionIsPending;
+  const hasAnonymousPublicChatContext = Boolean(
+    isPublicWorkspace && activeConversationId && effectivePracticeId && !sessionIsPending
+  );
+  const isAuthReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousPublicChatContext);
   const isSessionReady = isConversationReady && isAuthReady;
   const effectiveIsSocketReady = isConversationReady && isAuthReady ? isSocketReady : false;
   const isComposerDisabled = isPublicWorkspace && !conversationMode;
@@ -542,6 +591,7 @@ export function MainApp({
             conversationTitle={conversationMetadata?.title ?? null}
             onSendMessage={handleSendMessage}
             onAddMessage={addMessage}
+            conversationMode={conversationMode}
             onSelectMode={handleModeSelection}
             onToggleReaction={toggleMessageReaction}
             onRequestReactions={requestMessageReactions}
@@ -582,6 +632,7 @@ export function MainApp({
             onIntakeCtaResponse={handleIntakeCtaResponse}
             slimContactDraft={slimContactDraft}
             onSlimFormContinue={handleSlimFormContinue}
+            onSlimFormDismiss={handleSlimFormDismiss}
             onBuildBrief={handleBuildBrief}
             onSubmitNow={handleSubmitNow}
             isAnonymousUser={isAnonymous}
@@ -602,77 +653,45 @@ export function MainApp({
     </div>
   );
 
-  // ── workspace views ────────────────────────────────────────────────────────
+  // ── workspace view (route-driven) ─────────────────────────────────────────
+  const resolvedWorkspaceView = useMemo<WorkspaceView>(() => {
+    const requested = workspaceView ?? (isPublicWorkspace ? 'conversation' : 'home');
+    if ((isClientWorkspace || isPracticeWorkspace) && requested === 'conversation' && !activeConversationId) {
+      return 'list';
+    }
+    return requested;
+  }, [activeConversationId, isClientWorkspace, isPracticeWorkspace, isPublicWorkspace, workspaceView]);
 
-  const resolvedClientWorkspaceView = useMemo<WorkspaceView | null>(() => {
-    if (!isClientWorkspace) return null;
-    if (!clientWorkspaceView) return 'home';
-    if (clientWorkspaceView === 'conversation' && !activeConversationId) return 'list';
-    return clientWorkspaceView;
-  }, [activeConversationId, clientWorkspaceView, isClientWorkspace]);
-
-  const resolvedPracticeWorkspaceView = useMemo<WorkspaceView | null>(() => {
-    if (!isPracticeWorkspace) return null;
-    if (!practiceWorkspaceView) return 'home';
-    if (practiceWorkspaceView === 'conversation' && !activeConversationId) return 'list';
-    return practiceWorkspaceView;
-  }, [activeConversationId, isPracticeWorkspace, practiceWorkspaceView]);
-
-  const publicWorkspaceContent = isPublicWorkspace ? (
+  const workspacePage = (
     <WorkspacePage
-      view={publicWorkspaceView ?? 'conversation'}
+      view={resolvedWorkspaceView}
       practiceId={practiceId}
-      practiceSlug={resolvedPublicPracticeSlug}
+      practiceSlug={
+        isPracticeWorkspace
+          ? effectivePracticeSlug
+          : isClientWorkspace
+            ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
+            : resolvedPublicPracticeSlug
+      }
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
       layoutMode={layoutMode}
-      showClientTabs={isAuthenticatedClient}
+      showClientTabs={isClientWorkspace ? true : isAuthenticatedClient}
+      showPracticeTabs={isPracticeWorkspace}
+      workspace={workspace}
       onStartNewConversation={handleStartNewConversation}
       chatView={chatPanel}
+      mattersView={
+        isPracticeWorkspace
+          ? (practiceMattersPath ? <PracticeMattersPage basePath={practiceMattersPath} /> : null)
+          : isClientWorkspace
+            ? <ClientMattersPage />
+            : undefined
+      }
+      clientsView={isPracticeWorkspace ? <PracticeClientsPage /> : undefined}
     />
-  ) : null;
-
-  const clientWorkspaceContent = isClientWorkspace ? (
-    <WorkspacePage
-      view={resolvedClientWorkspaceView ?? 'home'}
-      practiceId={practiceId}
-      practiceSlug={clientPracticeSlug ?? resolvedClientPracticeSlug}
-      practiceName={resolvedPracticeName}
-      practiceLogo={resolvedPracticeLogo}
-      messages={messages}
-      layoutMode={layoutMode}
-      showClientTabs={true}
-      workspace="client"
-      onStartNewConversation={handleStartNewConversation}
-      chatView={chatPanel}
-      mattersView={<ClientMattersPage />}
-    />
-  ) : null;
-
-  const practiceWorkspaceContent = isPracticeWorkspace ? (
-    <WorkspacePage
-      view={resolvedPracticeWorkspaceView ?? 'home'}
-      practiceId={practiceId}
-      practiceSlug={effectivePracticeSlug}
-      practiceName={resolvedPracticeName}
-      practiceLogo={resolvedPracticeLogo}
-      messages={messages}
-      layoutMode={layoutMode}
-      showPracticeTabs={true}
-      workspace="practice"
-      onStartNewConversation={handleStartNewConversation}
-      chatView={chatPanel}
-      mattersView={practiceMattersPath ? <PracticeMattersPage basePath={practiceMattersPath} /> : null}
-      clientsView={<PracticeClientsPage />}
-    />
-  ) : null;
-
-  const mainContent = isPracticeWorkspace
-    ? practiceWorkspaceContent
-    : isClientWorkspace
-      ? clientWorkspaceContent
-      : publicWorkspaceContent;
+  );
 
   // ── render ─────────────────────────────────────────────────────────────────
   const rootClassName = isWidget ? 'h-full w-full overflow-hidden' : 'min-h-dvh w-full';
@@ -681,7 +700,7 @@ export function MainApp({
     <>
       {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
       <div className={rootClassName} {...(isWidget ? { 'data-widget': 'true' } : {})}>
-        {mainContent}
+        {workspacePage}
       </div>
       {!isWidget && (
         <>
