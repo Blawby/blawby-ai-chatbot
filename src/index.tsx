@@ -904,7 +904,7 @@ function WidgetRoute({
     return <LoadingScreen />;
   }
 
-  if (error || !practiceConfig) {
+  if (error || !practiceConfig || !resolvedPracticeId) {
     return <App404 />;
   }
   

@@ -106,8 +106,7 @@ export const usePaymentStatus = ({
         metadata: { intakePaymentUuid: uuid, paymentStatus: 'succeeded' },
       });
 
-      if (signal?.aborted) return;
-
+      // After successful persistence, always update client state regardless of abort status
       if (persistedMessage) {
         // Mark as confirmed in parent state ONLY after persistence success
         onPaymentConfirmed(uuid);

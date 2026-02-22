@@ -527,6 +527,10 @@ export const useConversation = ({
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
     let attempts = 0;
+    let previousSeq: number | null = null;
+    const MAX_NO_PROGRESS_ATTEMPTS = 3;
+    let noProgressCount = 0;
+
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
       try {
@@ -538,7 +542,20 @@ export const useConversation = ({
         if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
         applyServerMessages(data.data.messages ?? []);
         if (typeof data.data.latest_seq === 'number') targetLatest = data.data.latest_seq;
+        previousSeq = nextSeq;
         nextSeq = data.data.next_from_seq ?? null;
+        
+        // Check for no progress (nextSeq not advancing)
+        if (nextSeq !== null && nextSeq === previousSeq) {
+          noProgressCount += 1;
+          if (noProgressCount >= MAX_NO_PROGRESS_ATTEMPTS) {
+            onError?.('Failed to recover message gap: no progress after multiple attempts');
+            return;
+          }
+        } else {
+          noProgressCount = 0;
+        }
+        
         attempts = 0;
       } catch (error) {
         attempts += 1;
@@ -863,7 +880,17 @@ export const useConversation = ({
     if (!isConversationLinkReady) { closeChatSocket(); return; }
     if (!conversationId || !practiceId) { conversationIdRef.current = undefined; closeChatSocket(); return; }
     conversationIdRef.current = conversationId;
+    
+    // Save cached message IDs before reset
+    const cachedMessageIds = new Set(messageIdSetRef.current);
+    
     resetRealtimeState();
+    
+    // Restore cached message IDs after reset
+    if (cachedMessageIds.size > 0) {
+      cachedMessageIds.forEach(id => messageIdSetRef.current.add(id));
+    }
+    
     const controller = new AbortController();
     setHasMoreMessages(false);
     setNextCursor(null);

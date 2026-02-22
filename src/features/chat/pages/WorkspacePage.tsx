@@ -3,6 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import axios from 'axios';
 import { useNavigation } from '@/shared/utils/navigation';
+import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import WorkspaceNav, { type WorkspaceNavTab } from '@/features/chat/views/WorkspaceNav';
 import ConversationListView from '@/features/chat/views/ConversationListView';
@@ -81,7 +82,7 @@ const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
     if (meta?.intakeDecisionPrompt === true) return true;
     if (meta?.intakeSubmitted === true) return true;
     if (meta?.contactDetails && typeof meta.contactDetails === 'object') return true;
-    if (typeof message.content === 'string' && message.content.includes('Contact info received')) return true;
+    if (meta?.intakeComplete === true) return true;
     return false;
   });
 };
@@ -657,7 +658,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
     } catch (error) {
       // Suppress "Session not ready" — the toast was already shown by MainApp.
-      if (error instanceof Error && error.message === 'Session not ready') return;
+      if (error instanceof SessionNotReadyError) return;
       console.error('[WorkspacePage] Failed to start conversation:', error);
       showError('Unable to start conversation', 'Please try again in a moment.');
     }

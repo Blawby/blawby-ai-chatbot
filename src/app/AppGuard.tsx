@@ -50,13 +50,15 @@ export function AppGuard({ children }: AppGuardProps) {
         if (import.meta.env.DEV) {
           console.debug('[AppGuard] Practice data synced');
         }
+      })
+      .catch((error) => {
+        console.error('[AppGuard] Failed to sync practice data after subscription', error);
+      })
+      .finally(() => {
         // Remove the flag so a refresh doesn't re-trigger the sync unnecessarily
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('subscription');
         window.history.replaceState({}, '', `${newUrl.pathname}${newUrl.search}${newUrl.hash}`);
-      })
-      .catch((error) => {
-        console.error('[AppGuard] Failed to sync practice data after subscription', error);
       });
   }, [refetchPractices]);
 

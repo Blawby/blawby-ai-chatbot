@@ -30,6 +30,7 @@ export function WidgetApp({
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const autoConversationAttemptedRef = useRef(false);
 
   const { showError } = useToastContext();
@@ -78,19 +79,44 @@ export function WidgetApp({
   });
 
   const activeConversationId = routeConversationId ?? setupConversationId;
+  const autoConversationRetryCountRef = useRef(0);
+  const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const MAX_AUTO_CONVERSATION_RETRIES = 3;
 
   useEffect(() => {
-    if (routeConversationId || setupConversationId) return;
-    if (sessionIsPending || !effectiveSession?.user || !practiceId) return;
-    if (autoConversationAttemptedRef.current) return;
+    // Cleanup function that always runs on effect cleanup or re-run
+    const cleanup = () => {
+      if (autoConversationTimeoutRef.current) {
+        clearTimeout(autoConversationTimeoutRef.current);
+        autoConversationTimeoutRef.current = null;
+      }
+    };
+
+    // Guard checks - return cleanup even when early exiting
+    if (routeConversationId || setupConversationId) return cleanup;
+    if (sessionIsPending || !effectiveSession?.user || !practiceId) return cleanup;
+    if (autoConversationAttemptedRef.current) return cleanup;
+    if (autoConversationRetryCountRef.current >= MAX_AUTO_CONVERSATION_RETRIES) return cleanup;
 
     autoConversationAttemptedRef.current = true;
     void createConversation().catch((error) => {
-      autoConversationAttemptedRef.current = false;
+      const retryCount = autoConversationRetryCountRef.current + 1;
+      autoConversationRetryCountRef.current = retryCount;
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       showErrorRef.current?.(message);
+
+      if (retryCount < MAX_AUTO_CONVERSATION_RETRIES) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delayMs = Math.pow(2, retryCount - 1) * 1000;
+        autoConversationTimeoutRef.current = setTimeout(() => {
+          autoConversationAttemptedRef.current = false;
+          setRetryTrigger(prev => prev + 1);
+        }, delayMs);
+      }
     });
-  }, [createConversation, effectiveSession?.user, practiceId, routeConversationId, sessionIsPending, setupConversationId]);
+
+    return cleanup;
+  }, [createConversation, effectiveSession?.user, practiceId, routeConversationId, sessionIsPending, setupConversationId, retryTrigger]);
 
   const handleMessageError = useCallback((error: string | Error) => {
     const message = typeof error === 'string' ? error : error.message;
@@ -172,7 +198,7 @@ export function WidgetApp({
     ingestServerMessages,
   });
 
-  const canChat = activeConversationId !== null;
+  const canChat = activeConversationId != null;
   const isComposerDisabled = isRecording;
 
   const handleModeSelection = useCallback(async (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer') => {

@@ -35,7 +35,6 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   });
 
   // 2. Manage Session (Check session, if none, do anon sign-in)
-  let sessionCookie: string | null = incomingCookie;
   let responseCookies: string[] = [];
   let sessionData: unknown = null;
 
@@ -68,11 +67,6 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
         : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
       
       responseCookies = responseCookies.concat(setCookieHeaders);
-      
-      // Update our sessionCookie for subsequent requests
-      const newCookies = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
-      sessionCookie = incomingCookie ? `${incomingCookie}; ${newCookies}` : newCookies;
-      
       sessionData = await anonRes.json().catch(() => null);
     }
   } catch (err) {

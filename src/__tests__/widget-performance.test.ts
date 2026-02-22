@@ -10,9 +10,9 @@
  *
  * BUDGET targets are based on Intercom / Crisp benchmarks at P50 on a 4G
  * connection (RTT ~80ms, bandwidth ~10Mbps):
- *   - Time-to-interactive (widget ready to type):  < 800ms
- *   - First meaningful paint (name + logo shown):  < 400ms
- *   - Session established (anon sign-in done):     < 600ms
+ *   - Time-to-interactive (widget ready to type):  < 900ms
+ *   - First meaningful paint (name + logo shown):  < 250ms
+ *   - Session established (anon sign-in done):     < 500ms
  *
  * HOW TO READ THE WATERFALL OUTPUT
  * ----------------------------------

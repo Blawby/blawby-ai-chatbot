@@ -395,7 +395,7 @@ export const useChatComposer = ({
           if (intentResponse?.ok) {
             const intentData = await intentResponse.json() as FirstMessageIntent;
             if (intentController.signal.aborted) return;
-            if (conversationIdRef.current !== intentConversationId || resolvedPracticeId !== intentPracticeId) return;
+            if (conversationIdRef.current !== intentConversationId || practiceIdRef.current !== intentPracticeId) return;
             if (hasLoggedIntentRef.current) return;
             hasLoggedIntentRef.current = true;
             try { await updateConversationMetadata({ first_message_intent: intentData }, intentConversationId); }

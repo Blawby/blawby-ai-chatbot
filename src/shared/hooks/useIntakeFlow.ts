@@ -161,6 +161,7 @@ export function useIntakeFlow({
           'Email: REDACTED',
           'Phone: REDACTED',
         ].join('\n'),
+        metadata: { intakeComplete: true },
       });
       if (ackMsg) applyServerMessages([ackMsg]);
     } catch (error) {

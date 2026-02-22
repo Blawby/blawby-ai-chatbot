@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { useIntakeFlow } from '@/shared/hooks/useIntakeFlow';
@@ -29,7 +29,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     mode,
     onConversationMetadataUpdated,
     onError,
-    linkAnonymousConversationOnLoad
+    linkAnonymousConversationOnLoad = false
   } = options;
 
   // 1. Core Transport & State
@@ -41,6 +41,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     onError,
   });
 
+  const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
+
   // 2. Intake Flow logic
   const intake = useIntakeFlow({
     conversationId,
@@ -50,9 +52,9 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     conversationMetadataRef: conversation.conversationMetadataRef,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
-    // Proxy functions to chat composer to break hook dependency cycle if needed
-    sendMessage: (content, att, reply) => composer.sendMessage(content, att, reply),
-    sendMessageOverWs: (content, att, meta, reply) => composer.sendMessageOverWs(content, att, meta, reply),
+    // Proxy functions to chat composer via ref to avoid TDZ errors
+    sendMessage: (content, att, reply) => composerRef.current?.sendMessage(content, att, reply),
+    sendMessageOverWs: (content, att, meta, reply) => composerRef.current?.sendMessageOverWs(content, att, meta, reply),
     onError,
   });
 
@@ -84,6 +86,11 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     applyIntakeFields: intake.applyIntakeFields,
     onError,
   });
+
+  // Update composerRef after composer is created
+  if (composerRef.current !== composer) {
+    composerRef.current = composer;
+  }
 
   // 4. Payment statuses & reconciliation
   const [verifiedPaidIntakeUuids, setVerifiedPaidIntakeUuids] = useState<Set<string>>(new Set());

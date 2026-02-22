@@ -157,7 +157,6 @@ test.describe('Widget performance (real e2e)', () => {
 
     const interactiveMs = Date.now() - startedAt;
 
-    const flowStartedAt = Date.now();
     const slimFormName = anonPage.getByLabel('Name');
     const slimFormEmail = anonPage.getByLabel('Email');
     const slimFormPhone = anonPage.getByLabel('Phone');
@@ -188,6 +187,7 @@ test.describe('Widget performance (real e2e)', () => {
     let aiResponseMessageId: string | null = null;
     let aiResponseTransport: 'json' | 'sse' | null = null;
     let aiDeliveryDiagnostics: Record<string, unknown> | null = null;
+    let flowStartedAt = 0;
     const bodyLocator = anonPage.locator('body');
     try {
       await messageInput.fill('What are your hours of operation?');
@@ -195,6 +195,7 @@ test.describe('Widget performance (real e2e)', () => {
         (response) => response.request().method() === 'POST' && response.url().includes('/api/ai/chat') && response.status() === 200,
         { timeout: MAX_AI_RESPONSE_MS }
       );
+      flowStartedAt = Date.now();
       await anonPage.getByRole('button', { name: /send message/i }).click();
       const aiNetworkResponse = await aiResponsePromise;
       aiResponseMs = Date.now() - flowStartedAt;

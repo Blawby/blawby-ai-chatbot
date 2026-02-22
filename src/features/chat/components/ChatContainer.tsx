@@ -612,6 +612,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                       slimDrawerDragRef.current.pointerId = null;
                       setSlimDrawerOffset(0);
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        slimDrawerDragRef.current.pointerId = null;
+                        setSlimDrawerOffset(0);
+                        void handleSlimDrawerPointerUp(event);
+                      }
+                    }}
                   />
                   <ContactForm
                     onSubmit={onSlimFormContinue}

@@ -18,6 +18,7 @@ import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
+import { SessionNotReadyError } from '@/shared/types/errors';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -355,7 +356,7 @@ export function MainApp({
         // Session still not ready — surface a friendly toast and bail without
         // throwing so the caller can handle gracefully.
         showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
-        return Promise.reject(new Error('Session not ready'));
+        return Promise.reject(new SessionNotReadyError());
       }
 
       await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
