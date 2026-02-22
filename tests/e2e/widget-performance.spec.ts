@@ -185,6 +185,9 @@ test.describe('Widget performance (real e2e)', () => {
     let aiResponseMs: number | null = null;
     let aiFlowError: Error | null = null;
     let aiReplyText = '';
+    let aiResponseMessageId: string | null = null;
+    let aiResponseTransport: 'json' | 'sse' | null = null;
+    let aiDeliveryDiagnostics: Record<string, unknown> | null = null;
     const bodyLocator = anonPage.locator('body');
     try {
       await messageInput.fill('What are your hours of operation?');
@@ -198,16 +201,62 @@ test.describe('Widget performance (real e2e)', () => {
 
       const aiContentType = aiNetworkResponse.headers()['content-type'] ?? '';
       if (aiContentType.includes('application/json')) {
+        aiResponseTransport = 'json';
         const aiBody = await aiNetworkResponse.json().catch(() => null) as {
           reply?: string;
-          message?: { content?: string };
+          message?: { id?: string; role?: string; content?: string };
         } | null;
+        aiResponseMessageId = aiBody?.message?.id ?? null;
         aiReplyText = aiBody?.reply ?? aiBody?.message?.content ?? '';
         if (!aiReplyText) {
           throw new Error('AI route returned JSON but no reply/message content was present');
         }
-        await expect(bodyLocator).toContainText(aiReplyText.slice(0, 60), { timeout: 8000 });
+        try {
+          await expect(bodyLocator).toContainText(aiReplyText.slice(0, 60), { timeout: 8000 });
+        } catch (renderError) {
+          aiDeliveryDiagnostics = await anonPage.evaluate(({ aiReplyPrefix, messageId }) => {
+            const bodyText = document.body?.innerText ?? '';
+            const headerSubtitle = document.querySelector('.workspace-header__subtitle')?.textContent ?? null;
+            const headerTitle = document.querySelector('.workspace-header__title')?.textContent ?? null;
+            const userMessages = Array.from(document.querySelectorAll('[data-testid="user-message"]'))
+              .slice(-3)
+              .map((el) => (el.textContent ?? '').trim());
+            const aiMessages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'))
+              .slice(-3)
+              .map((el) => (el.textContent ?? '').trim());
+            const systemMessages = Array.from(document.querySelectorAll('[data-testid="system-message"]'))
+              .slice(-5)
+              .map((el) => (el.textContent ?? '').trim());
+            const messageInput = document.querySelector('[data-testid="message-input"]') as HTMLTextAreaElement | null;
+            return {
+              currentUrl: window.location.href,
+              headerTitle,
+              headerSubtitle,
+              bodyHasReplyPrefix: bodyText.includes(aiReplyPrefix),
+              bodySnippetTail: bodyText.slice(-800),
+              aiReplyPrefix,
+              messageId,
+              visibleCounts: {
+                user: document.querySelectorAll('[data-testid="user-message"]').length,
+                ai: document.querySelectorAll('[data-testid="ai-message"]').length,
+                system: document.querySelectorAll('[data-testid="system-message"]').length,
+                streaming: document.querySelectorAll('[id^="streaming-"]').length,
+              },
+              composerState: {
+                exists: Boolean(messageInput),
+                disabled: messageInput?.disabled ?? null,
+              },
+              recentVisibleMessages: { userMessages, aiMessages, systemMessages },
+            };
+          }, { aiReplyPrefix: aiReplyText.slice(0, 60), messageId: aiResponseMessageId });
+          throw new Error(
+            `AI response persisted but reply text was not rendered in DOM within timeout. ` +
+            `messageId=${aiResponseMessageId ?? 'unknown'} transport=json. ` +
+            `Diagnostics=${JSON.stringify(aiDeliveryDiagnostics).slice(0, 1500)}`
+          );
+        }
       } else {
+        aiResponseTransport = 'sse';
         const anyAiMessage = anonPage.getByTestId('ai-message');
         await expect
           .poll(async () => await anyAiMessage.count(), { timeout: MAX_AI_RESPONSE_MS })
@@ -291,6 +340,17 @@ test.describe('Widget performance (real e2e)', () => {
         bootstrapDurationMs: bootstrapRecord?.durationMs ?? null,
         bootstrapConversationId: bootstrapBody?.conversationId ?? null,
         bootstrapHadSessionUser: Boolean(bootstrapBody?.session?.user),
+      },
+      aiDelivery: {
+        transport: aiResponseTransport,
+        messageId: aiResponseMessageId,
+        diagnostics: aiDeliveryDiagnostics,
+        recentSyncRequests: records
+          .filter((r) =>
+            r.path.includes('/api/conversations/') &&
+            (r.path.includes('/messages?from_seq=') || r.path.includes('/messages/') || r.path.includes('/reactions'))
+          )
+          .slice(-12),
       },
       apiWaterfall: records.sort((a, b) => a.startedAtMs - b.startedAtMs),
       browserResourceTiming,

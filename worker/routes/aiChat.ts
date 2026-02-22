@@ -21,6 +21,7 @@ const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consu
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
 const HOURS_QUESTION_REGEX = /\b(hours?|open|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
+const SUBMIT_AFFIRMATION_REGEX = /^\s*(?:yes|yeah|yep|sure|ok|okay|go ahead|submit|do it|lets go|let's go|ready)\s*[.!]?\s*$/i;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -271,6 +272,8 @@ caseStrength rules:
 
 When caseStrength is "developing" or "strong", end your message with a brief summary of what you've collected and ask if they're ready to submit.
 
+If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
+
 missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing.
 
 Hard limit: after 8 user messages, set caseStrength to at minimum "developing" and show the summary regardless.`;
@@ -436,8 +439,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
+  const lastAssistantMessage = [...body.messages].reverse().find((message) => message.role === 'assistant');
   const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
+  const intakeReadyByState = isIntakeMode && shouldShowDeterministicIntakeCta(storedIntakeState);
 
   // ------------------------------------------------------------------
   // Short-circuit paths — instant replies that don't need streaming.
@@ -446,9 +451,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // ------------------------------------------------------------------
 
   let shortCircuitReply: string | null = null;
+  let shortCircuitIntakeReadyCta = false;
 
   if (!details || !isPublic) {
     shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
+  } else if (
+    isIntakeMode &&
+    intakeReadyByState &&
+    lastUserMessage &&
+    lastAssistantMessage &&
+    SUBMIT_AFFIRMATION_REGEX.test(lastUserMessage.content) &&
+    shouldShowIntakeCtaForReply(lastAssistantMessage.content)
+  ) {
+    shortCircuitReply = 'Great. You can submit your request now, or build a stronger brief first before we send it to the practice.';
+    shortCircuitIntakeReadyCta = true;
   } else if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
     const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
     const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
@@ -472,6 +488,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const shouldPromptConsultation =
       !hasSlimContactDraft &&
       (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply));
+    const shortCircuitShouldShowIntakeCta =
+      isIntakeMode &&
+      (
+        shortCircuitIntakeReadyCta ||
+        (
+          intakeReadyByState &&
+          shouldShowIntakeCtaForReply(shortCircuitReply)
+        )
+      );
 
     const storedMessage = await conversationService.sendSystemMessage({
       conversationId: body.conversationId,
@@ -480,6 +505,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       metadata: {
         source: 'ai',
         model: env.AI_MODEL || DEFAULT_AI_MODEL,
+        ...(shortCircuitShouldShowIntakeCta ? { intakeReadyCta: true } : {}),
         ...(shouldPromptConsultation
           ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
           : {})
