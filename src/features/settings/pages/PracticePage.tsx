@@ -164,7 +164,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     refetch,
   } = usePracticeManagement({ fetchPracticeDetails: true });
   const activePracticeId = currentPractice?.id ?? null;
-  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug);
+  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug, false);
   
   const { showSuccess, showError, showWarning } = useToastContext();
   const { navigate } = useNavigation();

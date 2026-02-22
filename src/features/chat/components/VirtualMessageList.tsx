@@ -38,6 +38,7 @@ interface VirtualMessageListProps {
         paymentReceived?: boolean;
     };
     intakeConversationState?: IntakeConversationState | null;
+    hasSlimContactDraft?: boolean;
     onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
     onSubmitNow?: () => void | Promise<void>;
     onBuildBrief?: () => void;
@@ -80,6 +81,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onAuthPromptRequest,
     intakeStatus: _intakeStatus,
     intakeConversationState,
+    hasSlimContactDraft = false,
     onIntakeCtaResponse,
     onSubmitNow,
     onBuildBrief,
@@ -272,7 +274,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (meta === true) {
             return {
                 onAskQuestion: modeSelectorActions.onAskQuestion,
-                onRequestConsultation: modeSelectorActions.onRequestConsultation
+                onRequestConsultation: modeSelectorActions.onRequestConsultation,
+                showRequestConsultation: !hasSlimContactDraft,
             };
         }
         if (typeof meta === 'object') {
@@ -281,7 +284,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 onAskQuestion: modeSelectorActions.onAskQuestion,
                 onRequestConsultation: modeSelectorActions.onRequestConsultation,
                 showAskQuestion: metaConfig.showAskQuestion,
-                showRequestConsultation: metaConfig.showRequestConsultation
+                showRequestConsultation: hasSlimContactDraft ? false : metaConfig.showRequestConsultation
             };
         }
         return undefined;

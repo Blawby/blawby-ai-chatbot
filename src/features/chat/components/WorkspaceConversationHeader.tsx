@@ -10,6 +10,7 @@ interface WorkspaceConversationHeaderProps {
   activeLabel?: string;
   presenceStatus?: 'active' | 'inactive' | 'away';
   onBack?: () => void;
+  loading?: boolean;
   rightSlot?: ComponentChildren;
 }
 
@@ -19,6 +20,7 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
   activeLabel,
   presenceStatus,
   onBack,
+  loading = false,
   rightSlot
 }) => {
   const { t } = useTranslation();
@@ -43,13 +45,13 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
   const resolvedStatus = presenceStatus === 'away' ? 'inactive' : presenceStatus;
 
   return (
-    <header className="flex min-h-[56px] items-center gap-3 border-b border-line-glass/30 bg-transparent px-4 py-3">
+    <header className="workspace-header workspace-conversation-header">
       <Button
         type="button"
         variant="icon"
         size="icon-sm"
         onClick={onBack}
-        className="text-input-placeholder hover:text-input-text"
+        className="workspace-header__icon"
         aria-label={t('workspace.header.back')}
       >
         <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
@@ -58,20 +60,21 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
         src={practiceLogo}
         name={resolvedName}
         size="sm"
-        className="ring-2 ring-white/10"
+        className="workspace-header__avatar-ring"
         status={resolvedStatus}
       />
-      <div className="min-w-0">
-        <div className="truncate text-sm font-semibold text-input-text">
+      <div className="workspace-header__identity">
+        <div className="workspace-header__title">
           {resolvedName}
         </div>
-        <div className="truncate text-xs text-gray-500 dark:text-gray-400">{resolvedActive}</div>
+        <div className="workspace-header__subtitle">{resolvedActive}</div>
       </div>
       {rightSlot && (
-        <div className="ml-auto">
+        <div className="workspace-header__right">
           {rightSlot}
         </div>
       )}
+      {loading ? <div className="workspace-header__loading" aria-hidden="true" /> : null}
     </header>
   );
 };

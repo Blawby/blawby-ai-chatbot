@@ -120,6 +120,7 @@ const workerEndpoints = [
 	'subscription',
 	'matters',
 	'uploads',
+	'widget',
 ];
 
 // Proxy configuration types from http-proxy-middleware

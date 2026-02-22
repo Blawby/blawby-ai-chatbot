@@ -4,8 +4,40 @@ import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiCl
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
-export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: string | null) => {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isLikelyUuid = (value: string) => UUID_RE.test(value);
+
+/**
+ * usePracticeDetails
+ *
+ * Reads practice details (accent color, description, contact info, etc.) from
+ * the nanostores `practiceDetailsStore`.  The store is pre-seeded by
+ * `usePracticeConfig` whenever it resolves a practice (public or authenticated),
+ * so in the normal widget/public flow `fetchDetails` should be a no-op.
+ *
+ * @param practiceId  - UUID or slug used as the store key.  Prefer UUID when
+ *                      available (guaranteed cache-hit after usePracticeConfig
+ *                      runs) — this is the key change that eliminates the
+ *                      redundant second network call on widget load.
+ * @param practiceSlug - Optional slug hint.  Used as the slug for falling back
+ *                       to the public endpoint when the UUID isn't in the store
+ *                       yet (e.g. cold-start before usePracticeConfig resolves).
+ * @param allowPublicFallback - When true (default for public/widget workspaces),
+ *                       a UUID cache-miss falls back to `getPublicPracticeDetails`
+ *                       rather than the authenticated `getPracticeDetails`
+ *                       endpoint.  Pass false for practice-owner contexts where
+ *                       the authenticated endpoint is appropriate.
+ */
+export const usePracticeDetails = (
+  practiceId?: string | null,
+  practiceSlug?: string | null,
+  allowPublicFallback = true,
+) => {
   const detailsMap = useStore(practiceDetailsStore);
+
+  // ------------------------------------------------------------------
+  // 1. Check the store for the primary key (UUID or slug).
+  // ------------------------------------------------------------------
   const hasCachedDetails = practiceId
     ? Object.prototype.hasOwnProperty.call(detailsMap, practiceId)
     : false;
@@ -13,70 +45,88 @@ export const usePracticeDetails = (practiceId?: string | null, practiceSlug?: st
     practiceId && hasCachedDetails
       ? detailsMap[practiceId] ?? null
       : null;
+
   const { updatePracticeDetails } = usePracticeManagement({
     autoFetchPractices: false,
-    fetchInvitations: false
+    fetchInvitations: false,
   });
-  const isLikelyUuid = (value: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+  // ------------------------------------------------------------------
+  // fetchDetails — only hits the network when the store has no entry.
+  // ------------------------------------------------------------------
   const fetchDetails = useCallback(async () => {
-    if (!practiceId) {
-      return null;
-    }
-    // Check the store snapshot directly to avoid stale closure over detailsMap.
-    const storeSnapshot = practiceDetailsStore.get();
-    if (Object.prototype.hasOwnProperty.call(storeSnapshot, practiceId)) {
-      return storeSnapshot[practiceId] ?? null;
+    if (!practiceId) return null;
+
+    // 1. Snapshot check — prevents stale-closure misses vs the reactive store.
+    const snapshot = practiceDetailsStore.get();
+    if (Object.prototype.hasOwnProperty.call(snapshot, practiceId)) {
+      return snapshot[practiceId] ?? null;
     }
 
-    if (isLikelyUuid(practiceId)) {
-      // UUID → use the authenticated endpoint (practice owner CMS view).
-      const fetchedDetails = await getPracticeDetails(practiceId);
-      // Cache null responses too, so missing records don't trigger repeated fetches.
-      setPracticeDetailsEntry(practiceId, fetchedDetails);
-      return fetchedDetails;
-    }
-
-    // Slug → use the public endpoint which has a persistent module-level cache.
-    // This is the correct endpoint for client/guest users and avoids hitting the
-    // authenticated API unnecessarily. The cache ensures only one network request
-    // is ever made per slug per session, regardless of how many callers invoke this.
-    const slugToFetch = practiceSlug?.trim() || practiceId;
-    if (slugToFetch) {
-      const publicDetails = await getPublicPracticeDetails(slugToFetch);
-      // Cache the result (including null) under the practiceId key (which might be the slug)
-      // and also under the canonical UUID if returned.
-      setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
-      if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
-        setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
+    // 2. Also check by slug if we have one — usePracticeConfig seeds under slug
+    //    too, so a slug hit here means we can skip the network and just cross-seed.
+    if (practiceSlug) {
+      const slugKey = practiceSlug.trim();
+      if (Object.prototype.hasOwnProperty.call(snapshot, slugKey)) {
+        const existing = snapshot[slugKey] ?? null;
+        // Cross-seed so future lookup by UUID is instant.
+        setPracticeDetailsEntry(practiceId, existing);
+        return existing;
       }
-      return publicDetails?.details ?? null;
     }
-    return null;
-  }, [practiceId, practiceSlug]);
 
-  const updateDetails = useCallback(async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
-    if (!practiceId) {
-      throw new Error('Practice id is required for details update');
+    // 3. Network fallback — choose the correct endpoint.
+    if (isLikelyUuid(practiceId) && !allowPublicFallback) {
+      // Authenticated path: practice-owner CMS context.
+      const fetched = await getPracticeDetails(practiceId);
+      setPracticeDetailsEntry(practiceId, fetched);
+      return fetched;
     }
-    const result = await updatePracticeDetails(practiceId, payload);
-    if (result !== undefined) {
-      setPracticeDetailsEntry(practiceId, result);
-    }
-    return result;
-  }, [practiceId, updatePracticeDetails]);
 
-  const setDetails = useCallback((next: typeof details) => {
-    if (!practiceId) return;
-    setPracticeDetailsEntry(practiceId, next);
-  }, [practiceId]);
+    // Public path: widget/client context (or UUID with public fallback allowed).
+    // Use the slug hint when available so we hit the same module-level cache
+    // inside getPublicPracticeDetails that usePracticeConfig uses.
+    const slugToFetch = practiceSlug?.trim() || practiceId;
+    const publicDetails = await getPublicPracticeDetails(slugToFetch);
+    // Seed under both the primary key and canonical UUID.
+    setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
+    if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
+      setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
+    }
+    return publicDetails?.details ?? null;
+  }, [practiceId, practiceSlug, allowPublicFallback]);
+
+  // ------------------------------------------------------------------
+  // updateDetails — for practice-owner settings saves.
+  // ------------------------------------------------------------------
+  const updateDetails = useCallback(
+    async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
+      if (!practiceId) throw new Error('Practice id is required for details update');
+      const result = await updatePracticeDetails(practiceId, payload);
+      if (result !== undefined) {
+        setPracticeDetailsEntry(practiceId, result);
+      }
+      return result;
+    },
+    [practiceId, updatePracticeDetails],
+  );
+
+  // ------------------------------------------------------------------
+  // setDetails — optimistic local update.
+  // ------------------------------------------------------------------
+  const setDetails = useCallback(
+    (next: typeof details) => {
+      if (!practiceId) return;
+      setPracticeDetailsEntry(practiceId, next);
+    },
+    [practiceId],
+  );
 
   return {
     details,
     hasDetails: Boolean(practiceId && details),
     fetchDetails,
     updateDetails,
-    setDetails
+    setDetails,
   };
 };

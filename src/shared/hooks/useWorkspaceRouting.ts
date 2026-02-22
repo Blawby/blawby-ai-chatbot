@@ -262,7 +262,6 @@ export const useWorkspaceRouting = ({
 
   /**
    * 'widget'   – embedded in a 3rd-party site via iframe (?v=widget)
-   * 'embed'    – legacy alias for widget, kept for backwards compat
    * 'desktop'  – practice dashboard
    * 'mobile'   – authenticated client on phone
    */

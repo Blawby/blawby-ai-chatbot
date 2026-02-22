@@ -100,59 +100,13 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
               ? practiceDetails.organizationId
           : null;
 
-  // 4. Fetch the most recent conversation if we have a session
+  // 4. Conversation bootstrap intentionally omitted for anonymous widget users.
+  // The previous implementation used a staff-scoped conversations endpoint and then
+  // tried to create a conversation server-side. In widget/public flow the client
+  // already owns conversation setup via the active conversation endpoint, so bootstrap
+  // should only establish session + practice context and return quickly.
   let conversationId: string | null = null;
-  let conversationsData: { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null = null;
-
-  if (sessionCookie && practiceId) {
-    const nextHeaders = new Headers();
-    nextHeaders.set('Cookie', sessionCookie);
-    nextHeaders.set('Content-Type', 'application/json');
-
-    try {
-      // Get conversations using the authenticated cookie
-      const convsRes = await fetch(`${env.BACKEND_API_URL}/api/practice/${practiceId}/conversations?scope=practice`, {
-        headers: nextHeaders
-      });
-      
-      if (convsRes.ok) {
-        conversationsData = await convsRes.json().catch(() => null) as { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null;
-      }
-    } catch (err) {
-      console.error('[Bootstrap] Error fetching conversations:', err);
-    }
-
-    if (conversationsData?.data && Array.isArray(conversationsData.data) && conversationsData.data.length > 0) {
-      // Find the most recent conversation
-        const sorted = [...conversationsData.data].sort((a, b) => {
-          const aTime = new Date(a.last_message_at ?? a.created_at).getTime() || 0;
-          const bTime = new Date(b.last_message_at ?? b.created_at).getTime() || 0;
-          return bTime - aTime;
-        });
-        conversationId = sorted[0].id;
-    }
-    
-    // Auto-create conversation if none exist
-    if (!conversationId) {
-      try {
-        const createRes = await fetch(`${env.BACKEND_API_URL}/api/conversations?practiceId=${practiceId}`, {
-          method: 'POST',
-          headers: nextHeaders,
-        });
-        if (createRes.ok) {
-            const createData = await createRes.json().catch(() => null) as { success: boolean, data?: { id: string } } | null;
-            if (createData?.success && createData.data?.id) {
-                conversationId = createData.data.id;
-                
-                // Immediately enqueue a system message task if needed, or trigger it right here
-                // We'll leave it to the client for now unless it's strictly necessary to do server-side
-            }
-        }
-      } catch (err) {
-        console.error('[Bootstrap] Error creating conversation:', err);
-      }
-    }
-  }
+  const conversationsData: { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null = null;
 
   // Create the response object
   const bootstrapResponse = {

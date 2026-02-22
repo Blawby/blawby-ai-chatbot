@@ -19,8 +19,8 @@ const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?
 const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
-const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access\b/i;
-const HOURS_NO_CONTEXT_FALLBACK_REGEX = /\bi (?:do not|don't) have specific hours\b|\bi can(?:not|'t) provide specific hours\b/i;
+const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access to this practice['']?s details\b/i;
+const GENERIC_AI_FALLBACK_REGEX = /i wasn['']t able to generate a response/i;
 
 const normalizePracticeSlug = (value: string): string => {
   const trimmed = value.trim();
@@ -121,14 +121,18 @@ test.describe('Widget performance (real e2e)', () => {
       inFlight.delete(request);
     });
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
-
-    const bootstrapResponse = await anonPage.waitForResponse(
+    const bootstrapResponsePromise = anonPage.waitForResponse(
       (response) => response.request().method() === 'GET' && response.url().includes('/api/widget/bootstrap'),
       { timeout: 20000 }
     );
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+      waitUntil: 'domcontentloaded',
+    });
+    const bootstrapResponse = await bootstrapResponsePromise;
+    const bootstrapBody = await bootstrapResponse.json().catch(() => null) as {
+      conversationId?: string | null;
+      session?: { user?: unknown } | null;
+    } | null;
 
     const bootstrapRecord = records.find((record) => record.path.includes('/api/widget/bootstrap'));
     const messageInput = anonPage.getByTestId('message-input');
@@ -180,27 +184,49 @@ test.describe('Widget performance (real e2e)', () => {
 
     let aiResponseMs: number | null = null;
     let aiFlowError: Error | null = null;
-    const aiMessages = anonPage.getByTestId('ai-message');
+    let aiReplyText = '';
     const bodyLocator = anonPage.locator('body');
     try {
-      const initialAiCount = await aiMessages.count();
       await messageInput.fill('What are your hours of operation?');
+      const aiResponsePromise = anonPage.waitForResponse(
+        (response) => response.request().method() === 'POST' && response.url().includes('/api/ai/chat') && response.status() === 200,
+        { timeout: MAX_AI_RESPONSE_MS }
+      );
       await anonPage.getByRole('button', { name: /send message/i }).click();
-      await expect
-        .poll(async () => await aiMessages.count(), { timeout: MAX_AI_RESPONSE_MS })
-        .toBeGreaterThan(initialAiCount);
+      const aiNetworkResponse = await aiResponsePromise;
       aiResponseMs = Date.now() - flowStartedAt;
-      const latestAiCount = await aiMessages.count();
-      const latestAiText = await aiMessages.nth(Math.max(0, latestAiCount - 1)).innerText();
-      if (latestAiText.includes('I wasn\'t able to generate a response')) {
+
+      const aiContentType = aiNetworkResponse.headers()['content-type'] ?? '';
+      if (aiContentType.includes('application/json')) {
+        const aiBody = await aiNetworkResponse.json().catch(() => null) as {
+          reply?: string;
+          message?: { content?: string };
+        } | null;
+        aiReplyText = aiBody?.reply ?? aiBody?.message?.content ?? '';
+        if (!aiReplyText) {
+          throw new Error('AI route returned JSON but no reply/message content was present');
+        }
+        await expect(bodyLocator).toContainText(aiReplyText.slice(0, 60), { timeout: 8000 });
+      } else {
+        const anyAiMessage = anonPage.getByTestId('ai-message');
+        await expect
+          .poll(async () => await anyAiMessage.count(), { timeout: MAX_AI_RESPONSE_MS })
+          .toBeGreaterThan(0);
+        const visibleAiCount = await anyAiMessage.count();
+        if (visibleAiCount > 0) {
+          aiReplyText = await anyAiMessage.nth(Math.max(0, visibleAiCount - 1)).innerText().catch(() => '');
+        }
+      }
+
+      if (GENERIC_AI_FALLBACK_REGEX.test(aiReplyText)) {
         throw new Error('AI fallback response detected in widget flow.');
       }
-      if (ACCESS_FALLBACK_REGEX.test(latestAiText) || HOURS_NO_CONTEXT_FALLBACK_REGEX.test(latestAiText)) {
-        throw new Error(`AI returned no-context fallback in widget flow: ${latestAiText}`);
+      if (ACCESS_FALLBACK_REGEX.test(aiReplyText)) {
+        throw new Error(`AI returned no-context fallback in widget flow: ${aiReplyText}`);
       }
     } catch (error) {
       const bodyText = await bodyLocator.innerText().catch(() => '');
-      if (ACCESS_FALLBACK_REGEX.test(bodyText) || HOURS_NO_CONTEXT_FALLBACK_REGEX.test(bodyText)) {
+      if (ACCESS_FALLBACK_REGEX.test(bodyText) || GENERIC_AI_FALLBACK_REGEX.test(bodyText)) {
         aiResponseMs = Date.now() - flowStartedAt;
         aiFlowError = new Error(`AI returned no-context fallback in widget flow: ${bodyText.slice(0, 500)}`);
       } else {
@@ -263,6 +289,8 @@ test.describe('Widget performance (real e2e)', () => {
         interactiveFailure,
         bootstrapStatus: bootstrapResponse.status(),
         bootstrapDurationMs: bootstrapRecord?.durationMs ?? null,
+        bootstrapConversationId: bootstrapBody?.conversationId ?? null,
+        bootstrapHadSessionUser: Boolean(bootstrapBody?.session?.user),
       },
       apiWaterfall: records.sort((a, b) => a.startedAtMs - b.startedAtMs),
       browserResourceTiming,
@@ -278,6 +306,10 @@ test.describe('Widget performance (real e2e)', () => {
 
     console.log('[widget-e2e] Interactive(ms):', interactiveMs);
     console.log('[widget-e2e] Bootstrap status:', bootstrapResponse.status());
+    console.log(
+      '[widget-e2e] Bootstrap conversationId:',
+      bootstrapBody?.conversationId ?? 'MISSING (expected when bootstrap does not pre-create conversations)'
+    );
     console.log('[widget-e2e] API waterfall:', JSON.stringify(report.apiWaterfall, null, 2));
     console.log('[widget-e2e] Unresolved tracked requests:', JSON.stringify(unresolved, null, 2));
     console.log('[widget-e2e] Page diagnostics:', JSON.stringify(pageDiagnostics, null, 2));

@@ -565,6 +565,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     onAuthPromptRequest={onAuthPromptRequest}
                     intakeStatus={intakeStatus}
                     intakeConversationState={intakeConversationState}
+                    hasSlimContactDraft={Boolean(slimContactDraft)}
                     onQuickReply={handleQuickReply}
                     onIntakeCtaResponse={onIntakeCtaResponse}
                     onSubmitNow={handleSubmitNowAction}

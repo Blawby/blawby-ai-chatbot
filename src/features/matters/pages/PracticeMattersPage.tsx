@@ -277,7 +277,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     details: practiceDetails,
     hasDetails: hasPracticeDetails,
     fetchDetails: fetchPracticeDetails
-  } = usePracticeDetails(activePracticeId);
+  } = usePracticeDetails(activePracticeId, null, false);
 
   // ── List state ────────────────────────────────────────────────────────────
   const [matters, setMatters] = useState<BackendMatter[]>([]);

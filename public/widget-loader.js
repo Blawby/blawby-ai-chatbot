@@ -14,7 +14,7 @@
  *   practiceSlug  – (required) Your practice slug
  *   baseUrl       – Override the Blawby app URL (default: https://ai.blawby.com)
  *   position      – 'bottom-right' (default) | 'bottom-left'
- *   primaryColor  – Hex color for the launcher button    (default: '#10B981')
+ *   primaryColor  – Optional launcher color override; if omitted, uses practice accent_color from /api/practice/details/:slug
  *   launcherSize  – Size in pixels of the circular button (default: 56)
  *   zIndex        – CSS z-index for the widget layer      (default: 2147483647)
  *   label         – Accessible label for the launcher     (default: 'Chat with us')
@@ -31,7 +31,7 @@
   var cfg = Object.assign({
     baseUrl: 'https://ai.blawby.com',
     position: 'bottom-right',
-    primaryColor: '#10B981',
+    primaryColor: null,
     launcherSize: 56,
     zIndex: 2147483647,
     label: 'Chat with us',
@@ -51,17 +51,31 @@
   var SIZE = cfg.launcherSize;
   var Z = cfg.zIndex;
   var GAP = 20; // px gap from edge of viewport
+  var DEFAULT_PRIMARY_COLOR = '#d4af37';
+
+  function normalizeHexColor(hex) {
+    if (typeof hex !== 'string') return null;
+    var value = hex.trim();
+    if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value)) return null;
+    if (value.length === 4) {
+      return '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
+    }
+    return value;
+  }
 
   // Compute contrasting foreground color for the launcher (white or black)
-  var foregroundColor = (function (hex) {
+  function getForegroundColor(hex) {
     hex = hex.replace('#', '');
-    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
     var r = parseInt(hex.substring(0, 2), 16);
     var g = parseInt(hex.substring(2, 4), 16);
     var b = parseInt(hex.substring(4, 6), 16);
     var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
     return (yiq >= 128) ? '#000000' : '#ffffff';
-  })(cfg.primaryColor);
+  }
+
+  var configuredPrimaryColor = normalizeHexColor(cfg.primaryColor);
+  var activePrimaryColor = configuredPrimaryColor || DEFAULT_PRIMARY_COLOR;
+  var foregroundColor = getForegroundColor(activePrimaryColor);
 
   // A unique ID prefix so multiple widgets can coexist on a page safely
   var ID = 'blawby-widget-' + cfg.practiceSlug.replace(/[^a-z0-9]/gi, '-');
@@ -96,7 +110,7 @@
     '  border-radius: 50%;',
     '  border: none;',
     '  cursor: pointer;',
-    '  background: ' + cfg.primaryColor + ';',
+    '  background: var(--blawby-widget-primary-color);',
     '  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 1px 4px rgba(0,0,0,0.12);',
     '  display: flex;',
     '  align-items: center;',
@@ -110,7 +124,7 @@
     '  box-shadow: 0 6px 24px rgba(0,0,0,0.24), 0 2px 6px rgba(0,0,0,0.16);',
     '}',
     '#' + ID + '-launcher:focus-visible {',
-    '  outline: 3px solid ' + cfg.primaryColor + ';',
+    '  outline: 3px solid var(--blawby-widget-primary-color);',
     '  outline-offset: 3px;',
     '}',
 
@@ -130,10 +144,12 @@
     // Iframe popup
     '#' + ID + '-frame-wrap {',
     '  width: min(380px, calc(100vw - ' + (GAP * 2) + 'px));',
-    '  height: min(580px, calc(100vh - ' + (SIZE + GAP * 3 + 12) + 'px));',
+    '  height: min(780px, calc(100vh - 156px));',
     '  border-radius: 16px;',
+    '  border: none;',
+    '  outline: none;',
     '  overflow: hidden;',
-    '  box-shadow: 0 8px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.14);',
+    '  box-shadow: 0 16px 36px rgba(0,0,0,0.28);',
     '  transition: opacity 0.18s ease, transform 0.18s ease;',
     '  transform-origin: bottom ' + (isRight ? 'right' : 'left') + ';',
     '}',
@@ -149,7 +165,34 @@
     '#' + ID + '-iframe {',
     '  width: 100%; height: 100%;',
     '  border: none; background: transparent;',
+    '  border-radius: 16px;',
     '  display: block;',
+    '}',
+
+    // Top-right close button (visible when widget is open)
+    '#' + ID + '-top-close {',
+    '  position: absolute;',
+    '  top: 26px;',
+    '  right: 22px;',
+    '  width: 24px;',
+    '  height: 24px;',
+    '  border: none;',
+    '  border-radius: 0;',
+    '  background: transparent;',
+    '  color: #fff;',
+    '  display: none;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  cursor: pointer;',
+    '  z-index: 4;',
+    '  font-size: 0;',
+    '  font-weight: 400;',
+    '  line-height: 1;',
+    '}',
+    '#' + ID + '-top-close:hover { opacity: 0.9; }',
+    '#' + ID + '-top-close:focus-visible {',
+    '  outline: 2px solid #fff;',
+    '  outline-offset: 2px;',
     '}',
   ].join('\n');
   d.head.appendChild(styleEl);
@@ -173,6 +216,13 @@
   // Lazy-load; src set on first open to avoid network hit before user asks
   iframe.setAttribute('loading', 'lazy');
 
+  var topClose = d.createElement('button');
+  topClose.id = ID + '-top-close';
+  topClose.setAttribute('type', 'button');
+  topClose.setAttribute('aria-label', 'Close chat');
+  topClose.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></line><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></line></svg>';
+
+  frameWrap.appendChild(topClose);
   frameWrap.appendChild(iframe);
 
   // Launcher button
@@ -186,12 +236,12 @@
 
   // Chat icon (open state)
   var chatIcon = d.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  chatIcon.setAttribute('width', '24');
-  chatIcon.setAttribute('height', '24');
+  chatIcon.setAttribute('width', '28');
+  chatIcon.setAttribute('height', '28');
   chatIcon.setAttribute('viewBox', '0 0 24 24');
   chatIcon.setAttribute('fill', 'none');
   chatIcon.setAttribute('stroke', foregroundColor);
-  chatIcon.setAttribute('stroke-width', '2');
+  chatIcon.setAttribute('stroke-width', '2.2');
   chatIcon.setAttribute('stroke-linecap', 'round');
   chatIcon.setAttribute('stroke-linejoin', 'round');
   chatIcon.setAttribute('aria-hidden', 'true');
@@ -200,16 +250,17 @@
 
   // Close icon
   var closeIcon = d.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  closeIcon.setAttribute('width', '22');
-  closeIcon.setAttribute('height', '22');
+  closeIcon.setAttribute('width', '28');
+  closeIcon.setAttribute('height', '28');
   closeIcon.setAttribute('viewBox', '0 0 24 24');
   closeIcon.setAttribute('fill', 'none');
   closeIcon.setAttribute('stroke', foregroundColor);
-  closeIcon.setAttribute('stroke-width', '2.5');
+  closeIcon.setAttribute('stroke-width', '3');
   closeIcon.setAttribute('stroke-linecap', 'round');
+  closeIcon.setAttribute('stroke-linejoin', 'round');
   closeIcon.setAttribute('aria-hidden', 'true');
   closeIcon.style.display = 'none';
-  closeIcon.innerHTML = '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>';
+  closeIcon.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
 
   // Unread badge (hidden by default)
   var badge = d.createElement('div');
@@ -226,6 +277,49 @@
   d.body.appendChild(container);
 
   /* ── Helpers ─────────────────────────────────────────────────────────── */
+
+  function applyPrimaryColor(primaryColor, source) {
+    var normalized = normalizeHexColor(primaryColor);
+    if (!normalized) return false;
+    activePrimaryColor = normalized;
+    foregroundColor = getForegroundColor(normalized);
+    container.style.setProperty('--blawby-widget-primary-color', normalized);
+    chatIcon.setAttribute('stroke', foregroundColor);
+    closeIcon.setAttribute('stroke', foregroundColor);
+    emitEvent('theme_applied', {
+      primaryColor: normalized,
+      source: source || 'unknown',
+    });
+    return true;
+  }
+
+  function loadPracticeAccentColor() {
+    if (configuredPrimaryColor) {
+      applyPrimaryColor(configuredPrimaryColor, 'config');
+      return;
+    }
+
+    applyPrimaryColor(DEFAULT_PRIMARY_COLOR, 'default');
+
+    var detailsUrl = cfg.baseUrl + '/api/practice/details/' + encodeURIComponent(cfg.practiceSlug);
+    fetch(detailsUrl)
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('Failed to load practice details: ' + response.status + ' ' + response.statusText);
+        }
+        return response.json();
+      })
+      .then(function (practiceDetails) {
+        var accentColor = practiceDetails && typeof practiceDetails.accent_color === 'string'
+          ? practiceDetails.accent_color
+          : null;
+        if (!accentColor) return;
+        applyPrimaryColor(accentColor, 'practice_accent');
+      })
+      .catch(function (error) {
+        console.warn('[BlawbyWidget] Failed to resolve practice accent color', error);
+      });
+  }
 
   function setOpen(next) {
     var previousOpenState = isOpen;
@@ -251,9 +345,11 @@
         hasStartedChat = true;
         emitEvent('chat_start', { conversationStarted: true });
       }
+      topClose.style.display = 'flex';
     } else {
       postToIframe({ type: 'blawby:close' });
       emitEvent('widget_closed', { wasOpen: previousOpenState });
+      topClose.style.display = 'none';
     }
   }
 
@@ -377,6 +473,10 @@
     setOpen(!isOpen);
   });
 
+  topClose.addEventListener('click', function () {
+    setOpen(false);
+  });
+
   /* ── Public API ──────────────────────────────────────────────────────── */
   // Merge into existing BlawbyWidget object so callers can use:
   //   window.BlawbyWidget.open()  /  window.BlawbyWidget.close()
@@ -388,5 +488,6 @@
     off: function (eventName, callback) { removeListener(eventName, callback); },
   };
   w.BlawbyWidget = Object.assign(w.BlawbyWidget || {}, api);
+  loadPracticeAccentColor();
 
 })(window, document);

@@ -73,6 +73,19 @@ const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
   return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
 };
 
+const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
+  return messages.some((message) => {
+    const meta = message.metadata;
+    if (meta?.isContactFormSubmission === true) return true;
+    if (meta?.intakeOpening === true) return true;
+    if (meta?.intakeDecisionPrompt === true) return true;
+    if (meta?.intakeSubmitted === true) return true;
+    if (meta?.contactDetails && typeof meta.contactDetails === 'object') return true;
+    if (typeof message.content === 'string' && message.content.includes('Contact info received')) return true;
+    return false;
+  });
+};
+
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
   practiceId,
@@ -95,6 +108,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
+  const intakeContactStarted = useMemo(
+    () => hasIntakeContactStarted(messages),
+    [messages]
+  );
   const isPracticeWorkspace = workspace === 'practice';
   const isClientFacingWorkspace = workspace === 'public' || workspace === 'client';
 
@@ -744,6 +761,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             consultationTitle={undefined}
             consultationDescription={undefined}
             consultationCta={undefined}
+            showConsultationCard={!intakeContactStarted}
           />
         );
       case 'list':

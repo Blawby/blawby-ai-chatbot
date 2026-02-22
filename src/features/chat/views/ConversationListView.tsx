@@ -59,21 +59,23 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
 
   return (
     <div className="flex h-full flex-col bg-transparent">
-      <div className="relative flex min-h-[56px] items-center justify-center border-b border-line-glass/30 bg-transparent px-4 py-3">
-        {showBackButton && onClose && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <Button
-              type="button"
-              variant="icon"
-              size="icon"
-              onClick={onClose}
-              className="text-input-placeholder hover:text-input-text h-8 w-8"
-              aria-label={t('common.back')}
-              icon={<ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />}
-            />
-          </div>
-        )}
-        <div className="text-sm font-semibold text-input-text">{t('workspace.conversationList.title')}</div>
+      <div className="workspace-header">
+        {showBackButton && onClose ? (
+          <Button
+            type="button"
+            variant="icon"
+            size="icon-sm"
+            onClick={onClose}
+            className="workspace-header__icon"
+            aria-label={t('common.back')}
+          >
+            <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        ) : null}
+        <div className="workspace-header__identity">
+          <div className="workspace-header__title">{t('workspace.conversationList.title')}</div>
+        </div>
+        {isLoading ? <div className="workspace-header__loading" aria-hidden="true" /> : null}
       </div>
 
       <div className="flex-1 overflow-y-auto">
