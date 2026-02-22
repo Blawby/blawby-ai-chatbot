@@ -496,8 +496,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setIsDismissingSlimDrawer(true);
     try {
       await onSlimFormDismiss();
-      setSlimDrawerOffset(0);
     } finally {
+      setSlimDrawerOffset(0);
       setIsDismissingSlimDrawer(false);
     }
   };
