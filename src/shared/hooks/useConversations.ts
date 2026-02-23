@@ -13,6 +13,7 @@ interface UseConversationsOptions {
   offset?: number;
   list?: boolean;
   enabled?: boolean;
+  allowAnonymous?: boolean;
   onError?: (error: string) => void;
 }
 
@@ -47,11 +48,12 @@ export function useConversations({
   offset,
   list = false,
   enabled = true,
+  allowAnonymous = false,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
   const { activePracticeId, session, isPending: sessionIsPending } = useSessionContext();
   const sessionPracticeId = useMemo(() => activePracticeId ?? null, [activePracticeId]);
-  const sessionReady = Boolean(session?.user) && !sessionIsPending;
+  const sessionReady = !sessionIsPending && (Boolean(session?.user) || allowAnonymous);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

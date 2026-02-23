@@ -1,22 +1,22 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
-import { Suspense } from 'preact/compat';
+import { Suspense, lazy } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
-import DebugStylesPage from '@/pages/DebugStylesPage';
-import DebugMatterPage from '@/pages/DebugMatterPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getClient } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
-import { SettingsPage } from '@/features/settings/pages/SettingsPage';
+const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
@@ -35,11 +35,42 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
+const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
+const DebugMatterPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugMatterPage')) : null;
+
+const DevDebugStylesRoute = () => {
+  if (!import.meta.env.DEV || !DebugStylesPage) return <App404 />;
+  return <DebugStylesPage />;
+};
+
+const DevDebugMatterRoute = () => {
+  if (!import.meta.env.DEV || !DebugMatterPage) return <App404 />;
+  return <DebugMatterPage />;
+};
+
 const LoadingScreen = () => (
   <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
     Loading…
   </div>
 );
+
+// PWA Cache Trap Breaker (Development Only)
+// Since we disabled the PWA in dev, old workers from previous sessions aggressively intercept 
+// navigation requests (like /widget-test.html) and serve the SPA shell, trapping the user.
+if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    let unregistered = false;
+    for (const registration of registrations) {
+      registration.unregister();
+      unregistered = true;
+      console.warn('⚠️ Unregistered rogue development service worker.');
+    }
+    if (unregistered) {
+      console.warn('🔄 Reloading page to escape SPA cache trap...');
+      window.location.reload();
+    }
+  });
+}
 
 // Client routes align with public structure
 
@@ -165,11 +196,20 @@ function AppShell() {
           <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
-          <Route path="/debug/styles" component={import.meta.env.DEV ? DebugStylesPage : App404} />
-          <Route path="/debug/matters" component={import.meta.env.DEV ? DebugMatterPage : App404} />
+          <Route path="/debug/styles" component={DevDebugStylesRoute} />
+          <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PaySuccessPage} />
-          <Route path="/settings" component={LegacySettingsRoute} />
-          <Route path="/settings/*" component={LegacySettingsRoute} />
+          {/*
+           * Legacy /settings redirect layer.
+           * Old bookmarks and emails link to /settings or /settings/practice.
+           * These routes detect the user's workspace and redirect to the canonical
+           * /practice/:slug/settings or /client/:slug/settings path.
+           *
+           * TODO: Remove after backend PR #101 lands — routing claims from the
+           * session will let us derive the correct workspace without a round-trip.
+           */}
+          <Route path="/settings" component={SettingsRedirectRoute} />
+          <Route path="/settings/*" component={SettingsRedirectRoute} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
           <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
@@ -220,34 +260,40 @@ function RouteLoadError({
   );
 }
 
-function LegacySettingsRoute() {
+/**
+ * Redirects /settings and /settings/* to the canonical workspace-scoped
+ * settings path: /{practice|client}/:slug/settings[/*].
+ *
+ * This exists for backwards compatibility with old links. Once the backend
+ * routing PR (#101) delivers workspace claims in the session, this redirect
+ * can be computed server-side and this component deleted.
+ */
+function SettingsRedirectRoute() {
   const location = useLocation();
   const { defaultWorkspace, currentPractice, practices, practicesLoading } = useWorkspaceResolver();
   const { navigate } = useNavigation();
+
   const resolvedPractice = currentPractice ?? practices[0] ?? null;
   const resolvedSlug = resolvedPractice?.slug ?? null;
+
+  // Strip the /settings prefix to get the sub-path (e.g. 'practice', 'team')
   const legacySubPath = location.path.replace(/^\/settings\/?/, '');
-  const legacySearch = useMemo(() => {
-    const queryIndex = location.url.indexOf('?');
-    if (queryIndex < 0) return '';
-    const hashIndex = location.url.indexOf('#', queryIndex);
-    return hashIndex < 0
-      ? location.url.slice(queryIndex)
-      : location.url.slice(queryIndex, hashIndex);
-  }, [location.url]);
+
+  // Preserve query string + hash from the original URL
+  const suffixStart = location.url.indexOf('?') >= 0
+    ? location.url.indexOf('?')
+    : location.url.indexOf('#');
+  const urlSuffix = suffixStart >= 0 ? location.url.slice(suffixStart) : '';
 
   useEffect(() => {
     if (practicesLoading || !resolvedSlug || !resolvedPractice) return;
     const workspacePrefix = defaultWorkspace === 'practice' ? 'practice' : 'client';
     const settingsBase = `/${workspacePrefix}/${encodeURIComponent(resolvedSlug)}/settings`;
     const targetPath = buildSettingsPath(settingsBase, legacySubPath || undefined);
-    // Preserve query parameters when redirecting
-    const fullPath = legacySearch ? targetPath + legacySearch : targetPath;
-    navigate(fullPath, true);
-  }, [defaultWorkspace, legacySearch, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
+    navigate(urlSuffix ? targetPath + urlSuffix : targetPath, true);
+  }, [defaultWorkspace, urlSuffix, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
 
   if (!practicesLoading && (!resolvedSlug || !resolvedPractice)) return <App404 />;
-
   return <LoadingScreen />;
 }
 
@@ -487,7 +533,7 @@ function PracticeAppRoute({
         isPracticeView={true}
         workspace="practice"
         routeConversationId={conversationId}
-        practiceWorkspaceView={workspaceView}
+        workspaceView={workspaceView}
         practiceSlug={normalizedPracticeSlug || undefined}
       />
   );
@@ -584,7 +630,7 @@ function ClientPracticeRoute({
         workspace="client"
         clientPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
-        clientWorkspaceView={workspaceView}
+        workspaceView={workspaceView}
       />
     </>
   );
@@ -607,6 +653,10 @@ function PublicPracticeRoute({
   }, []);
 
   const slug = (practiceSlug ?? '').trim();
+  const isWidget = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('v') === 'widget'
+    : (location.query?.v === 'widget'
+      || /(?:^|[?&])v=widget(?:[&#]|$)/.test(location.url ?? ''));
 
   const {
     practiceConfig,
@@ -628,6 +678,7 @@ function PublicPracticeRoute({
   // This runs immediately on mount, without waiting for practice details to load
   useEffect(() => {
     if (typeof window === 'undefined' || sessionIsPending) return;
+    if (!isWidget && !hasWidgetRuntimeContext()) return;
 
     // Only attempt if no session exists
     if (!session?.user) {
@@ -701,7 +752,7 @@ function PublicPracticeRoute({
         });
       }
     }
-  }, [session?.user, sessionIsPending]);
+  }, [isWidget, session?.user, sessionIsPending]);
 
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const isAuthenticatedClient = Boolean(session?.user && !session.user.isAnonymous && normalizedRole === 'client');
@@ -714,6 +765,10 @@ function PublicPracticeRoute({
       navigate(`/public/${encodeURIComponent(slug)}`, true);
     }
   }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending]);
+
+  if (isWidget) {
+    return <WidgetRoute practiceSlug={slug} conversationId={conversationId} workspaceView={workspaceView} />;
+  }
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -759,7 +814,119 @@ function PublicPracticeRoute({
         workspace="public"
         publicPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
-        publicWorkspaceView={workspaceView}
+        workspaceView={workspaceView}
+        isWidget={false}
+      />
+    </>
+  );
+}
+
+function WidgetRoute({
+  practiceSlug,
+  conversationId,
+  workspaceView = 'home'
+}: {
+  practiceSlug: string;
+  conversationId?: string;
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
+}) {
+  const { data, isLoading, error } = useWidgetBootstrap(practiceSlug, true);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.setItem(WIDGET_RUNTIME_CONTEXT_KEY, '1');
+    } catch {
+      // ignore storage failures in privacy modes
+    }
+  }, []);
+
+  const practiceConfig = useMemo<UIPracticeConfig | null>(() => {
+    if (!data?.practiceDetails) return null;
+    const pd = data.practiceDetails as Record<string, unknown>;
+    const detailsRecord = (pd.details && typeof pd.details === 'object'
+      ? pd.details as Record<string, unknown>
+      : null);
+    const resolveString = (value: unknown): string | null =>
+      typeof value === 'string' && value.trim().length > 0 ? value : null;
+    const resolveBoolean = (value: unknown): boolean | undefined =>
+      typeof value === 'boolean' ? value : undefined;
+    const resolveNumber = (value: unknown): number | undefined =>
+      typeof value === 'number' ? value : undefined;
+
+    const practiceId = resolveString(pd.practiceId)
+      ?? resolveString(pd.id)
+      ?? resolveString(pd.organization_id)
+      ?? resolveString(pd.organizationId);
+    const accentColor = resolveString(pd.accentColor)
+      ?? resolveString(pd.accent_color)
+      ?? resolveString(detailsRecord?.accentColor)
+      ?? resolveString(detailsRecord?.accent_color);
+    const introMessage = resolveString(pd.introMessage)
+      ?? resolveString(pd.intro_message)
+      ?? resolveString(detailsRecord?.introMessage)
+      ?? resolveString(detailsRecord?.intro_message);
+    const description = resolveString(pd.description)
+      ?? resolveString(pd.overview)
+      ?? resolveString(detailsRecord?.description)
+      ?? resolveString(detailsRecord?.overview);
+
+    return {
+      id: practiceId ?? '',
+      slug: resolveString(pd.slug) ?? practiceSlug,
+      name: resolveString(pd.name) ?? '',
+      profileImage: resolveString(pd.logo) ?? null,
+      introMessage: introMessage ?? '',
+      description: description ?? '',
+      availableServices: [],
+      serviceQuestions: {},
+      domain: '',
+      brandColor: '#000000',
+      accentColor: accentColor ?? 'gold',
+      voice: {
+        enabled: false,
+        provider: 'cloudflare',
+        voiceId: null,
+        displayName: null,
+        previewUrl: null,
+      },
+      consultationFee: resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee),
+      paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
+      calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
+      isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),
+    };
+  }, [data, practiceSlug]);
+
+  const resolvedPracticeId = practiceConfig?.id || '';
+
+  if (isLoading || !data) {
+    return <LoadingScreen />;
+  }
+
+  if (error || !practiceConfig || !resolvedPracticeId) {
+    return <App404 />;
+  }
+  
+  const currentUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}${location.url}`
+    : undefined;
+
+  return (
+    <>
+      <SEOHead
+        practiceConfig={practiceConfig}
+        currentUrl={currentUrl}
+      />
+      <MainApp
+        practiceId={resolvedPracticeId}
+        practiceConfig={practiceConfig}
+        isPracticeView={true}
+        workspace="public"
+        publicPracticeSlug={practiceSlug || undefined}
+        routeConversationId={data.conversationId || conversationId}
+        workspaceView={workspaceView}
+        isWidget={true}
       />
     </>
   );
@@ -812,3 +979,14 @@ export async function prerender() {
   await initI18n();
   return await ssr(<AppWithProviders />);
 }
+const WIDGET_RUNTIME_CONTEXT_KEY = 'blawby_widget_runtime_context';
+
+const hasWidgetRuntimeContext = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  if (new URLSearchParams(window.location.search).get('v') === 'widget') return true;
+  try {
+    return window.sessionStorage.getItem(WIDGET_RUNTIME_CONTEXT_KEY) === '1';
+  } catch {
+    return false;
+  }
+};

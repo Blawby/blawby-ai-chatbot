@@ -20,6 +20,7 @@ interface WorkspaceHomeViewProps {
   consultationTitle?: string;
   consultationDescription?: string;
   consultationCta?: string;
+  showConsultationCard?: boolean;
 }
 
 const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
@@ -31,7 +32,8 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   recentMessage,
   consultationTitle,
   consultationDescription,
-  consultationCta
+  consultationCta,
+  showConsultationCard = true,
 }) => {
   const { t } = useTranslation();
   const resolvedName = typeof practiceName === 'string'
@@ -55,15 +57,15 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
-      <section className="relative z-10 px-6 pb-12 pt-8 text-white">
+      <section className="relative z-10 px-6 pb-12 pt-8 text-input-text">
         <div className="flex items-center gap-3">
           <Avatar
             src={practiceLogo}
             name={resolvedName}
             size="lg"
-            className="ring-2 ring-white/30"
+            className="ring-2 ring-[rgb(var(--line-glass)/0.24)]"
           />
-          <div className="text-lg font-semibold tracking-wide text-white">{resolvedName}</div>
+          <div className="text-lg font-semibold tracking-wide text-input-text">{resolvedName}</div>
         </div>
 
         <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">
@@ -125,27 +127,29 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           </span>
         </button>
 
-        <div className="glass-card px-5 py-6">
-          <h3 className="text-base font-semibold text-input-text">{resolvedConsultationTitle}</h3>
-          <p className="mt-2 text-sm text-input-placeholder">
-            {resolvedConsultationDescription}
-          </p>
-          <div className="mt-4">
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              className="w-full"
-              onClick={onRequestConsultation}
-              disabled={!canRequestConsultation}
-            >
-              {resolvedConsultationCta}
-            </Button>
+        {showConsultationCard && (
+          <div className="glass-card px-5 py-6">
+            <h3 className="text-base font-semibold text-input-text">{resolvedConsultationTitle}</h3>
+            <p className="mt-2 text-sm text-input-placeholder">
+              {resolvedConsultationDescription}
+            </p>
+            <div className="mt-4">
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                onClick={onRequestConsultation}
+                disabled={!canRequestConsultation}
+              >
+                {resolvedConsultationCta}
+              </Button>
+            </div>
+            <div className="mt-4 text-center text-xs font-medium text-input-placeholder">
+              {t('workspace.home.poweredBy')} {poweredByLink}
+            </div>
           </div>
-          <div className="mt-4 text-center text-xs font-medium text-input-placeholder">
-            {t('workspace.home.poweredBy')} {poweredByLink}
-          </div>
-        </div>
+        )}
       </section>
     </div>
   );

@@ -38,6 +38,7 @@ interface VirtualMessageListProps {
         paymentReceived?: boolean;
     };
     intakeConversationState?: IntakeConversationState | null;
+    hasSlimContactDraft?: boolean;
     onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
     onSubmitNow?: () => void | Promise<void>;
     onBuildBrief?: () => void;
@@ -65,6 +66,7 @@ const BATCH_SIZE = 20;
 const SCROLL_THRESHOLD = 100;
 const DEBOUNCE_DELAY = 50;
 const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+const INTAKE_READY_PROMPT_REGEX = /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|would you like to submit|would you like to continue now)/i;
 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
@@ -80,6 +82,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onAuthPromptRequest,
     intakeStatus: _intakeStatus,
     intakeConversationState,
+    hasSlimContactDraft = false,
     onIntakeCtaResponse,
     onSubmitNow,
     onBuildBrief,
@@ -272,7 +275,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (meta === true) {
             return {
                 onAskQuestion: modeSelectorActions.onAskQuestion,
-                onRequestConsultation: modeSelectorActions.onRequestConsultation
+                onRequestConsultation: modeSelectorActions.onRequestConsultation,
+                showRequestConsultation: !hasSlimContactDraft,
             };
         }
         if (typeof meta === 'object') {
@@ -281,7 +285,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 onAskQuestion: modeSelectorActions.onAskQuestion,
                 onRequestConsultation: modeSelectorActions.onRequestConsultation,
                 showAskQuestion: metaConfig.showAskQuestion,
-                showRequestConsultation: metaConfig.showRequestConsultation
+                showRequestConsultation: hasSlimContactDraft ? false : metaConfig.showRequestConsultation
             };
         }
         return undefined;
@@ -736,6 +740,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const quickReplies = Array.isArray(message.metadata?.quickReplies)
                         ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
                         : undefined;
+                    const intakeStrength = intakeConversationState?.caseStrength ?? null;
+                    const fallbackIntakeReadyCta =
+                        !message.isUser &&
+                        (intakeStrength === 'developing' || intakeStrength === 'strong') &&
+                        typeof message.content === 'string' &&
+                        INTAKE_READY_PROMPT_REGEX.test(message.content);
                     const stableClientId = typeof message.metadata?.__client_id === 'string'
                         ? message.metadata.__client_id
                         : null;
@@ -792,7 +802,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 intakeConversationState={intakeConversationState}
                                 quickReplies={quickReplies}
                                 onQuickReply={onQuickReply}
-                                showIntakeCta={Boolean(message.metadata?.intakeReadyCta)}
+                                showIntakeCta={Boolean(message.metadata?.intakeReadyCta) || fallbackIntakeReadyCta}
                                 showIntakeDecisionPrompt={message.metadata?.intakeDecisionPrompt === true}
                                 onIntakeCtaResponse={onIntakeCtaResponse}
                                 onSubmitNow={onSubmitNow}

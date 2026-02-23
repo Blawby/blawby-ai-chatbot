@@ -3,6 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import axios from 'axios';
 import { useNavigation } from '@/shared/utils/navigation';
+import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import WorkspaceNav, { type WorkspaceNavTab } from '@/features/chat/views/WorkspaceNav';
 import ConversationListView from '@/features/chat/views/ConversationListView';
@@ -52,7 +53,11 @@ interface WorkspacePageProps {
   showClientTabs?: boolean;
   showPracticeTabs?: boolean;
   workspace?: 'public' | 'practice' | 'client';
-  onStartNewConversation: (mode: ConversationMode) => Promise<string>;
+  onStartNewConversation: (
+    mode: ConversationMode,
+    preferredConversationId?: string,
+    options?: { forceCreate?: boolean }
+  ) => Promise<string>;
   chatView: ComponentChildren;
   mattersView?: ComponentChildren;
   clientsView?: ComponentChildren;
@@ -67,6 +72,19 @@ const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
   );
   const hasNonSystemMessages = base.some((message) => message.role !== 'system');
   return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
+};
+
+const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
+  return messages.some((message) => {
+    const meta = message.metadata;
+    if (meta?.isContactFormSubmission === true) return true;
+    if (meta?.intakeOpening === true) return true;
+    if (meta?.intakeDecisionPrompt === true) return true;
+    if (meta?.intakeSubmitted === true) return true;
+    if (meta?.contactDetails && typeof meta.contactDetails === 'object') return true;
+    if (meta?.intakeComplete === true) return true;
+    return false;
+  });
 };
 
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
@@ -91,6 +109,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
+  const intakeContactStarted = useMemo(
+    () => hasIntakeContactStarted(messages),
+    [messages]
+  );
   const isPracticeWorkspace = workspace === 'practice';
   const isClientFacingWorkspace = workspace === 'public' || workspace === 'client';
 
@@ -155,7 +177,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId,
     scope: 'practice',
     list: shouldListConversations,
-    enabled: shouldListConversations && Boolean(practiceId)
+    enabled: shouldListConversations && Boolean(practiceId),
+    allowAnonymous: workspace === 'public'
   });
 
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
@@ -274,7 +297,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const { currentPractice, updatePractice } = usePracticeManagement();
   const { session } = useSessionContext();
-  const { details: setupDetails, updateDetails: updateSetupDetails } = usePracticeDetails(currentPractice?.id ?? null);
+  const { details: setupDetails, updateDetails: updateSetupDetails } = usePracticeDetails(currentPractice?.id ?? null, null, false);
   const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
   const { showSuccess, showError } = useToastContext();
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
@@ -612,9 +635,30 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const handleStartConversation = async (mode: ConversationMode) => {
     try {
-      const conversationId = await onStartNewConversation(mode);
+      // Find the most recent conversation (for both ASK_QUESTION and REQUEST_CONSULTATION).
+      // The home view already shows it as a "recent message" card, so navigating to it
+      // is the expected action. Only create a fresh conversation when none exist yet.
+      const latestConversation = conversations.length > 0
+        ? [...conversations].sort((a, b) => {
+          const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
+          const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
+          return bTime - aTime;
+        })[0]
+        : null;
+
+      const preferredConversationId = latestConversation?.id;
+      // Only forceCreate when there really are no conversations yet.
+      const forceCreate = !preferredConversationId;
+
+      const conversationId = await onStartNewConversation(
+        mode,
+        preferredConversationId,
+        forceCreate ? { forceCreate: true } : undefined
+      );
       navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
     } catch (error) {
+      // "Session not ready" — the toast was already shown by MainApp, so finish gracefully.
+      if (error instanceof SessionNotReadyError) return;
       console.error('[WorkspacePage] Failed to start conversation:', error);
       showError('Unable to start conversation', 'Please try again in a moment.');
     }
@@ -718,6 +762,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             consultationTitle={undefined}
             consultationDescription={undefined}
             consultationCta={undefined}
+            showConsultationCard={!intakeContactStarted}
           />
         );
       case 'list':
@@ -876,6 +921,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     );
 
   const isPublicShell = layoutMode !== 'desktop';
+  const isWidgetShell = layoutMode === 'widget';
 
   const publicShellFrameClass = workspace === 'public' || workspace === 'client'
     ? 'bg-transparent border-line-glass/30'
@@ -884,8 +930,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const mainShell = isPublicShell ? (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">
       <div className={cn(
-        'flex h-full min-h-0 flex-1 flex-col rounded-3xl border overflow-hidden',
-        publicShellFrameClass
+        'flex h-full min-h-0 flex-1 flex-col overflow-hidden',
+        isWidgetShell ? 'rounded-none border-0 shadow-none bg-transparent' : 'rounded-3xl border',
+        isWidgetShell ? undefined : publicShellFrameClass
       )}>
         {header && (
           <div className={cn('w-full', headerClassName)}>

@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
 import { AppConnectionModal } from '@/features/settings/components/AppConnectionModal';
@@ -11,9 +11,11 @@ import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Input } from '@/shared/ui/input';
 import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useTranslation } from '@/shared/i18n/hooks';
+import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 interface AppDetailPageProps {
   app: App;
@@ -28,6 +30,37 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const isComingSoon = Boolean(app.comingSoon);
+
+  const { practices, currentPractice } = useWorkspaceResolver();
+  const slug = currentPractice?.slug ?? practices[0]?.slug;
+  const [copiedScript, setCopiedScript] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
+
+  const messengerSnippet = slug ? `<script>
+  window.BlawbyWidget = {
+    practiceSlug: ${JSON.stringify(slug)},
+  };
+</script>
+<script src="https://ai.blawby.com/widget-loader.js" defer></script>` : undefined;
+
+  const copySnippet = () => {
+    if (!messengerSnippet) return;
+    navigator.clipboard.writeText(messengerSnippet).then(() => {
+      setCopiedScript(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedScript(false), 2000);
+      showSuccess(t('settings:apps.copySnippetSuccess.title'), t('settings:apps.copySnippetSuccess.body'));
+    }).catch((err) => {
+      console.error('Failed to copy snippet:', err);
+      showError(t('settings:apps.copySnippetError.title'), t('settings:apps.copySnippetError.body'));
+    });
+  };
 
   const handleConnectClick = () => {
     setShowConnectModal(true);
@@ -126,17 +159,19 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               variant={app.connected ? 'secondary' : 'primary'}
               size="sm"
               onClick={app.connected ? handleDisconnect : handleConnectClick}
-              disabled={isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
+              disabled={app.id === 'blawby-messenger' || isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
             >
               {isConnecting
                 ? t('common:actions.loading')
                 : isDisconnecting
                   ? t('common:actions.loading')
-                  : app.connected
-                    ? t('settings:apps.clio.disconnect')
-                    : isComingSoon
-                      ? t('settings:apps.comingSoon')
-                      : t('settings:apps.clio.connect')}
+                  : app.id === 'blawby-messenger'
+                    ? t('settings:apps.enabled')
+                    : app.connected
+                      ? t('settings:apps.clio.disconnect')
+                      : isComingSoon
+                        ? t('settings:apps.comingSoon')
+                        : t('settings:apps.clio.connect')}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -161,6 +196,52 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
       </div>
 
       <SectionDivider />
+
+      {/* Blawby Messenger custom integration block */}
+      {app.id === 'blawby-messenger' && (
+        <>
+          <SettingSection title={t('settings:apps.messenger.integrationGuide.title')} className="py-6">
+            <div className="space-y-4">
+              <p className="text-sm text-secondary">
+                <Trans
+                  i18nKey="settings:apps.messenger.integrationGuide.description"
+                  components={[
+                    <code key="head" />,
+                    <code key="body" />
+                  ]}
+                />
+              </p>
+              
+              <div className="relative group">
+                <pre className={`bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30 ${!slug ? 'opacity-50 grayscale' : ''}`}>
+                  {slug ? messengerSnippet : t('settings:apps.messenger.placeholder')}
+                </pre>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!slug}
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
+                  icon={copiedScript ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
+                  onClick={copySnippet}
+                >
+                  {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
+                </Button>
+                {!slug && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-elevation-1/40 backdrop-blur-[1px] rounded-lg">
+                    <span className="text-xs font-medium text-secondary bg-elevation-3 px-3 py-1.5 rounded-full border border-line-glass/20 shadow-xl">
+                      {t('settings:apps.messenger.missingSlugWarning')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+
+            </div>
+          </SettingSection>
+
+          <SectionDivider />
+        </>
+      )}
 
       {/* Information */}
       <SettingSection title={t('settings:apps.clio.information')} className="py-6">

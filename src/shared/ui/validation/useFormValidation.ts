@@ -28,7 +28,8 @@ export function useFormValidation<T extends Record<string, unknown>>({
       // Check if schema is a ZodObject (has pick method)
       if (schema instanceof ZodObject) {
         // For ZodObject, we can safely use pick to validate just this field
-        const fieldSchema = schema.pick({ [fieldName]: true } as Record<keyof T, true>);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fieldSchema = schema.pick({ [fieldName]: true } as any);
         fieldSchema.parse({ [fieldName]: value });
       } else {
         // For unions, intersections, or other schema types, validate the full object

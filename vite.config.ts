@@ -120,6 +120,7 @@ const workerEndpoints = [
 	'subscription',
 	'matters',
 	'uploads',
+	'widget',
 ];
 
 // Proxy configuration types from http-proxy-middleware
@@ -198,12 +199,47 @@ const fixDecodeNamedCharacterReference = (): Plugin => {
 	};
 };
 
+// Plugin to force Vite to serve static HTML files from public/ instead of SPA fallback
+const serveStaticHtmlPlugin = (): Plugin => {
+	return {
+		name: 'serve-static-html',
+		enforce: 'pre',
+		configureServer(server) {
+			server.middlewares.use(async (req, res, next) => {
+				if (req.url && (req.url.endsWith('.html') || req.url.endsWith('.js')) && req.url !== '/index.html') {
+					// Clean URL of query params
+					const urlPath = req.url.split('?')[0];
+					const publicDir = resolve(process.cwd(), 'public');
+					// Path traversal protection: resolve full path and ensure it's within publicDir
+					const requestedPath = resolve(publicDir, urlPath.replace(/^\/+/, ''));
+
+					if (!requestedPath.startsWith(publicDir)) {
+						next();
+						return;
+					}
+
+					try {
+						const content = await fs.readFile(requestedPath, 'utf-8');
+						res.setHeader('Content-Type', req.url.endsWith('.js') ? 'application/javascript' : 'text/html');
+						res.end(content);
+						return;
+					} catch (e) {
+						// File not found in public/, let Vite handle it (SPA fallback or 404)
+					}
+				}
+				next();
+			});
+		}
+	};
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
 		envPrefix: ['VITE_'],
 		plugins: [
+			serveStaticHtmlPlugin(),
 			fixDecodeNamedCharacterReference(),
 			preact({
 				prerender: {
@@ -221,9 +257,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				open: false, // Set to true to auto-open visualization after build
 				filename: 'dist/stats.html',
 			}),
-			// PWA support
+			// PWA support — disabled in dev so the service worker never intercepts
+			// static files (widget-test.html, widget-loader.js) during local development.
+			// In production, Cloudflare Pages + _headers/_redirects handle routing.
 			VitePWA({
 				registerType: 'autoUpdate',
+				// ↓ KEY: disable the SW in dev mode entirely
+				devOptions: {
+					enabled: false,
+				},
 				includeAssets: ['favicon.svg'],
 				manifest: {
 					name: 'Blawby Chat',
@@ -248,11 +290,21 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					]
 				},
 				workbox: {
-					// Workbox options
-					globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
+					// Precache app shell assets only — exclude static standalone pages
+					// and the widget script (they are served directly by Cloudflare Pages).
+					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp}'],
+					globIgnores: [
+						'widget-loader.js',
+						'widget-test.html',
+						'stats.html',
+					],
 					navigateFallbackDenylist: [
+						// Never route API or auth requests through the SPA
 						/^\/api\//,
 						/^\/__better-auth__/,
+						// Never intercept standalone static pages or widget assets
+						/\/widget-[^/]+$/,
+						/\.html$/,
 					],
 					runtimeCaching: [
 						{

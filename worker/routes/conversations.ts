@@ -15,6 +15,8 @@ const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-ask-question-help',
   'system-intake-decision',
   'system-contact-form',
+  'system-intake-contact-ack',
+  'system-intake-opening',
   'system-submission-confirm',
   'system-lead-accepted',
   'system-lead-declined',

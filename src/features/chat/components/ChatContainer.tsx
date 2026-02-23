@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
@@ -14,7 +14,6 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
-import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
@@ -26,6 +25,7 @@ export interface ChatContainerProps {
   conversationTitle?: string | null;
   onSendMessage: (message: string, attachments: FileAttachment[], replyToMessageId?: string | null) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
+  conversationMode?: ConversationMode | null;
   onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
@@ -70,16 +70,13 @@ export interface ChatContainerProps {
   intakeConversationState?: IntakeConversationState | null;
   onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
   onSlimFormContinue?: (data: ContactData) => void | Promise<void>;
+  onSlimFormDismiss?: () => void | Promise<void>;
   onBuildBrief?: () => void;
   onSubmitNow?: () => void | Promise<void>;
   slimContactDraft?: {
     name: string;
     email: string;
     phone: string;
-    city: string;
-    state: string;
-    opposingParty?: string;
-    description?: string;
   } | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
@@ -114,6 +111,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   conversationTitle,
   onSendMessage,
   onAddMessage: _onAddMessage,
+  conversationMode,
   isPublicWorkspace = false,
   practiceConfig,
   heightClassName,
@@ -141,6 +139,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   intakeConversationState,
   onIntakeCtaResponse,
   onSlimFormContinue,
+  onSlimFormDismiss,
   onBuildBrief,
   onSubmitNow,
   slimContactDraft,
@@ -180,7 +179,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = hasNonSystemMessages
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
-  const shouldShowSlimForm = intakeStatus?.step === 'contact_form_slim';
+  const shouldShowSlimForm = intakeStatus?.step === 'contact_form_slim' && conversationMode === 'REQUEST_CONSULTATION';
+  const [slimDrawerOffset, setSlimDrawerOffset] = useState(0);
+  const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
+  const slimDrawerDragRef = useRef<{ pointerId: number | null; startY: number }>({ pointerId: null, startY: 0 });
+  const slimDrawerOpenedAtRef = useRef(0);
+  const ignoreNextSlimBackdropClickRef = useRef(false);
+
+  // Sync slim drawer refs synchronously during render
+  if (shouldShowSlimForm && slimDrawerOpenedAtRef.current === 0) {
+    slimDrawerOpenedAtRef.current = Date.now();
+    ignoreNextSlimBackdropClickRef.current = true;
+  } else if (!shouldShowSlimForm && slimDrawerOpenedAtRef.current !== 0) {
+    slimDrawerOpenedAtRef.current = 0;
+    ignoreNextSlimBackdropClickRef.current = false;
+  }
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -215,6 +228,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       }
     }
   }, [clearInput]);
+
+  // Return focus to chat input when slim form is dismissed
+  const prevShouldShowSlimFormRef = useRef(shouldShowSlimForm);
+  useEffect(() => {
+    if (prevShouldShowSlimFormRef.current && !shouldShowSlimForm) {
+      textareaRef.current?.focus();
+    }
+    prevShouldShowSlimFormRef.current = shouldShowSlimForm;
+  }, [shouldShowSlimForm]);
+
 
   const handleSubmit = () => {
     if (isChatInputLocked) return;
@@ -426,17 +449,36 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
   };
 
-  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'embed');
-  const shouldFrame = resolvedLayoutMode !== 'desktop';
+  /**
+   * Layout mode resolution:
+   * - 'widget'  → public chat (iframe or direct). No centering or max-width.
+   * - 'desktop' → full-chrome practice workspace.
+   * - 'mobile'  → authenticated client mobile view.
+   *
+   * useFrame=false is a legacy escape hatch for desktop mode.
+   */
+  const resolvedLayoutMode: LayoutMode = layoutMode ?? (useFrame === false ? 'desktop' : 'widget');
+  const isWidgetMode = resolvedLayoutMode === 'widget';
+  const isDesktopMode = resolvedLayoutMode === 'desktop';
+
   const containerClassName = `flex flex-col min-h-0 flex-1 ${heightClassName ?? 'h-full'} w-full m-0 p-0 relative overflow-hidden bg-transparent border-0 rounded-none shadow-none`;
-  const mainClassName = isPublicWorkspace && !shouldFrame
+
+  // mainClassName: widget and desktop have no centering wrapper.
+  const mainClassName = isDesktopMode
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
-    : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
-  const frameClassName = !shouldFrame
-    ? 'flex flex-col flex-1 min-h-0 w-full'
-    : (isPublicWorkspace
-      ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
-      : 'flex flex-col flex-1 min-h-0 w-full');
+    : isWidgetMode
+      ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden relative bg-transparent'
+      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
+
+  // frameClassName: widget fills 100%; non-widget public caps at 420px; desktop is unconstrained.
+  const frameClassName = isDesktopMode
+    ? 'relative flex flex-col flex-1 min-h-0 w-full'
+    : isWidgetMode
+      ? 'relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+      : (isPublicWorkspace
+        ? 'relative flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+        : 'relative flex flex-col flex-1 min-h-0 w-full');
+
 
   const handleReply = (target: ReplyTarget) => {
     setReplyTarget(target);
@@ -447,6 +489,51 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setReplyTarget(null);
   };
 
+
+
+  const dismissSlimForm = async (source: 'backdrop' | 'gesture' | 'manual' = 'manual') => {
+    if (!onSlimFormDismiss || isDismissingSlimDrawer) return;
+    if (source === 'backdrop') {
+      if (ignoreNextSlimBackdropClickRef.current) {
+        ignoreNextSlimBackdropClickRef.current = false;
+        return;
+      }
+      const openedAt = slimDrawerOpenedAtRef.current;
+      if (openedAt > 0 && Date.now() - openedAt < 1000) {
+        return;
+      }
+    }
+    setIsDismissingSlimDrawer(true);
+    try {
+      await onSlimFormDismiss();
+    } finally {
+      setSlimDrawerOffset(0);
+      setIsDismissingSlimDrawer(false);
+    }
+  };
+
+  const handleSlimDrawerPointerDown = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    slimDrawerDragRef.current = { pointerId: event.pointerId, startY: event.clientY };
+  };
+
+  const handleSlimDrawerPointerMove = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    const activePointerId = slimDrawerDragRef.current.pointerId;
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    const delta = Math.max(0, event.clientY - slimDrawerDragRef.current.startY);
+    setSlimDrawerOffset(delta);
+  };
+
+  const handleSlimDrawerPointerUp = async (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    const activePointerId = slimDrawerDragRef.current.pointerId;
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    const shouldDismiss = slimDrawerOffset > 72;
+    slimDrawerDragRef.current.pointerId = null;
+    setSlimDrawerOffset(0);
+    if (shouldDismiss) {
+      await dismissSlimForm('gesture');
+    }
+  };
+
   return (
     <div
       className={containerClassName}
@@ -455,65 +542,103 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       <main className={mainClassName}>
         {canChat ? (
           <div className={frameClassName}>
-            {headerContent ? (
-              <div className="shrink-0">
-                {headerContent}
-              </div>
-            ) : null}
-            <div className="flex flex-1 min-h-0 flex-col">
-              {isPublicWorkspace && filteredMessages.length === 0 ? (
-                <div className={cn(
-                  'flex flex-col items-center justify-start px-6 text-center text-sm text-input-placeholder',
-                  shouldShowSlimForm ? 'pt-4 pb-2' : 'flex-1 pt-8'
-                )}>
-                  <p className="max-w-[300px]">
-                    {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
-                      ? practiceConfig.introMessage.trim()
-                      : t('chat.publicIntro')}
-                  </p>
+            <div 
+              className="flex flex-1 min-h-0 flex-col"
+              inert={shouldShowSlimForm ? true : undefined}
+              aria-hidden={shouldShowSlimForm ? true : undefined}
+            >
+              {headerContent ? (
+                <div className="shrink-0">
+                  {headerContent}
                 </div>
-              ) : (
-                <>
-                  <VirtualMessageList
-                    messages={messagesReady ? filteredMessages : []}
-                    conversationTitle={conversationTitle}
-                    practiceConfig={practiceConfig}
-                    isPublicWorkspace={isPublicWorkspace}
-                    onOpenSidebar={onOpenSidebar}
-                    onOpenPayment={handleOpenPayment}
-                    practiceId={practiceId}
-                    onReply={handleReply}
-                    onToggleReaction={onToggleReaction}
-                    onRequestReactions={onRequestReactions}
-                    onAuthPromptRequest={onAuthPromptRequest}
-                    intakeStatus={intakeStatus}
-                    intakeConversationState={intakeConversationState}
-                    onQuickReply={handleQuickReply}
-                    onIntakeCtaResponse={onIntakeCtaResponse}
-                    onSubmitNow={handleSubmitNowAction}
-                    onBuildBrief={onBuildBrief}
-                    modeSelectorActions={onSelectMode ? {
-                      onAskQuestion: handleAskQuestion,
-                      onRequestConsultation: handleRequestConsultation
-                    } : undefined}
-                    leadReviewActions={leadReviewActions}
-                    hasMoreMessages={hasMoreMessages}
-                    isLoadingMoreMessages={isLoadingMoreMessages}
-                    onLoadMoreMessages={onLoadMoreMessages}
-                    showSkeleton={!messagesReady}
-                    compactLayout={shouldShowSlimForm}
-                  />
-                </>
-              )}
+              ) : null}
+              <div className="flex flex-1 min-h-0 flex-col">
+                {isPublicWorkspace && filteredMessages.length === 0 ? (
+                  <div className={cn(
+                    'flex flex-col items-center justify-start px-6 text-center text-sm text-input-placeholder',
+                    shouldShowSlimForm ? 'pt-2 pb-0' : 'flex-1 pt-8'
+                  )}>
+                    <p className="max-w-[300px]">
+                      {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
+                        ? practiceConfig.introMessage.trim()
+                        : t('chat.publicIntro')}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <VirtualMessageList
+                      messages={messagesReady ? filteredMessages : []}
+                      conversationTitle={conversationTitle}
+                      practiceConfig={practiceConfig}
+                      isPublicWorkspace={isPublicWorkspace}
+                      onOpenSidebar={onOpenSidebar}
+                      onOpenPayment={handleOpenPayment}
+                      practiceId={practiceId}
+                      onReply={handleReply}
+                      onToggleReaction={onToggleReaction}
+                      onRequestReactions={onRequestReactions}
+                      onAuthPromptRequest={onAuthPromptRequest}
+                      intakeStatus={intakeStatus}
+                      intakeConversationState={intakeConversationState}
+                      hasSlimContactDraft={Boolean(slimContactDraft)}
+                      onQuickReply={handleQuickReply}
+                      onIntakeCtaResponse={onIntakeCtaResponse}
+                      onSubmitNow={handleSubmitNowAction}
+                      onBuildBrief={onBuildBrief}
+                      modeSelectorActions={onSelectMode ? {
+                        onAskQuestion: handleAskQuestion,
+                        onRequestConsultation: handleRequestConsultation
+                      } : undefined}
+                      leadReviewActions={leadReviewActions}
+                      hasMoreMessages={hasMoreMessages}
+                      isLoadingMoreMessages={isLoadingMoreMessages}
+                      onLoadMoreMessages={onLoadMoreMessages}
+                      showSkeleton={!messagesReady}
+                      compactLayout={shouldShowSlimForm}
+                    />
+                  </>
+                )}
+              </div>
             </div>
+
+            {shouldShowSlimForm && onSlimFormContinue ? (
+              <button
+                type="button"
+                className="absolute inset-0 z-[950] h-full w-full cursor-default bg-black/20"
+                aria-label={t('common.close')}
+                onClick={() => { void dismissSlimForm('backdrop'); }}
+              />
+            ) : null}
 
             <div className="sticky bottom-0 z-[1000] w-full">
               {shouldShowSlimForm && onSlimFormContinue ? (
-                <div className="pl-4 pr-4 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
+                <div
+                  className="px-4 pb-6 pt-4 bg-surface-overlay/95 backdrop-blur-2xl rounded-t-3xl max-h-[80dvh] overflow-y-auto shadow-2xl flex flex-col w-full animate-drawer-up"
+                  style={{ transform: slimDrawerOffset > 0 ? `translateY(${slimDrawerOffset}px)` : undefined }}
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="w-12 h-1.5 bg-input-placeholder/20 rounded-full mx-auto mb-6 shrink-0 touch-none cursor-grab active:cursor-grabbing"
+                    aria-label={t('common.close')}
+                    onPointerDown={handleSlimDrawerPointerDown}
+                    onPointerMove={handleSlimDrawerPointerMove}
+                    onPointerUp={(event) => { void handleSlimDrawerPointerUp(event); }}
+                    onPointerCancel={() => {
+                      slimDrawerDragRef.current.pointerId = null;
+                      setSlimDrawerOffset(0);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void dismissSlimForm('manual');
+                      }
+                    }}
+                  />
                   <ContactForm
                     onSubmit={onSlimFormContinue}
-                    fields={['name', 'email', 'phone', 'city', 'state', 'opposingParty', 'description']}
-                    required={['name', 'email', 'phone', 'city', 'state']}
+                    fields={['name', 'email', 'phone']}
+                    required={['name', 'email', 'phone']}
                     initialValues={slimContactDraft ?? undefined}
                     variant="plain"
                     showSubmitButton={true}
@@ -545,27 +670,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   showStatusMessage={!isPublicWorkspace}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
-                  footerActions={(() => {
-                    if (!isPublicWorkspace) return null;
-                    if (!intakeConversationState) return null;
-                    if (intakeConversationState.ctaResponse === 'ready') return null;
-                    const MIN_NOT_YET_COUNT_FOR_CTA = 2;
-                    if ((intakeConversationState.notYetCount ?? 0) < MIN_NOT_YET_COUNT_FOR_CTA) return null;
-                    return (
-                      <div className="mt-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="w-full"
-                          onClick={async () => {
-                            await handleSubmitNowAction();
-                          }}
-                        >
-                          {t('chat.submitRequest')}
-                        </Button>
-                      </div>
-                    );
-                  })()}
                 />
               )}
             </div>

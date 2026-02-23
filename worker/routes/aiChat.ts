@@ -19,10 +19,15 @@ const MAX_TOTAL_LENGTH = 12000;
 const AI_TIMEOUT_MS = 8000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
+const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
+const SUBMIT_AFFIRMATION_REGEX = /^\s*(?:yes|yeah|yep|sure|ok|okay|go ahead|submit|do it|lets go|let's go|ready)\s*[.!]?\s*$/i;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const extractServiceNames = (details: Record<string, unknown> | null): string[] => {
   if (!details) return [];
@@ -65,6 +70,43 @@ const formatServiceList = (names: string[]): string => {
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
   if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
   return `${names.slice(0, 3).join(', ')}, and ${names.length - 3} more`;
+};
+
+const readStringField = (record: Record<string, unknown> | null, key: string): string | null => {
+  if (!record) return null;
+  const value = record[key];
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const hasNonEmptyStringField = (record: Record<string, unknown> | null | undefined, key: string): boolean => {
+  if (!record) return false;
+  const value = record[key];
+  return typeof value === 'string' && value.trim().length > 0;
+};
+
+const mergeIntakeState = (
+  base: Record<string, unknown> | null,
+  patch: Record<string, unknown> | null
+): Record<string, unknown> | null => {
+  if (!base && !patch) return null;
+  return { ...(base ?? {}), ...(patch ?? {}) };
+};
+
+const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null): boolean => {
+  if (!state) return false;
+  const caseStrength = typeof state.caseStrength === 'string' ? state.caseStrength : null;
+  if (caseStrength !== 'developing' && caseStrength !== 'strong') return false;
+
+  // Core intake readiness for showing CTA actions. This intentionally does not
+  // require every optional field; it only ensures we have enough context to
+  // offer "continue now" vs "build stronger brief".
+  const hasDescription = hasNonEmptyStringField(state, 'description');
+  const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
+  const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
+  const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome;
 };
 
 const normalizeApostrophes = (text: string): string => text.replace(/['']/g, '\'');
@@ -199,37 +241,40 @@ const buildIntakeSystemPrompt = (services: Array<{ name: string; key: string }>)
     ? services.map((service) => `- ${service.name} (key: ${service.key})`).join('\n')
     : '- General intake (no service list provided)';
 
-  return `You are a legal intake assistant. Your job is to help someone describe their legal situation clearly before connecting them with an attorney at this firm.
+  return `You are a warm, helpful legal intake assistant for this law firm. Your job is to understand someone's legal situation so they can be connected with the right attorney.
 
 This firm handles the following practice areas only:
 ${serviceList}
 
-Rules:
-- Ask one focused question at a time
-- Be warm, plain-spoken, and concise
+Conversation style:
+- Be warm, human, and concise — like a knowledgeable friend, not a form
+- Ask ONE focused question at a time
 - Never give legal advice
-- Never ask for personal contact information (name, email, phone, or address — collected separately)
-- Only suggest practice areas from the list above
+- Never ask for personal contact info (name, email, phone) — that's already collected
+- Only identify practice areas from the list above
 
-Your goal is to understand:
-1. What is happening in their own words
-2. Which practice area applies (from the list above only)
-3. Who the opposing party is, if any
-4. Any deadlines, court dates, or time pressure
-5. What outcome they are hoping for
-6. Their city and state (for attorney matching)
-7. Whether they have documents and any eligibility-related signals (income/household/fees)
+Your goal through the conversation is to naturally learn:
+1. What is happening (in their words) — ask this first, openly
+2. Which practice area applies
+3. Their city and state — weave this in naturally ("Just so we can match you with someone local — what city and state are you in?")
+4. Whether there's an opposing party — ask naturally if relevant ("Is there another party involved, like a person, company, or employer?")
+5. Any time pressure or deadlines
+6. What outcome they're hoping for
 
-After every user message, call update_intake_fields with everything extracted so far, your caseStrength assessment, and missingSummary if anything important is missing.
+Do NOT ask for all of this at once. Follow the natural thread of the conversation. Once you know what's happening, ask for one missing piece at a time.
+
+After every user message, call update_intake_fields with everything you've learned so far, your caseStrength assessment, and missingSummary.
 
 caseStrength rules:
-- needs_more_info: practice area unknown OR description fewer than 10 words
-- developing: practice area known + description has substance, but urgency AND (opposing party OR desired outcome) are both missing
-- strong: practice area known + description 20+ words + urgency known + at least one of (opposing party OR desired outcome) known + city and state known
+- needs_more_info: practice area unknown OR description is fewer than 10 words
+- developing: practice area known + description has substance, but city/state OR opposing party are still unknown
+- strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known
 
-When caseStrength is "developing" or "strong", end your message with a bullet summary and ask if they are ready to submit. Do not show the summary before that threshold.
+When caseStrength is "developing" or "strong", end your message with a brief summary of what you've collected and ask if they're ready to submit.
 
-missingSummary is required whenever caseStrength is "needs_more_info" or "developing". It must always explain in one plain sentence what would most improve the assessment. Never leave it null below "strong".
+If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
+
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing.
 
 Hard limit: after 8 user messages, set caseStrength to at minimum "developing" and show the summary regardless.`;
 };
@@ -369,12 +414,35 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     practiceSlug || undefined
   );
 
-  const isIntakeMode = body.mode === 'REQUEST_CONSULTATION' && body.intakeSubmitted !== true && isPublic;
+  const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
+  const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
+  const effectiveMode = body.mode ?? storedMode;
+  const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
+    ? conversationMetadata.intakeConversationState as Record<string, unknown>
+    : null;
+  const slimDraft = isRecord(conversationMetadata?.intakeSlimContactDraft)
+    ? conversationMetadata.intakeSlimContactDraft as Record<string, unknown>
+    : null;
+  const hasSlimContactDraft = Boolean(
+    slimDraft && (
+      hasNonEmptyStringField(slimDraft, 'name') ||
+      hasNonEmptyStringField(slimDraft, 'email') ||
+      hasNonEmptyStringField(slimDraft, 'phone')
+    )
+  );
+  const intakeBriefActive = conversationMetadata?.intakeAiBriefActive === true;
+  const isIntakeMode = Boolean(
+    (effectiveMode === 'REQUEST_CONSULTATION' || hasSlimContactDraft || intakeBriefActive) &&
+    body.intakeSubmitted !== true &&
+    isPublic
+  );
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
+  const lastAssistantMessage = [...body.messages].reverse().find((message) => message.role === 'assistant');
   const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
+  const intakeReadyByState = isIntakeMode && shouldShowDeterministicIntakeCta(storedIntakeState);
 
   // ------------------------------------------------------------------
   // Short-circuit paths — instant replies that don't need streaming.
@@ -383,9 +451,29 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // ------------------------------------------------------------------
 
   let shortCircuitReply: string | null = null;
+  let shortCircuitIntakeReadyCta = false;
 
   if (!details || !isPublic) {
     shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
+  } else if (
+    isIntakeMode &&
+    intakeReadyByState &&
+    lastUserMessage &&
+    lastAssistantMessage &&
+    SUBMIT_AFFIRMATION_REGEX.test(lastUserMessage.content) &&
+    shouldShowIntakeCtaForReply(lastAssistantMessage.content)
+  ) {
+    shortCircuitReply = 'Great. You can submit your request now, or build a stronger brief first before we send it to the practice.';
+    shortCircuitIntakeReadyCta = true;
+  } else if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
+    const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
+    const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
+    const website = readStringField(details, 'website');
+    const contactParts = [phone ? `phone: ${phone}` : null, email ? `email: ${email}` : null, website ? `website: ${website}` : null]
+      .filter((value): value is string => Boolean(value));
+    shortCircuitReply = contactParts.length > 0
+      ? `The practice has not published specific office hours here yet. You can contact them via ${contactParts.join(', ')}.`
+      : 'The practice has not published specific office hours here yet. Please click "Request consultation" to connect with the practice.';
   } else if (!isIntakeMode && hasLegalIntent) {
     shortCircuitReply = LEGAL_DISCLAIMER;
   } else if (!isIntakeMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
@@ -398,7 +486,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   if (shortCircuitReply !== null) {
     const shouldPromptConsultation =
-      shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply);
+      !hasSlimContactDraft &&
+      (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply));
+    const shortCircuitShouldShowIntakeCta =
+      isIntakeMode &&
+      (
+        shortCircuitIntakeReadyCta ||
+        (
+          intakeReadyByState &&
+          shouldShowIntakeCtaForReply(shortCircuitReply)
+        )
+      );
 
     const storedMessage = await conversationService.sendSystemMessage({
       conversationId: body.conversationId,
@@ -407,6 +505,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       metadata: {
         source: 'ai',
         model: env.AI_MODEL || DEFAULT_AI_MODEL,
+        ...(shortCircuitShouldShowIntakeCta ? { intakeReadyCta: true } : {}),
         ...(shouldPromptConsultation
           ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
           : {})
@@ -656,16 +755,24 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
         if (matched) intakeFields.practiceAreaName = matched.name;
       }
+      const mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
 
       const shouldPromptConsultation =
-        shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply);
+        !hasSlimContactDraft &&
+        (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
 
       const intakeCaseStrength = typeof intakeFields?.caseStrength === 'string'
         ? intakeFields.caseStrength
         : null;
       const shouldShowIntakeCta =
-        (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong') &&
-        shouldShowIntakeCtaForReply(accumulatedReply);
+        isIntakeMode &&
+        (
+          shouldShowDeterministicIntakeCta(mergedIntakeState)
+          || (
+            (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong') &&
+            shouldShowIntakeCtaForReply(accumulatedReply)
+          )
+        );
 
       // Emit the done event before persisting — client can act on intakeFields
       // immediately without waiting for the DB write
@@ -697,6 +804,34 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       if (storedMessage) {
+        // Persist the merged intake state back to the conversation metadata
+        // so that it persists across devices/refreshes.
+        if (isIntakeMode && mergedIntakeState) {
+          const updateMetadata = async (attempts = 0) => {
+            try {
+              const latestConversation = await conversationService.getConversation(body.conversationId, conversation.practice_id);
+              const latestMetadata = (latestConversation?.user_info as Record<string, unknown>) || {};
+              await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
+                metadata: {
+                  ...latestMetadata,
+                  intakeConversationState: mergedIntakeState
+                }
+              });
+            } catch (metadataError) {
+              if (attempts < 1) {
+                // One retry for concurrent modification or transient errors
+                await updateMetadata(attempts + 1);
+              } else {
+                Logger.warn('Failed to persist merged intake state to conversation metadata after retries', {
+                  conversationId: body.conversationId,
+                  error: metadataError instanceof Error ? metadataError.message : String(metadataError)
+                });
+              }
+            }
+          };
+          await updateMetadata();
+        }
+
         // Send the persisted message ID so the client can reconcile the
         // temporary streaming bubble with the real message when it arrives
         // via WebSocket message.new

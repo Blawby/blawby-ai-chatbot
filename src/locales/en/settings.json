@@ -62,6 +62,17 @@
     "title": "Apps",
     "description": "Connect third-party services to enhance your workflow",
     "comingSoon": "Coming soon",
+    "enabled": "Enabled",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copySnippetSuccess": {
+      "title": "Code copied",
+      "body": "The widget snippet has been copied to your clipboard."
+    },
+    "copySnippetError": {
+      "title": "Copy failed",
+      "body": "Unable to copy to clipboard. Please select and copy the widget snippet manually."
+    },
     "clio": {
       "name": "Clio",
       "description": "Connect your Clio account to sync matters, contacts, and calendar events.",
@@ -120,6 +131,14 @@
           "title": "Connection error",
           "body": "Failed to connect Clio. Please try again."
         }
+      }
+    },
+    "messenger": {
+      "placeholder": "Your snippet goes here...",
+      "missingSlugWarning": "Workspace slug missing. Please check your practice settings.",
+      "integrationGuide": {
+        "title": "Integration Guide",
+        "description": "To add the chat widget to your website, copy the code snippet below and paste it into the <0>&lt;head&gt;</0> or just before the closing <1>&lt;/body&gt;</1> tag of your website."
       }
     }
   },

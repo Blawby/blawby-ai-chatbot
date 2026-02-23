@@ -13,6 +13,7 @@ import {
   handleAuthProxy,
   handleBackendProxy,
   handleParalegal,
+  handleWidgetBootstrap,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
@@ -100,6 +101,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handlePracticeDetails(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
+    } else if (path.startsWith('/api/widget/bootstrap')) {
+      response = await handleWidgetBootstrap(request, env);
     } else if (path.startsWith('/api/geo/autocomplete')) {
       response = await handleAutocompleteWithCORS(request, env, _ctx);
     } else if (path.startsWith('/api/conversations')) {
