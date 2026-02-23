@@ -200,7 +200,10 @@ export function MainApp({
   }, []);
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
-    if (metadata?.mode) setConversationMode(metadata.mode);
+    const persistedMode = metadata?.mode;
+    if (persistedMode === 'ASK_QUESTION' || persistedMode === 'REQUEST_CONSULTATION') {
+      setConversationMode(persistedMode);
+    }
   }, []);
 
   const messageHandling = useMessageHandling({
@@ -222,6 +225,8 @@ export function MainApp({
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady,
   } = messageHandling;
+
+
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 

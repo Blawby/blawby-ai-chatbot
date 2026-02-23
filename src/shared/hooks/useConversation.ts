@@ -813,7 +813,12 @@ export const useConversation = ({
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
     if (!sessionReady || !targetConversationId || !practiceId) return;
-    void updateConversationMetadata({ intakeConversationState: initialIntakeState, intakeSlimContactDraft: null, intakeAiBriefActive: false }, targetConversationId);
+    void updateConversationMetadata({
+      mode: 'REQUEST_CONSULTATION',
+      intakeConversationState: initialIntakeState,
+      intakeSlimContactDraft: null,
+      intakeAiBriefActive: false
+    }, targetConversationId);
     consultFlowAbortRef.current?.abort();
     const controller = new AbortController();
     consultFlowAbortRef.current = controller;

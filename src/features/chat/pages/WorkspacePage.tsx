@@ -635,20 +635,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const handleStartConversation = async (mode: ConversationMode) => {
     try {
-      // Find the most recent conversation (for both ASK_QUESTION and REQUEST_CONSULTATION).
-      // The home view already shows it as a "recent message" card, so navigating to it
-      // is the expected action. Only create a fresh conversation when none exist yet.
-      const latestConversation = conversations.length > 0
+      const shouldReuseConversation = mode !== 'REQUEST_CONSULTATION';
+      const latestConversation = shouldReuseConversation && conversations.length > 0
         ? [...conversations].sort((a, b) => {
-          const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
-          const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
-          return bTime - aTime;
-        })[0]
+            const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
+            const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
+            return bTime - aTime;
+          })[0]
         : null;
 
-      const preferredConversationId = latestConversation?.id;
-      // Only forceCreate when there really are no conversations yet.
-      const forceCreate = !preferredConversationId;
+      const preferredConversationId = shouldReuseConversation ? latestConversation?.id : undefined;
+      // Consultation CTA should start a fresh intake thread so mode/form state is deterministic.
+      const forceCreate = mode === 'REQUEST_CONSULTATION' || !preferredConversationId;
 
       const conversationId = await onStartNewConversation(
         mode,

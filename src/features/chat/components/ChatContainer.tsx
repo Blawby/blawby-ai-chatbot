@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import type { ComponentChildren, JSX } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
@@ -12,6 +12,7 @@ import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
+import Modal from '@/shared/components/Modal';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -180,20 +181,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
   const shouldShowSlimForm = intakeStatus?.step === 'contact_form_slim' && conversationMode === 'REQUEST_CONSULTATION';
-  const [slimDrawerOffset, setSlimDrawerOffset] = useState(0);
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
-  const slimDrawerDragRef = useRef<{ pointerId: number | null; startY: number }>({ pointerId: null, startY: 0 });
-  const slimDrawerOpenedAtRef = useRef(0);
-  const ignoreNextSlimBackdropClickRef = useRef(false);
-
-  // Sync slim drawer refs synchronously during render
-  if (shouldShowSlimForm && slimDrawerOpenedAtRef.current === 0) {
-    slimDrawerOpenedAtRef.current = Date.now();
-    ignoreNextSlimBackdropClickRef.current = true;
-  } else if (!shouldShowSlimForm && slimDrawerOpenedAtRef.current !== 0) {
-    slimDrawerOpenedAtRef.current = 0;
-    ignoreNextSlimBackdropClickRef.current = false;
-  }
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -492,45 +480,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
 
   const dismissSlimForm = async (source: 'backdrop' | 'gesture' | 'manual' = 'manual') => {
+    void source;
     if (!onSlimFormDismiss || isDismissingSlimDrawer) return;
-    if (source === 'backdrop') {
-      if (ignoreNextSlimBackdropClickRef.current) {
-        ignoreNextSlimBackdropClickRef.current = false;
-        return;
-      }
-      const openedAt = slimDrawerOpenedAtRef.current;
-      if (openedAt > 0 && Date.now() - openedAt < 1000) {
-        return;
-      }
-    }
     setIsDismissingSlimDrawer(true);
     try {
       await onSlimFormDismiss();
     } finally {
-      setSlimDrawerOffset(0);
       setIsDismissingSlimDrawer(false);
-    }
-  };
-
-  const handleSlimDrawerPointerDown = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
-    slimDrawerDragRef.current = { pointerId: event.pointerId, startY: event.clientY };
-  };
-
-  const handleSlimDrawerPointerMove = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
-    const activePointerId = slimDrawerDragRef.current.pointerId;
-    if (activePointerId === null || event.pointerId !== activePointerId) return;
-    const delta = Math.max(0, event.clientY - slimDrawerDragRef.current.startY);
-    setSlimDrawerOffset(delta);
-  };
-
-  const handleSlimDrawerPointerUp = async (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
-    const activePointerId = slimDrawerDragRef.current.pointerId;
-    if (activePointerId === null || event.pointerId !== activePointerId) return;
-    const shouldDismiss = slimDrawerOffset > 72;
-    slimDrawerDragRef.current.pointerId = null;
-    setSlimDrawerOffset(0);
-    if (shouldDismiss) {
-      await dismissSlimForm('gesture');
     }
   };
 
@@ -594,59 +550,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                       isLoadingMoreMessages={isLoadingMoreMessages}
                       onLoadMoreMessages={onLoadMoreMessages}
                       showSkeleton={!messagesReady}
-                      compactLayout={shouldShowSlimForm}
+                      compactLayout={false}
                     />
                   </>
                 )}
               </div>
             </div>
 
-            {shouldShowSlimForm && onSlimFormContinue ? (
-              <button
-                type="button"
-                className="absolute inset-0 z-[950] h-full w-full cursor-default bg-black/20"
-                aria-label={t('common.close')}
-                onClick={() => { void dismissSlimForm('backdrop'); }}
-              />
-            ) : null}
-
             <div className="sticky bottom-0 z-[1000] w-full">
-              {shouldShowSlimForm && onSlimFormContinue ? (
-                <div
-                  className="px-4 pb-6 pt-4 bg-surface-overlay/95 backdrop-blur-2xl rounded-t-3xl max-h-[80dvh] overflow-y-auto shadow-2xl flex flex-col w-full animate-drawer-up"
-                  style={{ transform: slimDrawerOffset > 0 ? `translateY(${slimDrawerOffset}px)` : undefined }}
-                >
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className="w-12 h-1.5 bg-input-placeholder/20 rounded-full mx-auto mb-6 shrink-0 touch-none cursor-grab active:cursor-grabbing"
-                    aria-label={t('common.close')}
-                    onPointerDown={handleSlimDrawerPointerDown}
-                    onPointerMove={handleSlimDrawerPointerMove}
-                    onPointerUp={(event) => { void handleSlimDrawerPointerUp(event); }}
-                    onPointerCancel={() => {
-                      slimDrawerDragRef.current.pointerId = null;
-                      setSlimDrawerOffset(0);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void dismissSlimForm('manual');
-                      }
-                    }}
-                  />
-                  <ContactForm
-                    onSubmit={onSlimFormContinue}
-                    fields={['name', 'email', 'phone']}
-                    required={['name', 'email', 'phone']}
-                    initialValues={slimContactDraft ?? undefined}
-                    variant="plain"
-                    showSubmitButton={true}
-                    submitFullWidth={true}
-                    submitLabel={t('chat.continue')}
-                  />
-                </div>
-              ) : (
+              {!shouldShowSlimForm || !onSlimFormContinue ? (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}
@@ -671,11 +583,34 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                 />
-              )}
+              ) : null}
             </div>
           </div>
         ) : null}
       </main>
+
+      <Modal
+        isOpen={Boolean(shouldShowSlimForm && onSlimFormContinue)}
+        onClose={() => { void dismissSlimForm('manual'); }}
+        title={t('chat.requestConsultation')}
+        type="modal"
+        mobileBehavior="modal"
+        showCloseButton
+        contentClassName="max-w-xl w-full"
+      >
+        {shouldShowSlimForm && onSlimFormContinue ? (
+          <ContactForm
+            onSubmit={onSlimFormContinue}
+            fields={['name', 'email', 'phone']}
+            required={['name', 'email', 'phone']}
+            initialValues={slimContactDraft ?? undefined}
+            variant="plain"
+            showSubmitButton={true}
+            submitFullWidth={true}
+            submitLabel={t('chat.continue')}
+          />
+        ) : null}
+      </Modal>
 
       <AuthPromptModal
         isOpen={showAuthPrompt}
