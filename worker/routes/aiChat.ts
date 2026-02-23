@@ -615,12 +615,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         let toolCallArgBuffer = '';
 
         while (true) {
+          let timeoutTimer: any;
           const result = await Promise.race([
-            reader.read(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('AI_STREAM_STALL')), AI_STREAM_READ_TIMEOUT_MS)
-            )
+            reader.read().then((res) => {
+              if (timeoutTimer) clearTimeout(timeoutTimer);
+              return res;
+            }),
+            new Promise<never>((_, reject) => {
+              timeoutTimer = setTimeout(() => reject(new Error('AI_STREAM_STALL')), AI_STREAM_READ_TIMEOUT_MS);
+            })
           ]).catch(async (error: unknown) => {
+            if (timeoutTimer) clearTimeout(timeoutTimer);
             Logger.warn('AI stream read stalled or failed', {
               conversationId: body.conversationId,
               reason: error instanceof Error ? error.message : String(error)
