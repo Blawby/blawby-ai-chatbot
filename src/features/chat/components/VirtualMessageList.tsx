@@ -130,6 +130,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const loggedNoServerPaginationRef = useRef(false);
     const prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
+    const isNearTail = endIndex >= Math.max(0, dedupedMessages.length - 2);
+    const useTailWindow = isScrolledToBottomRef.current || isNearTail;
+
+    const derivedStart = hasMoreMessages === false
+        ? 0
+        : (useTailWindow ? Math.max(0, dedupedMessages.length - BATCH_SIZE) : startIndex);
+    const derivedEnd = useTailWindow ? dedupedMessages.length : endIndex;
+
     const currentUserAvatar = session?.user?.image || null;
     const currentUserProfile = {
         src: currentUserAvatar,
@@ -445,15 +453,17 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
 
         // Load more messages when scrolling up (client-side)
-        if (element.scrollTop < SCROLL_THRESHOLD && startIndex > 0) {
-            const newStartIndex = Math.max(0, startIndex - BATCH_SIZE);
+        if (element.scrollTop < SCROLL_THRESHOLD && derivedStart > 0) {
+            const newStartIndex = Math.max(0, derivedStart - BATCH_SIZE);
             if (DEBUG_PAGINATION) {
                 console.info('[VirtualMessageList][pagination] revealing buffered messages', {
-                    previousStartIndex: startIndex,
+                    previousStartIndex: derivedStart,
                     nextStartIndex: newStartIndex
                 });
             }
             setStartIndex(newStartIndex);
+            setEndIndex(derivedEnd); // Lock current end into state when starting manual scroll
+
 
             // Maintain scroll position when loading more messages
             requestAnimationFrame(() => {
@@ -467,7 +477,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
         if (
             element.scrollTop < SCROLL_THRESHOLD &&
-            startIndex === 0 &&
+            derivedStart === 0 &&
             hasMoreMessages &&
             !isLoadingMoreMessages &&
             !isLoadingRef.current &&
@@ -500,7 +510,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         console.info('[VirtualMessageList][pagination] server request finished');
                     }
                 });
-        } else if (DEBUG_PAGINATION && element.scrollTop < SCROLL_THRESHOLD && startIndex === 0) {
+        } else if (DEBUG_PAGINATION && element.scrollTop < SCROLL_THRESHOLD && derivedStart === 0) {
             console.info('[VirtualMessageList][pagination] at top but not loading from server', {
                 hasMoreMessages: Boolean(hasMoreMessages),
                 isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
@@ -509,7 +519,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             });
         }
     }, [
-        startIndex,
+        derivedStart,
+        derivedEnd,
         hasMoreMessages,
         isLoadingMoreMessages,
         onLoadMoreMessages,
@@ -558,47 +569,19 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
     }, [debouncedHandleScroll, handleScrollImmediate]);
 
-    useEffect(() => {
-        // Update indices when new messages are added
-        const isNearTail = endIndex >= Math.max(0, dedupedMessages.length - 2);
-        if (isScrolledToBottomRef.current || isNearTail) {
-            setEndIndex(dedupedMessages.length);
-            setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
-        }
-    }, [dedupedMessages.length, endIndex]);
 
-    useEffect(() => {
-        // If server pagination is exhausted, show full local history instead of
-        // keeping a virtualized window that implies more content is loading.
-        // Only fire when hasMoreMessages transitions from true to false.
-        if (prevHasMoreRef.current === true && hasMoreMessages === false) {
-            setStartIndex(0);
-            setEndIndex(dedupedMessages.length);
-        }
-        prevHasMoreRef.current = hasMoreMessages;
-    }, [hasMoreMessages, dedupedMessages.length]);
-
-    useEffect(() => {
-        const lastMessage = dedupedMessages[dedupedMessages.length - 1];
-        if (!lastMessage?.paymentRequest) return;
-        setEndIndex(dedupedMessages.length);
-        setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
-        if (listRef.current) {
-            listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
-        }
-    }, [dedupedMessages]);
 
     useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
         }
-    }, [dedupedMessages, endIndex]);
+    }, [dedupedMessages, derivedEnd]);
 
 
     const visibleMessages = useMemo(
-        () => dedupedMessages.slice(startIndex, endIndex),
-        [dedupedMessages, startIndex, endIndex]
+        () => dedupedMessages.slice(derivedStart, derivedEnd),
+        [dedupedMessages, derivedStart, derivedEnd]
     );
     const messageMap = useMemo(() => {
         return new Map(dedupedMessages.map((message) => [message.id, message]));
@@ -675,12 +658,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             className={`message-list ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
         >
-            {startIndex > 0 && (
+            {derivedStart > 0 && (
                 <div className="flex justify-center items-center py-4">
                     <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm lg:text-base">Loading more messages...</div>
                 </div>
             )}
-            {startIndex === 0 && hasMoreMessages && (
+            {derivedStart === 0 && hasMoreMessages && (
                 <div className="flex justify-center items-center py-4">
                     <button
                         type="button"
@@ -753,7 +736,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     // Provide a guaranteed fallback key when both stableClientId and message.id are missing.
                     // Use the visible list index + startIndex so the fallback is stable across re-renders
                     // as long as the slice window doesn't change. This avoids undefined/null keys.
-                    const fallbackIndexKey = `idx-${startIndex + _index}`;
+                    const fallbackIndexKey = `idx-${derivedStart + _index}`;
                     const renderKey = stableClientId
                         ? `client-${stableClientId}`
                         : (message.id ? `message-${message.id}` : fallbackIndexKey);

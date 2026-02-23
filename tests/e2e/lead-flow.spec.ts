@@ -4,7 +4,9 @@ import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
 const DEFAULT_PRACTICE_SLUG = process.env.E2E_PRACTICE_SLUG ?? process.env.E2E_WIDGET_SLUG ?? e2eConfig?.practice.slug ?? 'paul-yahoo';
-const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 30000);
+const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
+const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 30000;
+const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 30000;
 const LEAD_TURN_TIMEOUT_MS = MAX_AI_RESPONSE_MS;
 
 const normalizePracticeSlug = (value: string): string => {
