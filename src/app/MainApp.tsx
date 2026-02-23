@@ -223,6 +223,13 @@ export function MainApp({
     loadMoreMessages, isSocketReady,
   } = messageHandling;
 
+  useEffect(() => {
+    const persistedMode = conversationMetadata?.mode;
+    if (persistedMode === 'ASK_QUESTION' || persistedMode === 'REQUEST_CONSULTATION') {
+      setConversationMode(persistedMode);
+    }
+  }, [conversationMetadata?.mode]);
+
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
   // ── intake auth prompt ─────────────────────────────────────────────────────
