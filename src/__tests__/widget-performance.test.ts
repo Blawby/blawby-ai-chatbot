@@ -146,8 +146,9 @@ function installFetchAudit(
     });
 
     if (!mock) {
-      console.warn(`[fetch-audit] Unmocked URL: ${method} ${url}`);
-      return new Response(JSON.stringify({ error: 'unmocked' }), { status: 404 });
+      const errorMsg = `[fetch-audit] Unmocked URL: ${method} ${url}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     return new Response(JSON.stringify(mock.body), {

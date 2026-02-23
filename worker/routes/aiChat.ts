@@ -807,19 +807,29 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         // Persist the merged intake state back to the conversation metadata
         // so that it persists across devices/refreshes.
         if (isIntakeMode && mergedIntakeState) {
-          try {
-            await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
-              metadata: {
-                ...conversationMetadata,
-                intakeConversationState: mergedIntakeState
+          const updateMetadata = async (attempts = 0) => {
+            try {
+              const latestConversation = await conversationService.getConversation(body.conversationId, conversation.practice_id);
+              const latestMetadata = (latestConversation?.user_info as Record<string, unknown>) || {};
+              await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
+                metadata: {
+                  ...latestMetadata,
+                  intakeConversationState: mergedIntakeState
+                }
+              });
+            } catch (metadataError) {
+              if (attempts < 1) {
+                // One retry for concurrent modification or transient errors
+                await updateMetadata(attempts + 1);
+              } else {
+                Logger.warn('Failed to persist merged intake state to conversation metadata after retries', {
+                  conversationId: body.conversationId,
+                  error: metadataError instanceof Error ? metadataError.message : String(metadataError)
+                });
               }
-            });
-          } catch (metadataError) {
-            Logger.warn('Failed to persist merged intake state to conversation metadata', {
-              conversationId: body.conversationId,
-              error: metadataError instanceof Error ? metadataError.message : String(metadataError)
-            });
-          }
+            }
+          };
+          await updateMetadata();
         }
 
         // Send the persisted message ID so the client can reconcile the

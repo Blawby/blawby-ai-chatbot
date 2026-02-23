@@ -185,6 +185,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const slimDrawerDragRef = useRef<{ pointerId: number | null; startY: number }>({ pointerId: null, startY: 0 });
   const slimDrawerOpenedAtRef = useRef(0);
   const ignoreNextSlimBackdropClickRef = useRef(false);
+
+  // Sync slim drawer refs synchronously during render
+  if (shouldShowSlimForm && slimDrawerOpenedAtRef.current === 0) {
+    slimDrawerOpenedAtRef.current = Date.now();
+    ignoreNextSlimBackdropClickRef.current = true;
+  } else if (!shouldShowSlimForm && slimDrawerOpenedAtRef.current !== 0) {
+    slimDrawerOpenedAtRef.current = 0;
+    ignoreNextSlimBackdropClickRef.current = false;
+  }
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -219,6 +228,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       }
     }
   }, [clearInput]);
+
+  // Return focus to chat input when slim form is dismissed
+  const prevShouldShowSlimFormRef = useRef(shouldShowSlimForm);
+  useEffect(() => {
+    if (prevShouldShowSlimFormRef.current && !shouldShowSlimForm) {
+      textareaRef.current?.focus();
+    }
+    prevShouldShowSlimFormRef.current = shouldShowSlimForm;
+  }, [shouldShowSlimForm]);
+
 
   const handleSubmit = () => {
     if (isChatInputLocked) return;
@@ -470,16 +489,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setReplyTarget(null);
   };
 
-  useEffect(() => {
-    if (shouldShowSlimForm) {
-      slimDrawerOpenedAtRef.current = Date.now();
-      // Prevent the opening click/tap from immediately dismissing the drawer via backdrop click-through.
-      ignoreNextSlimBackdropClickRef.current = true;
-      return;
-    }
-    slimDrawerOpenedAtRef.current = 0;
-    ignoreNextSlimBackdropClickRef.current = false;
-  }, [shouldShowSlimForm]);
+
 
   const dismissSlimForm = async (source: 'backdrop' | 'gesture' | 'manual' = 'manual') => {
     if (!onSlimFormDismiss || isDismissingSlimDrawer) return;
@@ -532,57 +542,63 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       <main className={mainClassName}>
         {canChat ? (
           <div className={frameClassName}>
-            {headerContent ? (
-              <div className="shrink-0">
-                {headerContent}
-              </div>
-            ) : null}
-            <div className="flex flex-1 min-h-0 flex-col">
-              {isPublicWorkspace && filteredMessages.length === 0 ? (
-                <div className={cn(
-                  'flex flex-col items-center justify-start px-6 text-center text-sm text-input-placeholder',
-                  shouldShowSlimForm ? 'pt-2 pb-0' : 'flex-1 pt-8'
-                )}>
-                  <p className="max-w-[300px]">
-                    {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
-                      ? practiceConfig.introMessage.trim()
-                      : t('chat.publicIntro')}
-                  </p>
+            <div 
+              className="flex flex-1 min-h-0 flex-col"
+              inert={shouldShowSlimForm ? true : undefined}
+              aria-hidden={shouldShowSlimForm ? true : undefined}
+            >
+              {headerContent ? (
+                <div className="shrink-0">
+                  {headerContent}
                 </div>
-              ) : (
-                <>
-                  <VirtualMessageList
-                    messages={messagesReady ? filteredMessages : []}
-                    conversationTitle={conversationTitle}
-                    practiceConfig={practiceConfig}
-                    isPublicWorkspace={isPublicWorkspace}
-                    onOpenSidebar={onOpenSidebar}
-                    onOpenPayment={handleOpenPayment}
-                    practiceId={practiceId}
-                    onReply={handleReply}
-                    onToggleReaction={onToggleReaction}
-                    onRequestReactions={onRequestReactions}
-                    onAuthPromptRequest={onAuthPromptRequest}
-                    intakeStatus={intakeStatus}
-                    intakeConversationState={intakeConversationState}
-                    hasSlimContactDraft={Boolean(slimContactDraft)}
-                    onQuickReply={handleQuickReply}
-                    onIntakeCtaResponse={onIntakeCtaResponse}
-                    onSubmitNow={handleSubmitNowAction}
-                    onBuildBrief={onBuildBrief}
-                    modeSelectorActions={onSelectMode ? {
-                      onAskQuestion: handleAskQuestion,
-                      onRequestConsultation: handleRequestConsultation
-                    } : undefined}
-                    leadReviewActions={leadReviewActions}
-                    hasMoreMessages={hasMoreMessages}
-                    isLoadingMoreMessages={isLoadingMoreMessages}
-                    onLoadMoreMessages={onLoadMoreMessages}
-                    showSkeleton={!messagesReady}
-                    compactLayout={shouldShowSlimForm}
-                  />
-                </>
-              )}
+              ) : null}
+              <div className="flex flex-1 min-h-0 flex-col">
+                {isPublicWorkspace && filteredMessages.length === 0 ? (
+                  <div className={cn(
+                    'flex flex-col items-center justify-start px-6 text-center text-sm text-input-placeholder',
+                    shouldShowSlimForm ? 'pt-2 pb-0' : 'flex-1 pt-8'
+                  )}>
+                    <p className="max-w-[300px]">
+                      {typeof practiceConfig?.introMessage === 'string' && practiceConfig.introMessage.trim()
+                        ? practiceConfig.introMessage.trim()
+                        : t('chat.publicIntro')}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <VirtualMessageList
+                      messages={messagesReady ? filteredMessages : []}
+                      conversationTitle={conversationTitle}
+                      practiceConfig={practiceConfig}
+                      isPublicWorkspace={isPublicWorkspace}
+                      onOpenSidebar={onOpenSidebar}
+                      onOpenPayment={handleOpenPayment}
+                      practiceId={practiceId}
+                      onReply={handleReply}
+                      onToggleReaction={onToggleReaction}
+                      onRequestReactions={onRequestReactions}
+                      onAuthPromptRequest={onAuthPromptRequest}
+                      intakeStatus={intakeStatus}
+                      intakeConversationState={intakeConversationState}
+                      hasSlimContactDraft={Boolean(slimContactDraft)}
+                      onQuickReply={handleQuickReply}
+                      onIntakeCtaResponse={onIntakeCtaResponse}
+                      onSubmitNow={handleSubmitNowAction}
+                      onBuildBrief={onBuildBrief}
+                      modeSelectorActions={onSelectMode ? {
+                        onAskQuestion: handleAskQuestion,
+                        onRequestConsultation: handleRequestConsultation
+                      } : undefined}
+                      leadReviewActions={leadReviewActions}
+                      hasMoreMessages={hasMoreMessages}
+                      isLoadingMoreMessages={isLoadingMoreMessages}
+                      onLoadMoreMessages={onLoadMoreMessages}
+                      showSkeleton={!messagesReady}
+                      compactLayout={shouldShowSlimForm}
+                    />
+                  </>
+                )}
+              </div>
             </div>
 
             {shouldShowSlimForm && onSlimFormContinue ? (

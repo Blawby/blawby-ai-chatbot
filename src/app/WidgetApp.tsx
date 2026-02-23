@@ -34,7 +34,7 @@ export function WidgetApp({
 
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
-  useEffect(() => { showErrorRef.current = showError; }, [showError]);
+  showErrorRef.current = showError;
 
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const effectiveSession = useMemo(() => {
@@ -183,6 +183,7 @@ export function WidgetApp({
       }
     } catch (error) {
        console.warn('[Widget] Failed to persist intake returning path', error);
+       throw error;
     }
   }, [effectiveIsAnonymous, intakeUuid, awaitingInvitePath, shouldShowAuthPrompt]);
 
@@ -280,6 +281,9 @@ export function WidgetApp({
           onIntakeCtaResponse={handleIntakeCtaResponse}
           slimContactDraft={slimContactDraft}
           onSlimFormContinue={handleSlimFormContinue}
+          onSlimFormDismiss={async () => {
+            setConversationMode(null);
+          }}
           onBuildBrief={handleBuildBrief}
           onSubmitNow={handleSubmitNow}
           isAnonymousUser={effectiveIsAnonymous}

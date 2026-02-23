@@ -50,8 +50,6 @@ import { linkConversationToUser } from '@/shared/lib/apiClient';
 const CHAT_PROTOCOL_VERSION = 1;
 const SOCKET_READY_TIMEOUT_MS = 8_000;
 const GAP_FETCH_LIMIT = 50;
-const MAX_GAP_FETCH_ATTEMPTS = 3;
-const GAP_FETCH_RETRY_DELAY_MS = 1_000;
 const MESSAGE_CACHE_LIMIT = 200;
 const RECONNECT_BASE_DELAY_MS = 800;
 const RECONNECT_MAX_DELAY_MS = 12_000;
@@ -564,10 +562,8 @@ export const useConversation = ({
         
         attempts = 0;
       } catch (error) {
-        attempts += 1;
-        if (attempts < MAX_GAP_FETCH_ATTEMPTS) { await new Promise(r => setTimeout(r, GAP_FETCH_RETRY_DELAY_MS * attempts)); continue; }
         onError?.(error instanceof Error ? error.message : 'Failed to recover message gap');
-        return;
+        throw error;
       }
     }
   }, [applyServerMessages, onError]);
