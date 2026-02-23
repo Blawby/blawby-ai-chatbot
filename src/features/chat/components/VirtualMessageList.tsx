@@ -560,11 +560,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
     useEffect(() => {
         // Update indices when new messages are added
-        if (isScrolledToBottomRef.current) {
+        const isNearTail = endIndex >= Math.max(0, dedupedMessages.length - 2);
+        if (isScrolledToBottomRef.current || isNearTail) {
             setEndIndex(dedupedMessages.length);
             setStartIndex(Math.max(0, dedupedMessages.length - BATCH_SIZE));
         }
-    }, [dedupedMessages.length]);
+    }, [dedupedMessages.length, endIndex]);
 
     useEffect(() => {
         // If server pagination is exhausted, show full local history instead of

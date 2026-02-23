@@ -17,6 +17,7 @@ const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
 const AI_TIMEOUT_MS = 8000;
+const AI_STREAM_READ_TIMEOUT_MS = 15000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
 const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
@@ -579,6 +580,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let accumulatedReply = '';
     let intakeFields: Record<string, unknown> | null = null;
     let quickReplies: string[] | null = null;
+    let emittedAnyToken = false;
 
     try {
       const aiResponse = await Promise.race([
@@ -599,19 +601,33 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const fallback = isIntakeMode ? buildIntakeFallbackReply(null) : EMPTY_REPLY_FALLBACK;
         accumulatedReply = fallback;
         write({ token: fallback });
+        emittedAnyToken = true;
       } else {
         // Read the SSE stream from OpenAI and re-emit each token to our client.
         // OpenAI streams newline-delimited `data: {...}` events.
         const reader = aiResponse.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let streamStalled = false;
 
         // Accumulate tool call argument chunks separately
         let toolCallName = '';
         let toolCallArgBuffer = '';
 
         while (true) {
-          const { done, value } = await reader.read();
+          const { done, value } = await Promise.race([
+            reader.read(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('AI_STREAM_STALL')), AI_STREAM_READ_TIMEOUT_MS)
+            )
+          ]).catch((error: unknown) => {
+            Logger.warn('AI stream read stalled or failed', {
+              conversationId: body.conversationId,
+              reason: error instanceof Error ? error.message : String(error)
+            });
+            streamStalled = true;
+            return { done: true, value: undefined };
+          });
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
@@ -650,6 +666,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             if (typeof delta.content === 'string' && delta.content.length > 0) {
               accumulatedReply += delta.content;
               write({ token: delta.content });
+              emittedAnyToken = true;
             }
 
             // Tool call argument chunk (intake mode)
@@ -665,6 +682,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           }
         }
 
+        if (streamStalled && !accumulatedReply.trim()) {
+          accumulatedReply = isIntakeMode ? buildIntakeFallbackReply(intakeFields) : EMPTY_REPLY_FALLBACK;
+          write({ token: accumulatedReply });
+          emittedAnyToken = true;
+        }
+
         // Flush any remaining buffer content
         if (buffer.trim() && buffer.trim() !== 'data: [DONE]') {
           try {
@@ -675,6 +698,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               if (typeof token === 'string' && token.length > 0) {
                 accumulatedReply += token;
                 write({ token });
+                emittedAnyToken = true;
               }
               // Handle tool calls in final buffer
               const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
@@ -712,6 +736,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         accumulatedReply = isIntakeMode && intakeFields
           ? buildIntakeFallbackReply(intakeFields)
           : EMPTY_REPLY_FALLBACK;
+      }
+      if (!emittedAnyToken && accumulatedReply.trim()) {
+        write({ token: accumulatedReply });
+        emittedAnyToken = true;
       }
 
       if (accumulatedReply !== EMPTY_REPLY_FALLBACK) {
