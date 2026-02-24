@@ -146,6 +146,38 @@ const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): strin
   return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
 };
 
+const buildOnboardingFallbackReply = (fields: Record<string, unknown> | null): string => {
+  if (!fields) return 'What would you like to set up first for your practice profile?';
+  if (typeof fields.website !== 'string' || fields.website.trim() === '') {
+    return 'If you have a website, share the URL and I can scan it to pre-fill your profile.';
+  }
+  if (typeof fields.name !== 'string' || fields.name.trim() === '') {
+    return "What's the name of your practice?";
+  }
+  if (typeof fields.description !== 'string' || fields.description.trim() === '') {
+    return 'What does your firm do or who do you serve?';
+  }
+  if (!Array.isArray(fields.services) || fields.services.length === 0) {
+    return 'What services or practice areas should clients be able to choose from?';
+  }
+  if (typeof fields.contactPhone !== 'string' || fields.contactPhone.trim() === '') {
+    return "What's your main phone number?";
+  }
+  if (typeof fields.businessEmail !== 'string' || fields.businessEmail.trim() === '') {
+    return "What's your business email?";
+  }
+  if (!isRecord(fields.address)) {
+    return "What's your office address?";
+  }
+  if (!hasNonEmptyStringField(fields.address, 'address') || !hasNonEmptyStringField(fields.address, 'city') || !hasNonEmptyStringField(fields.address, 'state')) {
+    return "What's your office address?";
+  }
+  if (typeof fields.introMessage !== 'string' || fields.introMessage.trim() === '') {
+    return 'What intro message would you like clients to see?';
+  }
+  return 'Great. Review the details and click Save all when you are ready.';
+};
+
 const shouldShowIntakeCtaForReply = (reply: string): boolean => {
   const normalized = reply.toLowerCase();
   if (
@@ -237,6 +269,52 @@ const INTAKE_TOOL = {
   }
 } as const;
 
+const ONBOARDING_TOOL = {
+  type: 'function',
+  function: {
+    name: 'update_practice_fields',
+    description: 'Extract structured practice onboarding fields from the conversation so far',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        description: { type: 'string' },
+        website: { type: 'string' },
+        contactPhone: { type: 'string' },
+        businessEmail: { type: 'string' },
+        address: {
+          type: 'object',
+          properties: {
+            address: { type: 'string' },
+            city: { type: 'string' },
+            state: { type: 'string' },
+            postalCode: { type: 'string' },
+            country: { type: 'string' },
+          },
+        },
+        services: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              description: { type: 'string' },
+              key: { type: 'string' },
+            },
+            required: ['name'],
+          },
+          maxItems: 20,
+        },
+        introMessage: { type: 'string' },
+        accentColor: { type: 'string' },
+        completionScore: { type: 'number', minimum: 0, maximum: 100 },
+        missingFields: { type: 'array', items: { type: 'string' } },
+        quickReplies: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+      },
+    },
+  },
+} as const;
+
 const buildIntakeSystemPrompt = (services: Array<{ name: string; key: string }>): string => {
   const serviceList = services.length > 0
     ? services.map((service) => `- ${service.name} (key: ${service.key})`).join('\n')
@@ -278,6 +356,93 @@ If the user says "yes", "sure", "go ahead", "ready", or similar in response to y
 missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing.
 
 Hard limit: after 8 user messages, set caseStrength to at minimum "developing" and show the summary regardless.`;
+};
+
+const buildOnboardingSystemPrompt = (): string => [
+  'You are a practice onboarding assistant helping a law firm set up their profile.',
+  'Collect profile details conversationally, one question at a time.',
+  'Prefer asking for website URL first because the app may pre-fill details from a website scan.',
+  'Do not ask for fields already present in PRACTICE_CONTEXT unless the user wants to change them.',
+  'After each response, call update_practice_fields with everything known so far.',
+  'When all key fields are collected, tell the user to review and click Save all.',
+  'Be concise and operational.',
+].join('\n');
+
+const readAnyString = (record: Record<string, unknown> | null | undefined, keys: string[]): string | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const normalizeOnboardingServices = (value: unknown): Array<{ name: string; description?: string; key?: string }> => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((service) => {
+      if (!isRecord(service)) return null;
+      const name = readAnyString(service, ['name', 'title']);
+      if (!name) return null;
+      const description = readAnyString(service, ['description']);
+      const key = readAnyString(service, ['key', 'id', 'service_key']);
+      return { name, ...(description ? { description } : {}), ...(key ? { key } : {}) };
+    })
+    .filter((row): row is { name: string; description?: string; key?: string } => Boolean(row));
+};
+
+const buildOnboardingProfileMetadata = (
+  details: Record<string, unknown> | null,
+  onboardingFields: Record<string, unknown> | null
+): Record<string, unknown> | null => {
+  const fieldAddress = isRecord(onboardingFields?.address) ? onboardingFields.address : null;
+  const detailAddress = details;
+
+  const name = readAnyString(onboardingFields, ['name']) ?? readAnyString(details, ['name', 'practiceName', 'practice_name']);
+  const description = readAnyString(onboardingFields, ['description']) ?? readAnyString(details, ['description']);
+  const introMessage = readAnyString(onboardingFields, ['introMessage']) ?? readAnyString(details, ['introMessage', 'intro_message']);
+  const website = readAnyString(onboardingFields, ['website']) ?? readAnyString(details, ['website']);
+  const contactPhone = readAnyString(onboardingFields, ['contactPhone']) ?? readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
+  const businessEmail = readAnyString(onboardingFields, ['businessEmail']) ?? readAnyString(details, ['businessEmail', 'business_email', 'email']);
+  const accentColor = readAnyString(onboardingFields, ['accentColor']) ?? readAnyString(details, ['accentColor', 'accent_color']);
+  const services = normalizeOnboardingServices(onboardingFields?.services ?? details?.services);
+  const hasServices = services.length > 0;
+
+  const addressLine1 = readAnyString(fieldAddress, ['address']) ?? readAnyString(detailAddress, ['address', 'addressLine1', 'address_line_1']);
+  const city = readAnyString(fieldAddress, ['city']) ?? readAnyString(detailAddress, ['city']);
+  const state = readAnyString(fieldAddress, ['state']) ?? readAnyString(detailAddress, ['state']);
+  const hasAddress = Boolean(addressLine1 && city && state);
+
+  const weightedChecks: Array<[string, boolean, number]> = [
+    ['name', Boolean(name), 10],
+    ['description', Boolean(description), 15],
+    ['services', hasServices, 20],
+    ['website', Boolean(website), 5],
+    ['contactPhone', Boolean(contactPhone), 10],
+    ['businessEmail', Boolean(businessEmail), 10],
+    ['address', hasAddress, 15],
+    ['introMessage', Boolean(introMessage), 15],
+    ['accentColor', Boolean(accentColor), 10],
+  ];
+  const totalWeight = weightedChecks.reduce((sum, [, , weight]) => sum + weight, 0);
+  const earnedWeight = weightedChecks.reduce((sum, [, done, weight]) => sum + (done ? weight : 0), 0);
+  const completionScore = Math.max(0, Math.min(100, Math.round((earnedWeight / totalWeight) * 100)));
+  const missingFields = weightedChecks.filter(([, done]) => !done).map(([field]) => field);
+
+  const summaryFields: Array<{ label: string; value: string }> = [];
+  if (name) summaryFields.push({ label: 'Practice name', value: name });
+  if (website) summaryFields.push({ label: 'Website', value: website.replace(/^https?:\/\//, '') });
+  if (contactPhone) summaryFields.push({ label: 'Phone', value: contactPhone });
+  if (businessEmail) summaryFields.push({ label: 'Email', value: businessEmail });
+
+  return {
+    completionScore,
+    missingFields,
+    summaryFields,
+    serviceNames: services.map((service) => service.name),
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -352,7 +517,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const body = await parseJsonBody(request) as {
     conversationId?: string;
     practiceSlug?: string;
-    mode?: 'ASK_QUESTION' | 'REQUEST_CONSULTATION';
+    mode?: 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
     intakeSubmitted?: boolean;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
   };
@@ -418,6 +583,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
   const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
   const effectiveMode = body.mode ?? storedMode;
+  const isOnboardingMode = effectiveMode === 'PRACTICE_ONBOARDING';
   const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
     ? conversationMetadata.intakeConversationState as Record<string, unknown>
     : null;
@@ -437,6 +603,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     body.intakeSubmitted !== true &&
     isPublic
   );
+  const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
@@ -453,8 +620,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   let shortCircuitReply: string | null = null;
   let shortCircuitIntakeReadyCta = false;
+  let shortCircuitOnboardingProfile: Record<string, unknown> | null = null;
 
-  if (!details || !isPublic) {
+  if (!details || (!isPublic && !isOnboardingMode)) {
     shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
   } else if (
     isIntakeMode &&
@@ -475,9 +643,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     shortCircuitReply = contactParts.length > 0
       ? `The practice has not published specific office hours here yet. You can contact them via ${contactParts.join(', ')}.`
       : 'The practice has not published specific office hours here yet. Please click "Request consultation" to connect with the practice.';
-  } else if (!isIntakeMode && hasLegalIntent) {
+  } else if (isGeneralQaMode && hasLegalIntent) {
     shortCircuitReply = LEGAL_DISCLAIMER;
-  } else if (!isIntakeMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
+  } else if (isGeneralQaMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
     const normalizedQuestion = normalizeText(lastUserMessage.content);
     const matchedService = serviceNames.find((service) => normalizedQuestion.includes(normalizeText(service)));
     shortCircuitReply = matchedService
@@ -486,6 +654,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   if (shortCircuitReply !== null) {
+    if (isOnboardingMode) {
+      shortCircuitOnboardingProfile = buildOnboardingProfileMetadata(details, null);
+    }
     const shouldPromptConsultation =
       !hasSlimContactDraft &&
       (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply));
@@ -506,6 +677,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       metadata: {
         source: 'ai',
         model: env.AI_MODEL || DEFAULT_AI_MODEL,
+        ...(shortCircuitOnboardingProfile ? { onboardingProfile: shortCircuitOnboardingProfile } : {}),
         ...(shortCircuitShouldShowIntakeCta ? { intakeReadyCta: true } : {}),
         ...(shouldPromptConsultation
           ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
@@ -525,7 +697,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     });
 
     return new Response(
-      JSON.stringify({ reply: shortCircuitReply, message: storedMessage, intakeFields: null }),
+      JSON.stringify({
+        reply: shortCircuitReply,
+        message: storedMessage,
+        intakeFields: null,
+        onboardingFields: null,
+        onboardingProfile: shortCircuitOnboardingProfile,
+      }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -545,7 +723,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const servicesForPrompt = normalizeServicesForPrompt(details);
   const systemPrompt = isIntakeMode
     ? buildIntakeSystemPrompt(servicesForPrompt)
-    : [
+    : isOnboardingMode
+      ? buildOnboardingSystemPrompt()
+      : [
         'You are an intake assistant for a law practice website.',
         'You may answer only operational questions using provided practice details.',
         `If user asks for legal advice: respond with the exact sentence: "${LEGAL_DISCLAIMER}" and recommend consultation.`,
@@ -570,6 +750,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   if (isIntakeMode) {
     requestPayload.tools = [INTAKE_TOOL];
     requestPayload.tool_choice = 'auto';
+  } else if (isOnboardingMode) {
+    requestPayload.tools = [ONBOARDING_TOOL];
+    requestPayload.tool_choice = 'auto';
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
@@ -579,7 +762,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const streamAndPersist = async () => {
     let accumulatedReply = '';
     let intakeFields: Record<string, unknown> | null = null;
+    let onboardingFields: Record<string, unknown> | null = null;
     let quickReplies: string[] | null = null;
+    let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
 
     try {
@@ -598,7 +783,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
         // Emit a fallback reply as a single token so the client still gets something
-        const fallback = isIntakeMode ? buildIntakeFallbackReply(null) : EMPTY_REPLY_FALLBACK;
+        const fallback = isIntakeMode
+          ? buildIntakeFallbackReply(null)
+          : isOnboardingMode
+            ? buildOnboardingFallbackReply(null)
+            : EMPTY_REPLY_FALLBACK;
         accumulatedReply = fallback;
         write({ token: fallback });
         emittedAnyToken = true;
@@ -615,7 +804,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         let toolCallArgBuffer = '';
 
         while (true) {
-          let timeoutTimer: any;
+	          let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
           const result = await Promise.race([
             reader.read().then((res) => {
               if (timeoutTimer) clearTimeout(timeoutTimer);
@@ -691,7 +880,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
 
         if (streamStalled && !accumulatedReply.trim()) {
-          accumulatedReply = isIntakeMode ? buildIntakeFallbackReply(intakeFields) : EMPTY_REPLY_FALLBACK;
+          accumulatedReply = isIntakeMode
+            ? buildIntakeFallbackReply(intakeFields)
+            : isOnboardingMode
+              ? buildOnboardingFallbackReply(onboardingFields)
+              : EMPTY_REPLY_FALLBACK;
           write({ token: accumulatedReply });
           emittedAnyToken = true;
         }
@@ -736,6 +929,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               error: error instanceof Error ? error.message : String(error)
             });
           }
+        } else if (toolCallName === 'update_practice_fields' && toolCallArgBuffer.length > 0) {
+          try {
+            onboardingFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
+          } catch (error) {
+            Logger.warn('Failed to parse streamed onboarding tool arguments', {
+              conversationId: body.conversationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
         }
       }
 
@@ -743,7 +945,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (!accumulatedReply.trim()) {
         accumulatedReply = isIntakeMode && intakeFields
           ? buildIntakeFallbackReply(intakeFields)
-          : EMPTY_REPLY_FALLBACK;
+          : isOnboardingMode && onboardingFields
+            ? buildOnboardingFallbackReply(onboardingFields)
+            : EMPTY_REPLY_FALLBACK;
       }
       if (!emittedAnyToken && accumulatedReply.trim()) {
         write({ token: accumulatedReply });
@@ -758,7 +962,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         ) {
           violations.push('missing_disclaimer');
         }
-        if (!isIntakeMode && countQuestions(accumulatedReply) > 1) {
+        if (!isIntakeMode && !isOnboardingMode && countQuestions(accumulatedReply) > 1) {
           violations.push('too_many_questions');
         }
         if (violations.length > 0) {
@@ -768,15 +972,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           });
           if (violations.includes('missing_disclaimer')) {
             accumulatedReply = isIntakeMode ? INTRO_INTAKE_DISCLAIMER_FALLBACK : EMPTY_REPLY_FALLBACK;
-          } else if (!isIntakeMode) {
+          } else if (!isIntakeMode && !isOnboardingMode) {
             accumulatedReply = EMPTY_REPLY_FALLBACK;
           }
         }
       }
 
-      // Extract quickReplies from intakeFields before persisting
-      if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
-        quickReplies = (intakeFields.quickReplies as unknown[])
+      const fieldsForQuickReplies = isIntakeMode ? intakeFields : (isOnboardingMode ? onboardingFields : null);
+      // Extract quickReplies from structured tool fields before persisting
+      if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
+        quickReplies = (fieldsForQuickReplies.quickReplies as unknown[])
           .filter((v): v is string => typeof v === 'string')
           .map((v) => v.trim())
           .filter((v) => v.length > 0)
@@ -786,6 +991,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (intakeFields && 'quickReplies' in intakeFields) {
         const { quickReplies: _q, ...rest } = intakeFields as Record<string, unknown>;
         intakeFields = rest;
+      }
+      if (onboardingFields && 'quickReplies' in onboardingFields) {
+        const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
+        onboardingFields = rest;
+      }
+      if (isOnboardingMode) {
+        onboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
       }
       if (intakeFields && typeof intakeFields.practiceArea === 'string') {
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
@@ -815,6 +1027,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       write({
         done: true,
         intakeFields: intakeFields ?? null,
+        onboardingFields: onboardingFields ?? null,
+        onboardingProfile: onboardingProfile ?? null,
         quickReplies: quickReplies ?? null,
       });
 
@@ -828,6 +1042,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           source: 'ai',
           model,
           ...(intakeFields ? { intakeFields } : {}),
+          ...(onboardingFields ? { onboardingFields } : {}),
+          ...(onboardingProfile ? { onboardingProfile } : {}),
           ...(quickReplies ? { quickReplies } : {}),
           ...(isIntakeMode && shouldShowIntakeCta ? { intakeReadyCta: true } : {}),
           ...(shouldPromptConsultation

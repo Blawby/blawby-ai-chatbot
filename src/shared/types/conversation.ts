@@ -10,7 +10,7 @@ export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
 
-export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION';
+export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
 
 export interface FirstMessageIntent {
   intent: ConversationMode | 'UNCLEAR';

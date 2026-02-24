@@ -16,7 +16,19 @@ import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardi
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
-import { CheckCircleIcon, LockClosedIcon, ShieldCheckIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import {
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  LockClosedIcon,
+  ShieldCheckIcon,
+  UserCircleIcon
+} from '@heroicons/react/24/outline';
+
+const maskStripeAccountId = (value?: string | null) => {
+  if (!value) return 'Not created';
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+};
 
 export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const { session } = useSessionContext();
@@ -141,18 +153,86 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
     }
   }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
 
+  const hasStripeAccount = Boolean(stripeStatus?.stripe_account_id);
   const detailsSubmitted = stripeStatus?.details_submitted === true;
+  const chargesEnabled = stripeStatus?.charges_enabled === true;
+  const payoutsEnabled = stripeStatus?.payouts_enabled === true;
+  const isReady = hasStripeAccount && payoutsEnabled;
+  const needsAction = hasStripeAccount && !detailsSubmitted;
+  const isPendingVerification = hasStripeAccount && detailsSubmitted && !payoutsEnabled;
+  const statusTone = isReady ? 'ready' : needsAction ? 'action' : isPendingVerification ? 'pending' : 'not_started';
+  const statusSummary = isReady
+    ? {
+        title: 'Stripe connected and ready',
+        description: 'Your practice can receive payments and payouts through Stripe.',
+        icon: CheckCircleIcon,
+        iconClassName: 'text-emerald-600 dark:text-emerald-400'
+      }
+    : needsAction
+    ? {
+        title: 'Stripe setup needs your attention',
+        description: 'Finish submitting your business and representative details to enable payouts.',
+        icon: ExclamationTriangleIcon,
+        iconClassName: 'text-amber-600 dark:text-amber-400'
+      }
+    : isPendingVerification
+    ? {
+        title: 'Verification in progress',
+        description: 'Stripe has your details. Payouts will unlock after verification is complete.',
+        icon: ShieldCheckIcon,
+        iconClassName: 'text-sky-600 dark:text-sky-400'
+      }
+    : null;
+
+  const businessEmail = currentPractice?.businessEmail || session?.user?.email || '';
+  const missingBusinessEmail = !businessEmail;
+
   return (
     <SettingsPageLayout title="Payouts" className={className} contentClassName="pb-8">
       <SettingSection title="External payout accounts">
-        {detailsSubmitted ? (
-          <div className="flex items-start gap-3 text-sm text-input-placeholder">
-            <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-              <CheckCircleIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            </span>
-            <p>
-              Your Blawby payout account is set up and ready to receive payments. You can now start sending invoices and receiving payments.
-            </p>
+        {hasStripeAccount && statusSummary ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                <statusSummary.icon className={`h-5 w-5 ${statusSummary.iconClassName}`} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-input-text">{statusSummary.title}</p>
+                <p className="text-sm text-input-placeholder">{statusSummary.description}</p>
+              </div>
+            </div>
+
+            <div className="glass-panel p-4">
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Stripe account</span>
+                  <span className="font-medium text-input-text">{maskStripeAccountId(stripeStatus?.stripe_account_id)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Charges</span>
+                  <span className="font-medium text-input-text">{chargesEnabled ? 'Enabled' : 'Pending verification'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Payouts</span>
+                  <span className="font-medium text-input-text">{payoutsEnabled ? 'Enabled' : 'Pending verification'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Status</span>
+                  <span className="font-medium text-input-text">
+                    {statusTone === 'ready'
+                      ? 'Ready'
+                      : statusTone === 'action'
+                      ? 'Action required'
+                      : statusTone === 'pending'
+                      ? 'Verification in progress'
+                      : 'Not started'}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-input-placeholder">
+                Bank accounts and payout schedules are managed in Stripe after onboarding.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -180,27 +260,41 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
                 Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
               </p>
             </div>
+            {missingBusinessEmail && (
+              <div className="flex items-start gap-3 text-sm text-input-placeholder">
+                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </span>
+                <p>
+                  Add a business email in your practice contact settings before starting Stripe verification.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {!detailsSubmitted && (
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          {!isReady && (
             <Button
               variant="primary"
               size="sm"
               onClick={handleSubmitDetails}
-              disabled={isSubmitting || isLoading}
+              disabled={isSubmitting || isLoading || missingBusinessEmail}
             >
-              {isSubmitting ? 'Preparing Stripe...' : 'Submit details'}
+              {isSubmitting ? 'Preparing Stripe...' : hasStripeAccount ? 'Continue Stripe setup' : 'Start Stripe setup'}
             </Button>
+          )}
+          {!isReady && (
             <SettingsHelperText>
-              You will be prompted to complete Stripe verification.
+              {missingBusinessEmail
+                ? 'Add a business email before starting Stripe verification.'
+                : 'You will be redirected to Stripe to complete or review verification.'}
             </SettingsHelperText>
-          </div>
-        )}
+          )}
+        </div>
       </SettingSection>
 
-      {stripeStatus && !detailsSubmitted && (
+      {stripeStatus && !isReady && (
         <>
           <SectionDivider />
           <div className="mt-4">

@@ -201,7 +201,11 @@ export function MainApp({
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
     const persistedMode = metadata?.mode;
-    if (persistedMode === 'ASK_QUESTION' || persistedMode === 'REQUEST_CONSULTATION') {
+    if (
+      persistedMode === 'ASK_QUESTION' ||
+      persistedMode === 'REQUEST_CONSULTATION' ||
+      persistedMode === 'PRACTICE_ONBOARDING'
+    ) {
       setConversationMode(persistedMode);
     }
   }, []);

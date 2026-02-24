@@ -281,6 +281,20 @@ export const useChatComposer = ({
             console.warn('[useChatComposer] Failed to apply intake fields from stream', err);
           });
         }
+        if (parsed.onboardingFields && typeof parsed.onboardingFields === 'object') {
+          setMessages(prev => prev.map(msg =>
+            msg.id === bubbleId
+              ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingFields: parsed.onboardingFields } }
+              : msg
+          ));
+        }
+        if (parsed.onboardingProfile && typeof parsed.onboardingProfile === 'object') {
+          setMessages(prev => prev.map(msg =>
+            msg.id === bubbleId
+              ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingProfile: parsed.onboardingProfile } }
+              : msg
+          ));
+        }
         return;
       }
       if (parsed.persisted === true && typeof parsed.messageId === 'string') {
@@ -352,7 +366,10 @@ export const useChatComposer = ({
     replyToMessageId?: string | null
   ) => {
     const activeMode = conversationMetadataRef.current?.mode ?? mode;
-    const shouldUseAi = activeMode === 'ASK_QUESTION' || activeMode === 'REQUEST_CONSULTATION';
+    const shouldUseAi =
+      activeMode === 'ASK_QUESTION' ||
+      activeMode === 'REQUEST_CONSULTATION' ||
+      activeMode === 'PRACTICE_ONBOARDING';
     const shouldClassifyIntent = activeMode === 'ASK_QUESTION';
     const hasUserMessages = messages.some(msg => msg.isUser);
     const trimmedMessage = message.trim();
@@ -456,8 +473,24 @@ export const useChatComposer = ({
             reply?: string;
             message?: ConversationMessage;
             intakeFields?: IntakeFieldsPayload | null;
+            onboardingFields?: Record<string, unknown> | null;
+            onboardingProfile?: Record<string, unknown> | null;
           };
           if (aiData.intakeFields) await applyIntakeFields(aiData.intakeFields);
+          if (aiData.onboardingFields) {
+            setMessages(prev => prev.map(msg =>
+              msg.id === bubbleId
+                ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingFields: aiData.onboardingFields ?? null } }
+                : msg
+            ));
+          }
+          if (aiData.onboardingProfile) {
+            setMessages(prev => prev.map(msg =>
+              msg.id === bubbleId
+                ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingProfile: aiData.onboardingProfile ?? null } }
+                : msg
+            ));
+          }
           // Let WebSocket deliver the persisted message — no local insertion needed
           if (aiData.message) return;
           const reply = (aiData.reply ?? '').trim();

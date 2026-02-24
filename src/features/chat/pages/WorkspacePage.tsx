@@ -18,7 +18,13 @@ import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { PracticeSetup, type BasicsFormValues, type ContactFormValues } from '@/features/practice-setup/components/PracticeSetup';
+import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
+import {
+  PracticeSetup,
+  type BasicsFormValues,
+  type ContactFormValues,
+  type OnboardingProgressSnapshot,
+} from '@/features/practice-setup/components/PracticeSetup';
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import { ContactForm } from '@/features/intake/components/ContactForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -107,7 +113,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 }) => {
   const { navigate } = useNavigation();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
-  const [, setDraftBasics] = useState<BasicsFormValues | null>(null);
+  const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
+  const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
+  const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressSnapshot | null>(null);
+  const [paymentPreference, setPaymentPreference] = useState<'yes' | 'no' | null>(null);
+  const [onboardingConversationId, setOnboardingConversationId] = useState<string | null>(null);
+  const onboardingConversationInitRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),
@@ -180,6 +191,41 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     enabled: shouldListConversations && Boolean(practiceId),
     allowAnonymous: workspace === 'public'
   });
+
+  useEffect(() => {
+    onboardingConversationInitRef.current = false;
+    setOnboardingConversationId(null);
+  }, [practiceId]);
+
+  const onboardingConversationFromList = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const match = conversations.find((conversation) => {
+      const mode = conversation.user_info?.mode;
+      return mode === 'PRACTICE_ONBOARDING';
+    });
+    return match?.id ?? null;
+  }, [conversations, isPracticeWorkspace]);
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || view !== 'home' || !practiceId) return;
+    if (isConversationsLoading) return;
+    if (onboardingConversationFromList) {
+      setOnboardingConversationId(onboardingConversationFromList);
+      onboardingConversationInitRef.current = true;
+      return;
+    }
+    if (onboardingConversationInitRef.current) return;
+    onboardingConversationInitRef.current = true;
+    void (async () => {
+      try {
+        const createdId = await onStartNewConversation('PRACTICE_ONBOARDING', undefined, { forceCreate: true });
+        setOnboardingConversationId(createdId);
+      } catch (error) {
+        onboardingConversationInitRef.current = false;
+        console.warn('[WorkspacePage] Failed to create onboarding conversation', error);
+      }
+    })();
+  }, [isConversationsLoading, isPracticeWorkspace, onboardingConversationFromList, onStartNewConversation, practiceId, view]);
 
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
@@ -297,13 +343,32 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const { currentPractice, updatePractice } = usePracticeManagement();
   const { session } = useSessionContext();
-  const { details: setupDetails, updateDetails: updateSetupDetails } = usePracticeDetails(currentPractice?.id ?? null, null, false);
+  const onboardingMessageHandling = useMessageHandling({
+    practiceId: currentPractice?.id ?? practiceId,
+    practiceSlug: practiceSlug ?? undefined,
+    conversationId: onboardingConversationId ?? undefined,
+    mode: 'PRACTICE_ONBOARDING',
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Onboarding chat error';
+      showError('Onboarding', message);
+    },
+  });
+  const {
+    details: setupDetails,
+    updateDetails: updateSetupDetails,
+    fetchDetails: fetchSetupDetails,
+  } = usePracticeDetails(currentPractice?.id ?? null, null, false);
   const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
   const { showSuccess, showError } = useToastContext();
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [justSavedServices, setJustSavedServices] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!currentPractice?.id) return;
+    void fetchSetupDetails();
+  }, [currentPractice?.id, fetchSetupDetails]);
 
   const forcePreviewReload = useCallback(() => {
     setPreviewReloadKey(prev => prev + 1);
@@ -479,6 +544,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     void saveServices(nextServices);
   }, [saveServices]);
 
+  const handleSaveOnboardingServices = useCallback(async (
+    nextServices: Array<{ name: string; description?: string; key?: string }>
+  ) => {
+    const apiServices = nextServices
+      .map((service) => ({
+        id: (service.key ?? service.name).trim(),
+        name: service.name.trim(),
+        ...(service.description?.trim() ? { description: service.description.trim() } : {}),
+      }))
+      .filter((service) => service.id && service.name);
+
+    await updateSetupDetails({ services: apiServices });
+    forcePreviewReload();
+  }, [forcePreviewReload, updateSetupDetails]);
+
   const organizationId = currentPractice?.id ?? null;
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
@@ -586,6 +666,82 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
 
   const payoutDetailsSubmitted = stripeStatus?.details_submitted === true;
+  const stripeHasAccount = Boolean(stripeStatus?.stripe_account_id);
+  const paymentQuestionAnswered = paymentPreference !== null || payoutDetailsSubmitted || stripeHasAccount;
+  const progressFields = onboardingProgress?.fields ?? {};
+  const persistedServiceCount = (() => {
+    const sources = [progressFields.services, setupDetails?.services, currentPractice?.services];
+    for (const source of sources) {
+      if (!Array.isArray(source)) continue;
+      const count = source.filter((service) => {
+        const row = (service ?? {}) as Record<string, unknown>;
+        const name = typeof row.name === 'string'
+          ? row.name
+          : (typeof row.title === 'string' ? row.title : '');
+        return name.trim().length > 0;
+      }).length;
+      if (count > 0) return count;
+    }
+    return 0;
+  })();
+  const strongName = (progressFields.name ?? draftBasics?.name ?? currentPractice?.name ?? '').trim();
+  const strongDescription = (progressFields.description ?? setupDetails?.description ?? currentPractice?.description ?? '').trim();
+  const strongServicesCount = Math.max(
+    persistedServiceCount,
+    servicesDraft.filter((service) => service.title.trim().length > 0).length,
+    setupStatus.servicesComplete ? 1 : 0
+  );
+  const strongLogoReady = Boolean(currentPractice?.logo);
+  const previewStrongReady = Boolean(
+    strongName &&
+    strongDescription &&
+    strongServicesCount > 0 &&
+    strongLogoReady &&
+    paymentQuestionAnswered
+  );
+  const showSidebarPreview = previewStrongReady && setupSidebarView === 'preview';
+  const previewGateChecklist = [
+    { key: 'name', label: 'Practice name', done: Boolean(strongName) },
+    { key: 'description', label: 'Description', done: Boolean(strongDescription) },
+    { key: 'services', label: 'Services', done: strongServicesCount > 0 },
+    { key: 'logo', label: 'Logo uploaded', done: strongLogoReady },
+    { key: 'payments', label: 'Payments preference answered', done: paymentQuestionAnswered },
+  ] as const;
+  const summaryRows = [
+    { label: 'Name', value: strongName || 'Not provided yet' },
+    { label: 'Description', value: strongDescription || 'Not provided yet' },
+    {
+      label: 'Services',
+      value: strongServicesCount > 0 ? `${strongServicesCount} added` : 'Not provided yet',
+    },
+    {
+      label: 'Website',
+      value: (progressFields.website ?? setupDetails?.website ?? currentPractice?.website ?? '').trim() || 'Not provided yet',
+    },
+    {
+      label: 'Phone',
+      value: (progressFields.contactPhone ?? setupDetails?.businessPhone ?? currentPractice?.businessPhone ?? '').trim() || 'Not provided yet',
+    },
+    {
+      label: 'Email',
+      value: (progressFields.businessEmail ?? setupDetails?.businessEmail ?? currentPractice?.businessEmail ?? '').trim() || 'Not provided yet',
+    },
+  ];
+
+  useEffect(() => {
+    if (stripeHasAccount || payoutDetailsSubmitted) {
+      setPaymentPreference((prev) => prev ?? 'yes');
+    }
+  }, [payoutDetailsSubmitted, stripeHasAccount]);
+
+  useEffect(() => {
+    if (previewStrongReady) {
+      setSetupSidebarView((prev) => (prev === 'info' || prev === 'preview' ? prev : 'preview'));
+      return;
+    }
+    setSetupSidebarView('info');
+  }, [previewStrongReady]);
+
   const payoutsSlot = (
     <div className="space-y-4 text-input-text">
       <div>
@@ -698,7 +854,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return (
         <div className="flex min-h-0 w-full flex-col lg:h-full lg:flex-row lg:overflow-hidden">
           {/* Left column */}
-          <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+          <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:overflow-hidden">
             <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
               <Page className="mx-auto w-full max-w-3xl flex-1">
                 <PracticeSetup
@@ -707,40 +863,160 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                   details={setupDetails ?? null}
                   onSaveBasics={handleSaveBasics}
                   onSaveContact={handleSaveContact}
+                  onSaveServices={handleSaveOnboardingServices}
                   servicesSlot={servicesSlot}
                   payoutsSlot={payoutsSlot}
                   logoUploading={logoUploading}
                   logoUploadProgress={logoUploadProgress}
                   onLogoChange={handleLogoChange}
                   onBasicsDraftChange={setDraftBasics}
+                  onProgressChange={setOnboardingProgress}
+                  chatAdapter={onboardingConversationId ? {
+                    messages: onboardingMessageHandling.messages,
+                    sendMessage: onboardingMessageHandling.sendMessage,
+                    messagesReady: onboardingMessageHandling.messagesReady,
+                    isSocketReady: onboardingMessageHandling.isSocketReady,
+                    hasMoreMessages: onboardingMessageHandling.hasMoreMessages,
+                    isLoadingMoreMessages: onboardingMessageHandling.isLoadingMoreMessages,
+                    onLoadMoreMessages: onboardingMessageHandling.loadMoreMessages,
+                    onToggleReaction: onboardingMessageHandling.toggleMessageReaction,
+                    onRequestReactions: onboardingMessageHandling.requestMessageReactions,
+                  } : null}
                 />
+                <div className="mt-4 glass-card p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-input-text">Right panel</div>
+                      <div className="text-xs text-input-placeholder">
+                        Switch between setup info and public preview.
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={setupSidebarView === 'info' ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => setSetupSidebarView('info')}
+                      >
+                        View info
+                      </Button>
+                      <Button
+                        variant={setupSidebarView === 'preview' ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => setSetupSidebarView('preview')}
+                        disabled={!previewStrongReady}
+                      >
+                        View preview
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </Page>
             </div>
           </div>
 
           {/* Right: Public Preview */}
-          <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:w-[420px] lg:shrink-0 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
+          <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
             <div className="relative flex w-full flex-col items-center gap-5">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
-              Public preview
+              {showSidebarPreview ? 'Public preview' : 'Setup progress'}
             </div>
-            <SegmentedToggle<PreviewTab>
-              className="w-full max-w-[360px]"
-              value={previewTab}
-              options={previewTabOptions.map((option) => ({
-                value: option.id,
-                label: option.label
-              }))}
-              onChange={setPreviewTab}
-              ariaLabel="Public preview tabs"
-            />
+            {showSidebarPreview ? (
+              <SegmentedToggle<PreviewTab>
+                className="w-full max-w-[360px]"
+                value={previewTab}
+                options={previewTabOptions.map((option) => ({
+                  value: option.id,
+                  label: option.label
+                }))}
+                onChange={setPreviewTab}
+                ariaLabel="Public preview tabs"
+              />
+            ) : null}
             <div className="relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden glass-card shadow-glass">
-              {renderPreviewContent()}
+              {showSidebarPreview ? (
+                renderPreviewContent()
+              ) : (
+                <div className="flex h-full w-full flex-col overflow-y-auto p-4 text-input-text">
+                  <div className="rounded-2xl border border-line-glass/30 bg-surface-panel/40 p-4">
+                    <div className="text-sm font-semibold">Minimum setup checklist</div>
+                    <div className="mt-3 space-y-2">
+                      {previewGateChecklist.map((item) => (
+                        <div key={item.key} className="flex items-center justify-between gap-3 text-sm">
+                          <span className={item.done ? 'text-input-text' : 'text-input-placeholder'}>
+                            {item.label}
+                          </span>
+                          <span className={item.done ? 'text-accent-500' : 'text-input-placeholder'}>
+                            {item.done ? 'Done' : 'Pending'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-line-glass/30 bg-surface-panel/30 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.28em] text-input-placeholder">
+                      Gathered so far
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {summaryRows.map((row) => (
+                        <div key={row.label} className="flex items-start justify-between gap-3 text-sm">
+                          <span className="text-input-placeholder">{row.label}</span>
+                          <span className="max-w-[60%] text-right text-input-text break-words">{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {onboardingProgress?.hasPendingSave ? (
+                      <p className="mt-3 text-xs text-input-placeholder">
+                        Unsaved AI suggestions are shown here. Click Save all in chat to apply them.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-line-glass/30 bg-surface-panel/30 p-4">
+                    <div className="text-sm font-semibold">Payments with Blawby</div>
+                    <p className="mt-1 text-xs text-input-placeholder">
+                      Verification takes about 5 minutes and unlocks consultation fees.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        variant={paymentPreference === 'yes' || stripeHasAccount ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => {
+                          setPaymentPreference('yes');
+                          if (!stripeHasAccount && !payoutDetailsSubmitted) {
+                            void handleStartStripeOnboarding();
+                          }
+                        }}
+                        disabled={stripeHasAccount || payoutDetailsSubmitted || isStripeSubmitting || isStripeLoading}
+                      >
+                        {stripeHasAccount ? 'Payments enabled' : (isStripeSubmitting ? 'Preparing Stripe…' : 'Yes, set up payments')}
+                      </Button>
+                      {!stripeHasAccount && !payoutDetailsSubmitted ? (
+                        <Button
+                          variant={paymentPreference === 'no' ? 'primary' : 'secondary'}
+                          size="sm"
+                          onClick={() => setPaymentPreference('no')}
+                          disabled={isStripeSubmitting}
+                        >
+                          Not now
+                        </Button>
+                      ) : null}
+                    </div>
+                    {(paymentPreference === 'yes' || stripeHasAccount) && stripeStatus && !payoutDetailsSubmitted ? (
+                      <div className="mt-3 glass-panel p-3">
+                        <StripeOnboardingStep
+                          status={stripeStatus}
+                          loading={isStripeLoading}
+                          showIntro={false}
+                          showInfoCard={false}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
               <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" aria-hidden="true" />
             </div>
-            <p className="max-w-xs text-center text-xs text-input-placeholder">
-              This live preview matches exactly what clients see on your public link.
-            </p>
             </div>
           </div>
         </div>

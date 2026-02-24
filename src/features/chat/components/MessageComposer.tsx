@@ -42,6 +42,8 @@ interface MessageComposerProps {
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
   footerActions?: preact.ComponentChildren;
+  hideAttachmentControls?: boolean;
+  hideMediaControls?: boolean;
 }
 
 const MessageComposer = ({
@@ -67,7 +69,9 @@ const MessageComposer = ({
   showStatusMessage = true,
   replyTo,
   onCancelReply,
-  footerActions
+  footerActions,
+  hideAttachmentControls = false,
+  hideMediaControls = false
 }: MessageComposerProps) => {
   const { t } = useTranslation(['auth', 'common']);
   const intakeStep = intakeStatus?.step;
@@ -184,7 +188,7 @@ const MessageComposer = ({
           )}
 
           <div className="message-composer-input-row">
-            {!isRecording && (
+            {!hideAttachmentControls && !isRecording && (
               <div className="flex-shrink-0">
                 <FileMenu
                   onFileSelect={handleFileSelect}
@@ -227,7 +231,7 @@ const MessageComposer = ({
             </div>
 
             <div className="flex items-center gap-2 flex-shrink-0">
-              {features.enableAudioRecording && (
+              {!hideMediaControls && features.enableAudioRecording && (
                 <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
               )}
             </div>

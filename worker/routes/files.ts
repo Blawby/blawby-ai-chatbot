@@ -583,16 +583,20 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const contentType = fileRecord?.mime_type || fileObject.httpMetadata?.contentType || 'application/octet-stream';
       headers.set('Content-Type', contentType);
       
-      // Handle Content-Disposition based on mime type
+      // Handle Content-Disposition based on mime type.
+      // Browser Fetch implementations may throw on non-ASCII header values, so always
+      // emit an ASCII fallback for filename= and carry Unicode in filename*=.
       const filename = fileRecord?.original_name || fileId;
-      const sanitizedFilename = filename.replace(/["\r\n]/g, ''); // Strip quotes and newlines
-      
-      if (contentType === 'image/svg+xml') {
-        // Force attachment for SVG files to prevent XSS
-        headers.set('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
-      } else {
-        headers.set('Content-Disposition', `inline; filename="${sanitizedFilename}"`);
-      }
+      const baseFilename = filename.replace(/["\r\n]/g, '');
+      const asciiFilename = baseFilename
+        .normalize('NFKD')
+        .replace(/[^\x20-\x7E]/g, '_')
+        .replace(/[;\\]/g, '_')
+        .trim() || 'file';
+      const encodedFilename = encodeURIComponent(baseFilename);
+      const dispositionType = contentType === 'image/svg+xml' ? 'attachment' : 'inline';
+      const contentDisposition = `${dispositionType}; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
+      headers.set('Content-Disposition', contentDisposition);
       
       if (fileRecord?.file_size) {
         headers.set('Content-Length', fileRecord.file_size.toString());

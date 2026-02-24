@@ -20,6 +20,7 @@ import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { getChatPatterns } from '../config/chatPatterns';
 import { cn } from '@/shared/utils/cn';
+import type { OnboardingActions } from './VirtualMessageList';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -105,6 +106,7 @@ export interface ChatContainerProps {
   onAuthPromptRequest?: () => void;
   onAuthPromptClose?: () => void;
   onAuthPromptSuccess?: () => void;
+  onboardingActions?: OnboardingActions;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -160,7 +162,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   authPromptCallbackUrl,
   onAuthPromptRequest,
   onAuthPromptClose,
-  onAuthPromptSuccess
+  onAuthPromptSuccess,
+  onboardingActions
 }) => {
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
@@ -551,6 +554,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                       onLoadMoreMessages={onLoadMoreMessages}
                       showSkeleton={!messagesReady}
                       compactLayout={false}
+                      onboardingActions={onboardingActions}
                     />
                   </>
                 )}

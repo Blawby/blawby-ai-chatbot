@@ -12,6 +12,19 @@ import { postSystemMessage } from '@/shared/lib/conversationApi';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
 
+export interface OnboardingActions {
+    onSaveAll?: () => void | Promise<void>;
+    onEditBasics?: () => void;
+    onEditContact?: () => void;
+    onLogoChange?: (files: FileList | File[]) => void;
+    logoUploading?: boolean;
+    logoUploadProgress?: number | null;
+    logoUrl?: string | null;
+    practiceName?: string;
+    isSaving?: boolean;
+    saveError?: string | null;
+}
+
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
     conversationTitle?: string | null;
@@ -60,6 +73,7 @@ interface VirtualMessageListProps {
     onLoadMoreMessages?: () => void | Promise<void>;
     showSkeleton?: boolean;
     compactLayout?: boolean;
+    onboardingActions?: OnboardingActions;
 }
 
 const BATCH_SIZE = 20;
@@ -93,7 +107,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     isLoadingMoreMessages,
     onLoadMoreMessages,
     showSkeleton = false,
-    compactLayout = false
+    compactLayout = false,
+    onboardingActions
 }) => {
     useEffect(() => {
         if (DEBUG_PAGINATION) {
@@ -724,6 +739,41 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const quickReplies = Array.isArray(message.metadata?.quickReplies)
                         ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
                         : undefined;
+                    const onboardingMetaFromMessage = (
+                        message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
+                    ) ? (message.metadata.onboardingProfile as Record<string, unknown>) : null;
+                    const onboardingMeta = onboardingMetaFromMessage;
+                    const onboardingProfile = onboardingMeta ? {
+                        completionScore: typeof onboardingMeta.completionScore === 'number' ? onboardingMeta.completionScore : undefined,
+                        missingFields: Array.isArray(onboardingMeta.missingFields)
+                            ? onboardingMeta.missingFields.filter((v): v is string => typeof v === 'string')
+                            : undefined,
+                        summaryFields: Array.isArray(onboardingMeta.summaryFields)
+                            ? onboardingMeta.summaryFields
+                                .filter((item): item is { label: string; value: string } => (
+                                    Boolean(item) &&
+                                    typeof item === 'object' &&
+                                    typeof (item as { label?: unknown }).label === 'string' &&
+                                    typeof (item as { value?: unknown }).value === 'string'
+                                ))
+                            : undefined,
+                        serviceNames: Array.isArray(onboardingMeta.serviceNames)
+                            ? onboardingMeta.serviceNames.filter((v): v is string => typeof v === 'string')
+                            : undefined,
+                        canSave: onboardingMeta.canSave === true || Boolean(onboardingActions?.onSaveAll),
+                        isSaving: onboardingActions?.isSaving,
+                        saveError: onboardingActions?.saveError ?? null,
+                        onSaveAll: onboardingActions?.onSaveAll,
+                        onEditBasics: onboardingActions?.onEditBasics,
+                        onEditContact: onboardingActions?.onEditContact,
+                        logo: onboardingActions?.onLogoChange ? {
+                            imageUrl: onboardingActions.logoUrl ?? null,
+                            name: onboardingActions.practiceName ?? 'Practice',
+                            uploading: onboardingActions.logoUploading === true,
+                            progress: onboardingActions.logoUploadProgress ?? null,
+                            onChange: onboardingActions.onLogoChange,
+                        } : undefined,
+                    } : undefined;
                     const intakeStrength = intakeConversationState?.caseStrength ?? null;
                     const fallbackIntakeReadyCta =
                         !message.isUser &&
@@ -791,6 +841,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onIntakeCtaResponse={onIntakeCtaResponse}
                                 onSubmitNow={onSubmitNow}
                                 onBuildBrief={onBuildBrief}
+                                onboardingProfile={onboardingProfile}
                             />
                         );
                     })}

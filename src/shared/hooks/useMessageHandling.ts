@@ -116,7 +116,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   // Derived state for UI orchestration
   const isConsultFlowActive = useMemo(() => {
     if (mode === 'REQUEST_CONSULTATION') return true;
-    if (mode === 'ASK_QUESTION' || mode === null) return false;
+    if (mode === 'ASK_QUESTION' || mode === 'PRACTICE_ONBOARDING' || mode === null) return false;
     return false;
   }, [mode]);
 

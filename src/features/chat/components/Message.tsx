@@ -110,6 +110,25 @@ interface MessageProps {
 	onBuildBrief?: () => void;
 	quickReplies?: string[];
 	onQuickReply?: (text: string) => void;
+	onboardingProfile?: {
+		completionScore?: number;
+		missingFields?: string[];
+		summaryFields?: Array<{ label: string; value: string }>;
+		serviceNames?: string[];
+		canSave?: boolean;
+		isSaving?: boolean;
+		saveError?: string | null;
+		onSaveAll?: () => void | Promise<void>;
+		onEditBasics?: () => void;
+		onEditContact?: () => void;
+		logo?: {
+			imageUrl: string | null;
+			name: string;
+			uploading: boolean;
+			progress: number | null;
+			onChange: (files: FileList | File[]) => void;
+		};
+	};
 	// Styling
 	className?: string;
 }
@@ -154,7 +173,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	showIntakeDecisionPrompt,
 	onBuildBrief,
 	quickReplies,
-	onQuickReply
+	onQuickReply,
+	onboardingProfile
 }) => {
 	const hasContent = Boolean(content);
 	const shouldShowIndicator = isLoading && !hasContent;
@@ -310,6 +330,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				onSubmitNow={onSubmitNow}
 				showIntakeDecisionPrompt={showIntakeDecisionPrompt}
 				onBuildBrief={onBuildBrief}
+				onboardingProfile={onboardingProfile}
 			/>
 				
 				{/* Attachments */}
