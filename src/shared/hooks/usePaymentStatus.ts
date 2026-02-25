@@ -119,7 +119,6 @@ export const usePaymentStatus = ({
       }
     } catch (error) {
       processedPaymentUuidsRef.current.delete(uuid);
-      const message = error instanceof Error ? error.message : 'Payment confirmation failed.';
       console.warn('[usePaymentStatus] Failed to persist payment confirmation message', error);
       onError?.(error);
       throw error;
@@ -203,11 +202,11 @@ export const usePaymentStatus = ({
     return () => { cancelled = true; controller.abort(); };
   }, [
     conversationId,
-    latestIntakeSubmission.intakeUuid,
-    latestIntakeSubmission.paymentRequired,
+    latestIntakeSubmission,
     onError,
     postPaymentConfirmation,
     practiceId,
+    practiceName,
   ]);
 
   return {

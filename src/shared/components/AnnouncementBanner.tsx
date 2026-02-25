@@ -19,28 +19,31 @@ interface AnnouncementBannerProps {
   className?: string;
 }
 
-const toneStyles: Record<AnnouncementTone, { container: string; title: string; body: string }> = {
+const toneStyles: Record<AnnouncementTone, { container: string; title: string; body: string; rail: string }> = {
   warning: {
-    container: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100',
-    title: 'text-amber-900 dark:text-amber-100',
-    body: 'text-amber-800 dark:text-amber-200'
+    container: 'border-line-glass/40 bg-surface-panel/60 text-input-text backdrop-blur-xl shadow-glass',
+    title: 'text-input-text',
+    body: 'text-input-placeholder',
+    rail: 'bg-amber-500/70'
   },
   info: {
-    container: 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100',
-    title: 'text-blue-900 dark:text-blue-100',
-    body: 'text-blue-800 dark:text-blue-200'
+    container: 'border-line-glass/40 bg-surface-panel/60 text-input-text backdrop-blur-xl shadow-glass',
+    title: 'text-input-text',
+    body: 'text-input-placeholder',
+    rail: 'bg-sky-500/70'
   },
   success: {
-    container: 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100',
-    title: 'text-emerald-900 dark:text-emerald-100',
-    body: 'text-emerald-800 dark:text-emerald-200'
+    container: 'border-line-glass/40 bg-surface-panel/60 text-input-text backdrop-blur-xl shadow-glass',
+    title: 'text-input-text',
+    body: 'text-input-placeholder',
+    rail: 'bg-emerald-500/70'
   }
 };
 
 const flatToneStyles: Record<AnnouncementTone, string> = {
-  warning: 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100',
-  info: 'bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-100',
-  success: 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
+  warning: 'border border-line-glass/30 bg-surface-panel/40 text-input-text backdrop-blur-xl',
+  info: 'border border-line-glass/30 bg-surface-panel/40 text-input-text backdrop-blur-xl',
+  success: 'border border-line-glass/30 bg-surface-panel/40 text-input-text backdrop-blur-xl'
 };
 
 const AnnouncementBanner = ({
@@ -54,13 +57,14 @@ const AnnouncementBanner = ({
 }: AnnouncementBannerProps) => {
   const styles = toneStyles[tone];
   const containerClassName = variant === 'flat'
-    ? `w-full px-4 py-2 ${flatToneStyles[tone]} ${className ?? ''}`.trim()
-    : `w-full rounded-xl border px-4 py-3 shadow-sm ${styles.container} ${className ?? ''}`.trim();
+    ? `relative w-full overflow-hidden rounded-2xl px-4 py-2 ${flatToneStyles[tone]} ${className ?? ''}`.trim()
+    : `relative w-full overflow-hidden rounded-2xl border px-4 py-3 ${styles.container} ${className ?? ''}`.trim();
 
   return (
     <div className={containerClassName}>
+      <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${styles.rail}`} aria-hidden="true" />
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
+        <div className="space-y-1 pl-1">
           <p className={`text-sm font-semibold ${styles.title}`}>{title}</p>
           {description && <p className={`text-sm ${styles.body}`}>{description}</p>}
           {children}

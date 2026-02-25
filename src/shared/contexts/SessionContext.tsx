@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useRef } from 'preact/compat';
+import { createContext, useContext, useEffect, useRef, useMemo } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { useActiveMemberRole, useTypedSession } from '@/shared/lib/authClient';
+import { useTypedSession } from '@/shared/lib/authClient';
 import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
 
 export interface SessionContextValue {
@@ -24,7 +24,6 @@ export interface SessionContextValue {
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 type SessionData = ReturnType<typeof useTypedSession>['data'];
-type ActiveMemberRoleState = ReturnType<typeof useActiveMemberRole> | null;
 
 const getActivePracticeId = (sessionData: SessionData | null | undefined): string | null => {
   const sessionRecord = sessionData?.session as Record<string, unknown> | undefined;
@@ -41,12 +40,10 @@ const buildSessionContextValue = ({
   sessionData,
   isPending,
   error,
-  activeMemberRoleState
 }: {
   sessionData: SessionData | null | undefined;
   isPending: boolean;
   error: unknown;
-  activeMemberRoleState?: ActiveMemberRoleState;
 }): SessionContextValue => {
   const userRecord = (sessionData?.user as unknown as Record<string, unknown> | undefined) ?? undefined;
   const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
@@ -57,11 +54,14 @@ const buildSessionContextValue = ({
         ? userRecord.stripe_customer_id
         : null) ?? null;
   const activePracticeId = getActivePracticeId(sessionData);
-  const activeMemberRole = activeMemberRoleState?.data?.role ?? null;
-  const activeMemberRoleLoading = activeMemberRoleState?.isPending ?? false;
 
   // Parse backend routing claims if present (PR #101)
   const routingClaims = parseRoutingClaims(sessionData);
+
+  // Trust backend claims for role if available, otherwise fallback to null.
+  // This eliminates the need for useActiveMemberRole() which triggered an extra API call.
+  const activeMemberRole = routingClaims?.active_membership_role ?? null;
+  const activeMemberRoleLoading = false;
 
   return {
     session: sessionData ?? null,
@@ -76,85 +76,9 @@ const buildSessionContextValue = ({
   };
 };
 
-function AuthenticatedSessionProvider({
-  children,
-  sessionData,
-  isPending,
-  error,
-  sessionKey
-}: {
-  children: ComponentChildren;
-  sessionData: SessionData | null | undefined;
-  isPending: boolean;
-  error: unknown;
-  sessionKey: string | null;
-}) {
-  const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
-  const activePracticeId = getActivePracticeId(sessionData);
-
-  // Only fetch role when we have an active practice context.
-  // Avoids noisy 400s from Better Auth organization role endpoint on public/onboarding routes.
-  if (!sessionKey || isAnonymous || !activePracticeId) {
-    const value = buildSessionContextValue({ sessionData, isPending, error });
-    return (
-      <SessionContext.Provider value={value}>
-        {children}
-      </SessionContext.Provider>
-    );
-  }
-
-  return (
-    <AuthenticatedSessionProviderWithRole
-      sessionData={sessionData}
-      isPending={isPending}
-      error={error}
-      sessionKey={sessionKey}
-      activePracticeId={activePracticeId}
-    >
-      {children}
-    </AuthenticatedSessionProviderWithRole>
-  );
-}
-
-function AuthenticatedSessionProviderWithRole({
-  children,
-  sessionData,
-  isPending,
-  error,
-  sessionKey,
-  activePracticeId
-}: {
-  children: ComponentChildren;
-  sessionData: SessionData | null | undefined;
-  isPending: boolean;
-  error: unknown;
-  sessionKey: string;
-  activePracticeId: string;
-}) {
-  const activeMemberRoleState = useActiveMemberRole();
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!sessionKey || !activePracticeId) return;
-
-    const refetch = activeMemberRoleState?.refetch;
-    if (typeof refetch !== 'function') return;
-    void refetch({ query: { organizationId: activePracticeId } });
-  }, [activeMemberRoleState?.refetch, activePracticeId, sessionKey]);
-
-  const value = buildSessionContextValue({ sessionData, isPending, error, activeMemberRoleState });
-
-  return (
-    <SessionContext.Provider value={value}>
-      {children}
-    </SessionContext.Provider>
-  );
-}
-
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
 
-  const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
   const sessionKey =
     sessionData?.user?.id ??
     (sessionData?.session as { id?: string } | undefined)?.id ??
@@ -182,25 +106,12 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     }
   }, [sessionKey]);
 
-  if (isAnonymous) {
-    const value = buildSessionContextValue({ sessionData, isPending, error });
-
-    return (
-      <SessionContext.Provider value={value}>
-        {children}
-      </SessionContext.Provider>
-    );
-  }
+  const value = useMemo(() => buildSessionContextValue({ sessionData, isPending, error }), [sessionData, isPending, error]);
 
   return (
-    <AuthenticatedSessionProvider
-      sessionData={sessionData}
-      isPending={isPending}
-      error={error}
-      sessionKey={sessionKey}
-    >
+    <SessionContext.Provider value={value}>
       {children}
-    </AuthenticatedSessionProvider>
+    </SessionContext.Provider>
   );
 }
 

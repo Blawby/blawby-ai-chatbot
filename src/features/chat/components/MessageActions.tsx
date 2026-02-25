@@ -9,9 +9,7 @@ import { DocumentIcon } from "@heroicons/react/24/outline";
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { Button } from '@/shared/ui/Button';
 import type { IntakeConversationState } from '@/shared/types/intake';
-import { LogoUploadInput } from '@/shared/ui/input';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
-import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -98,6 +96,7 @@ interface MessageActionsProps {
 			onChange: (files: FileList | File[]) => void;
 		};
 	};
+	isLast?: boolean;
 	className?: string;
 }
 
@@ -122,6 +121,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	showIntakeDecisionPrompt,
 	onBuildBrief,
 	onboardingProfile,
+	isLast,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
@@ -140,15 +140,15 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		return 'good';
 	})() as 'none' | 'weak' | 'basic' | 'good' | 'strong';
 	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
-	const canShowNotYet = (intakeConversationState?.notYetCount ?? 0) < 2;
-	const ctaPrimaryLabel = strengthTier === 'strong'
+	const _canShowNotYet = (intakeConversationState?.notYetCount ?? 0) < 2;
+	const _ctaPrimaryLabel = strengthTier === 'strong'
 		? t('chat.cta.submit')
 		: strengthTier === 'good'
 			? t('chat.cta.reviewSubmit')
 			: strengthTier === 'basic'
 				? t('chat.continue')
 				: t('chat.cta.continue');
-	const ctaSecondaryLabel = strengthTier === 'strong'
+	const _ctaSecondaryLabel = strengthTier === 'strong'
 		? t('chat.cta.addMore')
 		: strengthTier === 'good'
 			? t('chat.cta.addMore')
@@ -230,7 +230,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					)}
 				</div>
 			)}
-			{quickReplies && quickReplies.length > 0 && onQuickReply && (
+			{isLast && quickReplies && quickReplies.length > 0 && onQuickReply && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
 						<Button
@@ -245,101 +245,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					))}
 				</div>
 			)}
-			{onboardingProfile && (
+			{isLast && onboardingProfile && (
 				<div className="mt-3 space-y-3">
-					{typeof onboardingProfile.completionScore === 'number' && (
-						<SettingsHelperText className="block">
-							Profile completion: {Math.max(0, Math.min(100, onboardingProfile.completionScore))}%
-						</SettingsHelperText>
-					)}
-					{Array.isArray(onboardingProfile.missingFields) && onboardingProfile.missingFields.length > 0 && (
-						<div className="flex flex-wrap gap-2">
-							{onboardingProfile.missingFields.map((field) => (
-								<Button
-									key={field}
-									type="button"
-									variant="secondary"
-									size="xs"
-									className="pointer-events-none opacity-80"
-								>
-									{field}
-								</Button>
-							))}
-						</div>
-					)}
-					{Array.isArray(onboardingProfile.summaryFields) && onboardingProfile.summaryFields.length > 0 && (
-						<div className="rounded-xl border border-[rgb(var(--line-glass)/0.15)] bg-[rgb(var(--line-glass)/0.06)] p-3">
-							<div className="space-y-2">
-								{onboardingProfile.summaryFields.map((item) => (
-									<div key={item.label} className="flex items-start justify-between gap-3 text-sm">
-										<span className="text-input-placeholder">{item.label}</span>
-										<span className="text-right text-input-text">{item.value}</span>
-									</div>
-								))}
-								{Array.isArray(onboardingProfile.serviceNames) && onboardingProfile.serviceNames.length > 0 && (
-									<div className="pt-1">
-										<div className="mb-1 text-xs text-input-placeholder">Services</div>
-										<div className="flex flex-wrap gap-2">
-											{onboardingProfile.serviceNames.slice(0, 8).map((name) => (
-												<Button
-													key={name}
-													type="button"
-													variant="secondary"
-													size="xs"
-													className="pointer-events-none"
-												>
-													{name}
-												</Button>
-											))}
-											{onboardingProfile.serviceNames.length > 8 && (
-												<span className="self-center text-xs text-input-placeholder">
-													+{onboardingProfile.serviceNames.length - 8} more
-												</span>
-											)}
-										</div>
-									</div>
-								)}
-							</div>
-							<div className="mt-3 flex flex-wrap gap-2">
-								{onboardingProfile.onEditBasics && (
-									<Button variant="secondary" size="sm" onClick={onboardingProfile.onEditBasics}>
-										Edit basics
-									</Button>
-								)}
-								{onboardingProfile.onEditContact && (
-									<Button variant="secondary" size="sm" onClick={onboardingProfile.onEditContact}>
-										Edit contact
-									</Button>
-								)}
-								{onboardingProfile.onSaveAll && onboardingProfile.canSave && (
-									<Button
-										variant="primary"
-										size="sm"
-										onClick={onboardingProfile.onSaveAll}
-										disabled={onboardingProfile.isSaving}
-									>
-										{onboardingProfile.isSaving ? 'Saving...' : 'Save all'}
-									</Button>
-								)}
-							</div>
-						</div>
-					)}
-					{onboardingProfile.logo && (
-						<div className="rounded-xl border border-[rgb(var(--line-glass)/0.15)] bg-[rgb(var(--line-glass)/0.04)] p-3">
-							<SettingsHelperText className="mb-2 block">Upload your logo</SettingsHelperText>
-							<LogoUploadInput
-								imageUrl={onboardingProfile.logo.imageUrl}
-								name={onboardingProfile.logo.name}
-								label="Practice logo"
-								description="Square image, max 5 MB."
-								accept="image/*"
-								multiple={false}
-								onChange={onboardingProfile.logo.onChange}
-								disabled={onboardingProfile.logo.uploading}
-								progress={onboardingProfile.logo.uploading ? onboardingProfile.logo.progress : null}
-							/>
-						</div>
-					)}
 					{onboardingProfile.saveError && (
 						<SettingsNotice variant="danger">
 							{onboardingProfile.saveError}

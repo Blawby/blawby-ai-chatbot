@@ -14,7 +14,7 @@ import { Button } from '@/shared/ui/Button';
 import { SegmentedToggle } from '@/shared/ui/input';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
-import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
+import { fetchLatestConversationMessage, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
@@ -24,28 +24,27 @@ import {
   type BasicsFormValues,
   type ContactFormValues,
   type OnboardingProgressSnapshot,
+  type OnboardingSaveActionsSnapshot,
 } from '@/features/practice-setup/components/PracticeSetup';
+import SetupInfoPanel from '@/features/practice-setup/components/SetupInfoPanel';
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
+import { CompletionRing } from '@/shared/ui/CompletionRing';
 import { ContactForm } from '@/features/intake/components/ContactForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { ServicesEditor } from '@/features/services/components/ServicesEditor';
-import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
-import type { Service } from '@/features/services/types';
-import { resolveServiceDetails as resolveServiceEditorDetails } from '@/features/services/utils/serviceNormalization';
-import { getServiceDetailsForSave } from '@/features/services/utils';
-import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardingStep';
+import { PlaceholderPage } from '@/shared/components/PlaceholderPage';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { createConnectedAccount, getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
 
-type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients';
 type PreviewTab = 'home' | 'messages' | 'intake';
 
 interface WorkspacePageProps {
@@ -62,7 +61,7 @@ interface WorkspacePageProps {
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
-    options?: { forceCreate?: boolean }
+    options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
   ) => Promise<string>;
   chatView: ComponentChildren;
   mattersView?: ComponentChildren;
@@ -116,8 +115,27 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
   const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressSnapshot | null>(null);
+  const [onboardingSaveActions, setOnboardingSaveActions] = useState<OnboardingSaveActionsSnapshot>({
+    canSave: false,
+    isSaving: false,
+    saveError: null,
+  });
+  const handleOnboardingSaveActionsChange = useCallback((next: OnboardingSaveActionsSnapshot) => {
+    setOnboardingSaveActions((prev) => {
+      if (
+        prev.canSave === next.canSave &&
+        prev.isSaving === next.isSaving &&
+        prev.saveError === next.saveError &&
+        prev.onSaveAll === next.onSaveAll
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
   const [paymentPreference, setPaymentPreference] = useState<'yes' | 'no' | null>(null);
   const [onboardingConversationId, setOnboardingConversationId] = useState<string | null>(null);
+  const [onboardingConversationRetryTick, setOnboardingConversationRetryTick] = useState(0);
   const onboardingConversationInitRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
@@ -191,10 +209,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     enabled: shouldListConversations && Boolean(practiceId),
     allowAnonymous: workspace === 'public'
   });
+  const { session, isPending: isSessionPending } = useSessionContext();
 
   useEffect(() => {
     onboardingConversationInitRef.current = false;
     setOnboardingConversationId(null);
+    setOnboardingConversationRetryTick(0);
   }, [practiceId]);
 
   const onboardingConversationFromList = useMemo(() => {
@@ -206,9 +226,48 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return match?.id ?? null;
   }, [conversations, isPracticeWorkspace]);
 
+  const createOnboardingConversation = useCallback(async (): Promise<string> => {
+    if (!practiceId) throw new Error('Practice context is required');
+    const userId = session?.user?.id;
+    if (!userId) throw new SessionNotReadyError();
+
+    const params = new URLSearchParams({ practiceId });
+    const response = await fetch(`/api/conversations?${params.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        participantUserIds: [userId],
+        metadata: { source: 'chat', mode: 'PRACTICE_ONBOARDING', title: 'Practice setup' },
+        practiceId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json() as { success?: boolean; data?: { id?: string }; error?: string };
+    const conversationId = data.data?.id;
+    if (!data.success || !conversationId) {
+      throw new Error(data.error || 'Failed to create onboarding conversation');
+    }
+
+    await updateConversationMetadata(conversationId, practiceId, {
+      mode: 'PRACTICE_ONBOARDING',
+      title: 'Practice setup',
+      source: 'chat',
+    });
+    return conversationId;
+  }, [practiceId, session?.user?.id]);
+
   useEffect(() => {
-    if (!isPracticeWorkspace || view !== 'home' || !practiceId) return;
+    if (!isPracticeWorkspace || view !== 'setup' || !practiceId) return;
+    if (isSessionPending) return;
+    if (!session?.user?.id) return;
     if (isConversationsLoading) return;
+    if (onboardingConversationId) return;
     if (onboardingConversationFromList) {
       setOnboardingConversationId(onboardingConversationFromList);
       onboardingConversationInitRef.current = true;
@@ -218,14 +277,26 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     onboardingConversationInitRef.current = true;
     void (async () => {
       try {
-        const createdId = await onStartNewConversation('PRACTICE_ONBOARDING', undefined, { forceCreate: true });
+        const createdId = await createOnboardingConversation();
         setOnboardingConversationId(createdId);
+        void refreshConversations();
       } catch (error) {
         onboardingConversationInitRef.current = false;
-        console.warn('[WorkspacePage] Failed to create onboarding conversation', error);
+        const isSessionNotReady =
+          (error instanceof Error && error.name === 'SessionNotReadyError') ||
+          (typeof error === 'object' && error !== null && 'name' in error && (error as { name?: unknown }).name === 'SessionNotReadyError');
+        if (isSessionNotReady) {
+          // Background onboarding thread creation can race session hydration.
+          // Retry shortly on a state tick so the effect re-runs deterministically.
+          setTimeout(() => {
+            setOnboardingConversationRetryTick((tick) => tick + 1);
+          }, 500);
+        } else {
+          console.warn('[WorkspacePage] Failed to create onboarding conversation', error);
+        }
       }
     })();
-  }, [isConversationsLoading, isPracticeWorkspace, onboardingConversationFromList, onStartNewConversation, practiceId, view]);
+  }, [createOnboardingConversation, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, session?.user?.id, view]);
 
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
@@ -244,6 +315,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     if (view === 'conversation' || conversations.length === 0 || !practiceId) {
+      return;
+    }
+    if (workspace === 'practice' && (isSessionPending || !session?.user?.id)) {
       return;
     }
     let isMounted = true;
@@ -281,7 +355,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [practiceId, conversations, view]);
+  }, [practiceId, conversations, isSessionPending, session?.user?.id, view, workspace]);
 
   const recentMessage = useMemo(() => {
     const fallbackPracticeName = typeof practiceName === 'string'
@@ -342,16 +416,17 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [practiceLogo, practiceName, conversationPreviews, conversations, filteredMessages]);
 
   const { currentPractice, updatePractice } = usePracticeManagement();
-  const { session } = useSessionContext();
+  const { showSuccess, showError } = useToastContext();
+  const handleOnboardingMessageError = useCallback((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'Onboarding chat error';
+    showError('Onboarding', message);
+  }, [showError]);
   const onboardingMessageHandling = useMessageHandling({
     practiceId: currentPractice?.id ?? practiceId,
     practiceSlug: practiceSlug ?? undefined,
     conversationId: onboardingConversationId ?? undefined,
     mode: 'PRACTICE_ONBOARDING',
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Onboarding chat error';
-      showError('Onboarding', message);
-    },
+    onError: handleOnboardingMessageError,
   });
   const {
     details: setupDetails,
@@ -359,10 +434,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     fetchDetails: fetchSetupDetails,
   } = usePracticeDetails(currentPractice?.id ?? null, null, false);
   const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
-  const { showSuccess, showError } = useToastContext();
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
-  const [justSavedServices, setJustSavedServices] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
   useEffect(() => {
@@ -374,7 +447,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setPreviewReloadKey(prev => prev + 1);
   }, []);
 
-  const handleSaveBasics = async (values: BasicsFormValues) => {
+  const handleSaveBasics = useCallback(async (
+    values: BasicsFormValues,
+    options?: { suppressSuccessToast?: boolean }
+  ) => {
     if (!currentPractice) {
       const error = new Error('No active practice selected');
       showError('Select a practice first', 'Choose a practice before editing basics.');
@@ -413,18 +489,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         });
       }
       if (Object.keys(practiceUpdates).length > 0 || introChanged || accentChanged) {
-        showSuccess('Basics updated', 'Your public profile reflects the newest info.');
+        if (!options?.suppressSuccessToast) {
+          showSuccess('Basics updated', 'Your public profile reflects the newest info.');
+        }
         forcePreviewReload();
       } else {
-        showSuccess('Up to date', 'Your firm basics already match these details.');
+        if (!options?.suppressSuccessToast) {
+          showSuccess('Up to date', 'Your firm basics already match these details.');
+        }
       }
     } catch (error) {
       showError('Basics update failed', error instanceof Error ? error.message : 'Unable to save basics.');
       throw error;
     }
-  };
+  }, [currentPractice, forcePreviewReload, setupDetails?.accentColor, setupDetails?.introMessage, showError, showSuccess, updatePractice, updateSetupDetails]);
 
-  const handleSaveContact = async (values: ContactFormValues) => {
+  const handleSaveContact = useCallback(async (
+    values: ContactFormValues,
+    options?: { suppressSuccessToast?: boolean }
+  ) => {
     if (!currentPractice) {
       const error = new Error('No active practice selected');
       showError('Select a practice first', 'Choose a practice before editing contact info.');
@@ -443,7 +526,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       country: ''
     };
     try {
-      await updateSetupDetails({
+      const { detailsPayload } = buildPracticeProfilePayloads({
         website: normalize(values.website),
         businessEmail: normalize(values.businessEmail),
         businessPhone: normalize(values.businessPhone),
@@ -454,13 +537,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         postalCode: normalize(address.postalCode ?? ''),
         country: normalize(address.country ?? '')
       });
-      showSuccess('Contact info updated', 'Clients and receipts will use your latest details.');
+      await updateSetupDetails(detailsPayload);
+      if (!options?.suppressSuccessToast) {
+        showSuccess('Contact info updated', 'Clients and receipts will use your latest details.');
+      }
       forcePreviewReload();
     } catch (error) {
       showError('Contact update failed', error instanceof Error ? error.message : 'Unable to save contact info.');
       throw error;
     }
-  };
+  }, [currentPractice, forcePreviewReload, showError, showSuccess, updateSetupDetails]);
 
   const handleLogoChange = async (files: FileList | File[]) => {
     if (!currentPractice) return;
@@ -482,68 +568,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
-  const initialServiceDetails = useMemo(
-    () => resolveServiceEditorDetails(setupDetails ?? undefined, currentPractice ?? undefined),
-    [setupDetails, currentPractice]
-  );
-  const [servicesDraft, setServicesDraft] = useState<Service[]>(initialServiceDetails);
-  useEffect(() => {
-    if (justSavedServices) {
-      const draftKey = JSON.stringify(getServiceDetailsForSave(servicesDraft));
-      const initialKey = JSON.stringify(getServiceDetailsForSave(initialServiceDetails));
-      if (draftKey === initialKey) {
-        setJustSavedServices(false);
-      }
-      return;
-    }
-    setServicesDraft(initialServiceDetails);
-  }, [initialServiceDetails, justSavedServices, servicesDraft]);
-  const servicesSaveKeyRef = useRef('');
-  const servicesToastAtRef = useRef(0);
-  const [servicesError, setServicesError] = useState<string | null>(null);
-  const [servicesSaving, setServicesSaving] = useState(false);
-  const servicesToastCooldownMs = 4000;
-
-  const saveServices = useCallback(async (nextServices: Service[]) => {
-    if (!currentPractice) return;
-    const details = getServiceDetailsForSave(nextServices);
-    const apiServices = details
-      .map(({ id, title, description }) => ({
-        id: id.trim(),
-        name: title.trim(),
-        ...(description.trim() ? { description: description.trim() } : {})
-      }))
-      .filter((service) => service.id && service.name);
-    const payloadKey = JSON.stringify(apiServices);
-    if (payloadKey === servicesSaveKeyRef.current) {
-      return;
-    }
-    setServicesSaving(true);
-    try {
-      await updateSetupDetails({ services: apiServices });
-      servicesSaveKeyRef.current = payloadKey;
-      setServicesError(null);
-      const now = Date.now();
-      if (now - servicesToastAtRef.current > servicesToastCooldownMs) {
-        showSuccess('Services updated', 'Clients will now see these intake options.');
-        servicesToastAtRef.current = now;
-        forcePreviewReload();
-        setJustSavedServices(true);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update services';
-      setServicesError(message);
-      showError('Services update failed', message);
-    } finally {
-      setServicesSaving(false);
-    }
-  }, [currentPractice, forcePreviewReload, showError, showSuccess, updateSetupDetails]);
-
-  const handleServicesEditorChange = useCallback((nextServices: Service[]) => {
-    setServicesDraft(nextServices);
-    void saveServices(nextServices);
-  }, [saveServices]);
-
   const handleSaveOnboardingServices = useCallback(async (
     nextServices: Array<{ name: string; description?: string; key?: string }>
   ) => {
@@ -555,7 +579,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }))
       .filter((service) => service.id && service.name);
 
-    await updateSetupDetails({ services: apiServices });
+    const { detailsPayload } = buildPracticeProfilePayloads({ services: apiServices });
+    await updateSetupDetails(detailsPayload);
     forcePreviewReload();
   }, [forcePreviewReload, updateSetupDetails]);
 
@@ -644,27 +669,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     forcePreviewReload();
   }, [showSuccess, forcePreviewReload]);
 
-  const servicesSlot = (
-    <div className="space-y-4 text-input-text">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">Services & intake</p>
-        <p className="text-xl font-semibold">What can clients request?</p>
-      </div>
-      <ServicesEditor
-        services={servicesDraft}
-        onChange={handleServicesEditorChange}
-        catalog={SERVICE_CATALOG}
-      />
-      {servicesError ? (
-        <p className="text-sm text-red-600 dark:text-red-300">{servicesError}</p>
-      ) : (
-        <p className="text-xs text-input-placeholder">
-          {servicesSaving ? 'Saving changes…' : 'Updates apply automatically to your public intake form.'}
-        </p>
-      )}
-    </div>
-  );
-
   const payoutDetailsSubmitted = stripeStatus?.details_submitted === true;
   const stripeHasAccount = Boolean(stripeStatus?.stripe_account_id);
   const paymentQuestionAnswered = paymentPreference !== null || payoutDetailsSubmitted || stripeHasAccount;
@@ -684,11 +688,27 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return 0;
   })();
+  const persistedServiceNames = (() => {
+    const sources = [progressFields.services, setupDetails?.services, currentPractice?.services];
+    for (const source of sources) {
+      if (!Array.isArray(source)) continue;
+      const names = source
+        .map((service) => {
+          const row = (service ?? {}) as Record<string, unknown>;
+          const name = typeof row.name === 'string'
+            ? row.name
+            : (typeof row.title === 'string' ? row.title : '');
+          return name.trim();
+        })
+        .filter((name): name is string => name.length > 0);
+      if (names.length > 0) return names;
+    }
+    return [] as string[];
+  })();
   const strongName = (progressFields.name ?? draftBasics?.name ?? currentPractice?.name ?? '').trim();
   const strongDescription = (progressFields.description ?? setupDetails?.description ?? currentPractice?.description ?? '').trim();
   const strongServicesCount = Math.max(
     persistedServiceCount,
-    servicesDraft.filter((service) => service.title.trim().length > 0).length,
     setupStatus.servicesComplete ? 1 : 0
   );
   const strongLogoReady = Boolean(currentPractice?.logo);
@@ -699,34 +719,68 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     strongLogoReady &&
     paymentQuestionAnswered
   );
-  const showSidebarPreview = previewStrongReady && setupSidebarView === 'preview';
-  const previewGateChecklist = [
-    { key: 'name', label: 'Practice name', done: Boolean(strongName) },
-    { key: 'description', label: 'Description', done: Boolean(strongDescription) },
-    { key: 'services', label: 'Services', done: strongServicesCount > 0 },
-    { key: 'logo', label: 'Logo uploaded', done: strongLogoReady },
-    { key: 'payments', label: 'Payments preference answered', done: paymentQuestionAnswered },
-  ] as const;
-  const summaryRows = [
-    { label: 'Name', value: strongName || 'Not provided yet' },
-    { label: 'Description', value: strongDescription || 'Not provided yet' },
+  const showSidebarPreview = (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) && setupSidebarView === 'preview';
+  const websiteValue = (progressFields.website ?? setupDetails?.website ?? currentPractice?.website ?? '').trim();
+  const phoneValue = (progressFields.contactPhone ?? setupDetails?.businessPhone ?? currentPractice?.businessPhone ?? '').trim();
+  const emailValue = (progressFields.businessEmail ?? setupDetails?.businessEmail ?? currentPractice?.businessEmail ?? '').trim();
+  const introMessageValue = (progressFields.introMessage ?? setupDetails?.introMessage ?? currentPractice?.introMessage ?? '').trim();
+  const accentColorValue = (progressFields.accentColor ?? setupDetails?.accentColor ?? currentPractice?.accentColor ?? '').trim();
+  const addressCandidate = (progressFields.address ?? setupDetails?.address ?? currentPractice?.address ?? null) as Record<string, unknown> | null;
+  const addressLine1 = typeof addressCandidate?.address === 'string'
+    ? addressCandidate.address.trim()
+    : typeof addressCandidate?.line1 === 'string'
+      ? addressCandidate.line1.trim()
+      : '';
+  const addressCity = typeof addressCandidate?.city === 'string' ? addressCandidate.city.trim() : '';
+  const addressState = typeof addressCandidate?.state === 'string' ? addressCandidate.state.trim() : '';
+  const addressPostal = typeof addressCandidate?.postalCode === 'string'
+    ? addressCandidate.postalCode.trim()
+    : typeof addressCandidate?.postal_code === 'string'
+      ? addressCandidate.postal_code.trim()
+      : '';
+  const addressParts = [addressLine1, [addressCity, addressState].filter(Boolean).join(', '), addressPostal].filter(Boolean);
+  const addressValue = addressParts.join(' ').trim();
+  const paymentStatusValue = stripeHasAccount || payoutDetailsSubmitted
+    ? 'Enabled'
+    : paymentPreference === 'yes'
+      ? 'Yes (setup started)'
+      : paymentPreference === 'no'
+        ? 'Not now'
+        : 'Not answered';
+  const fieldRows = [
+    { key: 'name', label: 'Practice name', done: Boolean(strongName), value: strongName || 'Not provided' },
+    { key: 'description', label: 'Description', done: Boolean(strongDescription), value: strongDescription || 'Not provided' },
     {
+      key: 'services',
       label: 'Services',
-      value: strongServicesCount > 0 ? `${strongServicesCount} added` : 'Not provided yet',
+      done: strongServicesCount > 0,
+      value: strongServicesCount > 0 ? `${strongServicesCount} added` : 'Not provided',
+      listValues: persistedServiceNames.length > 0 ? persistedServiceNames : undefined,
     },
-    {
-      label: 'Website',
-      value: (progressFields.website ?? setupDetails?.website ?? currentPractice?.website ?? '').trim() || 'Not provided yet',
-    },
-    {
-      label: 'Phone',
-      value: (progressFields.contactPhone ?? setupDetails?.businessPhone ?? currentPractice?.businessPhone ?? '').trim() || 'Not provided yet',
-    },
-    {
-      label: 'Email',
-      value: (progressFields.businessEmail ?? setupDetails?.businessEmail ?? currentPractice?.businessEmail ?? '').trim() || 'Not provided yet',
-    },
-  ];
+    { key: 'website', label: 'Website', done: Boolean(websiteValue), value: websiteValue || 'Not provided' },
+    { key: 'contactPhone', label: 'Phone', done: Boolean(phoneValue), value: phoneValue || 'Not provided' },
+    { key: 'businessEmail', label: 'Email', done: Boolean(emailValue), value: emailValue || 'Not provided' },
+    { key: 'address', label: 'Address', done: Boolean(addressLine1 && addressCity && addressState), value: addressValue || 'Not provided' },
+    { key: 'introMessage', label: 'Intro message', done: Boolean(introMessageValue), value: introMessageValue || 'Not provided' },
+    { key: 'accentColor', label: 'Accent color', done: Boolean(accentColorValue), value: accentColorValue || 'Not provided' },
+    { key: 'logo', label: 'Logo', done: strongLogoReady, value: strongLogoReady ? 'Uploaded' : 'Not uploaded' },
+    { key: 'payouts', label: 'Payments', done: paymentQuestionAnswered, value: paymentStatusValue },
+  ] as const;
+  const setupInfoPanelProps = {
+    fieldRows,
+    canSaveAll: onboardingSaveActions.canSave,
+    isSavingAll: onboardingSaveActions.isSaving,
+    saveAllError: onboardingSaveActions.saveError,
+    onSaveAll: onboardingSaveActions.onSaveAll,
+    paymentPreference,
+    stripeHasAccount,
+    payoutDetailsSubmitted,
+    isStripeSubmitting,
+    isStripeLoading,
+    stripeStatus,
+    onSetPaymentPreference: setPaymentPreference,
+    onStartStripeOnboarding: handleStartStripeOnboarding,
+  } as const;
 
   useEffect(() => {
     if (stripeHasAccount || payoutDetailsSubmitted) {
@@ -735,55 +789,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [payoutDetailsSubmitted, stripeHasAccount]);
 
   useEffect(() => {
-    if (previewStrongReady) {
+    if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
       setSetupSidebarView((prev) => (prev === 'info' || prev === 'preview' ? prev : 'preview'));
       return;
     }
     setSetupSidebarView('info');
-  }, [previewStrongReady]);
-
-  const payoutsSlot = (
-    <div className="space-y-4 text-input-text">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">Payouts</p>
-        <p className="text-xl font-semibold">Connect Stripe to accept payments</p>
-        <p className="text-sm text-input-placeholder">
-          Verification takes about 5 minutes and unlocks consultation fees.
-        </p>
-      </div>
-      <div className="glass-panel p-4">
-        {payoutDetailsSubmitted ? (
-          <p className="text-sm text-input-text">
-            Your Stripe account is connected. Clients can pay consultation fees before intake.
-          </p>
-        ) : (
-          <>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleStartStripeOnboarding}
-              disabled={isStripeSubmitting || isStripeLoading}
-            >
-              {isStripeSubmitting ? 'Preparing Stripe…' : 'Start Stripe onboarding'}
-            </Button>
-            <p className="mt-2 text-xs text-input-placeholder">
-              We’ll open Stripe’s secure verification flow in a new tab.
-            </p>
-          </>
-        )}
-        {stripeStatus && !payoutDetailsSubmitted && (
-          <div className="mt-4 glass-panel p-3">
-            <StripeOnboardingStep
-              status={stripeStatus}
-              loading={isStripeLoading}
-              showIntro={false}
-              showInfoCard={false}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  }, [previewStrongReady, onboardingProgress?.completionScore]);
 
   if (!allowed) {
     return null;
@@ -827,7 +838,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const renderContent = () => {
-    if (workspace === 'practice' && view === 'home') {
+    if (workspace === 'practice' && view === 'setup') {
       const renderPreviewContent = () => {
         if (previewTab === 'intake') {
           return (
@@ -856,21 +867,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           {/* Left column */}
           <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:overflow-hidden">
             <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
-              <Page className="mx-auto w-full max-w-3xl flex-1">
+              <Page className="w-full flex-1">
                 <PracticeSetup
                   status={setupStatus}
+                  payoutsCompleteOverride={stripeHasAccount || payoutDetailsSubmitted}
                   practice={currentPractice}
                   details={setupDetails ?? null}
                   onSaveBasics={handleSaveBasics}
                   onSaveContact={handleSaveContact}
                   onSaveServices={handleSaveOnboardingServices}
-                  servicesSlot={servicesSlot}
-                  payoutsSlot={payoutsSlot}
                   logoUploading={logoUploading}
                   logoUploadProgress={logoUploadProgress}
                   onLogoChange={handleLogoChange}
                   onBasicsDraftChange={setDraftBasics}
                   onProgressChange={setOnboardingProgress}
+                  onSaveActionsChange={handleOnboardingSaveActionsChange}
                   chatAdapter={onboardingConversationId ? {
                     messages: onboardingMessageHandling.messages,
                     sendMessage: onboardingMessageHandling.sendMessage,
@@ -883,33 +894,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                     onRequestReactions: onboardingMessageHandling.requestMessageReactions,
                   } : null}
                 />
-                <div className="mt-4 glass-card p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-input-text">Right panel</div>
-                      <div className="text-xs text-input-placeholder">
-                        Switch between setup info and public preview.
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={setupSidebarView === 'info' ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => setSetupSidebarView('info')}
-                      >
-                        View info
-                      </Button>
-                      <Button
-                        variant={setupSidebarView === 'preview' ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => setSetupSidebarView('preview')}
-                        disabled={!previewStrongReady}
-                      >
-                        View preview
-                      </Button>
-                    </div>
-                  </div>
-                </div>
               </Page>
             </div>
           </div>
@@ -917,8 +901,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           {/* Right: Public Preview */}
           <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
             <div className="relative flex w-full flex-col items-center gap-5">
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
-              {showSidebarPreview ? 'Public preview' : 'Setup progress'}
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
+                {showSidebarPreview ? 'Public preview' : 'Setup progress'}
+              </div>
+              {!showSidebarPreview && (
+                <CompletionRing score={onboardingProgress?.completionScore ?? 0} size={46} strokeWidth={3} />
+              )}
             </div>
             {showSidebarPreview ? (
               <SegmentedToggle<PreviewTab>
@@ -932,90 +921,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                 ariaLabel="Public preview tabs"
               />
             ) : null}
-            <div className="relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden glass-card shadow-glass">
+            <div
+              className={cn(
+                'relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden',
+                showSidebarPreview ? 'glass-card shadow-glass' : 'glass-panel'
+              )}
+            >
               {showSidebarPreview ? (
                 renderPreviewContent()
               ) : (
-                <div className="flex h-full w-full flex-col overflow-y-auto p-4 text-input-text">
-                  <div className="rounded-2xl border border-line-glass/30 bg-surface-panel/40 p-4">
-                    <div className="text-sm font-semibold">Minimum setup checklist</div>
-                    <div className="mt-3 space-y-2">
-                      {previewGateChecklist.map((item) => (
-                        <div key={item.key} className="flex items-center justify-between gap-3 text-sm">
-                          <span className={item.done ? 'text-input-text' : 'text-input-placeholder'}>
-                            {item.label}
-                          </span>
-                          <span className={item.done ? 'text-accent-500' : 'text-input-placeholder'}>
-                            {item.done ? 'Done' : 'Pending'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-line-glass/30 bg-surface-panel/30 p-4">
-                    <div className="text-xs font-semibold uppercase tracking-[0.28em] text-input-placeholder">
-                      Gathered so far
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {summaryRows.map((row) => (
-                        <div key={row.label} className="flex items-start justify-between gap-3 text-sm">
-                          <span className="text-input-placeholder">{row.label}</span>
-                          <span className="max-w-[60%] text-right text-input-text break-words">{row.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {onboardingProgress?.hasPendingSave ? (
-                      <p className="mt-3 text-xs text-input-placeholder">
-                        Unsaved AI suggestions are shown here. Click Save all in chat to apply them.
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-line-glass/30 bg-surface-panel/30 p-4">
-                    <div className="text-sm font-semibold">Payments with Blawby</div>
-                    <p className="mt-1 text-xs text-input-placeholder">
-                      Verification takes about 5 minutes and unlocks consultation fees.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        variant={paymentPreference === 'yes' || stripeHasAccount ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => {
-                          setPaymentPreference('yes');
-                          if (!stripeHasAccount && !payoutDetailsSubmitted) {
-                            void handleStartStripeOnboarding();
-                          }
-                        }}
-                        disabled={stripeHasAccount || payoutDetailsSubmitted || isStripeSubmitting || isStripeLoading}
-                      >
-                        {stripeHasAccount ? 'Payments enabled' : (isStripeSubmitting ? 'Preparing Stripe…' : 'Yes, set up payments')}
-                      </Button>
-                      {!stripeHasAccount && !payoutDetailsSubmitted ? (
-                        <Button
-                          variant={paymentPreference === 'no' ? 'primary' : 'secondary'}
-                          size="sm"
-                          onClick={() => setPaymentPreference('no')}
-                          disabled={isStripeSubmitting}
-                        >
-                          Not now
-                        </Button>
-                      ) : null}
-                    </div>
-                    {(paymentPreference === 'yes' || stripeHasAccount) && stripeStatus && !payoutDetailsSubmitted ? (
-                      <div className="mt-3 glass-panel p-3">
-                        <StripeOnboardingStep
-                          status={stripeStatus}
-                          loading={isStripeLoading}
-                          showIntro={false}
-                          showInfoCard={false}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
+                <SetupInfoPanel {...setupInfoPanelProps} embedded className="h-full overflow-y-auto p-4" />
               )}
-              <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" aria-hidden="true" />
+              {showSidebarPreview ? (
+                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" aria-hidden="true" />
+              ) : null}
             </div>
             </div>
           </div>
@@ -1025,6 +944,29 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
     switch (view) {
       case 'home':
+        if (workspace === 'practice') {
+          return (
+            <div className="flex h-full min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1">
+                <PlaceholderPage
+                  title={`${practiceName || currentPractice?.name || 'Practice'} dashboard`}
+                  sections={[
+                    {
+                      title: 'Practice setup',
+                      content: (
+                        <div className="pt-1">
+                          <Button size="sm" onClick={() => navigate(`${workspaceBasePath}/setup`)}>
+                            Open setup
+                          </Button>
+                        </div>
+                      )
+                    }
+                  ]}
+                />
+              </div>
+            </div>
+          );
+        }
         return (
           <WorkspaceHomeView
             practiceName={practiceName}
@@ -1084,6 +1026,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             </div>
           </div>
         );
+      case 'setup':
+        return (
+          <WorkspaceHomeView
+            practiceName={practiceName}
+            practiceLogo={practiceLogo}
+            onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+            onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
+            recentMessage={recentMessage}
+            onOpenRecentMessage={handleOpenRecentMessage}
+            consultationTitle={undefined}
+            consultationDescription={undefined}
+            consultationCta={undefined}
+            showConsultationCard={!intakeContactStarted}
+          />
+        );
       case 'conversation':
       default:
         return (
@@ -1097,13 +1054,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const hideBottomNav = isClientFacingWorkspace && (view === 'list' || view === 'conversation');
   const showBottomNav = workspace !== 'practice'
     ? !hideBottomNav
-    : (showClientTabs || showPracticeTabs || view === 'home' || view === 'list' || view === 'matters' || view === 'clients');
+    : (showClientTabs || showPracticeTabs || view === 'home' || view === 'setup' || view === 'list' || view === 'matters' || view === 'clients');
   const activeTab = view === 'list' || view === 'conversation'
     ? 'messages'
     : view === 'matters'
     ? 'matters'
     : view === 'clients'
     ? 'clients'
+    : view === 'setup'
+    ? 'home'
     : view;
   const handleSelectTab = (tab: WorkspaceNavTab) => {
     if (tab === 'messages') {

@@ -1,5 +1,6 @@
 import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
+import { Logger } from "../utils/logger";
 
 export interface AuthenticatedUser {
   id: string;
@@ -24,6 +25,7 @@ export interface AuthContext {
 type CachedSession = {
   value: { user: AuthenticatedUser; session: { id: string; expiresAt: Date } };
   expiresAt: number;
+  staleExpiresAt: number;
 };
 
 type CachedMembership = {
@@ -32,6 +34,7 @@ type CachedMembership = {
 };
 
 const SESSION_CACHE_TTL_MS = 30 * 1000;
+const SESSION_STALE_TTL_MS = 5 * 60 * 1000;
 const SESSION_CACHE_MAX_ENTRIES = 200;
 const sessionCache = new Map<string, CachedSession>();
 const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
@@ -188,7 +191,10 @@ export function parseAuthSessionPayload(
 
 export async function validateSessionWithRemoteServer(
   cookie: string,
-  env: Env
+  env: Env,
+  options?: {
+    allowStaleOnTimeout?: boolean;
+  }
 ): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null }> {
   const cacheKey = getSessionCacheKey(cookie);
   const cached = sessionCache.get(cacheKey);
@@ -235,10 +241,13 @@ export async function validateSessionWithRemoteServer(
 
         const ttlFromSession = parsed.session.expiresAt.getTime() - Date.now();
         const ttl = Math.min(SESSION_CACHE_TTL_MS, ttlFromSession);
-        if (ttl > 0) {
+        const staleTtl = Math.min(SESSION_STALE_TTL_MS, ttlFromSession);
+        if (ttl > 0 || staleTtl > 0) {
+          const now = Date.now();
           sessionCache.set(cacheKey, {
             value: parsed,
-            expiresAt: Date.now() + ttl
+            expiresAt: now + Math.max(0, ttl),
+            staleExpiresAt: now + Math.max(0, staleTtl)
           });
           if (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
             for (const [key, entry] of sessionCache) {
@@ -261,6 +270,15 @@ export async function validateSessionWithRemoteServer(
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
+          if (options?.allowStaleOnTimeout) {
+            const staleCached = sessionCache.get(cacheKey);
+            if (staleCached && staleCached.staleExpiresAt > Date.now()) {
+              Logger.warn('Using stale cached auth session after auth timeout', {
+                cacheKeyPrefix: cacheKey.slice(0, 24)
+              });
+              return staleCached.value;
+            }
+          }
           throw HttpErrors.gatewayTimeout('Authentication server timeout - please try again');
         }
         if (error instanceof HttpError) {
@@ -290,6 +308,25 @@ export async function validateSessionWithRemoteServer(
   return validationPromise;
 }
 
+const isHotChatPath = (request: Request): boolean => {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method.toUpperCase();
+
+  if (path === '/api/ai/chat' && method === 'POST') return true;
+  if (path === '/api/ai/intent' && method === 'POST') return true;
+
+  if (!path.startsWith('/api/conversations/')) return false;
+  if (method === 'GET') return true;
+
+  // Reaction toggles are chat UX hot-path writes; permit stale auth on timeout.
+  if ((method === 'POST' || method === 'DELETE') && path.includes('/messages/') && path.endsWith('/reactions')) {
+    return true;
+  }
+
+  return false;
+};
+
 export async function requireAuth(
   request: Request,
   env: Env
@@ -301,7 +338,9 @@ export async function requireAuth(
     throw HttpErrors.unauthorized('Authentication required - session cookie missing');
   }
 
-  authResult = await validateSessionWithRemoteServer(cookieHeader, env);
+  authResult = await validateSessionWithRemoteServer(cookieHeader, env, {
+    allowStaleOnTimeout: isHotChatPath(request)
+  });
 
   // Detect anonymous users (Better Auth anonymous plugin)
   // Anonymous users typically have:
@@ -481,6 +520,15 @@ export async function requirePracticeMember(
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
   const authContext = await requireAuth(request, env);
+  return requirePracticeMemberWithAuthContext(authContext, env, practiceId, minimumRole);
+}
+
+async function requirePracticeMemberWithAuthContext(
+  authContext: AuthContext,
+  env: Env,
+  practiceId: string,
+  minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
+): Promise<AuthContext & { memberRole: string }> {
 
   // 1. Validate practiceId
   if (!practiceId || typeof practiceId !== 'string' || practiceId.trim() === '') {
@@ -543,8 +591,12 @@ export async function optionalAuth(
 ): Promise<AuthContext | null> {
   try {
     return await requireAuth(request, env);
-  } catch (_error) {
-    // Silently return null for optional auth - errors are expected when no session is provided
+  } catch (error) {
+    // Optional auth should only suppress expected unauthenticated cases.
+    // Surface timeouts/backend failures so callers don't misreport them as "not logged in".
+    if (error instanceof HttpError && error.status !== 401) {
+      throw error;
+    }
     return null;
   }
 }
@@ -581,10 +633,13 @@ export async function requirePracticeOwner(
 export async function checkPracticeAccess(
   request: Request,
   env: Env,
-  practiceId: string
+  practiceId: string,
+  options?: { authContext?: AuthContext }
 ): Promise<{ hasAccess: boolean; memberRole?: string }> {
   try {
-    const result = await requirePracticeMemberRole(request, env, practiceId);
+    const result = options?.authContext
+      ? await requirePracticeMemberWithAuthContext(options.authContext, env, practiceId)
+      : await requirePracticeMemberRole(request, env, practiceId);
     return {
       hasAccess: true,
       memberRole: result.memberRole,
@@ -602,10 +657,13 @@ export async function checkPracticeAccess(
 export async function checkPracticeMembership(
   request: Request,
   env: Env,
-  practiceId: string
+  practiceId: string,
+  options?: { authContext?: AuthContext }
 ): Promise<{ isMember: boolean; memberRole?: string }> {
   try {
-    const result = await requirePracticeMemberRole(request, env, practiceId);
+    const result = options?.authContext
+      ? await requirePracticeMemberWithAuthContext(options.authContext, env, practiceId)
+      : await requirePracticeMemberRole(request, env, practiceId);
     return {
       isMember: true,
       memberRole: result.memberRole,

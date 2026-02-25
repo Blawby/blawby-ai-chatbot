@@ -7,35 +7,22 @@
  * onSaveBasics / onSaveContact callbacks the parent already uses — so
  * WorkspacePage needs zero changes.
  *
- * Each section still has an "Edit" button that opens a compact modal with the
- * original form fields for manual corrections after the AI has populated them.
+ * Edit actions request conversational corrections in-thread (no modals).
  *
  * Drop-in replacement: same props interface as the original PracticeSetup.
  */
 
-import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import {
-  SparklesIcon,
-} from '@heroicons/react/24/outline';
-import { Button } from '@/shared/ui/Button';
-import { Input, URLInput, EmailInput, PhoneInput } from '@/shared/ui/input';
-import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Address } from '@/shared/types/address';
-import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { initializeAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
-import Modal from '@/shared/components/Modal';
-import { FormGrid } from '@/shared/ui/layout';
-import { FormActions } from '@/shared/ui/form';
-import { FormLabel } from '@/shared/ui/form/FormLabel';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { PracticeSetupStatus } from '../utils/status';
+import { calculatePracticeSetupProgress } from '../utils/progress';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import type { MessageReaction } from '../../../../worker/types';
 
 // ── Re-exported types (unchanged from original so WorkspacePage compiles) ──────
 
@@ -83,9 +70,21 @@ export interface OnboardingProgressSnapshot {
   missingFields: string[];
 }
 
+export interface OnboardingSaveActionsSnapshot {
+  canSave: boolean;
+  isSaving: boolean;
+  saveError: string | null;
+  onSaveAll?: () => void;
+}
+
 interface PracticeSetupChatAdapter {
   messages: ChatMessageUI[];
-  sendMessage: (message: string, attachments?: FileAttachment[], replyToMessageId?: string | null) => void | Promise<void>;
+  sendMessage: (
+    message: string,
+    attachments?: FileAttachment[],
+    replyToMessageId?: string | null,
+    options?: { additionalContext?: string }
+  ) => void | Promise<void>;
   messagesReady?: boolean;
   isSocketReady?: boolean;
   hasMoreMessages?: boolean;
@@ -115,18 +114,18 @@ const EMPTY_SERVICES: Array<{ name: string; description?: string; key?: string }
 
 interface PracticeSetupProps {
   status: PracticeSetupStatus;
+  payoutsCompleteOverride?: boolean;
   practice: Practice | null;
   details: PracticeDetails | null;
-  onSaveBasics: (values: BasicsFormValues) => Promise<void>;
-  onSaveContact: (values: ContactFormValues) => Promise<void>;
-  servicesSlot?: ComponentChildren;
-  payoutsSlot?: ComponentChildren;
+  onSaveBasics: (values: BasicsFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
+  onSaveContact: (values: ContactFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
   logoUploading: boolean;
   logoUploadProgress: number | null;
   onLogoChange: (files: FileList | File[]) => void;
   onBasicsDraftChange?: (values: BasicsFormValues) => void;
   onSaveServices?: (services: Array<{ name: string; description?: string; key?: string }>) => Promise<void>;
   onProgressChange?: (snapshot: OnboardingProgressSnapshot) => void;
+  onSaveActionsChange?: (snapshot: OnboardingSaveActionsSnapshot) => void;
   chatAdapter?: PracticeSetupChatAdapter | null;
 }
 
@@ -134,6 +133,7 @@ interface PracticeSetupProps {
 
 export const PracticeSetup = ({
   status,
+  payoutsCompleteOverride = false,
   practice,
   details,
   onSaveBasics,
@@ -144,23 +144,12 @@ export const PracticeSetup = ({
   onBasicsDraftChange,
   onSaveServices,
   onProgressChange,
+  onSaveActionsChange,
   chatAdapter,
 }: PracticeSetupProps) => {
   // ── Chat state ───────────────────────────────────────────────────────────────
   const practiceId = practice?.id ?? '';
   const waitingForRealChat = chatAdapter === null;
-
-  const openingFallbackMessage = useMemo<ChatMessageUI>(() => ({
-    id: 'opening',
-    role: 'assistant',
-    timestamp: Date.now(),
-    seq: 1,
-    isUser: false,
-    content: status.needsSetup
-      ? "Let's get your practice set up.\n\nIf you have a website, paste the URL first and I'll scan it to pre-fill your profile. If not, tell me your practice name."
-      : `Welcome back! Your profile looks good. Want to update anything, or shall I walk you through what's still missing?`,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []); // intentionally stable — only computed once
 
   const [isLoading, setIsLoading] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedFields>({});
@@ -168,17 +157,7 @@ export const PracticeSetup = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [scanStatusText, setScanStatusText] = useState<string | null>(null);
-
-  // Edit modals
-  const [basicsModalOpen, setBasicsModalOpen] = useState(false);
-  const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
-    name: '', slug: '', introMessage: '', accentColor: '#D4AF37',
-  });
-  const [contactDraft, setContactDraft] = useState<ContactFormValues>({
-    website: '', businessEmail: '', businessPhone: '', address: undefined,
-  });
-  const [isModalSaving, setIsModalSaving] = useState(false);
+  const saveExtractedRef = useRef<() => Promise<void>>(async () => {});
 
   const toSavableFields = useCallback((fields: ExtractedFields | null | undefined): ExtractedFields | null => {
     if (!fields) return null;
@@ -247,7 +226,7 @@ export const PracticeSetup = ({
         slug:         practice.slug ?? '',
         introMessage: pendingSave.introMessage ?? currentIntro,
         accentColor,
-      });
+      }, { suppressSuccessToast: true });
       const mergedAddress = {
         address: details?.address ?? practice?.address ?? '',
         apartment: details?.apartment ?? practice?.apartment ?? '',
@@ -262,7 +241,7 @@ export const PracticeSetup = ({
         businessEmail: pendingSave.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '',
         businessPhone: pendingSave.contactPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '',
         address: mergedAddress,
-      });
+      }, { suppressSuccessToast: true });
       if (onSaveServices && Array.isArray(pendingSave.services)) {
         await onSaveServices(pendingSave.services);
       }
@@ -273,34 +252,10 @@ export const PracticeSetup = ({
       setIsSaving(false);
     }
   }, [details, onSaveBasics, onSaveContact, onSaveServices, pendingSave, practice]);
-
-  // ── Modal open handlers ───────────────────────────────────────────────────────
-
-  const openBasicsModal = useCallback(() => {
-    setBasicsDraft({
-      name:         extracted.name ?? practice?.name ?? '',
-      slug:         practice?.slug ?? '',
-      introMessage: extracted.introMessage ?? details?.introMessage ?? practice?.introMessage ?? '',
-      accentColor:  normalizeAccentColor(extracted.accentColor ?? details?.accentColor ?? practice?.accentColor) ?? '#D4AF37',
-    });
-    setBasicsModalOpen(true);
-  }, [details, extracted, practice]);
-
-  const openContactModal = useCallback(() => {
-    setContactDraft({
-      website:       extracted.website ?? details?.website ?? practice?.website ?? '',
-      businessEmail: extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '',
-      businessPhone: extracted.contactPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '',
-      address: {
-        address:    (extracted.address?.address ?? details?.address ?? practice?.address ?? '') as string,
-        city:       (extracted.address?.city ?? details?.city ?? practice?.city ?? '') as string,
-        state:      (extracted.address?.state ?? details?.state ?? practice?.state ?? '') as string,
-        postalCode: (extracted.address?.postalCode ?? details?.postalCode ?? practice?.postalCode ?? '') as string,
-        country:    (extracted.address?.country ?? details?.country ?? practice?.country ?? '') as string,
-      },
-    });
-    setContactModalOpen(true);
-  }, [details, extracted, practice]);
+  saveExtractedRef.current = saveExtracted;
+  const triggerSaveAll = useCallback(() => {
+    void saveExtractedRef.current();
+  }, []);
 
   // ── Render helpers ────────────────────────────────────────────────────────────
   const derivedProgress = useMemo(() => {
@@ -338,33 +293,27 @@ export const PracticeSetup = ({
     );
     const accentColor = normalizeAccentColor(extracted.accentColor ?? details?.accentColor ?? practice?.accentColor);
     const hasLogo = Boolean(practice?.logo);
-    const hasPayouts = status.payoutsComplete;
+    const hasPayouts = status.payoutsComplete || payoutsCompleteOverride;
 
-    const weightedChecks: Array<[string, boolean, number]> = [
-      ['name', Boolean(name), 10],
-      ['description', Boolean(description), 15],
-      ['services', hasServices, 20],
-      ['website', Boolean(website), 5],
-      ['contactPhone', Boolean(contactPhone), 10],
-      ['businessEmail', Boolean(businessEmail), 10],
-      ['address', hasAddress, 15],
-      ['introMessage', Boolean(introMessage), 15],
-      ['accentColor', Boolean(accentColor), 5],
-      ['logo', hasLogo, 5],
-      ['payouts', hasPayouts, 5],
-    ];
-    const totalWeight = weightedChecks.reduce((sum, [, , weight]) => sum + weight, 0);
-    const earnedWeight = weightedChecks.reduce((sum, [, done, weight]) => sum + (done ? weight : 0), 0);
-    const fallbackScore = Math.round((earnedWeight / totalWeight) * 100);
-    const fallbackMissingFields = weightedChecks
-      .filter(([, done]) => !done)
-      .map(([field]) => field);
+    const derived = calculatePracticeSetupProgress({
+      name,
+      description,
+      website,
+      contactPhone,
+      businessEmail,
+      introMessage,
+      accentColor,
+      hasServices,
+      hasAddress,
+      hasLogo,
+      hasPayouts,
+    });
 
     return {
-      completionScore: typeof extracted.completionScore === 'number' ? extracted.completionScore : fallbackScore,
-      missingFields: Array.isArray(extracted.missingFields) ? extracted.missingFields : fallbackMissingFields,
+      completionScore: derived.completionScore,
+      missingFields: derived.missingFields,
     };
-  }, [details, extracted, practice, status.payoutsComplete, status.servicesComplete]);
+  }, [details, extracted, practice, payoutsCompleteOverride, status.payoutsComplete, status.servicesComplete]);
 
   const completionScore = derivedProgress.completionScore;
   const missingFields   = derivedProgress.missingFields;
@@ -379,6 +328,15 @@ export const PracticeSetup = ({
     });
   }, [completionScore, extracted, hasPending, missingFields, onProgressChange]);
 
+  useEffect(() => {
+    onSaveActionsChange?.({
+      canSave: hasPending,
+      isSaving,
+      saveError,
+      onSaveAll: hasPending ? triggerSaveAll : undefined,
+    });
+  }, [hasPending, isSaving, onSaveActionsChange, saveError, triggerSaveAll]);
+
   const onboardingPracticeConfig = useMemo(() => ({
     name: practice?.name ?? 'Practice',
     profileImage: practice?.logo ?? null,
@@ -387,11 +345,46 @@ export const PracticeSetup = ({
     slug: practice?.slug ?? undefined,
   }), [details?.description, practice, practiceId]);
 
+  const chatMessagesReady = waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true);
+  const openingFallbackMessage = useMemo<ChatMessageUI>(() => {
+    const topMissing = missingFields[0] ?? null;
+    const topMissingPrompt: Record<string, string> = {
+      name: "What's the correct practice name?",
+      description: 'What short business description should clients see?',
+      services: 'What services should clients be able to request?',
+      website: "What's your website URL?",
+      contactPhone: "What's the best phone number for clients?",
+      businessEmail: "What's the best client-facing email?",
+      address: 'What office address should we show?',
+      introMessage: 'What intro message should clients see first?',
+      accentColor: 'What accent color should we use for your public page?',
+      logo: 'Would you like to upload or change your logo?',
+      payouts: 'Do you want to enable payments with Blawby now?',
+    };
+
+    let content = "Let's get your practice set up. To start, what's the name of your practice?";
+    if (completionScore >= 80) {
+      content = 'Welcome back! Your profile looks great. Anything you want to update?';
+    } else if (topMissing && topMissingPrompt[topMissing]) {
+      content = `Welcome back. ${topMissingPrompt[topMissing]}`;
+    }
+
+    return {
+      id: 'opening',
+      role: 'assistant',
+      timestamp: Date.now(),
+      seq: 1,
+      isUser: false,
+      content,
+    };
+  }, [completionScore, missingFields]);
+
   const fallbackUiMessages = useMemo<ChatMessageUI[]>(() => [openingFallbackMessage], [openingFallbackMessage]);
   const resolvedChatMessages = useMemo(() => {
-    if (!chatAdapter?.messages) return fallbackUiMessages;
-    return chatAdapter.messages.length > 0 ? chatAdapter.messages : fallbackUiMessages;
-  }, [chatAdapter?.messages, fallbackUiMessages]);
+    if (waitingForRealChat || !chatMessagesReady) return [];
+    const serverMessages = chatAdapter?.messages ?? [];
+    return serverMessages.length > 0 ? serverMessages : fallbackUiMessages;
+  }, [chatAdapter?.messages, chatMessagesReady, fallbackUiMessages, waitingForRealChat]);
 
   useEffect(() => {
     if (!chatAdapter?.messages || chatAdapter.messages.length === 0) return;
@@ -421,12 +414,10 @@ export const PracticeSetup = ({
   const noopCancelUpload = useCallback((_fileId: string) => {}, []);
   const noopMediaCapture = useCallback((_blob: Blob, _type: 'audio' | 'video') => {}, []);
 
-  const glassCardClass = 'glass-card p-4 sm:p-5';
-
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 text-input-text">
+    <div className="flex h-full min-h-0 flex-col gap-6 text-input-text">
       <header className="space-y-2">
         <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-input-placeholder">
           {status.needsSetup ? "Let's get started" : 'Practice setup'}
@@ -434,260 +425,105 @@ export const PracticeSetup = ({
         <h2 className="text-3xl font-bold tracking-tight">
           {status.needsSetup ? 'Almost ready to go' : 'All set'}
         </h2>
+        {scanStatusText ? (
+          <p className="text-xs text-input-placeholder">{scanStatusText}</p>
+        ) : null}
       </header>
 
       {/* ── Chat panel ───────────────────────────────────────────────────────── */}
-      <section className={glassCardClass}>
-        <div className="h-[500px] min-h-0">
-          <ChatContainer
-            messages={resolvedChatMessages}
-            onSendMessage={(message, attachments, replyToMessageId) => {
-              if (waitingForRealChat) return;
-              if (chatAdapter?.sendMessage) {
-                void (async () => {
-                  const trimmed = message.trim();
-                  if (!trimmed) return;
-                  const urlMatch = trimmed.match(URL_RE);
-                  if (urlMatch) {
-                    setIsLoading(true);
-                    const raw = urlMatch[0];
-                    const normalized = raw.startsWith('http') ? raw : `https://${raw}`;
-                    try {
+      <div className="min-h-[500px] lg:min-h-0 lg:flex-1">
+        <ChatContainer
+          messages={resolvedChatMessages}
+          onSendMessage={(message, attachments, replyToMessageId) => {
+            if (waitingForRealChat) return;
+            if (chatAdapter?.sendMessage) {
+              void (async () => {
+                const trimmed = message.trim();
+                if (!trimmed) return;
+                const urlMatch = trimmed.match(URL_RE);
+                const completionScore = derivedProgress.completionScore;
+                const needsRichData = completionScore < 40;
+                const looksLikeBusinessName = trimmed.length > 5 && (trimmed.includes(' ') || trimmed.includes('.'));
+                let additionalContext: string | undefined;
+
+                if (urlMatch || (needsRichData && looksLikeBusinessName)) {
+                  setIsLoading(true);
+                  const query = urlMatch
+                    ? `site:${urlMatch[0].replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]}`
+                    : trimmed;
+                  setScanStatusText(`Looking up ${query}…`);
+                  try {
+                    const res = await fetch(`/api/tools/search?q=${encodeURIComponent(query)}`, {
+                      credentials: 'include',
+                    });
+                    if (res.ok) {
+                      const data = await res.json() as { contextBlock?: string };
+                      if (data.contextBlock) {
+                        additionalContext = data.contextBlock;
+                      }
+                    }
+
+                    if (urlMatch) {
+                      const raw = urlMatch[0];
+                      const normalized = raw.startsWith('http') ? raw : `https://${raw}`;
                       const websiteFields = await extractWebsite(normalized);
                       if (Object.keys(websiteFields).length > 0) {
                         setExtracted(prev => ({ ...prev, ...websiteFields }));
                         setPendingSave(prev => ({ ...(prev ?? {}), ...(toSavableFields(websiteFields) ?? {}) }));
                       }
-                    } finally {
-                      setIsLoading(false);
                     }
+                  } catch (e) {
+                    console.error('[PracticeSetup] Search failed:', e);
+                  } finally {
+                    setIsLoading(false);
+                    setScanStatusText(null);
                   }
-                  await chatAdapter.sendMessage(message, attachments, replyToMessageId);
-                })();
-                return;
-              }
-            }}
-            isPublicWorkspace={false}
-            practiceConfig={onboardingPracticeConfig}
-            layoutMode="desktop"
-            useFrame={false}
-            practiceId={practiceId || undefined}
-            composerDisabled={waitingForRealChat || isLoading || !practiceId}
-            previewFiles={emptyPreviewFiles}
-            uploadingFiles={emptyUploadingFiles}
-            removePreviewFile={() => {}}
-            clearPreviewFiles={() => {}}
-            handleFileSelect={handleComposerFileSelect}
-            handleCameraCapture={handleComposerCameraCapture}
-            cancelUpload={noopCancelUpload}
-            handleMediaCapture={noopMediaCapture}
-            isRecording={isRecording}
-            setIsRecording={setIsRecording}
-            isReadyToUpload={true}
-            isSessionReady={!waitingForRealChat}
-            isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
-            messagesReady={waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true)}
-            onToggleReaction={chatAdapter?.onToggleReaction}
-            onRequestReactions={chatAdapter?.onRequestReactions}
-            hasMoreMessages={chatAdapter?.hasMoreMessages}
-            isLoadingMoreMessages={chatAdapter?.isLoadingMoreMessages}
-            onLoadMoreMessages={chatAdapter?.onLoadMoreMessages}
-            onboardingActions={{
-              onSaveAll: hasPending ? () => { void saveExtracted(); } : undefined,
-              onEditBasics: openBasicsModal,
-              onEditContact: openContactModal,
-              onLogoChange,
-              logoUploading,
-              logoUploadProgress,
-              logoUrl: practice?.logo ?? null,
-              practiceName: practice?.name ?? 'Practice',
-              isSaving,
-              saveError,
-            }}
-            headerContent={
-              <div className="flex items-center justify-between mb-2 gap-3 px-4 pt-3">
-                <div className="flex items-center gap-2">
-                  <SparklesIcon className="w-4 h-4 text-accent-500" />
-                  <div>
-                    <div className="text-sm font-semibold">Setup assistant</div>
-                    {scanStatusText ? (
-                      <div className="text-[10px] text-input-placeholder">{scanStatusText}</div>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-semibold text-input-text">Profile completion</div>
-                  <div className="text-[10px] text-input-placeholder">{completionScore}% complete</div>
-                </div>
-              </div>
+                }
+                await chatAdapter.sendMessage(message, attachments, replyToMessageId, { additionalContext });
+              })();
+              return;
             }
-          />
-        </div>
-      </section>
+          }}
+          isPublicWorkspace={false}
+          practiceConfig={onboardingPracticeConfig}
+          layoutMode="desktop"
+          useFrame={false}
+          practiceId={practiceId || undefined}
+          composerDisabled={waitingForRealChat || isLoading || !practiceId}
+          previewFiles={emptyPreviewFiles}
+          uploadingFiles={emptyUploadingFiles}
+          removePreviewFile={() => {}}
+          clearPreviewFiles={() => {}}
+          handleFileSelect={handleComposerFileSelect}
+          handleCameraCapture={handleComposerCameraCapture}
+          cancelUpload={noopCancelUpload}
+          handleMediaCapture={noopMediaCapture}
+          isRecording={isRecording}
+          setIsRecording={setIsRecording}
+          isReadyToUpload={true}
+          isSessionReady={!waitingForRealChat}
+          isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
+          messagesReady={chatMessagesReady}
+          onToggleReaction={chatAdapter?.onToggleReaction}
+          onRequestReactions={chatAdapter?.onRequestReactions}
+          hasMoreMessages={chatAdapter?.hasMoreMessages}
+          isLoadingMoreMessages={chatAdapter?.isLoadingMoreMessages}
+          onLoadMoreMessages={chatAdapter?.onLoadMoreMessages}
+          onboardingActions={{
+            onSaveAll: hasPending ? triggerSaveAll : undefined,
+            onEditBasics: undefined,
+            onEditContact: undefined,
+            onLogoChange,
+            logoUploading,
+            logoUploadProgress,
+            logoUrl: practice?.logo ?? null,
+            practiceName: practice?.name ?? 'Practice',
+            isSaving,
+            saveError,
+          }}
+        />
+      </div>
 
-      {/* ── Edit basics modal ─────────────────────────────────────────────────── */}
-      <Modal
-        isOpen={basicsModalOpen}
-        onClose={() => setBasicsModalOpen(false)}
-        title="Edit basics"
-        contentClassName="glass-panel"
-        headerClassName="glass-panel"
-      >
-        <div className="space-y-4">
-          <FormGrid>
-            <div>
-              <FormLabel htmlFor="edit-name">Practice name</FormLabel>
-              <Input
-                id="edit-name"
-                value={basicsDraft.name}
-                onChange={v => setBasicsDraft(p => ({ ...p, name: v }))}
-                placeholder="Smith & Associates"
-              />
-            </div>
-            <div>
-              <FormLabel htmlFor="edit-slug">Public slug</FormLabel>
-              <Input
-                id="edit-slug"
-                value={basicsDraft.slug}
-                onChange={v => setBasicsDraft(p => ({ ...p, slug: v }))}
-                placeholder="smith-associates"
-              />
-            </div>
-          </FormGrid>
-          <PracticeProfileTextFields
-            introMessage={basicsDraft.introMessage}
-            onIntroChange={v => setBasicsDraft(p => ({ ...p, introMessage: v }))}
-            introRows={3}
-            introLabel="Intro message"
-            introPlaceholder="Welcome to our firm. How can we help?"
-            disabled={isModalSaving}
-          />
-          <div className="space-y-1.5">
-            <FormLabel htmlFor="edit-accent">Accent color</FormLabel>
-            <div className="flex items-center gap-2">
-              <div
-                className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"
-                style={{ backgroundColor: normalizeAccentColor(basicsDraft.accentColor) ?? '#D4AF37' }}
-              >
-                <input
-                  type="color"
-                  value={normalizeAccentColor(basicsDraft.accentColor) ?? '#D4AF37'}
-                  onChange={e => setBasicsDraft(p => ({
-                    ...p, accentColor: normalizeAccentColor((e.target as HTMLInputElement).value) ?? '#D4AF37',
-                  }))}
-                  className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
-                />
-              </div>
-              <Input
-                id="edit-accent"
-                value={basicsDraft.accentColor}
-                onChange={v => setBasicsDraft(p => ({ ...p, accentColor: normalizeAccentColor(v) ?? v }))}
-                placeholder="#3B82F6"
-                aria-label="Accent color hex"
-              />
-            </div>
-          </div>
-          <FormActions
-            className="justify-end"
-            onCancel={() => setBasicsModalOpen(false)}
-            onSubmit={async () => {
-              setIsModalSaving(true);
-              try {
-                await onSaveBasics(basicsDraft);
-                setExtracted(prev => ({
-                  ...prev,
-                  name: basicsDraft.name,
-                  introMessage: basicsDraft.introMessage,
-                  accentColor: basicsDraft.accentColor,
-                }));
-                setBasicsModalOpen(false);
-              } finally {
-                setIsModalSaving(false);
-              }
-            }}
-            submitType="button"
-            submitText="Save"
-            submitDisabled={isModalSaving}
-            cancelDisabled={isModalSaving}
-          />
-        </div>
-      </Modal>
-
-      {/* ── Edit contact modal ────────────────────────────────────────────────── */}
-      <Modal
-        isOpen={contactModalOpen}
-        onClose={() => setContactModalOpen(false)}
-        title="Edit contact"
-        contentClassName="glass-panel"
-        headerClassName="glass-panel"
-      >
-        <div className="space-y-4">
-          <FormGrid>
-            <URLInput
-              label="Website"
-              value={contactDraft.website}
-              onChange={v => setContactDraft(p => ({ ...p, website: v }))}
-              placeholder="https://example.com"
-            />
-            <EmailInput
-              label="Business email"
-              value={contactDraft.businessEmail}
-              onChange={v => setContactDraft(p => ({ ...p, businessEmail: v }))}
-              placeholder="you@firm.com"
-            />
-            <PhoneInput
-              label="Phone"
-              value={contactDraft.businessPhone}
-              onChange={v => setContactDraft(p => ({ ...p, businessPhone: v }))}
-              placeholder="(555) 123-4567"
-              showCountryCode={false}
-            />
-          </FormGrid>
-          <AddressExperienceForm
-            initialValues={{ address: contactDraft.address }}
-            fields={['address']}
-            required={[]}
-            onValuesChange={values => {
-              if (values.address !== undefined) {
-                setContactDraft(p => ({ ...p, address: values.address as Address }));
-              }
-            }}
-            showSubmitButton={false}
-            variant="plain"
-            disabled={isModalSaving}
-          />
-          <FormActions
-            className="justify-end"
-            onCancel={() => setContactModalOpen(false)}
-            onSubmit={async () => {
-              setIsModalSaving(true);
-              try {
-                await onSaveContact(contactDraft);
-                setExtracted(prev => ({
-                  ...prev,
-                  website:       contactDraft.website,
-                  businessEmail: contactDraft.businessEmail,
-                  contactPhone:  contactDraft.businessPhone,
-                  address: contactDraft.address ? {
-                    address:    contactDraft.address.address,
-                    city:       contactDraft.address.city,
-                    state:      contactDraft.address.state,
-                    postalCode: contactDraft.address.postalCode,
-                    country:    contactDraft.address.country,
-                  } : undefined,
-                }));
-                setContactModalOpen(false);
-              } finally {
-                setIsModalSaving(false);
-              }
-            }}
-            submitType="button"
-            submitText="Save"
-            submitDisabled={isModalSaving}
-            cancelDisabled={isModalSaving}
-          />
-        </div>
-      </Modal>
     </div>
   );
 };

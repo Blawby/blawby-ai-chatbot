@@ -33,7 +33,12 @@ interface UseIntakeFlowOptions {
   ) => Promise<unknown>;
   applyServerMessages: (messages: ConversationMessage[]) => void;
   /** Send a user-visible message through WebSocket */
-  sendMessage: (content: string, attachments?: FileAttachment[], replyToMessageId?: string | null) => Promise<void>;
+  sendMessage: (
+    content: string,
+    attachments?: FileAttachment[],
+    replyToMessageId?: string | null,
+    options?: { additionalContext?: string }
+  ) => Promise<void>;
   /** Send a raw frame over WebSocket */
   sendMessageOverWs: (
     content: string,

@@ -19,6 +19,7 @@ import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
+import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
@@ -112,6 +113,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleAiIntent(request, env);
     } else if (path.startsWith('/api/ai/extract-website')) {
       response = await handleWebsiteExtract(request, env);
+    } else if (path.startsWith('/api/tools/search')) {
+      response = await handleSearch(request, env);
     } else if (path.startsWith('/api/ai/chat')) {
       response = await handleAiChat(request, env, _ctx);
     } else if (path === '/api/health') {

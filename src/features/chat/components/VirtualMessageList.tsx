@@ -143,7 +143,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isUserScrollingRef = useRef(false);
     const isLoadingRef = useRef(false);
     const loggedNoServerPaginationRef = useRef(false);
-    const prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
+    const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
     const isNearTail = endIndex >= Math.max(0, dedupedMessages.length - 2);
     const useTailWindow = isScrolledToBottomRef.current || isNearTail;
@@ -277,6 +277,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             return mockAvatar;
         }
         if (isBotMessage) {
+            if (onboardingActions) {
+                return blawbyProfile;
+            }
             return practiceProfile.src || practiceProfile.name !== 'Practice'
                 ? practiceProfile
                 : blawbyProfile;
@@ -539,7 +542,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         hasMoreMessages,
         isLoadingMoreMessages,
         onLoadMoreMessages,
-        showError
+        showError,
+        startIndex
     ]);
 
     const debouncedHandleScroll = useMemo(() => {
@@ -731,6 +735,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         isMissing: !replySource
                     } : null;
                     const canReply = Boolean(onReply && message.id);
+                    const isLast = (_index + derivedStart) === (dedupedMessages.length - 1);
 
                     const modeSelector = resolveModeSelector(message);
                     const leadReview = resolveLeadReview(message);
@@ -842,6 +847,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onSubmitNow={onSubmitNow}
                                 onBuildBrief={onBuildBrief}
                                 onboardingProfile={onboardingProfile}
+                                isLast={isLast}
                             />
                         );
                     })}

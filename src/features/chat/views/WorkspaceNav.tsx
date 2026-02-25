@@ -26,7 +26,7 @@ export interface WorkspaceNavItem {
   variant?: 'default' | 'danger';
 }
 
-interface WorkspaceNavProps {
+export interface WorkspaceNavProps {
   variant: 'bottom' | 'sidebar';
   activeTab: WorkspaceNavTab;
   onSelectTab: (tab: WorkspaceNavTab) => void;

@@ -7,12 +7,10 @@ import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
-import type { FileAttachment } from '../../worker/types';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
-import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 
@@ -139,11 +137,11 @@ export function WidgetApp({
   });
 
   const {
-    messages, conversationMetadata, sendMessage, addMessage, clearMessages,
+    messages, conversationMetadata: _conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
-    startConsultFlow, updateConversationMetadata, isConsultFlowActive,
+    startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady,
   } = messageHandling;

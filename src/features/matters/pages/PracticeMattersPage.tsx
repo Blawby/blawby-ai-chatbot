@@ -16,12 +16,11 @@ import {
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
-import { MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
+import { type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
   type MatterExpense,
   type MatterOption,
-  type MatterSummary,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
@@ -39,7 +38,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { type MajorAmount } from '@/shared/utils/money';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import {
   createMatter,
@@ -169,7 +167,7 @@ const LoadingState = ({ message }: { message: string }) => (
 // ---------------------------------------------------------------------------
 // Detail field row — shared between overview grid cells
 // ---------------------------------------------------------------------------
-const DetailField = ({ label, value }: { label: string; value: string }) => (
+const _DetailField = ({ label, value }: { label: string; value: string }) => (
   <div>
     <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</p>
     <p className="mt-1 text-sm text-input-text">{value || '—'}</p>
@@ -250,7 +248,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const firstSegment = pathSegments[0] ?? '';
-  const secondSegment = pathSegments[1] ?? '';
+  const _secondSegment = pathSegments[1] ?? '';
   const isCreateRoute = firstSegment === 'new';
   const selectedMatterId = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)

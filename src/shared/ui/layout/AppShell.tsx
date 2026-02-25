@@ -8,7 +8,7 @@ type AccentBackdropOverrides = {
   rightOrbClassName?: string;
 };
 
-interface AppShellProps {
+export interface AppShellProps {
   header?: ComponentChildren;
   sidebar?: ComponentChildren;
   main: ComponentChildren;
@@ -55,7 +55,7 @@ export const AppShell = ({
     : null;
 
   return (
-    <div className={cn('relative grid min-h-dvh w-full bg-surface-base', gridClassName, className)}>
+    <div className={cn('relative grid h-full min-h-full w-full bg-surface-base', gridClassName, className)}>
       {backgroundDecor && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {backgroundDecor}

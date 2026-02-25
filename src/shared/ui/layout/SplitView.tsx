@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
-interface SplitViewProps {
+export interface SplitViewProps {
   primary: ComponentChildren;
   secondary: ComponentChildren;
   tertiary?: ComponentChildren;

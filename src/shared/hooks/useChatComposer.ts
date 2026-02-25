@@ -20,7 +20,7 @@ import { useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
-import { initialIntakeState, type IntakeConversationState, type IntakeFieldsPayload } from '@/shared/types/intake';
+import { initialIntakeState, type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -39,8 +39,8 @@ export interface UseChatComposerOptions {
   mode?: ConversationMode | null;
 
   // Injected from useConversation
-  messages: ChatMessageUI[];
   messagesRef: React.MutableRefObject<ChatMessageUI[]>;
+  messages: ChatMessageUI[];
   conversationMetadataRef: React.MutableRefObject<ConversationMetadata | null>;
   setMessages: (updater: (prev: ChatMessageUI[]) => ChatMessageUI[]) => void;
   sendFrame: (frame: { type: string; data: Record<string, unknown>; request_id?: string }) => void;
@@ -83,16 +83,15 @@ export const useChatComposer = ({
   conversationId,
   linkAnonymousConversationOnLoad = false,
   mode,
-  messages,
   messagesRef,
   conversationMetadataRef,
   setMessages,
   sendFrame,
-  sendReadUpdate,
+  sendReadUpdate: _sendReadUpdate,
   waitForSocketReady,
   isSocketReadyRef,
   socketConversationIdRef,
-  messageIdSetRef,
+  messageIdSetRef: _messageIdSetRef,
   pendingClientMessageRef,
   pendingAckRef,
   pendingStreamMessageIdRef,
@@ -345,7 +344,7 @@ export const useChatComposer = ({
           ...bubble,
           metadata: { ...bubble.metadata, isOrphan: true, orphanExpiryTime: Date.now() + orphanExpiryMs },
         };
-        return prev.map(m => m.id === bubbleIdToHandle ? orphanedBubble! : m);
+        return prev.map(m => m.id === bubbleIdToHandle ? orphanedBubble : m);
       });
 
       if (orphanedBubble) {
@@ -363,7 +362,8 @@ export const useChatComposer = ({
   const sendMessage = useCallback(async (
     message: string,
     attachments: FileAttachment[] = [],
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    options?: { additionalContext?: string }
   ) => {
     const activeMode = conversationMetadataRef.current?.mode ?? mode;
     const shouldUseAi =
@@ -371,7 +371,8 @@ export const useChatComposer = ({
       activeMode === 'REQUEST_CONSULTATION' ||
       activeMode === 'PRACTICE_ONBOARDING';
     const shouldClassifyIntent = activeMode === 'ASK_QUESTION';
-    const hasUserMessages = messages.some(msg => msg.isUser);
+    const preSendMessages = [...messagesRef.current];
+    const hasUserMessages = preSendMessages.some(msg => msg.isUser);
     const trimmedMessage = message.trim();
 
     // Ensure intake state is initialized before first consultation message
@@ -428,14 +429,14 @@ export const useChatComposer = ({
 
       // ── AI message history ──────────────────────────────────────────────
       const aiMessages = [
-        ...messages
+        ...preSendMessages
           .filter(msg => msg.role === 'user' || msg.role === 'assistant' || (msg.role === 'system' && msg.metadata?.source === 'ai'))
           .filter(msg => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
           .map(msg => ({ role: msg.role === 'system' ? 'assistant' : msg.role, content: msg.content })),
         { role: 'user' as const, content: trimmedMessage },
       ];
 
-      const intakeSubmitted = messages.some(msg => msg.isUser && msg.metadata?.isContactFormSubmission);
+      const intakeSubmitted = preSendMessages.some(msg => msg.isUser && msg.metadata?.isContactFormSubmission);
 
       // ── streaming bubble ────────────────────────────────────────────────
       const bubbleId = `${STREAMING_BUBBLE_PREFIX}${conversationId}`;
@@ -455,6 +456,7 @@ export const useChatComposer = ({
             conversationId, practiceId: resolvedPracticeId,
             ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
             mode: activeMode, intakeSubmitted, messages: aiMessages,
+            additionalContext: options?.additionalContext,
           }),
         });
 
@@ -523,7 +525,7 @@ export const useChatComposer = ({
     conversationId,
     conversationIdRef,
     conversationMetadataRef,
-    messages,
+    messagesRef,
     mode,
     onError,
     practiceId,
@@ -531,6 +533,7 @@ export const useChatComposer = ({
     processSSEStream,
     removeStreamingBubble,
     sendMessageOverWs,
+    setMessages,
     updateConversationMetadata,
   ]);
 
@@ -548,10 +551,11 @@ export const useChatComposer = ({
       abortControllerRef.current?.abort();
       intentAbortRef.current?.abort();
       if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
-      pendingAckRef.current.forEach(item => {
+      const currentPendingAck = pendingAckRef.current;
+      currentPendingAck.forEach(item => {
         clearTimeout(item.timer);
       });
-      pendingAckRef.current.clear();
+      currentPendingAck.clear();
     };
   }, [orphanTimerRef, pendingAckRef]);
 

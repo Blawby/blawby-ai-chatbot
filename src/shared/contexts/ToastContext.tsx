@@ -1,5 +1,5 @@
 import { createContext, ComponentChildren } from 'preact';
-import { useCallback, useContext } from 'preact/hooks';
+import { useCallback, useContext, useMemo } from 'preact/hooks';
 
 import { useToast } from '@/shared/hooks/useToast';
 import ToastContainer from '@/shared/components/ToastContainer';
@@ -26,8 +26,16 @@ export const ToastProvider = ({ children }: { children: ComponentChildren }) => 
     return id;
   }, []);
 
+  const value = useMemo(() => ({
+    showSuccess,
+    showError,
+    showInfo,
+    showWarning,
+    showSystem
+  }), [showSuccess, showError, showInfo, showWarning, showSystem]);
+
   return (
-    <ToastContext.Provider value={{ showSuccess, showError, showInfo, showWarning, showSystem }}>
+    <ToastContext.Provider value={value}>
       {children}
       <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
     </ToastContext.Provider>

@@ -75,7 +75,7 @@ export const SettingsLayout = ({
   }, [showSettings, handleClose]);
 
   return (
-    <AnimatePresence initial mode="wait">
+    <AnimatePresence initial>
       {showSettings && (
         <>
           {/* Backdrop */}

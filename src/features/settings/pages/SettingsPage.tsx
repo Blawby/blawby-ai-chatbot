@@ -384,10 +384,10 @@ export const SettingsPage = ({
       accentBackdropVariant="settings"
       header={isMobile ? mobileHeader : desktopHeader}
       main={(
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence initial={false}>
           <motion.div
             key={shellKey}
-            className="h-full min-h-0"
+            className="flex-1 min-h-0 h-full w-full flex flex-col"
             initial={shellMotion.initial}
             animate={shellMotion.animate}
             exit={shellMotion.exit}

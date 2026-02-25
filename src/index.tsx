@@ -223,6 +223,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/*" component={WorkspaceSettingsRoute} workspace="client" />
           <Route path="/practice" component={App404} />
           <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
+          <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
           <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
           <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
           <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} workspaceView="clients" />
@@ -414,7 +415,7 @@ function PracticeAppRoute({
   practiceSlug
 }: {
   conversationId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients';
   practiceSlug?: string;
 }) {
   const { session, isPending } = useSessionContext();

@@ -5,6 +5,7 @@ import { HttpError, type Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
@@ -53,17 +54,20 @@ const isStaffMemberRole = (role: string | undefined): boolean => {
 const resolvePracticeContext = async (options: {
   request: Request;
   env: Env;
-  authContext: { isAnonymous?: boolean } | null;
+  authContext: AuthContext | null;
 }): Promise<PracticeContextResolution> => {
   const { request, env, authContext } = options;
   const requestWithContext = await withPracticeContext(request, env, {
-    requirePractice: true
+    requirePractice: true,
+    authContext: authContext ?? undefined
   });
   const practiceId = getPracticeId(requestWithContext);
   const isAnonymous = authContext?.isAnonymous === true;
   const membership = isAnonymous
     ? { isMember: false }
-    : await checkPracticeMembership(request, env, practiceId);
+    : await checkPracticeMembership(request, env, practiceId, {
+      authContext: authContext ?? undefined
+    });
 
   return {
     practiceId,
@@ -89,26 +93,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.notFound('Conversation route not found');
   }
 
-  // Support optional auth for anonymous users (Better Auth anonymous plugin)
-  const authContext = await optionalAuth(request, env);
-  if (!authContext) {
-    throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
-  }
-  const userId = authContext.user.id;
-
-  const conversationService = new ConversationService(env);
-
+  // WebSocket handoff: let the ChatRoom DO perform the single authoritative
+  // auth + membership check for the connection to avoid duplicate validation
+  // in this route and again in the DO.
   if (segments.length === 4 && segments[3] === 'ws' && request.method === 'GET') {
     const conversationId = segments[2];
-    const conversation = await conversationService.getConversationById(conversationId);
-    if (authContext.isAnonymous) {
-      await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
-    } else {
-      const membership = await checkPracticeMembership(request, env, conversation.practice_id);
-      if (!isStaffMemberRole(membership.memberRole)) {
-        await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
-      }
-    }
     const id = env.CHAT_ROOM.idFromName(conversationId);
     const stub = env.CHAT_ROOM.get(id);
     const wsUrl = new URL(request.url);
@@ -125,10 +114,20 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.methodNotAllowed('Unsupported method for conversation WS endpoint');
   }
 
+  // Support optional auth for anonymous users (Better Auth anonymous plugin)
+  const authContext = await optionalAuth(request, env);
+  if (!authContext) {
+    throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
+  }
+  const userId = authContext.user.id;
+
+  const conversationService = new ConversationService(env);
+
   // GET /api/conversations/:id/messages - Get messages for a conversation
   if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const conversationPracticeId = getPracticeId(requestWithContext);
@@ -136,7 +135,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
     } else {
-      const membership = await checkPracticeMembership(request, env, conversationPracticeId);
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
       if (!isStaffMemberRole(membership.memberRole)) {
         await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
       }
@@ -202,7 +201,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // GET/POST/DELETE /api/conversations/:id/messages/:messageId/reactions
   if (segments.length === 6 && segments[3] === 'messages' && segments[5] === 'reactions') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const messageId = segments[4];
@@ -215,7 +215,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
     } else {
-      const membership = await checkPracticeMembership(request, env, conversationPracticeId);
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
       if (!isStaffMemberRole(membership.memberRole)) {
         await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
       }
@@ -275,7 +275,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // POST /api/conversations/:id/system-messages - Persist system messages (intro/help/forms)
   if (segments.length === 4 && segments[3] === 'system-messages' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -284,7 +285,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } else {
-      const membership = await checkPracticeMembership(request, env, practiceId);
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
       isMember = membership.isMember;
       if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
@@ -500,7 +501,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // GET /api/conversations/:id - Get single conversation
   if (segments.length === 3 && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -509,7 +511,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } else {
-      const membership = await checkPracticeMembership(request, env, practiceId);
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
       if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
@@ -524,7 +526,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // PATCH /api/conversations/:id/matter - Link or unlink a conversation to a matter
   if (segments.length === 4 && segments[3] === 'matter' && request.method === 'PATCH') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -566,7 +569,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     request.method === 'PATCH'
   ) {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -614,7 +618,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // PATCH /api/conversations/:id - Update conversation
   if (segments.length === 3 && segments[2] !== 'active' && segments[2] !== 'current' && request.method === 'PATCH') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -641,7 +646,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // POST /api/conversations/:id/audit - Log conversation audit events
   if (segments.length === 4 && segments[3] === 'audit' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -672,7 +678,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // POST /api/conversations/:id/participants - Add participants to a conversation
   if (segments.length === 4 && segments[3] === 'participants' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true
+      requirePractice: true,
+      authContext
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);

@@ -2,6 +2,7 @@ import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { getDomain } from 'tldts';
 import { optionalAuth } from '../middleware/auth.js';
+import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
@@ -206,6 +207,18 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
 const isBackendProxyPath = (path: string): boolean =>
   BACKEND_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+
+const getPracticeIdForDetailsCacheInvalidation = (pathname: string): string | null => {
+  const segments = pathname.split('/').filter(Boolean);
+  // /api/practice/:id and /api/practice/:id/details
+  if (segments.length >= 3 && segments[0] === 'api' && segments[1] === 'practice') {
+    const candidate = segments[2]?.trim();
+    if (candidate && candidate !== 'details') {
+      return candidate;
+    }
+  }
+  return null;
+};
 
 const getSubscriptionsPlansCacheKey = (url: URL): string => `${url.pathname}${url.search}`;
 
@@ -437,6 +450,12 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   }
 
   const response = await fetchBackendResponse();
+  if (response.ok && method !== 'GET' && method !== 'HEAD') {
+    const practiceIdForCache = getPracticeIdForDetailsCacheInvalidation(url.pathname);
+    if (practiceIdForCache) {
+      await invalidatePracticeDetailsCache(env, practiceIdForCache);
+    }
+  }
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
   return new Response(response.body, {
     status: response.status,

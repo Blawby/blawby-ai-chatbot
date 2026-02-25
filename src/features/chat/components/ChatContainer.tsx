@@ -335,7 +335,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isAnonymousUser, pendingSubmitAfterAuth]);
+  }, [isAnonymousUser, pendingSubmitAfterAuth, onIntakeCtaResponse]);
 
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 

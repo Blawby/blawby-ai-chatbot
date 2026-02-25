@@ -29,6 +29,12 @@ interface ConversationListViewProps {
 }
 
 const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
+  if (conversation.user_info?.mode === 'PRACTICE_ONBOARDING') {
+    const onboardingTitle = typeof conversation.user_info?.title === 'string'
+      ? conversation.user_info.title.trim()
+      : '';
+    return onboardingTitle || 'Practice setup';
+  }
   const title = typeof conversation.user_info?.title === 'string'
     ? conversation.user_info?.title.trim()
     : '';
@@ -98,6 +104,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
               const previewText = preview?.content
                 ? preview.content
                 : t('workspace.conversationList.previewPlaceholder');
+              const isOnboardingConversation = conversation.user_info?.mode === 'PRACTICE_ONBOARDING';
 
               return (
                 <button
@@ -121,6 +128,11 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                         {conversation.lead?.is_lead && (
                           <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
                             {t('conversation.badge.lead')}
+                          </span>
+                        )}
+                        {isOnboardingConversation && (
+                          <span className="flex-shrink-0 rounded-full border border-line-glass/40 bg-surface-panel/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-input-text">
+                            Setup
                           </span>
                         )}
                       </div>

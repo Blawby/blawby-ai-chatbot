@@ -53,7 +53,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
     // Proxy functions to chat composer via ref to avoid TDZ errors
-    sendMessage: (content, att, reply) => composerRef.current?.sendMessage(content, att, reply),
+    sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
     sendMessageOverWs: (content, att, meta, reply) => composerRef.current?.sendMessageOverWs(content, att, meta, reply),
     onError,
   });
@@ -120,7 +120,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     return false;
   }, [mode]);
 
-  return {
+  return useMemo(() => ({
     // Transport & State (from useConversation)
     messages: conversation.messages,
     conversationMetadata: conversation.conversationMetadata,
@@ -158,5 +158,34 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
     // App state
     isConsultFlowActive,
-  };
+  }), [
+    conversation.messages,
+    conversation.conversationMetadata,
+    conversation.messagesReady,
+    conversation.hasMoreMessages,
+    conversation.isLoadingMoreMessages,
+    conversation.isSocketReady,
+    conversation.loadMoreMessages,
+    conversation.startConsultFlow,
+    conversation.clearMessages,
+    conversation.addMessage,
+    conversation.updateMessage,
+    conversation.ingestServerMessages,
+    conversation.updateConversationMetadata,
+    conversation.requestMessageReactions,
+    conversation.toggleMessageReaction,
+    composer.sendMessage,
+    payments.paymentRetryNotice,
+    verifiedPaidIntakeUuids,
+    intake.intakeStatus,
+    intake.intakeConversationState,
+    intake.slimContactDraft,
+    intake.handleSlimFormContinue,
+    intake.handleBuildBrief,
+    intake.handleIntakeCtaResponse,
+    intake.resetIntakeCta,
+    intake.handleSubmitNow,
+    intake.handleContactFormSubmit,
+    isConsultFlowActive,
+  ]);
 };

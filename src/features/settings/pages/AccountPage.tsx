@@ -66,7 +66,7 @@ export const AccountPage = ({
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
   const { session, isPending, activeMemberRole } = useSessionContext();
-  const { canAccessPractice } = useWorkspace();
+  const { canAccessPractice: _canAccessPractice } = useWorkspace();
   const settingsBasePath = resolveSettingsBasePath(location.path);
   const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const [links, setLinks] = useState<UserLinks | null>(null);

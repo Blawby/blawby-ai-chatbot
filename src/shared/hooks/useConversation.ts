@@ -27,12 +27,12 @@
  *  pendingClientMessages      – ref for optimistic message tracking
  */
 
-import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, MessageReaction } from '../../../worker/types';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
-import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata } from '@/shared/types/conversation';
 import { initialIntakeState } from '@/shared/types/intake';
@@ -530,7 +530,7 @@ export const useConversation = ({
     if (!activeConversationId || !activePracticeId) return;
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
-    let attempts = 0;
+    let _attempts = 0;
     let previousSeq: number | null = null;
     const MAX_NO_PROGRESS_ATTEMPTS = 3;
     let noProgressCount = 0;
@@ -560,7 +560,7 @@ export const useConversation = ({
           noProgressCount = 0;
         }
         
-        attempts = 0;
+        _attempts = 0;
       } catch (error) {
         onError?.(error instanceof Error ? error.message : 'Failed to recover message gap');
         throw error;
@@ -918,7 +918,7 @@ export const useConversation = ({
 
   // ── public API ─────────────────────────────────────────────────────────────
 
-  return {
+  return useMemo(() => ({
     // State
     messages,
     messagesRef,
@@ -960,5 +960,40 @@ export const useConversation = ({
 
     // Internal for streaming bubble lifecycle
     setMessages,
-  };
+  }), [
+    messages,
+    messagesRef,
+    conversationMetadata,
+    conversationMetadataRef,
+    hasMoreMessages,
+    isLoadingMoreMessages,
+    messagesReady,
+    isSocketReady,
+    applyServerMessages,
+    ingestServerMessages,
+    loadMoreMessages,
+    connectChatRoom,
+    closeChatSocket,
+    startConsultFlow,
+    addMessage,
+    updateMessage,
+    clearMessages,
+    updateConversationMetadata,
+    applyConversationMetadata,
+    requestMessageReactions,
+    toggleMessageReaction,
+    sendFrame,
+    sendReadUpdate,
+    waitForSocketReady,
+    isSocketReadyRef,
+    socketConversationIdRef,
+    messageIdSetRef,
+    pendingClientMessageRef,
+    pendingAckRef,
+    pendingStreamMessageIdRef,
+    orphanTimerRef,
+    conversationIdRef,
+    practiceIdRef,
+    setMessages,
+  ]);
 };

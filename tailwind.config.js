@@ -10,6 +10,10 @@ export default {
       screens: {
         short: { raw: '(max-height: 500px)' }
       },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
+      },
       // Custom color scheme - keeping your custom colors
       colors: {
         surface: {

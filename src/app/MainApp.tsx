@@ -38,7 +38,7 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -171,6 +171,10 @@ export function MainApp({
     setConversationMode(null);
   }, [conversationResetKey]);
 
+  const handleSetupError = useCallback((msg: string) => {
+    showErrorRef.current?.(msg);
+  }, []);
+
   // ── conversation setup ─────────────────────────────────────────────────────
   const {
     conversationId: setupConversationId,
@@ -186,7 +190,7 @@ export function MainApp({
     isPracticeWorkspace,
     isPublicWorkspace,
     onModeChange: setConversationMode,
-    onError: (msg) => showErrorRef.current?.(msg),
+    onError: handleSetupError,
   });
 
   const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
@@ -225,7 +229,7 @@ export function MainApp({
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
-    startConsultFlow, updateConversationMetadata, isConsultFlowActive,
+    startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady,
   } = messageHandling;
@@ -328,7 +332,7 @@ export function MainApp({
   const handleStartNewConversation = useCallback(async (
     nextMode: ConversationMode,
     preferredConversationId?: string,
-    options?: { forceCreate?: boolean }
+    options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
   ): Promise<string> => {
     if (isSelectingRef.current) throw new Error('Conversation start already in progress');
     isSelectingRef.current = true;
@@ -364,7 +368,9 @@ export function MainApp({
       if (!newConversationId) {
         // Session still not ready — surface a friendly toast and bail without
         // throwing so the caller can handle gracefully.
-        showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
+        if (!options?.silentSessionNotReady) {
+          showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
+        }
         return Promise.reject(new SessionNotReadyError());
       }
 
@@ -394,6 +400,11 @@ export function MainApp({
     await sendMessage(message, attachments, replyToMessageId ?? null);
   }, [activeConversationId, isCreatingConversation, createConversation, sendMessage]);
 
+  const handleUploadError = useCallback((error: unknown) => {
+    console.error('File upload error:', error);
+    showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
+  }, []);
+
   // ── file upload ────────────────────────────────────────────────────────────
   const {
     previewFiles, uploadingFiles, isDragging, setIsDragging,
@@ -401,10 +412,7 @@ export function MainApp({
     clearPreviewFiles, cancelUpload, isReadyToUpload,
   } = useFileUploadWithContext({
     conversationId: activeConversationId ?? undefined,
-    onError: (error) => {
-      console.error('File upload error:', error);
-      showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
-    },
+    onError: handleUploadError,
   });
 
   // ── welcome modals ─────────────────────────────────────────────────────────

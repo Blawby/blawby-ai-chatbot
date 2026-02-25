@@ -214,7 +214,7 @@ export function useConversationSetup({
     }
   // logConversationEvent and updateConversationMetadata are stable module-level
   // imports — omitting them keeps the callback reference stable.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [onModeChange, practiceId]);
 
   const handleModeSelection = useCallback(async (

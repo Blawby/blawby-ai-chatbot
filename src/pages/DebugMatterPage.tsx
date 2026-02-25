@@ -220,7 +220,7 @@ export default function DebugMatterPage() {
     };
   }, [assigneeNameById, selectedDetail]);
 
-  const selectedTimeEntries = selectedDetail?.timeEntries ?? [];
+  const selectedTimeEntries = useMemo(() => selectedDetail?.timeEntries ?? [], [selectedDetail?.timeEntries]);
   const timeStats = useMemo(() => {
     const totalSeconds = selectedTimeEntries.reduce((total, entry) => {
       const duration = (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000;

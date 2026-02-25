@@ -129,6 +129,7 @@ interface MessageProps {
 			onChange: (files: FileList | File[]) => void;
 		};
 	};
+	isLast?: boolean;
 	// Styling
 	className?: string;
 }
@@ -174,7 +175,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onBuildBrief,
 	quickReplies,
 	onQuickReply,
-	onboardingProfile
+	onboardingProfile,
+	isLast
 }) => {
 	const hasContent = Boolean(content);
 	const shouldShowIndicator = isLoading && !hasContent;
@@ -331,6 +333,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				showIntakeDecisionPrompt={showIntakeDecisionPrompt}
 				onBuildBrief={onBuildBrief}
 				onboardingProfile={onboardingProfile}
+				isLast={isLast}
 			/>
 				
 				{/* Attachments */}

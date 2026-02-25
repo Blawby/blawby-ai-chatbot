@@ -146,36 +146,68 @@ const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): strin
   return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
 };
 
-const buildOnboardingFallbackReply = (fields: Record<string, unknown> | null): string => {
-  if (!fields) return 'What would you like to set up first for your practice profile?';
-  if (typeof fields.website !== 'string' || fields.website.trim() === '') {
-    return 'If you have a website, share the URL and I can scan it to pre-fill your profile.';
+const buildOnboardingFallbackReplyFromProfile = (profile: Record<string, unknown> | null): string => {
+  if (!profile) return 'What would you like to set up first for your practice profile?';
+  const completionScore = typeof profile.completionScore === 'number' ? profile.completionScore : 0;
+  const missingFields = Array.isArray(profile.missingFields)
+    ? profile.missingFields.filter((value): value is string => typeof value === 'string')
+    : [];
+  if (completionScore >= 80 && missingFields.length === 0) {
+    return 'Welcome back! Your profile looks great. Anything you want to update?';
   }
-  if (typeof fields.name !== 'string' || fields.name.trim() === '') {
-    return "What's the name of your practice?";
+  const nextField = missingFields[0] ?? null;
+  const prompts: Record<string, string> = {
+    website: 'If you have a website, share the URL and I can scan it to pre-fill your profile.',
+    name: "What's the name of your practice?",
+    description: 'What does your firm do or who do you serve?',
+    services: 'What services or practice areas should clients be able to choose from?',
+    contactPhone: "What's your main phone number?",
+    businessEmail: "What's your business email?",
+    address: "What's your office address?",
+    introMessage: 'What intro message would you like clients to see?',
+    accentColor: 'What accent color would you like to use?',
+  };
+  if (nextField && prompts[nextField]) return prompts[nextField];
+  if (completionScore >= 80) return 'Welcome back! Your profile looks great. Anything you want to update?';
+  return 'What would you like to update in your practice profile?';
+};
+
+const extractEmailFromText = (text: string | null | undefined): string | null => {
+  if (!text) return null;
+  const match = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0] : null;
+};
+
+const buildOnboardingEditAwareFallbackReply = (
+  profile: Record<string, unknown> | null,
+  onboardingFields: Record<string, unknown> | null,
+  lastUserContent?: string | null
+): string => {
+  const requestedEmail =
+    (typeof onboardingFields?.businessEmail === 'string' && onboardingFields.businessEmail.trim()) ||
+    extractEmailFromText(lastUserContent) ||
+    null;
+  if (requestedEmail && /\b(email|e-mail)\b/i.test(lastUserContent ?? '')) {
+    return `Got it. I'll use ${requestedEmail} as your business email. Anything else you'd like to update?`;
   }
-  if (typeof fields.description !== 'string' || fields.description.trim() === '') {
-    return 'What does your firm do or who do you serve?';
+
+  const requestedPhone =
+    typeof onboardingFields?.contactPhone === 'string' && onboardingFields.contactPhone.trim().length > 0
+      ? onboardingFields.contactPhone.trim()
+      : null;
+  if (requestedPhone && /\b(phone|number|call)\b/i.test(lastUserContent ?? '')) {
+    return `Got it. I'll use ${requestedPhone} as your main phone number. Anything else you'd like to update?`;
   }
-  if (!Array.isArray(fields.services) || fields.services.length === 0) {
-    return 'What services or practice areas should clients be able to choose from?';
+
+  const requestedName =
+    typeof onboardingFields?.name === 'string' && onboardingFields.name.trim().length > 0
+      ? onboardingFields.name.trim()
+      : null;
+  if (requestedName && /\b(name|practice)\b/i.test(lastUserContent ?? '')) {
+    return `Got it. I'll update the practice name to ${requestedName}. Anything else you'd like to update?`;
   }
-  if (typeof fields.contactPhone !== 'string' || fields.contactPhone.trim() === '') {
-    return "What's your main phone number?";
-  }
-  if (typeof fields.businessEmail !== 'string' || fields.businessEmail.trim() === '') {
-    return "What's your business email?";
-  }
-  if (!isRecord(fields.address)) {
-    return "What's your office address?";
-  }
-  if (!hasNonEmptyStringField(fields.address, 'address') || !hasNonEmptyStringField(fields.address, 'city') || !hasNonEmptyStringField(fields.address, 'state')) {
-    return "What's your office address?";
-  }
-  if (typeof fields.introMessage !== 'string' || fields.introMessage.trim() === '') {
-    return 'What intro message would you like clients to see?';
-  }
-  return 'Great. Review the details and click Save all when you are ready.';
+
+  return buildOnboardingFallbackReplyFromProfile(profile);
 };
 
 const shouldShowIntakeCtaForReply = (reply: string): boolean => {
@@ -310,6 +342,7 @@ const ONBOARDING_TOOL = {
         completionScore: { type: 'number', minimum: 0, maximum: 100 },
         missingFields: { type: 'array', items: { type: 'string' } },
         quickReplies: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+        triggerEditModal: { type: 'string', enum: ['basics', 'contact'], description: 'Trigger a manual edit modal for the user if they indicate a correction is needed.' },
       },
     },
   },
@@ -358,15 +391,58 @@ missingSummary: always set this when caseStrength is "needs_more_info" or "devel
 Hard limit: after 8 user messages, set caseStrength to at minimum "developing" and show the summary regardless.`;
 };
 
-const buildOnboardingSystemPrompt = (): string => [
-  'You are a practice onboarding assistant helping a law firm set up their profile.',
-  'Collect profile details conversationally, one question at a time.',
-  'Prefer asking for website URL first because the app may pre-fill details from a website scan.',
-  'Do not ask for fields already present in PRACTICE_CONTEXT unless the user wants to change them.',
-  'After each response, call update_practice_fields with everything known so far.',
-  'When all key fields are collected, tell the user to review and click Save all.',
-  'Be concise and operational.',
-].join('\n');
+const buildOnboardingSystemPrompt = (
+  currentProfile: Record<string, unknown> | null = null
+): string => {
+  const completedFields = Array.isArray(currentProfile?.completedFields)
+    ? currentProfile.completedFields.filter((v): v is string => typeof v === 'string')
+    : [];
+  const missingFields = Array.isArray(currentProfile?.missingFields)
+    ? currentProfile.missingFields.filter((v): v is string => typeof v === 'string')
+    : [];
+  const completionScore = typeof currentProfile?.completionScore === 'number'
+    ? currentProfile.completionScore
+    : null;
+  const summaryFields = Array.isArray(currentProfile?.summaryFields)
+    ? currentProfile.summaryFields
+        .filter((item): item is { label: string; value: string } => (
+          isRecord(item) &&
+          typeof item.label === 'string' &&
+          typeof item.value === 'string'
+        ))
+        .map((item) => `${item.label}: ${item.value}`)
+    : [];
+
+  const stateLines = currentProfile ? [
+    'CURRENT_SAVED_PROFILE_STATE (source of truth for saved fields):',
+    ...(completionScore !== null ? [`- Completion score: ${completionScore}%`] : []),
+    `- Completed fields: ${completedFields.length > 0 ? completedFields.join(', ') : 'none'}`,
+    `- Missing fields: ${missingFields.length > 0 ? missingFields.join(', ') : 'none identified'}`,
+    ...(summaryFields.length > 0 ? ['- Current saved values:', ...summaryFields.map((line) => `  - ${line}`)] : []),
+    'CRITICAL RULE: Do NOT ask for completed fields again unless the user explicitly asks to change them.',
+    'CRITICAL RULE: Ask about missing fields one at a time.',
+  ] : [];
+
+  return [
+    'You are a practice onboarding assistant helping a law firm set up their profile.',
+    'IMPORTANT: Always prioritize responding to the user\'s latest message. If they provide a name or URL, acknowledge it immediately.',
+    'The app automatically searches for practice details when the user provides a name or URL.',
+    'If search results arrive in SEARCH_CONTEXT:',
+    '  - One match: Confirm it with the user. "I found [Practice Name] at [Address]. Is that yours?" Use Quick Replies: ["Yes, that\'s correct", "No, that\'s not it"].',
+    '  - Multiple matches: Present the options and ask which one is theirs.',
+    '  - Once confirmed, ALWAYS use update_practice_fields to save the details from SEARCH_CONTEXT.',
+    'If SEARCH_CONTEXT is empty or no match is found:',
+    '  - Acknowledge what they said: "I couldn\'t find details for [Name] online." or "I couldn\'t scan that website."',
+    '  - Transition to manual collection: "No problem. Let\'s do it manually." Then ask one targeted missing-field question.',
+    'If PRACTICE_CONTEXT already has a name when the chat starts, welcome them and continue from what is missing.',
+    'If the user asks to change a field and the provided value matches the current saved value, acknowledge it is already set and ask what they want to update next.',
+    'Collect profile details conversationally, one question at a time.',
+    'When asking for services, suggest common ones as Quick Replies.',
+    'When the profile score hits 80%, congratulate them on the live preview.',
+    'Be warm, human, and concise. Avoid sounding like a form.',
+    ...stateLines,
+  ].join('\n');
+};
 
 const readAnyString = (record: Record<string, unknown> | null | undefined, keys: string[]): string | null => {
   if (!record) return null;
@@ -399,9 +475,12 @@ const buildOnboardingProfileMetadata = (
 ): Record<string, unknown> | null => {
   const fieldAddress = isRecord(onboardingFields?.address) ? onboardingFields.address : null;
   const detailAddress = details;
+  const detailAddressObject = isRecord(details?.address) ? details.address : null;
 
   const name = readAnyString(onboardingFields, ['name']) ?? readAnyString(details, ['name', 'practiceName', 'practice_name']);
-  const description = readAnyString(onboardingFields, ['description']) ?? readAnyString(details, ['description']);
+  const onboardingDescription = readAnyString(onboardingFields, ['description']);
+  const persistedDescription = readAnyString(details, ['description', 'overview']);
+  const description = onboardingDescription ?? persistedDescription;
   const introMessage = readAnyString(onboardingFields, ['introMessage']) ?? readAnyString(details, ['introMessage', 'intro_message']);
   const website = readAnyString(onboardingFields, ['website']) ?? readAnyString(details, ['website']);
   const contactPhone = readAnyString(onboardingFields, ['contactPhone']) ?? readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
@@ -410,9 +489,18 @@ const buildOnboardingProfileMetadata = (
   const services = normalizeOnboardingServices(onboardingFields?.services ?? details?.services);
   const hasServices = services.length > 0;
 
-  const addressLine1 = readAnyString(fieldAddress, ['address']) ?? readAnyString(detailAddress, ['address', 'addressLine1', 'address_line_1']);
-  const city = readAnyString(fieldAddress, ['city']) ?? readAnyString(detailAddress, ['city']);
-  const state = readAnyString(fieldAddress, ['state']) ?? readAnyString(detailAddress, ['state']);
+  const addressLine1 =
+    readAnyString(fieldAddress, ['address']) ??
+    readAnyString(detailAddressObject, ['line1', 'address', 'address_line_1']) ??
+    readAnyString(detailAddress, ['address', 'addressLine1', 'address_line_1']);
+  const city =
+    readAnyString(fieldAddress, ['city']) ??
+    readAnyString(detailAddressObject, ['city']) ??
+    readAnyString(detailAddress, ['city']);
+  const state =
+    readAnyString(fieldAddress, ['state']) ??
+    readAnyString(detailAddressObject, ['state']) ??
+    readAnyString(detailAddress, ['state']);
   const hasAddress = Boolean(addressLine1 && city && state);
 
   const weightedChecks: Array<[string, boolean, number]> = [
@@ -439,6 +527,7 @@ const buildOnboardingProfileMetadata = (
 
   return {
     completionScore,
+    completedFields: weightedChecks.filter(([, done]) => done).map(([field]) => field),
     missingFields,
     summaryFields,
     serviceNames: services.map((service) => service.name),
@@ -520,6 +609,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     mode?: 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
     intakeSubmitted?: boolean;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    additionalContext?: string;
   };
 
   if (!body.conversationId || typeof body.conversationId !== 'string') {
@@ -572,17 +662,22 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     payload: { conversationId: body.conversationId }
   });
 
+  const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
+  const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
+  const effectiveMode = body.mode ?? storedMode;
+
   const practiceSlug = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
   const { details, isPublic } = await fetchPracticeDetailsWithCache(
     env,
     request,
     practiceId,
-    practiceSlug || undefined
+    practiceSlug || undefined,
+    {
+      bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+      preferPracticeIdLookup: authContext.isAnonymous !== true,
+    }
   );
 
-  const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
-  const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
-  const effectiveMode = body.mode ?? storedMode;
   const isOnboardingMode = effectiveMode === 'PRACTICE_ONBOARDING';
   const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
     ? conversationMetadata.intakeConversationState as Record<string, unknown>
@@ -721,10 +816,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const servicesForPrompt = normalizeServicesForPrompt(details);
+  const onboardingPromptProfile = isOnboardingMode
+    ? buildOnboardingProfileMetadata(details, null)
+    : null;
   const systemPrompt = isIntakeMode
     ? buildIntakeSystemPrompt(servicesForPrompt)
     : isOnboardingMode
-      ? buildOnboardingSystemPrompt()
+      ? buildOnboardingSystemPrompt(onboardingPromptProfile)
       : [
         'You are an intake assistant for a law practice website.',
         'You may answer only operational questions using provided practice details.',
@@ -740,6 +838,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'system', content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}` },
+      ...(body.additionalContext ? [{ role: 'system', content: `SEARCH_CONTEXT: ${body.additionalContext}` }] : []),
       ...body.messages.map((message) => ({ role: message.role, content: message.content }))
     ]
   };
@@ -786,7 +885,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const fallback = isIntakeMode
           ? buildIntakeFallbackReply(null)
           : isOnboardingMode
-            ? buildOnboardingFallbackReply(null)
+            ? buildOnboardingEditAwareFallbackReply(onboardingPromptProfile, null, lastUserMessage?.content ?? null)
             : EMPTY_REPLY_FALLBACK;
         accumulatedReply = fallback;
         write({ token: fallback });
@@ -880,10 +979,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
 
         if (streamStalled && !accumulatedReply.trim()) {
+          const currentOnboardingProfile = isOnboardingMode
+            ? buildOnboardingProfileMetadata(details, onboardingFields)
+            : null;
           accumulatedReply = isIntakeMode
             ? buildIntakeFallbackReply(intakeFields)
             : isOnboardingMode
-              ? buildOnboardingFallbackReply(onboardingFields)
+              ? buildOnboardingEditAwareFallbackReply(currentOnboardingProfile, onboardingFields, lastUserMessage?.content ?? null)
               : EMPTY_REPLY_FALLBACK;
           write({ token: accumulatedReply });
           emittedAnyToken = true;
@@ -943,11 +1045,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       // Post-process reply — same validation logic as the non-streaming path
       if (!accumulatedReply.trim()) {
-        accumulatedReply = isIntakeMode && intakeFields
-          ? buildIntakeFallbackReply(intakeFields)
-          : isOnboardingMode && onboardingFields
-            ? buildOnboardingFallbackReply(onboardingFields)
-            : EMPTY_REPLY_FALLBACK;
+        const currentOnboardingProfile = isOnboardingMode
+          ? buildOnboardingProfileMetadata(details, onboardingFields)
+          : null;
+        if (isIntakeMode && intakeFields) {
+          accumulatedReply = buildIntakeFallbackReply(intakeFields);
+        } else if (isOnboardingMode) {
+          accumulatedReply = buildOnboardingEditAwareFallbackReply(
+            currentOnboardingProfile,
+            onboardingFields,
+            lastUserMessage?.content ?? null
+          );
+        } else {
+          accumulatedReply = EMPTY_REPLY_FALLBACK;
+        }
       }
       if (!emittedAnyToken && accumulatedReply.trim()) {
         write({ token: accumulatedReply });
@@ -996,6 +1107,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
         onboardingFields = rest;
       }
+      let triggerEditModal: string | null = null;
+      if (onboardingFields && 'triggerEditModal' in onboardingFields) {
+        triggerEditModal = onboardingFields.triggerEditModal as string;
+        const { triggerEditModal: _t, ...rest } = onboardingFields as Record<string, unknown>;
+        onboardingFields = rest;
+      }
       if (isOnboardingMode) {
         onboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
       }
@@ -1030,6 +1147,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingFields: onboardingFields ?? null,
         onboardingProfile: onboardingProfile ?? null,
         quickReplies: quickReplies ?? null,
+        triggerEditModal: triggerEditModal ?? null,
       });
 
       // Persist and audit — runs inside waitUntil so the worker stays alive
@@ -1045,6 +1163,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           ...(onboardingFields ? { onboardingFields } : {}),
           ...(onboardingProfile ? { onboardingProfile } : {}),
           ...(quickReplies ? { quickReplies } : {}),
+          ...(triggerEditModal ? { triggerEditModal } : {}),
           ...(isIntakeMode && shouldShowIntakeCta ? { intakeReadyCta: true } : {}),
           ...(shouldPromptConsultation
             ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }

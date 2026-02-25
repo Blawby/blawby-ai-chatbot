@@ -1,6 +1,7 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { optionalAuth } from './auth.js'; // Uses remote auth validation
+import type { AuthContext } from './auth.js';
 
 export interface PracticeContext {
   practiceId: string;
@@ -77,11 +78,13 @@ export async function extractPracticeContext(
   options: {
     requirePractice?: boolean;
     defaultPracticeId?: string;
+    authContext?: AuthContext | null;
   } = {}
 ): Promise<PracticeContext | OptionalPracticeContext> {
   const {
     requirePractice = true,
-    defaultPracticeId
+    defaultPracticeId,
+    authContext: providedAuthContext
   } = options;
 
   const url = new URL(request.url);
@@ -95,12 +98,14 @@ export async function extractPracticeContext(
     : null;
 
   // Try to get auth context (works for both authenticated and anonymous users via Better Auth)
-  let authContext: Awaited<ReturnType<typeof optionalAuth>> = null;
-  try {
-    authContext = await optionalAuth(request, env);
-  } catch (authError) {
-    console.debug('Auth check failed, continuing with fallback flow:', authError);
-    authContext = null;
+  let authContext: Awaited<ReturnType<typeof optionalAuth>> = providedAuthContext ?? null;
+  if (providedAuthContext === undefined) {
+    try {
+      authContext = await optionalAuth(request, env);
+    } catch (authError) {
+      console.debug('Auth check failed, continuing with fallback flow:', authError);
+      authContext = null;
+    }
   }
 
   if (authContext) {
@@ -201,13 +206,15 @@ export async function withPracticeContext(
   options: {
     requirePractice?: boolean;
     defaultPracticeId?: string;
+    authContext?: AuthContext | null;
   } = {}
 ): Promise<RequestWithPracticeContext> {
   // SECURITY: Extract practice context without modifying the original request
   // The original request's headers, cookies, and authentication remain unchanged
   const context = await extractPracticeContext(request, env, {
     requirePractice: options.requirePractice,
-    defaultPracticeId: options.defaultPracticeId
+    defaultPracticeId: options.defaultPracticeId,
+    authContext: options.authContext
   });
   
   // SECURITY: Cast the original request (preserving all headers/cookies/auth)
