@@ -32,6 +32,15 @@ export function getWorkspaceHomePath(
   return fallback;
 }
 
+export function getWorkspaceSettingsPath(
+  workspace: Exclude<WorkspaceType, 'public'>,
+  slug: string,
+  subPath?: string
+): string {
+  const base = `/${workspace}/${encodeURIComponent(slug)}/settings`;
+  return buildSettingsPath(base, subPath);
+}
+
 
 /**
  * Generate a workspace resource path using route patterns and URL encoding.
@@ -157,32 +166,4 @@ export function buildSettingsPath(basePath: string, subPath?: string): string {
   if (!subPath) return normalizedBase;
   const normalizedSub = subPath.replace(/^\/+/, '');
   return `${normalizedBase}/${normalizedSub}`;
-}
-
-export function rewriteLegacySettingsPath(currentPath: string, targetPath: string): string {
-  if (!targetPath.startsWith('/settings')) {
-    return targetPath;
-  }
-
-  const queryIndex = targetPath.indexOf('?');
-  const hashIndex = targetPath.indexOf('#');
-  const splitIndex = [queryIndex, hashIndex].filter((idx) => idx >= 0).sort((a, b) => a - b)[0] ?? -1;
-  const pathOnly = splitIndex >= 0 ? targetPath.slice(0, splitIndex) : targetPath;
-  const suffix = splitIndex >= 0 ? targetPath.slice(splitIndex) : '';
-  const settingsSubPath = pathOnly.replace(/^\/settings\/?/, '');
-
-  const workspaceMatch = currentPath.match(/^\/(practice|client)\/([^/]+)/);
-  if (workspaceMatch) {
-    const workspace = workspaceMatch[1];
-    const slug = workspaceMatch[2];
-    const base = `/${workspace}/${slug}/settings`;
-    return `${buildSettingsPath(base, settingsSubPath || undefined)}${suffix}`;
-  }
-
-  const currentSettingsBase = resolveSettingsBasePath(currentPath);
-  if (currentSettingsBase !== '/settings') {
-    return `${buildSettingsPath(currentSettingsBase, settingsSubPath || undefined)}${suffix}`;
-  }
-
-  return targetPath;
 }

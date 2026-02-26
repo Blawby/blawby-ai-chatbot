@@ -1,10 +1,11 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { atom } from 'nanostores';
 import { useStore } from '@nanostores/preact';
-import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { getBackendApiUrl } from '@/config/urls';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import {
   listPractices,
   createPractice as apiCreatePractice,
@@ -554,6 +555,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     practiceSlug,
   } = options;
   const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
+  const routePractice = useContext(RoutePracticeContext);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const members = useStore(membersStore);
@@ -563,6 +565,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // This ensures the UI shows a loading state during the first render before the fetch effect runs
   const [loading, setLoading] = useState(autoFetchPractices);
   const [error, setError] = useState<string | null>(null);
+  const requestedPracticeSlug = (() => {
+    const explicit = typeof practiceSlug === 'string' ? practiceSlug.trim() : '';
+    if (explicit.length > 0) return explicit;
+    const routeScopedSlug = routePractice?.practiceSlug?.trim() ?? '';
+    if (routeScopedSlug.length > 0 && (routePractice?.workspace === 'practice' || routePractice?.workspace === 'client')) {
+      return routeScopedSlug;
+    }
+    return null;
+  })();
   
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
@@ -637,8 +648,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
-      // Check if practiceSlug has changed - if so, we need to re-select even if already fetched
-      const slugChanged = lastSelectedSlugRef.current !== practiceSlug;
+      // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
+      const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
       
       if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
         return;
@@ -666,7 +677,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         setLoading(false);
         practicesFetchedRef.current = true;
         // Track that we've selected this slug
-        lastSelectedSlugRef.current = practiceSlug;
+        lastSelectedSlugRef.current = requestedPracticeSlug ?? undefined;
       };
 
       const hydrateSnapshotDetails = async (snapshot: SharedPracticeSnapshot) => {
@@ -711,8 +722,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       if (sharedPracticeSnapshot) {
         // Re-select currentPractice based on practiceSlug even when using cached snapshot
         let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
-        if (practiceSlug) {
-          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === practiceSlug);
+        if (requestedPracticeSlug) {
+          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === requestedPracticeSlug);
           selectedCurrentPractice = foundBySlug || null;
         }
 
@@ -740,8 +751,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           
           // Re-select currentPractice based on practiceSlug even when using cached promise
           let selectedCurrentPractice = cached.currentPractice;
-          if (practiceSlug) {
-            const foundBySlug = cached.practices.find((p) => p.slug === practiceSlug);
+          if (requestedPracticeSlug) {
+            const foundBySlug = cached.practices.find((p) => p.slug === requestedPracticeSlug);
             selectedCurrentPractice = foundBySlug || null;
           }
 
@@ -786,11 +797,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .filter((practice) => practice.id.length > 0);
 
         let currentPracticeNext: Practice | null = null;
-        if (practiceSlug) {
-          const foundBySlug = normalizedList.find((p) => p.slug === practiceSlug);
+        if (requestedPracticeSlug) {
+          const foundBySlug = normalizedList.find((p) => p.slug === requestedPracticeSlug);
           currentPracticeNext = foundBySlug || null;
         }
-        if (!currentPracticeNext) {
+        if (!currentPracticeNext && !requestedPracticeSlug) {
           currentPracticeNext = normalizedList[0] || null;
         }
         let details: PracticeDetails | null = null;
@@ -877,7 +888,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [fetchPracticeDetails, isAnonymous, session, practiceSlug]);
+  }, [fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {

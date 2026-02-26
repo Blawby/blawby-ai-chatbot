@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
@@ -14,6 +15,8 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { useTranslation } from '@/shared/i18n/hooks';
 
 interface UserProfileDisplayProps {
@@ -26,11 +29,25 @@ export const UserProfileDisplay = ({
   const { t } = useTranslation(['profile', 'common']);
   const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
+  const location = useLocation();
+  const { currentPractice, practices } = useWorkspaceResolver();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
+  const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
+  const settingsBasePath = routeMatch
+    ? getWorkspaceSettingsPath(routeMatch[1] as 'client' | 'practice', decodeURIComponent(routeMatch[2]))
+    : (() => {
+        const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+        if (!fallbackSlug) return null;
+        return getWorkspaceSettingsPath('client', fallbackSlug);
+      })();
+  const isOnSettingsRoute = Boolean(
+    settingsBasePath &&
+    (location.path === settingsBasePath || location.path.startsWith(`${settingsBasePath}/`))
+  );
 
   // Derive user data from session and practice
   const user = session?.user ? {
@@ -75,10 +92,10 @@ export const UserProfileDisplay = ({
   const handleProfileClick = () => {
     if (isMobile) {
       // On mobile, directly navigate to settings
-      if (window.location.pathname.startsWith('/settings')) {
+      if (isOnSettingsRoute || !settingsBasePath) {
         return;
       }
-      navigate('/settings');
+      navigate(settingsBasePath);
     } else {
       // On desktop, show dropdown
       setShowDropdown(!showDropdown);
@@ -87,15 +104,16 @@ export const UserProfileDisplay = ({
 
   const handleSettingsClick = () => {
     setShowDropdown(false);
-    if (window.location.pathname.startsWith('/settings')) {
+    if (isOnSettingsRoute || !settingsBasePath) {
       return;
     }
-    navigate('/settings');
+    navigate(settingsBasePath);
   };
 
   const handleHelpClick = () => {
     setShowDropdown(false);
-    navigate('/settings/help');
+    if (!settingsBasePath) return;
+    navigate(`${settingsBasePath}/help`);
   };
 
 

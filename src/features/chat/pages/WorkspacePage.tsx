@@ -1079,7 +1079,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return;
     }
     if (tab === 'settings') {
-      navigate('/settings');
+      navigate(`${workspaceBasePath}/settings`);
       return;
     }
     navigate(workspaceBasePath);

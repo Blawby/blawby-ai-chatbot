@@ -5,7 +5,6 @@
  * Uses atomic components for consistent styling.
  */
 
-import { useNavigation } from '@/shared/utils/navigation';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { 
@@ -23,12 +22,10 @@ interface BusinessWelcomePromptProps {
 }
 
 export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePromptProps) => {
-  const { navigate } = useNavigation();
   const { t } = useTranslation('common');
-
   const handleGoToSettings = () => {
+    // Parent wires onClose to the route-specific settings navigation action.
     onClose();
-    navigate('/settings/practice');
   };
 
   const features = [

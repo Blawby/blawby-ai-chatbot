@@ -4,6 +4,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
@@ -25,7 +26,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import { lazy } from 'preact/compat';
+import { lazy, Suspense } from 'preact/compat';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
@@ -47,6 +48,12 @@ type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'c
  * - 'widget'  – embedded in 3rd-party site via iframe (?v=widget)
  */
 export type LayoutMode = 'widget' | 'mobile' | 'desktop';
+
+const WorkspaceSubviewFallback = () => (
+  <div className="flex h-full min-h-0 items-center justify-center p-6 text-sm text-input-placeholder">
+    Loading...
+  </div>
+);
 
 // ─── component ────────────────────────────────────────────────────────────────
 
@@ -92,6 +99,11 @@ export function MainApp({
   const { currentPractice } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
     fetchInvitations: workspace !== 'public',
+    practiceSlug: workspace === 'practice'
+      ? (practiceSlug ?? null)
+      : workspace === 'client'
+        ? (clientPracticeSlug ?? null)
+        : null,
   });
 
   // ── workspace routing — single source of truth ────────────────────────────
@@ -446,7 +458,9 @@ export function MainApp({
       console.warn('[PRACTICE_WELCOME] Failed to update preferences', err);
       showError('Update failed', 'We could not save your preference. You may see this prompt again.');
     }
-    navigate('/settings/practice');
+    if (resolvedPracticeSlug) {
+      navigate(`/practice/${encodeURIComponent(resolvedPracticeSlug)}/settings/practice`);
+    }
   };
 
   // ── invite link handling ───────────────────────────────────────────────────
@@ -702,23 +716,47 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         isPracticeWorkspace
-          ? (practiceMattersPath ? <PracticeMattersPage basePath={practiceMattersPath} /> : null)
+          ? (practiceMattersPath ? (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <PracticeMattersPage basePath={practiceMattersPath} practiceId={effectivePracticeId ?? null} />
+            </Suspense>
+          ) : null)
           : isClientWorkspace
-            ? <ClientMattersPage />
+            ? (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <ClientMattersPage />
+              </Suspense>
+            )
             : undefined
       }
-      clientsView={isPracticeWorkspace ? <PracticeClientsPage /> : undefined}
+      clientsView={isPracticeWorkspace ? (
+        <Suspense fallback={<WorkspaceSubviewFallback />}>
+          <PracticeClientsPage practiceId={effectivePracticeId ?? null} />
+        </Suspense>
+      ) : undefined}
     />
   );
 
   // ── render ─────────────────────────────────────────────────────────────────
   const rootClassName = isWidget ? 'h-full w-full overflow-hidden' : 'min-h-dvh w-full';
 
+  const routePracticeContextValue = {
+    practiceId: effectivePracticeId ?? null,
+    practiceSlug: workspace === 'practice'
+      ? (practiceSlug ?? null)
+      : workspace === 'client'
+        ? (clientPracticeSlug ?? null)
+        : (resolvedPublicPracticeSlug ?? null),
+    workspace,
+  } as const;
+
   return (
     <>
       {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
       <div className={rootClassName} {...(isWidget ? { 'data-widget': 'true' } : {})}>
-        {workspacePage}
+        <RoutePracticeProvider value={routePracticeContextValue}>
+          {workspacePage}
+        </RoutePracticeProvider>
       </div>
       {!isWidget && (
         <>

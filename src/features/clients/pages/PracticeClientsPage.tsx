@@ -272,7 +272,7 @@ const ClientDetailPanel = ({
   </div>
 );
 
-export const PracticeClientsPage = () => {
+export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceId?: string | null }) => {
   const isMobile = useMobileDetection();
   const { currentPractice } = usePracticeManagement();
   const { showError, showSuccess } = useToastContext();
@@ -334,6 +334,7 @@ export const PracticeClientsPage = () => {
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLLIElement>(null);
   const pageSize = 50;
+  const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
 
   const selectedClient = useMemo(() => {
     return sortedClients.find((client) => client.id === selectedClientId) ?? sortedClients[0] ?? null;
@@ -396,16 +397,16 @@ export const PracticeClientsPage = () => {
   }, []);
 
   const refreshClientMemos = useCallback(async (client: ClientRecord) => {
-    if (!currentPractice?.id) return;
-    const memos = await listUserDetailMemos(currentPractice.id, client.id);
+    if (!activePracticeId) return;
+    const memos = await listUserDetailMemos(activePracticeId, client.id);
     setMemoTimeline((prev) => ({
       ...prev,
       [client.id]: mapMemosToTimeline(client, memos)
     }));
-  }, [currentPractice?.id, mapMemosToTimeline]);
+  }, [activePracticeId, mapMemosToTimeline]);
 
   const fetchClientsPage = useCallback(async (page: number, options?: { replace?: boolean }) => {
-    if (!currentPractice?.id) {
+    if (!activePracticeId) {
       setClients([]);
       setClientsHasMore(true);
       setClientsPage(1);
@@ -421,7 +422,7 @@ export const PracticeClientsPage = () => {
 
     try {
       const offset = (page - 1) * pageSize;
-      const response = await listUserDetails(currentPractice.id, { limit: pageSize, offset });
+      const response = await listUserDetails(activePracticeId, { limit: pageSize, offset });
       const nextClients = response.data.map(buildClientRecord);
       if (options?.replace) {
         setClients(nextClients);
@@ -448,8 +449,8 @@ export const PracticeClientsPage = () => {
       setClientsLoadingMore(false);
     }
   }, [
+    activePracticeId,
     buildClientRecord,
-    currentPractice?.id,
     pageSize
   ]);
 
@@ -458,7 +459,7 @@ export const PracticeClientsPage = () => {
   }, [fetchClientsPage]);
 
   useEffect(() => {
-    if (!currentPractice?.id || !selectedClient) return;
+    if (!activePracticeId || !selectedClient) return;
     if (memoTimeline[selectedClient.id]) return;
 
     refreshClientMemos(selectedClient)
@@ -469,15 +470,15 @@ export const PracticeClientsPage = () => {
           [selectedClient.id]: []
         }));
       });
-  }, [currentPractice?.id, memoTimeline, refreshClientMemos, selectedClient]);
+  }, [activePracticeId, memoTimeline, refreshClientMemos, selectedClient]);
 
   const handleMemoSubmit = useCallback(async (text: string) => {
-    if (!currentPractice?.id || !selectedClient) return;
+    if (!activePracticeId || !selectedClient) return;
     if (memoSubmitting) return;
 
     setMemoSubmitting(true);
     try {
-      await createUserDetailMemo(currentPractice.id, selectedClient.id, { content: text });
+      await createUserDetailMemo(activePracticeId, selectedClient.id, { content: text });
       await refreshClientMemos(selectedClient);
     } catch (error) {
       console.error('[Clients] Failed to create memo', error);
@@ -485,14 +486,14 @@ export const PracticeClientsPage = () => {
     } finally {
       setMemoSubmitting(false);
     }
-  }, [currentPractice?.id, memoSubmitting, refreshClientMemos, selectedClient, showError]);
+  }, [activePracticeId, memoSubmitting, refreshClientMemos, selectedClient, showError]);
 
   const handleMemoEdit = useCallback(async (memoId: string, text: string) => {
-    if (!currentPractice?.id || !selectedClient) return;
+    if (!activePracticeId || !selectedClient) return;
     if (memoActionId) return;
     setMemoActionId(memoId);
     try {
-      await updateUserDetailMemo(currentPractice.id, selectedClient.id, memoId, { content: text });
+      await updateUserDetailMemo(activePracticeId, selectedClient.id, memoId, { content: text });
       await refreshClientMemos(selectedClient);
     } catch (error) {
       console.error('[Clients] Failed to update memo', error);
@@ -500,16 +501,16 @@ export const PracticeClientsPage = () => {
     } finally {
       setMemoActionId(null);
     }
-  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient, showError]);
+  }, [activePracticeId, memoActionId, refreshClientMemos, selectedClient, showError]);
 
   const handleMemoDelete = useCallback(async (memoId: string) => {
-    if (!currentPractice?.id || !selectedClient) return;
+    if (!activePracticeId || !selectedClient) return;
     if (memoActionId) return;
     const confirmed = window.confirm('Delete this memo?');
     if (!confirmed) return;
     setMemoActionId(memoId);
     try {
-      await deleteUserDetailMemo(currentPractice.id, selectedClient.id, memoId);
+      await deleteUserDetailMemo(activePracticeId, selectedClient.id, memoId);
       await refreshClientMemos(selectedClient);
     } catch (error) {
       console.error('[Clients] Failed to delete memo', error);
@@ -517,7 +518,7 @@ export const PracticeClientsPage = () => {
     } finally {
       setMemoActionId(null);
     }
-  }, [currentPractice?.id, memoActionId, refreshClientMemos, selectedClient, showError]);
+  }, [activePracticeId, memoActionId, refreshClientMemos, selectedClient, showError]);
 
   const handleOpenAddClient = useCallback(() => {
     setAddClientError(null);
@@ -572,10 +573,10 @@ export const PracticeClientsPage = () => {
   }, []);
 
   const handleOpenEditClient = useCallback(async () => {
-    if (!currentPractice?.id || !selectedClient) return;
+    if (!activePracticeId || !selectedClient) return;
     setEditClientError(null);
     try {
-      const detail = await getUserDetail(currentPractice.id, selectedClient.id);
+      const detail = await getUserDetail(activePracticeId, selectedClient.id);
       const name = detail?.user?.name?.trim() || detail?.user?.email?.trim() || selectedClient.name;
       setEditClientForm({
         id: selectedClient.id,
@@ -592,10 +593,10 @@ export const PracticeClientsPage = () => {
       setEditClientError('Failed to load client');
       setIsEditClientOpen(true);
     }
-  }, [currentPractice?.id, selectedClient]);
+  }, [activePracticeId, selectedClient]);
 
   const handleSubmitEditClient = useCallback(async () => {
-    if (!currentPractice?.id || !editClientForm.id) return;
+    if (!activePracticeId || !editClientForm.id) return;
     const name = editClientForm.name.trim();
     const email = editClientForm.email.trim();
     if (!name || !email) {
@@ -606,7 +607,7 @@ export const PracticeClientsPage = () => {
     setEditClientSubmitting(true);
     setEditClientError(null);
     try {
-      await updateUserDetail(currentPractice.id, editClientForm.id, {
+      await updateUserDetail(activePracticeId, editClientForm.id, {
         name,
         email,
         phone: editClientForm.phone.trim() || undefined,
@@ -626,14 +627,14 @@ export const PracticeClientsPage = () => {
     } finally {
       setEditClientSubmitting(false);
     }
-  }, [currentPractice?.id, editClientForm, editClientSubmitting, fetchClientsPage, resetEditClientForm, showError, showSuccess]);
+  }, [activePracticeId, editClientForm, editClientSubmitting, fetchClientsPage, resetEditClientForm, showError, showSuccess]);
 
   const handleDeleteClient = useCallback(async () => {
-    if (!currentPractice?.id || !selectedClient) return;
+    if (!activePracticeId || !selectedClient) return;
     const confirmed = window.confirm('Delete this client?');
     if (!confirmed) return;
     try {
-      await deleteUserDetail(currentPractice.id, selectedClient.id);
+      await deleteUserDetail(activePracticeId, selectedClient.id);
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client deleted', 'The client has been removed.');
       setIsDrawerOpen(false);
@@ -641,10 +642,10 @@ export const PracticeClientsPage = () => {
       console.error('[Clients] Failed to delete client', error);
       showError('Could not delete client', 'Please try again.');
     }
-  }, [currentPractice?.id, fetchClientsPage, selectedClient, showError, showSuccess]);
+  }, [activePracticeId, fetchClientsPage, selectedClient, showError, showSuccess]);
 
   const handleSubmitAddClient = useCallback(async () => {
-    if (!currentPractice?.id) return;
+    if (!activePracticeId) return;
     const name = addClientForm.name.trim();
     const email = addClientForm.email.trim();
     if (!name || !email) {
@@ -655,7 +656,7 @@ export const PracticeClientsPage = () => {
     setAddClientSubmitting(true);
     setAddClientError(null);
     try {
-      await createUserDetail(currentPractice.id, {
+      await createUserDetail(activePracticeId, {
         name,
         email,
         phone: addClientForm.phone.trim() || undefined,
@@ -678,7 +679,7 @@ export const PracticeClientsPage = () => {
   }, [
     addClientForm,
     addClientSubmitting,
-    currentPractice?.id,
+    activePracticeId,
     fetchClientsPage,
     resetAddClientForm,
     showError,
@@ -1011,7 +1012,7 @@ export const PracticeClientsPage = () => {
                 <ClientDetailPanel
                   client={selectedClient}
                   activity={selectedClientActivity}
-                  practiceId={currentPractice?.id}
+                  practiceId={activePracticeId}
                   onAddMemo={handleMemoSubmit}
                   memoSubmitting={memoSubmitting}
                   onEditMemo={handleMemoEdit}
@@ -1048,7 +1049,7 @@ export const PracticeClientsPage = () => {
             <ClientDetailPanel
               client={selectedClient}
               activity={selectedClientActivity}
-              practiceId={currentPractice?.id}
+              practiceId={activePracticeId}
               onAddMemo={handleMemoSubmit}
               memoSubmitting={memoSubmitting}
               onEditMemo={handleMemoEdit}

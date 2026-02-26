@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useMemo } from 'preact/co
 import { ComponentChildren } from 'preact';
 import { useTypedSession } from '@/shared/lib/authClient';
 import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
+import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -116,9 +117,20 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 }
 
 export function useSessionContext() {
-  const context = useContext(SessionContext);
-  if (context === undefined) {
+  const sessionContext = useContext(SessionContext);
+  const routePractice = useContext(RoutePracticeContext);
+  if (sessionContext === undefined) {
     throw new Error('useSessionContext must be used within a SessionProvider');
   }
-  return context;
+  const isRouteScopedWorkspace = routePractice?.workspace === 'practice' || routePractice?.workspace === 'client';
+  if (!routePractice || !isRouteScopedWorkspace) {
+    return sessionContext;
+  }
+  return {
+    ...sessionContext,
+    // Route-selected practice is authoritative for route-scoped pages.
+    // When unresolved during navigation, expose null (not legacy active org)
+    // so pages render loaders instead of fetching the wrong workspace.
+    activePracticeId: routePractice.practiceId ?? null,
+  };
 }
