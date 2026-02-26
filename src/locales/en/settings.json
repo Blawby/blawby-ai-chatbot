@@ -20,6 +20,7 @@
       "errorBody": "There was an error signing you out. Please try again."
     }
   },
+  "redirecting": "Redirecting settings...",
   "practice": {
     "services": "Services",
     "team": "Team Members"

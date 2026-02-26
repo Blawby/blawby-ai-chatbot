@@ -23,6 +23,10 @@ interface BusinessWelcomePromptProps {
 
 export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePromptProps) => {
   const { t } = useTranslation('common');
+  const handleGoToSettings = () => {
+    // Parent wires onClose to the route-specific settings navigation action.
+    onClose();
+  };
 
   const features = [
     {
@@ -70,7 +74,7 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
           ))}
         </div>
 
-        <Button variant="primary" className="w-full mt-4" onClick={onClose}>
+        <Button variant="primary" className="w-full mt-4" onClick={handleGoToSettings}>
           {t('businessWelcome.goToSettings')}
         </Button>
       </div>

@@ -16,8 +16,8 @@ const ClientHomePage = () => {
   const { navigate, navigateToPricing } = useNavigation();
   const name = session?.user?.name || session?.user?.email || 'there';
   const showUpgrade = !canAccessPractice;
-  const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
   const settingsPath = useMemo(() => {
+    const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
     if (routeMatch) {
       const workspace = routeMatch[1] as 'client' | 'practice';
       const slug = decodeURIComponent(routeMatch[2]);
@@ -25,7 +25,7 @@ const ClientHomePage = () => {
     }
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return fallbackSlug ? getWorkspaceSettingsPath('client', fallbackSlug) : null;
-  }, [currentPractice?.slug, practices, routeMatch]);
+  }, [currentPractice?.slug, location.path, practices]);
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [

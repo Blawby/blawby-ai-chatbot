@@ -245,7 +245,7 @@ export const SettingsPage = ({
   if (shouldHideSettings) {
     return (
       <div className={cn('flex h-full items-center justify-center text-sm text-input-placeholder', className)}>
-        Redirecting settings...
+        {t('settings:redirecting', { defaultValue: 'Redirecting settings...' })}
       </div>
     );
   }
