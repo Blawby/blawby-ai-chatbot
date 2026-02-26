@@ -796,6 +796,13 @@ function WidgetRoute({
     } catch {
       // ignore storage failures in privacy modes
     }
+    return () => {
+      try {
+        window.sessionStorage.removeItem(WIDGET_RUNTIME_CONTEXT_KEY);
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   const practiceConfig = useMemo<UIPracticeConfig | null>(() => {

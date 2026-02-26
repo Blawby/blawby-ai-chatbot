@@ -296,11 +296,13 @@ export const useConversation = ({
         : undefined,
       paymentRequest: parsePaymentRequestMetadata(msg.metadata),
       reactions: Array.isArray(msg.reactions)
-        ? msg.reactions.map((reaction) => ({
-            emoji: reaction.emoji,
-            count: reaction.count,
-            reactedByMe: reaction.reactedByMe,
-          }))
+        ? msg.reactions
+            .filter((r): r is MessageReaction => r !== null && typeof r === 'object')
+            .map((reaction) => ({
+              emoji: typeof reaction.emoji === 'string' ? reaction.emoji : '',
+              count: typeof reaction.count === 'number' ? reaction.count : 0,
+              reactedByMe: Boolean(reaction.reactedByMe),
+            }))
         : [],
       isUser,
       seq: msg.seq,

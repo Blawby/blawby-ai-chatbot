@@ -671,12 +671,8 @@ export class ConversationService {
       typeof options?.previousParticipantId === 'string' && options.previousParticipantId.trim()
         ? options.previousParticipantId.trim()
         : null;
-    const canPromoteAnonymousOwner =
-      Boolean(previousParticipantId) &&
-      conversation.user_id === previousParticipantId &&
-      conversation.user_id !== userId;
 
-    if (conversation.user_id && conversation.user_id !== userId && !canPromoteAnonymousOwner) {
+    if (conversation.user_id && conversation.user_id !== userId) {
       throw HttpErrors.conflict('Conversation already linked to a different user');
     }
 
@@ -728,9 +724,12 @@ export class ConversationService {
         DELETE FROM conversation_participants
         WHERE conversation_id = ? AND user_id = ?
       `).bind(conversationId, previousParticipantId).run();
+      
+      // Notify about individual membership revocation
+      await this.notifyMembershipChanged(conversationId, previousParticipantId);
+    } else {
+      await this.notifyMembershipChanged(conversationId);
     }
-
-    await this.notifyMembershipChanged(conversationId);
 
     return this.getConversation(conversationId, practiceId);
   }
