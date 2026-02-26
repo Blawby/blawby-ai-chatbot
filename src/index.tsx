@@ -10,6 +10,7 @@ import PricingPage from '@/pages/PricingPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
+import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import { getClient } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -21,7 +22,6 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
-  buildSettingsPath,
   getValidatedSettingsReturnPath,
   getSettingsReturnPath,
   getWorkspaceHomePath,
@@ -199,17 +199,6 @@ function AppShell() {
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PaySuccessPage} />
-          {/*
-           * Legacy /settings redirect layer.
-           * Old bookmarks and emails link to /settings or /settings/practice.
-           * These routes detect the user's workspace and redirect to the canonical
-           * /practice/:slug/settings or /client/:slug/settings path.
-           *
-           * TODO: Remove after backend PR #101 lands — routing claims from the
-           * session will let us derive the correct workspace without a round-trip.
-           */}
-          <Route path="/settings" component={SettingsRedirectRoute} />
-          <Route path="/settings/*" component={SettingsRedirectRoute} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
           <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
@@ -261,43 +250,6 @@ function RouteLoadError({
   );
 }
 
-/**
- * Redirects /settings and /settings/* to the canonical workspace-scoped
- * settings path: /{practice|client}/:slug/settings[/*].
- *
- * This exists for backwards compatibility with old links. Once the backend
- * routing PR (#101) delivers workspace claims in the session, this redirect
- * can be computed server-side and this component deleted.
- */
-function SettingsRedirectRoute() {
-  const location = useLocation();
-  const { defaultWorkspace, currentPractice, practices, practicesLoading } = useWorkspaceResolver();
-  const { navigate } = useNavigation();
-
-  const resolvedPractice = currentPractice ?? practices[0] ?? null;
-  const resolvedSlug = resolvedPractice?.slug ?? null;
-
-  // Strip the /settings prefix to get the sub-path (e.g. 'practice', 'team')
-  const legacySubPath = location.path.replace(/^\/settings\/?/, '');
-
-  // Preserve query string + hash from the original URL
-  const suffixStart = location.url.indexOf('?') >= 0
-    ? location.url.indexOf('?')
-    : location.url.indexOf('#');
-  const urlSuffix = suffixStart >= 0 ? location.url.slice(suffixStart) : '';
-
-  useEffect(() => {
-    if (practicesLoading || !resolvedSlug || !resolvedPractice) return;
-    const workspacePrefix = defaultWorkspace === 'practice' ? 'practice' : 'client';
-    const settingsBase = `/${workspacePrefix}/${encodeURIComponent(resolvedSlug)}/settings`;
-    const targetPath = buildSettingsPath(settingsBase, legacySubPath || undefined);
-    navigate(urlSuffix ? targetPath + urlSuffix : targetPath, true);
-  }, [defaultWorkspace, urlSuffix, legacySubPath, navigate, practicesLoading, resolvedPractice, resolvedSlug]);
-
-  if (!practicesLoading && (!resolvedSlug || !resolvedPractice)) return <App404 />;
-  return <LoadingScreen />;
-}
-
 function WorkspaceSettingsRoute({
   practiceSlug,
   workspace
@@ -315,7 +267,6 @@ function WorkspaceSettingsRoute({
 
   const slug = (practiceSlug ?? '').trim();
   const workspaceKey = workspace === 'client' || workspace === 'practice' ? workspace : null;
-
   const resolvedPractice = resolvePracticeBySlug(slug);
   const canAccessRouteWorkspace = Boolean(resolvedPractice);
 
@@ -345,11 +296,13 @@ function WorkspaceSettingsRoute({
   }
 
   return (
-    <SettingsPage
-      isMobile={isMobile}
-      onClose={handleCloseSettings}
-      className="h-full"
-    />
+    <RoutePracticeProvider value={{ practiceId: resolvedPractice?.id ?? null, practiceSlug: slug, workspace: workspaceKey }}>
+      <SettingsPage
+        isMobile={isMobile}
+        onClose={handleCloseSettings}
+        className="h-full"
+      />
+    </RoutePracticeProvider>
   );
 }
 
@@ -433,11 +386,9 @@ function PracticeAppRoute({
   const fallbackPracticeId = currentPractice?.id
     ?? practices[0]?.id
     ?? '';
-  const practiceIdCandidate = hasPracticeSlug
-    ? (slugPractice?.id ?? '')
-    : fallbackPracticeId;
+  const practiceLookupKey = hasPracticeSlug ? (slugPractice?.id ?? '') : fallbackPracticeId;
   const practiceRefreshKey = useMemo(() => {
-    if (!currentPractice) return null;
+    if (!currentPractice || currentPractice.slug !== normalizedPracticeSlug) return null;
     return [
       currentPractice.updatedAt,
       currentPractice.slug,
@@ -446,7 +397,7 @@ function PracticeAppRoute({
     ]
       .filter(Boolean)
       .join('|');
-  }, [currentPractice]);
+  }, [currentPractice, normalizedPracticeSlug]);
 
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
@@ -460,13 +411,13 @@ function PracticeAppRoute({
     isLoading: _isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
-    practiceId: shouldDelayPracticeConfig ? '' : practiceIdCandidate,
+    practiceId: shouldDelayPracticeConfig ? '' : practiceLookupKey,
     allowUnauthenticated: false,
     refreshKey: practiceRefreshKey
   });
 
   const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
-  const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceIdCandidate;
+  const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceLookupKey;
 
   useEffect(() => {
     if (isPending || practicesLoading) return;
@@ -602,11 +553,11 @@ function ClientPracticeRoute({
     return <AuthPage />;
   }
 
-  if (!slugPractice) {
+  if (practiceNotFound) {
     return <App404 />;
   }
 
-  if (practiceNotFound) {
+  if (!slugPractice) {
     return <App404 />;
   }
 

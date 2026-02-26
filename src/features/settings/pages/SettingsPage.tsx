@@ -243,7 +243,11 @@ export const SettingsPage = ({
   }
 
   if (shouldHideSettings) {
-    return null;
+    return (
+      <div className={cn('flex h-full items-center justify-center text-sm text-input-placeholder', className)}>
+        Redirecting settings...
+      </div>
+    );
   }
 
   const desktopNavigation = (

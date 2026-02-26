@@ -237,12 +237,14 @@ const MatterLoadError = ({
 
 type PracticeMattersPageProps = {
   basePath?: string;
+  practiceId?: string | null;
 };
 
-export const PracticeMattersPage = ({ basePath = '/practice/matters' }: PracticeMattersPageProps) => {
+export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId: routePracticeId = null }: PracticeMattersPageProps) => {
   const location = useLocation();
-  const { activePracticeId, session } = useSessionContext();
+  const { session } = useSessionContext();
   const { showError } = useToastContext();
+  const activePracticeId = routePracticeId;
 
   // ── Routing ──────────────────────────────────────────────────────────────
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';

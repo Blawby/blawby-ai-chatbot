@@ -1,16 +1,31 @@
 import { useMemo } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { useNavigation } from '@/shared/utils/navigation';
+import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
 
 const ClientHomePage = () => {
   const { session } = useSessionContext();
+  const location = useLocation();
   const { canAccessPractice } = useWorkspace();
+  const { currentPractice, practices } = useWorkspaceResolver();
   const { navigate, navigateToPricing } = useNavigation();
   const name = session?.user?.name || session?.user?.email || 'there';
   const showUpgrade = !canAccessPractice;
+  const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
+  const settingsPath = useMemo(() => {
+    if (routeMatch) {
+      const workspace = routeMatch[1] as 'client' | 'practice';
+      const slug = decodeURIComponent(routeMatch[2]);
+      return getWorkspaceSettingsPath(workspace, slug);
+    }
+    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    return fallbackSlug ? getWorkspaceSettingsPath('client', fallbackSlug) : null;
+  }, [currentPractice?.slug, practices, routeMatch]);
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [
@@ -63,7 +78,7 @@ const ClientHomePage = () => {
               Update your preferences, notifications, and security settings.
             </p>
           </div>
-          <Button variant="secondary" onClick={() => navigate('/settings')}>
+          <Button variant="secondary" onClick={() => settingsPath && navigate(settingsPath)}>
             Manage account settings
           </Button>
         </div>
