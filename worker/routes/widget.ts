@@ -62,7 +62,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     }
 
     // Typing session data
-    const typedSessionData = sessionData as { user?: { isAnonymous?: boolean } } | null;
+    const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
 
     if (!typedSessionData?.user) {
       // Need anonymous signin
@@ -126,20 +126,24 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // client-side get-or-create round-trip after bootstrap.
   let conversationId: string | null = null;
   const conversationsData: { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null = null;
-  const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
-  const sessionUserId = typedSessionData?.user?.id ?? null;
-  const isAnonymous = typedSessionData?.user?.isAnonymous === true;
+  const typedSessionDataResolved = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+  const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
+  const isAnonymous = typedSessionDataResolved?.user?.isAnonymous === true;
 
   if (practiceId && sessionUserId) {
-    const conversationService = new ConversationService(env);
-    const conversation = await conversationService.getOrCreateCurrentConversation(
-      sessionUserId,
-      practiceId,
-      request,
-      isAnonymous,
-      { skipPracticeValidation: true }
-    );
-    conversationId = conversation.id;
+    try {
+      const conversationService = new ConversationService(env);
+      const conversation = await conversationService.getOrCreateCurrentConversation(
+        sessionUserId,
+        practiceId,
+        request,
+        isAnonymous,
+        { skipPracticeValidation: true }
+      );
+      conversationId = conversation.id;
+    } catch (err) {
+      console.error('[Bootstrap] Failed to get or create conversation', { sessionUserId, practiceId, error: err });
+    }
   }
 
   // Create the response object

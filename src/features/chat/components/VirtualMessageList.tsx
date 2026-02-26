@@ -155,7 +155,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             : (useTailWindow ? Math.max(0, dedupedMessages.length - BATCH_SIZE) : startIndex))
         : 0;
     const derivedEnd = virtualizationEnabled
-        ? (useTailWindow ? dedupedMessages.length : endIndex)
+        ? (hasMoreMessages === false || useTailWindow ? dedupedMessages.length : endIndex)
         : dedupedMessages.length;
 
     const currentUserAvatar = session?.user?.image || null;

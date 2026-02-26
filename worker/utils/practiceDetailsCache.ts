@@ -87,9 +87,6 @@ export const fetchPracticeDetailsWithCache = async (
       }
       preferLookupFailed = true;
     }
-    if (!preferLookupFailed) {
-      return { details: null, isPublic: false };
-    }
     // fall through to slug lookup when ID lookup fails with auth errors
   }
 

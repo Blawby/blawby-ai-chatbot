@@ -318,8 +318,8 @@ export async function linkConversationToUser(
   }
 
   const payload: Record<string, unknown> = {};
-  if (userId) payload.userId = userId;
-  if (options?.previousParticipantId) {
+  if (userId !== undefined) payload.userId = userId;
+  if (options?.previousParticipantId !== undefined) {
     payload.previousParticipantId = options.previousParticipantId;
   }
 

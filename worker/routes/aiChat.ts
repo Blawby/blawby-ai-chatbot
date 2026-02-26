@@ -1228,6 +1228,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             model,
             intakeReadyCta: true,
           },
+          recipientUserId: authContext.user.id,
+          skipPracticeValidation: true,
+          request
         });
       }
 

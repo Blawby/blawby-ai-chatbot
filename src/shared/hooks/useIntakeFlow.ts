@@ -217,6 +217,7 @@ export function useIntakeFlow({
     conversationMetadataRef,
     practiceId,
     updateConversationMetadata,
+    normalizedPracticeSlug,
   ]);
 
   const handleBuildBrief = useCallback(async () => {
@@ -377,8 +378,8 @@ export function useIntakeFlow({
     onError,
     practiceId,
     slimContactDraft,
-    submitInFlightRef,
     updateConversationMetadata,
+    normalizedPracticeSlug,
   ]);
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
