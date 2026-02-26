@@ -215,11 +215,8 @@ export interface ChatMessage {
   metadata?: Record<string, unknown>;
 }
 
-export interface MessageReaction {
-  emoji: string;
-  count: number;
-  reactedByMe: boolean;
-}
+import type { MessageReaction } from '../src/shared/types/conversation.js';
+export type { MessageReaction };
 
 export interface ChatSession {
   id: string;

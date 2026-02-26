@@ -125,7 +125,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // 4. Bootstrap an anon-safe active conversation so the widget can skip the extra
   // client-side get-or-create round-trip after bootstrap.
   let conversationId: string | null = null;
-  const conversationsData: { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null = null;
+  let recentConversations: Array<{ id: string, created_at: string, last_message_at: string | null }> = [];
   const typedSessionDataResolved = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
   const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
   const isAnonymous = typedSessionDataResolved?.user?.isAnonymous === true;
@@ -141,6 +141,19 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
         { skipPracticeValidation: true }
       );
       conversationId = conversation.id;
+
+      // Also fetch a few recent conversations to populate the conversations list
+      const userConversations = await conversationService.getConversations({
+        practiceId,
+        userId: sessionUserId,
+        limit: 5,
+        status: 'active'
+      });
+      recentConversations = userConversations.map(c => ({
+        id: c.id,
+        created_at: c.created_at,
+        last_message_at: c.last_message_at ?? null
+      }));
     } catch (err) {
       console.error('[Bootstrap] Failed to get or create conversation', { sessionUserId, practiceId, error: err });
     }
@@ -152,7 +165,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     practiceDetails,
     session: sessionData,
     conversationId: conversationId,
-    conversations: conversationsData?.data || []
+    conversations: recentConversations
   };
 
   const responseHeaders = new Headers({

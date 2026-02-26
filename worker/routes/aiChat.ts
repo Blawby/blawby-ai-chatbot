@@ -1219,7 +1219,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       if (forcedSummaryContent) {
-        await conversationService.sendSystemMessage({
+        const forcedSummaryMessage = await conversationService.sendSystemMessage({
           conversationId: body.conversationId,
           practiceId: conversation.practice_id,
           content: forcedSummaryContent,
@@ -1232,6 +1232,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           skipPracticeValidation: true,
           request
         });
+        if (forcedSummaryMessage) {
+          write({ 
+            persisted: true, 
+            messageId: forcedSummaryMessage.id,
+            content: forcedSummaryContent,
+            metadata: forcedSummaryMessage.metadata
+          });
+        }
       }
 
       if (storedMessage) {

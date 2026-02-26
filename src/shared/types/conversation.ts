@@ -1,5 +1,11 @@
 // TypeScript types for user-to-user conversations and messages
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
 /**
  * Conversation status
  */
@@ -90,7 +96,6 @@ export interface Conversation {
 /**
  * Message object from API
  */
-import type { MessageReaction } from '../../../worker/types';
 
 export interface ConversationMessage {
   id: string;

@@ -86,7 +86,9 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
             : typeof bootstrapUser.id === 'number'
               ? String(bootstrapUser.id)
               : null;
-          rememberAnonymousUserId(resolvedId);
+          if (resolvedId) {
+            rememberAnonymousUserId(resolvedId);
+          }
           try {
             await getClient().getSession();
           } catch (sessionError) {
