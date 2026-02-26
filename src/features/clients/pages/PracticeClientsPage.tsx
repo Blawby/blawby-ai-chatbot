@@ -334,7 +334,7 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLLIElement>(null);
   const pageSize = 50;
-  const activePracticeId = routePracticeId ?? currentPractice?.id ?? null;
+  const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
 
   const selectedClient = useMemo(() => {
     return sortedClients.find((client) => client.id === selectedClientId) ?? sortedClients[0] ?? null;
