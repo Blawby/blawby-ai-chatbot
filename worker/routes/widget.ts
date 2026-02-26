@@ -1,6 +1,7 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+import { ConversationService } from '../services/ConversationService.js';
 
 export async function handleWidgetBootstrap(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
@@ -121,13 +122,25 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
               ? practiceDetails.organizationId
           : null;
 
-  // 4. Conversation bootstrap intentionally omitted for anonymous widget users.
-  // The previous implementation used a staff-scoped conversations endpoint and then
-  // tried to create a conversation server-side. In widget/public flow the client
-  // already owns conversation setup via the active conversation endpoint, so bootstrap
-  // should only establish session + practice context and return quickly.
+  // 4. Bootstrap an anon-safe active conversation so the widget can skip the extra
+  // client-side get-or-create round-trip after bootstrap.
   let conversationId: string | null = null;
   const conversationsData: { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null = null;
+  const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+  const sessionUserId = typedSessionData?.user?.id ?? null;
+  const isAnonymous = typedSessionData?.user?.isAnonymous === true;
+
+  if (practiceId && sessionUserId) {
+    const conversationService = new ConversationService(env);
+    const conversation = await conversationService.getOrCreateCurrentConversation(
+      sessionUserId,
+      practiceId,
+      request,
+      isAnonymous,
+      { skipPracticeValidation: true }
+    );
+    conversationId = conversation.id;
+  }
 
   // Create the response object
   const bootstrapResponse = {

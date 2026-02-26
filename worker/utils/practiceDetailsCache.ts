@@ -53,6 +53,7 @@ export const fetchPracticeDetailsWithCache = async (
   }
 
   if (options?.preferPracticeIdLookup) {
+    let preferLookupFailed = false;
     try {
       const baseUrl = new URL(request.url);
       baseUrl.pathname = `/api/practice/${encodeURIComponent(practiceId)}/details`;
@@ -63,29 +64,33 @@ export const fetchPracticeDetailsWithCache = async (
           Accept: 'application/json'
         }
       });
-      if (!response.ok) {
-        if (response.status === 404) {
-          return { details: null, isPublic: false };
+      if (response.ok) {
+        const payload = await response.json().catch(() => null);
+        const details = extractDetailsContainer(payload);
+        const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+
+        if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
+          await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
+            expirationTtl: CACHE_TTL_SECONDS
+          });
         }
+
+        return { details, isPublic };
+      }
+      if (response.status === 404) {
         return { details: null, isPublic: false };
       }
-      const payload = await response.json().catch(() => null);
-      const details = extractDetailsContainer(payload);
-      const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-
-      if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
-        await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
-          expirationTtl: CACHE_TTL_SECONDS
-        });
-      }
-
-      return { details, isPublic };
+      preferLookupFailed = true;
     } catch (error) {
       if (error instanceof HttpError && error.status === 404) {
         return { details: null, isPublic: false };
       }
+      preferLookupFailed = true;
+    }
+    if (!preferLookupFailed) {
       return { details: null, isPublic: false };
     }
+    // fall through to slug lookup when ID lookup fails with auth errors
   }
 
   const isUuid = (value: string): boolean =>

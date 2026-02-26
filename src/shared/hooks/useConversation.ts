@@ -44,6 +44,7 @@ import {
 } from '@/shared/lib/conversationApi';
 import axios from 'axios';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -204,7 +205,10 @@ export const useConversation = ({
     setIsConversationLinkReady(false);
     (async () => {
       try {
-        await linkConversationToUser(conversationId, practiceId, currentUserId);
+        const previousParticipantId = peekAnonymousUserId();
+        await linkConversationToUser(conversationId, practiceId, currentUserId, {
+          previousParticipantId: previousParticipantId ?? undefined
+        });
       } catch (error) {
         console.warn('[useConversation] Conversation relink failed', { conversationId, practiceId, error });
         const is409 = axios.isAxiosError(error) && error.response?.status === 409;
@@ -291,6 +295,13 @@ export const useConversation = ({
           }))
         : undefined,
       paymentRequest: parsePaymentRequestMetadata(msg.metadata),
+      reactions: Array.isArray(msg.reactions)
+        ? msg.reactions.map((reaction) => ({
+            emoji: reaction.emoji,
+            count: reaction.count,
+            reactedByMe: reaction.reactedByMe,
+          }))
+        : [],
       isUser,
       seq: msg.seq,
     };

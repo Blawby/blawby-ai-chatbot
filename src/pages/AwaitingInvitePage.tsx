@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getPublicPracticeDetails, linkConversationToUser, triggerIntakeInvitation } from '@/shared/lib/apiClient';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return '';
@@ -44,7 +45,10 @@ export const AwaitingInvitePage: FunctionComponent = () => {
           const practiceDetails = await getPublicPracticeDetails(practiceSlug);
           const practiceId = practiceDetails?.practiceId;
           if (practiceId) {
-            await linkConversationToUser(conversationId, practiceId);
+            const previousParticipantId = peekAnonymousUserId();
+            await linkConversationToUser(conversationId, practiceId, undefined, {
+              previousParticipantId: previousParticipantId ?? undefined
+            });
             console.info('[AwaitingInvitePage] Linked conversation to user', {
               conversationId,
               practiceId

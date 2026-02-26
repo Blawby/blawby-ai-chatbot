@@ -602,9 +602,38 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         headers.set('Content-Length', fileRecord.file_size.toString());
       }
       
-      // Propagate cache control from stored object if present
-      if (fileObject.httpMetadata?.cacheControl) {
-        headers.set('Cache-Control', fileObject.httpMetadata.cacheControl);
+      // Propagate cache control from stored object if present, otherwise set sensible defaults
+      const existingCacheControl =
+        fileObject.httpMetadata?.cacheControl ||
+        headers.get('Cache-Control');
+      if (existingCacheControl) {
+        headers.set('Cache-Control', existingCacheControl);
+      } else {
+        const isImmutableUpload = filePath.startsWith('uploads/');
+        headers.set(
+          'Cache-Control',
+          isImmutableUpload ? 'public, max-age=86400, immutable' : 'public, max-age=120'
+        );
+      }
+
+      // Attach ETag and honor conditional requests
+      const etag =
+        fileObject.httpEtag ??
+        (fileRecord?.file_size
+          ? `"${fileRecord.file_size}-${fileRecord.updated_at ?? fileRecord.created_at ?? ''}"`
+          : null);
+      if (etag) {
+        headers.set('ETag', etag);
+        const ifNoneMatch = request.headers.get('If-None-Match');
+        if (ifNoneMatch) {
+          const tags = ifNoneMatch
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+          if (tags.includes(etag) || tags.includes('*')) {
+            return new Response(null, { status: 304, headers });
+          }
+        }
       }
 
       // Use non-null assertion after explicit null check

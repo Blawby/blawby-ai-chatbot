@@ -1,4 +1,4 @@
-import type { Env } from '../types.js';
+import type { Env, MessageReaction } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
@@ -53,6 +53,7 @@ export interface ConversationMessage {
   server_ts: string;
   token_count: number | null;
   created_at: string;
+  reactions?: MessageReaction[];
 }
 
 export interface CreateConversationOptions {
@@ -70,6 +71,7 @@ export interface GetMessagesOptions {
   fromSeq?: number;
   traceId?: string;
   requestSource?: string;
+  viewerId?: string | null;
 }
 
 export interface GetMessagesResult {
@@ -656,7 +658,8 @@ export class ConversationService {
   async linkConversationToUser(
     conversationId: string,
     practiceId: string,
-    userId: string
+    userId: string,
+    options?: { previousParticipantId?: string | null }
   ): Promise<Conversation> {
     const conversation = await this.getConversation(conversationId, practiceId);
 
@@ -664,7 +667,16 @@ export class ConversationService {
       throw HttpErrors.forbidden('Conversation does not belong to this practice');
     }
 
-    if (conversation.user_id && conversation.user_id !== userId) {
+    const previousParticipantId =
+      typeof options?.previousParticipantId === 'string' && options.previousParticipantId.trim()
+        ? options.previousParticipantId.trim()
+        : null;
+    const canPromoteAnonymousOwner =
+      Boolean(previousParticipantId) &&
+      conversation.user_id === previousParticipantId &&
+      conversation.user_id !== userId;
+
+    if (conversation.user_id && conversation.user_id !== userId && !canPromoteAnonymousOwner) {
       throw HttpErrors.conflict('Conversation already linked to a different user');
     }
 
@@ -675,6 +687,9 @@ export class ConversationService {
       return conversation;
     }
 
+    if (previousParticipantId && previousParticipantId !== userId) {
+      participantSet.delete(previousParticipantId);
+    }
     participantSet.add(userId);
     const updatedParticipants = Array.from(participantSet);
     const now = new Date().toISOString();
@@ -682,14 +697,15 @@ export class ConversationService {
     const updateResult = await this.env.DB.prepare(`
       UPDATE conversations
       SET user_id = ?, participants = ?, updated_at = ?, membership_version = membership_version + 1
-      WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ?)
+      WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ? OR user_id = ?)
     `).bind(
       userId,
       JSON.stringify(updatedParticipants),
       now,
       conversationId,
       practiceId,
-      userId
+      userId,
+      previousParticipantId
     ).run();
 
     const changes = updateResult.meta?.changes ?? updateResult.meta?.rows_written ?? 0;
@@ -706,6 +722,13 @@ export class ConversationService {
       INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id)
       VALUES (?, ?)
     `).bind(conversationId, userId).run();
+
+    if (previousParticipantId && previousParticipantId !== userId) {
+      await this.env.DB.prepare(`
+        DELETE FROM conversation_participants
+        WHERE conversation_id = ? AND user_id = ?
+      `).bind(conversationId, previousParticipantId).run();
+    }
 
     await this.notifyMembershipChanged(conversationId);
 
@@ -1026,7 +1049,8 @@ export class ConversationService {
       seq: record.seq,
       server_ts: record.server_ts,
       token_count: record.token_count,
-      created_at: record.created_at
+      created_at: record.created_at,
+      reactions: []
     };
   }
 
@@ -1189,6 +1213,8 @@ export class ConversationService {
         created_at: record.created_at
       }));
 
+      await this.attachReactionsToMessages(messages, options.viewerId ?? null);
+
       const latestSeq = Number(latestRecord.latest_seq);
       let nextFromSeq: number | null = null;
       if (messages.length > 0) {
@@ -1266,6 +1292,8 @@ export class ConversationService {
       token_count: record.token_count,
       created_at: record.created_at
     }));
+
+    await this.attachReactionsToMessages(messages, options.viewerId ?? null);
 
     // Reverse to return oldest first (for display)
     messages.reverse();
@@ -1356,6 +1384,49 @@ export class ConversationService {
         removedUserId,
         error: error instanceof Error ? error.message : String(error)
       });
+    }
+  }
+
+  private async attachReactionsToMessages(messages: ConversationMessage[], viewerId: string | null): Promise<void> {
+    if (messages.length === 0) return;
+    const ids = messages.map((message) => message.id);
+    const placeholders = ids.map(() => '?').join(', ');
+    const viewer = viewerId ?? '';
+
+    const query = `
+      SELECT
+        message_id,
+        emoji,
+        COUNT(*) as count,
+        SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) as reacted_by_me
+      FROM chat_message_reactions
+      WHERE message_id IN (${placeholders})
+      GROUP BY message_id, emoji
+    `;
+
+    const records = await this.env.DB.prepare(query).bind(viewer, ...ids).all<{
+      message_id: string;
+      emoji: string;
+      count: number;
+      reacted_by_me: number;
+    }>();
+
+    const reactionMap = new Map<string, MessageReaction[]>();
+    for (const record of records.results) {
+      const payload: MessageReaction = {
+        emoji: record.emoji,
+        count: Number(record.count) || 0,
+        reactedByMe: Number(record.reacted_by_me) > 0,
+      };
+      if (!reactionMap.has(record.message_id)) {
+        reactionMap.set(record.message_id, [payload]);
+      } else {
+        reactionMap.get(record.message_id)?.push(payload);
+      }
+    }
+
+    for (const message of messages) {
+      message.reactions = reactionMap.get(message.id) ?? [];
     }
   }
 

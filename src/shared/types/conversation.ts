@@ -90,6 +90,8 @@ export interface Conversation {
 /**
  * Message object from API
  */
+import type { MessageReaction } from '../../../worker/types';
+
 export interface ConversationMessage {
   id: string;
   conversation_id: string;
@@ -104,6 +106,7 @@ export interface ConversationMessage {
   server_ts: string;
   token_count: number | null;
   created_at: string; // ISO timestamp
+  reactions?: MessageReaction[];
 }
 
 export interface MessageReactionSummary {

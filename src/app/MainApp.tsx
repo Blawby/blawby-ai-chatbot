@@ -263,11 +263,6 @@ export function MainApp({
   const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
   const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
 
-  const intakeAuthTitle = t('intake.authTitle');
-  const intakeAuthDescription = resolvedPracticeName
-    ? t('intake.authDescription', { practice: resolvedPracticeName })
-    : t('intake.authDescriptionFallback');
-
   const awaitingInvitePath = useMemo(() => {
     if (!isPublicWorkspace || !intakeUuid) return null;
     const slug = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
@@ -305,8 +300,12 @@ export function MainApp({
 
   const handleAuthPromptSuccess = useCallback(async () => {
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
+    if (isWidget) {
+      if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
+      return;
+    }
     await handleIntakeAuthSuccess();
-  }, [handleIntakeAuthSuccess, isPaymentAuthPromptOpen]);
+  }, [handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget]);
 
   useEffect(() => {
     if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
@@ -673,8 +672,6 @@ export function MainApp({
             isLoadingMoreMessages={isLoadingMoreMessages}
             onLoadMoreMessages={loadMoreMessages}
             showAuthPrompt={shouldShowAuthPrompt}
-            authPromptTitle={intakeAuthTitle}
-            authPromptDescription={intakeAuthDescription}
             authPromptCallbackUrl={awaitingInvitePath ?? undefined}
             onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
             onAuthPromptClose={handleAuthPromptClose}

@@ -137,6 +137,7 @@ test.describe('Widget performance (real e2e)', () => {
     const bootstrapRecord = records.find((record) => record.path.includes('/api/widget/bootstrap'));
     const messageInput = anonPage.getByTestId('message-input');
     const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
+    const bodyLocator = anonPage.locator('body');
     let reachedInteractive = false;
     let interactiveFailure: string | null = null;
 
@@ -179,6 +180,11 @@ test.describe('Widget performance (real e2e)', () => {
     await slimFormContinue.click();
 
     await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+    await expect(bodyLocator).toContainText('Contact info received', { timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+    await expect(
+      bodyLocator,
+      'Contact acknowledgement should include the submitted email address.'
+    ).toContainText(email, { timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
     const formSubmitFeedbackMs = Date.now() - submitStartedAt;
 
     let aiResponseMs: number | null = null;
@@ -188,7 +194,6 @@ test.describe('Widget performance (real e2e)', () => {
     let aiResponseTransport: 'json' | 'sse' | null = null;
     let aiDeliveryDiagnostics: Record<string, unknown> | null = null;
     let flowStartedAt = 0;
-    const bodyLocator = anonPage.locator('body');
     try {
       await messageInput.fill('What are your hours of operation?');
       const aiResponsePromise = anonPage.waitForResponse(
