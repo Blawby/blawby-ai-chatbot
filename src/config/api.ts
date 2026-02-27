@@ -103,6 +103,11 @@ export const getConversationsEndpoint = () => {
   return `${config.baseUrl}/api/conversations`;
 };
 
+export const getPracticeConversationsEndpoint = () => {
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/practice/conversations`;
+};
+
 export const getConversationEndpoint = (conversationId: string) => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}`;

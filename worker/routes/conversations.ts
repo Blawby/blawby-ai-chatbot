@@ -358,7 +358,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     const conversation = await conversationService.createConversation({
       practiceId,
-      userId: isAnonymous ? null : userId, // Null user_id for anonymous users
+      userId,
+      isAnonymous,
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
@@ -457,6 +458,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       const conversations = await conversationService.getConversations({
         practiceId,
         userId,
+        bypassParticipantFilter: true,
         status: status || undefined,
         limit
       });
@@ -575,60 +577,38 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
-    const body = await parseJsonBody(request) as {
-      userId?: string | null;
-      anonymousSessionId?: string | null;
-      previousParticipantId?: string | null;
-    };
-
     if (authContext.isAnonymous) {
       throw HttpErrors.unauthorized('Sign in is required to link a conversation');
     }
 
-    const targetUserId = body.userId || userId;
-    if (targetUserId !== userId) {
-      throw HttpErrors.forbidden('Cannot link conversation to a different user');
+    const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+    if (membership.isMember) {
+      throw HttpErrors.forbidden('Practice members cannot link visitor conversations');
     }
 
-    // Allow authenticated users to claim anonymous conversations on first load.
-    // This supports direct refresh on /public/:slug/conversations/:id after auth.
-    // Require explict ownership proof before allowing claim.
-    try {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
-    } catch (error) {
-      if (!(error instanceof HttpError) || error.status !== 403) {
-        throw error;
-      }
-      const conversation = await conversationService.getConversation(conversationId, practiceId);
-      if (conversation.user_id) {
-        throw error;
-      }
-
-      const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
-      const hasPreviousParticipantProof =
-        typeof body.previousParticipantId === 'string' &&
-        participants.includes(body.previousParticipantId);
-
-      if (!hasPreviousParticipantProof) {
-        const conversationAnonymousSessionId =
-          (conversation as { anonymous_session_id?: string | null }).anonymous_session_id;
-        if (!body.anonymousSessionId || body.anonymousSessionId !== conversationAnonymousSessionId) {
-          throw error;
-        }
-      }
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    if (conversation.user_id === userId) {
+      return createJsonResponse(conversation);
     }
 
-    const conversation = await conversationService.linkConversationToUser(
+    const previousAnonUserId = authContext.previousAnonUserId;
+    if (!previousAnonUserId) {
+      throw HttpErrors.forbidden('Anonymous upgrade proof missing');
+    }
+    if (conversation.user_id !== previousAnonUserId) {
+      throw HttpErrors.forbidden('Conversation ownership does not match upgraded anonymous identity');
+    }
+
+    const linkedConversation = await conversationService.linkConversationToUser(
       conversationId,
       practiceId,
-      targetUserId,
+      userId,
       {
-        previousParticipantId:
-          typeof body.previousParticipantId === 'string' ? body.previousParticipantId : null,
+        previousParticipantId: previousAnonUserId
       }
     );
 
-    return createJsonResponse(conversation);
+    return createJsonResponse(linkedConversation);
   }
 
   // PATCH /api/conversations/:id - Update conversation
@@ -707,8 +687,22 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
     }
 
-    // Validate user has access before allowing them to add others
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    // Allow if caller is either a participant OR a verified practice member.
+    let hasAccess = false;
+    try {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      hasAccess = true;
+    } catch (error) {
+      if (!(error instanceof HttpError) || error.status !== 403) {
+        throw error;
+      }
+    }
+    if (!hasAccess) {
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+      if (!membership.isMember) {
+        throw HttpErrors.forbidden('User is not authorized to add participants to this conversation');
+      }
+    }
 
     const conversation = await conversationService.addParticipants(
       conversationId,

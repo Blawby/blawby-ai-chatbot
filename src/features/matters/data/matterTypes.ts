@@ -28,11 +28,16 @@ export type MatterMilestoneFormInput = {
 
 export type MatterTask = {
   id: string;
-  title: string;
-  description?: string;
-  dueDate?: string;
-  status: 'pending' | 'completed';
-  timeEstimateHours?: number;
+  matterId: string;
+  name: string;
+  description: string | null;
+  assigneeId: string | null;
+  dueDate: string | null;
+  status: 'pending' | 'in_progress' | 'complete' | 'blocked';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  stage: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type MatterNote = {

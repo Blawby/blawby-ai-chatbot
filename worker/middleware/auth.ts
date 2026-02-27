@@ -20,10 +20,16 @@ export interface AuthContext {
   cookie: string;
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
   activeOrganizationId?: string | null;
+  previousAnonUserId?: string | null;
 }
 
 type CachedSession = {
-  value: { user: AuthenticatedUser; session: { id: string; expiresAt: Date } };
+  value: {
+    user: AuthenticatedUser;
+    session: { id: string; expiresAt: Date };
+    activeOrganizationId?: string | null;
+    previousAnonUserId?: string | null;
+  };
   expiresAt: number;
   staleExpiresAt: number;
 };
@@ -90,7 +96,7 @@ function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
 
 export function parseAuthSessionPayload(
   rawResponse: unknown
-): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null } {
+): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null; previousAnonUserId?: string | null } {
   if (!rawResponse || typeof rawResponse !== 'object') {
     console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
     throw HttpErrors.unauthorized('Invalid session data - empty response');
@@ -162,6 +168,14 @@ export function parseAuthSessionPayload(
       : typeof sessionRecord?.active_organization_id === 'string'
         ? sessionRecord.active_organization_id
         : null;
+  const previousAnonUserId =
+    typeof sessionRecord?.previous_anon_user_id === 'string'
+      ? sessionRecord.previous_anon_user_id
+      : typeof sessionRecord?.previousAnonUserId === 'string'
+        ? sessionRecord.previousAnonUserId
+        : typeof (responseRecord as Record<string, unknown>).previous_anon_user_id === 'string'
+          ? (responseRecord as Record<string, unknown>).previous_anon_user_id as string
+          : null;
 
   return {
     user: {
@@ -185,6 +199,9 @@ export function parseAuthSessionPayload(
     },
     activeOrganizationId: typeof activeOrganizationId === 'string' && activeOrganizationId.trim().length > 0
       ? activeOrganizationId.trim()
+      : null,
+    previousAnonUserId: typeof previousAnonUserId === 'string' && previousAnonUserId.trim().length > 0
+      ? previousAnonUserId.trim()
       : null
   };
 }
@@ -195,7 +212,12 @@ export async function validateSessionWithRemoteServer(
   options?: {
     allowStaleOnTimeout?: boolean;
   }
-): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null }> {
+): Promise<{
+  user: AuthenticatedUser;
+  session: { id: string; expiresAt: Date };
+  activeOrganizationId?: string | null;
+  previousAnonUserId?: string | null;
+}> {
   const cacheKey = getSessionCacheKey(cookie);
   const cached = sessionCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -333,7 +355,12 @@ export async function requireAuth(
 ): Promise<AuthContext> {
   const cookieHeader = request.headers.get('Cookie');
 
-  let authResult: { user: AuthenticatedUser; session: { id: string; expiresAt: Date } };
+  let authResult: {
+    user: AuthenticatedUser;
+    session: { id: string; expiresAt: Date };
+    activeOrganizationId?: string | null;
+    previousAnonUserId?: string | null;
+  };
   if (!cookieHeader || !cookieHeader.trim()) {
     throw HttpErrors.unauthorized('Authentication required - session cookie missing');
   }
@@ -358,7 +385,8 @@ export async function requireAuth(
   return {
     ...authResult,
     cookie: cookieHeader,
-    isAnonymous
+    isAnonymous,
+    previousAnonUserId: authResult.previousAnonUserId ?? null
   };
 }
 

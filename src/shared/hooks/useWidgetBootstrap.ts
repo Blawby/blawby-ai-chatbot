@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { getClient } from '@/shared/lib/authClient';
-import { rememberAnonymousUserId } from '@/shared/utils/anonymousIdentity';
+import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
@@ -80,6 +80,10 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
                 : false)
           : false;
 
+        const bootstrapSessionId = typeof (freshData.session as { session?: { id?: string } } | null | undefined)?.session?.id === 'string'
+          ? (freshData.session as { session?: { id?: string } }).session!.id!.trim()
+          : null;
+
         if (bootstrapUser && isAnonymousUser) {
           const resolvedId = typeof bootstrapUser.id === 'string'
             ? bootstrapUser.id
@@ -88,6 +92,9 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
               : null;
           if (resolvedId) {
             rememberAnonymousUserId(resolvedId);
+          }
+          if (bootstrapSessionId) {
+            rememberAnonymousSessionId(bootstrapSessionId);
           }
           try {
             await getClient().getSession();

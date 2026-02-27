@@ -106,6 +106,56 @@ export type BackendMatterMilestone = {
   updated_at?: string | null;
 };
 
+export type TaskStatus = 'pending' | 'in_progress' | 'complete' | 'blocked';
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export type BackendMatterTask = {
+  id: string;
+  matter_id: string;
+  name: string;
+  description?: string | null;
+  assignee_id?: string | null;
+  due_date?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  stage: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ListMatterTaskFilters = {
+  task_id?: string;
+  assignee_id?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  stage?: string;
+};
+
+export type CreateMatterTaskPayload = {
+  name: string;
+  description?: string;
+  assignee_id?: string | null;
+  due_date?: string | null;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  stage: string;
+};
+
+export type UpdateMatterTaskPayload = Partial<{
+  name: string;
+  description: string | null;
+  assignee_id: string | null;
+  due_date: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  stage: string;
+}>;
+
+export type GenerateMatterTasksPayload = {
+  template_name?: string;
+  tasks: CreateMatterTaskPayload[];
+};
+
 type FetchOptions = {
   signal?: AbortSignal;
 };
@@ -368,6 +418,36 @@ const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] => {
     return extractMilestonesArray(record.data);
   }
   return [];
+};
+
+const extractTasksArray = (payload: unknown): BackendMatterTask[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
+  }
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.tasks)) {
+    return record.tasks.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
+  }
+  if (record.data) {
+    return extractTasksArray(record.data);
+  }
+  return [];
+};
+
+const extractTask = (payload: unknown): BackendMatterTask | null => {
+  if (!payload || typeof payload !== 'object') return null;
+  if (Array.isArray(payload)) {
+    return (payload.find((item) => item && typeof item === 'object') ?? null) as BackendMatterTask | null;
+  }
+  const record = payload as Record<string, unknown>;
+  if (record.task && typeof record.task === 'object') {
+    return record.task as BackendMatterTask;
+  }
+  if (record.data) {
+    return extractTask(record.data);
+  }
+  return record as BackendMatterTask;
 };
 
 
@@ -980,4 +1060,129 @@ export const reorderMatterMilestones = async (
     'Failed to reorder milestones'
   );
   return true;
+};
+
+export const listMatterTasks = async (
+  practiceId: string,
+  matterId: string,
+  filters: ListMatterTaskFilters = {},
+  options: FetchOptions = {}
+): Promise<BackendMatterTask[]> => {
+  if (!practiceId || !matterId) {
+    return [];
+  }
+
+  const params = new URLSearchParams();
+  if (filters.task_id) params.set('task_id', filters.task_id);
+  if (filters.assignee_id) params.set('assignee_id', filters.assignee_id);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.stage) params.set('stage', filters.stage);
+
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/tasks`,
+      {
+        params: Object.fromEntries(params.entries()),
+        signal: options.signal
+      }
+    ),
+    'Failed to load tasks'
+  );
+  return extractTasksArray(payload);
+};
+
+export const createMatterTask = async (
+  practiceId: string,
+  matterId: string,
+  payload: CreateMatterTaskPayload,
+  options: FetchOptions = {}
+): Promise<BackendMatterTask | null> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!payload?.name?.trim()) {
+    throw new Error('name is required');
+  }
+  if (!payload?.stage?.trim()) {
+    throw new Error('stage is required');
+  }
+  const json = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/tasks`,
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to create task'
+  );
+  return extractTask(json);
+};
+
+export const updateMatterTask = async (
+  practiceId: string,
+  matterId: string,
+  taskId: string,
+  payload: UpdateMatterTaskPayload,
+  options: FetchOptions = {}
+): Promise<BackendMatterTask | null> => {
+  if (!practiceId || !matterId || !taskId) {
+    throw new Error('practiceId, matterId, and taskId are required');
+  }
+  if (!payload || Object.keys(payload).length === 0) {
+    throw new Error('At least one field must be provided');
+  }
+  const json = await requestData(
+    apiClient.patch(
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/tasks/${encodeURIComponent(taskId)}`,
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to update task'
+  );
+  return extractTask(json);
+};
+
+export const deleteMatterTask = async (
+  practiceId: string,
+  matterId: string,
+  taskId: string,
+  options: FetchOptions = {}
+): Promise<boolean> => {
+  if (!practiceId || !matterId || !taskId) {
+    throw new Error('practiceId, matterId, and taskId are required');
+  }
+  const payload = await requestData(
+    apiClient.delete(
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/tasks/${encodeURIComponent(taskId)}`,
+      { signal: options.signal }
+    ),
+    'Failed to delete task'
+  );
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    return Boolean((payload as Record<string, unknown>).success);
+  }
+  return true;
+};
+
+export const generateMatterTasks = async (
+  practiceId: string,
+  matterId: string,
+  payload: GenerateMatterTasksPayload,
+  options: FetchOptions = {}
+): Promise<BackendMatterTask[]> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!Array.isArray(payload.tasks) || payload.tasks.length === 0) {
+    throw new Error('tasks must include at least one entry');
+  }
+  const json = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/tasks/generate`,
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to generate tasks'
+  );
+  return extractTasksArray(json);
 };

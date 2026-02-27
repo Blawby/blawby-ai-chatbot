@@ -126,9 +126,13 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // client-side get-or-create round-trip after bootstrap.
   let conversationId: string | null = null;
   let recentConversations: Array<{ id: string, created_at: string, last_message_at: string | null }> = [];
-  const typedSessionDataResolved = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+  const typedSessionDataResolved = sessionData as {
+    user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean };
+  } | null;
   const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
-  const isAnonymous = typedSessionDataResolved?.user?.isAnonymous === true;
+  const isAnonymous =
+    typedSessionDataResolved?.user?.isAnonymous === true ||
+    typedSessionDataResolved?.user?.is_anonymous === true;
 
   if (practiceId && sessionUserId) {
     try {

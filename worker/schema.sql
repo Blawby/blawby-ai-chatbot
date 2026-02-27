@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
   user_id TEXT,
+  is_anonymous INTEGER NOT NULL DEFAULT 0,
   matter_id TEXT, -- Optional remote matter reference
   participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,

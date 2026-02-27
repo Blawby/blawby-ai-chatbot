@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import PricingView from '@/features/pricing/components/PricingView';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -22,29 +22,27 @@ const PricingPage = () => {
     navigate(`/auth?mode=signin&redirect=${redirect}`, true);
   }, [isAuthenticated, isPending, location.url, navigate]);
 
-  const resolveReturnPath = (): string => {
-    if (typeof window === 'undefined') return '/';
-    const params = new URLSearchParams(window.location.search);
-    const returnTo = params.get('returnTo');
-    
-    // Validate: must be internal path starting with /, not //, not /pricing, no backslashes,
-    // and match strict alphanumeric/dash/underscore/slash pattern
-    const isValidInternalPath = returnTo 
-      && typeof returnTo === 'string'
-      && /^\/[A-Za-z0-9_/-]*$/.test(returnTo)
-      && returnTo.startsWith('/') 
-      && !returnTo.startsWith('//') 
-      && !returnTo.startsWith('/pricing')
-      && !returnTo.includes('\\');
-    
-    if (isValidInternalPath) {
-      return returnTo;
+  const rawReturnTo = typeof location.query?.returnTo === 'string' ? location.query.returnTo : null;
+  const resolvedReturnPath = useMemo(() => {
+    if (!rawReturnTo) return '/';
+    let decoded: string | null = null;
+    try {
+      decoded = decodeURIComponent(rawReturnTo);
+    } catch {
+      return '/';
     }
-    return '/';
-  };
+
+    const isValidInternalPath =
+      typeof decoded === 'string' &&
+      /^\/[A-Za-z0-9_/-]*$/.test(decoded) &&
+      decoded.startsWith('/') &&
+      !decoded.startsWith('//') &&
+      !decoded.includes('\\');
+    return isValidInternalPath ? decoded : '/';
+  }, [rawReturnTo]);
 
   const handleClose = () => {
-    navigate(resolveReturnPath(), true);
+    navigate(resolvedReturnPath, true);
   };
 
   if (isPending || !isAuthenticated) {

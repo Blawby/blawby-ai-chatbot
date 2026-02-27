@@ -15,6 +15,7 @@ export interface Conversation {
     slug: string;
   } | null;
   user_id: string | null;
+  is_anonymous?: boolean;
   matter_id: string | null;
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
@@ -58,7 +59,8 @@ export interface ConversationMessage {
 
 export interface CreateConversationOptions {
   practiceId: string;
-  userId: string | null; // Null for anonymous users
+  userId: string;
+  isAnonymous?: boolean;
   matterId?: string | null;
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
@@ -112,29 +114,24 @@ export class ConversationService {
     }
 
     // Validate that we have at least one participant
-    if (!options.userId && options.participantUserIds.length === 0) {
-      throw HttpErrors.badRequest('At least one participant is required for anonymous conversations');
-    }
-
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    // Ensure creator is in participants (only if userId is not null)
-    const participants = options.userId 
-      ? Array.from(new Set([options.userId, ...options.participantUserIds]))
-      : options.participantUserIds;
+    // Always include the creator in participants.
+    const participants = Array.from(new Set([options.userId, ...options.participantUserIds]));
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
     const statements = [
       this.env.DB.prepare(`
         INSERT INTO conversations (
-          id, practice_id, user_id, matter_id, participants, user_info, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+          id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
       `).bind(
         conversationId,
         options.practiceId,
-        options.userId, // Can be null for anonymous users
+        options.userId,
+        options.isAnonymous ? 1 : 0,
         options.matterId || null,
         participantsJson,
         userInfoJson,
@@ -237,6 +234,7 @@ export class ConversationService {
         slug: getString(record.practice_slug) || practiceId
       } : null,
       user_id: getNullableString(record.user_id),
+      is_anonymous: Boolean(Number(record.is_anonymous ?? 0)),
       matter_id: getNullableString(record.matter_id),
       participants,
       user_info,
@@ -352,13 +350,15 @@ export class ConversationService {
 
     // Try to get most recent conversation (prefer active if present)
     // Build WHERE clause conditionally to avoid SQL keyword interpolation
-    const userIdCondition = isAnonymous ? 'AND c.user_id IS NULL' : 'AND c.user_id IS NOT NULL';
+    const anonymousCondition = isAnonymous
+      ? "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 1"
+      : "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 0";
     const query = `
       SELECT c.*
       FROM conversations c
       WHERE c.practice_id = ? 
         AND EXISTS (SELECT 1 FROM json_each(c.participants) WHERE json_each.value = ?)
-        ${userIdCondition}
+        ${anonymousCondition}
       ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
@@ -368,13 +368,13 @@ export class ConversationService {
       return this.mapRecordToConversation(existing);
     }
 
-    // No existing conversation, create new one
-    // For anonymous users, user_id will be null but they still have a userId for participants
+    // No existing conversation, create new one.
     return this.createConversation({
       practiceId,
-      userId: isAnonymous ? null : userId, // Store actual userId for authenticated users, null for anonymous
+      userId,
+      isAnonymous: Boolean(isAnonymous),
       matterId: null,
-      participantUserIds: isAnonymous ? [userId] : [], // userId will be added automatically by createConversation for authenticated users
+      participantUserIds: [],
       metadata: null,
       skipPracticeValidation: options?.skipPracticeValidation
     }, request);
@@ -387,6 +387,7 @@ export class ConversationService {
     practiceId: string;
     matterId?: string | null;
     userId?: string | null;
+    bypassParticipantFilter?: boolean;
     status?: 'active' | 'archived' | 'closed';
     limit?: number;
   }): Promise<Conversation[]> {
@@ -421,7 +422,7 @@ export class ConversationService {
       bindings.push(options.matterId);
     }
 
-    if (options.userId) {
+    if (options.userId && !options.bypassParticipantFilter) {
       // User must be in participants array
       query += ' AND EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)';
       bindings.push(options.userId);
@@ -692,7 +693,7 @@ export class ConversationService {
 
     const updateResult = await this.env.DB.prepare(`
       UPDATE conversations
-      SET user_id = ?, participants = ?, updated_at = ?, membership_version = membership_version + 1
+      SET user_id = ?, is_anonymous = 0, participants = ?, updated_at = ?, membership_version = membership_version + 1
       WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ? OR user_id = ?)
     `).bind(
       userId,

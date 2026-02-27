@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '@/config/api';
+import { getConversationsEndpoint, getConversationParticipantsEndpoint, getPracticeConversationsEndpoint } from '@/config/api';
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
 import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
+import { clearConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
 
 interface UseConversationsOptions {
   practiceId?: string;
@@ -14,6 +15,7 @@ interface UseConversationsOptions {
   list?: boolean;
   enabled?: boolean;
   allowAnonymous?: boolean;
+  preferOrgScopedPracticeList?: boolean;
   onError?: (error: string) => void;
 }
 
@@ -23,7 +25,11 @@ interface UseConversationsReturn {
   error: string | null;
   refresh: () => Promise<void>;
   addParticipants: (conversationId: string, participantUserIds: string[]) => Promise<Conversation | null>;
-  linkConversationToUser: (conversationId: string, userId?: string, options?: { previousParticipantId?: string | null }) => Promise<Conversation | null>;
+  linkConversationToUser: (
+    conversationId: string,
+    userId?: string,
+    options?: { previousParticipantId?: string | null; anonymousSessionId?: string | null }
+  ) => Promise<Conversation | null>;
 }
 
 /**
@@ -49,6 +55,7 @@ export function useConversations({
   list = false,
   enabled = true,
   allowAnonymous = false,
+  preferOrgScopedPracticeList = false,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
   const { activePracticeId, session, isPending: sessionIsPending } = useSessionContext();
@@ -110,7 +117,11 @@ export function useConversations({
       if (scope === 'all') {
         params.set('scope', 'all');
       } else if (effectivePracticeId) {
-        params.set('practiceId', effectivePracticeId);
+        if (preferOrgScopedPracticeList) {
+          params.set('practice_id', effectivePracticeId);
+        } else {
+          params.set('practiceId', effectivePracticeId);
+        }
       }
 
       if (matterId && scope !== 'all') {
@@ -130,7 +141,10 @@ export function useConversations({
       }
 
       const queryString = params.toString();
-      const response = await fetch(`${getConversationsEndpoint()}${queryString ? `?${queryString}` : ''}`, {
+      const endpoint = scope === 'practice' && preferOrgScopedPracticeList
+        ? getPracticeConversationsEndpoint()
+        : getConversationsEndpoint();
+      const response = await fetch(`${endpoint}${queryString ? `?${queryString}` : ''}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -195,7 +209,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady]);
+  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady, preferOrgScopedPracticeList]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
@@ -263,7 +277,7 @@ export function useConversations({
   const linkConversationToUser = useCallback(async (
     conversationId: string,
     userId?: string,
-    options?: { previousParticipantId?: string | null }
+    options?: { previousParticipantId?: string | null; anonymousSessionId?: string | null }
   ): Promise<Conversation | null> => {
     if (!practiceId) {
       return null;
@@ -278,6 +292,7 @@ export function useConversations({
 
     try {
       const conversation = await apiLinkConversationToUser(conversationId, practiceId, userId, options);
+      clearConversationAnonymousParticipant(conversationId);
       await refresh();
       return conversation;
     } catch (err) {

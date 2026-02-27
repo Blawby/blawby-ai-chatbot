@@ -14,7 +14,9 @@ import {
 } from '@/shared/types/intake';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
-import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
+import {
+  clearConversationAnonymousParticipant,
+} from '@/shared/utils/anonymousIdentity';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -281,10 +283,8 @@ export function useIntakeFlow({
     try {
       if (currentUserId && !isAnonymous) {
         try {
-          const previousParticipantId = peekAnonymousUserId();
-          await linkConversationToUser(conversationId, practiceId, currentUserId, {
-            previousParticipantId: previousParticipantId ?? undefined,
-          });
+          await linkConversationToUser(conversationId, practiceId);
+          clearConversationAnonymousParticipant(conversationId);
         } catch (linkError) {
           if (!axios.isAxiosError(linkError) || linkError.response?.status !== 409) {
             console.warn('[handleSubmitNow] Conversation link check failed', linkError);

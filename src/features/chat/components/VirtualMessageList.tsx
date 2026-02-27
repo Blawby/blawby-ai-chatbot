@@ -373,6 +373,35 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const errData = await response.json().catch(() => ({})) as { error?: string; message?: string };
                     throw new Error(errData.message ?? errData.error ?? `HTTP ${response.status}`);
                 }
+                const triagePayload = await response.json().catch(() => null) as
+                    | {
+                        data?: {
+                            conversation_id?: string | null;
+                            conversationId?: string | null;
+                        } | null;
+                      }
+                    | null;
+                if (action === 'accept' && session?.user?.id) {
+                    const responseConversationId =
+                        triagePayload?.data?.conversation_id
+                        ?? triagePayload?.data?.conversationId
+                        ?? leadReviewActions.conversationId;
+                    if (responseConversationId) {
+                        const addParticipantRes = await fetch(
+                            `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(leadReviewActions.practiceId)}`,
+                            {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ participantUserIds: [session.user.id] }),
+                            }
+                        );
+                        if (!addParticipantRes.ok) {
+                            const participantErr = await addParticipantRes.json().catch(() => ({})) as { error?: string; message?: string };
+                            throw new Error(participantErr.message ?? participantErr.error ?? `Failed to add participant (HTTP ${addParticipantRes.status})`);
+                        }
+                    }
+                }
                 setLeadTriageStatus((prev) => ({
                     ...prev,
                     [intakeUuid]: action === 'accept' ? 'accepted' : 'declined',

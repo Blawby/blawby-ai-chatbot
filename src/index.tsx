@@ -310,7 +310,6 @@ function RootRoute() {
   const { session, isPending } = useSessionContext();
   const {
     defaultWorkspace,
-    hasPracticeAccess: canAccessPractice,
     practicesLoading,
     currentPractice,
     practices
@@ -336,19 +335,12 @@ function RootRoute() {
       return;
     }
 
-    const hasPractice = Boolean(currentPractice?.id || practices.length > 0);
-    if (!canAccessPractice && !hasPractice) {
-      navigate('/pricing?returnTo=/', true);
-      return;
-    }
-
     if (isMountedRef.current) {
       const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
       const destination = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
       navigate(destination, true);
     }
   }, [
-    canAccessPractice,
     defaultWorkspace,
     practicesLoading,
     isPending,
@@ -377,7 +369,8 @@ function PracticeAppRoute({
     practicesLoading,
     currentPractice,
     practices,
-    resolvePracticeBySlug
+    resolvePracticeBySlug,
+    routingClaims
   } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
@@ -424,18 +417,36 @@ function PracticeAppRoute({
     if (!session?.user) return;
     if (canAccessPractice) return;
 
+    const workspaceAccess = routingClaims?.workspace_access;
+    const clientAllowed = workspaceAccess ? workspaceAccess.client : true;
+    const publicAllowed = workspaceAccess ? workspaceAccess.public : true;
+
     if (normalizedPracticeSlug) {
-      navigate(`/client/${encodeURIComponent(normalizedPracticeSlug)}`, true);
-      return;
+      if (clientAllowed) {
+        navigate(`/client/${encodeURIComponent(normalizedPracticeSlug)}`, true);
+        return;
+      }
+      if (publicAllowed) {
+        navigate(`/public/${encodeURIComponent(normalizedPracticeSlug)}`, true);
+        return;
+      }
     }
 
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     if (fallbackSlug) {
-      navigate(`/client/${encodeURIComponent(fallbackSlug)}`, true);
-      return;
+      if (clientAllowed) {
+        navigate(`/client/${encodeURIComponent(fallbackSlug)}`, true);
+        return;
+      }
+      if (publicAllowed) {
+        navigate(`/public/${encodeURIComponent(fallbackSlug)}`, true);
+        return;
+      }
     }
 
-    navigate('/pricing?returnTo=/', true);
+    const fallbackWorkspace = clientAllowed ? 'client' : (publicAllowed ? 'public' : 'client');
+    const fallbackPath = getWorkspaceHomePath(fallbackWorkspace, fallbackSlug, fallbackWorkspace === 'public' ? '/public' : '/');
+    navigate(fallbackPath, true);
   }, [
     canAccessPractice,
     currentPractice?.slug,
@@ -444,6 +455,8 @@ function PracticeAppRoute({
     navigate,
     normalizedPracticeSlug,
     practices,
+    routingClaims?.workspace_access?.client,
+    routingClaims?.workspace_access?.public,
     session?.user
   ]);
 
