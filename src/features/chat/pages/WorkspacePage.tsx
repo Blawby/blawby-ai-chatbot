@@ -812,8 +812,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         : null;
 
       const preferredConversationId = shouldReuseConversation ? latestConversation?.id : undefined;
-      // Consultation CTA should start a fresh intake thread so mode/form state is deterministic.
-      const forceCreate = mode === 'REQUEST_CONSULTATION' || !preferredConversationId;
+      // In embedded public widget mode, reuse the bootstrapped/current conversation
+      // to avoid an extra create-conversation round-trip right after bootstrap.
+      // Other surfaces keep the fresh-thread behavior for consultation CTA.
+      const forceCreate = mode === 'REQUEST_CONSULTATION'
+        ? !(workspace === 'public' && layoutMode === 'widget')
+        : !preferredConversationId;
 
       const conversationId = await onStartNewConversation(
         mode,

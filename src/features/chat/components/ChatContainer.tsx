@@ -21,6 +21,7 @@ import type { IntakeConversationState } from '@/shared/types/intake';
 import { getChatPatterns } from '../config/chatPatterns';
 import { cn } from '@/shared/utils/cn';
 import type { OnboardingActions } from './VirtualMessageList';
+import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -100,8 +101,6 @@ export interface ChatContainerProps {
 
   // Auth prompt overrides
   showAuthPrompt?: boolean;
-  authPromptTitle?: string;
-  authPromptDescription?: string;
   authPromptCallbackUrl?: string;
   onAuthPromptRequest?: () => void;
   onAuthPromptClose?: () => void;
@@ -157,8 +156,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messagesReady = true,
   leadReviewActions,
   showAuthPrompt = false,
-  authPromptTitle,
-  authPromptDescription,
   authPromptCallbackUrl,
   onAuthPromptRequest,
   onAuthPromptClose,
@@ -172,6 +169,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
+  const authSuccessCloseRef = useRef(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
@@ -367,11 +365,23 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const handleAuthPromptClose = () => {
     setPendingPaymentRequest(null);
-    setPendingSubmitAfterAuth(false);
+    if (!authSuccessCloseRef.current) {
+      setPendingSubmitAfterAuth(false);
+    }
+    authSuccessCloseRef.current = false;
     onAuthPromptClose?.();
   };
 
   const handleAuthSuccess = async () => {
+    authSuccessCloseRef.current = true;
+    try {
+      await refreshAuthSession().catch(() => undefined);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:session-updated'));
+      }
+    } catch {
+      // best effort: the auth form has already completed the sign-in
+    }
     let modalOpened = false;
     if (pendingPaymentRequest) {
       modalOpened = openPayment(pendingPaymentRequest);
@@ -459,7 +469,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
     : isWidgetMode
       ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden relative bg-transparent'
-      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-transparent'}`;
+      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'bg-transparent px-2 sm:px-4 py-4' : 'bg-transparent'}`;
 
   // frameClassName: widget fills 100%; non-widget public caps at 420px; desktop is unconstrained.
   const frameClassName = isDesktopMode
@@ -467,7 +477,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     : isWidgetMode
       ? 'relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden bg-transparent border-0 rounded-none shadow-none'
       : (isPublicWorkspace
-        ? 'relative flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto overflow-hidden bg-transparent border-0 rounded-none shadow-none'
+        ? 'relative flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-transparent border-0 rounded-none shadow-none'
         : 'relative flex flex-col flex-1 min-h-0 w-full');
 
 
@@ -623,8 +633,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         initialName={slimContactDraft?.name}
         initialEmail={slimContactDraft?.email}
         onSuccess={handleAuthSuccess}
-        title={authPromptTitle}
-        description={authPromptDescription}
         callbackURL={authPromptCallbackUrl}
       />
 

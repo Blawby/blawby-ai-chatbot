@@ -47,6 +47,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const intake = useIntakeFlow({
     conversationId,
     practiceId,
+    practiceSlug,
     conversationMetadata: conversation.conversationMetadata,
     slimContactDraft: conversation.conversationMetadata?.intakeSlimContactDraft ?? null,
     conversationMetadataRef: conversation.conversationMetadataRef,

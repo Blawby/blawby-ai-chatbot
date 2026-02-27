@@ -54,6 +54,7 @@ interface ConversationUserInfo {
 
 interface BackendIntakeCreatePayload {
   slug: string;
+  amount: number;
   name: string;
   email: string;
   phone?: string;
@@ -63,7 +64,7 @@ interface BackendIntakeCreatePayload {
   opposing_party?: string;
   desired_outcome?: string;
   court_date?: string;
-  case_strength?: string;
+  case_strength?: number;
   has_documents?: boolean;
   income?: string;
   household_size?: number;
@@ -107,10 +108,28 @@ const buildIntakePayload = (
   conversationId: string,
   slug: string,
   draft: SlimContactDraft,
-  intake: IntakeConversationState | null | undefined
+  intake: IntakeConversationState | null | undefined,
+  options?: {
+    amountMinor?: number;
+  }
 ): BackendIntakeCreatePayload => {
+  const normalizeAmount = (value: number | undefined): number => {
+    const min = 50;
+    const max = 99_999_999;
+    if (typeof value !== 'number' || !Number.isFinite(value)) return min;
+    return Math.min(max, Math.max(min, Math.round(value)));
+  };
+  const mapCaseStrength = (value: IntakeConversationState['caseStrength']): number | undefined => {
+    if (!value) return undefined;
+    if (value === 'needs_more_info') return 0;
+    if (value === 'developing') return 1;
+    if (value === 'strong') return 1;
+    return undefined;
+  };
+
   const payload: BackendIntakeCreatePayload = {
     slug,
+    amount: normalizeAmount(options?.amountMinor),
     name: draft.name,
     email: draft.email,
     conversation_id: conversationId,
@@ -130,7 +149,8 @@ const buildIntakePayload = (
   if (intake?.urgency) payload.urgency = intake.urgency;
   if (intake?.desiredOutcome) payload.desired_outcome = intake.desiredOutcome;
   if (intake?.courtDate) payload.court_date = intake.courtDate;
-  if (intake?.caseStrength) payload.case_strength = intake.caseStrength;
+  const caseStrengthScore = mapCaseStrength(intake?.caseStrength);
+  if (typeof caseStrengthScore === 'number') payload.case_strength = caseStrengthScore;
   if (typeof intake?.hasDocuments === 'boolean') payload.has_documents = intake.hasDocuments;
   if (intake?.income) payload.income = intake.income;
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
@@ -205,8 +225,20 @@ export async function handleSubmitIntake(
 
   const intake = userInfo.intakeConversationState as IntakeConversationState | null | undefined;
 
+  const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request).catch((error) => {
+    Logger.warn('[submitIntake] Failed to load intake settings; using fallback amount', {
+      conversationId,
+      practiceId,
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  });
+
   // Build backend payload
-  const intakePayload = buildIntakePayload(conversationId, slug, draft, intake);
+  const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
+    amountMinor: typeof intakeSettings?.prefillAmount === 'number' ? intakeSettings.prefillAmount : undefined,
+  });
 
   Logger.info('[submitIntake] Calling backend intake create', {
     conversationId,
@@ -214,6 +246,7 @@ export async function handleSubmitIntake(
     slug,
     hasIntakeFields: Boolean(intake),
     caseStrength: intake?.caseStrength ?? null,
+    amountMinor: intakePayload.amount,
   });
 
   // Call backend API via existing RemoteApiService pattern

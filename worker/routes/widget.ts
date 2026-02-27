@@ -1,6 +1,7 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+import { ConversationService } from '../services/ConversationService.js';
 
 export async function handleWidgetBootstrap(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
@@ -61,7 +62,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     }
 
     // Typing session data
-    const typedSessionData = sessionData as { user?: { isAnonymous?: boolean } } | null;
+    const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
 
     if (!typedSessionData?.user) {
       // Need anonymous signin
@@ -121,13 +122,42 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
               ? practiceDetails.organizationId
           : null;
 
-  // 4. Conversation bootstrap intentionally omitted for anonymous widget users.
-  // The previous implementation used a staff-scoped conversations endpoint and then
-  // tried to create a conversation server-side. In widget/public flow the client
-  // already owns conversation setup via the active conversation endpoint, so bootstrap
-  // should only establish session + practice context and return quickly.
+  // 4. Bootstrap an anon-safe active conversation so the widget can skip the extra
+  // client-side get-or-create round-trip after bootstrap.
   let conversationId: string | null = null;
-  const conversationsData: { data?: Array<{ id: string, created_at: string, last_message_at: string }> } | null = null;
+  let recentConversations: Array<{ id: string, created_at: string, last_message_at: string | null }> = [];
+  const typedSessionDataResolved = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+  const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
+  const isAnonymous = typedSessionDataResolved?.user?.isAnonymous === true;
+
+  if (practiceId && sessionUserId) {
+    try {
+      const conversationService = new ConversationService(env);
+      const conversation = await conversationService.getOrCreateCurrentConversation(
+        sessionUserId,
+        practiceId,
+        request,
+        isAnonymous,
+        { skipPracticeValidation: true }
+      );
+      conversationId = conversation.id;
+
+      // Also fetch a few recent conversations to populate the conversations list
+      const userConversations = await conversationService.getConversations({
+        practiceId,
+        userId: sessionUserId,
+        limit: 5,
+        status: 'active'
+      });
+      recentConversations = userConversations.map(c => ({
+        id: c.id,
+        created_at: c.created_at,
+        last_message_at: c.last_message_at ?? null
+      }));
+    } catch (err) {
+      console.error('[Bootstrap] Failed to get or create conversation', { sessionUserId, practiceId, error: err });
+    }
+  }
 
   // Create the response object
   const bootstrapResponse = {
@@ -135,7 +165,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     practiceDetails,
     session: sessionData,
     conversationId: conversationId,
-    conversations: conversationsData?.data || []
+    conversations: recentConversations
   };
 
   const responseHeaders = new Headers({

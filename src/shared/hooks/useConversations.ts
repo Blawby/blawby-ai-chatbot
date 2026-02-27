@@ -23,7 +23,7 @@ interface UseConversationsReturn {
   error: string | null;
   refresh: () => Promise<void>;
   addParticipants: (conversationId: string, participantUserIds: string[]) => Promise<Conversation | null>;
-  linkConversationToUser: (conversationId: string, userId?: string) => Promise<Conversation | null>;
+  linkConversationToUser: (conversationId: string, userId?: string, options?: { previousParticipantId?: string | null }) => Promise<Conversation | null>;
 }
 
 /**
@@ -262,7 +262,8 @@ export function useConversations({
 
   const linkConversationToUser = useCallback(async (
     conversationId: string,
-    userId?: string
+    userId?: string,
+    options?: { previousParticipantId?: string | null }
   ): Promise<Conversation | null> => {
     if (!practiceId) {
       return null;
@@ -276,7 +277,7 @@ export function useConversations({
     }
 
     try {
-      const conversation = await apiLinkConversationToUser(conversationId, practiceId, userId);
+      const conversation = await apiLinkConversationToUser(conversationId, practiceId, userId, options);
       await refresh();
       return conversation;
     } catch (err) {

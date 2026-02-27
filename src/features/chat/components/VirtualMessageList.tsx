@@ -145,13 +145,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const loggedNoServerPaginationRef = useRef(false);
     const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
-    const isNearTail = endIndex >= Math.max(0, dedupedMessages.length - 2);
-    const useTailWindow = isScrolledToBottomRef.current || isNearTail;
+    const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;
+    const isNearTail = virtualizationEnabled && endIndex >= Math.max(0, dedupedMessages.length - 2);
+    const useTailWindow = virtualizationEnabled && (isScrolledToBottomRef.current || isNearTail);
 
-    const derivedStart = hasMoreMessages === false
-        ? 0
-        : (useTailWindow ? Math.max(0, dedupedMessages.length - BATCH_SIZE) : startIndex);
-    const derivedEnd = useTailWindow ? dedupedMessages.length : endIndex;
+    const derivedStart = virtualizationEnabled
+        ? (hasMoreMessages === false
+            ? 0
+            : (useTailWindow ? Math.max(0, dedupedMessages.length - BATCH_SIZE) : startIndex))
+        : 0;
+    const derivedEnd = virtualizationEnabled
+        ? (hasMoreMessages === false || useTailWindow ? dedupedMessages.length : endIndex)
+        : dedupedMessages.length;
 
     const currentUserAvatar = session?.user?.image || null;
     const currentUserProfile = {
@@ -779,10 +784,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             onChange: onboardingActions.onLogoChange,
                         } : undefined,
                     } : undefined;
-                    const intakeStrength = intakeConversationState?.caseStrength ?? null;
                     const fallbackIntakeReadyCta =
                         !message.isUser &&
-                        (intakeStrength === 'developing' || intakeStrength === 'strong') &&
                         typeof message.content === 'string' &&
                         INTAKE_READY_PROMPT_REGEX.test(message.content);
                     const stableClientId = typeof message.metadata?.__client_id === 'string'

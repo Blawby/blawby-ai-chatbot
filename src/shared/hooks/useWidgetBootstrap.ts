@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { getClient } from '@/shared/lib/authClient';
+import { rememberAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
@@ -70,7 +71,24 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         // useConversationSetup) runs immediately after setIsLoading(false).
         // If we dispatch auth:session-updated before the fetch completes, those
         // hooks will read the old (null) session and block or error.
-        if (freshData.session?.user) {
+        const bootstrapUser = freshData.session?.user;
+        const isAnonymousUser = bootstrapUser
+          ? (typeof bootstrapUser.isAnonymous === 'boolean'
+              ? bootstrapUser.isAnonymous
+              : typeof (bootstrapUser as Record<string, unknown>).is_anonymous === 'boolean'
+                ? Boolean((bootstrapUser as Record<string, unknown>).is_anonymous)
+                : false)
+          : false;
+
+        if (bootstrapUser && isAnonymousUser) {
+          const resolvedId = typeof bootstrapUser.id === 'string'
+            ? bootstrapUser.id
+            : typeof bootstrapUser.id === 'number'
+              ? String(bootstrapUser.id)
+              : null;
+          if (resolvedId) {
+            rememberAnonymousUserId(resolvedId);
+          }
           try {
             await getClient().getSession();
           } catch (sessionError) {

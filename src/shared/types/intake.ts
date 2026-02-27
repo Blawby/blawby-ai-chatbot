@@ -88,6 +88,7 @@ export type IntakeFieldsPayload = {
   eligibilitySignals?: string[];
   caseStrength?: IntakeCaseStrength;
   missingSummary?: string | null;
+  ctaShown?: boolean;
 };
 
 export interface DerivedIntakeStatus {

@@ -9,6 +9,7 @@ import { getClient } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 import AuthForm from '@/shared/components/AuthForm';
 import { cn } from '@/shared/utils/cn';
 
@@ -387,7 +388,10 @@ export const AcceptInvitationPage = () => {
         throw new Error('Unable to determine your practice for this conversation.');
       }
 
-      await linkConversationToUser(intakeConversationId, targetPracticeId);
+      const previousParticipantId = peekAnonymousUserId();
+      await linkConversationToUser(intakeConversationId, targetPracticeId, undefined, {
+        previousParticipantId: previousParticipantId ?? undefined
+      });
       
       const matchedSlug = match && typeof match.slug === 'string' && match.slug.trim().length > 0
         ? match.slug.trim()

@@ -300,10 +300,15 @@ function unwrapApiData(payload: unknown): unknown {
   return current;
 }
 
+interface LinkConversationOptions {
+  previousParticipantId?: string | null;
+}
+
 export async function linkConversationToUser(
   conversationId: string,
   practiceId: string,
-  userId?: string | null
+  userId?: string | null,
+  options?: LinkConversationOptions
 ): Promise<Conversation> {
   if (!conversationId) {
     throw new Error('conversationId is required to link conversation');
@@ -312,11 +317,15 @@ export async function linkConversationToUser(
     throw new Error('practiceId is required to link conversation');
   }
 
+  const payload: Record<string, unknown> = {};
+  if (userId !== undefined) payload.userId = userId;
+  if (options?.previousParticipantId !== undefined) {
+    payload.previousParticipantId = options.previousParticipantId;
+  }
+
   const response = await apiClient.patch(
     `${getConversationLinkEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      userId: userId || undefined
-    }
+    payload
   );
 
   const conversation = unwrapApiData(response.data) as Conversation | null;

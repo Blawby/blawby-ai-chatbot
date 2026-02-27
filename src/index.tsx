@@ -626,11 +626,15 @@ function PublicPracticeRoute({
     [practiceConfig.id]
   );
 
-  // Handle anonymous sign-in for widget users (clients chatting with practices)
-  // This runs immediately on mount, without waiting for practice details to load
+  // Handle anonymous sign-in for non-widget public routes.
+  // Widget routes use /api/widget/bootstrap (useWidgetBootstrap) to establish
+  // the anonymous session and hydrate practice details in one worker request.
+  // Calling Better Auth anonymous sign-in directly here causes duplicate auth
+  // attempts and hard-fails in environments where the backend anonymous plugin
+  // is disabled while the widget bootstrap route still works.
   useEffect(() => {
     if (typeof window === 'undefined' || sessionIsPending) return;
-    if (!isWidget && !hasWidgetRuntimeContext()) return;
+    if (isWidget || hasWidgetRuntimeContext()) return;
 
     // Only attempt if no session exists
     if (!session?.user) {
@@ -792,6 +796,13 @@ function WidgetRoute({
     } catch {
       // ignore storage failures in privacy modes
     }
+    return () => {
+      try {
+        window.sessionStorage.removeItem(WIDGET_RUNTIME_CONTEXT_KEY);
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   const practiceConfig = useMemo<UIPracticeConfig | null>(() => {

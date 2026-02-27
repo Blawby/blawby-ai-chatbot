@@ -107,7 +107,8 @@ const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null)
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
-  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome;
+  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 const normalizeApostrophes = (text: string): string => text.replace(/['']/g, '\'');
@@ -144,6 +145,48 @@ const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): strin
     return 'Do you have any documents related to this situation?';
   }
   return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
+};
+
+const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): string => {
+  if (!state) {
+    return 'Here is the summary of what we have so far. Are you ready for me to submit this information to connect you with the right attorney?';
+  }
+
+  const read = (key: string): string => {
+    const value = state[key];
+    return typeof value === 'string' ? value.trim() : '';
+  };
+
+  const caseStrength = typeof state.caseStrength === 'string' ? state.caseStrength : null;
+  const description = read('description');
+  const city = read('city');
+  const st = read('state');
+  const opposingParty = read('opposingParty');
+  const desiredOutcome = read('desiredOutcome');
+  const urgency = read('urgency');
+  const hasDocuments = typeof state.hasDocuments === 'boolean' ? state.hasDocuments : null;
+
+  const parts: string[] = [];
+  if (description) parts.push(`Situation: ${description}.`);
+  if (city || st) {
+    const location = city && st ? `${city}, ${st}` : city || st;
+    if (location) parts.push(`Location: ${location}.`);
+  }
+  if (opposingParty) parts.push(`Opposing party: ${opposingParty}.`);
+  if (desiredOutcome) parts.push(`Desired outcome: ${desiredOutcome}.`);
+  if (urgency) parts.push(`Timing: ${urgency}.`);
+  if (hasDocuments !== null) {
+    parts.push(hasDocuments ? 'They already have supporting documents.' : 'They have not gathered documents yet.');
+  }
+
+  const opening =
+    caseStrength === 'strong'
+      ? 'This brief looks strong.'
+      : caseStrength === 'developing'
+        ? 'This brief is developing well.'
+        : 'Here is what I have gathered so far.';
+
+  return `${opening} ${parts.join(' ')}`.trim() + ' Are you ready for me to submit this information to connect you with the right attorney?';
 };
 
 const buildOnboardingFallbackReplyFromProfile = (profile: Record<string, unknown> | null): string => {
@@ -719,16 +762,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   if (!details || (!isPublic && !isOnboardingMode)) {
     shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
-  } else if (
-    isIntakeMode &&
-    intakeReadyByState &&
-    lastUserMessage &&
-    lastAssistantMessage &&
-    SUBMIT_AFFIRMATION_REGEX.test(lastUserMessage.content) &&
-    shouldShowIntakeCtaForReply(lastAssistantMessage.content)
-  ) {
-    shortCircuitReply = 'Great. You can submit your request now, or build a stronger brief first before we send it to the practice.';
-    shortCircuitIntakeReadyCta = true;
   } else if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
     const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
     const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
@@ -1120,7 +1153,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
         if (matched) intakeFields.practiceAreaName = matched.name;
       }
-      const mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
+      let mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
 
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
@@ -1129,15 +1162,26 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const intakeCaseStrength = typeof intakeFields?.caseStrength === 'string'
         ? intakeFields.caseStrength
         : null;
+      const replyHasIntakePrompt = shouldShowIntakeCtaForReply(accumulatedReply);
+      const deterministicReady = isIntakeMode && shouldShowDeterministicIntakeCta(mergedIntakeState);
+      const shouldForceIntakeSummary =
+        isIntakeMode &&
+        deterministicReady &&
+        !replyHasIntakePrompt &&
+        mergedIntakeState?.ctaShown !== true;
+
+      if (shouldForceIntakeSummary) {
+        intakeFields = { ...(intakeFields ?? {}), ctaShown: true };
+        mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
+      }
+
       const shouldShowIntakeCta =
         isIntakeMode &&
-        (
-          shouldShowDeterministicIntakeCta(mergedIntakeState)
-          || (
-            (intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong') &&
-            shouldShowIntakeCtaForReply(accumulatedReply)
-          )
-        );
+        replyHasIntakePrompt &&
+        (deterministicReady || intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong');
+      const forcedSummaryContent = shouldForceIntakeSummary
+        ? buildIntakeSummaryFromState(mergedIntakeState)
+        : null;
 
       // Emit the done event before persisting — client can act on intakeFields
       // immediately without waiting for the DB write
@@ -1173,6 +1217,30 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         skipPracticeValidation: shouldSkipPracticeValidation,
         request
       });
+
+      if (forcedSummaryContent) {
+        const forcedSummaryMessage = await conversationService.sendSystemMessage({
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          content: forcedSummaryContent,
+          metadata: {
+            source: 'ai',
+            model,
+            intakeReadyCta: true,
+          },
+          recipientUserId: authContext.user.id,
+          skipPracticeValidation: true,
+          request
+        });
+        if (forcedSummaryMessage) {
+          write({ 
+            persisted: true, 
+            messageId: forcedSummaryMessage.id,
+            content: forcedSummaryContent,
+            metadata: forcedSummaryMessage.metadata
+          });
+        }
+      }
 
       if (storedMessage) {
         // Persist the merged intake state back to the conversation metadata

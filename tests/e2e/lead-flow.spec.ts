@@ -1,9 +1,10 @@
 import { expect, test } from './fixtures';
 import { randomUUID } from 'crypto';
 import { loadE2EConfig } from './helpers/e2eConfig';
+import { waitForSession } from './helpers/auth';
 
 const e2eConfig = loadE2EConfig();
-const DEFAULT_PRACTICE_SLUG = process.env.E2E_PRACTICE_SLUG ?? process.env.E2E_WIDGET_SLUG ?? e2eConfig?.practice.slug ?? 'paul-yahoo';
+const DEFAULT_PRACTICE_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
 const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 30000;
 const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 30000;
@@ -37,6 +38,7 @@ test.describe('Lead intake workflow', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
+    const submitIntakeStatuses: number[] = [];
 
     anonPage.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -44,42 +46,44 @@ test.describe('Lead intake workflow', () => {
     anonPage.on('pageerror', (error) => {
       pageErrors.push(error.message);
     });
+    anonPage.on('response', (response) => {
+      if (
+        response.request().method() === 'POST' &&
+        response.url().includes('/api/conversations/') &&
+        response.url().includes('/submit-intake')
+      ) {
+        submitIntakeStatuses.push(response.status());
+      }
+    });
 
     await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, { waitUntil: 'domcontentloaded' });
 
-    const messageInput = anonPage.getByTestId('message-input');
-    const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
-    await consultationCta.click();
-
-    const slimFormName = anonPage.getByLabel('Name');
-    const slimFormEmail = anonPage.getByLabel('Email');
-    const slimFormPhone = anonPage.getByLabel('Phone');
-    const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
-    const uniqueId = randomUUID().slice(0, 8);
+    const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
+    const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
     await expect
       .poll(
-        async () => {
-          const [nameVisible, inputVisible] = await Promise.all([
-            slimFormName.isVisible().catch(() => false),
-            messageInput.isVisible().catch(() => false),
-          ]);
-          return { nameVisible, inputVisible };
-        },
+        async () => ({
+          ctaVisible: await consultationCta.isVisible().catch(() => false),
+          composerVisible: await messageInput.isVisible().catch(() => false),
+        }),
         {
-          timeout: 10000,
-          message: 'Expected slim consultation form or chat composer to appear after Request Consultation.',
+          timeout: 20000,
+          message: 'Expected widget home CTA or message composer to render on public widget page.',
         }
       )
-      .not.toEqual({ nameVisible: false, inputVisible: false });
-    const slimFormVisible = await slimFormName.isVisible().catch(() => false);
-    if (slimFormVisible) {
-      await expect(slimFormName).toBeEditable({ timeout: 5000 });
-      await slimFormName.fill(`Lead E2E ${uniqueId}`);
-      await slimFormEmail.fill(`lead-e2e+${uniqueId}@example.com`);
-      await slimFormPhone.fill('555-555-1212');
-      await slimFormContinue.click();
+      .not.toEqual({ ctaVisible: false, composerVisible: false });
+    if (await consultationCta.isVisible().catch(() => false)) {
+      await consultationCta.click();
     }
 
+    const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
+    const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
+    const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
+    const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
+    const uniqueId = randomUUID().slice(0, 8);
+    const authEmail = `lead-e2e+${uniqueId}@example.com`;
+    const authName = `Lead E2E ${uniqueId}`;
+    const authPassword = `LeadFlow!${uniqueId}Aa`;
     const captureLeadFlowState = async () => {
       return anonPage.evaluate(() => {
         const bodyText = document.body?.innerText ?? '';
@@ -105,17 +109,57 @@ test.describe('Lead intake workflow', () => {
         };
       });
     };
-    try {
-      await expect(messageInput).toBeEnabled({ timeout: 45000 });
-    } catch (error) {
-      const entryDebug = await captureLeadFlowState();
-      console.log('[lead-flow] Entry debug:', JSON.stringify(entryDebug, null, 2));
-      await testInfo.attach('lead-flow-entry-debug.json', {
-        body: JSON.stringify(entryDebug, null, 2),
-        contentType: 'application/json',
-      });
-      throw error;
+    {
+      const deadline = Date.now() + 30_000;
+      let lastStep = 'init';
+      let attemptCount = 0;
+      while (Date.now() < deadline) {
+        attemptCount += 1;
+        if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) {
+          lastStep = 'composer-ready';
+          break;
+        }
+
+        if (await consultationCta.isVisible({ timeout: 250 }).catch(() => false)) {
+          await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
+          lastStep = 'cta-clicked';
+        }
+
+        const continueVisible = await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false);
+        if (continueVisible) {
+          if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
+            await slimFormName.fill(authName, { timeout: 1000 }).catch(() => undefined);
+          }
+          if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
+            await slimFormEmail.fill(authEmail, { timeout: 1000 }).catch(() => undefined);
+          }
+          if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
+            await slimFormPhone.fill('5555551212', { timeout: 1000 }).catch(() => undefined);
+          }
+          if (await slimFormContinue.isEnabled({ timeout: 250 }).catch(() => false)) {
+            await slimFormContinue.click({ timeout: 1000 }).catch(() => undefined);
+            lastStep = 'continue-clicked';
+          } else {
+            lastStep = 'continue-disabled';
+          }
+        } else if (lastStep === 'init') {
+          lastStep = 'waiting';
+        }
+
+        await anonPage.waitForTimeout(500);
+      }
+
+      if (lastStep !== 'composer-ready') {
+        const entryDebug = await captureLeadFlowState();
+        await testInfo.attach('lead-flow-slim-form-debug.json', {
+          body: JSON.stringify({ lastStep, attemptCount, entryDebug }, null, 2),
+          contentType: 'application/json',
+        });
+        throw new Error(`Slim form did not advance to an enabled composer (lastStep=${lastStep}, attempts=${attemptCount}).`);
+      }
     }
+
+    await expect(messageInput).toBeEnabled({ timeout: 45000 });
     const bodyLocator = anonPage.locator('body');
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
@@ -299,18 +343,7 @@ test.describe('Lead intake workflow', () => {
 
       const promptText = await getLatestAiPromptText();
       const answer = pickAnswerForPrompt(promptText);
-      let aiStep;
-      try {
-        aiStep = await sendAndAwaitAi(answer);
-      } catch (error) {
-        const debug = await captureLeadFlowState();
-        await testInfo.attach(`lead-flow-step-${index + 1}-debug.json`, {
-          body: JSON.stringify({ step: index + 1, promptText, answer, debug, aiTranscript }, null, 2),
-          contentType: 'application/json',
-        });
-        console.log('[lead-flow] Step failure:', JSON.stringify({ step: index + 1, promptText, answer, debug, aiTranscript }, null, 2));
-        throw error;
-      }
+      const aiStep = await sendAndAwaitAi(answer);
       aiTranscript.push({
         prompt: promptText,
         user: answer,
@@ -332,26 +365,13 @@ test.describe('Lead intake workflow', () => {
     }
 
     if (!reachedSubmitReady) {
-      const debug = await captureLeadFlowState();
-      await testInfo.attach('lead-flow-cta-debug.json', {
-        body: JSON.stringify(debug, null, 2),
-        contentType: 'application/json',
-      });
-      await testInfo.attach('lead-flow-ai-transcript.json', {
-        body: JSON.stringify(aiTranscript, null, 2),
-        contentType: 'application/json',
-      });
-      console.log('[lead-flow] CTA debug:', JSON.stringify(debug, null, 2));
-      console.log('[lead-flow] AI transcript:', JSON.stringify(aiTranscript, null, 2));
-      throw new Error('Intake did not reach a submit-ready CTA state after scripted intake answers.');
+      throw new Error(
+        `Intake did not reach a submit-ready CTA state after scripted intake answers.\n` +
+        `Recent AI transcript: ${JSON.stringify(aiTranscript.slice(-4))}`
+      );
     }
 
     await expect(submitNowButton).toBeVisible({ timeout: 10000 });
-    const buildBriefVisibleAtSubmit = await buildBriefButton.isVisible().catch(() => false);
-    if (!buildBriefVisibleAtSubmit) {
-      console.log('[lead-flow] Build stronger brief CTA not visible in this run (submit CTA present).');
-    }
-
     await submitNowButton.click();
 
     // Deterministic CTA path should advance to auth/save flow (modal/overlay) or auth route.
@@ -377,6 +397,105 @@ test.describe('Lead intake workflow', () => {
         }
       )
       .toBe(true);
+
+    const submitIntakeResponsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/submit-intake') &&
+        response.url().includes('/api/conversations/'),
+      { timeout: 45000 }
+    );
+    const conversationLinkResponsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' &&
+        response.url().includes('/api/conversations/') &&
+        response.url().includes('/link?practiceId='),
+      { timeout: 20000 }
+    ).catch(() => null);
+
+    const signUpNameInput = anonPage.getByTestId('signup-name-input');
+    const signUpEmailInput = anonPage.getByTestId('signup-email-input');
+    const signUpPasswordInput = anonPage.getByTestId('signup-password-input');
+    const signUpConfirmPasswordInput = anonPage.getByTestId('signup-confirm-password-input');
+    const signUpSubmitButton = anonPage.getByTestId('signup-submit-button');
+
+    await expect(signUpPasswordInput).toBeVisible({ timeout: 15000 });
+    if (await signUpNameInput.isVisible().catch(() => false)) {
+      await signUpNameInput.fill(authName);
+    }
+    if (await signUpEmailInput.isVisible().catch(() => false)) {
+      await signUpEmailInput.fill(authEmail);
+    }
+    await signUpPasswordInput.fill(authPassword);
+    await signUpConfirmPasswordInput.fill(authPassword);
+
+    await signUpSubmitButton.click();
+
+    await waitForSession(anonPage, { timeoutMs: 30000 });
+
+    const conversationLinkResponse = await conversationLinkResponsePromise;
+    if (conversationLinkResponse) {
+      expect(
+        conversationLinkResponse.status(),
+        `Conversation link after auth failed (expected non-403/200).\nURL: ${conversationLinkResponse.url()}`
+      ).toBeLessThan(400);
+    }
+
+    const submitIntakeResponse = await submitIntakeResponsePromise;
+    const submitIntakeText = await submitIntakeResponse.text().catch(() => '');
+    let submitIntakePayload: { success?: boolean; data?: { intake_uuid?: string; status?: string; payment_link_url?: string | null } } | null = null;
+    try {
+      submitIntakePayload = submitIntakeText ? JSON.parse(submitIntakeText) : null;
+    } catch {
+      submitIntakePayload = null;
+    }
+
+    expect(
+      submitIntakeResponse.status(),
+      `submit-intake failed after auth.\nStatus: ${submitIntakeResponse.status()}\nBody: ${submitIntakeText.slice(0, 500)}`
+    ).toBe(200);
+    expect(
+      submitIntakePayload?.success,
+      `submit-intake returned unexpected payload: ${submitIntakeText.slice(0, 500)}`
+    ).toBe(true);
+    expect(submitIntakePayload?.data?.intake_uuid, 'submit-intake must return intake_uuid').toBeTruthy();
+
+    const paymentLinkUrl = submitIntakePayload?.data?.payment_link_url ?? null;
+    if (paymentLinkUrl) {
+      expect(
+        /^https?:\/\//i.test(paymentLinkUrl),
+        `payment_link_url should be an absolute URL, got: ${paymentLinkUrl}`
+      ).toBe(true);
+      await expect
+        .poll(
+          async () => {
+            const currentUrl = anonPage.url();
+            try {
+              const expected = new URL(paymentLinkUrl);
+              const current = new URL(currentUrl);
+              return current.href === paymentLinkUrl
+                || (current.hostname === expected.hostname && current.pathname === expected.pathname);
+            } catch {
+              return false;
+            }
+          },
+          {
+            timeout: 15000,
+            message: `Expected widget to hand off to payment link after submit-intake.\nExpected: ${paymentLinkUrl}`,
+          }
+        )
+        .toBe(true);
+    } else {
+      await expect(
+        anonPage.locator('body'),
+        'Expected a confirmation message in chat when no payment link is returned.'
+      ).toContainText(/intake has been submitted|will review it and follow up/i, { timeout: 15000 });
+    }
+
+    expect(
+      submitIntakeStatuses.length,
+      `submit-intake should fire exactly once after auth. Observed statuses: ${JSON.stringify(submitIntakeStatuses)}`
+    ).toBe(1);
 
     if (consoleErrors.length) {
       await testInfo.attach('console-errors', { body: consoleErrors.join('\n'), contentType: 'text/plain' });

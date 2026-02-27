@@ -3,6 +3,7 @@ import { ComponentChildren } from 'preact';
 import { useTypedSession } from '@/shared/lib/authClient';
 import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
+import { rememberAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -108,6 +109,12 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   }, [sessionKey]);
 
   const value = useMemo(() => buildSessionContextValue({ sessionData, isPending, error }), [sessionData, isPending, error]);
+
+  useEffect(() => {
+    if (!value.session?.user?.id) return;
+    if (!value.session?.user?.isAnonymous) return;
+    rememberAnonymousUserId(value.session.user.id);
+  }, [value.session?.user?.id, value.session?.user?.isAnonymous]);
 
   return (
     <SessionContext.Provider value={value}>

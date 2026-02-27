@@ -182,7 +182,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         cursor,
         fromSeq,
         traceId,
-        requestSource
+        requestSource,
+        viewerId: userId
       });
     } catch (error) {
       Logger.warn('[Conversations] Failed to fetch messages', {
@@ -574,7 +575,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
-    const body = await parseJsonBody(request) as { userId?: string | null; anonymousSessionId?: string | null };
+    const body = await parseJsonBody(request) as {
+      userId?: string | null;
+      anonymousSessionId?: string | null;
+      previousParticipantId?: string | null;
+    };
 
     if (authContext.isAnonymous) {
       throw HttpErrors.unauthorized('Sign in is required to link a conversation');
@@ -598,18 +603,29 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (conversation.user_id) {
         throw error;
       }
-      // Require ownership proof
-      const conversationAnonymousSessionId =
-        (conversation as { anonymous_session_id?: string | null }).anonymous_session_id;
-      if (!body.anonymousSessionId || body.anonymousSessionId !== conversationAnonymousSessionId) {
-        throw error;
+
+      const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
+      const hasPreviousParticipantProof =
+        typeof body.previousParticipantId === 'string' &&
+        participants.includes(body.previousParticipantId);
+
+      if (!hasPreviousParticipantProof) {
+        const conversationAnonymousSessionId =
+          (conversation as { anonymous_session_id?: string | null }).anonymous_session_id;
+        if (!body.anonymousSessionId || body.anonymousSessionId !== conversationAnonymousSessionId) {
+          throw error;
+        }
       }
     }
 
     const conversation = await conversationService.linkConversationToUser(
       conversationId,
       practiceId,
-      targetUserId
+      targetUserId,
+      {
+        previousParticipantId:
+          typeof body.previousParticipantId === 'string' ? body.previousParticipantId : null,
+      }
     );
 
     return createJsonResponse(conversation);

@@ -566,8 +566,15 @@ export class RemoteApiService {
 
         return false;
       } catch (error) {
-        if (error instanceof HttpError && error.status === 404) {
-          return false;
+        if (error instanceof HttpError) {
+          if (error.status === 404) {
+            return false;
+          }
+          if (error.status === 401 || error.status === 403) {
+            // Public/widget flows may not have an authenticated backend session.
+            // Treat authorization failures as "exists" so anonymous validations don't block.
+            return true;
+          }
         }
         throw error;
       }

@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'preact/hooks';
+import { useCallback, useMemo, useRef } from 'preact/hooks';
+import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
@@ -11,6 +12,9 @@ import {
   type IntakeStep,
   type DerivedIntakeStatus,
 } from '@/shared/types/intake';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -24,6 +28,7 @@ const sanitizeName = (name: string): string =>
 interface UseIntakeFlowOptions {
   conversationId: string | undefined;
   practiceId: string | undefined;
+  practiceSlug?: string | null;
   conversationMetadata: ConversationMetadata | null;
   slimContactDraft: SlimContactDraft | null;
   conversationMetadataRef: React.MutableRefObject<ConversationMetadata | null>;
@@ -75,6 +80,7 @@ interface UseIntakeFlowResult {
 export function useIntakeFlow({
   conversationId,
   practiceId,
+  practiceSlug,
   conversationMetadata,
   slimContactDraft,
   conversationMetadataRef,
@@ -84,9 +90,15 @@ export function useIntakeFlow({
   sendMessageOverWs,
   onError,
 }: UseIntakeFlowOptions): UseIntakeFlowResult {
+  const { session, isAnonymous } = useSessionContext();
+  const currentUserId = session?.user?.id ?? null;
+  const submitInFlightRef = useRef(false);
+
   // ---------------------------------------------------------------------------
   // Derived State
   // ---------------------------------------------------------------------------
+
+  const normalizedPracticeSlug = (practiceSlug ?? '').trim();
 
   const intakeConversationState = useMemo(() => 
     conversationMetadata?.intakeConversationState ?? initialIntakeState,
@@ -150,23 +162,37 @@ export function useIntakeFlow({
     if (conversationMetadataRef.current?.mode !== 'REQUEST_CONSULTATION') {
       patch.mode = 'REQUEST_CONSULTATION';
     }
+    if (normalizedPracticeSlug) {
+      patch.practiceSlug = normalizedPracticeSlug;
+    }
     await updateConversationMetadata(patch);
 
     const practiceContextId = (practiceId ?? '').trim();
     if (!conversationId || !practiceContextId) return;
 
     const safeName = sanitizeName(nextDraft.name);
+    const safeEmail = sanitizeName(nextDraft.email);
+    const safePhone = sanitizeName(nextDraft.phone);
+    const emailLine = nextDraft.email ? `Email: ${safeEmail}` : 'Email: Not provided';
+    const phoneLine = nextDraft.phone ? `Phone: ${safePhone}` : 'Phone: Not provided';
     try {
       const ackMsg = await postSystemMessage(conversationId, practiceContextId, {
         clientId: 'system-intake-contact-ack',
         content: [
           'Contact info received',
           'Contact details',
-          `Name: ${safeName}`,
-          'Email: REDACTED',
-          'Phone: REDACTED',
+          `Name: ${safeName || 'Not provided'}`,
+          emailLine,
+          phoneLine,
         ].join('\n'),
-        metadata: { intakeComplete: true },
+        metadata: {
+          intakeComplete: true,
+          contactDetails: {
+            name: nextDraft.name,
+            email: nextDraft.email,
+            phone: nextDraft.phone,
+          },
+        },
       });
       if (ackMsg) applyServerMessages([ackMsg]);
     } catch (error) {
@@ -191,6 +217,7 @@ export function useIntakeFlow({
     conversationMetadataRef,
     practiceId,
     updateConversationMetadata,
+    normalizedPracticeSlug,
   ]);
 
   const handleBuildBrief = useCallback(async () => {
@@ -240,7 +267,52 @@ export function useIntakeFlow({
   const handleSubmitNow = useCallback(async () => {
     if (!slimContactDraft) return;
     if (!conversationId || !practiceId) return;
+    if (submitInFlightRef.current) {
+      if (import.meta.env.DEV) {
+        console.info('[handleSubmitNow] Skipping duplicate submit while request is in-flight', {
+          conversationId,
+          practiceId,
+        });
+      }
+      return;
+    }
+    submitInFlightRef.current = true;
+    let keepLockedForRedirect = false;
     try {
+      if (currentUserId && !isAnonymous) {
+        try {
+          const previousParticipantId = peekAnonymousUserId();
+          await linkConversationToUser(conversationId, practiceId, currentUserId, {
+            previousParticipantId: previousParticipantId ?? undefined,
+          });
+        } catch (linkError) {
+          if (!axios.isAxiosError(linkError) || linkError.response?.status !== 409) {
+            console.warn('[handleSubmitNow] Conversation link check failed', linkError);
+          }
+        }
+      }
+
+      const effectivePracticeSlug =
+        (typeof conversationMetadataRef.current?.practiceSlug === 'string'
+          ? conversationMetadataRef.current.practiceSlug.trim()
+          : '') || normalizedPracticeSlug;
+
+      if (!effectivePracticeSlug) {
+        onError?.('Missing practice information for this intake. Please refresh and try again.');
+        return;
+      }
+
+      if (
+        effectivePracticeSlug &&
+        conversationMetadataRef.current?.practiceSlug !== effectivePracticeSlug
+      ) {
+        try {
+          await updateConversationMetadata({ practiceSlug: effectivePracticeSlug });
+        } catch (metadataError) {
+          console.warn('[handleSubmitNow] Failed to persist practice slug before submission', metadataError);
+        }
+      }
+
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' },
@@ -258,6 +330,7 @@ export function useIntakeFlow({
       }
       const { intake_uuid: intakeUuid, payment_link_url: paymentLinkUrl } = result.data;
       if (paymentLinkUrl) {
+        keepLockedForRedirect = true;
         if (typeof window !== 'undefined') {
           const returnTo = `${window.location.pathname}${window.location.search}`;
           window.sessionStorage.setItem(
@@ -291,23 +364,30 @@ export function useIntakeFlow({
     } catch (error) {
       console.error('[handleSubmitNow] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+    } finally {
+      if (!keepLockedForRedirect) {
+        submitInFlightRef.current = false;
+      }
     }
   }, [
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
+    currentUserId,
+    isAnonymous,
     onError,
     practiceId,
     slimContactDraft,
     updateConversationMetadata,
+    normalizedPracticeSlug,
   ]);
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
     try {
       const sanitizedContactDetails = {
-        ...draft,
-        email: draft.email ? 'REDACTED' : undefined,
-        phone: draft.phone ? 'REDACTED' : undefined,
+        name: (draft.name ?? '').trim(),
+        email: (draft.email ?? '').trim() || undefined,
+        phone: (draft.phone ?? '').trim() || undefined,
       };
       await sendMessageOverWs(
         `Contact form submitted: ${draft.name}`,
@@ -334,4 +414,3 @@ export function useIntakeFlow({
     handleContactFormSubmit,
   };
 }
-

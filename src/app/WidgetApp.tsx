@@ -129,6 +129,7 @@ export function WidgetApp({
 
   const messageHandling = useMessageHandling({
     practiceId,
+    practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: activeConversationId ?? undefined,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
@@ -231,11 +232,6 @@ export function WidgetApp({
     });
   }, []);
 
-  const intakeAuthTitle = t('intake.authTitle');
-  const intakeAuthDescription = practiceConfig.name
-    ? t('intake.authDescription', { practice: practiceConfig.name })
-    : t('intake.authDescriptionFallback');
-
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
@@ -290,8 +286,6 @@ export function WidgetApp({
           isLoadingMoreMessages={isLoadingMoreMessages}
           onLoadMoreMessages={loadMoreMessages}
           showAuthPrompt={shouldShowAuthPrompt}
-          authPromptTitle={intakeAuthTitle}
-          authPromptDescription={intakeAuthDescription}
         />
       </div>
     </>
