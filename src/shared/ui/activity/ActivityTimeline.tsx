@@ -29,6 +29,9 @@ export type TimelineItem = {
     type: 'status_change';
     from: string;
     to: string;
+  } | {
+    type: 'task_event';
+    taskId: string;
   };
 };
 
@@ -48,6 +51,7 @@ export interface ActivityTimelineProps {
   onComposerSubmit?: (value: string) => void | Promise<void>;
   onEditComment?: (id: string, value: string) => void | Promise<void>;
   onDeleteComment?: (id: string) => void | Promise<void>;
+  onTaskClick?: (taskId: string) => void;
   commentActionsDisabled?: boolean;
 }
 
@@ -83,6 +87,7 @@ export const ActivityTimeline = ({
   onComposerSubmit,
   onEditComment,
   onDeleteComment,
+  onTaskClick,
   commentActionsDisabled = false
 }: ActivityTimelineProps) => {
   const isControlled = typeof composerValue === 'string';
@@ -291,14 +296,36 @@ export const ActivityTimeline = ({
                     (() => {
                       const trimmed = actionText.trim();
                       const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
+                      const actionMeta = item.actionMeta;
                       if (!match) {
+                        if (actionMeta?.type === 'task_event' && onTaskClick) {
+                          return (
+                            <button
+                              type="button"
+                              className="font-semibold text-input-text hover:text-accent-300"
+                              onClick={() => onTaskClick(actionMeta.taskId)}
+                            >
+                              {trimmed}
+                            </button>
+                          );
+                        }
                         return <span className="text-input-text">{trimmed}</span>;
                       }
                       const [, verb, rest] = match;
                       return (
                         <>
                           <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
-                          <span className="text-input-text">{rest}</span>
+                          {actionMeta?.type === 'task_event' && onTaskClick ? (
+                            <button
+                              type="button"
+                              className="font-semibold text-input-text hover:text-accent-300"
+                              onClick={() => onTaskClick(actionMeta.taskId)}
+                            >
+                              {rest}
+                            </button>
+                          ) : (
+                            <span className="text-input-text">{rest}</span>
+                          )}
                         </>
                       );
                     })()

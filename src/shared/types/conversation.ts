@@ -53,6 +53,7 @@ export interface ConversationMetadata {
   intakeDecision?: string | null;
   practiceName?: string;
   practiceSlug?: string;
+  anonParticipantId?: string;
   [key: string]: unknown;
 }
 

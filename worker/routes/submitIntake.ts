@@ -12,7 +12,7 @@
 import { HttpErrors } from '../errorHandler.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
@@ -177,6 +177,10 @@ export async function handleSubmitIntake(
   // Practice context
   const requestWithContext = await withPracticeContext(request, env, { requirePractice: true });
   const practiceId = getPracticeId(requestWithContext);
+  const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+  if (membership.isMember) {
+    throw HttpErrors.forbidden('Practice members cannot submit visitor intake');
+  }
 
   const conversationService = new ConversationService(env);
 

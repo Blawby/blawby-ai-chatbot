@@ -102,12 +102,14 @@ const Modal: FunctionComponent<ModalProps> = ({
                         initial={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
                         animate={shouldUseDrawer ? { y: 0 } : { scale: 1 }}
                         exit={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
-                        transition={shouldUseDrawer ? { 
-                            type: "tween", 
-                            duration: 0.3, 
-                            ease: [0.25, 0.46, 0.45, 0.94] 
-                        } : { 
-                            type: "spring" 
+                        transition={shouldUseDrawer ? {
+                            type: "tween",
+                            duration: 0.22,
+                            ease: [0.25, 0.46, 0.45, 0.94]
+                        } : {
+                            type: "tween",
+                            duration: 0.14,
+                            ease: [0.22, 1, 0.36, 1]
                         }}
                         key={`content-${shouldUseDrawer}`}
                         onClick={(e) => e.stopPropagation()}

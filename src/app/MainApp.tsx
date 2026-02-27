@@ -36,6 +36,7 @@ import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndi
 import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeConversationHeaderMenu';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export function MainApp({
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
+  const preAuthUserIdRef = useRef<string | null>(null);
 
   const { navigate } = useNavigation();
   const { showError, showInfo } = useToastContext();
@@ -288,7 +290,14 @@ export function MainApp({
     navigate(intakePostAuthPath, true);
   }, [intakePostAuthPath, intakeAuthTarget, navigate]);
 
-  const handlePaymentAuthRequest = useCallback(() => { setIsPaymentAuthPromptOpen(true); }, []);
+  const capturePreAuthUserId = useCallback(() => {
+    if (preAuthUserIdRef.current) return;
+    preAuthUserIdRef.current = session?.user?.id ?? null;
+  }, [session?.user?.id]);
+  const handlePaymentAuthRequest = useCallback(() => {
+    capturePreAuthUserId();
+    setIsPaymentAuthPromptOpen(true);
+  }, [capturePreAuthUserId]);
 
   const handleAuthPromptClose = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -296,21 +305,36 @@ export function MainApp({
     }
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
     if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
+    preAuthUserIdRef.current = null;
   }, [intakeAuthTarget, isPaymentAuthPromptOpen]);
 
   const handleAuthPromptSuccess = useCallback(async () => {
+    const hadPreAuthIdentity = Boolean(preAuthUserIdRef.current);
+    if (activeConversationId && practiceId && hadPreAuthIdentity) {
+      try {
+        await linkConversationToUser(activeConversationId, practiceId);
+        preAuthUserIdRef.current = null;
+      } catch (error) {
+        console.warn('[MainApp] Conversation link after auth failed', error);
+      }
+    }
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
     if (isWidget) {
       if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
       return;
     }
     await handleIntakeAuthSuccess();
-  }, [handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget]);
+  }, [activeConversationId, handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget, practiceId]);
 
   useEffect(() => {
     if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
     try { window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath); } catch { /* noop */ }
   }, [intakePostAuthPath, shouldShowAuthPrompt]);
+
+  useEffect(() => {
+    if (!shouldShowAuthPrompt) return;
+    capturePreAuthUserId();
+  }, [capturePreAuthUserId, shouldShowAuthPrompt]);
 
   // ── conversation mode selection ────────────────────────────────────────────
   const isSelectingRef = useRef(false);

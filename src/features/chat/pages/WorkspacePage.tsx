@@ -207,7 +207,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     scope: 'practice',
     list: shouldListConversations,
     enabled: shouldListConversations && Boolean(practiceId),
-    allowAnonymous: workspace === 'public'
+    allowAnonymous: workspace === 'public',
+    preferOrgScopedPracticeList: isPracticeWorkspace
   });
   const { session, isPending: isSessionPending } = useSessionContext();
 

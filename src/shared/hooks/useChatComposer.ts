@@ -107,6 +107,11 @@ export const useChatComposer = ({
   const sessionReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousWidgetContext);
   const currentUserId = session?.user?.id ?? null;
 
+  const lastKnownModeRef = useRef<ConversationMode | null>(mode ?? null);
+  if (mode && lastKnownModeRef.current !== mode) {
+    lastKnownModeRef.current = mode;
+  }
+
   const sessionReadyRef = useRef(sessionReady);
   sessionReadyRef.current = sessionReady;
 
@@ -365,7 +370,13 @@ export const useChatComposer = ({
     replyToMessageId?: string | null,
     options?: { additionalContext?: string }
   ) => {
-    const activeMode = conversationMetadataRef.current?.mode ?? mode;
+    const metadataMode = conversationMetadataRef.current?.mode ?? null;
+    if (metadataMode) {
+      lastKnownModeRef.current = metadataMode;
+    } else if (mode) {
+      lastKnownModeRef.current = mode;
+    }
+    const activeMode = metadataMode ?? mode ?? lastKnownModeRef.current ?? null;
     const shouldUseAi =
       activeMode === 'ASK_QUESTION' ||
       activeMode === 'REQUEST_CONSULTATION' ||

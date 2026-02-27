@@ -21,6 +21,7 @@ import {
   type MatterDetail,
   type MatterExpense,
   type MatterOption,
+  type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
@@ -31,6 +32,7 @@ import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/comp
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
+import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { MatterDetailHeader } from '@/features/matters/components/MatterDetailHeader';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -51,18 +53,22 @@ import {
   createMatterExpense,
   createMatterNote,
   createMatterMilestone,
+  createMatterTask,
   createMatterTimeEntry,
   deleteMatterExpense,
   deleteMatterMilestone,
+  deleteMatterTask,
   deleteMatterTimeEntry,
   getMatterTimeEntryStats,
   listMatterExpenses,
   listMatterMilestones,
   listMatterNotes,
+  listMatterTasks,
   listMatterTimeEntries,
   reorderMatterMilestones,
   updateMatterExpense,
   updateMatterMilestone,
+  updateMatterTask,
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
 import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
@@ -83,6 +89,7 @@ import {
   statusOrder,
   toExpense,
   toMatterDetail,
+  toMatterTask,
   toMatterSummary,
   toMilestone,
   toTimeEntry
@@ -93,7 +100,7 @@ import {
 // ---------------------------------------------------------------------------
 
 type MatterTabId = 'all' | 'open' | 'closed';
-type DetailTabId = 'overview' | 'time' | 'messages';
+type DetailTabId = 'overview' | 'tasks' | 'time' | 'messages';
 type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
 type IntakeTriageStatus = 'pending_review' | 'accepted' | 'declined' | string;
 
@@ -118,6 +125,7 @@ const TAB_HEADINGS: Record<MatterTabId, string> = {
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'time', label: 'Billing' },
   { id: 'messages', label: 'Messages' }
 ];
@@ -312,6 +320,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
   const [milestones, setMilestones] = useState<MatterDetail['milestones']>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [milestonesError, setMilestonesError] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<MatterTask[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState<string | null>(null);
 
   // ── Client / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
@@ -786,6 +797,30 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId]);
 
+  // ── Data fetching: tasks ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setTasks([]);
+      setTasksError(null);
+      setTasksLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setTasksLoading(true);
+    setTasksError(null);
+
+    listMatterTasks(activePracticeId, selectedMatterId, {}, { signal: controller.signal })
+      .then((items) => setTasks(items.map(toMatterTask)))
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        setTasksError(error instanceof Error ? error.message : 'Failed to load tasks');
+      })
+      .finally(() => setTasksLoading(false));
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
   // ── Refresh helpers ───────────────────────────────────────────────────────
   const refreshSelectedMatter = useCallback(async () => {
     if (!activePracticeId || !selectedMatterId) return;
@@ -1122,6 +1157,56 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     }
   }, [activePracticeId, selectedMatterId, milestones, showError]);
 
+  // ── Task handlers ─────────────────────────────────────────────────────────
+  const refreshTasks = useCallback(async (signal?: AbortSignal) => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const items = await listMatterTasks(activePracticeId, selectedMatterId, {}, { signal });
+    setTasks(items.map(toMatterTask));
+    setTasksError(null);
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleCreateTask = useCallback(async (values: {
+    name: string;
+    description: string;
+    assigneeId: string | null;
+    dueDate: string | null;
+    status: MatterTask['status'];
+    priority: MatterTask['priority'];
+    stage: string;
+  }) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await createMatterTask(activePracticeId, selectedMatterId, {
+      name: values.name,
+      description: values.description.trim() || undefined,
+      assignee_id: values.assigneeId,
+      due_date: values.dueDate,
+      status: values.status,
+      priority: values.priority,
+      stage: values.stage
+    });
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
+  const handleUpdateTask = useCallback(async (task: MatterTask, patch: Partial<{
+    name: string;
+    description: string | null;
+    assignee_id: string | null;
+    due_date: string | null;
+    status: MatterTask['status'];
+    priority: MatterTask['priority'];
+    stage: string;
+  }>) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await updateMatterTask(activePracticeId, selectedMatterId, task.id, patch);
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
+  const handleDeleteTask = useCallback(async (task: MatterTask) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await deleteMatterTask(activePracticeId, selectedMatterId, task.id);
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
   // ── Note handler ──────────────────────────────────────────────────────────
   const handleCreateNote = useCallback(async (values: { content: string }) => {
     if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
@@ -1307,7 +1392,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
           )}
 
           <MatterSummaryCards
-            activeTab={detailTab}
+            activeTab={detailTab === 'tasks' ? 'overview' : detailTab}
             onAddTime={() => {
               if (detailTab !== 'overview') return;
               setQuickTimeEntryKey((k) => k + 1);
@@ -1396,6 +1481,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
                           name: session?.user?.name ?? session?.user?.email ?? 'You',
                           imageUrl: session?.user?.image ?? null
                         }}
+                        onTaskClick={() => setDetailTab('tasks')}
                         onComposerSubmit={async (value) => {
                           try {
                             await handleCreateNote({ content: value });
@@ -1426,6 +1512,16 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
                 )}
               </div>
 
+            ) : detailTab === 'tasks' && selectedMatterDetail ? (
+              <MatterTasksPanel
+                tasks={tasks}
+                loading={tasksLoading}
+                error={tasksError}
+                assignees={assigneeOptions}
+                onCreateTask={handleCreateTask}
+                onUpdateTask={handleUpdateTask}
+                onDeleteTask={handleDeleteTask}
+              />
             ) : detailTab === 'time' && selectedMatterDetail ? (
               <div className="space-y-6">
                 <TimeEntriesPanel

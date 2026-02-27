@@ -3,6 +3,7 @@ import { getConversationEndpoint, getConversationsEndpoint, getCurrentConversati
 import type { ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
+import { rememberConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
 
 export interface UseConversationSetupOptions {
   practiceId?: string;
@@ -108,6 +109,9 @@ export function useConversationSetup({
         const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
         if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
         setConversationId(resolvedId);
+        if (isPublicWorkspace && session?.user?.isAnonymous && session.user.id) {
+          rememberConversationAnonymousParticipant(resolvedId, session.user.id);
+        }
         return resolvedId;
       }
 

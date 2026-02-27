@@ -302,6 +302,7 @@ function unwrapApiData(payload: unknown): unknown {
 
 interface LinkConversationOptions {
   previousParticipantId?: string | null;
+  anonymousSessionId?: string | null;
 }
 
 export async function linkConversationToUser(
@@ -322,10 +323,12 @@ export async function linkConversationToUser(
   if (options?.previousParticipantId !== undefined) {
     payload.previousParticipantId = options.previousParticipantId;
   }
-
+  if (options?.anonymousSessionId !== undefined) {
+    payload.anonymousSessionId = options.anonymousSessionId;
+  }
   const response = await apiClient.patch(
     `${getConversationLinkEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
-    payload
+    Object.keys(payload).length > 0 ? payload : undefined
   );
 
   const conversation = unwrapApiData(response.data) as Conversation | null;

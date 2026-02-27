@@ -44,7 +44,10 @@ import {
 } from '@/shared/lib/conversationApi';
 import axios from 'axios';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
-import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
+import {
+  rememberConversationAnonymousParticipant,
+  clearConversationAnonymousParticipant,
+} from '@/shared/utils/anonymousIdentity';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -191,6 +194,11 @@ export const useConversation = ({
   sessionReadyRef.current = sessionReady;
   messagesRef.current = messages;
 
+  useEffect(() => {
+    if (!conversationId || !currentUserId || !isAnonymous) return;
+    rememberConversationAnonymousParticipant(conversationId, currentUserId);
+  }, [conversationId, currentUserId, isAnonymous]);
+
   // ── anonymous conversation linking ────────────────────────────────────────
 
   useEffect(() => {
@@ -205,10 +213,8 @@ export const useConversation = ({
     setIsConversationLinkReady(false);
     (async () => {
       try {
-        const previousParticipantId = peekAnonymousUserId();
-        await linkConversationToUser(conversationId, practiceId, currentUserId, {
-          previousParticipantId: previousParticipantId ?? undefined
-        });
+        await linkConversationToUser(conversationId, practiceId);
+        clearConversationAnonymousParticipant(conversationId);
       } catch (error) {
         console.warn('[useConversation] Conversation relink failed', { conversationId, practiceId, error });
         const is409 = axios.isAxiosError(error) && error.response?.status === 409;
@@ -255,6 +261,17 @@ export const useConversation = ({
     metadataUpdateQueueRef.current = queued.catch(() => null);
     return queued;
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
+
+  useEffect(() => {
+    if (!conversationId || !currentUserId || !isAnonymous) return;
+    const existingMetadata = conversationMetadataRef.current;
+    const storedParticipantId =
+      (existingMetadata as Record<string, unknown> | null | undefined)?.anonParticipantId ??
+      (existingMetadata as Record<string, unknown> | null | undefined)?.anon_participant_id ??
+      null;
+    if (storedParticipantId === currentUserId) return;
+    void updateConversationMetadata({ anonParticipantId: currentUserId });
+  }, [conversationId, currentUserId, isAnonymous, updateConversationMetadata]);
 
   const fetchConversationMetadata = useCallback(async (signal?: AbortSignal, targetConversationId?: string) => {
     if (!sessionReady) return;

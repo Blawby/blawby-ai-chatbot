@@ -51,7 +51,6 @@ const OnboardingPage = () => {
     if (requestedReturnPath) return requestedReturnPath;
     if (practicesLoading) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-    if (!fallbackSlug && defaultWorkspace === 'practice') return '/pricing';
     return getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
   }, [currentPractice?.slug, defaultWorkspace, practices, practicesLoading, requestedReturnPath]);
 

@@ -15,6 +15,7 @@ import {
   type MatterExpense,
   type MatterOption,
   type MatterSummary,
+  type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
 import type { MatterFormState } from '@/features/matters/components/MatterCreateModal';
@@ -28,6 +29,7 @@ import {
   type BackendMatterExpense,
   type BackendMatterMilestone,
   type BackendMatterNote,
+  type BackendMatterTask,
   type BackendMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
 import type { TimelineItem, TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
@@ -90,6 +92,11 @@ export const activityActionMap: Record<string, { type: TimelineItem['type']; lab
   milestone_updated: { type: 'edited', label: 'updated a milestone.' },
   milestone_deleted: { type: 'edited', label: 'deleted a milestone.' },
   milestone_completed: { type: 'edited', label: 'completed a milestone.' },
+  task_created: { type: 'edited', label: 'added a task.' },
+  task_updated: { type: 'edited', label: 'updated a task.' },
+  task_deleted: { type: 'edited', label: 'deleted a task.' },
+  task_completed: { type: 'edited', label: 'completed a task.' },
+  tasks_generated: { type: 'edited', label: 'generated tasks from a template.' },
   assignee_added: { type: 'edited', label: 'assigned a team member.' },
   assignee_removed: { type: 'edited', label: 'removed an assignee.' }
 };
@@ -348,6 +355,45 @@ export const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['mi
   })()
 });
 
+export const toMatterTask = (task: BackendMatterTask): MatterTask => {
+  const normalizedStatus: MatterTask['status'] = (() => {
+    if (task.status === 'pending' || task.status === 'in_progress' || task.status === 'completed' || task.status === 'blocked') {
+      return task.status;
+    }
+    return 'pending';
+  })();
+  const normalizedPriority: MatterTask['priority'] = (() => {
+    if (task.priority === 'low' || task.priority === 'normal' || task.priority === 'high' || task.priority === 'urgent') {
+      return task.priority;
+    }
+    return 'normal';
+  })();
+  return {
+    id: task.id,
+    matterId: task.matter_id,
+    name: task.name,
+    description: task.description ?? null,
+    assigneeId: task.assignee_id ?? null,
+    dueDate: task.due_date ?? null,
+    status: normalizedStatus,
+    priority: normalizedPriority,
+    stage: task.stage,
+    createdAt: task.created_at ?? '',
+    updatedAt: task.updated_at ?? ''
+  };
+};
+
+export const toTaskStageOptions = (tasks: MatterTask[]): Array<{ value: string; label: string }> => {
+  const stages = Array.from(
+    new Set(
+      tasks
+        .map((task) => task.stage.trim())
+        .filter((stage) => stage.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+  return stages.map((stage) => ({ value: stage, label: stage }));
+};
+
 // ---------------------------------------------------------------------------
 // MatterDetail → MatterFormState  (eliminates the 3x manual reconstruction)
 // ---------------------------------------------------------------------------
@@ -597,6 +643,57 @@ export const sortByTimestamp = <T extends { created_at?: string | null }>(items:
     return (Number.isNaN(at) ? 0 : at) - (Number.isNaN(bt) ? 0 : bt);
   });
 
+const readString = (record: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const readTaskMetadata = (metadata: Record<string, unknown>) => {
+  const changes = metadata.changes && typeof metadata.changes === 'object'
+    ? metadata.changes as Record<string, unknown>
+    : null;
+  const previous = metadata.previous && typeof metadata.previous === 'object'
+    ? metadata.previous as Record<string, unknown>
+    : null;
+
+  const taskId = readString(metadata, ['task_id', 'taskId', 'id'])
+    ?? (changes ? readString(changes, ['task_id', 'taskId', 'id']) : null);
+  const taskName = readString(metadata, ['task_name', 'taskName', 'name', 'title'])
+    ?? (changes ? readString(changes, ['task_name', 'taskName', 'name', 'title']) : null)
+    ?? (previous ? readString(previous, ['task_name', 'taskName', 'name', 'title']) : null);
+  const stage = readString(metadata, ['stage'])
+    ?? (changes ? readString(changes, ['stage']) : null)
+    ?? (previous ? readString(previous, ['stage']) : null);
+  const status = readString(metadata, ['status', 'new_status', 'newStatus'])
+    ?? (changes ? readString(changes, ['status', 'new_status', 'newStatus']) : null);
+  const templateName = readString(metadata, ['template_name', 'templateName']);
+  const taskCountRaw = metadata.task_count ?? metadata.taskCount ?? metadata.count;
+  const taskCount = typeof taskCountRaw === 'number' && Number.isFinite(taskCountRaw)
+    ? taskCountRaw
+    : null;
+
+  return { taskId, taskName, stage, status, templateName, taskCount };
+};
+
+const parseTaskNameFromDescription = (description?: string): string | null => {
+  if (!description) return null;
+  const trimmed = description.trim();
+  if (!trimmed) return null;
+
+  const colonMatch = trimmed.match(/\btask:\s*(.+)$/i);
+  if (colonMatch && colonMatch[1]?.trim()) return colonMatch[1].trim();
+
+  const quotedMatch = trimmed.match(/\btask\s+"([^"]+)"/i);
+  if (quotedMatch && quotedMatch[1]?.trim()) return quotedMatch[1].trim();
+
+  return null;
+};
+
 export const buildActivityTimelineItem = (
   activity: BackendMatterActivity,
   activities: BackendMatterActivity[],
@@ -622,6 +719,7 @@ export const buildActivityTimelineItem = (
   );
   const timeEntryDescription = typeof metadata.description === 'string' ? metadata.description : undefined;
   const cleanedDescription = description ? stripActorPrefix(description, person.name) : undefined;
+  const taskMeta = readTaskMetadata(metadata);
 
   let actionMeta = actionKey === 'matter_status_changed'
     ? buildStatusChangeMeta(metadata)
@@ -694,6 +792,55 @@ export const buildActivityTimelineItem = (
         : actionKey === 'milestone_deleted' ? 'deleted a milestone.'
         : actionKey === 'milestone_updated' ? 'updated a milestone.'
         : 'added a milestone.';
+    }
+
+    if (actionKey.startsWith('task_') || actionKey === 'tasks_generated') {
+      if (actionKey !== 'tasks_generated') {
+        actionMeta = { type: 'task_event', taskId: taskMeta.taskId ?? '' };
+      }
+
+      if (actionKey === 'tasks_generated') {
+        const countLabel = taskMeta.taskCount ? `${taskMeta.taskCount} tasks` : 'tasks';
+        if (taskMeta.templateName) {
+          return `generated ${countLabel} from template "${taskMeta.templateName}".`;
+        }
+        if (cleanedDescription) return cleanedDescription;
+        return mapped?.label ?? humanizeAction(actionKey);
+      }
+
+      const resolvedTaskName = taskMeta.taskName ?? parseTaskNameFromDescription(cleanedDescription);
+      const taskName = resolvedTaskName ? `"${resolvedTaskName}"` : null;
+      if (actionKey === 'task_created') {
+        if (taskName) {
+          const stageSuffix = taskMeta.stage ? ` (${taskMeta.stage})` : '';
+          return `created task ${taskName}${stageSuffix}.`;
+        }
+        if (cleanedDescription) return cleanedDescription;
+        return mapped?.label ?? humanizeAction(actionKey);
+      }
+      if (actionKey === 'task_updated') {
+        const fields = extractChangedFields(metadata);
+        const labels = fields.map((f) => f.label);
+        const formatted = formatFieldList(labels);
+        if (formatted && taskName) {
+          return `updated ${formatted} for task ${taskName}.`;
+        }
+        if (formatted) return `updated ${formatted}.`;
+        if (taskName) return `updated task ${taskName}.`;
+        if (cleanedDescription) return cleanedDescription;
+        return mapped?.label ?? humanizeAction(actionKey);
+      }
+      if (actionKey === 'task_completed') {
+        const statusSuffix = taskMeta.status ? ` (status: ${taskMeta.status.replace(/_/g, ' ')})` : '';
+        if (taskName) return `completed task ${taskName}${statusSuffix}.`;
+        if (cleanedDescription) return cleanedDescription;
+        return mapped?.label ?? humanizeAction(actionKey);
+      }
+      if (actionKey === 'task_deleted') {
+        if (taskName) return `deleted task ${taskName}.`;
+        if (cleanedDescription) return cleanedDescription;
+        return mapped?.label ?? humanizeAction(actionKey);
+      }
     }
 
     if (actionKey === 'expense_updated' || actionKey === 'note_updated') {

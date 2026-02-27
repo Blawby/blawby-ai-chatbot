@@ -3,7 +3,7 @@ import { ComponentChildren } from 'preact';
 import { useTypedSession } from '@/shared/lib/authClient';
 import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
-import { rememberAnonymousUserId } from '@/shared/utils/anonymousIdentity';
+import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -114,7 +114,13 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     if (!value.session?.user?.id) return;
     if (!value.session?.user?.isAnonymous) return;
     rememberAnonymousUserId(value.session.user.id);
-  }, [value.session?.user?.id, value.session?.user?.isAnonymous]);
+    const anonSessionId = typeof (value.session.session as { id?: string } | null | undefined)?.id === 'string'
+      ? (value.session.session as { id?: string }).id!
+      : null;
+    if (anonSessionId) {
+      rememberAnonymousSessionId(anonSessionId);
+    }
+  }, [value.session?.session, value.session?.user?.id, value.session?.user?.isAnonymous]);
 
   return (
     <SessionContext.Provider value={value}>
