@@ -28,7 +28,7 @@ type MatterTaskPatch = Partial<{
 const STATUS_OPTIONS: Array<{ value: MatterTask['status']; label: string }> = [
   { value: 'pending', label: 'Pending' },
   { value: 'in_progress', label: 'In progress' },
-  { value: 'complete', label: 'Complete' },
+  { value: 'completed', label: 'Completed' },
   { value: 'blocked', label: 'Blocked' }
 ];
 
@@ -42,7 +42,7 @@ const PRIORITY_OPTIONS: Array<{ value: MatterTask['priority']; label: string }> 
 const STATUS_STYLES: Record<MatterTask['status'], string> = {
   pending: 'text-amber-800 bg-amber-50 ring-amber-600/20',
   in_progress: 'text-blue-800 bg-blue-50 ring-blue-600/20',
-  complete: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20',
+  completed: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20',
   blocked: 'text-red-800 bg-red-50 ring-red-600/20'
 };
 

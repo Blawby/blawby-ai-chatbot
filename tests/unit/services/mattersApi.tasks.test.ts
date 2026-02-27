@@ -61,7 +61,7 @@ describe('mattersApi task endpoints', () => {
       name: 'Draft motion',
       stage: 'Pleadings'
     });
-    await updateMatterTask('practice-1', 'matter-1', 'task-1', { status: 'complete' });
+    await updateMatterTask('practice-1', 'matter-1', 'task-1', { status: 'completed' });
     const deleted = await deleteMatterTask('practice-1', 'matter-1', 'task-1');
     const generated = await generateMatterTasks('practice-1', 'matter-1', {
       template_name: 'Starter',
@@ -76,7 +76,7 @@ describe('mattersApi task endpoints', () => {
     );
     expect(mockApiClient.patch).toHaveBeenCalledWith(
       '/api/matters/practice-1/matter-1/tasks/task-1',
-      { status: 'complete' },
+      { status: 'completed' },
       expect.any(Object)
     );
     expect(mockApiClient.delete).toHaveBeenCalledWith(

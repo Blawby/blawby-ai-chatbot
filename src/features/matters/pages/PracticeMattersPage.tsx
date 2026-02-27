@@ -1158,9 +1158,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
   }, [activePracticeId, selectedMatterId, milestones, showError]);
 
   // ── Task handlers ─────────────────────────────────────────────────────────
-  const refreshTasks = useCallback(async () => {
+  const refreshTasks = useCallback(async (signal?: AbortSignal) => {
     if (!activePracticeId || !selectedMatterId) return;
-    const items = await listMatterTasks(activePracticeId, selectedMatterId);
+    const items = await listMatterTasks(activePracticeId, selectedMatterId, {}, { signal });
     setTasks(items.map(toMatterTask));
     setTasksError(null);
   }, [activePracticeId, selectedMatterId]);

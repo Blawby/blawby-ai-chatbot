@@ -5,6 +5,7 @@ import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/ut
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
   session: {
+    id?: string | null;
     user?: Record<string, unknown> | null;
   } | null;
   conversationId: string | null;
@@ -80,8 +81,8 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
                 : false)
           : false;
 
-        const bootstrapSessionId = typeof (freshData.session as { session?: { id?: string } } | null | undefined)?.session?.id === 'string'
-          ? (freshData.session as { session?: { id?: string } }).session!.id!.trim()
+        const bootstrapSessionId = typeof freshData.session?.id === 'string'
+          ? freshData.session.id.trim()
           : null;
 
         if (bootstrapUser && isAnonymousUser) {

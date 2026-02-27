@@ -357,7 +357,7 @@ export const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['mi
 
 export const toMatterTask = (task: BackendMatterTask): MatterTask => {
   const normalizedStatus: MatterTask['status'] = (() => {
-    if (task.status === 'pending' || task.status === 'in_progress' || task.status === 'complete' || task.status === 'blocked') {
+    if (task.status === 'pending' || task.status === 'in_progress' || task.status === 'completed' || task.status === 'blocked') {
       return task.status;
     }
     return 'pending';
@@ -813,7 +813,7 @@ export const buildActivityTimelineItem = (
       if (actionKey === 'task_created') {
         if (taskName) {
           const stageSuffix = taskMeta.stage ? ` (${taskMeta.stage})` : '';
-          return `created task ${taskName}.${stageSuffix}`;
+          return `created task ${taskName}${stageSuffix}.`;
         }
         if (cleanedDescription) return cleanedDescription;
         return mapped?.label ?? humanizeAction(actionKey);
@@ -832,7 +832,7 @@ export const buildActivityTimelineItem = (
       }
       if (actionKey === 'task_completed') {
         const statusSuffix = taskMeta.status ? ` (status: ${taskMeta.status.replace(/_/g, ' ')})` : '';
-        if (taskName) return `completed task ${taskName}.${statusSuffix}`;
+        if (taskName) return `completed task ${taskName}${statusSuffix}.`;
         if (cleanedDescription) return cleanedDescription;
         return mapped?.label ?? humanizeAction(actionKey);
       }

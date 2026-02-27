@@ -444,7 +444,12 @@ function PracticeAppRoute({
       }
     }
 
-    const fallbackWorkspace = clientAllowed ? 'client' : (publicAllowed ? 'public' : 'client');
+    if (!clientAllowed && !publicAllowed) {
+      navigate('/auth', true);
+      return;
+    }
+
+    const fallbackWorkspace = clientAllowed ? 'client' : 'public';
     const fallbackPath = getWorkspaceHomePath(fallbackWorkspace, fallbackSlug, fallbackWorkspace === 'public' ? '/public' : '/');
     navigate(fallbackPath, true);
   }, [

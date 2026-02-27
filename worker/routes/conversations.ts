@@ -687,7 +687,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
     }
 
-    // Allow if caller is either a participant OR a verified practice member.
+    // Allow if caller is either a participant OR a staff practice member.
     let hasAccess = false;
     try {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
@@ -699,7 +699,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     }
     if (!hasAccess) {
       const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
-      if (!membership.isMember) {
+      if (!isStaffMemberRole(membership.memberRole)) {
         throw HttpErrors.forbidden('User is not authorized to add participants to this conversation');
       }
     }

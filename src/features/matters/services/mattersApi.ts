@@ -106,7 +106,7 @@ export type BackendMatterMilestone = {
   updated_at?: string | null;
 };
 
-export type TaskStatus = 'pending' | 'in_progress' | 'complete' | 'blocked';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export type BackendMatterTask = {

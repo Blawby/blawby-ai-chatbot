@@ -49,7 +49,7 @@ interface MatterTaskFormProps {
 const STATUS_OPTIONS: Array<{ value: MatterTask['status']; label: string }> = [
   { value: 'pending', label: 'Pending' },
   { value: 'in_progress', label: 'In progress' },
-  { value: 'complete', label: 'Complete' },
+  { value: 'completed', label: 'Completed' },
   { value: 'blocked', label: 'Blocked' }
 ];
 

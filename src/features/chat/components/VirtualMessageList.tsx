@@ -381,24 +381,37 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         } | null;
                       }
                     | null;
+                let participantAdded = true;
                 if (action === 'accept' && session?.user?.id) {
                     const responseConversationId =
                         triagePayload?.data?.conversation_id
                         ?? triagePayload?.data?.conversationId
                         ?? leadReviewActions.conversationId;
                     if (responseConversationId) {
-                        const addParticipantRes = await fetch(
-                            `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(leadReviewActions.practiceId)}`,
-                            {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ participantUserIds: [session.user.id] }),
+                        try {
+                            const addParticipantRes = await fetch(
+                                `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(leadReviewActions.practiceId)}`,
+                                {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ participantUserIds: [session.user.id] }),
+                                }
+                            );
+                            if (!addParticipantRes.ok) {
+                                const participantErr = await addParticipantRes.json().catch(() => ({})) as { error?: string; message?: string };
+                                participantAdded = false;
+                                console.error(
+                                    '[VirtualMessageList] Failed to add participant after intake acceptance',
+                                    participantErr.message ?? participantErr.error ?? `HTTP ${addParticipantRes.status}`
+                                );
                             }
-                        );
-                        if (!addParticipantRes.ok) {
-                            const participantErr = await addParticipantRes.json().catch(() => ({})) as { error?: string; message?: string };
-                            throw new Error(participantErr.message ?? participantErr.error ?? `Failed to add participant (HTTP ${addParticipantRes.status})`);
+                        } catch (participantErr) {
+                            participantAdded = false;
+                            const participantMessage = participantErr instanceof Error
+                                ? participantErr.message
+                                : String(participantErr);
+                            console.error('[VirtualMessageList] Failed to add participant after intake acceptance', participantMessage);
                         }
                     }
                 }
@@ -437,6 +450,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     action === 'accept' ? 'Intake accepted' : 'Intake declined',
                     systemMessageFailed
                         ? 'Status updated; client notification failed.'
+                        : (action === 'accept' && !participantAdded)
+                            ? 'Intake updated; failed to add participant.'
                         : (action === 'accept' ? 'Client has been notified.' : 'Client has been notified of the decline.')
                 );
             } catch (err) {

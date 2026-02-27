@@ -33,7 +33,7 @@ export type MatterTask = {
   description: string | null;
   assigneeId: string | null;
   dueDate: string | null;
-  status: 'pending' | 'in_progress' | 'complete' | 'blocked';
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   stage: string;
   createdAt: string;
