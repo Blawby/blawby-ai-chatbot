@@ -212,7 +212,7 @@ export const InvoiceBuilder = ({
       aria-labelledby="invoiceDialogTitle"
       tabIndex={-1}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+        if (e.key === 'Escape' && !isSaving && !isSending) onClose();
       }}
     >
       <div className="flex h-[90vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface">
