@@ -208,6 +208,8 @@ function AppShell() {
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
           <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} workspaceView="matters" />
+          <Route path="/client/:practiceSlug/invoices" component={ClientPracticeRoute} workspaceView="invoices" />
+          <Route path="/client/:practiceSlug/invoices/:invoiceId" component={ClientPracticeRoute} workspaceView="invoiceDetail" />
           <Route path="/client/:practiceSlug/settings" component={WorkspaceSettingsRoute} workspace="client" />
           <Route path="/client/:practiceSlug/settings/*" component={WorkspaceSettingsRoute} workspace="client" />
           <Route path="/practice" component={App404} />
@@ -219,6 +221,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
+          <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
+          <Route path="/practice/:practiceSlug/invoices/:invoiceId" component={PracticeAppRoute} workspaceView="invoiceDetail" />
           <Route path="/practice/:practiceSlug/settings" component={WorkspaceSettingsRoute} workspace="practice" />
           <Route path="/practice/:practiceSlug/settings/*" component={WorkspaceSettingsRoute} workspace="practice" />
           <Route path="/" component={RootRoute} />
@@ -356,11 +360,13 @@ function RootRoute() {
 
 function PracticeAppRoute({
   conversationId,
+  invoiceId,
   workspaceView = 'home',
   practiceSlug
 }: {
   conversationId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients';
+  invoiceId?: string;
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail';
   practiceSlug?: string;
 }) {
   const { session, isPending } = useSessionContext();
@@ -503,6 +509,7 @@ function PracticeAppRoute({
         isPracticeView={true}
         workspace="practice"
         routeConversationId={conversationId}
+        routeInvoiceId={invoiceId}
         workspaceView={workspaceView}
         practiceSlug={normalizedPracticeSlug || undefined}
       />
@@ -512,11 +519,13 @@ function PracticeAppRoute({
 function ClientPracticeRoute({
   practiceSlug,
   conversationId,
+  invoiceId,
   workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
+  invoiceId?: string;
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -554,7 +563,7 @@ function ClientPracticeRoute({
     if (!slug || sessionIsPending) return;
     if (isAuthenticatedClient && workspaceView === 'home') {
       navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
-    } else if (!isAuthenticatedClient && workspaceView === 'matters') {
+    } else if (!isAuthenticatedClient && (workspaceView === 'matters' || workspaceView === 'invoices' || workspaceView === 'invoiceDetail')) {
       navigate(`/client/${encodeURIComponent(slug)}`, true);
     }
   }, [isAuthenticatedClient, workspaceView, slug, navigate, sessionIsPending]);
@@ -600,6 +609,7 @@ function ClientPracticeRoute({
         workspace="client"
         clientPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
+        routeInvoiceId={invoiceId}
         workspaceView={workspaceView}
       />
     </>

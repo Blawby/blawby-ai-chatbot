@@ -24,12 +24,15 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { useTranslation } from '@/shared/i18n/hooks';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { lazy, Suspense } from 'preact/compat';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
+const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
+const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
+const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
+const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
@@ -40,7 +43,7 @@ import { linkConversationToUser } from '@/shared/lib/apiClient';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -65,6 +68,7 @@ export function MainApp({
   workspace,
   chatContent,
   routeConversationId,
+  routeInvoiceId,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -77,6 +81,7 @@ export function MainApp({
   workspace: WorkspaceType;
   chatContent?: ComponentChildren;
   routeConversationId?: string;
+  routeInvoiceId?: string;
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -254,7 +259,6 @@ export function MainApp({
 
   // ── intake auth prompt ─────────────────────────────────────────────────────
   const intakeUuid = intakeStatus?.intakeUuid ?? null;
-  const { t } = useTranslation('common');
 
   const intakeAuthTarget = useMemo(() => {
     if (!isPublicWorkspace || !intakeUuid) return null;
@@ -755,6 +759,43 @@ export function MainApp({
           <PracticeClientsPage practiceId={effectivePracticeId ?? null} />
         </Suspense>
       ) : undefined}
+      invoicesView={
+        isPracticeWorkspace
+          ? (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              {workspaceView === 'invoiceDetail' ? (
+                <PracticeInvoiceDetailPage
+                  practiceId={effectivePracticeId ?? null}
+                  practiceSlug={effectivePracticeSlug ?? null}
+                  invoiceId={routeInvoiceId ?? null}
+                />
+              ) : (
+                <PracticeInvoicesPage
+                  practiceId={effectivePracticeId ?? null}
+                  practiceSlug={effectivePracticeSlug ?? null}
+                />
+              )}
+            </Suspense>
+          )
+          : isClientWorkspace
+            ? (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                {workspaceView === 'invoiceDetail' ? (
+                  <ClientInvoiceDetailPage
+                    practiceId={effectivePracticeId ?? null}
+                    practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                    invoiceId={routeInvoiceId ?? null}
+                  />
+                ) : (
+                  <ClientInvoicesPage
+                    practiceId={effectivePracticeId ?? null}
+                    practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                  />
+                )}
+              </Suspense>
+            )
+            : undefined
+      }
     />
   );
 

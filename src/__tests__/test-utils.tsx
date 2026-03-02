@@ -75,6 +75,18 @@ vi.mock('@/shared/lib/authClient', () => ({
 
 // Mock Heroicons
 vi.mock('@heroicons/react/24/outline', () => ({
+  HomeIcon: ({ className }: { className?: string }) =>
+    <svg className={className} data-testid="home-icon" />,
+  ChatBubbleOvalLeftEllipsisIcon: ({ className }: { className?: string }) =>
+    <svg className={className} data-testid="chat-bubble-icon" />,
+  ClipboardDocumentListIcon: ({ className }: { className?: string }) =>
+    <svg className={className} data-testid="clipboard-document-list-icon" />,
+  DocumentTextIcon: ({ className }: { className?: string }) =>
+    <svg className={className} data-testid="document-text-icon" />,
+  UsersIcon: ({ className }: { className?: string }) =>
+    <svg className={className} data-testid="users-icon" />,
+  UserCircleIcon: ({ className }: { className?: string }) =>
+    <svg className={className} data-testid="user-circle-icon" />,
   ChevronRightIcon: ({ className }: { className?: string }) => 
     <svg className={className} data-testid="chevron-right-icon" />,
   Cog6ToothIcon: ({ className }: { className?: string }) => 

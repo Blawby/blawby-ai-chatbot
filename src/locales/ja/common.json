@@ -234,7 +234,8 @@
       "messages": "メッセージ",
       "matters": "案件",
       "clients": "クライアント",
-      "settings": "設定"
+      "settings": "設定",
+      "invoices": "Invoices"
     },
     "conversationList": {
       "title": "メッセージ",

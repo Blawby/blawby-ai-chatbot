@@ -210,10 +210,6 @@ export const InvoiceBuilder = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="invoiceDialogTitle"
-      tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && !isSaving && !isSending) onClose();
-      }}
     >
       <div className="flex h-[90vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface">
         <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">

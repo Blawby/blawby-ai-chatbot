@@ -54,9 +54,10 @@ export const normalizePracticeOnboardingStatus = (
     toBooleanOrNull(record.details_submitted) ??
     false;
 
+  const sourceUrlRecord = source as { url?: unknown; onboardingUrl?: unknown };
   const url =
-    toStringOrNull((source as any).url) ??
-    toStringOrNull((source as any).onboardingUrl) ??
+    toStringOrNull(sourceUrlRecord.url) ??
+    toStringOrNull(sourceUrlRecord.onboardingUrl) ??
     toStringOrNull(record.url);
 
   return {

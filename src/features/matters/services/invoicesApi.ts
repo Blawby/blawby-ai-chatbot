@@ -4,7 +4,6 @@ import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
   asMajor,
-  getMajorAmountValue,
   safeMultiply,
   toMajorUnits,
   toMinorUnitsValue,
@@ -89,7 +88,11 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
       throw error;
     }
-    throw new Error(getErrorMessage(error, fallbackMessage));
+    const normalized = new Error(getErrorMessage(error, fallbackMessage)) as Error & { status?: number };
+    if (axios.isAxiosError(error)) {
+      normalized.status = error.response?.status;
+    }
+    throw normalized;
   }
 };
 

@@ -234,7 +234,8 @@
       "messages": "消息",
       "matters": "案件",
       "clients": "客户",
-      "settings": "设置"
+      "settings": "设置",
+      "invoices": "Invoices"
     },
     "conversationList": {
       "title": "消息",

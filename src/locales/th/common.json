@@ -211,7 +211,8 @@
       "messages": "ข้อความ",
       "matters": "คดี",
       "clients": "ลูกค้า",
-      "settings": "ตั้งค่า"
+      "settings": "ตั้งค่า",
+      "invoices": "Invoices"
     },
     "conversationList": {
       "title": "ข้อความ",

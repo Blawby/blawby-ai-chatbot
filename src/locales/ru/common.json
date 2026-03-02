@@ -211,7 +211,8 @@
       "messages": "Сообщения",
       "matters": "Дела",
       "clients": "Клиенты",
-      "settings": "Настройки"
+      "settings": "Настройки",
+      "invoices": "Invoices"
     },
     "conversationList": {
       "title": "Сообщения",
