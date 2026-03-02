@@ -20,7 +20,13 @@ export const useTimeEntries = ({ initialEntries = [], resetKey }: UseTimeEntries
       if (existing) {
         return prev.map((entry) => (
           entry.id === existing.id
-            ? { ...entry, startTime: values.startTime, endTime: values.endTime, description: values.description }
+            ? {
+              ...entry,
+              startTime: values.startTime,
+              endTime: values.endTime,
+              description: values.description,
+              billable: values.billable
+            }
             : entry
         ));
       }
@@ -28,7 +34,8 @@ export const useTimeEntries = ({ initialEntries = [], resetKey }: UseTimeEntries
         id: ulid(),
         startTime: values.startTime,
         endTime: values.endTime,
-        description: values.description
+        description: values.description,
+        billable: values.billable
       };
       return [newEntry, ...prev];
     });

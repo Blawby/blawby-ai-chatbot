@@ -237,6 +237,7 @@ export interface ConnectedAccountResponse {
 export interface OnboardingStatus {
   practiceUuid: string;
   stripeAccountId: string | null;
+  connectedAccountId: string | null;
   clientSecret?: string | null;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
@@ -562,6 +563,7 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   return {
     practiceUuid: String(normalized.practice_uuid ?? normalized.practiceUuid ?? ''),
     stripeAccountId: toNullableString(normalized.stripe_account_id ?? normalized.stripeAccountId),
+    connectedAccountId: toNullableString(normalized.connected_account_id ?? normalized.connectedAccountId),
     clientSecret: toNullableString(normalized.client_secret ?? normalized.clientSecret),
     chargesEnabled: Boolean(normalized.charges_enabled ?? normalized.chargesEnabled),
     payoutsEnabled: Boolean(normalized.payouts_enabled ?? normalized.payoutsEnabled),

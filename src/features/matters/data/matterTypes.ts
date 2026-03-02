@@ -89,6 +89,7 @@ export type TimeEntry = {
   startTime: string;
   endTime: string;
   description: string;
+  billable: boolean;
 };
 
 export type MatterExpense = {

@@ -70,6 +70,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     } else if (
       path.startsWith('/api/onboarding') ||
       path.startsWith('/api/matters') ||
+      path.startsWith('/api/invoices') ||
       path.startsWith('/api/practice/client-intakes') ||
       path.startsWith('/api/user-details') ||
       ((path === '/api/practice' || path.startsWith('/api/practice/')) &&

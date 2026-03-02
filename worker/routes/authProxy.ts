@@ -21,6 +21,7 @@ const subscriptionsPlansInflight = new Map<string, Promise<void>>();
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
   '/api/matters',
+  '/api/invoices',
   '/api/conversations',
   '/api/practice',
   '/api/preferences',
