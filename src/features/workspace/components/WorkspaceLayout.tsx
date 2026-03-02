@@ -10,51 +10,30 @@ import { useMemo } from 'preact/hooks';
 import { AppShell, type AppShellProps } from '@/shared/ui/layout/AppShell';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
-import { SplitView, type SplitViewProps } from '@/shared/ui/layout/SplitView';
+import { SplitView } from '@/shared/ui/layout/SplitView';
 import WorkspaceNav, { type WorkspaceNavProps } from '@/features/chat/views/WorkspaceNav';
 import type { WorkspaceType } from '@/shared/types/workspace';
 
 export interface WorkspaceLayoutProps {
   workspace: WorkspaceType;
-  practiceId: string;
-  practiceSlug: string | null;
-  clientPracticeSlug: string | null;
   children: React.ReactNode;
   header?: React.ReactNode;
   headerClassName?: string;
   showPracticeTabs?: boolean;
   showClientTabs?: boolean;
-  isWidget?: boolean;
 }
 
 const WorkspaceLayout: FunctionComponent<WorkspaceLayoutProps> = ({
   workspace,
-  practiceId,
-  practiceSlug,
-  clientPracticeSlug,
   children,
   header,
   headerClassName,
   showPracticeTabs = false,
   showClientTabs = false,
-  isWidget = false,
 }) => {
   const isPracticeWorkspace = workspace === 'practice';
   const isClientWorkspace = workspace === 'client';
-  const isPublicWorkspace = workspace === 'public';
 
-  const navigationBasePath = useMemo(() => {
-    if (isPracticeWorkspace) {
-      return practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/';
-    }
-    if (isClientWorkspace) {
-      return clientPracticeSlug ? `/client/${encodeURIComponent(clientPracticeSlug)}` : '/';
-    }
-    if (isPublicWorkspace && practiceSlug) {
-      return `/public/${encodeURIComponent(practiceSlug)}`;
-    }
-    return '/';
-  }, [workspace, practiceSlug, clientPracticeSlug]);
 
   const shouldShowTabs = useMemo(() => {
     if (isPracticeWorkspace) return showPracticeTabs;

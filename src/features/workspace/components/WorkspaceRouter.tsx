@@ -5,18 +5,14 @@
  * between navigation concerns and view rendering.
  */
 
-import { FunctionComponent } from 'preact';
-import { useMemo, useCallback } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import type { WorkspaceType } from '@/shared/types/workspace';
 
 export interface WorkspaceRouterProps {
   workspace: WorkspaceType;
-  practiceId: string;
   practiceSlug: string | null;
   clientPracticeSlug: string | null;
-  routeConversationId?: string;
-  isWidget?: boolean;
   view: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
   onNavigate?: (view: string) => void;
 }
@@ -51,11 +47,8 @@ export interface UseWorkspaceRouterReturn {
 
 export const useWorkspaceRouter = ({
   workspace,
-  practiceId,
   practiceSlug,
   clientPracticeSlug,
-  routeConversationId,
-  isWidget = false,
   view,
   onNavigate,
 }: WorkspaceRouterProps): UseWorkspaceRouterReturn => {
@@ -65,7 +58,6 @@ export const useWorkspaceRouter = ({
   const navigationPaths = useMemo(() => {
     const isPracticeWorkspace = workspace === 'practice';
     const isClientWorkspace = workspace === 'client';
-    const isPublicWorkspace = workspace === 'public';
 
     const basePaths = {
       practice: practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/',
@@ -96,8 +88,6 @@ export const useWorkspaceRouter = ({
 
   // Navigation state
   const navigationState = useMemo((): WorkspaceRoutingState => {
-    const isPracticeOnly = ['matters'].includes(view);
-    const isSharedGuarded = ['matters'].includes(view);
 
     return {
     currentView: view,
@@ -107,7 +97,7 @@ export const useWorkspaceRouter = ({
     canNavigateToClients: view !== 'clients',
     navigationPaths,
   };
-  }, [view, workspace, practiceSlug, clientPracticeSlug, navigationPaths]);
+  }, [view, navigationPaths]);
 
   // Navigation actions
   const navigationActions = useMemo(() => ({
@@ -162,7 +152,7 @@ export const useWorkspaceRouter = ({
         navigate(navigationPaths.practiceMatters);
       }
     },
-  }), [navigationState, navigate, workspace, practiceSlug, clientPracticeSlug, navigationPaths, onNavigate]);
+  }), [navigationState, navigate, workspace, practiceSlug, navigationPaths, onNavigate]);
 
   return {
     navigationState,

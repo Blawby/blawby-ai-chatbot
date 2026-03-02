@@ -466,6 +466,7 @@ function PracticeAppRoute({
     navigate,
     normalizedPracticeSlug,
     practices,
+    routingClaims?.workspace_access,
     routingClaims?.workspace_access?.client,
     routingClaims?.workspace_access?.public,
     session?.user

@@ -9,7 +9,6 @@ import { FunctionComponent } from 'preact';
 import { Button } from '@/shared/ui/Button';
 import { CompletionRing } from '@/shared/ui/CompletionRing';
 import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
-import type { Practice } from '@/shared/hooks/usePracticeManagement';
 
 export interface OnboardingActionsProps {
   status: PracticeSetupStatus;
@@ -49,8 +48,6 @@ export interface OnboardingActionsProps {
 
 const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
   status,
-  onSaveBasics,
-  onSaveContact,
   servicesSlot,
   payoutsSlot,
   logoUploading,

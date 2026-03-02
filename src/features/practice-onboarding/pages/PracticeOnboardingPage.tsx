@@ -6,7 +6,7 @@
  */
 
 import { FunctionComponent } from 'preact';
-import { useMemo, useState, useCallback } from 'preact/hooks';
+import { useMemo, useCallback } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { SplitView } from '@/shared/ui/layout/SplitView';
@@ -89,10 +89,6 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   chatAdapter,
 }) => {
   const { state, actions } = useOnboardingState();
-  
-  // Modal state management
-  const [basicsModalOpen] = useState(false);
-  const [contactModalOpen] = useState(false);
   
   const handleEditBasics = useCallback(() => {
     // Modal opening logic would go here

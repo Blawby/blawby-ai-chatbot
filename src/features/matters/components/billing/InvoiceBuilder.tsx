@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { asMajor, getMajorAmountValue, safeAdd } from '@/shared/utils/money';
+import { asMajor, safeAdd } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';

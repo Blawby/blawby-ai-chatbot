@@ -53,7 +53,6 @@ export const fetchPracticeDetailsWithCache = async (
   }
 
   if (options?.preferPracticeIdLookup) {
-    let preferLookupFailed = false;
     try {
       const baseUrl = new URL(request.url);
       baseUrl.pathname = `/api/practice/${encodeURIComponent(practiceId)}/details`;
@@ -80,12 +79,12 @@ export const fetchPracticeDetailsWithCache = async (
       if (response.status === 404) {
         return { details: null, isPublic: false };
       }
-      preferLookupFailed = true;
+      // fall through
     } catch (error) {
       if (error instanceof HttpError && error.status === 404) {
         return { details: null, isPublic: false };
       }
-      preferLookupFailed = true;
+      // fall through
     }
     // fall through to slug lookup when ID lookup fails with auth errors
   }
