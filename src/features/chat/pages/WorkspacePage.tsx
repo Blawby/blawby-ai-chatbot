@@ -5,6 +5,10 @@ import axios from 'axios';
 import { useNavigation } from '@/shared/utils/navigation';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
+import { RecentActivityTable } from '@/features/practice-dashboard/components/RecentActivityTable';
+import { RecentClientsGrid } from '@/features/practice-dashboard/components/RecentClientsGrid';
+import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
+import { DashboardHero } from '@/features/practice-dashboard/components/DashboardHero';
 import WorkspaceNav, { type WorkspaceNavTab } from '@/features/chat/views/WorkspaceNav';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { SplitView } from '@/shared/ui/layout/SplitView';
@@ -181,6 +185,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       messages: `${trimmed}/conversations`
     };
   }, [previewBaseUrl]);
+
+  const handleDashboardCreateInvoice = useCallback(() => {
+    navigate(`${workspaceBasePath}/matters?tab=time`);
+  }, [navigate, workspaceBasePath]);
+
 
   const isPracticeOnly = useMemo(() => ['clients'].includes(view), [view]);
   const isSharedGuarded = useMemo(() => ['matters'].includes(view), [view]);
@@ -438,6 +447,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const [dashboardWindow, setDashboardWindow] = useState<BillingWindow>('7d');
+
+  const {
+    summaryStats,
+    recentActivity,
+    recentClients,
+    loading: practiceBillingLoading,
+    error: practiceBillingError,
+  } = usePracticeBillingData({
+    practiceId: isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null,
+    enabled: isPracticeWorkspace,
+    matterLimit: 25,
+    windowSize: dashboardWindow
+  });
 
   useEffect(() => {
     if (!currentPractice?.id) return;
@@ -951,24 +974,33 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'home':
         if (workspace === 'practice') {
           return (
-            <div className="flex h-full min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1">
-                <PlaceholderPage
-                  title={`${practiceName || currentPractice?.name || 'Practice'} dashboard`}
-                  sections={[
-                    {
-                      title: 'Practice setup',
-                      content: (
-                        <div className="pt-1">
-                          <Button size="sm" onClick={() => navigate(`${workspaceBasePath}/setup`)}>
-                            Open setup
-                          </Button>
-                        </div>
-                      )
-                    }
-                  ]}
-                />
-              </div>
+            <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
+              <DashboardHero
+                windowSize={dashboardWindow}
+                stats={summaryStats}
+                loading={practiceBillingLoading}
+                onWindowChange={setDashboardWindow}
+                onCreateInvoice={handleDashboardCreateInvoice}
+              />
+              {practiceBillingError ? (
+                <div className="border-b border-line-glass/30">
+                  <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-input-text sm:px-6 lg:px-8">
+                    {practiceBillingError}
+                  </div>
+                </div>
+              ) : null}
+              <RecentActivityTable
+                days={recentActivity}
+                loading={practiceBillingLoading}
+                error={null}
+                onOpenInvoice={(entry) => navigate(`${workspaceBasePath}/matters?invoice=${entry.invoiceId}`)}
+              />
+              <RecentClientsGrid
+                clients={recentClients}
+                loading={practiceBillingLoading}
+                error={null}
+                onViewAll={() => navigate(`${workspaceBasePath}/clients`)}
+              />
             </div>
           );
         }
