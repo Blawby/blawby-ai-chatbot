@@ -43,12 +43,12 @@ const matchesDateRange = (candidateDate: string | null, dateFrom: string, dateTo
 
   if (dateFrom) {
     const [y, m, d] = dateFrom.split('-').map(Number);
-    const fromTime = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+    const fromTime = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
     if (Number.isFinite(fromTime) && time < fromTime) return false;
   }
   if (dateTo) {
     const [y, m, d] = dateTo.split('-').map(Number);
-    const toTime = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+    const toTime = Date.UTC(y, m - 1, d, 23, 59, 59, 999);
     if (Number.isFinite(toTime) && time > toTime) return false;
   }
   return true;

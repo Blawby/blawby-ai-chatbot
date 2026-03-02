@@ -242,10 +242,10 @@ function detectCorrectionField(message: string): { field: keyof ExtractedFields;
   // Check for remote practice responses
   if (lowerMessage.length < 60) {
     if (lowerMessage === 'remote' || lowerMessage === 'fully remote' || lowerMessage.includes('no office')) {
-      return { field: 'isRemote', value: 'true' };
+      return { field: 'isRemote', value: 'remote' };
     }
     if (lowerMessage === 'physical' || lowerMessage === 'office' || lowerMessage.includes('have an office')) {
-      return { field: 'isRemote', value: 'false' };
+      return { field: 'isRemote', value: 'physical' };
     }
   }
   
