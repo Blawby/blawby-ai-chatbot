@@ -1,7 +1,7 @@
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { asMajor } from '@/shared/utils/money';
+import { asMajor, safeMultiply } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 
@@ -11,6 +11,7 @@ type LineItemsBuilderProps = {
 };
 
 const newLineItem = (): InvoiceLineItem => ({
+  id: crypto.randomUUID(),
   type: 'service',
   description: '',
   quantity: 1,
@@ -35,8 +36,7 @@ export const LineItemsBuilder = ({ lineItems, onChange }: LineItemsBuilderProps)
       if (idx !== index) return item;
       const merged = { ...item, ...patch };
       const qty = Number(merged.quantity || 0);
-      const unit = Number(merged.unit_price || 0);
-      return { ...merged, line_total: asMajor(qty * unit) };
+      return { ...merged, line_total: safeMultiply(merged.unit_price, qty) };
     });
     onChange(next);
   };
@@ -89,7 +89,7 @@ export const LineItemsBuilder = ({ lineItems, onChange }: LineItemsBuilderProps)
                 const sourceHint = describeSource(item);
                 const disableRemoval = lineItems.length <= 1;
                 return (
-                  <tr key={`${item.description}-${index}`}>
+                  <tr key={item.id}>
                     <td className="px-4 py-3 align-top">
                       <Input
                         label="Description"

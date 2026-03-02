@@ -3,6 +3,8 @@ import { apiClient } from '@/shared/lib/apiClient';
 import {
   assertMajorUnits,
   asMajor,
+  getMajorAmountValue,
+  safeMultiply,
   toMajorUnits,
   toMinorUnitsValue,
   type MajorAmount
@@ -215,7 +217,11 @@ const buildInvoiceNumber = () => {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, '0');
   const d = String(date.getUTCDate()).padStart(2, '0');
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let rand = '';
+  for (let i = 0; i < 4; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   return `INV-${y}${m}${d}-${rand}`;
 };
 
@@ -224,7 +230,7 @@ const normalizeCreatePayload = (payload: CreateInvoicePayload) => ({
   invoice_number: payload.invoice_number || buildInvoiceNumber(),
   line_items: payload.line_items.map((item, index) => {
     const unitMinor = toMinorAmount(item.unit_price);
-    const lineTotalMajor = item.line_total ?? asMajor((item.unit_price as number) * item.quantity);
+    const lineTotalMajor = item.line_total ?? safeMultiply(item.unit_price, item.quantity);
     return {
       ...item,
       sort_order: item.sort_order ?? index,
@@ -270,6 +276,7 @@ export const createInvoice = async (
   payload: CreateInvoicePayload,
   options: FetchOptions = {}
 ): Promise<Invoice | null> => {
+  if (!practiceId) return null;
   const data = await requestData(
     apiClient.post(
       `/api/invoices/${encodeURIComponent(practiceId)}/create`,
@@ -287,6 +294,7 @@ export const sendInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
       `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/send`,
@@ -305,11 +313,12 @@ export const updateInvoice = async (
   payload: Partial<CreateInvoicePayload>,
   options: FetchOptions = {}
 ): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
   const body: Record<string, unknown> = { ...payload };
   if (Array.isArray(payload.line_items)) {
     body.line_items = payload.line_items.map((item, index) => {
       const unitMinor = toMinorAmount(item.unit_price);
-      const lineTotalMajor = item.line_total ?? asMajor((item.unit_price as number) * item.quantity);
+      const lineTotalMajor = item.line_total ?? safeMultiply(item.unit_price, item.quantity);
       return {
         ...item,
         sort_order: item.sort_order ?? index,
@@ -335,6 +344,7 @@ export const voidInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
       `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/void`,
@@ -352,6 +362,7 @@ export const syncInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
       `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/sync`,
@@ -369,6 +380,7 @@ export const deleteInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<void> => {
+  if (!practiceId || !invoiceId) return;
   await requestData(
     apiClient.delete(
       `/api/invoices/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(invoiceId)}`,

@@ -1,6 +1,7 @@
 import { Button } from '@/shared/ui/Button';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { getMajorAmountValue } from '@/shared/utils/money';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { UnbilledSummary } from '@/features/matters/types/billing.types';
 
@@ -34,25 +35,26 @@ export const UnbilledSummaryCard = ({
   }
 
   if (matter.billingType === 'contingency') {
-    const settlement = matter.settlementAmount ?? 0;
+    const settlementAmount = getMajorAmountValue(matter.settlementAmount);
+    const hasSettlement = matter.settlementAmount !== null && matter.settlementAmount !== undefined;
     const percent = matter.contingencyPercent ?? 0;
-    const fee = (settlement * percent) / 100;
+    const fee = (settlementAmount * percent) / 100;
     return (
       <Panel className="p-6">
         <h3 className="text-sm font-semibold text-input-text">Contingency Billing</h3>
         <p className="mt-2 text-sm text-input-placeholder">
-          Settlement: {settlement ? formatCurrency(settlement) : 'Not entered'}
+          Settlement: {hasSettlement ? formatCurrency(settlementAmount) : 'Not entered'}
         </p>
         <p className="mt-1 text-sm text-input-placeholder">Fee: {percent}%</p>
         <p className="mt-3 text-base font-semibold text-input-text">
           Potential invoice: {formatCurrency(fee)}
         </p>
-        {settlement > 0 ? (
+        {hasSettlement && settlementAmount > 0 ? (
           <Button className="mt-4" onClick={onCreateInvoice}>
             Create Contingency Invoice
           </Button>
         ) : (
-          <Button className="mt-4" variant="secondary" onClick={onEnterSettlement} disabled={!onEnterSettlement}>
+          <Button className="mt-4" variant="secondary" onClick={() => onEnterSettlement?.()} disabled={!onEnterSettlement}>
             Enter Settlement to Invoice
           </Button>
         )}
@@ -115,7 +117,7 @@ export const UnbilledSummaryCard = ({
       <p className="mt-4 text-base font-semibold text-input-text">
         Total unbilled: {formatCurrency(summary.totalUnbilled)}
       </p>
-      <Button className="mt-4" onClick={onCreateInvoice} disabled={(summary.totalUnbilled as number) <= 0}>
+      <Button className="mt-4" onClick={onCreateInvoice} disabled={getMajorAmountValue(summary.totalUnbilled) <= 0}>
         Create Invoice
       </Button>
     </Panel>

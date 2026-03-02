@@ -48,7 +48,10 @@ const detectDefaultInvoiceType = (
   if (items.some((item) => typeof item.description === 'string' && /retainer/i.test(item.description))) {
     return 'retainer_deposit';
   }
-  return billingType === 'fixed' ? 'flat_fee' : 'flat_fee';
+  if (billingType === 'fixed') return 'flat_fee';
+  if (billingType === 'hourly') return 'hourly';
+  if (billingType === 'contingency') return 'contingency_fee';
+  return 'flat_fee';
 };
 
 export const InvoiceBuilder = ({
@@ -109,10 +112,13 @@ export const InvoiceBuilder = ({
     setDueDate(initialDueDate ?? buildDefaultDueDate());
   }, [initialDueDate]);
 
-  const total = useMemo(
-    () => asMajor(lineItems.reduce((sum, item) => sum + (item.line_total as number), 0)),
-    [lineItems]
-  );
+  const total = useMemo(() => {
+    const sum = lineItems.reduce((acc, item) => {
+      const val = Number(item.line_total);
+      return acc + (Number.isFinite(val) ? val : 0);
+    }, 0);
+    return asMajor(sum);
+  }, [lineItems]);
 
   const isValidConnectedAccount = useMemo(
     () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
@@ -218,8 +224,8 @@ export const InvoiceBuilder = ({
       setSendError(
         invoiceId ? `${message}. Invoice draft saved - click Send again to retry.` : message
       );
-      setIsSending(false);
     } finally {
+      setIsSending(false);
       setShowSendDialog(false);
     }
   };
@@ -255,8 +261,10 @@ export const InvoiceBuilder = ({
                   onChange={(event) => setInvoiceType(event.currentTarget.value as Invoice['invoice_type'])}
                 >
                   <option value="flat_fee">Flat fee</option>
+                  <option value="hourly">Hourly</option>
                   <option value="phase_fee">Milestone / phase fee</option>
                   <option value="retainer_deposit">Retainer deposit</option>
+                  <option value="contingency_fee">Contingency fee</option>
                 </select>
                 <p className="mt-1 text-xs text-input-placeholder">
                   Choose how this invoice should be categorized for billing.

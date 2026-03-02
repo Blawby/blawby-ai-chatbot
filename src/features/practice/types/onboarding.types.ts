@@ -15,7 +15,10 @@ const toStringOrNull = (value: unknown): string | null => {
   return null;
 };
 
-const toBoolean = (value: unknown): boolean => Boolean(value);
+const toBooleanOrNull = (value: unknown): boolean | null => {
+  if (typeof value === 'boolean') return value;
+  return null;
+};
 
 export const normalizePracticeOnboardingStatus = (
   status: ApiOnboardingStatus | Record<string, unknown> | null | undefined
@@ -37,18 +40,24 @@ export const normalizePracticeOnboardingStatus = (
     toStringOrNull(record.connected_account_id);
 
   const chargesEnabled =
-    toBoolean((source as ApiOnboardingStatus).chargesEnabled) ||
-    toBoolean(record.charges_enabled);
+    toBooleanOrNull((source as ApiOnboardingStatus).chargesEnabled) ??
+    toBooleanOrNull(record.charges_enabled) ??
+    false;
 
   const payoutsEnabled =
-    toBoolean((source as ApiOnboardingStatus).payoutsEnabled) ||
-    toBoolean(record.payouts_enabled);
+    toBooleanOrNull((source as ApiOnboardingStatus).payoutsEnabled) ??
+    toBooleanOrNull(record.payouts_enabled) ??
+    false;
 
   const detailsSubmitted =
-    toBoolean((source as ApiOnboardingStatus).detailsSubmitted) ||
-    toBoolean(record.details_submitted);
+    toBooleanOrNull((source as ApiOnboardingStatus).detailsSubmitted) ??
+    toBooleanOrNull(record.details_submitted) ??
+    false;
 
-  const url = toStringOrNull(record.url);
+  const url =
+    toStringOrNull((source as any).url) ??
+    toStringOrNull((source as any).onboardingUrl) ??
+    toStringOrNull(record.url);
 
   return {
     practice_uuid: practiceUuid,

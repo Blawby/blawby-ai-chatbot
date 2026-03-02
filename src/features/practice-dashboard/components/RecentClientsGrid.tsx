@@ -79,22 +79,27 @@ export const RecentClientsGrid = ({
                   <div className="flex justify-between gap-x-4 py-3">
                     <dt className="text-input-placeholder">Last invoice</dt>
                     <dd className="text-input-text">
-                      {client.lastInvoice.date ? (
-                        <time dateTime={client.lastInvoice.date}>
-                          {new Date(client.lastInvoice.date).toLocaleDateString('en-US', {
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </time>
-                      ) : '-'}
+                      {(() => {
+                        if (!client.lastInvoice.date) return '-';
+                        const d = new Date(client.lastInvoice.date);
+                        if (isNaN(d.getTime())) return '-';
+                        return (
+                          <time dateTime={client.lastInvoice.date}>
+                            {d.toLocaleDateString('en-US', {
+                              month: 'long',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </time>
+                        );
+                      })()}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-x-4 py-3">
                     <dt className="text-input-placeholder">Amount</dt>
                     <dd className="flex items-start gap-x-2">
                       <div className="font-medium text-input-text">{formatCurrency(client.lastInvoice.amount)}</div>
-                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[typeof client.lastInvoice.status === 'string' ? client.lastInvoice.status.toLowerCase() : ''] ?? 'text-input-placeholder'}`}>
+                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[client.lastInvoice.status?.toLowerCase() || ''] ?? 'text-input-placeholder bg-surface-glass ring-line-glass/50'}`}>
                         {client.lastInvoice.status ?? '-'}
                       </div>
                     </dd>

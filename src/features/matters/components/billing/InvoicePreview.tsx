@@ -1,5 +1,6 @@
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
+import { getMajorAmountValue } from '@/shared/utils/money';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 
@@ -10,7 +11,7 @@ type InvoicePreviewProps = {
 };
 
 export const InvoicePreview = ({ matter, lineItems, dueDate }: InvoicePreviewProps) => {
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.line_total as number), 0);
+  const subtotal = lineItems.reduce((sum, item) => sum + getMajorAmountValue(item.line_total), 0);
 
   return (
     <div className="mx-auto min-h-[700px] w-full max-w-[794px] rounded-xl border border-line-glass/30 bg-white p-8 text-gray-900 shadow-sm">
@@ -43,7 +44,7 @@ export const InvoicePreview = ({ matter, lineItems, dueDate }: InvoicePreviewPro
               </tr>
             ) : (
               lineItems.map((item, index) => (
-                <tr key={`${item.description}-${index}`} className="border-b border-gray-100 align-top">
+                <tr key={item.id} className="border-b border-gray-100 align-top">
                   <td className="py-3 pr-3">{item.description || `Line item ${index + 1}`}</td>
                   <td className="py-3 text-right">{item.quantity}</td>
                   <td className="py-3 text-right">{formatCurrency(item.unit_price)}</td>

@@ -63,3 +63,30 @@ export const toMinorUnitsValue = (
   assertMajorUnits(value, 'toMinorUnitsValue');
   return toMinorUnits(value, fractionDigits);
 };
+
+export const getMajorAmountValue = (val: MajorAmount | number | null | undefined): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'object') return (val as any).amount ?? 0;
+  return val;
+};
+
+export const safeMultiply = (a: MajorAmount | number, b: number): MajorAmount => {
+  const aVal = getMajorAmountValue(a);
+  const aMinor = toMinorUnits(aVal);
+  return fromMinorUnits(Math.round(aMinor * b));
+};
+
+export const safeDivide = (a: MajorAmount | number, b: number): MajorAmount => {
+  if (!b || b === 0) return asMajor(0);
+  const aVal = getMajorAmountValue(a);
+  const aMinor = toMinorUnits(aVal);
+  return fromMinorUnits(Math.round(aMinor / b));
+};
+
+export const safeAdd = (a: MajorAmount | number, b: MajorAmount | number): MajorAmount => {
+  const aVal = getMajorAmountValue(a);
+  const bVal = getMajorAmountValue(b);
+  const aMinor = toMinorUnits(aVal);
+  const bMinor = toMinorUnits(bVal);
+  return fromMinorUnits(aMinor + bMinor);
+};

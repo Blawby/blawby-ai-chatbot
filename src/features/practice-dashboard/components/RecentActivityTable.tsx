@@ -14,7 +14,11 @@ type RecentActivityTableProps = {
 const formatStatusLabel = (status: ActivityEntry['status']) =>
   status.charAt(0).toUpperCase() + status.slice(1);
 
-const formatAmountLabel = (amount: number) => `${formatCurrency(amount)} USD`;
+const formatAmountLabel = (amount: number) => {
+  // NOTE: This UI currently assumes USD. 
+  // Future multi-currency support should pass a currency code here.
+  return `${formatCurrency(amount)} USD`;
+};
 
 const statusIcon = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
@@ -137,7 +141,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                               </button>
                             </div>
                             <div className="mt-1 text-xs text-input-placeholder">
-                              Invoice <span className="text-input-text">#{entry.invoiceNumber ?? entry.invoiceId.slice(0, 6)}</span>
+                              Invoice <span className="text-input-text">#{entry.invoiceNumber ?? entry.invoiceId?.slice(0, 6)}</span>
                             </div>
                           </td>
                         </tr>

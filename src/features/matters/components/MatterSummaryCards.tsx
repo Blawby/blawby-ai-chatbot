@@ -1,6 +1,6 @@
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import type { MajorAmount } from '@/shared/utils/money';
+import { getMajorAmountValue, type MajorAmount } from '@/shared/utils/money';
 
 type SummaryTab = 'overview' | 'time' | 'messages';
 
@@ -60,6 +60,8 @@ export const MatterSummaryCards = ({
     ? formatDurationFromSeconds(totalSeconds)
     : formatDurationFromHours(totalHours);
 
+  const unbilledValue = getMajorAmountValue(unbilledTotal);
+
   if (activeTab === 'overview') {
     return (
       <section className={gridBase}>
@@ -87,12 +89,12 @@ export const MatterSummaryCards = ({
           <div className={cardBase}>
             <p className="text-xs font-medium text-input-placeholder">Unbilled</p>
             <p className="mt-2 text-lg font-semibold text-input-text">
-              {formatCurrency(unbilledTotal ?? 0)}
+              {formatCurrency(unbilledValue)}
             </p>
             <Button
               size="xs"
               onClick={() => onInvoiceNow?.()}
-              disabled={!onInvoiceNow || (unbilledTotal ?? 0) <= 0}
+              disabled={!onInvoiceNow || unbilledValue <= 0}
               className="mt-2"
             >
               Invoice now

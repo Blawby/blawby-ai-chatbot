@@ -43,8 +43,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { type MajorAmount } from '@/shared/utils/money';
-import { asMajor } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import {
@@ -1358,12 +1357,13 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
 
     const timeItems: InvoiceLineItem[] = unbilledTimeEntries.map((entry, index) => {
       const qty = entry.duration_hours > 0 ? Number(entry.duration_hours.toFixed(2)) : 1;
-      const amount = (entry.amount as number) > 0 ? entry.amount : asMajor(qty * (baseRate as number));
+      const amountValue = getMajorAmountValue(entry.amount);
+      const amount = amountValue > 0 ? entry.amount : safeMultiply(baseRate, qty);
       return {
         type: 'time_entry',
         description: entry.description?.trim() || `Billable time entry ${index + 1}`,
         quantity: qty,
-        unit_price: qty > 0 ? asMajor((amount as number) / qty) : baseRate,
+        unit_price: qty > 0 ? safeDivide(amount, qty) : baseRate,
         line_total: amount,
         time_entry_id: entry.id
       };

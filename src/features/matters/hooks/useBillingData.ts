@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import {
   getUnbilledExpenses,
   getUnbilledSummary,
@@ -88,15 +88,25 @@ export const useBillingData = ({
     }
   }, [enabled, practiceId, matterId, computeFallbackSummary]);
 
-  useEffect(() => {
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  const refetchAll = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     const controller = new AbortController();
-    void fetchAll(controller.signal);
-    return () => controller.abort();
+    abortControllerRef.current = controller;
+    await fetchAll(controller.signal);
   }, [fetchAll]);
 
-  const refetchAll = useCallback(async () => {
-    await fetchAll();
-  }, [fetchAll]);
+  useEffect(() => {
+    void refetchAll();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [refetchAll]);
 
   return {
     invoices,

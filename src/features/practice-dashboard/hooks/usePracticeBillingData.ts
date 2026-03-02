@@ -243,7 +243,7 @@ export const usePracticeBillingData = ({
       .slice(0, 8);
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     if (!practiceId || !enabled) {
       setBillingActions([]);
       setOutstandingSummary(null);
@@ -253,8 +253,8 @@ export const usePracticeBillingData = ({
     setError(null);
     try {
       const [matters, invoices] = await Promise.all([
-        listMatters(practiceId, { limit: matterLimit }),
-        listInvoices(practiceId)
+        listMatters(practiceId, { limit: matterLimit, signal }),
+        listInvoices(practiceId, undefined, { signal })
       ]);
 
       const now = Date.now();
@@ -281,7 +281,7 @@ export const usePracticeBillingData = ({
       const unbilledSnapshots = await Promise.allSettled(
         matterSubset.map(async (matter) => {
           try {
-            const summary = await getUnbilledSummary(practiceId, matter.id);
+            const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
             return summary.totalUnbilled ?? null;
           } catch (err) {
             console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
@@ -453,7 +453,7 @@ export const usePracticeBillingData = ({
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetchData();
+    void fetchData(controller.signal);
     return () => controller.abort();
   }, [fetchData]);
 
