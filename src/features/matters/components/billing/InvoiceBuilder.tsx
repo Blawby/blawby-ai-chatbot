@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { asMajor } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeAdd } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
@@ -113,11 +113,9 @@ export const InvoiceBuilder = ({
   }, [initialDueDate]);
 
   const total = useMemo(() => {
-    const sum = lineItems.reduce((acc, item) => {
-      const val = Number(item.line_total);
-      return acc + (Number.isFinite(val) ? val : 0);
-    }, 0);
-    return asMajor(sum);
+    return lineItems.reduce((acc, item) => {
+      return safeAdd(acc, item.line_total);
+    }, asMajor(0));
   }, [lineItems]);
 
   const isValidConnectedAccount = useMemo(

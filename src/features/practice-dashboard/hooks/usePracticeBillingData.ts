@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeAdd, type MajorAmount } from '@/shared/utils/money';
 import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { getUnbilledSummary, listInvoices } from '@/features/matters/services/invoicesApi';
 import type { Invoice } from '@/features/matters/types/billing.types';
@@ -81,11 +81,10 @@ type MatterBillingSnapshot = {
   retainerTarget: MajorAmount | null;
 };
 
-const toNumber = (value: MajorAmount | null | undefined) =>
-  typeof value === 'number' ? value : Number(value ?? 0);
+const toNumber = (value: MajorAmount | null | undefined) => getMajorAmountValue(value);
 
 const sumInvoices = (invoices: Invoice[], selector: (invoice: Invoice) => MajorAmount | null | undefined) =>
-  asMajor(invoices.reduce((sum, invoice) => sum + toNumber(selector(invoice)), 0));
+  invoices.reduce((sum, invoice) => safeAdd(sum, selector(invoice)), asMajor(0));
 
 const parseMajorAmount = (value: unknown): MajorAmount | null => {
   if (typeof value === 'number') {
@@ -146,8 +145,8 @@ const filterInvoicesByRange = (invoices: Invoice[], start: number | null, end: n
 };
 
 const formatChangeLabel = (current: MajorAmount, previous: MajorAmount) => {
-  const currentValue = toNumber(current);
-  const previousValue = toNumber(previous);
+  const currentValue = getMajorAmountValue(current);
+  const previousValue = getMajorAmountValue(previous);
   if (previousValue === 0) return null;
   const delta = ((currentValue - previousValue) / previousValue) * 100;
   const rounded = delta.toFixed(2);
@@ -163,8 +162,8 @@ const evaluateChange = (
   if (!label) {
     return { label: null, tone: 'neutral' };
   }
-  const currentValue = toNumber(current);
-  const previousValue = toNumber(previous);
+  const currentValue = getMajorAmountValue(current);
+  const previousValue = getMajorAmountValue(previous);
   const increased = currentValue >= previousValue;
   const tone = increased === increaseIsGood ? 'positive' : 'negative';
   return { label, tone };
