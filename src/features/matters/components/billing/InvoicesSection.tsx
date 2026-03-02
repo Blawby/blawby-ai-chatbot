@@ -40,12 +40,31 @@ export const InvoicesSection = ({
   onSyncInvoice
 }: InvoicesSectionProps) => {
   const [syncDelayElapsed, setSyncDelayElapsed] = useState(false);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const timer = window.setTimeout(() => setSyncDelayElapsed(true), 5000);
     return () => window.clearTimeout(timer);
   }, []);
+
+  const handleAction = async (id: string, action: (invoice: Invoice) => Promise<void> | void, invoice: Invoice) => {
+    if (pendingIds.has(id)) return;
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    try {
+      await action(invoice);
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
 
   const handlePrimaryAction = (invoice: Invoice) => {
     if (invoice.status === 'draft' && onEditDraft) {
@@ -73,57 +92,61 @@ export const InvoicesSection = ({
         <div className="px-6 py-5 text-sm text-input-placeholder">No invoices yet for this matter.</div>
       ) : (
         <ul className="divide-y divide-line-default">
-          {invoices.map((invoice) => (
-            <li key={invoice.id} className="flex items-center justify-between gap-4 px-6 py-4">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-input-text">
-                  {invoice.stripe_invoice_number || invoice.invoice_number || 'Draft'}
-                </p>
-                <p className="mt-1 text-xs text-input-placeholder">
-                  {invoice.issue_date ? `Issued ${formatLongDate(invoice.issue_date)}` : 'Not issued'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusClass[invoice.status]}`}>
-                  {invoice.status.replace('_', ' ')}
-                </span>
-                {invoice.status === 'sent' && !invoice.stripe_invoice_number ? (
-                  <div className="flex items-center gap-2 text-xs text-input-placeholder">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" aria-hidden="true" />
-                    <span>(Syncing with Stripe...)</span>
-                    {syncDelayElapsed && onSyncInvoice ? (
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        onClick={() => void onSyncInvoice(invoice)}
-                      >
-                        Sync now
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
-                <p className="text-sm font-semibold text-input-text">{formatCurrency(invoice.total)}</p>
-                <Button size="xs" variant="secondary" onClick={() => handlePrimaryAction(invoice)}>
-                  {invoice.status === 'draft' ? 'Edit' : 'View'}
-                </Button>
-                {invoice.status === 'draft' ? (
-                  <Button size="xs" onClick={() => void onSendInvoice(invoice)}>
-                    Send
+          {invoices.map((invoice) => {
+            const isPending = pendingIds.has(invoice.id);
+            return (
+              <li key={invoice.id} className="flex items-center justify-between gap-4 px-6 py-4">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-input-text">
+                    {invoice.stripe_invoice_number || invoice.invoice_number || 'Draft'}
+                  </p>
+                  <p className="mt-1 text-xs text-input-placeholder">
+                    {invoice.issue_date ? `Issued ${formatLongDate(invoice.issue_date)}` : 'Not issued'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusClass[invoice.status]}`}>
+                    {invoice.status.replace('_', ' ')}
+                  </span>
+                  {invoice.status === 'sent' && !invoice.stripe_invoice_number ? (
+                    <div className="flex items-center gap-2 text-xs text-input-placeholder">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" aria-hidden="true" />
+                      <span>(Syncing with Stripe...)</span>
+                      {syncDelayElapsed && onSyncInvoice ? (
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={() => void handleAction(invoice.id, onSyncInvoice, invoice)}
+                          disabled={isPending}
+                        >
+                          {isPending ? '...' : 'Sync now'}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <p className="text-sm font-semibold text-input-text">{formatCurrency(invoice.total)}</p>
+                  <Button size="xs" variant="secondary" onClick={() => handlePrimaryAction(invoice)} disabled={isPending}>
+                    {invoice.status === 'draft' ? 'Edit' : 'View'}
                   </Button>
-                ) : null}
-                {invoice.status === 'sent' ? (
-                  <Button size="xs" variant="secondary" onClick={() => void onResendInvoice(invoice)}>
-                    Resend
-                  </Button>
-                ) : null}
-                {(invoice.status === 'draft' || invoice.status === 'sent' || invoice.status === 'pending') ? (
-                  <Button size="xs" variant="danger-ghost" onClick={() => void onVoidInvoice(invoice)}>
-                    Void
-                  </Button>
-                ) : null}
-              </div>
-            </li>
-          ))}
+                  {invoice.status === 'draft' ? (
+                    <Button size="xs" onClick={() => void handleAction(invoice.id, onSendInvoice, invoice)} disabled={isPending}>
+                      {isPending ? 'Sending...' : 'Send'}
+                    </Button>
+                  ) : null}
+                  {invoice.status === 'sent' ? (
+                    <Button size="xs" variant="secondary" onClick={() => void handleAction(invoice.id, onResendInvoice, invoice)} disabled={isPending}>
+                      {isPending ? 'Sending...' : 'Resend'}
+                    </Button>
+                  ) : null}
+                  {(invoice.status === 'draft' || invoice.status === 'sent' || invoice.status === 'pending') ? (
+                    <Button size="xs" variant="danger-ghost" onClick={() => void handleAction(invoice.id, onVoidInvoice, invoice)} disabled={isPending}>
+                      {isPending ? 'Voiding...' : 'Void'}
+                    </Button>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Panel>

@@ -1,6 +1,7 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
 const statusTone: Record<string, string> = {
@@ -15,13 +16,15 @@ type RecentClientsGridProps = {
   loading?: boolean;
   error?: string | null;
   onViewAll?: () => void;
+  onViewClient?: (clientId: string) => void;
 };
 
 export const RecentClientsGrid = ({
   clients,
   loading = false,
   error = null,
-  onViewAll
+  onViewAll,
+  onViewClient
 }: RecentClientsGridProps) => (
   <section className="w-full">
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -68,7 +71,7 @@ export const RecentClientsGrid = ({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[140px]">
-                    <DropdownMenuItem onSelect={() => {}}>
+                    <DropdownMenuItem onSelect={() => onViewClient?.(client.id)}>
                       View client
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -81,15 +84,15 @@ export const RecentClientsGrid = ({
                     <dd className="text-input-text">
                       {(() => {
                         if (!client.lastInvoice.date) return '-';
-                        const d = new Date(client.lastInvoice.date);
-                        if (isNaN(d.getTime())) return '-';
+                        const display = formatDate(client.lastInvoice.date, {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric'
+                        });
+                        if (!display) return '-';
                         return (
                           <time dateTime={client.lastInvoice.date}>
-                            {d.toLocaleDateString('en-US', {
-                              month: 'long',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
+                            {display}
                           </time>
                         );
                       })()}

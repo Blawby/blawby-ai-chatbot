@@ -57,7 +57,15 @@ export const useBillingData = ({
   }, [matter]);
 
   const fetchAll = useCallback(async (signal?: AbortSignal) => {
-    if (!enabled || !practiceId || !matterId) return;
+    if (!enabled || !practiceId || !matterId) {
+      setInvoices([]);
+      setUnbilledTimeEntries([]);
+      setUnbilledExpenses([]);
+      setUnbilledSummaryRemote(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 

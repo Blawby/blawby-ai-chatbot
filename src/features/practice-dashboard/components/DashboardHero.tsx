@@ -33,6 +33,7 @@ export const DashboardHero = ({
             key={window}
             type="button"
             onClick={() => onWindowChange(window)}
+            aria-pressed={window === windowSize}
             className={cn(
               window === windowSize ? 'text-accent-400' : 'text-input-placeholder hover:text-input-text'
             )}

@@ -1,11 +1,11 @@
 import type { MajorAmount } from '@/shared/utils/money';
 
 export type InvoiceStatus = 'draft' | 'pending' | 'sent' | 'paid' | 'overdue' | 'cancelled';
-export type InvoiceType = 'flat_fee' | 'retainer_deposit' | 'phase_fee' | 'hourly' | 'contingency_fee';
+export type InvoiceType = 'flat_fee' | 'retainer_deposit' | 'phase_fee' | 'hourly' | 'contingency';
 export type LineItemType = 'service' | 'time_entry' | 'expense' | 'flat_fee' | 'retainer' | 'other';
 
 export type InvoiceLineItem = {
-  id?: string;
+  id: string;
   type: LineItemType;
   description: string;
   quantity: number;

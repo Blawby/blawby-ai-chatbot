@@ -246,6 +246,10 @@ export const usePracticeBillingData = ({
     if (!practiceId || !enabled) {
       setBillingActions([]);
       setOutstandingSummary(null);
+      setSummaryStats([]);
+      setRecentActivity([]);
+      setRecentClients([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -348,6 +352,7 @@ export const usePracticeBillingData = ({
       const unbilledAggregate = asMajor(
         snapshots.reduce((sum, snapshot) => sum + toNumber(snapshot.unbilledTotal), 0)
       );
+      const unbilledMattersCount = snapshots.filter(s => toNumber(s.unbilledTotal) > 0).length;
 
       setSummaryStats([
         {
@@ -381,8 +386,8 @@ export const usePracticeBillingData = ({
           id: 'unbilled',
           label: 'Ready to invoice',
           value: unbilledAggregate,
-          helper: `${resolvedActions.length} matters flagged`,
-          tone: resolvedActions.length > 0 ? 'neutral' : 'positive',
+          helper: `${unbilledMattersCount} matters flagged`,
+          tone: unbilledMattersCount > 0 ? 'neutral' : 'positive',
           changeLabel: null,
           changeTone: 'neutral'
         }

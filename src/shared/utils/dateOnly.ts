@@ -7,10 +7,14 @@ export const formatDateOnlyStringUtc = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const formatDateOnlyUtc = (dateString: string, locale = 'en-US'): string => {
+export const formatDateOnlyUtc = (
+  dateString: string,
+  locale = 'en-US',
+  options?: Intl.DateTimeFormatOptions
+): string => {
   const date = parseDateOnlyUtc(dateString);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(locale, {
+  return date.toLocaleDateString(locale, options || {
     timeZone: 'UTC',
     month: 'short',
     day: 'numeric',

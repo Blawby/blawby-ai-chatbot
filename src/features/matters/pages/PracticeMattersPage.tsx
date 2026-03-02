@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState, useErrorBoundary } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
@@ -247,6 +247,34 @@ const MatterLoadError = ({
     </div>
   </Page>
 );
+
+const BillingErrorBoundary = ({ children, onRetry }: { children: preact.ComponentChildren; onRetry: () => void }) => {
+  const [error, resetError] = useErrorBoundary((err) => {
+    console.error('[PracticeMattersPage] Billing tab render failed', err);
+  });
+
+  if (error) {
+    return (
+      <ErrorBanner>
+        <div className="flex items-center justify-between gap-4">
+          <span>Unable to load billing data.</span>
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => {
+              resetError();
+              onRetry();
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      </ErrorBanner>
+    );
+  }
+
+  return <>{children}</>;
+};
 
 // ---------------------------------------------------------------------------
 // Main page
@@ -1355,21 +1383,26 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       ?? selectedMatterDetail?.adminHourlyRate
       ?? asMajor(0);
 
-    const timeItems: InvoiceLineItem[] = unbilledTimeEntries.map((entry, index) => {
-      const qty = entry.duration_hours > 0 ? Number(entry.duration_hours.toFixed(2)) : 1;
+    const timeItems: InvoiceLineItem[] = unbilledTimeEntries.reduce<InvoiceLineItem[]>((acc, entry, index) => {
+      const qty = entry.duration_hours > 0 ? Number(entry.duration_hours.toFixed(2)) : 0;
       const amountValue = getMajorAmountValue(entry.amount);
+      if (qty === 0 && amountValue <= 0) return acc;
+      const baseRateValue = entry.amount ? safeDivide(entry.amount, entry.duration_hours || 1) : asMajor(0);
       const amount = amountValue > 0 ? entry.amount : safeMultiply(baseRate, qty);
-      return {
+      acc.push({
+        id: crypto.randomUUID(),
         type: 'time_entry',
         description: entry.description?.trim() || `Billable time entry ${index + 1}`,
         quantity: qty,
         unit_price: qty > 0 ? safeDivide(amount, qty) : baseRate,
         line_total: amount,
         time_entry_id: entry.id
-      };
-    });
+      });
+      return acc;
+    }, []);
 
     const expenseItems: InvoiceLineItem[] = unbilledExpenses.map((expense) => ({
+      id: crypto.randomUUID(),
       type: 'expense',
       description: expense.description,
       quantity: 1,
@@ -1434,18 +1467,20 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       }
       const fee = asMajor((settlement * percent) / 100);
       openInvoiceBuilderWithItems([{
+        id: crypto.randomUUID(),
         type: 'service',
         description: `Contingency fee (${percent}% of ${formatCurrency(settlement)} settlement)`,
         quantity: 1,
         unit_price: fee,
         line_total: fee
-      }], { invoiceType: 'flat_fee' });
+      }], { invoiceType: 'contingency' });
       return;
     }
 
     if (selectedMatterDetail.billingType === 'fixed' && selectedMatterDetail.paymentFrequency === 'project') {
       const fixedTotal = selectedMatterDetail.totalFixedPrice ?? asMajor(0);
       openInvoiceBuilderWithItems([{
+        id: crypto.randomUUID(),
         type: 'flat_fee',
         description: `${selectedMatterDetail.title} - Fixed project fee`,
         quantity: 1,
@@ -1485,6 +1520,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     const milestone = (selectedMatterDetail.milestones ?? []).find((m) => m.id === milestoneId);
     if (!milestone) return;
     const items: InvoiceLineItem[] = [{
+      id: crypto.randomUUID(),
       type: 'service',
       description: milestone.description,
       quantity: 1,
@@ -1520,13 +1556,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       const percent = selectedMatterDetail.contingencyPercent ?? 0;
       const fee = asMajor((settlementDraft * percent) / 100);
       const items: InvoiceLineItem[] = [{
+        id: crypto.randomUUID(),
         type: 'service',
         description: `Contingency fee (${percent}% of ${formatCurrency(settlementDraft)} settlement)`,
         quantity: 1,
         unit_price: fee,
         line_total: fee
       }];
-      openInvoiceBuilderWithItems(items);
+      openInvoiceBuilderWithItems(items, { invoiceType: 'contingency' });
     } catch (error) {
       showError('Could not save settlement amount', error instanceof Error ? error.message : 'Please try again.');
     }
@@ -1869,105 +1906,89 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
                 onDeleteTask={handleDeleteTask}
               />
             ) : detailTab === 'time' && selectedMatterDetail ? (
-              (() => {
-                try {
-                  return (
-                    <div className="space-y-6">
-                      {invoicesError ? (
-                        <ErrorBanner>
-                          <div className="flex items-center justify-between gap-4">
-                            <span>{invoicesError}</span>
-                            <Button size="xs" variant="secondary" onClick={() => void refetchBilling()}>
-                              Retry
-                            </Button>
-                          </div>
-                        </ErrorBanner>
-                      ) : null}
-                      {!connectedAccountId ? (
-                        <WarningBanner>
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <span>Complete Stripe onboarding to save or send invoices.</span>
-                            {onboardingUrl ? (
-                              <Button
-                                size="xs"
-                                variant="secondary"
-                                onClick={() => {
-                                  if (typeof window !== 'undefined') {
-                                    window.open(onboardingUrl, '_blank', 'noopener,noreferrer');
-                                  }
-                                }}
-                              >
-                                Open onboarding
-                              </Button>
-                            ) : null}
-                          </div>
-                          {stripeAccountId ? (
-                            <p className="mt-2 text-xs text-input-placeholder">
-                              Stripe account: {stripeAccountId}
-                            </p>
-                          ) : null}
-                        </WarningBanner>
-                      ) : null}
-                      {!unbilledSummary && (unbilledTimeEntries.length > 0 || unbilledExpenses.length > 0) ? (
-                        <WarningBanner>
-                          Unbilled summary is still calculating. Showing time and expense data directly.
-                        </WarningBanner>
-                      ) : null}
-                      <TimeEntriesPanel
-                        key={`time-${selectedMatterDetail.id}`}
-                        entries={timeEntries}
-                        onSaveEntry={(values, existing) => void handleSaveTimeEntry(values, existing)}
-                        onDeleteEntry={(entry) => void handleDeleteTimeEntry(entry)}
-                        loading={timeEntriesLoading}
-                        error={timeEntriesError}
-                      />
-                      <MatterExpensesPanel
-                        key={`expenses-${selectedMatterDetail.id}`}
-                        matter={selectedMatterDetail}
-                        expenses={expenses}
-                        loading={expensesLoading}
-                        error={expensesError}
-                        onCreateExpense={handleCreateExpense}
-                        onUpdateExpense={handleUpdateExpense}
-                        onDeleteExpense={handleDeleteExpense}
-                      />
-                      {unbilledSummary ? (
-                        <UnbilledSummaryCard
-                          summary={unbilledSummary}
-                          matter={selectedMatterDetail}
-                          onCreateInvoice={handleCreateInvoiceFromSummary}
-                          onInvoiceMilestone={handleCreateMilestoneInvoice}
-                          onEnterSettlement={handleOpenSettlementModal}
-                        />
-                      ) : null}
-                      <InvoicesSection
-                        invoices={invoices}
-                        loading={invoicesLoading}
-                        error={invoicesError}
-                        onCreateInvoice={handleCreateInvoiceFromSummary}
-                        onSendInvoice={handleSendInvoice}
-                        onViewInvoice={handleViewInvoice}
-                        onResendInvoice={handleResendInvoice}
-                        onVoidInvoice={handleVoidInvoice}
-                        onEditDraft={handleEditDraftInvoice}
-                        onSyncInvoice={handleSyncInvoice}
-                      />
-                    </div>
-                  );
-                } catch (error) {
-                  console.error('[PracticeMattersPage] Billing tab render failed', error);
-                  return (
+              <BillingErrorBoundary onRetry={refetchBilling}>
+                <div className="space-y-6">
+                  {invoicesError ? (
                     <ErrorBanner>
                       <div className="flex items-center justify-between gap-4">
-                        <span>Unable to load billing data.</span>
+                        <span>{invoicesError}</span>
                         <Button size="xs" variant="secondary" onClick={() => void refetchBilling()}>
                           Retry
                         </Button>
                       </div>
                     </ErrorBanner>
-                  );
-                }
-              })()
+                  ) : null}
+                  {!connectedAccountId ? (
+                    <WarningBanner>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span>Complete Stripe onboarding to save or send invoices.</span>
+                        {onboardingUrl ? (
+                          <Button
+                            size="xs"
+                            variant="secondary"
+                            onClick={() => {
+                              if (typeof window !== 'undefined') {
+                                window.open(onboardingUrl, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                          >
+                            Open onboarding
+                          </Button>
+                        ) : null}
+                      </div>
+                      {stripeAccountId ? (
+                        <p className="mt-2 text-xs text-input-placeholder">
+                          Stripe account: {stripeAccountId}
+                        </p>
+                      ) : null}
+                    </WarningBanner>
+                  ) : null}
+                  {!unbilledSummary && (unbilledTimeEntries.length > 0 || unbilledExpenses.length > 0) ? (
+                    <WarningBanner>
+                      Unbilled summary is still calculating. Showing time and expense data directly.
+                    </WarningBanner>
+                  ) : null}
+                  <TimeEntriesPanel
+                    key={`time-${selectedMatterDetail.id}`}
+                    entries={timeEntries}
+                    onSaveEntry={(values, existing) => void handleSaveTimeEntry(values, existing)}
+                    onDeleteEntry={(entry) => void handleDeleteTimeEntry(entry)}
+                    loading={timeEntriesLoading}
+                    error={timeEntriesError}
+                  />
+                  <MatterExpensesPanel
+                    key={`expenses-${selectedMatterDetail.id}`}
+                    matter={selectedMatterDetail}
+                    expenses={expenses}
+                    loading={expensesLoading}
+                    error={expensesError}
+                    onCreateExpense={handleCreateExpense}
+                    onUpdateExpense={handleUpdateExpense}
+                    onDeleteExpense={handleDeleteExpense}
+                  />
+                  {unbilledSummary ? (
+                    <UnbilledSummaryCard
+                      summary={unbilledSummary}
+                      matter={selectedMatterDetail}
+                      onCreateInvoice={handleCreateInvoiceFromSummary}
+                      onInvoiceMilestone={handleCreateMilestoneInvoice}
+                      onEnterSettlement={handleOpenSettlementModal}
+                    />
+                  ) : null}
+                  <InvoicesSection
+                    invoices={invoices}
+                    loading={invoicesLoading}
+                    error={invoicesError}
+                    onCreateInvoice={handleCreateInvoiceFromSummary}
+                    onSendInvoice={handleSendInvoice}
+                    onViewInvoice={handleViewInvoice}
+                    onResendInvoice={handleResendInvoice}
+                    onVoidInvoice={handleVoidInvoice}
+                    onEditDraft={handleEditDraftInvoice}
+                    onSyncInvoice={handleSyncInvoice}
+                  />
+                </div>
+              </BillingErrorBoundary>
             ) : detailTab === 'messages' && selectedMatterDetail ? (
               <MatterMessagesPanel
                 key={`messages-${selectedMatterDetail.id}`}
@@ -2001,6 +2022,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
 
         {isInvoiceBuilderOpen && selectedMatterDetail && activePracticeId ? (
           <InvoiceBuilder
+            key={isInvoiceEditMode ? (editingInvoiceId ?? 'edit') : 'new'}
             practiceId={activePracticeId}
             matter={selectedMatterDetail}
             connectedAccountId={connectedAccountId}

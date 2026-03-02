@@ -150,20 +150,24 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const isClientFacingWorkspace = workspace === 'public' || workspace === 'client';
 
   const workspaceBasePath = useMemo(() => {
-    if (workspace === 'practice') {
-      return practiceSlug ? `/practice/${encodeURIComponent(practiceSlug)}` : '/';
+    let base = '/';
+    if (workspace === 'practice' && practiceSlug) {
+      base = `/practice/${encodeURIComponent(practiceSlug)}`;
+    } else if (workspace === 'client' && practiceSlug) {
+      base = `/client/${encodeURIComponent(practiceSlug)}`;
+    } else if (practiceSlug) {
+      base = `/public/${encodeURIComponent(practiceSlug)}`;
     }
-    if (workspace === 'client') {
-      return practiceSlug ? `/client/${encodeURIComponent(practiceSlug)}` : '/';
-    }
-    return practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/';
+    return base.replace(/\/+$/, '') || '/';
   }, [workspace, practiceSlug]);
+
+  const normalizedBase = useMemo(() => 
+    workspaceBasePath === '/' ? '' : workspaceBasePath, 
+  [workspaceBasePath]);
+
   const conversationsPath = useMemo(() => {
-    if (workspaceBasePath === '/') {
-      return '/conversations';
-    }
-    return `${workspaceBasePath}/conversations`;
-  }, [workspaceBasePath]);
+    return `${normalizedBase}/conversations`;
+  }, [normalizedBase]);
   const previewBaseUrl = useMemo(() => {
     const path = practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -187,8 +191,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [previewBaseUrl]);
 
   const handleDashboardCreateInvoice = useCallback(() => {
-    navigate(`${workspaceBasePath}/matters?tab=time`);
-  }, [navigate, workspaceBasePath]);
+    navigate(`${normalizedBase}/matters?tab=time`);
+  }, [navigate, normalizedBase]);
 
 
   const isPracticeOnly = useMemo(() => ['clients'].includes(view), [view]);
@@ -993,13 +997,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                 days={recentActivity}
                 loading={practiceBillingLoading}
                 error={null}
-                onOpenInvoice={(entry) => navigate(`${workspaceBasePath}/matters?invoice=${entry.invoiceId}`)}
+                onOpenInvoice={(entry) => navigate(`${normalizedBase}/matters?invoice=${encodeURIComponent(entry.invoiceId)}`)}
               />
               <RecentClientsGrid
                 clients={recentClients}
                 loading={practiceBillingLoading}
                 error={null}
-                onViewAll={() => navigate(`${workspaceBasePath}/clients`)}
+                onViewAll={() => navigate(`${normalizedBase}/clients`)}
+                onViewClient={(clientId) => navigate(`${normalizedBase}/clients?id=${encodeURIComponent(clientId)}`)}
               />
             </div>
           );

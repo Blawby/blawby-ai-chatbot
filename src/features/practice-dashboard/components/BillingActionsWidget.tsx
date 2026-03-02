@@ -58,7 +58,7 @@ export const BillingActionsWidget = ({
                         {action.subtitle ? (
                           <p className="text-xs text-input-placeholder">{action.subtitle}</p>
                         ) : null}
-                        {action.amount ? (
+                        {action.amount != null ? (
                           <p className="mt-1 text-sm font-semibold text-input-text">
                             {formatCurrency(action.amount)}
                           </p>

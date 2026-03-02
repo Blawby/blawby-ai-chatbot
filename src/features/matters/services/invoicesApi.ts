@@ -112,7 +112,7 @@ const formatDate = (value: string | Date | null | undefined): string | null => {
 };
 
 const normalizeLineItem = (item: BackendInvoiceLineItem): InvoiceLineItem => ({
-  id: item.id,
+  id: item.id || crypto.randomUUID(),
   type: (item.type ?? 'other') as InvoiceLineItem['type'],
   description: item.description ?? '',
   quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : 1,
@@ -155,7 +155,8 @@ const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     memo: invoice.memo ?? null,
     created_at: formatDate(invoice.created_at) ?? new Date(0).toISOString(),
     updated_at: formatDate(invoice.updated_at) ?? new Date(0).toISOString(),
-    line_items: lineItems.map(normalizeLineItem)
+    line_items: lineItems.map(normalizeLineItem),
+    client: invoice.client ?? null
   };
 };
 

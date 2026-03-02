@@ -50,7 +50,7 @@ const detectDefaultInvoiceType = (
   }
   if (billingType === 'fixed') return 'flat_fee';
   if (billingType === 'hourly') return 'hourly';
-  if (billingType === 'contingency') return 'contingency_fee';
+  if (billingType === 'contingency') return 'contingency';
   return 'flat_fee';
 };
 
@@ -86,31 +86,7 @@ export const InvoiceBuilder = ({
   );
   const invoiceTypeFieldId = useMemo(() => `invoice-type-${matter.id}`, [matter.id]);
 
-  useEffect(() => {
-    setInvoiceType(
-      detectDefaultInvoiceType(initialLineItems, invoiceContext, matter.billingType, initialInvoiceType)
-    );
-  }, [initialInvoiceType, initialLineItems, invoiceContext, matter.billingType]);
 
-  useEffect(() => {
-    setCreatedInvoiceId(editMode ? existingInvoiceId ?? null : null);
-  }, [editMode, existingInvoiceId]);
-
-  useEffect(() => {
-    setLineItems(initialLineItems);
-  }, [initialLineItems]);
-
-  useEffect(() => {
-    setNotes(initialNotes ?? '');
-  }, [initialNotes]);
-
-  useEffect(() => {
-    setMemo(initialMemo ?? '');
-  }, [initialMemo]);
-
-  useEffect(() => {
-    setDueDate(initialDueDate ?? buildDefaultDueDate());
-  }, [initialDueDate]);
 
   const total = useMemo(() => {
     return lineItems.reduce((acc, item) => {
@@ -229,11 +205,20 @@ export const InvoiceBuilder = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="invoiceDialogTitle"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
       <div className="flex h-[90vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface">
         <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-input-text">Create Invoice</h2>
+            <h2 id="invoiceDialogTitle" className="text-base font-semibold text-input-text">Create Invoice</h2>
             <p className="text-xs text-input-placeholder">{matter.title}</p>
           </div>
           <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
@@ -262,7 +247,7 @@ export const InvoiceBuilder = ({
                   <option value="hourly">Hourly</option>
                   <option value="phase_fee">Milestone / phase fee</option>
                   <option value="retainer_deposit">Retainer deposit</option>
-                  <option value="contingency_fee">Contingency fee</option>
+                  <option value="contingency">Contingency fee</option>
                 </select>
                 <p className="mt-1 text-xs text-input-placeholder">
                   Choose how this invoice should be categorized for billing.

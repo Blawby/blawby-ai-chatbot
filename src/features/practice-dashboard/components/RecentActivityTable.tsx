@@ -2,6 +2,7 @@ import { Fragment } from 'preact';
 import { ArrowDownCircleIcon, ArrowPathIcon, ArrowUpCircleIcon } from '@heroicons/react/20/solid';
 import { cn } from '@/shared/utils/cn';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { formatDate } from '@/shared/utils/dateTime';
 import type { ActivityDay, ActivityEntry } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
 type RecentActivityTableProps = {
@@ -73,11 +74,6 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                       label: 'Today',
                       isoDate: new Date().toISOString(),
                       entries: []
-                    },
-                    {
-                      label: 'Yesterday',
-                      isoDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-                      entries: []
                     }
                   ];
                   const showEmptyRows = days.length === 0;
@@ -116,11 +112,15 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                                     {formatStatusLabel(entry.status)}
                                   </div>
                                 </div>
-                                {entry.issuedAt ? (
-                                  <div className="mt-1 text-xs text-input-placeholder">
-                                    {new Date(entry.issuedAt).toLocaleDateString()}
-                                  </div>
-                                ) : null}
+                                {(() => {
+                                  const displayDate = entry.issuedAt ? formatDate(entry.issuedAt) : '';
+                                  if (!displayDate) return null;
+                                  return (
+                                    <div className="mt-1 text-xs text-input-placeholder">
+                                      {displayDate}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                             <div className="absolute right-full bottom-0 h-px w-screen bg-line-glass/20" />
