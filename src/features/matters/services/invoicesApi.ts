@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { apiClient } from '@/shared/lib/apiClient';
+import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
   asMajor,
@@ -85,6 +86,9 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
+    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
     throw new Error(getErrorMessage(error, fallbackMessage));
   }
 };
@@ -249,7 +253,7 @@ export const listInvoices = async (
   if (!practiceId) return [];
   const params = matterId ? { matter_id: matterId } : undefined;
   const payload = await requestData(
-    apiClient.get(`/api/invoices/${encodeURIComponent(practiceId)}`, { params, signal: options.signal }),
+    apiClient.get(urls.invoices(practiceId), { params, signal: options.signal }),
     'Failed to load invoices'
   );
   return extractInvoicesArray(payload).map(normalizeInvoice);
@@ -262,7 +266,7 @@ export const getInvoice = async (
 ): Promise<Invoice | null> => {
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
-    apiClient.get(`/api/invoices/${encodeURIComponent(practiceId)}`, {
+    apiClient.get(urls.invoices(practiceId), {
       params: { invoice_id: invoiceId },
       signal: options.signal
     }),
@@ -280,7 +284,7 @@ export const createInvoice = async (
   if (!practiceId) return null;
   const data = await requestData(
     apiClient.post(
-      `/api/invoices/${encodeURIComponent(practiceId)}/create`,
+      urls.createInvoice(practiceId),
       normalizeCreatePayload(payload),
       { signal: options.signal }
     ),
@@ -298,7 +302,7 @@ export const sendInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
-      `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/send`,
+      urls.invoice(practiceId, invoiceId) + '/send',
       {},
       { signal: options.signal }
     ),
@@ -330,7 +334,7 @@ export const updateInvoice = async (
   }
   const data = await requestData(
     apiClient.patch(
-      `/api/invoices/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(invoiceId)}`,
+      urls.updateInvoice(practiceId, invoiceId),
       body,
       { signal: options.signal }
     ),
@@ -348,7 +352,7 @@ export const voidInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
-      `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/void`,
+      urls.invoice(practiceId, invoiceId) + '/void',
       {},
       { signal: options.signal }
     ),
@@ -366,7 +370,7 @@ export const syncInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
-      `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/sync`,
+      urls.invoice(practiceId, invoiceId) + '/sync',
       {},
       { signal: options.signal }
     ),
@@ -384,7 +388,7 @@ export const deleteInvoice = async (
   if (!practiceId || !invoiceId) return;
   await requestData(
     apiClient.delete(
-      `/api/invoices/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(invoiceId)}`,
+      urls.deleteInvoice(practiceId, invoiceId),
       { signal: options.signal }
     ),
     'Failed to delete invoice'
@@ -396,9 +400,10 @@ export const getUnbilledTimeEntries = async (
   matterId: string,
   options: FetchOptions = {}
 ): Promise<UnbilledTimeEntry[]> => {
+  if (!practiceId || !matterId) return [];
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries/unbilled`,
+      urls.unbilledTimeEntries(practiceId, matterId),
       { signal: options.signal }
     ),
     'Failed to load unbilled time entries'
@@ -413,9 +418,10 @@ export const getUnbilledExpenses = async (
   matterId: string,
   options: FetchOptions = {}
 ): Promise<UnbilledExpense[]> => {
+  if (!practiceId || !matterId) return [];
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses/unbilled`,
+      urls.unbilledExpenses(practiceId, matterId),
       { signal: options.signal }
     ),
     'Failed to load unbilled expenses'
@@ -430,9 +436,10 @@ export const getUnbilledSummary = async (
   matterId: string,
   options: FetchOptions = {}
 ): Promise<UnbilledSummary> => {
+  if (!practiceId || !matterId) throw new Error('Practice ID and Matter ID are required');
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/unbilled-summary`,
+      urls.unbilledSummary(practiceId, matterId),
       { signal: options.signal }
     ),
     'Failed to load unbilled summary'

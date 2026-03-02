@@ -259,6 +259,7 @@ export const usePracticeBillingData = ({
         listMatters(practiceId, { limit: matterLimit, signal }),
         listInvoices(practiceId, undefined, { signal })
       ]);
+      if (signal?.aborted) return;
 
       const now = Date.now();
       const windowDuration = windowSize === '7d' ? 7 * 24 * 60 * 60 * 1000
@@ -292,6 +293,7 @@ export const usePracticeBillingData = ({
           }
         })
       );
+      if (signal?.aborted) return;
 
       const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter, index) => {
         const invoicesForMatter = invoiceMap.get(matter.id) ?? [];
@@ -312,12 +314,14 @@ export const usePracticeBillingData = ({
       });
 
       const resolvedActions = buildActions(snapshots);
+      if (signal?.aborted) return;
       setBillingActions(resolvedActions);
 
       const awaitingInvoices = invoices.filter((invoice) => invoice.status === 'sent' || invoice.status === 'pending');
       const overdueInvoices = invoices.filter((invoice) => invoice.status === 'overdue');
       const awaitingTotal = sumInvoices(awaitingInvoices, (invoice) => invoice.amount_due ?? invoice.total);
       const overdueTotalAggregate = sumInvoices(overdueInvoices, (invoice) => invoice.amount_due ?? invoice.total);
+      if (signal?.aborted) return;
       setOutstandingSummary({
         awaitingCount: awaitingInvoices.length,
         awaitingTotal,
@@ -354,6 +358,7 @@ export const usePracticeBillingData = ({
       );
       const unbilledMattersCount = snapshots.filter(s => toNumber(s.unbilledTotal) > 0).length;
 
+      if (signal?.aborted) return;
       setSummaryStats([
         {
           id: 'revenue',
@@ -424,6 +429,7 @@ export const usePracticeBillingData = ({
       const activityDays = Array.from(activityMap.values()).sort(
         (a, b) => new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime()
       );
+      if (signal?.aborted) return;
       setRecentActivity(activityDays);
 
       const clientMap = new Map<string, RecentClient>();
@@ -441,8 +447,10 @@ export const usePracticeBillingData = ({
           });
         }
       });
+      if (signal?.aborted) return;
       setRecentClients(Array.from(clientMap.values()).slice(0, 6));
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('[usePracticeBillingData] Failed to load practice billing data', err);
       setError(err instanceof Error ? err.message : 'Unable to load billing data');
       setBillingActions([]);
@@ -451,6 +459,7 @@ export const usePracticeBillingData = ({
       setRecentActivity([]);
       setRecentClients([]);
     } finally {
+      if (signal?.aborted) return;
       setLoading(false);
     }
   }, [practiceId, enabled, matterLimit, windowSize, buildActions]);
