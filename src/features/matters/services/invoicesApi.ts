@@ -1,0 +1,474 @@
+import axios from 'axios';
+import { apiClient } from '@/shared/lib/apiClient';
+import { urls } from '@/config/urls';
+import {
+  assertMajorUnits,
+  asMajor,
+  getMajorAmountValue,
+  safeMultiply,
+  toMajorUnits,
+  toMinorUnitsValue,
+  type MajorAmount
+} from '@/shared/utils/money';
+import type {
+  CreateInvoicePayload,
+  Invoice,
+  InvoiceLineItem,
+  UnbilledExpense,
+  UnbilledSummary,
+  UnbilledTimeEntry
+} from '@/features/matters/types/billing.types';
+
+type FetchOptions = {
+  signal?: AbortSignal;
+};
+
+type BackendInvoiceLineItem = {
+  id?: string;
+  type?: string;
+  description?: string;
+  quantity?: number;
+  unit_price?: number;
+  line_total?: number;
+  time_entry_id?: string | null;
+  expense_id?: string | null;
+  sort_order?: number;
+};
+
+type BackendInvoice = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  matter_id?: string | null;
+  connected_account_id: string;
+  invoice_number?: string | null;
+  stripe_invoice_id?: string | null;
+  stripe_invoice_number?: string | null;
+  stripe_hosted_invoice_url?: string | null;
+  invoice_type?: string | null;
+  status?: string | null;
+  subtotal?: number | null;
+  tax_amount?: number | null;
+  discount_amount?: number | null;
+  total?: number | null;
+  amount_paid?: number | null;
+  amount_due?: number | null;
+  issue_date?: string | Date | null;
+  due_date?: string | Date | null;
+  paid_at?: string | Date | null;
+  notes?: string | null;
+  memo?: string | null;
+  created_at?: string | Date | null;
+  updated_at?: string | Date | null;
+  line_items?: BackendInvoiceLineItem[] | null;
+  lineItems?: BackendInvoiceLineItem[] | null;
+  client?: Record<string, unknown> | null;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === 'string' && data.trim().length > 0) return data;
+    if (data && typeof data === 'object') {
+      const record = data as Record<string, unknown>;
+      const message = typeof record.message === 'string' ? record.message : null;
+      const err = typeof record.error === 'string' ? record.error : null;
+      return message ?? err ?? error.message ?? fallback;
+    }
+    return error.message ?? fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+};
+
+const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: string): Promise<T> => {
+  try {
+    const response = await promise;
+    return response.data;
+  } catch (error) {
+    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
+    throw new Error(getErrorMessage(error, fallbackMessage));
+  }
+};
+
+const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is BackendInvoice => !!item && typeof item === 'object');
+  }
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.invoices)) {
+    return record.invoices.filter((item): item is BackendInvoice => !!item && typeof item === 'object');
+  }
+  if (record.invoice && typeof record.invoice === 'object') {
+    return [record.invoice as BackendInvoice];
+  }
+  if (record.data) return extractInvoicesArray(record.data);
+  return [];
+};
+
+const formatDate = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  return typeof value === 'string' ? value : null;
+};
+
+const normalizeLineItem = (item: BackendInvoiceLineItem): InvoiceLineItem => ({
+  id: item.id || crypto.randomUUID(),
+  type: (item.type ?? 'other') as InvoiceLineItem['type'],
+  description: item.description ?? '',
+  quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : 1,
+  unit_price: asMajor(toMajorUnits(item.unit_price ?? 0) ?? 0),
+  line_total: asMajor(toMajorUnits(item.line_total ?? 0) ?? 0),
+  time_entry_id: item.time_entry_id ?? null,
+  expense_id: item.expense_id ?? null,
+  sort_order: item.sort_order
+});
+
+const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
+  const lineItems = Array.isArray(invoice.line_items)
+    ? invoice.line_items
+    : Array.isArray(invoice.lineItems)
+      ? invoice.lineItems
+      : [];
+
+  return {
+    id: invoice.id,
+    organization_id: invoice.organization_id,
+    client_id: invoice.client_id,
+    matter_id: invoice.matter_id ?? null,
+    connected_account_id: invoice.connected_account_id,
+    invoice_number: invoice.invoice_number ?? null,
+    stripe_invoice_id: invoice.stripe_invoice_id ?? null,
+    stripe_invoice_number: invoice.stripe_invoice_number ?? null,
+    stripe_hosted_invoice_url: invoice.stripe_hosted_invoice_url ?? null,
+    invoice_type: (invoice.invoice_type ?? 'flat_fee') as Invoice['invoice_type'],
+    status: (invoice.status ?? 'draft') as Invoice['status'],
+    subtotal: asMajor(toMajorUnits(invoice.subtotal ?? 0) ?? 0),
+    tax_amount: asMajor(toMajorUnits(invoice.tax_amount ?? 0) ?? 0),
+    discount_amount: asMajor(toMajorUnits(invoice.discount_amount ?? 0) ?? 0),
+    total: asMajor(toMajorUnits(invoice.total ?? 0) ?? 0),
+    amount_paid: asMajor(toMajorUnits(invoice.amount_paid ?? 0) ?? 0),
+    amount_due: asMajor(toMajorUnits(invoice.amount_due ?? 0) ?? 0),
+    issue_date: formatDate(invoice.issue_date),
+    due_date: formatDate(invoice.due_date),
+    paid_at: formatDate(invoice.paid_at),
+    notes: invoice.notes ?? null,
+    memo: invoice.memo ?? null,
+    created_at: formatDate(invoice.created_at) ?? new Date(0).toISOString(),
+    updated_at: formatDate(invoice.updated_at) ?? new Date(0).toISOString(),
+    line_items: lineItems.map(normalizeLineItem),
+    client: invoice.client ?? null
+  };
+};
+
+const toUnbilledTimeEntry = (value: unknown): UnbilledTimeEntry | null => {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const id = typeof record.id === 'string' ? record.id : '';
+  if (!id) return null;
+  const seconds = typeof record.duration_seconds === 'number'
+    ? record.duration_seconds
+    : typeof record.duration === 'number'
+      ? record.duration
+      : 0;
+  const hours = typeof record.duration_hours === 'number'
+    ? record.duration_hours
+    : seconds / 3600;
+  return {
+    id,
+    description: typeof record.description === 'string' ? record.description : '',
+    duration_seconds: seconds,
+    duration_hours: hours,
+    amount: asMajor(toMajorUnits(typeof record.amount === 'number' ? record.amount : 0) ?? 0),
+    start_time: typeof record.start_time === 'string' ? record.start_time : null,
+    end_time: typeof record.end_time === 'string' ? record.end_time : null
+  };
+};
+
+const toUnbilledExpense = (value: unknown): UnbilledExpense | null => {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const id = typeof record.id === 'string' ? record.id : '';
+  if (!id) return null;
+  return {
+    id,
+    description: typeof record.description === 'string' ? record.description : 'Expense',
+    amount: asMajor(toMajorUnits(typeof record.amount === 'number' ? record.amount : 0) ?? 0),
+    date: typeof record.date === 'string' ? record.date : null
+  };
+};
+
+const extractArrayFromPayload = (payload: unknown, keys: string[]): unknown[] => {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  for (const key of keys) {
+    if (Array.isArray(record[key])) return record[key] as unknown[];
+  }
+  if (record.data) return extractArrayFromPayload(record.data, keys);
+  return [];
+};
+
+const toMinorAmount = (value: MajorAmount): number => {
+  assertMajorUnits(value, 'invoice.line_item.amount');
+  return Number(toMinorUnitsValue(value));
+};
+
+const buildInvoiceNumber = () => {
+  const date = new Date();
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let rand = '';
+  for (let i = 0; i < 4; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `INV-${y}${m}${d}-${rand}`;
+};
+
+const normalizeCreatePayload = (payload: CreateInvoicePayload) => ({
+  ...payload,
+  invoice_number: payload.invoice_number || buildInvoiceNumber(),
+  line_items: payload.line_items.map((item, index) => {
+    const unitMinor = toMinorAmount(item.unit_price);
+    const lineTotalMajor = item.line_total ?? safeMultiply(item.unit_price, item.quantity);
+    return {
+      ...item,
+      sort_order: item.sort_order ?? index,
+      unit_price: unitMinor,
+      line_total: toMinorAmount(lineTotalMajor)
+    };
+  })
+});
+
+export const listInvoices = async (
+  practiceId: string,
+  matterId?: string,
+  options: FetchOptions = {}
+): Promise<Invoice[]> => {
+  if (!practiceId) return [];
+  const params = matterId ? { matter_id: matterId } : undefined;
+  const payload = await requestData(
+    apiClient.get(urls.invoices(practiceId), { params, signal: options.signal }),
+    'Failed to load invoices'
+  );
+  return extractInvoicesArray(payload).map(normalizeInvoice);
+};
+
+export const getInvoice = async (
+  practiceId: string,
+  invoiceId: string,
+  options: FetchOptions = {}
+): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
+  const payload = await requestData(
+    apiClient.get(urls.invoices(practiceId), {
+      params: { invoice_id: invoiceId },
+      signal: options.signal
+    }),
+    'Failed to load invoice'
+  );
+  const invoice = extractInvoicesArray(payload)[0];
+  return invoice ? normalizeInvoice(invoice) : null;
+};
+
+export const createInvoice = async (
+  practiceId: string,
+  payload: CreateInvoicePayload,
+  options: FetchOptions = {}
+): Promise<Invoice | null> => {
+  if (!practiceId) return null;
+  const data = await requestData(
+    apiClient.post(
+      urls.createInvoice(practiceId),
+      normalizeCreatePayload(payload),
+      { signal: options.signal }
+    ),
+    'Failed to create invoice'
+  );
+  const invoice = extractInvoicesArray(data)[0];
+  return invoice ? normalizeInvoice(invoice) : null;
+};
+
+export const sendInvoice = async (
+  practiceId: string,
+  invoiceId: string,
+  options: FetchOptions = {}
+): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
+  const payload = await requestData(
+    apiClient.post(
+      urls.sendInvoice(practiceId, invoiceId),
+      {},
+      { signal: options.signal }
+    ),
+    'Failed to send invoice'
+  );
+  const invoice = extractInvoicesArray(payload)[0];
+  return invoice ? normalizeInvoice(invoice) : null;
+};
+
+export const updateInvoice = async (
+  practiceId: string,
+  invoiceId: string,
+  payload: Partial<CreateInvoicePayload>,
+  options: FetchOptions = {}
+): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
+  const body: Record<string, unknown> = { ...payload };
+  if (Array.isArray(payload.line_items)) {
+    body.line_items = payload.line_items.map((item, index) => {
+      const unitMinor = toMinorAmount(item.unit_price);
+      const lineTotalMajor = item.line_total ?? safeMultiply(item.unit_price, item.quantity);
+      return {
+        ...item,
+        sort_order: item.sort_order ?? index,
+        unit_price: unitMinor,
+        line_total: toMinorAmount(lineTotalMajor)
+      };
+    });
+  }
+  const data = await requestData(
+    apiClient.patch(
+      urls.updateInvoice(practiceId, invoiceId),
+      body,
+      { signal: options.signal }
+    ),
+    'Failed to update invoice'
+  );
+  const invoice = extractInvoicesArray(data)[0];
+  return invoice ? normalizeInvoice(invoice) : null;
+};
+
+export const voidInvoice = async (
+  practiceId: string,
+  invoiceId: string,
+  options: FetchOptions = {}
+): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
+  const payload = await requestData(
+    apiClient.post(
+      urls.voidInvoice(practiceId, invoiceId),
+      {},
+      { signal: options.signal }
+    ),
+    'Failed to void invoice'
+  );
+  const invoice = extractInvoicesArray(payload)[0];
+  return invoice ? normalizeInvoice(invoice) : null;
+};
+
+export const syncInvoice = async (
+  practiceId: string,
+  invoiceId: string,
+  options: FetchOptions = {}
+): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
+  const payload = await requestData(
+    apiClient.post(
+      urls.syncInvoice(practiceId, invoiceId),
+      {},
+      { signal: options.signal }
+    ),
+    'Failed to sync invoice'
+  );
+  const invoice = extractInvoicesArray(payload)[0];
+  return invoice ? normalizeInvoice(invoice) : null;
+};
+
+export const deleteInvoice = async (
+  practiceId: string,
+  invoiceId: string,
+  options: FetchOptions = {}
+): Promise<void> => {
+  if (!practiceId || !invoiceId) return;
+  await requestData(
+    apiClient.delete(
+      urls.deleteInvoice(practiceId, invoiceId),
+      { signal: options.signal }
+    ),
+    'Failed to delete invoice'
+  );
+};
+
+export const getUnbilledTimeEntries = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions = {}
+): Promise<UnbilledTimeEntry[]> => {
+  if (!practiceId || !matterId) return [];
+  const payload = await requestData(
+    apiClient.get(
+      urls.unbilledTimeEntries(practiceId, matterId),
+      { signal: options.signal }
+    ),
+    'Failed to load unbilled time entries'
+  );
+  return extractArrayFromPayload(payload, ['timeEntries', 'entries', 'items'])
+    .map(toUnbilledTimeEntry)
+    .filter((item): item is UnbilledTimeEntry => item !== null);
+};
+
+export const getUnbilledExpenses = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions = {}
+): Promise<UnbilledExpense[]> => {
+  if (!practiceId || !matterId) return [];
+  const payload = await requestData(
+    apiClient.get(
+      urls.unbilledExpenses(practiceId, matterId),
+      { signal: options.signal }
+    ),
+    'Failed to load unbilled expenses'
+  );
+  return extractArrayFromPayload(payload, ['expenses', 'items'])
+    .map(toUnbilledExpense)
+    .filter((item): item is UnbilledExpense => item !== null);
+};
+
+export const getUnbilledSummary = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions = {}
+): Promise<UnbilledSummary> => {
+  if (!practiceId || !matterId) throw new Error('Practice ID and Matter ID are required');
+  const payload = await requestData(
+    apiClient.get(
+      urls.unbilledSummary(practiceId, matterId),
+      { signal: options.signal }
+    ),
+    'Failed to load unbilled summary'
+  );
+  const source = (payload && typeof payload === 'object' && 'data' in (payload as Record<string, unknown>))
+    ? (payload as Record<string, unknown>).data
+    : payload;
+  const record = (source && typeof source === 'object' ? source : {}) as Record<string, unknown>;
+  const time = (record.unbilledTime && typeof record.unbilledTime === 'object' ? record.unbilledTime : {}) as Record<string, unknown>;
+  const expenses = (record.unbilledExpenses && typeof record.unbilledExpenses === 'object' ? record.unbilledExpenses : {}) as Record<string, unknown>;
+  const rates = (record.rates && typeof record.rates === 'object' ? record.rates : {}) as Record<string, unknown>;
+
+  return {
+    unbilledTime: {
+      hours: typeof time.hours === 'number' ? time.hours : 0,
+      amount: asMajor(toMajorUnits(typeof time.amount === 'number' ? time.amount : 0) ?? 0),
+      entries: typeof time.entries === 'number' ? time.entries : 0
+    },
+    unbilledExpenses: {
+      count: typeof expenses.count === 'number' ? expenses.count : 0,
+      amount: asMajor(toMajorUnits(typeof expenses.amount === 'number' ? expenses.amount : 0) ?? 0)
+    },
+    totalUnbilled: asMajor(toMajorUnits(typeof record.totalUnbilled === 'number' ? record.totalUnbilled : 0) ?? 0),
+    matterBillingType: (
+      typeof record.matterBillingType === 'string' ? record.matterBillingType : 'hourly'
+    ) as UnbilledSummary['matterBillingType'],
+    rates: {
+      attorney: typeof rates.attorney === 'number' ? asMajor(toMajorUnits(rates.attorney) ?? 0) : null,
+      admin: typeof rates.admin === 'number' ? asMajor(toMajorUnits(rates.admin) ?? 0) : null
+    }
+  };
+};

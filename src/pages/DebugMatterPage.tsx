@@ -60,8 +60,8 @@ const initialDetails: MatterDetail[] = [
       { id: 'e-1', description: 'State filing fee', amount: asMajor(85), date: '2026-02-12', billable: true }
     ],
     timeEntries: [
-      { id: 't-1', startTime: '2026-02-18T16:00:00.000Z', endTime: '2026-02-18T17:30:00.000Z', description: 'Draft revision and risk notes' },
-      { id: 't-2', startTime: '2026-02-17T15:00:00.000Z', endTime: '2026-02-17T16:00:00.000Z', description: 'Client call and negotiation plan' }
+      { id: 't-1', startTime: '2026-02-18T16:00:00.000Z', endTime: '2026-02-18T17:30:00.000Z', description: 'Draft revision and risk notes', billable: true },
+      { id: 't-2', startTime: '2026-02-17T15:00:00.000Z', endTime: '2026-02-17T16:00:00.000Z', description: 'Client call and negotiation plan', billable: true }
     ]
   },
   {

@@ -201,3 +201,19 @@ export function getTrustedHosts(): string[] {
 
 	return Array.from(new Set(hosts));
 }
+/**
+ * Centralized API endpoint helpers
+ */
+export const urls = {
+	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
+	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
+	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/create`,
+	updateInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(invoiceId)}`,
+	deleteInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(invoiceId)}`,
+	sendInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/send`,
+	voidInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/void`,
+	syncInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/sync`,
+	unbilledTimeEntries: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries/unbilled`,
+	unbilledExpenses: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses/unbilled`,
+	unbilledSummary: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/unbilled-summary`
+};

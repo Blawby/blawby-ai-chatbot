@@ -325,7 +325,8 @@ export const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => {
     id: entry.id,
     startTime: entry.start_time,
     endTime: entry.end_time,
-    description: entry.description ?? ''
+    description: entry.description ?? '',
+    billable: entry.billable ?? true
   };
 };
 

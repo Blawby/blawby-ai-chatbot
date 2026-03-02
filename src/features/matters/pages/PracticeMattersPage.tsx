@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState, useErrorBoundary } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
@@ -7,6 +7,7 @@ import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
 import { Button } from '@/shared/ui/Button';
 import { Breadcrumbs } from '@/shared/ui/navigation';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
+import { CurrencyInput } from '@/shared/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,13 +34,17 @@ import { MatterExpensesPanel } from '@/features/matters/components/expenses/Matt
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
+import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBuilder';
+import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
+import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { MatterDetailHeader } from '@/features/matters/components/MatterDetailHeader';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { type MajorAmount } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import {
   createMatter,
@@ -71,7 +76,11 @@ import {
   updateMatterTask,
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
-import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { getInvoice, sendInvoice, syncInvoice, voidInvoice as voidInvoiceRequest } from '@/features/matters/services/invoicesApi';
+import { useBillingData } from '@/features/matters/hooks/useBillingData';
+import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
+import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
 import {
   buildActivityTimelineItem,
   buildCreatePayload,
@@ -239,6 +248,34 @@ const MatterLoadError = ({
   </Page>
 );
 
+const BillingErrorBoundary = ({ children, onRetry }: { children: preact.ComponentChildren; onRetry: () => void }) => {
+  const [error, resetError] = useErrorBoundary((err) => {
+    console.error('[PracticeMattersPage] Billing tab render failed', err);
+  });
+
+  if (error) {
+    return (
+      <ErrorBanner>
+        <div className="flex items-center justify-between gap-4">
+          <span>Unable to load billing data.</span>
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => {
+              resetError();
+              onRetry();
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      </ErrorBanner>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -331,6 +368,23 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
+  const [isInvoiceBuilderOpen, setIsInvoiceBuilderOpen] = useState(false);
+  const [invoiceSeedItems, setInvoiceSeedItems] = useState<InvoiceLineItem[]>([]);
+  const [isInvoiceEditMode, setIsInvoiceEditMode] = useState(false);
+  const [invoiceFormDefaults, setInvoiceFormDefaults] = useState<{
+    dueDate?: string;
+    notes?: string;
+    memo?: string;
+    invoiceType?: Invoice['invoice_type'];
+  }>({});
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [invoiceContext, setInvoiceContext] = useState<'default' | 'milestone' | 'retainer'>('default');
+  const [milestoneToComplete, setMilestoneToComplete] = useState<MatterDetail['milestones'][number] | null>(null);
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [settlementDraft, setSettlementDraft] = useState<MajorAmount | undefined>(undefined);
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
+  const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
   const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
   const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -345,6 +399,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
   const practiceDetailsRequestedRef = useRef<string | null>(null);
   const refreshRequestIdRef = useRef(0);
   const createdMatterIdRef = useRef<string | null>(null);
+
+  const {
+    invoices,
+    unbilledTimeEntries,
+    unbilledExpenses,
+    unbilledSummary,
+    loading: invoicesLoading,
+    error: invoicesError,
+    refetchAll: refetchBilling
+  } = useBillingData({
+    practiceId: activePracticeId,
+    matterId: selectedMatterId,
+    matter: selectedMatterDetail,
+    enabled: detailTab === 'time' && Boolean(activePracticeId && selectedMatterId)
+  });
 
   useEffect(() => {
     isMounted.current = true;
@@ -408,6 +477,32 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     clientName: selectedMatterDetail?.clientName ?? null,
     practiceArea: selectedMatterDetail?.practiceArea ?? null
   }), [selectedMatterDetail?.title, selectedMatterDetail?.clientName, selectedMatterDetail?.practiceArea]);
+
+  useEffect(() => {
+    if (!activePracticeId) {
+      setConnectedAccountId(null);
+      setStripeAccountId(null);
+      setOnboardingUrl(null);
+      return;
+    }
+    let cancelled = false;
+    getOnboardingStatus(activePracticeId)
+      .then((status) => {
+        if (cancelled) return;
+        const normalized = normalizePracticeOnboardingStatus(status);
+        setConnectedAccountId(normalized.connected_account_id ?? null);
+        setStripeAccountId(normalized.stripe_account_id ?? null);
+        setOnboardingUrl(normalized.url ?? null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn('[PracticeMattersPage] Failed to load connected Stripe account', error);
+        setConnectedAccountId(null);
+        setStripeAccountId(null);
+        setOnboardingUrl(null);
+      });
+    return () => { cancelled = true; };
+  }, [activePracticeId]);
 
   // ── Person resolver ───────────────────────────────────────────────────────
   const resolvePerson = useCallback((userId?: string | null): TimelinePerson => {
@@ -968,44 +1063,56 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     try {
       if (existing?.id) {
         await updateMatterTimeEntry(activePracticeId, selectedMatterId, existing.id, {
-          start_time: values.startTime, end_time: values.endTime, description: values.description, billable: true
+          start_time: values.startTime,
+          end_time: values.endTime,
+          description: values.description,
+          billable: values.billable
         });
       } else {
         await createMatterTimeEntry(activePracticeId, selectedMatterId, {
-          start_time: values.startTime, end_time: values.endTime, description: values.description, billable: true
+          start_time: values.startTime,
+          end_time: values.endTime,
+          description: values.description,
+          billable: values.billable
         });
       }
       await refreshTimeEntries();
+      await refetchBilling();
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to save time entry', error);
       showError('Could not save time entry', 'Please try again.');
     }
-  }, [activePracticeId, selectedMatterId, refreshTimeEntries, showError]);
+  }, [activePracticeId, selectedMatterId, refreshTimeEntries, refetchBilling, showError]);
 
   const handleDeleteTimeEntry = useCallback(async (entry: TimeEntry) => {
     if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
     try {
       await deleteMatterTimeEntry(activePracticeId, selectedMatterId, entry.id);
       await refreshTimeEntries();
+      await refetchBilling();
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to delete time entry', error);
       showError('Could not delete time entry', 'Please try again.');
     }
-  }, [activePracticeId, selectedMatterId, refreshTimeEntries, showError]);
+  }, [activePracticeId, selectedMatterId, refreshTimeEntries, refetchBilling, showError]);
 
   const handleQuickTimeSubmit = useCallback(async (values: TimeEntryFormValues) => {
     if (!activePracticeId || !selectedMatterId) return;
     try {
       await createMatterTimeEntry(activePracticeId, selectedMatterId, {
-        start_time: values.startTime, end_time: values.endTime, description: values.description, billable: true
+        start_time: values.startTime,
+        end_time: values.endTime,
+        description: values.description,
+        billable: values.billable
       });
       await refreshTimeEntries();
+      await refetchBilling();
       setIsQuickTimeEntryOpen(false);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to save quick time entry', error);
       showError('Could not save time entry', 'Please try again.');
     }
-  }, [activePracticeId, selectedMatterId, refreshTimeEntries, showError]);
+  }, [activePracticeId, selectedMatterId, refreshTimeEntries, refetchBilling, showError]);
 
   // ── Expense handlers ──────────────────────────────────────────────────────
   const refreshExpenses = useCallback(async () => {
@@ -1025,7 +1132,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     } else {
       await refreshExpenses();
     }
-  }, [activePracticeId, selectedMatterId, refreshExpenses]);
+    await refetchBilling();
+  }, [activePracticeId, selectedMatterId, refreshExpenses, refetchBilling]);
 
   const handleUpdateExpense = useCallback(async (expense: MatterExpense, values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
     if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
@@ -1040,6 +1148,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
         await refreshExpenses();
       }
       setExpensesError(null);
+      await refetchBilling();
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to update expense', error);
       showError('Could not update expense', 'Please try again.');
@@ -1047,7 +1156,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       await refreshExpenses().catch(console.error);
       throw error;
     }
-  }, [activePracticeId, selectedMatterId, refreshExpenses, showError]);
+  }, [activePracticeId, selectedMatterId, refreshExpenses, refetchBilling, showError]);
 
   const handleDeleteExpense = useCallback(async (expense: MatterExpense) => {
     if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
@@ -1055,6 +1164,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       await deleteMatterExpense(activePracticeId, selectedMatterId, expense.id);
       setExpenses((prev) => prev.filter((item) => item.id !== expense.id));
       setExpensesError(null);
+      await refetchBilling();
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to delete expense', error);
       showError('Could not delete expense', 'Please try again.');
@@ -1062,7 +1172,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       await refreshExpenses().catch(console.error);
       throw error;
     }
-  }, [activePracticeId, selectedMatterId, refreshExpenses, showError]);
+  }, [activePracticeId, selectedMatterId, refreshExpenses, refetchBilling, showError]);
 
   // ── Milestone handlers ────────────────────────────────────────────────────
   const refreshMilestones = useCallback(async () => {
@@ -1268,6 +1378,277 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     });
   }, [activityItems, noteItems]);
 
+  const prefilledInvoiceLineItems = useMemo<InvoiceLineItem[]>(() => {
+    const baseRate = selectedMatterDetail?.attorneyHourlyRate
+      ?? selectedMatterDetail?.adminHourlyRate
+      ?? asMajor(0);
+
+    const timeItems: InvoiceLineItem[] = unbilledTimeEntries.reduce<InvoiceLineItem[]>((acc, entry, index) => {
+      const qty = entry.duration_hours > 0 ? Number(entry.duration_hours.toFixed(2)) : 0;
+      const amountValue = getMajorAmountValue(entry.amount);
+      if (qty === 0 && amountValue <= 0) return acc;
+      const baseRateValue = entry.amount ? safeDivide(entry.amount, entry.duration_hours || 1) : asMajor(0);
+      const amount = amountValue > 0 ? entry.amount : safeMultiply(baseRate, qty);
+      acc.push({
+        id: crypto.randomUUID(),
+        type: 'time_entry',
+        description: entry.description?.trim() || `Billable time entry ${index + 1}`,
+        quantity: qty,
+        unit_price: qty > 0 ? safeDivide(amount, qty) : baseRate,
+        line_total: amount,
+        time_entry_id: entry.id
+      });
+      return acc;
+    }, []);
+
+    const expenseItems: InvoiceLineItem[] = unbilledExpenses.map((expense) => ({
+      id: crypto.randomUUID(),
+      type: 'expense',
+      description: expense.description,
+      quantity: 1,
+      unit_price: expense.amount,
+      line_total: expense.amount,
+      expense_id: expense.id
+    }));
+
+    return [...timeItems, ...expenseItems];
+  }, [selectedMatterDetail?.attorneyHourlyRate, selectedMatterDetail?.adminHourlyRate, unbilledTimeEntries, unbilledExpenses]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    console.info('[Billing][Prefill] Updated unbilled counts', {
+      timeEntries: unbilledTimeEntries.length,
+      expenses: unbilledExpenses.length
+    });
+  }, [unbilledExpenses, unbilledTimeEntries]);
+
+  type InvoiceLaunchOptions = {
+    milestone?: MatterDetail['milestones'][number] | null;
+    context?: 'default' | 'milestone' | 'retainer';
+    invoiceType?: Invoice['invoice_type'];
+  };
+
+  const openInvoiceBuilderWithItems = useCallback((
+    items?: InvoiceLineItem[],
+    options?: InvoiceLaunchOptions
+  ) => {
+    setInvoiceSeedItems(items ?? prefilledInvoiceLineItems);
+    setMilestoneToComplete(options?.milestone ?? null);
+    setIsInvoiceEditMode(false);
+    setInvoiceContext(options?.context ?? 'default');
+    setInvoiceFormDefaults(options?.invoiceType ? { invoiceType: options.invoiceType } : {});
+    setEditingInvoiceId(null);
+    setIsInvoiceBuilderOpen(true);
+  }, [prefilledInvoiceLineItems]);
+
+  const closeInvoiceBuilder = useCallback(() => {
+    setIsInvoiceBuilderOpen(false);
+    setInvoiceSeedItems([]);
+    setInvoiceFormDefaults({});
+    setEditingInvoiceId(null);
+    setIsInvoiceEditMode(false);
+    setInvoiceContext('default');
+    setMilestoneToComplete(null);
+  }, []);
+
+  const handleCreateInvoiceFromSummary = useCallback(() => {
+    if (!selectedMatterDetail) {
+      openInvoiceBuilderWithItems(prefilledInvoiceLineItems);
+      return;
+    }
+
+    if (selectedMatterDetail.billingType === 'contingency') {
+      const settlement = selectedMatterDetail.settlementAmount ?? 0;
+      const percent = selectedMatterDetail.contingencyPercent ?? 0;
+      if (settlement <= 0 || percent <= 0) {
+        setSettlementDraft(selectedMatterDetail.settlementAmount);
+        setIsSettlementModalOpen(true);
+        return;
+      }
+      const fee = asMajor((settlement * percent) / 100);
+      openInvoiceBuilderWithItems([{
+        id: crypto.randomUUID(),
+        type: 'service',
+        description: `Contingency fee (${percent}% of ${formatCurrency(settlement)} settlement)`,
+        quantity: 1,
+        unit_price: fee,
+        line_total: fee
+      }], { invoiceType: 'contingency' });
+      return;
+    }
+
+    if (selectedMatterDetail.billingType === 'fixed' && selectedMatterDetail.paymentFrequency === 'project') {
+      const fixedTotal = selectedMatterDetail.totalFixedPrice ?? asMajor(0);
+      openInvoiceBuilderWithItems([{
+        id: crypto.randomUUID(),
+        type: 'flat_fee',
+        description: `${selectedMatterDetail.title} - Fixed project fee`,
+        quantity: 1,
+        unit_price: fixedTotal,
+        line_total: fixedTotal
+      }], { invoiceType: 'flat_fee' });
+      return;
+    }
+
+    openInvoiceBuilderWithItems(prefilledInvoiceLineItems);
+  }, [selectedMatterDetail, openInvoiceBuilderWithItems, prefilledInvoiceLineItems]);
+
+  const handleEditDraftInvoice = useCallback(async (invoice: Invoice) => {
+    if (!activePracticeId) return;
+    try {
+      const detail = await getInvoice(activePracticeId, invoice.id);
+      if (!detail) throw new Error('Invoice not found');
+      setInvoiceSeedItems(detail.line_items ?? []);
+      setInvoiceFormDefaults({
+        dueDate: detail.due_date ? detail.due_date.split('T')[0] : undefined,
+        notes: detail.notes ?? '',
+        memo: detail.memo ?? '',
+        invoiceType: detail.invoice_type
+      });
+      setIsInvoiceEditMode(true);
+      setInvoiceContext('default');
+      setEditingInvoiceId(detail.id);
+      setMilestoneToComplete(null);
+      setIsInvoiceBuilderOpen(true);
+    } catch (error) {
+      showError('Could not load invoice', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, showError]);
+
+  const handleCreateMilestoneInvoice = useCallback((milestoneId: string) => {
+    if (!selectedMatterDetail) return;
+    const milestone = (selectedMatterDetail.milestones ?? []).find((m) => m.id === milestoneId);
+    if (!milestone) return;
+    const items: InvoiceLineItem[] = [{
+      id: crypto.randomUUID(),
+      type: 'service',
+      description: milestone.description,
+      quantity: 1,
+      unit_price: milestone.amount,
+      line_total: milestone.amount
+    }];
+    openInvoiceBuilderWithItems(items, {
+      milestone,
+      context: 'milestone',
+      invoiceType: 'phase_fee'
+    });
+  }, [openInvoiceBuilderWithItems, selectedMatterDetail]);
+
+  const handleOpenSettlementModal = useCallback(() => {
+    setSettlementDraft(selectedMatterDetail?.settlementAmount);
+    setIsSettlementModalOpen(true);
+  }, [selectedMatterDetail?.settlementAmount]);
+
+  const handleSaveSettlementAndPrepareInvoice = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId || settlementDraft === undefined || !selectedMatterDetail) return;
+    try {
+      if (import.meta.env.DEV) {
+        console.info('[Billing][Settlement] Updating settlement_amount', {
+          field: 'settlement_amount',
+          value: settlementDraft
+        });
+      }
+      await updateMatter(activePracticeId, selectedMatterId, {
+        settlement_amount: settlementDraft
+      });
+      setSelectedMatterDetail((prev) => prev ? { ...prev, settlementAmount: settlementDraft } : prev);
+      setIsSettlementModalOpen(false);
+      const percent = selectedMatterDetail.contingencyPercent ?? 0;
+      const fee = asMajor((settlementDraft * percent) / 100);
+      const items: InvoiceLineItem[] = [{
+        id: crypto.randomUUID(),
+        type: 'service',
+        description: `Contingency fee (${percent}% of ${formatCurrency(settlementDraft)} settlement)`,
+        quantity: 1,
+        unit_price: fee,
+        line_total: fee
+      }];
+      openInvoiceBuilderWithItems(items, { invoiceType: 'contingency' });
+    } catch (error) {
+      showError('Could not save settlement amount', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, settlementDraft, selectedMatterDetail, openInvoiceBuilderWithItems, showError]);
+
+  const handleSendInvoice = useCallback(async (invoice: Invoice) => {
+    if (!activePracticeId) return;
+    try {
+      await sendInvoice(activePracticeId, invoice.id);
+      await refetchBilling();
+    } catch (error) {
+      showError('Could not send invoice', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, refetchBilling, showError]);
+
+  const handleViewInvoice = useCallback((invoice: Invoice) => {
+    if (!invoice.stripe_hosted_invoice_url) {
+      showError('No hosted invoice URL', 'This invoice has not been published to Stripe yet.');
+      return;
+    }
+    window.open(invoice.stripe_hosted_invoice_url, '_blank', 'noopener,noreferrer');
+  }, [showError]);
+
+  const handleResendInvoice = useCallback(async (invoice: Invoice) => {
+    if (!activePracticeId) return;
+    try {
+      const synced = await syncInvoice(activePracticeId, invoice.id);
+      const url = synced?.stripe_hosted_invoice_url ?? invoice.stripe_hosted_invoice_url;
+      if (url && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+      await refetchBilling();
+    } catch (error) {
+      showError('Could not resend invoice', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, refetchBilling, showError]);
+
+  const handleSyncInvoice = useCallback(async (invoice: Invoice) => {
+    if (!activePracticeId) return;
+    try {
+      await syncInvoice(activePracticeId, invoice.id);
+      await refetchBilling();
+    } catch (error) {
+      showError('Could not sync invoice', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, refetchBilling, showError]);
+
+  const handleVoidInvoice = useCallback(async (invoice: Invoice) => {
+    if (!activePracticeId) return;
+    const confirmed = window.confirm('Void this invoice? This cannot be undone.');
+    if (!confirmed) return;
+    try {
+      await voidInvoiceRequest(activePracticeId, invoice.id);
+      await refetchBilling();
+    } catch (error) {
+      showError('Could not void invoice', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, refetchBilling, showError]);
+
+  const handleInvoiceBuilderSuccess = useCallback(async () => {
+    const milestoneSnapshot = milestoneToComplete;
+    if (milestoneSnapshot?.id && activePracticeId && selectedMatterId) {
+      try {
+        if (import.meta.env.DEV) {
+          console.info('[Billing][Milestone] Marking milestone as invoiced', {
+            milestoneId: milestoneSnapshot.id
+          });
+        }
+        await updateMatterMilestone(activePracticeId, selectedMatterId, milestoneSnapshot.id, {
+          description: milestoneSnapshot.description,
+          amount: milestoneSnapshot.amount,
+          due_date: milestoneSnapshot.dueDate,
+          status: 'completed'
+        });
+      } catch (error) {
+        showError('Invoice created, but milestone status was not updated', error instanceof Error ? error.message : 'Please refresh and try again.');
+      }
+    }
+    await Promise.all([
+      refetchBilling(),
+      refreshMilestones()
+    ]);
+    closeInvoiceBuilder();
+  }, [milestoneToComplete, activePracticeId, selectedMatterId, refetchBilling, refreshMilestones, showError, closeInvoiceBuilder]);
+
   // ── Header meta ───────────────────────────────────────────────────────────
   const headerMeta = useMemo(() => {
     if (!resolvedSelectedMatter) return null;
@@ -1399,8 +1780,10 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
               setIsQuickTimeEntryOpen(true);
             }}
             onViewTimesheet={() => setDetailTab('time')}
-            onChangeRate={() => {}}
             timeStats={timeStats}
+            unbilledTotal={unbilledSummary?.totalUnbilled ?? null}
+            onInvoiceNow={handleCreateInvoiceFromSummary}
+            billingType={selectedMatterDetail?.billingType}
           />
 
           {/* Description — inline editable */}
@@ -1523,47 +1906,89 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
                 onDeleteTask={handleDeleteTask}
               />
             ) : detailTab === 'time' && selectedMatterDetail ? (
-              <div className="space-y-6">
-                <TimeEntriesPanel
-                  key={`time-${selectedMatterDetail.id}`}
-                  entries={timeEntries}
-                  onSaveEntry={(values, existing) => void handleSaveTimeEntry(values, existing)}
-                  onDeleteEntry={(entry) => void handleDeleteTimeEntry(entry)}
-                  loading={timeEntriesLoading}
-                  error={timeEntriesError}
-                />
-                <MatterExpensesPanel
-                  key={`expenses-${selectedMatterDetail.id}`}
-                  matter={selectedMatterDetail}
-                  expenses={expenses}
-                  loading={expensesLoading}
-                  error={expensesError}
-                  onCreateExpense={handleCreateExpense}
-                  onUpdateExpense={handleUpdateExpense}
-                  onDeleteExpense={handleDeleteExpense}
-                />
-                <Panel>
-                  <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-input-text">Recent transactions</h3>
-                      <p className="text-xs text-input-placeholder">Summary of billed time across recent periods.</p>
-                    </div>
-                  </header>
-                  <div className="grid gap-4 p-6 sm:grid-cols-3">
-                    {[
-                      { label: 'Last 7 days', value: '$0.00' },
-                      { label: 'Last 30 days', value: '$0.00' },
-                      { label: 'Since start', value: '$1,237.50' }
-                    ].map((card) => (
-                      <div key={card.label} className="glass-panel p-4">
-                        <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
-                        <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
+              <BillingErrorBoundary onRetry={refetchBilling}>
+                <div className="space-y-6">
+                  {invoicesError ? (
+                    <ErrorBanner>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>{invoicesError}</span>
+                        <Button size="xs" variant="secondary" onClick={() => void refetchBilling()}>
+                          Retry
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                </Panel>
-              </div>
-
+                    </ErrorBanner>
+                  ) : null}
+                  {!connectedAccountId ? (
+                    <WarningBanner>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span>Complete Stripe onboarding to save or send invoices.</span>
+                        {onboardingUrl ? (
+                          <Button
+                            size="xs"
+                            variant="secondary"
+                            onClick={() => {
+                              if (typeof window !== 'undefined') {
+                                window.open(onboardingUrl, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                          >
+                            Open onboarding
+                          </Button>
+                        ) : null}
+                      </div>
+                      {stripeAccountId ? (
+                        <p className="mt-2 text-xs text-input-placeholder">
+                          Stripe account: {stripeAccountId}
+                        </p>
+                      ) : null}
+                    </WarningBanner>
+                  ) : null}
+                  {!unbilledSummary && (unbilledTimeEntries.length > 0 || unbilledExpenses.length > 0) ? (
+                    <WarningBanner>
+                      Unbilled summary is still calculating. Showing time and expense data directly.
+                    </WarningBanner>
+                  ) : null}
+                  <TimeEntriesPanel
+                    key={`time-${selectedMatterDetail.id}`}
+                    entries={timeEntries}
+                    onSaveEntry={(values, existing) => void handleSaveTimeEntry(values, existing)}
+                    onDeleteEntry={(entry) => void handleDeleteTimeEntry(entry)}
+                    loading={timeEntriesLoading}
+                    error={timeEntriesError}
+                  />
+                  <MatterExpensesPanel
+                    key={`expenses-${selectedMatterDetail.id}`}
+                    matter={selectedMatterDetail}
+                    expenses={expenses}
+                    loading={expensesLoading}
+                    error={expensesError}
+                    onCreateExpense={handleCreateExpense}
+                    onUpdateExpense={handleUpdateExpense}
+                    onDeleteExpense={handleDeleteExpense}
+                  />
+                  {unbilledSummary ? (
+                    <UnbilledSummaryCard
+                      summary={unbilledSummary}
+                      matter={selectedMatterDetail}
+                      onCreateInvoice={handleCreateInvoiceFromSummary}
+                      onInvoiceMilestone={handleCreateMilestoneInvoice}
+                      onEnterSettlement={handleOpenSettlementModal}
+                    />
+                  ) : null}
+                  <InvoicesSection
+                    invoices={invoices}
+                    loading={invoicesLoading}
+                    error={invoicesError}
+                    onCreateInvoice={handleCreateInvoiceFromSummary}
+                    onSendInvoice={handleSendInvoice}
+                    onViewInvoice={handleViewInvoice}
+                    onResendInvoice={handleResendInvoice}
+                    onVoidInvoice={handleVoidInvoice}
+                    onEditDraft={handleEditDraftInvoice}
+                    onSyncInvoice={handleSyncInvoice}
+                  />
+                </div>
+              </BillingErrorBoundary>
             ) : detailTab === 'messages' && selectedMatterDetail ? (
               <MatterMessagesPanel
                 key={`messages-${selectedMatterDetail.id}`}
@@ -1594,6 +2019,56 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
             />
           </Modal>
         )}
+
+        {isInvoiceBuilderOpen && selectedMatterDetail && activePracticeId ? (
+          <InvoiceBuilder
+            key={isInvoiceEditMode ? (editingInvoiceId ?? 'edit') : 'new'}
+            practiceId={activePracticeId}
+            matter={selectedMatterDetail}
+            connectedAccountId={connectedAccountId}
+            initialLineItems={invoiceSeedItems}
+            initialDueDate={invoiceFormDefaults.dueDate}
+            initialNotes={invoiceFormDefaults.notes}
+            initialMemo={invoiceFormDefaults.memo}
+            initialInvoiceType={invoiceFormDefaults.invoiceType}
+            editMode={isInvoiceEditMode}
+            existingInvoiceId={editingInvoiceId ?? undefined}
+            invoiceContext={invoiceContext}
+            onClose={closeInvoiceBuilder}
+            onSuccess={handleInvoiceBuilderSuccess}
+          />
+        ) : null}
+
+        {isSettlementModalOpen ? (
+          <Modal
+            isOpen={isSettlementModalOpen}
+            onClose={() => setIsSettlementModalOpen(false)}
+            title="Enter Settlement Amount"
+            contentClassName="max-w-xl"
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-input-placeholder">
+                Set the settlement amount before generating a contingency invoice.
+              </p>
+              <CurrencyInput
+                label="Settlement amount"
+                value={settlementDraft}
+                onChange={(value) => setSettlementDraft(value === undefined ? undefined : asMajor(value))}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setIsSettlementModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void handleSaveSettlementAndPrepareInvoice()}
+                  disabled={settlementDraft === undefined || settlementDraft <= 0}
+                >
+                  Save and continue
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        ) : null}
       </Page>
     );
   }

@@ -3,6 +3,7 @@ import { Button } from '@/shared/ui/Button';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Textarea } from '@/shared/ui/input/Textarea';
+import { Checkbox } from '@/shared/ui/input/Checkbox';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 
@@ -45,7 +46,8 @@ const buildInitialFormState = (initialEntry: TimeEntry | null | undefined, initi
       date: buildDateString(startDate),
       startTime: buildTimeString(startDate),
       endTime: buildTimeString(endDate),
-      description: initialEntry.description ?? ''
+      description: initialEntry.description ?? '',
+      billable: initialEntry.billable ?? true
     };
   }
 
@@ -56,7 +58,8 @@ const buildInitialFormState = (initialEntry: TimeEntry | null | undefined, initi
     date: dateValue,
     startTime: '09:00',
     endTime: '17:00',
-    description: ''
+    description: '',
+    billable: true
   };
 };
 
@@ -64,6 +67,7 @@ export type TimeEntryFormValues = {
   startTime: string;
   endTime: string;
   description: string;
+  billable: boolean;
 };
 
 interface TimeEntryFormProps {
@@ -104,7 +108,8 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
     onSubmit({
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
-      description: formState.description.trim()
+      description: formState.description.trim(),
+      billable: formState.billable
     });
   };
 
@@ -150,6 +155,12 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
         value={formState.description}
         onChange={(value) => setFormState((prev) => ({ ...prev, description: value }))}
         rows={3}
+      />
+
+      <Checkbox
+        checked={formState.billable}
+        onChange={(checked) => setFormState((prev) => ({ ...prev, billable: checked }))}
+        label="Billable"
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3 pt-2">

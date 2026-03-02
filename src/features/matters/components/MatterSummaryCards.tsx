@@ -1,4 +1,6 @@
 import { Button } from '@/shared/ui/Button';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { getMajorAmountValue, type MajorAmount } from '@/shared/utils/money';
 
 type SummaryTab = 'overview' | 'time' | 'messages';
 
@@ -6,7 +8,6 @@ interface MatterSummaryCardsProps {
   activeTab: SummaryTab;
   onAddTime?: () => void;
   onViewTimesheet?: () => void;
-  onChangeRate?: () => void;
   onLearnMore?: () => void;
   timeStats?: {
     totalBillableSeconds?: number | null;
@@ -14,6 +15,9 @@ interface MatterSummaryCardsProps {
     totalBillableHours?: number | null;
     totalHours?: number | null;
   } | null;
+  unbilledTotal?: MajorAmount | null;
+  onInvoiceNow?: () => void;
+  billingType?: 'hourly' | 'fixed' | 'contingency' | 'pro_bono';
 }
 
 const cardBase = 'glass-card p-4 sm:p-5';
@@ -39,9 +43,11 @@ export const MatterSummaryCards = ({
   activeTab,
   onAddTime,
   onViewTimesheet,
-  onChangeRate,
   onLearnMore,
-  timeStats
+  timeStats,
+  unbilledTotal,
+  onInvoiceNow,
+  billingType
 }: MatterSummaryCardsProps) => {
   const totalBillableSeconds = timeStats?.totalBillableSeconds ?? null;
   const totalSeconds = timeStats?.totalSeconds ?? null;
@@ -53,6 +59,8 @@ export const MatterSummaryCards = ({
   const totalDisplay = totalSeconds !== null
     ? formatDurationFromSeconds(totalSeconds)
     : formatDurationFromHours(totalHours);
+
+  const unbilledValue = getMajorAmountValue(unbilledTotal);
 
   if (activeTab === 'overview') {
     return (
@@ -77,18 +85,22 @@ export const MatterSummaryCards = ({
             </span>
           )}
         </div>
-        <div className={cardBase}>
-          <p className="text-xs font-medium text-input-placeholder">Contract&apos;s rate</p>
-          <p className="mt-2 text-lg font-semibold text-input-text">$125.00 /hr</p>
-          <button
-            type="button"
-            className="mt-2 text-xs font-medium text-accent-500 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => onChangeRate?.()}
-            disabled={!onChangeRate}
-          >
-            Change rate
-          </button>
-        </div>
+        {billingType !== 'pro_bono' ? (
+          <div className={cardBase}>
+            <p className="text-xs font-medium text-input-placeholder">Unbilled</p>
+            <p className="mt-2 text-lg font-semibold text-input-text">
+              {formatCurrency(unbilledValue)}
+            </p>
+            <Button
+              size="xs"
+              onClick={() => onInvoiceNow?.()}
+              disabled={!onInvoiceNow || unbilledValue <= 0}
+              className="mt-2"
+            >
+              Invoice now
+            </Button>
+          </div>
+        ) : null}
         <div className={cardBase}>
           <p className="text-xs font-medium text-input-placeholder">Total time tracked</p>
           <p className="mt-2 text-lg font-semibold text-input-text">{totalDisplay}</p>
