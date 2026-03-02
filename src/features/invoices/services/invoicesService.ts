@@ -51,8 +51,8 @@ const matchesDateRange = (candidateDate: string | null, dateFrom: string, dateTo
 };
 
 const filterInvoiceSummaries = (items: InvoiceSummary[], filters: InvoiceListFilters): InvoiceSummary[] => {
-  const search = filters.search.trim().toLowerCase();
-  const status = filters.status.trim().toLowerCase();
+  const search = (filters.search || '').trim().toLowerCase();
+  const status = (filters.status || '').trim().toLowerCase();
 
   return items.filter((item) => {
     if (status && item.status.toLowerCase() !== status) return false;
@@ -114,8 +114,12 @@ export const listInvoices = async (
   const invoices = await listMatterInvoices(practiceId, undefined, options);
   const summaries = invoices
     .map(normalizeInvoiceSummary)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  return paginate(filterInvoiceSummaries(summaries, filters), filters.page, filters.pageSize);
+    .sort((a, b) => {
+      const timea = new Date(a.updatedAt).getTime();
+      const timeb = new Date(b.updatedAt).getTime();
+      return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
+    });
+  return paginate(filterInvoiceSummaries(summaries, filters), filters.page ?? 1, filters.pageSize ?? FALLBACK_PAGE_SIZE);
 };
 
 export const getInvoice = async (
@@ -137,8 +141,12 @@ export const listClientInvoices = async (
   const invoices = await listClientInvoiceRecords(practiceId, options);
   const summaries = invoices
     .map(normalizeInvoiceSummary)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  return paginate(filterInvoiceSummaries(summaries, filters), filters.page, filters.pageSize);
+    .sort((a, b) => {
+      const timea = new Date(a.updatedAt).getTime();
+      const timeb = new Date(b.updatedAt).getTime();
+      return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
+    });
+  return paginate(filterInvoiceSummaries(summaries, filters), filters.page ?? 1, filters.pageSize ?? FALLBACK_PAGE_SIZE);
 };
 
 export const getClientInvoice = async (
@@ -162,7 +170,7 @@ export const getClientInvoice = async (
     });
   } catch (error) {
     const status = error && typeof error === 'object'
-      ? (error as { status?: number }).status
+      ? (error as any).status || (error as any).response?.status || (error as any).statusCode
       : undefined;
 
     if (status === 405 || status === 501) {

@@ -51,6 +51,7 @@ export function PracticeInvoicesPage({
         setData(result);
       })
       .catch((err) => {
+        if (err.name === 'AbortError') return;
         const status = err && typeof err === 'object' ? (err as { status?: number }).status : undefined;
         let message = err instanceof Error ? err.message : 'Failed to load invoices';
         if (status === 403) {

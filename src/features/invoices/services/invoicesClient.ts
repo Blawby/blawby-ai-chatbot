@@ -77,7 +77,7 @@ export const listClientInvoices = async (practiceId: string, options: FetchOptio
 
   const invoices = extractInvoices(payload);
   if (invoices.length > 0) return invoices;
-  return extractArray<Record<string, unknown>>(payload, ['items', 'data']) as unknown as Invoice[];
+  return extractArray<Invoice>(payload, ['items', 'data']);
 };
 
 export const getClientInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}): Promise<Invoice | null> => {

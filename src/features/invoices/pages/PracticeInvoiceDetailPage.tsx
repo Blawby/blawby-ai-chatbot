@@ -48,13 +48,12 @@ export function PracticeInvoiceDetailPage({
   const [memo, setMemo] = useState('');
   const [dueDate, setDueDate] = useState('');
 
-  const loadDetail = useCallback(() => {
+  const loadDetail = useCallback((signal?: AbortSignal) => {
     if (!practiceId || !invoiceId) return Promise.resolve();
-    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
-    return getInvoice(practiceId, invoiceId, { signal: controller.signal })
+    return getInvoice(practiceId, invoiceId, { signal })
       .then((result) => {
         if (!result) {
           setDetail(null);
@@ -68,6 +67,7 @@ export function PracticeInvoiceDetailPage({
         setDueDate(result.dueDate ? result.dueDate.slice(0, 10) : '');
       })
       .catch((err) => {
+        if (err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Failed to load invoice';
         setError(message);
       })
@@ -75,7 +75,9 @@ export function PracticeInvoiceDetailPage({
   }, [invoiceId, practiceId]);
 
   useEffect(() => {
-    void loadDetail();
+    const controller = new AbortController();
+    void loadDetail(controller.signal);
+    return () => controller.abort();
   }, [loadDetail]);
 
   const status = useMemo(() => (detail?.status ?? 'draft').toLowerCase(), [detail?.status]);
@@ -144,16 +146,27 @@ export function PracticeInvoiceDetailPage({
       showError('Invoice delete failed', err instanceof Error ? err.message : 'Failed to delete invoice');
     }
   }, [handleBackToList, invoiceId, practiceId, showError, showSuccess]);
+  const handleCancelEdit = useCallback(() => {
+    if (detail) {
+      setLineItems(detail.lineItems);
+      setNotes(detail.notes ?? '');
+      setMemo(detail.memo ?? '');
+      setDueDate(detail.dueDate ? detail.dueDate.slice(0, 10) : '');
+    }
+    setEditing(false);
+  }, [detail]);
 
   const handleSaveEdit = useCallback(async () => {
     if (!practiceId || !invoiceId || !detail) return;
     setSavingEdit(true);
     try {
+      const [year, month, day] = dueDate.split('-').map(Number);
+      const localDueDate = new Date(year, month - 1, day).toISOString();
       await updateInvoice(practiceId, invoiceId, {
         line_items: lineItems,
         notes: notes.trim() || undefined,
         memo: memo.trim() || undefined,
-        due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
+        due_date: dueDate ? localDueDate : undefined,
         invoice_type: detail.sourceInvoice.invoice_type,
       });
       showSuccess('Invoice updated', 'Draft invoice has been updated.');
@@ -240,7 +253,7 @@ export function PracticeInvoiceDetailPage({
             <Textarea label="Notes" value={notes} onChange={setNotes} rows={3} />
             <Textarea label="Memo" value={memo} onChange={setMemo} rows={2} />
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button variant="secondary" onClick={handleCancelEdit}>Cancel</Button>
               <Button onClick={() => void handleSaveEdit()} disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Save changes'}</Button>
             </div>
           </div>

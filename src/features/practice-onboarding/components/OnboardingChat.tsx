@@ -134,7 +134,6 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
                   if (!trimmed) return;
                   const urlMatch = trimmed.match(/https?:\/\/[^\s]+|(?:www\.)[^\s]+\.[a-z]{2,}/i);
                   onProgressChange?.({ fields: extractedFields, hasPendingSave: false, completionScore: 0, missingFields: [] });
-                  onProgressChange?.({ fields: extractedFields, hasPendingSave: false, completionScore: 0, missingFields: [] });
                   const completionScore = 0;
                   const needsRichData = completionScore < 40;
                   const looksLikeBusinessName = trimmed.length > 5 && (trimmed.includes(' ') || trimmed.includes('.'));

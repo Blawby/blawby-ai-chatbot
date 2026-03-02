@@ -52,6 +52,11 @@ export type Invoice = {
       image?: string | null;
     } | null;
   } | null;
+  matter?: {
+    id: string;
+    title: string;
+    status?: string;
+  } | null;
 };
 
 export type UnbilledTimeEntry = {

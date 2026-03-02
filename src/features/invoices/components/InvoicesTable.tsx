@@ -45,9 +45,9 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Issue</th>
-              <th className="px-4 py-3">Due</th>
+              <th className="px-4 py-3">Due Date</th>
               <th className="px-4 py-3 text-right">Total</th>
-              <th className="px-4 py-3 text-right">Due</th>
+              <th className="px-4 py-3 text-right">Amount Due</th>
             </tr>
           </thead>
           <tbody>

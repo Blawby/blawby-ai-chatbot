@@ -29,9 +29,21 @@ export const asNullableDate = (value: unknown): string | null => {
   return null;
 };
 
+const ALLOWED_INVOICE_STATUSES: InvoiceStatus[] = [
+  'draft',
+  'pending',
+  'sent',
+  'open',
+  'overdue',
+  'paid',
+  'void',
+  'cancelled',
+];
+
 export const normalizeInvoiceStatus = (value: unknown): InvoiceStatus => {
   if (typeof value !== 'string' || value.trim().length === 0) return 'draft';
-  return value.trim().toLowerCase() as InvoiceStatus;
+  const normalized = value.trim().toLowerCase() as InvoiceStatus;
+  return ALLOWED_INVOICE_STATUSES.includes(normalized) ? normalized : 'draft';
 };
 
 export const normalizeInvoiceNumber = (invoice: Invoice): string => {
@@ -135,7 +147,7 @@ export const normalizeInvoiceSummary = (invoice: Invoice): InvoiceSummary => ({
   invoiceNumber: normalizeInvoiceNumber(invoice),
   status: normalizeInvoiceStatus(invoice.status),
   clientName: invoice.client?.user?.name ?? invoice.client?.user?.email ?? null,
-  matterTitle: invoice.matter_id ?? null,
+  matterTitle: invoice.matter?.title ?? null,
   total: getMajorAmountValue(invoice.total),
   amountDue: getMajorAmountValue(invoice.amount_due),
   amountPaid: getMajorAmountValue(invoice.amount_paid),

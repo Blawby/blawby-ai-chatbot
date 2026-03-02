@@ -71,12 +71,12 @@ export interface InvoiceDetail extends InvoiceSummary {
 }
 
 export interface InvoiceListFilters {
-  status: string;
-  search: string;
-  dateFrom: string;
-  dateTo: string;
-  page: number;
-  pageSize: number;
+  status?: InvoiceStatus;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface InvoiceListResult {

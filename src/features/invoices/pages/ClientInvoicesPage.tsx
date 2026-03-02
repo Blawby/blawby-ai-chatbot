@@ -44,6 +44,7 @@ export function ClientInvoicesPage({
         setData(result);
       })
       .catch((err) => {
+        if (err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Failed to load invoices';
         setError(message);
       })

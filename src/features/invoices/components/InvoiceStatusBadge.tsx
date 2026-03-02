@@ -16,7 +16,7 @@ export const InvoiceStatusBadge: FunctionComponent<{ status: InvoiceStatus }> = 
   const normalized = status.toLowerCase();
   return (
     <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusClasses[normalized] ?? statusClasses.pending}`}>
-      {normalized.replace('_', ' ')}
+      {normalized.replace(/_/g, ' ')}
     </span>
   );
 };

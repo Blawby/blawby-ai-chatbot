@@ -41,13 +41,12 @@ export function ClientInvoiceDetailPage({
   const [refundRequestSupported, setRefundRequestSupported] = useState(true);
   const [refundRequestError, setRefundRequestError] = useState<string | null>(null);
 
-  const loadDetail = useCallback(() => {
+  const loadDetail = useCallback((signal?: AbortSignal) => {
     if (!practiceId || !invoiceId) return Promise.resolve();
-    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
-    return getClientInvoice(practiceId, invoiceId, { signal: controller.signal })
+    return getClientInvoice(practiceId, invoiceId, { signal })
       .then((result) => {
         if (!result) {
           setDetail(null);
@@ -59,6 +58,7 @@ export function ClientInvoiceDetailPage({
         setRefundRequestError(result.refundRequestError);
       })
       .catch((err) => {
+        if (err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Failed to load invoice';
         setError(message);
       })
@@ -66,7 +66,9 @@ export function ClientInvoiceDetailPage({
   }, [invoiceId, practiceId]);
 
   useEffect(() => {
-    void loadDetail();
+    const controller = new AbortController();
+    void loadDetail(controller.signal);
+    return () => controller.abort();
   }, [loadDetail]);
 
   const status = useMemo(() => (detail?.status ?? '').toLowerCase(), [detail?.status]);
@@ -115,13 +117,13 @@ export function ClientInvoiceDetailPage({
       setRequestAmount('');
       await loadDetail();
     } catch (err) {
-      const status = err && typeof err === 'object' ? (err as { status?: number }).status : undefined;
-      if (status === 405 || status === 501) {
+      const respStatus = err && typeof err === 'object' ? (err as { status?: number }).status : undefined;
+      if (respStatus === 405 || respStatus === 501) {
         setRefundRequestSupported(false);
         showInfo('Refund request unavailable', 'Refund requests are not supported by the backend for this workspace yet.');
         return;
       }
-      if (status === 404) {
+      if (respStatus === 404) {
         const message = err instanceof Error ? err.message : 'Refund request route mismatch (404).';
         setRefundRequestError(message);
         showError('Refund request failed', message);

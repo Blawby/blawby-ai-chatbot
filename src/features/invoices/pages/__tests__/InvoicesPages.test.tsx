@@ -281,8 +281,10 @@ describe('Invoices pages', () => {
     );
 
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Pay' })).toBeNull();
+      expect(screen.getByText('INV-1001')).toBeTruthy();
     });
+
+    expect(screen.queryByRole('button', { name: 'Pay' })).toBeNull();
   });
 
   it('practice list row click transitions to detail route and loads detail by invoice id', async () => {
