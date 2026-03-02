@@ -302,7 +302,7 @@ export const sendInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
-      urls.invoice(practiceId, invoiceId) + '/send',
+      urls.sendInvoice(practiceId, invoiceId),
       {},
       { signal: options.signal }
     ),
@@ -352,7 +352,7 @@ export const voidInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
-      urls.invoice(practiceId, invoiceId) + '/void',
+      urls.voidInvoice(practiceId, invoiceId),
       {},
       { signal: options.signal }
     ),
@@ -370,7 +370,7 @@ export const syncInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
     apiClient.post(
-      urls.invoice(practiceId, invoiceId) + '/sync',
+      urls.syncInvoice(practiceId, invoiceId),
       {},
       { signal: options.signal }
     ),
