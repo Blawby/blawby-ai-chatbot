@@ -14,27 +14,29 @@ export const InvoicePagination: FunctionComponent<InvoicePaginationProps> = ({
   total,
   onChangePage,
 }) => {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePageSize = pageSize > 0 ? pageSize : 10;
+  const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
 
   return (
     <div className="mt-4 flex items-center justify-between text-sm text-input-placeholder">
       <span>
-        Page {page} of {totalPages} ({total} invoices)
+        Page {currentPage} of {totalPages} ({total} invoices)
       </span>
       <div className="flex items-center gap-2">
         <Button
           variant="secondary"
           size="sm"
-          disabled={page <= 1}
-          onClick={() => onChangePage(page - 1)}
+          disabled={currentPage <= 1}
+          onClick={() => onChangePage(currentPage - 1)}
         >
           Previous
         </Button>
         <Button
           variant="secondary"
           size="sm"
-          disabled={page >= totalPages}
-          onClick={() => onChangePage(page + 1)}
+          disabled={currentPage >= totalPages}
+          onClick={() => onChangePage(currentPage + 1)}
         >
           Next
         </Button>

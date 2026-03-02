@@ -56,6 +56,9 @@ export function ClientInvoiceDetailPage({
         setDetail(result);
         setRefundRequestSupported(result.refundRequestSupported);
         setRefundRequestError(result.refundRequestError);
+        if (result.refundRequestError) {
+          showError('Invoices', result.refundRequestError);
+        }
       })
       .catch((err) => {
         if (err.name === 'AbortError') return;
@@ -74,10 +77,6 @@ export function ClientInvoiceDetailPage({
   const status = useMemo(() => (detail?.status ?? '').toLowerCase(), [detail?.status]);
   const canPay = Boolean(detail && isUnpaidStatus(status) && detail.stripeHostedInvoiceUrl);
 
-  useEffect(() => {
-    if (!refundRequestError) return;
-    showError('Invoices', refundRequestError);
-  }, [refundRequestError, showError]);
 
   const handleBackToList = useCallback(() => {
     if (!practiceSlug) return;

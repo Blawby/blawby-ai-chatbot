@@ -160,13 +160,21 @@ export function PracticeInvoiceDetailPage({
     if (!practiceId || !invoiceId || !detail) return;
     setSavingEdit(true);
     try {
-      const [year, month, day] = dueDate.split('-').map(Number);
-      const localDueDate = new Date(year, month - 1, day).toISOString();
+      let localDueDate: string | undefined;
+      const dueDateTrimmed = dueDate.trim();
+      if (dueDateTrimmed) {
+        const parts = dueDateTrimmed.split('-').map(Number);
+        if (parts.length === 3 && parts.every((p) => !Number.isNaN(p))) {
+          const [year, month, day] = parts;
+          localDueDate = new Date(year, month - 1, day).toISOString();
+        }
+      }
+
       await updateInvoice(practiceId, invoiceId, {
         line_items: lineItems,
         notes: notes.trim() || undefined,
         memo: memo.trim() || undefined,
-        due_date: dueDate ? localDueDate : undefined,
+        due_date: localDueDate,
         invoice_type: detail.sourceInvoice.invoice_type,
       });
       showSuccess('Invoice updated', 'Draft invoice has been updated.');

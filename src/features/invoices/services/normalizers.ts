@@ -43,7 +43,7 @@ const ALLOWED_INVOICE_STATUSES: InvoiceStatus[] = [
 export const normalizeInvoiceStatus = (value: unknown): InvoiceStatus => {
   if (typeof value !== 'string' || value.trim().length === 0) return 'draft';
   const normalized = value.trim().toLowerCase() as InvoiceStatus;
-  return ALLOWED_INVOICE_STATUSES.includes(normalized) ? normalized : 'draft';
+  return normalized;
 };
 
 export const normalizeInvoiceNumber = (invoice: Invoice): string => {

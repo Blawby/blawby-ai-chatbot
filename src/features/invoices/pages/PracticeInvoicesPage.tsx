@@ -56,6 +56,7 @@ export function PracticeInvoicesPage({
         let message = err instanceof Error ? err.message : 'Failed to load invoices';
         if (status === 403) {
           message = 'Invoices unavailable for this workspace';
+          showErrorRef.current('Invoices', message);
         } else if (status === 404) {
           message = 'Invoices route mismatch (404).';
           showErrorRef.current('Invoices', message);

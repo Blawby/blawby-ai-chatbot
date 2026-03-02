@@ -187,7 +187,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-1001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('INV-1001'));
+    fireEvent.click(screen.getByText('common.view'));
     expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1');
   });
 
@@ -336,7 +336,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-1001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('INV-1001'));
+    fireEvent.click(screen.getByText('common.view'));
     expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1');
 
     setRoutePath('/practice/demo-practice/invoices/inv-1');
@@ -396,7 +396,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-2001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('INV-2001'));
+    fireEvent.click(screen.getByText('common.view'));
     expect(mockNavigate).toHaveBeenCalledWith('/client/demo-practice/invoices/inv-2');
 
     setRoutePath('/client/demo-practice/invoices/inv-2');

@@ -2,12 +2,13 @@ import { apiClient } from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import {
   listInvoices as listMatterInvoices,
-  getInvoice as getMatterInvoice,
   sendInvoice as sendMatterInvoice,
   syncInvoice as syncMatterInvoice,
   voidInvoice as voidMatterInvoice,
   deleteInvoice as deleteMatterInvoice,
   updateInvoice as updateMatterInvoice,
+  normalizeInvoice,
+  extractInvoicesArray,
 } from '@/features/matters/services/invoicesApi';
 import type { CreateInvoicePayload } from '@/features/matters/types/billing.types';
 import {
@@ -39,12 +40,15 @@ const matchesDateRange = (candidateDate: string | null, dateFrom: string, dateTo
   if (!candidateDate) return false;
   const time = new Date(candidateDate).getTime();
   if (!Number.isFinite(time)) return false;
+
   if (dateFrom) {
-    const fromTime = new Date(`${dateFrom}T00:00:00.000Z`).getTime();
+    const [y, m, d] = dateFrom.split('-').map(Number);
+    const fromTime = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
     if (Number.isFinite(fromTime) && time < fromTime) return false;
   }
   if (dateTo) {
-    const toTime = new Date(`${dateTo}T23:59:59.999Z`).getTime();
+    const [y, m, d] = dateTo.split('-').map(Number);
+    const toTime = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
     if (Number.isFinite(toTime) && time > toTime) return false;
   }
   return true;
@@ -81,30 +85,6 @@ const paginate = (items: InvoiceSummary[], page: number, pageSize: number): Invo
   };
 };
 
-const fetchRawPracticeInvoice = async (
-  practiceId: string,
-  invoiceId: string,
-  options: FetchOptions = {}
-): Promise<Record<string, unknown> | null> => {
-  if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.invoices(practiceId), {
-    params: { invoice_id: invoiceId },
-    signal: options.signal,
-  });
-  return extractInvoiceRecord(response.data);
-};
-
-const fetchRawClientInvoice = async (
-  practiceId: string,
-  invoiceId: string,
-  options: FetchOptions = {}
-): Promise<Record<string, unknown> | null> => {
-  if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.clientInvoice(practiceId, invoiceId), {
-    signal: options.signal,
-  });
-  return extractInvoiceRecord(response.data);
-};
 
 export const listInvoices = async (
   practiceId: string,
@@ -127,9 +107,17 @@ export const getInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
-  const invoice = await getMatterInvoice(practiceId, invoiceId, options);
-  if (!invoice) return null;
-  const rawInvoice = await fetchRawPracticeInvoice(practiceId, invoiceId, options);
+  if (!practiceId || !invoiceId) return null;
+  const response = await apiClient.get(urls.invoices(practiceId), {
+    params: { invoice_id: invoiceId },
+    signal: options.signal,
+  });
+  const data = response.data;
+  const invoiceRecord = extractInvoicesArray(data)[0];
+  if (!invoiceRecord) return null;
+
+  const invoice = normalizeInvoice(invoiceRecord);
+  const rawInvoice = extractInvoiceRecord(data);
   return normalizeInvoiceDetail(invoice, rawInvoice);
 };
 
@@ -154,10 +142,16 @@ export const getClientInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
-  const invoice = await getClientInvoiceRecord(practiceId, invoiceId, options);
-  if (!invoice) return null;
+  if (!practiceId || !invoiceId) return null;
+  const response = await apiClient.get(urls.clientInvoice(practiceId, invoiceId), {
+    signal: options.signal,
+  });
+  const data = response.data;
+  const invoiceRecord = extractInvoicesArray(data)[0];
+  if (!invoiceRecord) return null;
 
-  const rawInvoice = await fetchRawClientInvoice(practiceId, invoiceId, options);
+  const invoice = normalizeInvoice(invoiceRecord);
+  const rawInvoice = extractInvoiceRecord(data);
 
   let refundRequestSupported = true;
   let refundRequestError: string | null = null;
