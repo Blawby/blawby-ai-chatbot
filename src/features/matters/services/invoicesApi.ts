@@ -59,6 +59,7 @@ type BackendInvoice = {
   updated_at?: string | Date | null;
   line_items?: BackendInvoiceLineItem[] | null;
   lineItems?: BackendInvoiceLineItem[] | null;
+  client?: Record<string, unknown> | null;
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {

@@ -42,6 +42,16 @@ export type Invoice = {
   created_at: string;
   updated_at: string;
   line_items?: InvoiceLineItem[];
+  client?: {
+    id?: string;
+    status?: string | null;
+    user?: {
+      id?: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    } | null;
+  } | null;
 };
 
 export type UnbilledTimeEntry = {
