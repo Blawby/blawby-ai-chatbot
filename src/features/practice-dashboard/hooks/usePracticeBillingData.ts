@@ -459,8 +459,9 @@ export const usePracticeBillingData = ({
       setRecentActivity([]);
       setRecentClients([]);
     } finally {
-      if (signal?.aborted) return;
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [practiceId, enabled, matterLimit, windowSize, buildActions]);
 
