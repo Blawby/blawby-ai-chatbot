@@ -16,9 +16,7 @@ import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../../worker/types';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import type { ExtractedFields } from '../types/onboardingFields';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
 
 export interface OnboardingChatProps {
   status: PracticeSetupStatus;
@@ -77,7 +75,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
     content: status.needsSetup
       ? "Let's get your practice set up. To start, what's the name of your practice?"
       : `Welcome back! Your profile looks good. Want to update anything, or shall I walk you through what's still missing?`,
-  }), []); // intentionally stable — only computed once
+  }), [status.needsSetup]); // react to setup status changes
 
   const onboardingPracticeConfig = useMemo(() => ({
     name: practice?.name ?? 'Practice',
@@ -120,13 +118,6 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
       {Object.keys(extractedFields).length > 0 && (
         <ConversationalCorrection
           extractedFields={extractedFields}
-          onFieldUpdate={onFieldUpdate}
-          onRequestCorrection={(field) => {
-            if (chatAdapter?.sendMessage) {
-              const question = getCorrectionQuestion(field, String(extractedFields[field]));
-              void chatAdapter.sendMessage(question);
-            }
-          }}
         />
       )}
 
@@ -142,7 +133,6 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
                   const trimmed = message.trim();
                   if (!trimmed) return;
                   const urlMatch = trimmed.match(/https?:\/\/[^\s]+|(?:www\.)[^\s]+\.[a-z]{2,}/i);
-                  const progressSnapshot = onProgressChange?.({ fields: extractedFields, hasPendingSave: false, completionScore: 0, missingFields: [] });
                   onProgressChange?.({ fields: extractedFields, hasPendingSave: false, completionScore: 0, missingFields: [] });
                   const completionScore = 0;
                   const needsRichData = completionScore < 40;
@@ -150,9 +140,9 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
                   let additionalContext: string | undefined;
 
                   // Check for conversational corrections
-                  const correctionField = detectCorrectionField(trimmed, extractedFields);
-                  if (correctionField) {
-                    handleCorrectionResponse(correctionField, trimmed);
+                  const correction = detectCorrectionField(trimmed);
+                  if (correction && correction.value) {
+                    handleCorrectionResponse(correction.field, correction.value);
                     return;
                   }
 
@@ -227,46 +217,41 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
 };
 
 // Helper functions for conversational corrections
-function detectCorrectionField(message: string, extractedFields: ExtractedFields): keyof ExtractedFields | null {
-  const lowerMessage = message.toLowerCase();
+function detectCorrectionField(message: string): { field: keyof ExtractedFields; value: string } | null {
+  const trimmed = message.trim();
+  const lowerMessage = trimmed.toLowerCase();
   
-  // Check for phone corrections
-  if (lowerMessage.includes('phone') || lowerMessage.includes('call') || /\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/.test(message)) {
-    return 'contactPhone';
-  }
-  
-  // Check for email corrections
-  if (lowerMessage.includes('email') || /@[^\s]+\.[^\s]+/.test(message)) {
-    return 'businessEmail';
+  // Check for email corrections first (strict)
+  const emailMatch = trimmed.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+  if (emailMatch && (lowerMessage.includes('email') || lowerMessage.length < 50)) {
+    return { field: 'businessEmail', value: emailMatch[1] };
   }
   
   // Check for website corrections
-  if (lowerMessage.includes('website') || /https?:\/\/[^\s]+/.test(message)) {
-    return 'website';
+  const urlMatch = trimmed.match(/(https?:\/\/[^\s]+|(?:www\.)[^\s]+\.[a-z]{2,})/i);
+  if (urlMatch && (lowerMessage.includes('website') || lowerMessage.includes('web') || lowerMessage.length < 50)) {
+    return { field: 'website', value: urlMatch[0] };
+  }
+
+  // Check for phone corrections
+  const phoneMatch = trimmed.match(/(\+?\d{1,3}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/);
+  if (phoneMatch && (lowerMessage.includes('phone') || lowerMessage.includes('call') || lowerMessage.length < 30)) {
+    return { field: 'contactPhone', value: phoneMatch[1] };
   }
   
   // Check for remote practice responses
-  if (lowerMessage.includes('remote') || lowerMessage.includes('no office') || lowerMessage.includes('physical')) {
-    return 'isRemote';
+  if (lowerMessage.length < 60) {
+    if (lowerMessage === 'remote' || lowerMessage === 'fully remote' || lowerMessage.includes('no office')) {
+      return { field: 'isRemote', value: 'remote' };
+    }
+    if (lowerMessage === 'physical' || lowerMessage === 'office' || lowerMessage.includes('have an office')) {
+      return { field: 'isRemote', value: 'physical' };
+    }
   }
   
   return null;
 }
 
-function getCorrectionQuestion(field: keyof ExtractedFields, currentValue?: string): string {
-  switch (field) {
-    case 'contactPhone':
-      return `I found this phone number: ${currentValue || 'not provided'}. Is this correct, or what's the right number?`;
-    case 'businessEmail':
-      return `I found this email: ${currentValue || 'not provided'}. Is this correct, or what's the right email?`;
-    case 'website':
-      return `I found this website: ${currentValue || 'not provided'}. Is this correct, or what's the right website?`;
-    case 'isRemote':
-      return 'Are you fully remote with no physical office, or do you have a physical address?';
-    default:
-      return `Could you clarify the ${field}?`;
-  }
-}
 
 function getFieldConfirmation(field: keyof ExtractedFields, value: string): string {
   switch (field) {

@@ -128,7 +128,7 @@ export const useWorkspaceState = ({
     setLoading: (loading) => {
       setIsLoading(loading);
     },
-  }), [currentView, isPracticeWorkspace, isClientWorkspace, isPublicWorkspace, hasActivePractice]);
+  }), []);
 
   const state: WorkspaceState = {
     currentPractice,

@@ -145,7 +145,7 @@ export function useConversationSetup({
       isCreatingRef.current = false;
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, session?.user?.id]);
+  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, session?.user?.id, session?.user?.isAnonymous]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !session?.user) return null;

@@ -4,6 +4,7 @@ import {
   ChatBubbleOvalLeftEllipsisIcon,
   HomeIcon,
   ClipboardDocumentListIcon,
+  DocumentTextIcon,
   UserCircleIcon,
   UsersIcon
 } from '@heroicons/react/24/outline';
@@ -12,9 +13,9 @@ import { Logo } from '@/shared/ui/Logo';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { cn } from '@/shared/utils/cn';
 
-export type WorkspaceNavTab = 'home' | 'messages' | 'matters' | 'settings' | 'clients';
+export type WorkspaceNavTab = 'home' | 'messages' | 'matters' | 'invoices' | 'settings' | 'clients';
 
-const VALID_WORKSPACE_NAV_TABS = new Set<WorkspaceNavTab>(['home', 'messages', 'matters', 'settings', 'clients']);
+const VALID_WORKSPACE_NAV_TABS = new Set<WorkspaceNavTab>(['home', 'messages', 'matters', 'invoices', 'settings', 'clients']);
 type IconComponent = preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>;
 
 export interface WorkspaceNavItem {
@@ -65,9 +66,9 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
   const inactiveClasses = 'nav-item-inactive backdrop-blur-xl';
   const containerClasses = variant === 'bottom'
     ? (showPracticeTabs
-      ? 'grid grid-cols-5 gap-2'
+      ? 'grid grid-cols-6 gap-2'
       : showClientTabs
-      ? 'grid grid-cols-4 gap-2'
+      ? 'grid grid-cols-5 gap-2'
       : 'flex items-center justify-between gap-3')
     : 'flex h-full flex-col gap-2 px-2';
 
@@ -172,6 +173,11 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
                     <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />,
                     t('workspace.navigation.matters')
                   )}
+                  {(showClientTabs || showPracticeTabs) && renderButton(
+                    'invoices',
+                    <DocumentTextIcon className="h-5 w-5" aria-hidden="true" />,
+                    t('workspace.navigation.invoices')
+                  )}
                   {showPracticeTabs && renderButton(
                     'clients',
                     <UsersIcon className="h-5 w-5" aria-hidden="true" />,
@@ -205,6 +211,11 @@ const WorkspaceNav: FunctionComponent<WorkspaceNavProps> = ({
                 'matters',
                 <ClipboardDocumentListIcon className="h-5 w-5" aria-hidden="true" />,
                 t('workspace.navigation.matters')
+              )}
+              {(showClientTabs || showPracticeTabs) && renderButton(
+                'invoices',
+                <DocumentTextIcon className="h-5 w-5" aria-hidden="true" />,
+                t('workspace.navigation.invoices')
               )}
               {showPracticeTabs && renderButton(
                 'clients',

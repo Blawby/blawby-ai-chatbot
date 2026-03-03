@@ -4,7 +4,6 @@ import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
   asMajor,
-  getMajorAmountValue,
   safeMultiply,
   toMajorUnits,
   toMinorUnitsValue,
@@ -35,7 +34,7 @@ type BackendInvoiceLineItem = {
   sort_order?: number;
 };
 
-type BackendInvoice = {
+export type BackendInvoice = {
   id: string;
   organization_id: string;
   client_id: string;
@@ -89,11 +88,15 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
       throw error;
     }
-    throw new Error(getErrorMessage(error, fallbackMessage));
+    const normalized = new Error(getErrorMessage(error, fallbackMessage)) as Error & { status?: number };
+    if (axios.isAxiosError(error)) {
+      normalized.status = error.response?.status;
+    }
+    throw normalized;
   }
 };
 
-const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
+export const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
   if (Array.isArray(payload)) {
     return payload.filter((item): item is BackendInvoice => !!item && typeof item === 'object');
   }
@@ -127,7 +130,7 @@ const normalizeLineItem = (item: BackendInvoiceLineItem): InvoiceLineItem => ({
   sort_order: item.sort_order
 });
 
-const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
+export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
   const lineItems = Array.isArray(invoice.line_items)
     ? invoice.line_items
     : Array.isArray(invoice.lineItems)

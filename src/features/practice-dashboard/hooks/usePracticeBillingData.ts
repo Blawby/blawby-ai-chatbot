@@ -266,7 +266,7 @@ export const usePracticeBillingData = ({
         : windowSize === '30d' ? 30 * 24 * 60 * 60 * 1000
           : null;
       const windowStart = windowDuration ? now - windowDuration : null;
-      const previousStart = windowDuration ? windowStart! - windowDuration : null;
+      const previousStart = windowDuration && windowStart !== null ? windowStart - windowDuration : null;
 
       const windowInvoices = filterInvoicesByRange(invoices, windowStart, null);
       const previousInvoices = windowDuration ? filterInvoicesByRange(invoices, previousStart, windowStart) : [];
@@ -277,7 +277,10 @@ export const usePracticeBillingData = ({
           if (!map.has(invoice.matter_id)) {
             map.set(invoice.matter_id, []);
           }
-          map.get(invoice.matter_id)!.push(invoice);
+          const group = map.get(invoice.matter_id);
+          if (group) {
+            group.push(invoice);
+          }
         }
         return map;
       }, new Map());
@@ -424,7 +427,10 @@ export const usePracticeBillingData = ({
           description: invoice.memo ?? invoice.notes ?? null,
           issuedAt: isoDate
         };
-        activityMap.get(label)!.entries.push(entry);
+        const group = activityMap.get(label);
+        if (group) {
+          group.entries.push(entry);
+        }
       });
       const activityDays = Array.from(activityMap.values()).sort(
         (a, b) => new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime()
@@ -438,7 +444,7 @@ export const usePracticeBillingData = ({
         const existing = clientMap.get(invoice.client_id);
         const latestDate = invoice.issue_date ?? invoice.created_at ?? invoice.updated_at ?? null;
         const amount = invoice.total;
-        if (!existing || (latestDate && (!existing.lastInvoice?.date || new Date(latestDate) > new Date(existing.lastInvoice.date!)))) {
+        if (!existing || (latestDate && (!existing.lastInvoice?.date || new Date(latestDate) > new Date(existing.lastInvoice.date)))) {
           clientMap.set(invoice.client_id, {
             id: invoice.client_id,
             name: invoice.client?.user?.name ?? invoice.client?.user?.email ?? `Client ${invoice.client_id.slice(0, 5)}`,

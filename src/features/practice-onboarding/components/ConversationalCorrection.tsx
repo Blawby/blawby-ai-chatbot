@@ -19,14 +19,10 @@ export interface CorrectionRequest {
 
 export interface ConversationalCorrectionProps {
   extractedFields: ExtractedFields;
-  onFieldUpdate: (field: keyof ExtractedFields, value: string) => void;
-  onRequestCorrection?: (field: keyof ExtractedFields) => void;
 }
 
 const ConversationalCorrection: FunctionComponent<ConversationalCorrectionProps> = ({
   extractedFields,
-  onFieldUpdate,
-  onRequestCorrection,
 }) => {
   // Generate correction requests for fields that need clarification
   const correctionRequests = useMemo((): CorrectionRequest[] => {
@@ -93,33 +89,6 @@ const ConversationalCorrection: FunctionComponent<ConversationalCorrectionProps>
     return requests;
   }, [extractedFields]);
 
-  // Handle conversational responses
-  const handleCorrectionResponse = (field: keyof ExtractedFields, response: string) => {
-    // Check for remote practice responses
-    if (field === 'isRemote') {
-      const isRemote = isRemoteResponse(response);
-      onFieldUpdate('isRemote', isRemote.toString());
-      
-      // If they say they're remote, clear address
-      if (isRemote) {
-        onFieldUpdate('address', '');
-      }
-      return;
-    }
-
-    // Handle other field corrections
-    if (response.toLowerCase().includes('correct') || response.toLowerCase().includes('that\'s right')) {
-      // User confirmed the current value is correct
-      return;
-    }
-
-    // User provided a correction
-    const newValue = extractCorrection(response);
-    if (newValue && isValidFieldValue(field, newValue)) {
-      onFieldUpdate(field, newValue);
-    }
-  };
-
   return (
     <div className="conversational-corrections space-y-4">
       {correctionRequests.map((request, index) => (
@@ -163,53 +132,6 @@ function isValidWebsite(website: string): boolean {
   const urlRegex = /^https?:\/\/.+\..+/;
   const domainRegex = /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
   return urlRegex.test(website) || domainRegex.test(website);
-}
-
-function isRemoteResponse(response: string): boolean {
-  const remoteKeywords = [
-    'fully remote',
-    'no physical office',
-    'work from home',
-    'remote only',
-    'virtual',
-    'no office',
-  ];
-  
-  const responseLower = response.toLowerCase();
-  return remoteKeywords.some(keyword => responseLower.includes(keyword));
-}
-
-function extractCorrection(response: string): string | null {
-  // Extract the corrected value from user response
-  // This is a simplified version - in production, you'd use more sophisticated NLP
-  const patterns = [
-    /(?:it's|it is|the correct|the right) (.+)/i,
-    /(?:should be|is) (.+)/i,
-    /(.+) instead/i,
-    /change (?:it|that) to (.+)/i,
-  ];
-  
-  for (const pattern of patterns) {
-    const match = response.match(pattern);
-    if (match && match[1]) {
-      return match[1].trim().replace(/[.!?]+$/, '');
-    }
-  }
-  
-  return null;
-}
-
-function isValidFieldValue(field: keyof ExtractedFields, value: string): boolean {
-  switch (field) {
-    case 'contactPhone':
-      return isValidPhone(value);
-    case 'businessEmail':
-      return isValidEmail(value);
-    case 'website':
-      return isValidWebsite(value);
-    default:
-      return value.length > 0;
-  }
 }
 
 export default ConversationalCorrection;

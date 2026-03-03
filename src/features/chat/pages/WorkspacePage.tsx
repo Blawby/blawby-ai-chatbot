@@ -14,7 +14,6 @@ import ConversationListView from '@/features/chat/views/ConversationListView';
 import { SplitView } from '@/shared/ui/layout/SplitView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 import { Page } from '@/shared/ui/layout/Page';
-import { Button } from '@/shared/ui/Button';
 import { SegmentedToggle } from '@/shared/ui/input';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -36,7 +35,6 @@ import { CompletionRing } from '@/shared/ui/CompletionRing';
 import { ContactForm } from '@/features/intake/components/ContactForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { PlaceholderPage } from '@/shared/components/PlaceholderPage';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { createConnectedAccount, getOnboardingStatusPayload } from '@/shared/lib/apiClient';
@@ -48,7 +46,7 @@ import type { ChatMessageUI } from '../../../../worker/types';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail';
 type PreviewTab = 'home' | 'messages' | 'intake';
 
 interface WorkspacePageProps {
@@ -70,6 +68,7 @@ interface WorkspacePageProps {
   chatView: ComponentChildren;
   mattersView?: ComponentChildren;
   clientsView?: ComponentChildren;
+  invoicesView?: ComponentChildren;
   header?: ComponentChildren;
   headerClassName?: string;
 }
@@ -111,6 +110,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   chatView,
   mattersView,
   clientsView,
+  invoicesView,
   header,
   headerClassName,
 }) => {
@@ -196,7 +196,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
 
   const isPracticeOnly = useMemo(() => ['clients'].includes(view), [view]);
-  const isSharedGuarded = useMemo(() => ['matters'].includes(view), [view]);
+  const isSharedGuarded = useMemo(() => ['matters', 'invoices', 'invoiceDetail'].includes(view), [view]);
   const allowed = useMemo(() => {
     if (isPracticeOnly) return showPracticeTabs;
     if (isSharedGuarded) return showClientTabs || showPracticeTabs;
@@ -1068,6 +1068,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             </div>
           </div>
         );
+      case 'invoices':
+      case 'invoiceDetail':
+        return invoicesView ?? (
+          <div className="flex flex-1 flex-col glass-card">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-input-text">Invoices</h2>
+              <p className="mt-2 text-sm text-input-placeholder">
+                Invoice details and payments will appear here.
+              </p>
+            </div>
+          </div>
+        );
       case 'setup':
         return (
           <WorkspaceHomeView
@@ -1096,11 +1108,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const hideBottomNav = isClientFacingWorkspace && (view === 'list' || view === 'conversation');
   const showBottomNav = workspace !== 'practice'
     ? !hideBottomNav
-    : (showClientTabs || showPracticeTabs || view === 'home' || view === 'setup' || view === 'list' || view === 'matters' || view === 'clients');
+    : (showClientTabs || showPracticeTabs || view === 'home' || view === 'setup' || view === 'list' || view === 'matters' || view === 'clients' || view === 'invoices' || view === 'invoiceDetail');
   const activeTab = view === 'list' || view === 'conversation'
     ? 'messages'
     : view === 'matters'
     ? 'matters'
+    : view === 'invoices' || view === 'invoiceDetail'
+    ? 'invoices'
     : view === 'clients'
     ? 'clients'
     : view === 'setup'
@@ -1118,6 +1132,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     if (tab === 'clients') {
       navigate(`${workspaceBasePath}/clients`);
+      return;
+    }
+    if (tab === 'invoices') {
+      navigate(`${workspaceBasePath}/invoices`);
       return;
     }
     if (tab === 'settings') {

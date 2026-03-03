@@ -557,12 +557,12 @@ export const useChatComposer = ({
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
+    const currentPendingAck = pendingAckRef.current;
     return () => {
       isMountedRef.current = false;
       abortControllerRef.current?.abort();
       intentAbortRef.current?.abort();
       if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
-      const currentPendingAck = pendingAckRef.current;
       currentPendingAck.forEach(item => {
         clearTimeout(item.timer);
       });

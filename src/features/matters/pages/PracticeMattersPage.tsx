@@ -1387,7 +1387,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       const qty = entry.duration_hours > 0 ? Number(entry.duration_hours.toFixed(2)) : 0;
       const amountValue = getMajorAmountValue(entry.amount);
       if (qty === 0 && amountValue <= 0) return acc;
-      const baseRateValue = entry.amount ? safeDivide(entry.amount, entry.duration_hours || 1) : asMajor(0);
       const amount = amountValue > 0 ? entry.amount : safeMultiply(baseRate, qty);
       acc.push({
         id: crypto.randomUUID(),

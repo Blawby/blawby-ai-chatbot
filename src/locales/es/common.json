@@ -234,7 +234,8 @@
       "messages": "Mensajes",
       "matters": "Asuntos",
       "clients": "Clientes",
-      "settings": "Configuración"
+      "settings": "Configuración",
+      "invoices": "Facturas"
     },
     "conversationList": {
       "title": "Mensajes",

@@ -115,7 +115,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     if (!value.session?.user?.isAnonymous) return;
     rememberAnonymousUserId(value.session.user.id);
     const anonSessionId = typeof (value.session.session as { id?: string } | null | undefined)?.id === 'string'
-      ? (value.session.session as { id?: string }).id!
+      ? (value.session.session as { id: string }).id
       : null;
     if (anonSessionId) {
       rememberAnonymousSessionId(anonSessionId);

@@ -13,7 +13,6 @@ import { Button } from '@/shared/ui/Button';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
-import type { PracticeDetails } from '@/shared/lib/apiClient';
 
 export interface WorkspaceConversationViewProps {
   practice: Practice | null;

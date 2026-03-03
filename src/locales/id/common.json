@@ -211,7 +211,8 @@
       "messages": "Pesan",
       "matters": "Perkara",
       "clients": "Klien",
-      "settings": "Pengaturan"
+      "settings": "Pengaturan",
+      "invoices": "Faktur"
     },
     "conversationList": {
       "title": "Pesan",

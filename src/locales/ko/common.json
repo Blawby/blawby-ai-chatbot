@@ -211,7 +211,8 @@
       "messages": "메시지",
       "matters": "사건",
       "clients": "고객",
-      "settings": "설정"
+      "settings": "설정",
+      "invoices": "청구서"
     },
     "conversationList": {
       "title": "메시지",
