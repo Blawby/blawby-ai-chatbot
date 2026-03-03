@@ -453,6 +453,21 @@ export const useConversation = ({
         if (pendingId) {
           const matchIndex = additions.findIndex(m => m.id === pendingId);
           if (matchIndex !== -1) {
+            const streamingBubble = next.find(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+            if (streamingBubble) {
+              const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
+                ? streamingBubble.metadata.__client_id
+                : streamingBubble.id;
+              const persisted = additions[matchIndex];
+              additions[matchIndex] = {
+                ...persisted,
+                timestamp: streamingBubble.timestamp,
+                metadata: {
+                  ...(persisted.metadata ?? {}),
+                  __client_id: streamingClientId,
+                },
+              } as ChatMessageUI;
+            }
             pendingStreamMessageIdRef.current = null;
             if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
             next = next.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));

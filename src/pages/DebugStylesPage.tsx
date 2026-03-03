@@ -63,9 +63,6 @@ export default function DebugStylesPage() {
     ],
     []
   );
-
-
-
   return (
     <main className="mx-auto max-w-6xl space-y-8 p-6">
       <header className="space-y-2">

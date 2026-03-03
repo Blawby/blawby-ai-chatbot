@@ -75,7 +75,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 						src={file.url}
 						type={file.type}
 						alt={file.name}
-						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-lg border border-line-glass/30"
+						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-lg"
 						onClick={() => handleImageClick(file)}
 					/>
 				</div>

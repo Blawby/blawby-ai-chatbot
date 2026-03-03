@@ -25,8 +25,6 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const firstMenuItemRef = useRef<HTMLButtonElement>(null);
-  const focusAnimationFrameRef = useRef<number | null>(null);
 
   useEffect(() => setIsBrowser(true), []);
 
@@ -50,28 +48,19 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
     handleClose();
   };
 
+  const preventPointerFocus = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
   useEffect(() => {
     if (!isBrowser) return;
 
     if (isOpen) {
       document.addEventListener('click', handleClickOutside);
-      
-      // Replace setTimeout with requestAnimationFrame for more reliable focus scheduling
-      focusAnimationFrameRef.current = requestAnimationFrame(() => {
-        // Use a second requestAnimationFrame for extra reliability on slow devices
-        focusAnimationFrameRef.current = requestAnimationFrame(() => {
-          firstMenuItemRef.current?.focus?.();
-        });
-      });
     }
     
     return () => {
       document.removeEventListener('click', handleClickOutside);
-      // Clean up any scheduled animation frame if component unmounts
-      if (focusAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(focusAnimationFrameRef.current);
-        focusAnimationFrameRef.current = null;
-      }
     };
   }, [isOpen, isBrowser, handleClickOutside]);
 
@@ -152,7 +141,11 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-haspopup="menu"
         aria-controls="attachment-menu"
         aria-expanded={isOpen}
-        className="shadow-lg bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
+        className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 active:scale-100 ${
+          isOpen
+            ? 'bg-white/20 border-white/35'
+            : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30 hover:scale-105'
+        }`}
         icon={<PlusIcon className="w-5 h-5" aria-hidden="true" />}
       />
 
@@ -163,7 +156,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           aria-labelledby="attachment-menu-button"
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
-            p-1 glass-card transition-all duration-200
+            p-1 rounded-xl border border-line-glass/30 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass transition-all duration-200
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}
@@ -172,8 +165,8 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             type="button"
             variant="menu-item"
             role="menuitem"
-            ref={firstMenuItemRef}
             onClick={handleFileClick}
+            onMouseDown={preventPointerFocus}
             className="file-menu-item py-3 text-xs sm:text-sm"
           >
             <span>Add photos &amp; files</span>
@@ -185,6 +178,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             variant="menu-item"
             role="menuitem"
             onClick={openCamera}
+            onMouseDown={preventPointerFocus}
             className="file-menu-item py-3 border-t border-white/10 text-xs sm:text-sm"
           >
             <span>Take Photo</span>

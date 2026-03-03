@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
 import { memo } from 'preact/compat';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
@@ -74,10 +75,12 @@ interface VirtualMessageListProps {
     showSkeleton?: boolean;
     compactLayout?: boolean;
     onboardingActions?: OnboardingActions;
+    bottomInsetPx?: number;
 }
 
 const BATCH_SIZE = 20;
 const SCROLL_THRESHOLD = 100;
+const STICKY_BOTTOM_THRESHOLD = 72;
 const DEBOUNCE_DELAY = 50;
 const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 const INTAKE_READY_PROMPT_REGEX = /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|would you like to submit|would you like to continue now)/i;
@@ -108,7 +111,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onLoadMoreMessages,
     showSkeleton = false,
     compactLayout = false,
-    onboardingActions
+    onboardingActions,
+    bottomInsetPx
 }) => {
     useEffect(() => {
         if (DEBUG_PAGINATION) {
@@ -139,8 +143,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const submittingRef = useRef<Record<string, boolean>>({});
     const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(dedupedMessages.length);
+    const [showScrollToBottom, setShowScrollToBottom] = useState(false);
     const isScrolledToBottomRef = useRef(true);
     const isUserScrollingRef = useRef(false);
+    const hasUserScrolledUpRef = useRef(false);
     const isLoadingRef = useRef(false);
     const loggedNoServerPaginationRef = useRef(false);
     const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
@@ -500,7 +506,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
-        return Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+        return Math.abs(scrollHeight - scrollTop - clientHeight) < STICKY_BOTTOM_THRESHOLD;
     }, []);
 
     const handleScrollLoadMore = useCallback(() => {
@@ -603,14 +609,21 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!listRef.current) return;
 
         const element = listRef.current;
+        const previousScrollTop = (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop || 0;
+        const currentScrollTop = element.scrollTop;
+        const isScrollingUp = currentScrollTop < previousScrollTop;
         const isBottom = checkIfScrolledToBottom(element);
         isScrolledToBottomRef.current = isBottom;
         isUserScrollingRef.current = !isBottom;
+        if (isBottom) {
+            hasUserScrolledUpRef.current = false;
+        } else if (isScrollingUp) {
+            hasUserScrolledUpRef.current = true;
+        }
+        setShowScrollToBottom(hasUserScrolledUpRef.current && !isBottom);
 
         // Dispatch scroll event for navbar visibility
-        const currentScrollTop = element.scrollTop;
-        const lastScrollTop = (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop || 0;
-        const scrollDelta = Math.abs(currentScrollTop - lastScrollTop);
+        const scrollDelta = Math.abs(currentScrollTop - previousScrollTop);
         
         if (scrollDelta > 0) {
             window.dispatchEvent(new CustomEvent('chat-scroll', {
@@ -643,8 +656,26 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
+            setShowScrollToBottom(false);
         }
     }, [dedupedMessages, derivedEnd]);
+
+    // Preserve sticky-to-bottom behavior when composer height changes.
+    useLayoutEffect(() => {
+        if (!listRef.current || compactLayout) return;
+        if (!isScrolledToBottomRef.current || isUserScrollingRef.current) return;
+        listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
+        setShowScrollToBottom(false);
+    }, [bottomInsetPx, compactLayout]);
+
+    const scrollToBottom = useCallback(() => {
+        if (!listRef.current) return;
+        listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+        isScrolledToBottomRef.current = true;
+        isUserScrollingRef.current = false;
+        hasUserScrolledUpRef.current = false;
+        setShowScrollToBottom(false);
+    }, []);
 
 
     const visibleMessages = useMemo(
@@ -722,9 +753,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     }, [onRequestReactions, visibleMessages]);
 
     return (
+        <div className="relative min-h-0 flex flex-1 flex-col">
         <div
-            className={`message-list ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
+            className={`message-list min-h-0 ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
+            style={!compactLayout ? { paddingBottom: `${Math.max(80, bottomInsetPx ?? 80)}px` } : undefined}
         >
             {derivedStart > 0 && (
                 <div className="flex justify-center items-center py-4">
@@ -899,6 +932,17 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         );
                     })}
             </ErrorBoundary>
+        </div>
+        {showScrollToBottom && (
+            <button
+                type="button"
+                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] shadow-lg transition hover:bg-accent-500/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                onClick={scrollToBottom}
+                aria-label="Scroll to latest message"
+            >
+                <ChevronDownIcon className="h-5 w-5" />
+            </button>
+        )}
         </div>
     );
 };

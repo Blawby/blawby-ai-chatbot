@@ -13,7 +13,6 @@ import {
 import type { CreateInvoicePayload } from '@/features/matters/types/billing.types';
 import {
   createRefundRequest as createRefundRequestApi,
-  getClientInvoice as getClientInvoiceRecord,
   listClientInvoices as listClientInvoiceRecords,
   listClientRefundRequests,
   type RefundRequestPayload,
@@ -34,6 +33,20 @@ import type {
 type FetchOptions = { signal?: AbortSignal };
 
 const FALLBACK_PAGE_SIZE = 10;
+
+type ApiErrorWithStatus = {
+  status?: number;
+  statusCode?: number;
+  response?: {
+    status?: number;
+  };
+};
+
+const getErrorStatus = (error: unknown): number | undefined => {
+  if (!error || typeof error !== 'object') return undefined;
+  const candidate = error as ApiErrorWithStatus;
+  return candidate.status ?? candidate.response?.status ?? candidate.statusCode;
+};
 
 const matchesDateRange = (candidateDate: string | null, dateFrom: string, dateTo: string): boolean => {
   if (!dateFrom && !dateTo) return true;
@@ -163,9 +176,7 @@ export const getClientInvoice = async (
       return requestInvoiceId === invoiceId;
     });
   } catch (error) {
-    const status = error && typeof error === 'object'
-      ? (error as any).status || (error as any).response?.status || (error as any).statusCode
-      : undefined;
+    const status = getErrorStatus(error);
 
     if (status === 405 || status === 501) {
       refundRequestSupported = false;

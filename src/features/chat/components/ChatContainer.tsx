@@ -172,6 +172,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const authSuccessCloseRef = useRef(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const composerDockRef = useRef<HTMLDivElement>(null);
+  const [composerInsetPx, setComposerInsetPx] = useState(104);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help'
@@ -217,6 +219,28 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       }
     }
   }, [clearInput]);
+
+  // Keep message-list bottom padding in sync with the sticky composer height.
+  useEffect(() => {
+    const element = composerDockRef.current;
+    if (!element) return;
+
+    const updateInset = () => {
+      const nextInset = Math.max(80, Math.ceil(element.getBoundingClientRect().height) + 12);
+      setComposerInsetPx(nextInset);
+    };
+
+    updateInset();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateInset);
+      observer.observe(element);
+      return () => observer.disconnect();
+    }
+
+    const fallback = window.setInterval(updateInset, 200);
+    return () => window.clearInterval(fallback);
+  }, []);
 
   // Return focus to chat input when slim form is dismissed
   const prevShouldShowSlimFormRef = useRef(shouldShowSlimForm);
@@ -565,13 +589,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                       showSkeleton={!messagesReady}
                       compactLayout={false}
                       onboardingActions={onboardingActions}
+                      bottomInsetPx={composerInsetPx}
                     />
                   </>
                 )}
               </div>
             </div>
 
-            <div className="sticky bottom-0 z-[1000] w-full">
+            <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
               {!shouldShowSlimForm || !onSlimFormContinue ? (
                 <MessageComposer
                   inputValue={inputValue}

@@ -143,7 +143,8 @@ export const useChatComposer = ({
     const bubble: ChatMessageUI = {
       id: bubbleId, role: 'assistant', content: '', isUser: false,
       timestamp: Date.now(), userId: null, reply_to_message_id: null,
-      metadata: { source: 'ai' },
+      metadata: { source: 'ai', __client_id: bubbleId },
+      isLoading: true,
     };
     // Upsert to avoid duplicate streaming bubbles when a prior SSE turn left a stale bubble behind.
     setMessages(prev => [...prev.filter(msg => msg.id !== bubbleId), bubble]);
@@ -151,7 +152,7 @@ export const useChatComposer = ({
 
   const appendStreamingToken = useCallback((bubbleId: string, token: string) => {
     setMessages(prev => prev.map(msg =>
-      msg.id === bubbleId ? { ...msg, content: msg.content + token } as ChatMessageUI : msg
+      msg.id === bubbleId ? { ...msg, content: msg.content + token, isLoading: false } as ChatMessageUI : msg
     ));
   }, [setMessages]);
 

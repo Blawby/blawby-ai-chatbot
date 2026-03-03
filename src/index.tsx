@@ -7,6 +7,8 @@ import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
+import DebugStylesPage from '@/pages/DebugStylesPage';
+import DebugChatPage from '@/pages/DebugChatPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -35,12 +37,16 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
-const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
 const DebugMatterPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugMatterPage')) : null;
 
 const DevDebugStylesRoute = () => {
-  if (!import.meta.env.DEV || !DebugStylesPage) return <App404 />;
+  if (!import.meta.env.DEV) return <App404 />;
   return <DebugStylesPage />;
+};
+
+const DevDebugChatRoute = () => {
+  if (!import.meta.env.DEV) return <App404 />;
+  return <DebugChatPage />;
 };
 
 const DevDebugMatterRoute = () => {
@@ -110,10 +116,13 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
+    const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
     const isPublicIntakeRoute =
       location.path.startsWith('/public/') ||
       location.path.startsWith('/client/') ||
       location.path.startsWith('/pay');
+    const bypassOnboardingForRoute = isPublicIntakeRoute || isDebugRoute;
+
     if (typeof window !== 'undefined') {
       try {
         const pendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
@@ -155,7 +164,7 @@ function AppShell() {
       Boolean(user) &&
       !user?.isAnonymous &&
       user?.onboardingComplete !== true &&
-      !isPublicIntakeRoute;
+      !bypassOnboardingForRoute;
 
     if (requiresOnboarding) {
       if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
@@ -197,6 +206,7 @@ function AppShell() {
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
+          <Route path="/debug/chat" component={DevDebugChatRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PaySuccessPage} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
