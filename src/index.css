@@ -489,7 +489,20 @@
   }
 
   .btn-menu-item:focus {
-    @apply ring-white/20;
+    @apply ring-0 ring-offset-0;
+  }
+
+  .btn-menu-item:focus-visible {
+    @apply ring-0 ring-offset-0 outline-none;
+  }
+
+  .file-menu-item,
+  .file-menu-item:focus,
+  .file-menu-item:focus-visible,
+  .file-menu-item:active {
+    outline: none;
+    box-shadow: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Tab — for segmented navigation */
@@ -806,11 +819,11 @@
   }
 
   .message-composer-preview-container {
-    @apply flex gap-2 overflow-x-auto scrollbar-hide;
+    @apply flex gap-2 scrollbar-hide;
   }
 
   .message-composer-input-row {
-    @apply flex items-center gap-3 w-full;
+    @apply flex items-end gap-3 w-full;
   }
 
   /* ============================================================
