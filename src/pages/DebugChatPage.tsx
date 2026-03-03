@@ -84,10 +84,11 @@ export default function DebugChatPage() {
   };
 
   useEffect(() => {
+    const objectUrls = objectUrlsRef.current;
     return () => {
       clearTimers();
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      objectUrlsRef.current.clear();
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      objectUrls.clear();
     };
   }, []);
 

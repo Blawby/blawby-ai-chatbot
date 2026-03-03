@@ -66,7 +66,7 @@ export function ClientInvoiceDetailPage({
         setError(message);
       })
       .finally(() => setLoading(false));
-  }, [invoiceId, practiceId]);
+  }, [invoiceId, practiceId, showError]);
 
   useEffect(() => {
     const controller = new AbortController();

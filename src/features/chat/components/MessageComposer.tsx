@@ -1,5 +1,5 @@
 import type { RefObject } from 'preact';
-import { useEffect, useLayoutEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
@@ -108,7 +108,7 @@ const MessageComposer = ({
     };
   }, []);
 
-  const resizeTextarea = (element: HTMLTextAreaElement) => {
+  const resizeTextarea = useCallback((element: HTMLTextAreaElement) => {
     element.style.height = 'auto';
     const scrollHeight = element.scrollHeight;
     const nextHeight = Math.min(maxTextareaHeight, Math.max(MIN_TEXTAREA_HEIGHT, scrollHeight));
@@ -120,7 +120,7 @@ const MessageComposer = ({
     setIsInputExpanded(nextHeight > MIN_TEXTAREA_HEIGHT + 8);
     setIsTextareaScrollable(canScroll);
     setShowScrollFade(canScroll && element.scrollTop > 0);
-  };
+  }, [maxTextareaHeight]);
 
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
     const element = e.currentTarget;
@@ -154,7 +154,7 @@ const MessageComposer = ({
     const el = textareaRef.current;
     if (!el) return;
     resizeTextarea(el);
-  }, [inputValue, maxTextareaHeight, textareaRef]);
+  }, [inputValue, resizeTextarea, textareaRef]);
 
   const statusMessage = (() => {
     if (isIntakeLocked) {
