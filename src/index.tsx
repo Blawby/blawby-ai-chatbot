@@ -116,7 +116,7 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
-    const isDebugRoute = location.path.startsWith('/debug');
+    const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
     const isPublicIntakeRoute =
       location.path.startsWith('/public/') ||
       location.path.startsWith('/client/') ||

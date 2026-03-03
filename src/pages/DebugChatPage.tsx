@@ -77,18 +77,25 @@ export default function DebugChatPage() {
     }
   };
 
+  const revokeAndClearObjectUrls = () => {
+    objectUrlsRef.current.forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+    objectUrlsRef.current.clear();
+  };
+
   const resetState = () => {
     clearTimers();
     activeRunRef.current = null;
+    revokeAndClearObjectUrls();
+    setPreviewFiles([]);
     setMessages([]);
   };
 
   useEffect(() => {
-    const objectUrls = objectUrlsRef.current;
     return () => {
       clearTimers();
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
-      objectUrls.clear();
+      revokeAndClearObjectUrls();
     };
   }, []);
 
@@ -104,7 +111,7 @@ export default function DebugChatPage() {
   };
 
   const clearPreviewFiles = () => {
-    // Keep blob URLs alive until reset/unmount so sent mock messages can still render previews.
+    revokeAndClearObjectUrls();
     setPreviewFiles([]);
   };
 
