@@ -488,21 +488,24 @@
     @apply bg-white/10;
   }
 
-  .btn-menu-item:focus {
+  .btn-menu-item:focus:not(:focus-visible) {
     @apply ring-0 ring-offset-0;
   }
 
   .btn-menu-item:focus-visible {
-    @apply ring-0 ring-offset-0 outline-none;
+    @apply outline-none ring-2 ring-accent-500/50 ring-offset-0 bg-white/15;
   }
 
   .file-menu-item,
-  .file-menu-item:focus,
-  .file-menu-item:focus-visible,
   .file-menu-item:active {
     outline: none;
     box-shadow: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .file-menu-item:focus-visible {
+    @apply ring-2 ring-accent-500/60 ring-offset-0 bg-white/15;
+    box-shadow: 0 0 0 2px rgb(var(--accent-500) / 0.35);
   }
 
   /* Tab — for segmented navigation */
