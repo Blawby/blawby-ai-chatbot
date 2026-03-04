@@ -37,7 +37,10 @@ export function usePaginatedList<T extends { id: string }>(
     fetchPageRef.current = fetchPage;
   }, [fetchPage]);
 
+  const [resetCounter, setResetCounter] = useState(0);
+
   useEffect(() => {
+    setResetCounter((c) => c + 1);
     setPage(1);
     setItems([]);
     setHasMore(true);
@@ -77,7 +80,7 @@ export function usePaginatedList<T extends { id: string }>(
       });
 
     return () => controller.abort();
-  }, [hasMore, page]);
+  }, [hasMore, page, resetCounter]);
 
   const canObserve = useMemo(() => hasMore && !isLoading && !isLoadingMore, [hasMore, isLoading, isLoadingMore]);
 

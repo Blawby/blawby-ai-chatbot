@@ -65,13 +65,25 @@ export function EntityList<T extends { id: string }>({
         {items.map((item) => {
           const isSelected = selectedId === item.id;
           return (
-            <div
+            <button
               key={item.id}
-              className={cn(isSelected ? 'bg-white/10' : undefined, onSelect && 'cursor-pointer')}
+              type="button"
+              className={cn(
+                'w-full text-left transition-colors duration-150',
+                isSelected ? 'bg-white/10' : 'hover:bg-white/[0.03]',
+                onSelect && 'cursor-pointer'
+              )}
               onClick={onSelect ? () => onSelect(item) : undefined}
+              onKeyDown={(e) => {
+                if (onSelect && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  onSelect(item);
+                }
+              }}
+              aria-selected={isSelected}
             >
               {renderItem(item, isSelected)}
-            </div>
+            </button>
           );
         })}
       </div>

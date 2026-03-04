@@ -33,14 +33,22 @@ export const invalidateClientsForPractice = (practiceId: string) => {
   const loadedSnapshot = clientsLoaded.get();
   const nextLoaded = new Set(loadedSnapshot);
   const next: StoreShape = {};
+
   for (const [key, value] of Object.entries(snapshot)) {
     if (key.startsWith(prefix)) {
       nextLoaded.delete(key);
-      clientsInFlight.delete(key);
       continue;
     }
     next[key] = value;
   }
+
+  // Also clean up stale in-flight promises matching the prefix (even if not in store snapshot yet)
+  for (const key of clientsInFlight.keys()) {
+    if (key.startsWith(prefix)) {
+      clientsInFlight.delete(key);
+    }
+  }
+
   clientsLoaded.set(nextLoaded);
   clientsStore.set(next);
 };

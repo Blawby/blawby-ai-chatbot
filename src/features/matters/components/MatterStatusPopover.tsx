@@ -43,18 +43,18 @@ const STATUS_ICON: Record<MatterStatus, unknown> = {
 };
 
 const STATUS_COLOR: Record<MatterStatus, string> = {
-  first_contact: 'bg-accent-500/15 text-accent-400 ring-accent-500/30',
+  first_contact: 'bg-accent-500/15 text-[rgb(var(--accent-foreground))] ring-accent-500/30',
   intake_pending: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
   conflict_check: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
   conflicted: 'bg-red-500/15 text-red-400 ring-red-500/30',
-  eligibility: 'bg-accent-500/15 text-accent-400 ring-accent-500/30',
+  eligibility: 'bg-accent-500/15 text-[rgb(var(--accent-foreground))] ring-accent-500/30',
   referred: 'bg-white/10 text-input-placeholder ring-white/10',
-  consultation_scheduled: 'bg-accent-500/15 text-accent-400 ring-accent-500/30',
+  consultation_scheduled: 'bg-accent-500/15 text-[rgb(var(--accent-foreground))] ring-accent-500/30',
   declined: 'bg-red-500/15 text-red-400 ring-red-500/30',
   engagement_pending: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
   active: 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30',
-  pleadings_filed: 'bg-accent-500/15 text-accent-400 ring-accent-500/30',
-  discovery: 'bg-accent-500/15 text-accent-400 ring-accent-500/30',
+  pleadings_filed: 'bg-accent-500/15 text-[rgb(var(--accent-foreground))] ring-accent-500/30',
+  discovery: 'bg-accent-500/15 text-[rgb(var(--accent-foreground))] ring-accent-500/30',
   mediation: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
   pre_trial: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
   trial: 'bg-red-500/15 text-red-400 ring-red-500/30',
@@ -198,13 +198,13 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
-                    ? 'bg-accent-500/15 text-accent-400'
+                    ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
                     : 'text-input-text hover:bg-white/[0.06]'
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0 text-input-placeholder" aria-hidden />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>
-                {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent-400" aria-hidden />}
+                {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden />}
               </button>
             );
           })}

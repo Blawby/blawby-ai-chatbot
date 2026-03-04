@@ -1664,7 +1664,7 @@ export const PracticeMattersPage = ({
             <DetailHeader
               title={resolvedSelectedMatter.title}
               subtitle={MATTER_STATUS_LABELS[resolvedSelectedMatter.status]}
-              showBack={renderMode !== 'full' && showDetailBackButton}
+              showBack={showDetailBackButton}
               onBack={goToList}
               actions={(
                 <div className="flex items-center gap-2">

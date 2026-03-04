@@ -164,23 +164,19 @@
 
   .list-panel-card-gradient {
     background:
-      linear-gradient(
-        to bottom,
+      linear-gradient(to bottom,
         rgb(var(--accent-500) / 0.10) 0%,
         rgb(var(--accent-600) / 0.04) 45%,
-        transparent 100%
-      ),
+        transparent 100%),
       rgb(var(--surface-overlay) / 0.6);
   }
 
   .dark .list-panel-card-gradient {
     background:
-      linear-gradient(
-        to bottom,
+      linear-gradient(to bottom,
         rgb(var(--accent-500) / 0.10) 0%,
         rgb(var(--accent-600) / 0.04) 45%,
-        transparent 100%
-      ),
+        transparent 100%),
       rgb(255 255 255 / 0.08);
   }
 
@@ -235,6 +231,7 @@
 
   .workspace-header__loading {
     @apply pointer-events-none absolute bottom-[-1px] left-0 h-0.5 w-full;
+
     background: linear-gradient(90deg,
         rgb(var(--accent-500) / 0) 0%,
         rgb(var(--accent-500) / 0.95) 20%,
@@ -560,7 +557,8 @@
 
   /* Shared nav item active/inactive state */
   .nav-item-active {
-    @apply text-accent-400 border-transparent backdrop-blur-xl;
+    @apply border-transparent backdrop-blur-xl;
+    color: rgb(var(--accent-foreground));
     background-color: rgb(var(--accent-500) / 0.14);
     box-shadow: var(--glass-rim-subtle),
       0 2px 8px rgb(var(--accent-500) / 0.12);
@@ -870,9 +868,9 @@
     @apply flex gap-2 scrollbar-hide;
   }
 
-.message-composer-input-row {
-  @apply grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-3;
-}
+  .message-composer-input-row {
+    @apply grid w-full grid-cols-[auto_minmax(0, 1fr)_auto] items-end gap-3;
+  }
 
   /* ============================================================
      MESSAGE LIST

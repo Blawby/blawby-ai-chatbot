@@ -25,7 +25,6 @@ export const useClientsData = (
   const loadedStore = useStore(clientsLoaded);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const lastUserIdRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -33,20 +32,14 @@ export const useClientsData = (
     return () => { isMountedRef.current = false; };
   }, []);
 
-  useEffect(() => {
-    if (lastUserIdRef.current !== userId) {
-      resetClientsStore();
-      lastUserIdRef.current = userId;
-    }
-  }, [userId]);
 
   const statusParts = useMemo(
     () => (statusFilter ? [statusFilter] : []),
     [statusFilter]
   );
   const cacheKey = useMemo(
-    () => `${practiceId}:${statusParts.join(',')}`,
-    [practiceId, statusParts]
+    () => `${userId}:${practiceId}:${statusParts.join(',')}`,
+    [userId, practiceId, statusParts]
   );
   const items = store[cacheKey] ?? [];
   const isLoaded = loadedStore.has(cacheKey);

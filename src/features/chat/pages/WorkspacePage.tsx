@@ -296,10 +296,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       : view === 'setup'
         ? 'home'
       : view;
-  useEffect(() => {
-    setIsMobileNavOpen(false);
-    setIsInspectorOpen(false);
-  }, [workspaceSection]);
+
   const { session, isPending: isSessionPending, activeMemberRole } = useSessionContext();
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const navConfig = useMemo(() => {
@@ -1397,7 +1394,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
     <NavRail
       variant="bottom"
-      items={navConfig.rail}
+      items={navConfig.rail.map(item => ({
+        ...item,
+        onClick: () => {
+          setIsMobileNavOpen(false);
+          setIsInspectorOpen(false);
+        }
+      }))}
       activeHref={activeHref}
     />
   ) : undefined;
@@ -1405,7 +1408,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 ? (
     <NavRail
       variant="rail"
-      items={navConfig.rail}
+      items={navConfig.rail.map(item => ({
+        ...item,
+        onClick: () => {
+          setIsMobileNavOpen(false);
+          setIsInspectorOpen(false);
+        }
+      }))}
       activeHref={activeHref}
     />
   ) : undefined;
@@ -1416,7 +1425,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       activeItemId={workspaceSection === 'settings' ? undefined : activeSecondaryFilter}
       onSelect={workspaceSection === 'settings'
         ? undefined
-        : handleSecondaryFilterSelect}
+        : (id) => {
+            handleSecondaryFilterSelect(id);
+            setIsMobileNavOpen(false);
+            setIsInspectorOpen(false);
+          }}
+      onItemActivate={() => {
+        setIsMobileNavOpen(false);
+        setIsInspectorOpen(false);
+      }}
     />
   ) : undefined;
   const showMobileMenuButton = isMobileLayout
@@ -1646,7 +1663,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         activeHref={activeHref}
         activeItemId={workspaceSection === 'settings' ? undefined : activeSecondaryFilter}
         onSelect={workspaceSection === 'settings' ? undefined : handleSecondaryFilterSelect}
-        onItemActivate={() => setIsMobileNavOpen(false)}
+        onItemActivate={() => {
+          setIsMobileNavOpen(false);
+          setIsInspectorOpen(false);
+        }}
       />
     </Modal>
   ) : null;

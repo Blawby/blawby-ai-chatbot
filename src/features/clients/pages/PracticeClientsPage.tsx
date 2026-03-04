@@ -375,12 +375,8 @@ export const PracticeClientsPage = ({
     }, {});
   }, [sortedClients]);
   const letters = useMemo(() => Object.keys(groupedClients).sort(), [groupedClients]);
-  useEffect(() => {
-    setCurrentLetter((prev) => {
-      if (prev && letters.includes(prev)) return prev;
-      return letters[0] || '';
-    });
-  }, [letters]);
+  const activeLetter = (currentLetter && letters.includes(currentLetter)) ? currentLetter : (letters[0] ?? '');
+
   const selectedClientFromList = useMemo(() => {
     if (!selectedClientIdFromPath) return null;
     return sortedClients.find((client) => client.id === selectedClientIdFromPath) ?? null;
@@ -830,7 +826,7 @@ export const PracticeClientsPage = ({
               className={cn(
                 'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
                 "before:absolute before:-inset-3.5 before:content-['']",
-                currentLetter === letter
+                activeLetter === letter
                   ? 'text-[rgb(var(--accent-foreground))] font-bold bg-accent-500'
                   : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
               )}
