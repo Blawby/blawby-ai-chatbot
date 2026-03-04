@@ -4,21 +4,17 @@ import { DetailHeader } from '@/shared/ui/layout';
 
 interface WorkspaceConversationHeaderProps {
   practiceName?: string | null;
-  practiceLogo?: string | null;
   activeLabel?: string;
   presenceStatus?: 'active' | 'inactive' | 'away';
   onBack?: () => void;
-  loading?: boolean;
   rightSlot?: ComponentChildren;
 }
 
 const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeaderProps> = ({
   practiceName,
-  practiceLogo,
   activeLabel,
   presenceStatus,
   onBack,
-  loading = false,
   rightSlot
 }) => {
   const { t } = useTranslation();
@@ -40,10 +36,6 @@ const WorkspaceConversationHeader: FunctionComponent<WorkspaceConversationHeader
         return t('workspace.header.unknown');
     }
   })();
-  const resolvedStatus = presenceStatus === 'away' ? 'inactive' : presenceStatus;
-  void practiceLogo;
-  void resolvedStatus;
-  void loading;
 
   return (
     <DetailHeader

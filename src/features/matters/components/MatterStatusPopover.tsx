@@ -140,7 +140,10 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
         disabled={disabled}
         onClick={() => {
           setOpen((v) => !v);
-          if (!open) setFocusedIndex(0);
+          if (!open) {
+            const selectedIndex = MATTER_WORKFLOW_STATUSES.indexOf(currentStatus);
+            setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+          }
         }}
         aria-haspopup="listbox"
         aria-expanded={open}

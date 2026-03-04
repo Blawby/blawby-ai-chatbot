@@ -36,11 +36,24 @@ export const InspectorPanel = ({
   const [matterDetail, setMatterDetail] = useState<BackendMatter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
   const conversationMatterId = conversation?.matter_id ?? null;
 
+  const makeCacheKey = (pId: string, eId: string) => `${pId}:${eId}`;
+
   useEffect(() => {
+    if (lastPracticeIdRef.current !== practiceId) {
+      userCacheRef.current.clear();
+      matterCacheRef.current.clear();
+      lastPracticeIdRef.current = practiceId;
+    }
+  }, [practiceId]);
+
+  useEffect(() => {
+    setUserDetail(null);
+    setMatterDetail(null);
     if (!practiceId || !entityId) return;
     const controller = new AbortController();
     setError(null);
@@ -53,47 +66,46 @@ export const InspectorPanel = ({
           const matterId = conversationMatterId;
 
           if (userId) {
-            if (userCacheRef.current.has(userId)) {
-              setUserDetail(userCacheRef.current.get(userId) ?? null);
+            const cacheKey = makeCacheKey(practiceId, userId);
+            if (userCacheRef.current.has(cacheKey)) {
+              setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
             } else {
               const detail = await getUserDetail(practiceId, userId, { signal: controller.signal });
-              userCacheRef.current.set(userId, detail);
+              userCacheRef.current.set(cacheKey, detail);
               setUserDetail(detail);
             }
-          } else {
-            setUserDetail(null);
           }
 
           if (matterId) {
-            if (matterCacheRef.current.has(matterId)) {
-              setMatterDetail(matterCacheRef.current.get(matterId) ?? null);
+            const cacheKey = makeCacheKey(practiceId, matterId);
+            if (matterCacheRef.current.has(cacheKey)) {
+              setMatterDetail(matterCacheRef.current.get(cacheKey) ?? null);
             } else {
               const detail = await getMatter(practiceId, matterId, { signal: controller.signal });
-              matterCacheRef.current.set(matterId, detail);
+              matterCacheRef.current.set(cacheKey, detail);
               setMatterDetail(detail);
             }
-          } else {
-            setMatterDetail(null);
           }
           return;
         }
 
+        const cacheKey = makeCacheKey(practiceId, entityId);
         if (entityType === 'matter') {
-          if (matterCacheRef.current.has(entityId)) {
-            setMatterDetail(matterCacheRef.current.get(entityId) ?? null);
+          if (matterCacheRef.current.has(cacheKey)) {
+            setMatterDetail(matterCacheRef.current.get(cacheKey) ?? null);
           } else {
             const detail = await getMatter(practiceId, entityId, { signal: controller.signal });
-            matterCacheRef.current.set(entityId, detail);
+            matterCacheRef.current.set(cacheKey, detail);
             setMatterDetail(detail);
           }
           return;
         }
 
-        if (userCacheRef.current.has(entityId)) {
-          setUserDetail(userCacheRef.current.get(entityId) ?? null);
+        if (userCacheRef.current.has(cacheKey)) {
+          setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
         } else {
           const detail = await getUserDetail(practiceId, entityId, { signal: controller.signal });
-          userCacheRef.current.set(entityId, detail);
+          userCacheRef.current.set(cacheKey, detail);
           setUserDetail(detail);
         }
       } catch (nextError: unknown) {

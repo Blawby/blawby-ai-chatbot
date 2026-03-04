@@ -355,13 +355,11 @@ export default function DebugConversationsPage() {
       headerContent={
         <WorkspaceConversationHeader
           practiceName={PRACTICE_NAME}
-          practiceLogo={PRACTICE_LOGO}
           activeLabel="Active"
           presenceStatus="active"
           onBack={() => {
             if (!isPractice) setClientView('list');
           }}
-          loading={false}
           rightSlot={isPractice
             ? (
               <div className="flex items-center gap-2">

@@ -625,11 +625,9 @@ export function MainApp({
     return (
       <WorkspaceConversationHeader
         practiceName={resolvedPracticeName}
-        practiceLogo={resolvedPracticeLogo}
         activeLabel={headerActiveTimeLabel}
         presenceStatus={headerPresenceStatus}
         onBack={layoutMode !== 'desktop' ? () => navigate(conversationBackPath) : undefined}
-        loading={isCreatingConversation || !messagesReady}
         rightSlot={headerRightSlot}
       />
     );
@@ -876,14 +874,13 @@ export function MainApp({
                   showBack={layoutMode !== 'desktop'}
                 />
               ) : (
-                <PracticeInvoicesPage
-                  practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={effectivePracticeSlug ?? null}
-                  statusFilter={statusFilter}
-                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
-                  listHeaderLeftControl={controls?.listHeaderLeftControl}
-                  detailHeaderRightControl={controls?.detailHeaderRightControl}
-                />
+                  <PracticeInvoicesPage
+                    practiceId={effectivePracticeId ?? practiceId}
+                    practiceSlug={effectivePracticeSlug ?? null}
+                    statusFilter={statusFilter}
+                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    listHeaderLeftControl={controls?.listHeaderLeftControl}
+                  />
               )}
             </Suspense>
           )
@@ -906,7 +903,6 @@ export function MainApp({
                     statusFilter={statusFilter}
                     renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                     listHeaderLeftControl={controls?.listHeaderLeftControl}
-                    detailHeaderRightControl={controls?.detailHeaderRightControl}
                   />
                 )}
               </Suspense>
@@ -924,7 +920,6 @@ export function MainApp({
                   statusFilter={statusFilter}
                   renderMode="listOnly"
                   listHeaderLeftControl={controls?.listHeaderLeftControl}
-                  detailHeaderRightControl={controls?.detailHeaderRightControl}
                 />
               ) : (
                 <ClientInvoicesPage
@@ -934,7 +929,6 @@ export function MainApp({
                   statusFilter={statusFilter}
                   renderMode="listOnly"
                   listHeaderLeftControl={controls?.listHeaderLeftControl}
-                  detailHeaderRightControl={controls?.detailHeaderRightControl}
                 />
               )}
             </Suspense>

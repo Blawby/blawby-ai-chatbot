@@ -28,7 +28,6 @@ export function EntityList<T extends { id: string }>({
   loadMoreRef,
   className,
 }: EntityListProps<T>) {
-  void onSelect;
   const errorMessage = typeof error === 'string'
     ? error
     : error instanceof Error
@@ -66,7 +65,11 @@ export function EntityList<T extends { id: string }>({
         {items.map((item) => {
           const isSelected = selectedId === item.id;
           return (
-            <div key={item.id} className={cn(isSelected ? 'bg-white/10' : undefined)}>
+            <div
+              key={item.id}
+              className={cn(isSelected ? 'bg-white/10' : undefined, onSelect && 'cursor-pointer')}
+              onClick={onSelect ? () => onSelect(item) : undefined}
+            >
               {renderItem(item, isSelected)}
             </div>
           );

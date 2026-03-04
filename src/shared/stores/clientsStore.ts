@@ -6,13 +6,13 @@ export type ClientListItem = UserDetailRecord;
 type StoreShape = Record<string, ClientListItem[]>;
 
 export const clientsStore = atom<StoreShape>({});
-export const clientsLoaded = new Set<string>();
+export const clientsLoaded = atom<Set<string>>(new Set());
 export const clientsInFlight = new Map<string, Promise<ClientListItem[]>>();
 export let clientsCacheKey: string | null = null;
 
 export const resetClientsStore = () => {
   clientsStore.set({});
-  clientsLoaded.clear();
+  clientsLoaded.set(new Set());
   clientsInFlight.clear();
   clientsCacheKey = null;
 };
@@ -30,14 +30,17 @@ export const invalidateClientsForPractice = (practiceId: string) => {
   if (!practiceId) return;
   const prefix = `${practiceId}:`;
   const snapshot = clientsStore.get();
+  const loadedSnapshot = clientsLoaded.get();
+  const nextLoaded = new Set(loadedSnapshot);
   const next: StoreShape = {};
   for (const [key, value] of Object.entries(snapshot)) {
     if (key.startsWith(prefix)) {
-      clientsLoaded.delete(key);
+      nextLoaded.delete(key);
       clientsInFlight.delete(key);
       continue;
     }
     next[key] = value;
   }
+  clientsLoaded.set(nextLoaded);
   clientsStore.set(next);
 };

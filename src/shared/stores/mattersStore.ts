@@ -6,13 +6,13 @@ export type MatterListItem = BackendMatter;
 type StoreShape = Record<string, MatterListItem[]>;
 
 export const mattersStore = atom<StoreShape>({});
-export const mattersLoaded = new Set<string>();
+export const mattersLoaded = atom<Set<string>>(new Set());
 export const mattersInFlight = new Map<string, Promise<MatterListItem[]>>();
 export let mattersCacheKey: string | null = null;
 
 export const resetMattersStore = () => {
   mattersStore.set({});
-  mattersLoaded.clear();
+  mattersLoaded.set(new Set());
   mattersInFlight.clear();
   mattersCacheKey = null;
 };
@@ -30,14 +30,26 @@ export const invalidateMattersForPractice = (practiceId: string) => {
   if (!practiceId) return;
   const prefix = `${practiceId}:`;
   const snapshot = mattersStore.get();
+  
+  const loadedSnapshot = mattersLoaded.get();
+  const nextLoaded = new Set(loadedSnapshot);
   const next: StoreShape = {};
+  
   for (const [key, value] of Object.entries(snapshot)) {
     if (key.startsWith(prefix)) {
-      mattersLoaded.delete(key);
-      mattersInFlight.delete(key);
+      nextLoaded.delete(key);
       continue;
     }
     next[key] = value;
   }
+  
+  for (const key of mattersInFlight.keys()) {
+    if (key.startsWith(prefix)) {
+      nextLoaded.delete(key);
+      mattersInFlight.delete(key);
+    }
+  }
+  
+  mattersLoaded.set(nextLoaded);
   mattersStore.set(next);
 };

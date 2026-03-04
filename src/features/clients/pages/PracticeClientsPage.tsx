@@ -275,6 +275,7 @@ export const PracticeClientsPage = ({
   statusFilter = null,
   prefetchedItems = [],
   prefetchedLoading = false,
+  prefetchedLoadingMore = false,
   prefetchedError = null,
   onRefetchList,
   listHeaderLeftControl,
@@ -287,6 +288,7 @@ export const PracticeClientsPage = ({
   statusFilter?: UserDetailStatus | null;
   prefetchedItems?: UserDetailRecord[];
   prefetchedLoading?: boolean;
+  prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
   listHeaderLeftControl?: ComponentChildren;
@@ -352,11 +354,11 @@ export const PracticeClientsPage = ({
     };
   }, []);
   const clients = useMemo(() => {
-    void statusFilter;
-    return prefetchedItems.map(buildClientRecord);
+    const items = prefetchedItems.map(buildClientRecord);
+    if (!statusFilter) return items;
+    return items.filter((client) => client.status === statusFilter);
   }, [buildClientRecord, prefetchedItems, statusFilter]);
   const clientsLoading = prefetchedLoading;
-  const clientsLoadingMore = false;
   const clientsError = prefetchedError;
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
@@ -374,7 +376,10 @@ export const PracticeClientsPage = ({
   }, [sortedClients]);
   const letters = useMemo(() => Object.keys(groupedClients).sort(), [groupedClients]);
   useEffect(() => {
-    setCurrentLetter((prev) => prev || letters[0] || '');
+    setCurrentLetter((prev) => {
+      if (prev && letters.includes(prev)) return prev;
+      return letters[0] || '';
+    });
   }, [letters]);
   const selectedClientFromList = useMemo(() => {
     if (!selectedClientIdFromPath) return null;
@@ -802,7 +807,7 @@ export const PracticeClientsPage = ({
               })}
             </li>
           ))}
-          {clientsLoadingMore ? (
+          {prefetchedLoadingMore ? (
             <li className="px-4 py-3 text-xs text-input-placeholder text-center">Loading more clients...</li>
           ) : null}
         </ul>

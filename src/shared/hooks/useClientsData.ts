@@ -22,9 +22,16 @@ export const useClientsData = (
 ) => {
   const { enabled = true } = options;
   const store = useStore(clientsStore);
+  const loadedStore = useStore(clientsLoaded);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastUserIdRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (lastUserIdRef.current !== userId) {
@@ -42,11 +49,11 @@ export const useClientsData = (
     [practiceId, statusParts]
   );
   const items = store[cacheKey] ?? [];
-  const isLoaded = clientsLoaded.has(cacheKey);
+  const isLoaded = loadedStore.has(cacheKey);
 
   const fetch = useCallback(async (fetchOptions: { force?: boolean; signal?: AbortSignal } = {}) => {
     if (!enabled || !practiceId) return;
-    if (!fetchOptions.force && clientsLoaded.has(cacheKey)) return;
+    if (!fetchOptions.force && clientsLoaded.get().has(cacheKey)) return;
 
     const inFlight = clientsInFlight.get(cacheKey);
     if (inFlight) {
@@ -78,16 +85,30 @@ export const useClientsData = (
     clientsInFlight.set(cacheKey, promise);
     try {
       const result = await promise;
-      clientsLoaded.add(cacheKey);
+      if (!isMountedRef.current) return;
+      if (!clientsInFlight.has(cacheKey)) return;
+      
+      const nextLoaded = new Set(clientsLoaded.get());
+      nextLoaded.add(cacheKey);
+      clientsLoaded.set(nextLoaded);
+      
       setClientsForPractice(cacheKey, result);
     } catch (err) {
-      clientsLoaded.delete(cacheKey);
+      if (!isMountedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
+
+      const nextLoaded = new Set(clientsLoaded.get());
+      nextLoaded.delete(cacheKey);
+      clientsLoaded.set(nextLoaded);
+
       const message = err instanceof Error ? err.message : 'Failed to load clients';
       setError(message);
       throw err;
     } finally {
       clientsInFlight.delete(cacheKey);
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [cacheKey, enabled, practiceId, statusFilter]);
 

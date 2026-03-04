@@ -1680,6 +1680,7 @@ export const PracticeMattersPage = ({
             <nav
               className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"
               aria-label="Matter sections"
+              role="tablist"
             >
               {DETAIL_TABS.map((tab) => {
                 const isActive = detailTab === tab.id;

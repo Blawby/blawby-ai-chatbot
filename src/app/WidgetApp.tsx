@@ -248,7 +248,6 @@ export function WidgetApp({
           messagesReady={messagesReady}
           headerContent={<WorkspaceConversationHeader
               practiceName={practiceConfig.name}
-              practiceLogo={practiceConfig.profileImage}
             />}
           heightClassName="h-full"
           useFrame={false}

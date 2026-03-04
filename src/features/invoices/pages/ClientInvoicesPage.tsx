@@ -20,14 +20,12 @@ export function ClientInvoicesPage({
   statusFilter = [],
   renderMode = 'full',
   listHeaderLeftControl,
-  detailHeaderRightControl: _detailHeaderRightControl,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   statusFilter?: string[];
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
   listHeaderLeftControl?: ComponentChildren;
-  detailHeaderRightControl?: ComponentChildren;
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
@@ -86,9 +84,7 @@ export function ClientInvoicesPage({
           emptyState={<div className="p-4 text-sm text-input-placeholder">{statusFilter.length > 0 ? 'No invoices match these filters.' : 'No invoices yet.'}</div>}
           loadMoreRef={hasMore ? loadMoreRef : undefined}
           renderItem={(invoice) => (
-            <button
-              type="button"
-              onClick={() => handleRowClick(invoice)}
+            <div
               className={cn('w-full px-4 py-3 text-left hover:bg-white/[0.03]')}
             >
               <div className="flex items-start justify-between gap-3">
@@ -104,7 +100,7 @@ export function ClientInvoicesPage({
                   <p className="text-sm font-semibold text-input-text">{formatCurrency(invoice.total)}</p>
                 </div>
               </div>
-            </button>
+            </div>
           )}
         />
       </Panel>

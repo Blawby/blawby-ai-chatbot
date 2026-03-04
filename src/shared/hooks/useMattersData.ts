@@ -22,31 +22,36 @@ export const useMattersData = (
 ) => {
   const { enabled = true } = options;
   const store = useStore(mattersStore);
+  const loadedStore = useStore(mattersLoaded);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastUserIdRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    if (lastUserIdRef.current !== userId) {
-      resetMattersStore();
-      lastUserIdRef.current = userId;
-    }
-  }, [userId]);
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  if (lastUserIdRef.current !== userId) {
+    resetMattersStore();
+    lastUserIdRef.current = userId;
+  }
 
   const normalizedFilter = useMemo(
     () => statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean),
     [statusFilter]
   );
   const cacheKey = useMemo(
-    () => `${practiceId}:${statusFilter.join(',')}`,
-    [practiceId, statusFilter]
+    () => `${practiceId}:${normalizedFilter.join(',')}`,
+    [practiceId, normalizedFilter]
   );
   const items = store[cacheKey] ?? [];
-  const isLoaded = mattersLoaded.has(cacheKey);
+  const isLoaded = loadedStore.has(cacheKey);
 
   const fetch = useCallback(async (fetchOptions: { force?: boolean; signal?: AbortSignal } = {}) => {
     if (!enabled || !practiceId) return;
-    if (!fetchOptions.force && mattersLoaded.has(cacheKey)) return;
+    if (!fetchOptions.force && mattersLoaded.get().has(cacheKey)) return;
 
     const inFlight = mattersInFlight.get(cacheKey);
     if (inFlight) {
@@ -77,16 +82,30 @@ export const useMattersData = (
     mattersInFlight.set(cacheKey, promise);
     try {
       const result = await promise;
-      mattersLoaded.add(cacheKey);
+      if (!isMountedRef.current) return;
+      if (!mattersInFlight.has(cacheKey)) return;
+      
+      const nextLoaded = new Set(mattersLoaded.get());
+      nextLoaded.add(cacheKey);
+      mattersLoaded.set(nextLoaded);
+      
       setMattersForPractice(cacheKey, result);
     } catch (err) {
-      mattersLoaded.delete(cacheKey);
+      if (!isMountedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
+
+      const nextLoaded = new Set(mattersLoaded.get());
+      nextLoaded.delete(cacheKey);
+      mattersLoaded.set(nextLoaded);
+
       const message = err instanceof Error ? err.message : 'Failed to load matters';
       setError(message);
       throw err;
     } finally {
       mattersInFlight.delete(cacheKey);
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [cacheKey, enabled, normalizedFilter, practiceId]);
 
