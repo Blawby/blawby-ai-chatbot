@@ -751,11 +751,14 @@ export function MainApp({
     }
     return requested;
   }, [activeConversationId, isClientWorkspace, isPracticeWorkspace, isPublicWorkspace, workspaceView]);
+  const practiceClientsPath = practiceMattersPath
+    ? practiceMattersPath.replace(/\/matters$/, '/clients')
+    : (effectivePracticeSlug ? `/practice/${encodeURIComponent(effectivePracticeSlug)}/clients` : '/practice/clients');
 
   const workspacePage = (
     <WorkspacePage
       view={resolvedWorkspaceView}
-      practiceId={practiceId}
+      practiceId={effectivePracticeId ?? practiceId}
       practiceSlug={
         isPracticeWorkspace
           ? effectivePracticeSlug
@@ -775,29 +778,69 @@ export function MainApp({
       chatView={chatPanel}
       mattersView={
         isPracticeWorkspace
-          ? (practiceMattersPath ? (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
-              <PracticeMattersPage basePath={practiceMattersPath} practiceId={effectivePracticeId ?? null} />
-            </Suspense>
-          ) : null)
+          ? (practiceMattersPath
+            ? (statusFilter) => (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <PracticeMattersPage
+                  basePath={practiceMattersPath}
+                  practiceId={effectivePracticeId ?? null}
+                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  statusFilter={statusFilter}
+                />
+              </Suspense>
+            )
+            : null)
           : isClientWorkspace
-            ? (
+            ? (() => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <ClientMattersPage />
               </Suspense>
-            )
+            ))
             : undefined
       }
-      clientsView={isPracticeWorkspace ? (
-        <Suspense fallback={<WorkspaceSubviewFallback />}>
-          <PracticeClientsPage practiceId={effectivePracticeId ?? null} />
-        </Suspense>
-      ) : undefined}
+      mattersListContent={
+        isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
+          ? (statusFilter) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <PracticeMattersPage
+                basePath={practiceMattersPath}
+                practiceId={effectivePracticeId ?? null}
+                renderMode="listOnly"
+                statusFilter={statusFilter}
+              />
+            </Suspense>
+          )
+          : undefined
+      }
+      clientsView={isPracticeWorkspace
+        ? (statusFilter) => (
+          <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <PracticeClientsPage
+              practiceId={effectivePracticeId ?? null}
+              basePath={practiceClientsPath}
+              renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+              statusFilter={statusFilter}
+            />
+          </Suspense>
+        )
+        : undefined}
+      clientsListContent={isPracticeWorkspace && layoutMode === 'desktop'
+        ? (statusFilter) => (
+          <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <PracticeClientsPage
+              practiceId={effectivePracticeId ?? null}
+              basePath={practiceClientsPath}
+              renderMode="listOnly"
+              statusFilter={statusFilter}
+            />
+          </Suspense>
+        )
+        : undefined}
       invoicesView={
         isPracticeWorkspace
-          ? (
+          ? (statusFilter) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
-              {workspaceView === 'invoiceDetail' ? (
+              {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
                   practiceId={effectivePracticeId ?? null}
                   practiceSlug={effectivePracticeSlug ?? null}
@@ -807,15 +850,17 @@ export function MainApp({
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? null}
                   practiceSlug={effectivePracticeSlug ?? null}
+                  statusFilter={statusFilter}
+                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                 />
               )}
             </Suspense>
           )
           : isClientWorkspace
-            ? (
+            ? (statusFilter) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
-                {workspaceView === 'invoiceDetail' ? (
-                  <ClientInvoiceDetailPage
+                {resolvedWorkspaceView === 'invoiceDetail' ? (
+                <ClientInvoiceDetailPage
                     practiceId={effectivePracticeId ?? null}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     invoiceId={routeInvoiceId ?? null}
@@ -824,11 +869,36 @@ export function MainApp({
                   <ClientInvoicesPage
                     practiceId={effectivePracticeId ?? null}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                    statusFilter={statusFilter}
+                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                   />
                 )}
               </Suspense>
             )
             : undefined
+      }
+      invoicesListContent={
+        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop'
+          ? (statusFilter) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              {isPracticeWorkspace ? (
+                <PracticeInvoicesPage
+                  practiceId={effectivePracticeId ?? null}
+                  practiceSlug={effectivePracticeSlug ?? null}
+                  statusFilter={statusFilter}
+                  renderMode="listOnly"
+                />
+              ) : (
+                <ClientInvoicesPage
+                  practiceId={effectivePracticeId ?? null}
+                  practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                  statusFilter={statusFilter}
+                  renderMode="listOnly"
+                />
+              )}
+            </Suspense>
+          )
+          : undefined
       }
     />
   );

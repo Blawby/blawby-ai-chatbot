@@ -4,51 +4,63 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import {
   listInvoices,
 } from '@/features/invoices/services/invoicesService';
-import { InvoiceFilters, type InvoiceFilterValue } from '@/features/invoices/components/InvoiceFilters';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
-import { InvoicePagination } from '@/features/invoices/components/InvoicePagination';
 import type { InvoiceListResult } from '@/features/invoices/types';
-
-const DEFAULT_FILTERS: InvoiceFilterValue = {
-  status: '',
-  dateFrom: '',
-  dateTo: '',
-  search: '',
-};
 
 const PAGE_SIZE = 10;
 
 export function PracticeInvoicesPage({
   practiceId,
   practiceSlug,
+  statusFilter = [],
+  renderMode = 'full',
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
+  statusFilter?: string[];
+  renderMode?: 'full' | 'listOnly' | 'detailOnly';
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
-  const [filters, setFilters] = useState<InvoiceFilterValue>(DEFAULT_FILTERS);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<InvoiceListResult>({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const queryFilters = useMemo(() => ({ ...filters, page, pageSize: PAGE_SIZE }), [filters, page]);
+  const queryFilters = useMemo(
+    () => ({ status: '', dateFrom: '', dateTo: '', search: '', page, pageSize: PAGE_SIZE }),
+    [page]
+  );
 
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
 
   useEffect(() => {
+    setPage(1);
+    setData({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+  }, [practiceId, statusFilter]);
+
+  useEffect(() => {
     if (!practiceId) return;
     const controller = new AbortController();
-    setLoading(true);
+    setLoading(page === 1);
+    setLoadingMore(page > 1);
     setError(null);
 
-    void listInvoices(practiceId, queryFilters, { signal: controller.signal })
+    void listInvoices(practiceId, queryFilters, { signal: controller.signal, statusFilter })
       .then((result) => {
-        setData(result);
+        setData((prev) => {
+          if (page === 1) {
+            return result;
+          }
+          const merged = [...prev.items, ...result.items];
+          const deduped = merged.filter((item, index, arr) => arr.findIndex((candidate) => candidate.id === item.id) === index);
+          return { ...result, items: deduped };
+        });
       })
       .catch((err) => {
         if (err.name === 'AbortError') return;
@@ -63,20 +75,27 @@ export function PracticeInvoicesPage({
         }
         setError(message);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
 
     return () => controller.abort();
-  }, [practiceId, queryFilters]);
+  }, [page, practiceId, queryFilters, statusFilter]);
 
-  const handleFilterChange = useCallback((next: InvoiceFilterValue) => {
-    setFilters(next);
-    setPage(1);
-  }, []);
+  const hasMore = data.items.length < data.total;
 
-  const handleReset = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
-    setPage(1);
-  }, []);
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMore || loading || loadingMore) return;
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries;
+      if (!entry?.isIntersecting) return;
+      setPage((prev) => prev + 1);
+    }, { rootMargin: '200px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore]);
 
   const handleRowClick = useCallback((invoiceId: string) => {
     if (!practiceSlug) {
@@ -86,29 +105,30 @@ export function PracticeInvoicesPage({
     navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(invoiceId)}`);
   }, [navigate, practiceSlug, showError]);
 
+  if (renderMode === 'detailOnly') {
+    return null;
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-input-text">Invoices</h1>
-        <p className="mt-1 text-sm text-input-placeholder">Practice-wide invoices across matters and clients.</p>
-      </div>
-
-      <InvoiceFilters value={filters} onChange={handleFilterChange} onReset={handleReset} />
+      {renderMode === 'full' ? (
+        <div>
+          <h1 className="text-xl font-semibold text-input-text">Invoices</h1>
+          <p className="mt-1 text-sm text-input-placeholder">Practice-wide invoices across matters and clients.</p>
+        </div>
+      ) : null}
 
       <InvoicesTable
         invoices={data.items}
         loading={loading}
         error={error}
-        emptyMessage={filters.status || filters.search || filters.dateFrom || filters.dateTo ? 'No invoices match these filters.' : 'No invoices yet.'}
+        emptyMessage={statusFilter.length > 0 ? 'No invoices match these filters.' : 'No invoices yet.'}
         onRowClick={(invoice) => handleRowClick(invoice.id)}
       />
-
-      <InvoicePagination
-        page={data.page}
-        pageSize={data.pageSize}
-        total={data.total}
-        onChangePage={setPage}
-      />
+      {hasMore ? <div ref={loadMoreRef} className="h-8" /> : null}
+      {loadingMore ? (
+        <p className="text-sm text-input-placeholder">Loading more invoices...</p>
+      ) : null}
     </div>
   );
 }

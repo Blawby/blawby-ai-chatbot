@@ -1,15 +1,14 @@
 import { Fragment } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
-import { SplitView } from '@/shared/ui/layout/SplitView';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
 import { FormActions } from '@/shared/ui/form';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -37,6 +36,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import {
+  ArrowLeftIcon,
   ArrowUpTrayIcon,
   ChatBubbleLeftRightIcon,
   EllipsisVerticalIcon,
@@ -272,8 +272,18 @@ const ClientDetailPanel = ({
   </div>
 );
 
-export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceId?: string | null }) => {
-  const isMobile = useMobileDetection();
+export const PracticeClientsPage = ({
+  practiceId: routePracticeId,
+  basePath = '/practice/clients',
+  renderMode = 'full',
+  statusFilter = null,
+}: {
+  practiceId?: string | null;
+  basePath?: string;
+  renderMode?: 'full' | 'listOnly' | 'detailOnly';
+  statusFilter?: UserDetailStatus | null;
+}) => {
+  const location = useLocation();
   const { currentPractice } = usePracticeManagement();
   const { showError, showSuccess } = useToastContext();
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -312,9 +322,13 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
     address: undefined,  // Now uses Address object like intake form!
   });
 
+  const statusFilteredClients = useMemo(
+    () => (statusFilter ? clients.filter((client) => client.status === statusFilter) : clients),
+    [clients, statusFilter]
+  );
   const sortedClients = useMemo(
-    () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
-    [clients]
+    () => [...statusFilteredClients].sort((a, b) => a.name.localeCompare(b.name)),
+    [statusFilteredClients]
   );
   const groupedClients = useMemo(() => {
     return sortedClients.reduce<Record<string, ClientRecord[]>>((acc, client) => {
@@ -328,17 +342,21 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
   }, [sortedClients]);
   const letters = useMemo(() => Object.keys(groupedClients).sort(), [groupedClients]);
 
-  const [selectedClientId, setSelectedClientId] = useState(() => sortedClients[0]?.id ?? '');
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
+  const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
+  const selectedClientIdFromPath = pathSegments[0] ? decodeURIComponent(pathSegments[0]) : null;
   const [currentLetter, setCurrentLetter] = useState(() => letters[0] ?? '');
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLLIElement>(null);
-  const pageSize = 50;
+  const pageSize = 20;
   const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
 
-  const selectedClient = useMemo(() => {
-    return sortedClients.find((client) => client.id === selectedClientId) ?? sortedClients[0] ?? null;
-  }, [selectedClientId, sortedClients]);
+  const selectedClientFromList = useMemo(() => {
+    if (!selectedClientIdFromPath) return null;
+    return sortedClients.find((client) => client.id === selectedClientIdFromPath) ?? null;
+  }, [selectedClientIdFromPath, sortedClients]);
+  const [selectedClientFallback, setSelectedClientFallback] = useState<ClientRecord | null>(null);
+  const selectedClient = selectedClientFromList ?? selectedClientFallback;
 
   const selectedClientActivity = useMemo(() => {
     if (!selectedClient) return [];
@@ -346,11 +364,8 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
   }, [memoTimeline, selectedClient]);
 
   const handleSelectClient = useCallback((clientId: string) => {
-    setSelectedClientId(clientId);
-    if (isMobile) {
-      setIsDrawerOpen(true);
-    }
-  }, [isMobile]);
+    location.route(`${basePath}/${encodeURIComponent(clientId)}`);
+  }, [basePath, location]);
 
   const buildClientRecord = useCallback((detail: UserDetailRecord): ClientRecord => {
     const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown Client';
@@ -431,13 +446,6 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
       }
       setClientsHasMore(nextClients.length === pageSize);
       setClientsPage(page);
-      if (options?.replace) {
-        if (nextClients.length > 0) {
-          setSelectedClientId((prev) => (prev && nextClients.some(c => c.id === prev) ? prev : nextClients[0].id));
-        } else {
-          setSelectedClientId('');
-        }
-      }
     } catch (error) {
       console.error('[Clients] Failed to load user details', error);
       setClientsError('Failed to load clients');
@@ -471,6 +479,33 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
         }));
       });
   }, [activePracticeId, memoTimeline, refreshClientMemos, selectedClient]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedClientIdFromPath) {
+      setSelectedClientFallback(null);
+      return;
+    }
+    if (selectedClientFromList) {
+      setSelectedClientFallback(null);
+      return;
+    }
+    const controller = new AbortController();
+    getUserDetail(activePracticeId, selectedClientIdFromPath)
+      .then((detail) => {
+        if (controller.signal.aborted) return;
+        if (!detail) {
+          setSelectedClientFallback(null);
+          return;
+        }
+        setSelectedClientFallback(buildClientRecord(detail));
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error('[Clients] Failed to load selected client detail', error);
+        setSelectedClientFallback(null);
+      });
+    return () => controller.abort();
+  }, [activePracticeId, buildClientRecord, selectedClientFromList, selectedClientIdFromPath]);
 
   const handleMemoSubmit = useCallback(async (text: string) => {
     if (!activePracticeId || !selectedClient) return;
@@ -637,12 +672,12 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
       await deleteUserDetail(activePracticeId, selectedClient.id);
       await fetchClientsPage(1, { replace: true });
       showSuccess('Client deleted', 'The client has been removed.');
-      setIsDrawerOpen(false);
+      location.route(basePath);
     } catch (error) {
       console.error('[Clients] Failed to delete client', error);
       showError('Could not delete client', 'Please try again.');
     }
-  }, [activePracticeId, fetchClientsPage, selectedClient, showError, showSuccess]);
+  }, [activePracticeId, basePath, fetchClientsPage, location, selectedClient, showError, showSuccess]);
 
   const handleSubmitAddClient = useCallback(async () => {
     if (!activePracticeId) return;
@@ -822,6 +857,202 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
     </Modal>
   );
 
+  const clientListPane = (
+    <div className="relative h-full">
+      <div
+        ref={listRef}
+        className="h-full overflow-y-auto"
+      >
+        <ul>
+          {letters.map((letter) => (
+            <Fragment key={letter}>
+              <li
+                data-letter={letter}
+                className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder"
+              >
+                {letter}
+              </li>
+              <li aria-hidden="true" className="border-b border-line-glass/20" />
+              {groupedClients[letter].map((client, index) => {
+                const isActive = client.id === selectedClient?.id;
+                const nameParts = splitName(client.name);
+                const isLastInLetterGroup = index === groupedClients[letter].length - 1;
+                return (
+                  <li key={client.id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSelectClient(client.id)}
+                      aria-current={isActive ? 'true' : undefined}
+                      className={cn(
+                        'w-full justify-start px-4 py-3.5 h-auto rounded-none transition-colors duration-150',
+                        isActive
+                          ? 'bg-white/5'
+                          : 'hover:bg-white/[0.03]'
+                      )}
+                    >
+                      <div className="flex items-center gap-4 w-full">
+                        <Avatar
+                          name={client.name}
+                          size="sm"
+                          className="text-input-text"
+                        />
+                        <div className="min-w-0 flex-1 text-left">
+                          <p className="text-sm text-input-text truncate">
+                            {nameParts.first ? (
+                              <>
+                                <span>{nameParts.first} </span>
+                                <span className="font-semibold">{nameParts.last}</span>
+                              </>
+                            ) : (
+                              <span className="font-semibold">{nameParts.last}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </Button>
+                    {!isLastInLetterGroup && (
+                      <div aria-hidden="true" className="border-b border-line-glass/20" />
+                    )}
+                  </li>
+                );
+              })}
+            </Fragment>
+          ))}
+          <li
+            ref={loadMoreRef}
+            className="px-4 py-3 text-xs text-input-placeholder text-center"
+          >
+            {clientsLoadingMore
+              ? 'Loading more clients...'
+              : clientsHasMore
+                ? 'Scroll to load more'
+                : 'No more clients'}
+          </li>
+        </ul>
+      </div>
+      <div className="absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder">
+        {letters.map((letter) => (
+          <Button
+            key={letter}
+            variant="ghost"
+            size="sm"
+            onClick={() => scrollToLetter(letter)}
+            className={cn(
+              'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
+              "before:absolute before:-inset-3.5 before:content-['']",
+              currentLetter === letter
+                ? 'text-accent-500 font-bold bg-accent-500/10'
+                : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
+            )}
+          >
+            {letter}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const clientDetailBody = selectedClient ? (
+    <ClientDetailPanel
+      client={selectedClient}
+      activity={selectedClientActivity}
+      practiceId={activePracticeId}
+      onAddMemo={handleMemoSubmit}
+      memoSubmitting={memoSubmitting}
+      onEditMemo={handleMemoEdit}
+      onDeleteMemo={handleMemoDelete}
+      memoActionId={memoActionId}
+      onEditClient={handleOpenEditClient}
+      onDeleteClient={handleDeleteClient}
+    />
+  ) : (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
+          <UserIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
+        </div>
+        <h3 className="mt-4 text-sm font-semibold text-input-text">Select a client</h3>
+        <p className="mt-2 text-sm text-input-placeholder">
+          Choose a client from the list to view their details.
+        </p>
+      </div>
+    </div>
+  );
+
+  if (renderMode === 'listOnly') {
+    return (
+      <div className="h-full min-h-0 overflow-hidden">
+        {clientsLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-input-placeholder">Loading clients...</p>
+          </div>
+        ) : clientsError ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-input-placeholder">{clientsError}</p>
+          </div>
+        ) : sortedClients.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-input-placeholder">No clients found.</p>
+          </div>
+        ) : (
+          clientListPane
+        )}
+      </div>
+    );
+  }
+
+  if (renderMode === 'detailOnly') {
+    return (
+      <>
+        <div className="h-full min-h-0 overflow-hidden">
+          {clientsLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-sm text-input-placeholder">Loading clients...</p>
+            </div>
+          ) : clientsError ? (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-sm text-input-placeholder">{clientsError}</p>
+            </div>
+          ) : (
+            clientDetailBody
+          )}
+        </div>
+        {addClientModal}
+        {editClientModal}
+      </>
+    );
+  }
+
+  if (selectedClientIdFromPath) {
+    return (
+      <>
+        <Page className="h-full">
+          <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
+            <PageHeader
+              title="Client"
+              subtitle={selectedClient?.name ?? 'Client detail'}
+              actions={(
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<ArrowLeftIcon className="h-4 w-4" />}
+                  onClick={() => location.route(basePath)}
+                >
+                  Back to clients
+                </Button>
+              )}
+            />
+            <Panel className="flex-1 min-h-0 overflow-hidden">
+              {clientDetailBody}
+            </Panel>
+          </div>
+        </Page>
+        {addClientModal}
+        {editClientModal}
+      </>
+    );
+  }
+
   if (clientsLoading) {
     return (
       <>
@@ -910,157 +1141,10 @@ export const PracticeClientsPage = ({ practiceId: routePracticeId }: { practiceI
               </div>
             )}
           />
-          <div className="flex-1 min-h-0 overflow-hidden bg-transparent">
-            <SplitView
-              className="h-full min-h-[560px]"
-              primary={(
-                <div className="relative h-full">
-                  <div
-                    ref={listRef}
-                    className="h-full overflow-y-auto"
-                  >
-                    <ul>
-                      {letters.map((letter) => (
-                        <Fragment key={letter}>
-                          <li
-                            data-letter={letter}
-                            className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder"
-                          >
-                            {letter}
-                          </li>
-                          <li aria-hidden="true" className="border-b border-line-glass/20" />
-                          {groupedClients[letter].map((client, index) => {
-                            const isActive = client.id === selectedClient?.id;
-                            const nameParts = splitName(client.name);
-                            const isLastInLetterGroup = index === groupedClients[letter].length - 1;
-                            return (
-                              <li key={client.id}>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => handleSelectClient(client.id)}
-                                  aria-current={isActive ? 'true' : undefined}
-                                  className={cn(
-                                    'w-full justify-start px-4 py-3.5 h-auto rounded-none transition-colors duration-150',
-                                    isActive
-                                      ? 'bg-white/5'
-                                      : 'hover:bg-white/[0.03]'
-                                  )}
-                                >
-                                  <div className="flex items-center gap-4 w-full">
-                                    <Avatar
-                                      name={client.name}
-                                      size="sm"
-                                      className="text-input-text"
-                                    />
-                                    <div className="min-w-0 flex-1 text-left">
-                                      <p className="text-sm text-input-text truncate">
-                                        {nameParts.first ? (
-                                          <>
-                                            <span>{nameParts.first} </span>
-                                            <span className="font-semibold">{nameParts.last}</span>
-                                          </>
-                                        ) : (
-                                          <span className="font-semibold">{nameParts.last}</span>
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </Button>
-                                {!isLastInLetterGroup && (
-                                  <div aria-hidden="true" className="border-b border-line-glass/20" />
-                                )}
-                              </li>
-                            );
-                          })}
-                        </Fragment>
-                      ))}
-                      <li
-                        ref={loadMoreRef}
-                        className="px-4 py-3 text-xs text-input-placeholder text-center"
-                      >
-                        {clientsLoadingMore
-                          ? 'Loading more clients...'
-                          : clientsHasMore
-                            ? 'Scroll to load more'
-                            : 'No more clients'}
-                      </li>
-                    </ul>
-                  </div>
-                  <div className="absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder">
-                    {letters.map((letter) => (
-                      <Button
-                        key={letter}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => scrollToLetter(letter)}
-                        className={cn(
-                          'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
-                          // Increase interactive hit area to at least 44x44
-                          "before:absolute before:-inset-3.5 before:content-['']",
-                          currentLetter === letter
-                            ? 'text-accent-500 font-bold bg-accent-500/10'
-                            : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
-                        )}
-                      >
-                        {letter}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              secondary={selectedClient ? (
-                <ClientDetailPanel
-                  client={selectedClient}
-                  activity={selectedClientActivity}
-                  practiceId={activePracticeId}
-                  onAddMemo={handleMemoSubmit}
-                  memoSubmitting={memoSubmitting}
-                  onEditMemo={handleMemoEdit}
-                  onDeleteMemo={handleMemoDelete}
-                  memoActionId={memoActionId}
-                  onEditClient={handleOpenEditClient}
-                  onDeleteClient={handleDeleteClient}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-                      <UserIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
-                    </div>
-                    <h3 className="mt-4 text-sm font-semibold text-input-text">Select a client</h3>
-                    <p className="mt-2 text-sm text-input-placeholder">
-                      Choose a client from the list to view their details.
-                    </p>
-                  </div>
-                </div>
-              )}
-              secondaryClassName="hidden md:block"
-            />
-          </div>
+          <Panel className="flex-1 min-h-0 overflow-hidden bg-transparent">
+            {clientListPane}
+          </Panel>
         </div>
-
-        {selectedClient && (
-          <Modal
-            isOpen={isMobile && isDrawerOpen}
-            onClose={() => setIsDrawerOpen(false)}
-            type="drawer"
-            title="Client Details"
-          >
-            <ClientDetailPanel
-              client={selectedClient}
-              activity={selectedClientActivity}
-              practiceId={activePracticeId}
-              onAddMemo={handleMemoSubmit}
-              memoSubmitting={memoSubmitting}
-              onEditMemo={handleMemoEdit}
-              onDeleteMemo={handleMemoDelete}
-              memoActionId={memoActionId}
-              onEditClient={handleOpenEditClient}
-              onDeleteClient={handleDeleteClient}
-              paddingClassName="px-0 py-0"
-            />
-          </Modal>
-        )}
       </Page>
       {addClientModal}
       {editClientModal}

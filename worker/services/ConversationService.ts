@@ -389,6 +389,7 @@ export class ConversationService {
     userId?: string | null;
     bypassParticipantFilter?: boolean;
     status?: 'active' | 'archived' | 'closed';
+    assignedTo?: 'none';
     limit?: number;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100); // Max 100
@@ -431,6 +432,10 @@ export class ConversationService {
     if (options.status) {
       query += ' AND conversations.status = ?';
       bindings.push(options.status);
+    }
+
+    if (options.assignedTo === 'none') {
+      query += " AND (conversations.assigned_to IS NULL OR conversations.assigned_to = '')";
     }
 
     query += ' ORDER BY conversations.updated_at DESC LIMIT ?';

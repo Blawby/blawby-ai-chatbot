@@ -6,7 +6,9 @@ import { cn } from '@/shared/utils/cn';
 
 export interface SecondaryPanelProps {
   sections: NavSection[];
-  activeHref: string;
+  activeHref?: string;
+  activeItemId?: string | null;
+  onSelect?: (id: string) => void;
   className?: string;
 }
 
@@ -25,12 +27,14 @@ const isHrefActive = (currentPath: string, itemHref: string): boolean => {
 export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
   sections,
   activeHref,
+  activeItemId,
+  onSelect,
   className,
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const resolvedPath = normalizePath(activeHref || location.path);
-  const activeItemId = sections
+  const resolvedActiveItemId = activeItemId ?? sections
     .flatMap((section) => section.items)
     .reduce<{ id: string | null; score: number }>((best, item) => {
       if (!isHrefActive(resolvedPath, item.href)) return best;
@@ -53,7 +57,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
             ) : null}
             <div className="flex flex-col gap-1">
               {section.items.map((item) => {
-                const isActive = activeItemId === item.id;
+                const isActive = resolvedActiveItemId === item.id;
                 return (
                   <button
                     key={item.id}
@@ -63,7 +67,13 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
                       isActive ? 'active nav-item-active' : 'nav-item-inactive backdrop-blur-xl'
                     )}
                     aria-current={isActive ? 'page' : undefined}
-                    onClick={() => navigate(item.href)}
+                    onClick={() => {
+                      if (onSelect) {
+                        onSelect(item.id);
+                        return;
+                      }
+                      navigate(item.href);
+                    }}
                     title={item.label}
                   >
                     <span className="truncate">{item.label}</span>
