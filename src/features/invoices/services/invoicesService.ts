@@ -30,7 +30,7 @@ import type {
   InvoiceSummary,
 } from '@/features/invoices/types';
 
-type FetchOptions = { signal?: AbortSignal };
+type FetchOptions = { signal?: AbortSignal; statusFilter?: string[] };
 
 const FALLBACK_PAGE_SIZE = 10;
 
@@ -67,11 +67,18 @@ const matchesDateRange = (candidateDate: string | null, dateFrom: string, dateTo
   return true;
 };
 
-const filterInvoiceSummaries = (items: InvoiceSummary[], filters: InvoiceListFilters): InvoiceSummary[] => {
+const filterInvoiceSummaries = (
+  items: InvoiceSummary[],
+  filters: InvoiceListFilters,
+  statusFilter: string[] = []
+): InvoiceSummary[] => {
   const search = (filters.search || '').trim().toLowerCase();
   const status = (filters.status || '').trim().toLowerCase();
+  const normalizedStatusFilter = statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean);
+  const allowedStatuses = normalizedStatusFilter.length > 0 ? new Set(normalizedStatusFilter) : null;
 
   return items.filter((item) => {
+    if (allowedStatuses && !allowedStatuses.has(item.status.toLowerCase())) return false;
     if (status && item.status.toLowerCase() !== status) return false;
     if (!matchesDateRange(item.issueDate ?? item.createdAt, filters.dateFrom, filters.dateTo)) return false;
     if (!search) return true;
@@ -112,7 +119,11 @@ export const listInvoices = async (
       const timeb = new Date(b.updatedAt).getTime();
       return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
     });
-  return paginate(filterInvoiceSummaries(summaries, filters), filters.page ?? 1, filters.pageSize ?? FALLBACK_PAGE_SIZE);
+  return paginate(
+    filterInvoiceSummaries(summaries, filters, options.statusFilter),
+    filters.page ?? 1,
+    filters.pageSize ?? FALLBACK_PAGE_SIZE
+  );
 };
 
 export const getInvoice = async (
@@ -147,7 +158,11 @@ export const listClientInvoices = async (
       const timeb = new Date(b.updatedAt).getTime();
       return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
     });
-  return paginate(filterInvoiceSummaries(summaries, filters), filters.page ?? 1, filters.pageSize ?? FALLBACK_PAGE_SIZE);
+  return paginate(
+    filterInvoiceSummaries(summaries, filters, options.statusFilter),
+    filters.page ?? 1,
+    filters.pageSize ?? FALLBACK_PAGE_SIZE
+  );
 };
 
 export const getClientInvoice = async (

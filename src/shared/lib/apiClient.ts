@@ -807,14 +807,15 @@ export async function listUserDetails(
 
 export async function getUserDetail(
   practiceId: string,
-  userDetailId: string
+  userDetailId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
     `/api/user-details/${encodeURIComponent(practiceId)}`,
-    { params: { client_id: userDetailId } }
+    { params: { client_id: userDetailId }, signal: config?.signal }
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data) && payload.data.length > 0) {

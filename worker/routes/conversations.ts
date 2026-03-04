@@ -454,12 +454,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       await requirePracticeMember(request, env, practiceId, 'paralegal');
 
       const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const assignedTo = url.searchParams.get('assignedTo');
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const conversations = await conversationService.getConversations({
         practiceId,
         userId,
         bypassParticipantFilter: true,
         status: status || undefined,
+        assignedTo: assignedTo === 'none' ? 'none' : undefined,
         limit
       });
       return createJsonResponse({ conversations });
@@ -468,6 +470,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     // Signed-in client: Return list of their conversations with this practice
     const matterId = url.searchParams.get('matterId');
     const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+    const assignedTo = url.searchParams.get('assignedTo');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     
     const conversations = await conversationService.getConversations({
@@ -475,6 +478,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: matterId || null,
       userId, // Filter to conversations where user is a participant
       status: status || undefined,
+      assignedTo: assignedTo === 'none' ? 'none' : undefined,
       limit
     });
     

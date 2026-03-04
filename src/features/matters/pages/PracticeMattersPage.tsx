@@ -3,20 +3,13 @@ import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
-import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
 import { Button } from '@/shared/ui/Button';
 import { Breadcrumbs } from '@/shared/ui/navigation';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { CurrencyInput } from '@/shared/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/shared/ui/dropdown';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
-import { ChevronUpDownIcon, FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
@@ -88,14 +81,12 @@ import {
   buildNoteTimelineItem,
   buildUpdatePayload,
   extractAssigneeIds,
-  isClosedStatus,
   isEmailLike,
   isUuid,
   prunePayload,
   resolveClientLabel,
   resolveOptionLabel,
   sortByTimestamp,
-  statusOrder,
   toExpense,
   toMatterDetail,
   toMatterTask,
@@ -108,29 +99,8 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-type MatterTabId = 'all' | 'open' | 'closed';
 type DetailTabId = 'overview' | 'tasks' | 'time' | 'messages';
-type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
 type IntakeTriageStatus = 'pending_review' | 'accepted' | 'declined' | string;
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const SORT_LABELS: Record<SortOption, string> = {
-  updated: 'Date updated',
-  title: 'Title',
-  status: 'Status',
-  client: 'Client',
-  assigned: 'Assigned',
-  practice_area: 'Practice area'
-};
-
-const TAB_HEADINGS: Record<MatterTabId, string> = {
-  all: 'All',
-  open: 'Open',
-  closed: 'Closed'
-};
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -139,13 +109,7 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'messages', label: 'Messages' }
 ];
 
-const buildTabs = (counts: { open: number; closed: number; all: number }): TabItem[] => [
-  { id: 'all', label: 'All', count: counts.all },
-  { id: 'open', label: 'Open', count: counts.open },
-  { id: 'closed', label: 'Closed', count: counts.closed }
-];
-
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 const resolveQueryValue = (value?: string | string[] | null) => {
   if (!value) return null;
@@ -283,9 +247,16 @@ const BillingErrorBoundary = ({ children, onRetry }: { children: preact.Componen
 type PracticeMattersPageProps = {
   basePath?: string;
   practiceId?: string | null;
+  renderMode?: 'full' | 'listOnly' | 'detailOnly';
+  statusFilter?: string[];
 };
 
-export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId: routePracticeId = null }: PracticeMattersPageProps) => {
+export const PracticeMattersPage = ({
+  basePath = '/practice/matters',
+  practiceId: routePracticeId = null,
+  renderMode = 'full',
+  statusFilter,
+}: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
   const { showError } = useToastContext();
@@ -296,10 +267,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const firstSegment = pathSegments[0] ?? '';
   const _secondSegment = pathSegments[1] ?? '';
-  const isCreateRoute = firstSegment === 'new';
-  const selectedMatterId = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
+  const isCreateRouteFromPath = firstSegment === 'new';
+  const selectedMatterIdFromPath = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
+  const isCreateRoute = renderMode === 'listOnly' ? false : isCreateRouteFromPath;
+  const selectedMatterId = renderMode === 'listOnly' ? null : selectedMatterIdFromPath;
   const convertIntakeUuid = useMemo(
     () => resolveQueryValue(location.query?.convertIntake),
     [location.query?.convertIntake]
@@ -332,8 +305,6 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
   const [mattersPage, setMattersPage] = useState(1);
   const [mattersHasMore, setMattersHasMore] = useState(true);
   const [mattersLoadingMore, setMattersLoadingMore] = useState(false);
-  const [activeTab, setActiveTab] = useState<MatterTabId>('all');
-  const [sortOption, setSortOption] = useState<SortOption>('updated');
 
   // ── Detail state ──────────────────────────────────────────────────────────
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
@@ -691,6 +662,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
 
   // ── Data fetching: matters list ───────────────────────────────────────────
   useEffect(() => {
+    if (renderMode === 'detailOnly') {
+      setMatters([]);
+      setMattersError(null);
+      setMattersLoading(false);
+      setMattersHasMore(false);
+      setMattersPage(1);
+      return;
+    }
     if (!activePracticeId) {
       setMatters([]);
       setMattersError(null);
@@ -718,7 +697,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
       .finally(() => setMattersLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, mattersRefreshKey]);
+  }, [activePracticeId, mattersRefreshKey, renderMode]);
 
   const refreshMatters = useCallback(() => setMattersRefreshKey((prev) => prev + 1), []);
 
@@ -1330,39 +1309,20 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
     assigneeIds: extractAssigneeIds(m)
   })), [matters, clientNameById, serviceNameById]);
 
-  const matterSummaries = useMemo(() => matterEntries.map((e) => e.summary), [matterEntries]);
+  const statusFilteredMatterEntries = useMemo(() => {
+    if (!statusFilter || statusFilter.length === 0) return matterEntries;
+    const accepted = new Set(statusFilter.map((value) => value.toLowerCase()));
+    return matterEntries.filter((entry) => accepted.has(entry.summary.status.toLowerCase()));
+  }, [matterEntries, statusFilter]);
+  const matterSummaries = useMemo(() => statusFilteredMatterEntries.map((e) => e.summary), [statusFilteredMatterEntries]);
 
-  const counts = useMemo(() => {
-    const all = matterSummaries.length;
-    const closed = matterSummaries.filter((m) => isClosedStatus(m.status)).length;
-    return { all, closed, open: all - closed };
-  }, [matterSummaries]);
-
-  const tabs = useMemo(() => buildTabs(counts), [counts]);
-
-  const filteredMatters = useMemo(() => {
-    if (activeTab === 'all') return matterEntries;
-    if (activeTab === 'open') return matterEntries.filter((e) => !isClosedStatus(e.summary.status));
-    return matterEntries.filter((e) => isClosedStatus(e.summary.status));
-  }, [activeTab, matterEntries]);
+  const filteredMatters = statusFilteredMatterEntries;
 
   const sortedMatterSummaries = useMemo(() => {
-    const entries = [...filteredMatters];
-    if (sortOption === 'title') entries.sort((a, b) => a.summary.title.localeCompare(b.summary.title));
-    else if (sortOption === 'status') entries.sort((a, b) => statusOrder[a.summary.status] - statusOrder[b.summary.status]);
-    else if (sortOption === 'client') entries.sort((a, b) => a.summary.clientName.localeCompare(b.summary.clientName));
-    else if (sortOption === 'practice_area') entries.sort((a, b) => (a.summary.practiceArea ?? '').localeCompare(b.summary.practiceArea ?? ''));
-    else if (sortOption === 'assigned') {
-      entries.sort((a, b) => {
-        const aName = a.assigneeIds[0] ? assigneeNameById.get(a.assigneeIds[0]) ?? '' : '';
-        const bName = b.assigneeIds[0] ? assigneeNameById.get(b.assigneeIds[0]) ?? '' : '';
-        return aName.localeCompare(bName);
-      });
-    } else {
-      entries.sort((a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime());
-    }
-    return entries.map((e) => e.summary);
-  }, [filteredMatters, sortOption, assigneeNameById]);
+    return [...filteredMatters]
+      .sort((a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime())
+      .map((e) => e.summary);
+  }, [filteredMatters]);
 
   const selectedMatterSummary = useMemo(
     () => selectedMatterId ? matterSummaries.find((m) => m.id === selectedMatterId) ?? null : null,
@@ -2075,6 +2035,45 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
   // =========================================================================
   // Render — list route (default)
   // =========================================================================
+  if (renderMode === 'detailOnly') {
+    return null;
+  }
+
+  if (renderMode === 'listOnly') {
+    return (
+      <div className="h-full min-h-0 flex flex-col gap-3 p-3">
+        {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
+        <Panel className="min-h-0 flex-1 overflow-hidden">
+          <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-input-text">Matters</h2>
+              <p className="text-xs text-input-placeholder">{sortedMatterSummaries.length} showing</p>
+            </div>
+          </header>
+          {mattersLoading ? (
+            <LoadingState message="Loading matters..." />
+          ) : sortedMatterSummaries.length === 0 ? (
+            <div className="p-4 text-sm text-input-placeholder">No matters found.</div>
+          ) : (
+            <ul className="divide-y divide-line-default">
+              {sortedMatterSummaries.map((matter) => (
+                <MatterListItem
+                  key={matter.id}
+                  matter={matter}
+                  onSelect={(selected) => goToDetail(selected.id)}
+                />
+              ))}
+            </ul>
+          )}
+          {mattersHasMore && !mattersLoading && <div ref={loadMoreRef} className="h-10" />}
+          {mattersLoadingMore && (
+            <p className="px-6 py-4 text-sm text-input-placeholder">Loading more matters...</p>
+          )}
+        </Panel>
+      </div>
+    );
+  }
+
   return (
     <Page className="min-h-full">
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
@@ -2099,40 +2098,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters', practiceId
           </WarningBanner>
         )}
 
-        <Tabs
-          items={tabs}
-          activeId={activeTab}
-          onChange={(id) => setActiveTab(id as MatterTabId)}
-          actions={
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm" icon={<ChevronUpDownIcon className="h-4 w-4" />} iconPosition="right">
-                  Sort by {SORT_LABELS[sortOption]}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <div className="py-1">
-                  {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
-                    <DropdownMenuItem
-                      key={option}
-                      onSelect={() => setSortOption(option)}
-                      className={option === sortOption ? 'font-semibold text-input-text' : ''}
-                    >
-                      {SORT_LABELS[option]}
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
-        />
-
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
 
         <Panel className="overflow-hidden">
           <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-4 sm:px-6 lg:px-8">
             <div>
-              <h2 className="text-sm font-semibold text-input-text">{TAB_HEADINGS[activeTab]} Matters</h2>
+              <h2 className="text-sm font-semibold text-input-text">Matters</h2>
               <p className="text-xs text-input-placeholder">{sortedMatterSummaries.length} showing</p>
             </div>
           </header>

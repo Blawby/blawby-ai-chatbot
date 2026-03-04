@@ -30,6 +30,7 @@ interface ConversationListViewProps {
   activeConversationId?: string | null;
   headerControls?: ComponentChildren;
   showTitle?: boolean;
+  assignedToFilter?: 'none' | null;
 }
 
 const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
@@ -60,7 +61,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   showSendMessageButton = true,
   activeConversationId = null,
   headerControls,
-  showTitle = true
+  showTitle = true,
 }) => {
   const { t } = useTranslation();
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';

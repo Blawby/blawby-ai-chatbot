@@ -461,7 +461,7 @@ export const listMatters = async (
 
   const params = new URLSearchParams();
   params.set('page', String(options.page ?? 1));
-  params.set('limit', String(options.limit ?? 100));
+  params.set('limit', String(options.limit ?? 20));
 
   const payload = await requestData(
     apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {

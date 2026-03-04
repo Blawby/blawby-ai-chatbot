@@ -9,6 +9,7 @@ interface UseConversationsOptions {
   practiceId?: string;
   matterId?: string | null;
   status?: ConversationStatus | null;
+  assignedTo?: 'none' | null;
   scope?: 'practice' | 'all';
   limit?: number;
   offset?: number;
@@ -49,6 +50,7 @@ export function useConversations({
   practiceId,
   matterId,
   status,
+  assignedTo,
   scope = 'practice',
   limit,
   offset,
@@ -130,6 +132,9 @@ export function useConversations({
       if (status) {
         params.set('status', status);
       }
+      if (assignedTo != null) {
+        params.set('assignedTo', String(assignedTo));
+      }
       if (limit) {
         params.set('limit', limit.toString());
       }
@@ -209,7 +214,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady, preferOrgScopedPracticeList]);
+  }, [practiceId, matterId, status, assignedTo, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady, preferOrgScopedPracticeList]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
@@ -329,7 +334,7 @@ export function useConversations({
         abortControllerRef.current.abort();
       }
     };
-  }, [practiceId, matterId, status, fetchConversations, scope, enabled, sessionReady]);
+  }, [practiceId, matterId, status, assignedTo, fetchConversations, scope, enabled, sessionReady]);
 
   return {
     conversations,
