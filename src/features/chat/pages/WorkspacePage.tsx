@@ -249,6 +249,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'settings') {
       return getSettingsNavConfig(navCtx);
     }
+    if (workspace === 'public') {
+      return { rail: [] };
+    }
     return isPracticeWorkspace ? getPracticeNavConfig(navCtx) : getClientNavConfig(navCtx);
   }, [isPracticeWorkspace, normalizedRole, practiceSlug, view]);
   const resolvedConversations = mockConversations ?? conversations;
@@ -409,10 +412,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     fetchedPreviewIds.current = new Set();
     previewFailureCounts.current = {};
     setConversationPreviews(mockConversationPreviews ?? {});
-  }, [practiceId, mockConversationPreviews]);
+  }, [practiceId, mockConversationPreviews, mockConversations]);
 
   useEffect(() => {
-    if (mockConversationPreviews) return;
+    if (mockConversationPreviews || mockConversations) return;
     if (view === 'conversation' || resolvedConversations.length === 0 || !practiceId) {
       return;
     }
