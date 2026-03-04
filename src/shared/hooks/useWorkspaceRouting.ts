@@ -62,6 +62,7 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 import { getWorkspaceConversationsPath, getWorkspaceMattersPath } from '@/shared/utils/workspace';
 import type { LayoutMode } from '@/app/MainApp';
+import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export const useWorkspaceRouting = ({
   session,
   routing,
 }: UseWorkspaceRoutingOptions) => {
+  const isMobile = useMobileDetection();
 
   // ── workspace flags ────────────────────────────────────────────────────────
 
@@ -262,15 +264,13 @@ export const useWorkspaceRouting = ({
 
   /**
    * 'widget'   – embedded in a 3rd-party site via iframe (?v=widget)
-   * 'desktop'  – practice dashboard
-   * 'mobile'   – authenticated client on phone
+   * 'desktop'  – full app shell
+   * 'mobile'   – compact app shell
    */
   const layoutMode = useMemo((): LayoutMode => {
-    if (isPracticeWorkspace) return 'desktop';
-    if (isClientWorkspace) return 'mobile';
     if (isPublicWorkspace && isWidget) return 'widget';
-    return 'mobile'; // Default for public non-widget view
-  }, [isClientWorkspace, isPracticeWorkspace, isPublicWorkspace, isWidget]);
+    return isMobile ? 'mobile' : 'desktop';
+  }, [isPublicWorkspace, isWidget, isMobile]);
 
   // ── role & permissions ────────────────────────────────────────────────────
 

@@ -37,13 +37,18 @@ import { useConversationSystemMessages } from '@/features/chat/hooks/useConversa
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
 import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeConversationHeaderMenu';
+import Modal from '@/shared/components/Modal';
+import { Button } from '@/shared/ui/Button';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -69,6 +74,8 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
+  routeSettingsView,
+  routeSettingsAppId,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -82,6 +89,8 @@ export function MainApp({
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   routeInvoiceId?: string;
+  routeSettingsView?: SettingsView;
+  routeSettingsAppId?: string;
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -93,9 +102,11 @@ export function MainApp({
   const [isRecording, setIsRecording] = useState(false);
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  const [isConversationDetailsOpen, setIsConversationDetailsOpen] = useState(false);
   const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
   const preAuthUserIdRef = useRef<string | null>(null);
+  const isMobile = useMobileDetection();
 
   const { navigate } = useNavigation();
   const { showError, showInfo } = useToastContext();
@@ -148,7 +159,6 @@ export function MainApp({
     isPublicWorkspace,
     isPracticeWorkspace,
     isClientWorkspace,
-    isAuthenticatedClient,
     effectivePracticeId,
     effectivePracticeSlug,
     resolvedPracticeSlug,
@@ -581,13 +591,36 @@ export function MainApp({
   }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
   const headerRightSlot = useMemo(() => {
+    const detailsButton = (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
+        aria-label="Open conversation details"
+        onClick={() => setIsConversationDetailsOpen(true)}
+      >
+        <InformationCircleIcon className="h-4 w-4" aria-hidden="true" />
+      </Button>
+    );
+
     if (isPracticeWorkspace) {
-      return <PracticeConversationHeaderMenu practiceId={practiceId} conversationId={activeConversationId ?? undefined} />;
+      return (
+        <div className="flex items-center gap-2">
+          {detailsButton}
+          <PracticeConversationHeaderMenu practiceId={practiceId} conversationId={activeConversationId ?? undefined} />
+        </div>
+      );
     }
     if (conversationMode === 'REQUEST_CONSULTATION') {
-      return <BriefStrengthIndicator intakeConversationState={intakeConversationState} />;
+      return (
+        <div className="flex items-center gap-2">
+          <BriefStrengthIndicator intakeConversationState={intakeConversationState} />
+          {detailsButton}
+        </div>
+      );
     }
-    return undefined;
+    return detailsButton;
   }, [isPracticeWorkspace, practiceId, activeConversationId, conversationMode, intakeConversationState]);
 
   const conversationHeaderContent = useMemo(() => {
@@ -670,7 +703,7 @@ export function MainApp({
               slug: resolvedPracticeSlug,
               introMessage: practiceConfig.introMessage,
             }}
-            onOpenSidebar={undefined}
+            onOpenSidebar={() => setIsConversationDetailsOpen(true)}
             practiceId={practiceId}
             previewFiles={previewFiles}
             uploadingFiles={uploadingFiles}
@@ -734,10 +767,11 @@ export function MainApp({
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
       layoutMode={layoutMode}
-      showClientTabs={isClientWorkspace ? true : isAuthenticatedClient}
-      showPracticeTabs={isPracticeWorkspace}
       workspace={workspace}
+      settingsView={routeSettingsView}
+      settingsAppId={routeSettingsAppId}
       onStartNewConversation={handleStartNewConversation}
+      activeConversationId={activeConversationId}
       chatView={chatPanel}
       mattersView={
         isPracticeWorkspace
@@ -822,6 +856,42 @@ export function MainApp({
       </div>
       {!isWidget && (
         <>
+          <Modal
+            isOpen={isConversationDetailsOpen}
+            onClose={() => setIsConversationDetailsOpen(false)}
+            title="Conversation details"
+            type={isMobile ? 'drawer' : 'drawer-right'}
+          >
+            <div className="space-y-4 text-sm text-input-text">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="glass-panel rounded-lg p-3">
+                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Workspace</div>
+                  <div className="mt-1 font-semibold capitalize">{workspace}</div>
+                </div>
+                <div className="glass-panel rounded-lg p-3">
+                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Conversation ID</div>
+                  <div className="mt-1 break-all font-mono text-xs">{activeConversationId ?? 'N/A'}</div>
+                </div>
+                <div className="glass-panel rounded-lg p-3">
+                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Practice</div>
+                  <div className="mt-1 font-semibold">{resolvedPracticeName || 'Unknown practice'}</div>
+                </div>
+                <div className="glass-panel rounded-lg p-3">
+                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Mode</div>
+                  <div className="mt-1 font-semibold">{conversationMode ?? 'ASK_QUESTION'}</div>
+                </div>
+              </div>
+              {conversationMetadata?.title ? (
+                <div className="glass-panel rounded-lg p-3">
+                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Title</div>
+                  <div className="mt-1 font-semibold">{conversationMetadata.title}</div>
+                </div>
+              ) : null}
+              <p className="text-xs text-input-placeholder">
+                This panel is intentionally generic and shared across practice, client, and public workspaces.
+              </p>
+            </div>
+          </Modal>
           <WelcomeModal
             isOpen={showWelcomeModal}
             onClose={handleWelcomeClose}

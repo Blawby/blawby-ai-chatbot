@@ -14,7 +14,7 @@ interface ModalProps {
     onClose: () => void;
     children: preact.ComponentChildren;
     title?: string;
-    type?: 'modal' | 'drawer' | 'fullscreen';
+    type?: 'modal' | 'drawer' | 'drawer-right' | 'fullscreen';
     showCloseButton?: boolean;
     mobileBehavior?: 'modal' | 'drawer';
     disableBackdropClick?: boolean;
@@ -66,14 +66,15 @@ const Modal: FunctionComponent<ModalProps> = ({
     if (!isOpen || !isBrowser) return null;
 
     // Determine modal behavior based on type and mobile state
-    const shouldUseDrawer = type === 'drawer' || (type !== 'fullscreen' && mobileBehavior === 'drawer' && isMobile);
+    const shouldUseDrawer = type === 'drawer' || (type !== 'fullscreen' && type !== 'drawer-right' && mobileBehavior === 'drawer' && isMobile);
+    const shouldUseRightDrawer = type === 'drawer-right';
     const shouldUseFullscreen = type === 'fullscreen';
 
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
                 <motion.div 
-                    className={`fixed inset-0 ${shouldUseDrawer ? '' : 'flex items-center justify-center p-4'}`}
+                    className={`fixed inset-0 ${(shouldUseDrawer || shouldUseRightDrawer) ? '' : 'flex items-center justify-center p-4'}`}
                     style={{ zIndex: THEME.zIndex.modal }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -93,16 +94,18 @@ const Modal: FunctionComponent<ModalProps> = ({
                             `shadow-glass glass-panel text-input-text border-opacity-30 ${
                             shouldUseDrawer 
                                 ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-3xl flex flex-col overflow-hidden'
+                                : shouldUseRightDrawer
+                                ? 'fixed right-0 top-0 h-dvh w-full max-w-xl rounded-none sm:rounded-l-3xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
                                 ? 'fixed inset-0 w-full h-full overflow-y-auto'
                                 : 'relative rounded-3xl max-w-4xl w-full flex flex-col overflow-hidden'
                         }`,
                             contentClassName
                         )}
-                        initial={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
-                        animate={shouldUseDrawer ? { y: 0 } : { scale: 1 }}
-                        exit={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
-                        transition={shouldUseDrawer ? {
+                        initial={shouldUseDrawer ? { y: "100%" } : shouldUseRightDrawer ? { x: "100%" } : { scale: 0.95 }}
+                        animate={shouldUseDrawer ? { y: 0 } : shouldUseRightDrawer ? { x: 0 } : { scale: 1 }}
+                        exit={shouldUseDrawer ? { y: "100%" } : shouldUseRightDrawer ? { x: "100%" } : { scale: 0.95 }}
+                        transition={(shouldUseDrawer || shouldUseRightDrawer) ? {
                             type: "tween",
                             duration: 0.22,
                             ease: [0.25, 0.46, 0.45, 0.94]
@@ -111,7 +114,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                             duration: 0.14,
                             ease: [0.22, 1, 0.36, 1]
                         }}
-                        key={`content-${shouldUseDrawer}`}
+                        key={`content-${type}-${shouldUseDrawer ? 'bottom' : shouldUseRightDrawer ? 'right' : 'center'}`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Handle for mobile drawer */}

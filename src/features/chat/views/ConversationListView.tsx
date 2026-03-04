@@ -1,4 +1,4 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
@@ -7,6 +7,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { Conversation } from '@/shared/types/conversation';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import { ChatText } from '@/features/chat/components/ChatText';
+import { cn } from '@/shared/utils/cn';
 
 interface ConversationPreview {
   content: string;
@@ -26,6 +27,9 @@ interface ConversationListViewProps {
   onSendMessage: () => void;
   showBackButton?: boolean;
   showSendMessageButton?: boolean;
+  activeConversationId?: string | null;
+  headerControls?: ComponentChildren;
+  showTitle?: boolean;
 }
 
 const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
@@ -53,7 +57,10 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   onSelectConversation,
   onSendMessage,
   showBackButton = true,
-  showSendMessageButton = true
+  showSendMessageButton = true,
+  activeConversationId = null,
+  headerControls,
+  showTitle = true
 }) => {
   const { t } = useTranslation();
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
@@ -78,9 +85,19 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
             <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
           </Button>
         ) : null}
-        <div className="workspace-header__identity">
-          <div className="workspace-header__title">{t('workspace.conversationList.title')}</div>
-        </div>
+        {showTitle ? (
+          <div className="workspace-header__identity">
+            <div className="workspace-header__title">{t('workspace.conversationList.title')}</div>
+          </div>
+        ) : null}
+        {headerControls ? (
+          <div className={cn(
+            'workspace-header__right',
+            !showTitle && 'ml-0 flex w-full max-w-none justify-center'
+          )}>
+            {headerControls}
+          </div>
+        ) : null}
         {isLoading ? <div className="workspace-header__loading" aria-hidden="true" /> : null}
       </div>
 
@@ -105,12 +122,18 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 ? preview.content
                 : t('workspace.conversationList.previewPlaceholder');
               const isOnboardingConversation = conversation.user_info?.mode === 'PRACTICE_ONBOARDING';
+              const unreadCount = Math.max(0, Number(conversation.unread_count ?? 0));
+              const isUnread = unreadCount > 0;
+              const isActive = activeConversationId === conversation.id;
 
               return (
                 <button
                   key={conversation.id}
                   type="button"
-                  className="flex w-full items-center gap-3 px-2 py-4 text-left transition-colors duration-150 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+                  className={cn(
+                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                    isActive ? 'bg-white/10' : 'hover:bg-white/5'
+                  )}
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <Avatar
@@ -119,28 +142,44 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                     size="md"
                     className="ring-2 ring-white/10"
                   />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex items-center gap-2 overflow-hidden">
-                        <span className={`truncate ${chatTypography.previewName}`}>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className={cn(
+                          'block truncate',
+                          chatTypography.previewName,
+                          isUnread && 'font-bold text-input-text'
+                        )}>
                           {title}
                         </span>
-                        {conversation.lead?.is_lead && (
-                          <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
-                            {t('conversation.badge.lead')}
-                          </span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          {conversation.lead?.is_lead && (
+                            <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
+                              {t('conversation.badge.lead', { defaultValue: 'Lead' })}
+                            </span>
+                          )}
+                          {isOnboardingConversation && (
+                            <span className="flex-shrink-0 rounded-full border border-line-glass/40 bg-surface-panel/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-input-text">
+                              Setup
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {timeLabel && (
+                          <span className={chatTypography.headerTime}>{timeLabel}</span>
                         )}
-                        {isOnboardingConversation && (
-                          <span className="flex-shrink-0 rounded-full border border-line-glass/40 bg-surface-panel/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-input-text">
-                            Setup
+                        {isUnread && (
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent-500 px-1.5 py-0.5 text-[11px] font-semibold text-[rgb(var(--accent-foreground))]">
+                            {unreadCount}
                           </span>
                         )}
                       </div>
-                      {timeLabel && (
-                        <span className={chatTypography.headerTime}>{timeLabel}</span>
-                      )}
                     </div>
-                    <div className="mt-1 truncate">
+                    <div className={cn(
+                      'truncate text-sm',
+                      isUnread ? 'font-semibold text-input-text' : 'text-input-placeholder'
+                    )}>
                       <ChatText text={previewText} className="truncate" />
                     </div>
                   </div>

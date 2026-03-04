@@ -11,6 +11,7 @@ type AccentBackdropOverrides = {
 export interface AppShellProps {
   header?: ComponentChildren;
   sidebar?: ComponentChildren;
+  secondarySidebar?: ComponentChildren;
   main: ComponentChildren;
   bottomBar?: ComponentChildren;
   backgroundDecor?: ComponentChildren;
@@ -19,6 +20,7 @@ export interface AppShellProps {
   className?: string;
   headerClassName?: string;
   sidebarClassName?: string;
+  secondarySidebarClassName?: string;
   mainClassName?: string;
   bottomBarClassName?: string;
 }
@@ -26,6 +28,7 @@ export interface AppShellProps {
 export const AppShell = ({
   header,
   sidebar,
+  secondarySidebar,
   main,
   bottomBar,
   backgroundDecor,
@@ -34,15 +37,19 @@ export const AppShell = ({
   className,
   headerClassName,
   sidebarClassName,
+  secondarySidebarClassName,
   mainClassName,
   bottomBarClassName
 }: AppShellProps) => {
   const hasSidebar = Boolean(sidebar);
+  const hasSecondarySidebar = Boolean(secondarySidebar);
   const hasHeader = Boolean(header);
   const hasBottomBar = Boolean(bottomBar);
 
-  const gridClassName = hasSidebar
-    ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr] md:grid-rows-[auto,1fr,auto]'
+  const gridClassName = hasSidebar && hasSecondarySidebar
+    ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,1fr] md:grid-rows-[auto,1fr,auto]'
+    : hasSidebar
+      ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,1fr] md:grid-rows-[auto,1fr,auto]'
     : 'grid-rows-[auto,1fr,auto] md:grid-cols-1 md:grid-rows-[auto,1fr,auto]';
   const accentDefaults = getAccentBackdropDefaults(accentBackdropVariant);
   const showAccentBackdrop = Boolean(accentDefaults);
@@ -86,10 +93,22 @@ export const AppShell = ({
         </aside>
       )}
 
+      {hasSecondarySidebar && (
+        <aside
+          className={cn(
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-r border-line-glass/15 hidden md:block',
+            hasSidebar ? 'md:col-start-2' : 'md:col-start-1',
+            secondarySidebarClassName
+          )}
+        >
+          {secondarySidebar}
+        </aside>
+      )}
+
       <main
         className={cn(
           'relative z-10 row-start-2 min-h-0 h-full flex flex-col',
-          hasSidebar ? 'col-start-1 md:col-start-2' : 'col-start-1',
+          hasSecondarySidebar ? 'col-start-1 md:col-start-3' : hasSidebar ? 'col-start-1 md:col-start-2' : 'col-start-1',
           mainClassName
         )}
       >

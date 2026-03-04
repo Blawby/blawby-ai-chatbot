@@ -9,7 +9,7 @@ import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import { useTranslation, Trans } from '@/shared/i18n/hooks';
+import { Trans } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
 
 interface MessageComposerProps {
@@ -38,7 +38,6 @@ interface MessageComposerProps {
     paymentReceived?: boolean;
   };
   disabled?: boolean;
-  showStatusMessage?: boolean;
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
   footerActions?: preact.ComponentChildren;
@@ -49,8 +48,6 @@ interface MessageComposerProps {
 const MIN_TEXTAREA_HEIGHT = 32;
 const MAX_TEXTAREA_HEIGHT = 144;
 const MOBILE_MAX_TEXTAREA_HEIGHT = 112;
-const SOFT_CHAR_LIMIT = 1500;
-const HARD_WARN_LIMIT = 2000;
 
 const MessageComposer = ({
   inputValue,
@@ -72,14 +69,12 @@ const MessageComposer = ({
   isSocketReady,
   intakeStatus,
   disabled,
-  showStatusMessage = true,
   replyTo,
   onCancelReply,
   footerActions,
   hideAttachmentControls = false,
   hideMediaControls = false
 }: MessageComposerProps) => {
-  const { t } = useTranslation(['auth', 'common']);
   const [isInputExpanded, setIsInputExpanded] = useState(false);
   const [isTextareaScrollable, setIsTextareaScrollable] = useState(false);
   const [showScrollFade, setShowScrollFade] = useState(false);
@@ -156,32 +151,11 @@ const MessageComposer = ({
     resizeTextarea(el);
   }, [inputValue, resizeTextarea, textareaRef]);
 
-  const statusMessage = (() => {
-    if (isIntakeLocked) {
-      if (intakeStep === 'accepted') {
-        return t('intake.accepted');
-      }
-      if (intakeStep === 'rejected') {
-        return t('intake.rejected');
-      }
-      return t('intake.pending');
-    }
-    if (isSessionReady === false) {
-      return 'Setting up a secure session...';
-    }
-    if (isSocketReady === false) {
-      return 'Connecting to chat...';
-    }
-    return 'Blawby can make mistakes. Check for important information.';
-  })();
-
   // Block when session is not ready or intake is awaiting review/decision
   const sendDisabled = (
     (!inputValue.trim() && previewFiles.length === 0) ||
     isComposerDisabled
   );
-  const isOverSoftLimit = inputValue.length >= SOFT_CHAR_LIMIT;
-  const isOverHardWarnLimit = inputValue.length >= HARD_WARN_LIMIT;
 
   return (
     <div className="pl-4 pr-4 pb-2 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
@@ -250,7 +224,7 @@ const MessageComposer = ({
 
           <div className="message-composer-input-row">
             {!hideAttachmentControls && !isRecording && (
-              <div className="flex-shrink-0 self-end">
+              <div className="col-start-1 flex-shrink-0 self-end">
                 <FileMenu
                   onFileSelect={handleFileSelect}
                   onCameraCapture={handleCameraCapture}
@@ -259,7 +233,7 @@ const MessageComposer = ({
               </div>
             )}
 
-            <div className={`relative flex-1 flex items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
+            <div className={`col-start-2 min-w-0 relative flex flex-1 items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
               {showScrollFade && (
                 <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-black/20 to-transparent" />
               )}
@@ -297,7 +271,7 @@ const MessageComposer = ({
               />
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0 self-end">
+            <div className="col-start-3 flex items-center gap-2 flex-shrink-0 self-end">
               {!hideMediaControls && features.enableAudioRecording && (
                 <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
               )}
@@ -306,19 +280,6 @@ const MessageComposer = ({
 
         </div>
 
-        {showStatusMessage && (
-          <div className="space-y-1 py-1 opacity-80">
-            <div className="text-xs text-input-text/70 text-center">
-              {statusMessage}
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-input-text/60">
-              <span>Enter to send, Shift+Enter for a new line</span>
-              <span className={isOverHardWarnLimit ? 'text-red-400' : isOverSoftLimit ? 'text-amber-400' : ''}>
-                {inputValue.length}
-              </span>
-            </div>
-          </div>
-        )}
       </form>
       {footerActions}
     </div>

@@ -9,25 +9,20 @@ import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import DebugStylesPage from '@/pages/DebugStylesPage';
 import DebugChatPage from '@/pages/DebugChatPage';
+import DebugConversationsPage from '@/pages/DebugConversationsPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
-import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import { getClient } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
-const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
-import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
-  getValidatedSettingsReturnPath,
-  getSettingsReturnPath,
   getWorkspaceHomePath,
-  setSettingsReturnPath
 } from '@/shared/utils/workspace';
 import { PaySuccessPage } from '@/pages/PaySuccessPage';
 import { AppGuard } from '@/app/AppGuard';
@@ -47,6 +42,11 @@ const DevDebugStylesRoute = () => {
 const DevDebugChatRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugChatPage />;
+};
+
+const DevDebugConversationsRoute = () => {
+  if (!import.meta.env.DEV) return <App404 />;
+  return <DebugConversationsPage />;
 };
 
 const DevDebugMatterRoute = () => {
@@ -105,14 +105,6 @@ function AppShell() {
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
-
-  const handleRouteChange = useCallback((url: string) => {
-    if (typeof window === 'undefined') return;
-
-    if (!url.includes('/settings')) {
-      setSettingsReturnPath(url);
-    }
-  }, []);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -199,7 +191,7 @@ function AppShell() {
   return (
     <ToastProvider>
       <Suspense fallback={<LoadingScreen />}>
-        <Router onRouteChange={handleRouteChange}>
+        <Router>
           <Route path="/auth" component={AuthPage} />
           <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
           <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
@@ -207,6 +199,7 @@ function AppShell() {
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
           <Route path="/debug/chat" component={DevDebugChatRoute} />
+          <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PaySuccessPage} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
@@ -220,8 +213,19 @@ function AppShell() {
           <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} workspaceView="matters" />
           <Route path="/client/:practiceSlug/invoices" component={ClientPracticeRoute} workspaceView="invoices" />
           <Route path="/client/:practiceSlug/invoices/:invoiceId" component={ClientPracticeRoute} workspaceView="invoiceDetail" />
-          <Route path="/client/:practiceSlug/settings" component={WorkspaceSettingsRoute} workspace="client" />
-          <Route path="/client/:practiceSlug/settings/*" component={WorkspaceSettingsRoute} workspace="client" />
+          <Route path="/client/:practiceSlug/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
+          <Route path="/client/:practiceSlug/settings/general" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
+          <Route path="/client/:practiceSlug/settings/notifications" component={ClientPracticeRoute} workspaceView="settings" settingsView="notifications" />
+          <Route path="/client/:practiceSlug/settings/account" component={ClientPracticeRoute} workspaceView="settings" settingsView="account" />
+          <Route path="/client/:practiceSlug/settings/account/payouts" component={ClientPracticeRoute} workspaceView="settings" settingsView="account-payouts" />
+          <Route path="/client/:practiceSlug/settings/practice" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice" />
+          <Route path="/client/:practiceSlug/settings/practice/services" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-services" />
+          <Route path="/client/:practiceSlug/settings/practice/team" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-team" />
+          <Route path="/client/:practiceSlug/settings/practice/pricing" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-pricing" />
+          <Route path="/client/:practiceSlug/settings/apps" component={ClientPracticeRoute} workspaceView="settings" settingsView="apps" />
+          <Route path="/client/:practiceSlug/settings/apps/:appId" component={ClientPracticeRoute} workspaceView="settings" settingsView="app-detail" />
+          <Route path="/client/:practiceSlug/settings/security" component={ClientPracticeRoute} workspaceView="settings" settingsView="security" />
+          <Route path="/client/:practiceSlug/settings/help" component={ClientPracticeRoute} workspaceView="settings" settingsView="help" />
           <Route path="/practice" component={App404} />
           <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
           <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
@@ -233,8 +237,19 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
           <Route path="/practice/:practiceSlug/invoices/:invoiceId" component={PracticeAppRoute} workspaceView="invoiceDetail" />
-          <Route path="/practice/:practiceSlug/settings" component={WorkspaceSettingsRoute} workspace="practice" />
-          <Route path="/practice/:practiceSlug/settings/*" component={WorkspaceSettingsRoute} workspace="practice" />
+          <Route path="/practice/:practiceSlug/settings" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
+          <Route path="/practice/:practiceSlug/settings/general" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
+          <Route path="/practice/:practiceSlug/settings/notifications" component={PracticeAppRoute} workspaceView="settings" settingsView="notifications" />
+          <Route path="/practice/:practiceSlug/settings/account" component={PracticeAppRoute} workspaceView="settings" settingsView="account" />
+          <Route path="/practice/:practiceSlug/settings/account/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="account-payouts" />
+          <Route path="/practice/:practiceSlug/settings/practice" component={PracticeAppRoute} workspaceView="settings" settingsView="practice" />
+          <Route path="/practice/:practiceSlug/settings/practice/services" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-services" />
+          <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
+          <Route path="/practice/:practiceSlug/settings/practice/pricing" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-pricing" />
+          <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
+          <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
+          <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
+          <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
           <Route path="/" component={RootRoute} />
           <Route default component={App404} />
         </Router>
@@ -261,62 +276,6 @@ function RouteLoadError({
         Retry
       </button>
     </div>
-  );
-}
-
-function WorkspaceSettingsRoute({
-  practiceSlug,
-  workspace
-}: {
-  practiceSlug?: string;
-  workspace?: 'client' | 'practice';
-}) {
-  const { session, isPending: sessionIsPending } = useSessionContext();
-  const {
-    practicesLoading,
-    resolvePracticeBySlug
-  } = useWorkspaceResolver();
-  const { navigate } = useNavigation();
-  const isMobile = useMobileDetection();
-
-  const slug = (practiceSlug ?? '').trim();
-  const workspaceKey = workspace === 'client' || workspace === 'practice' ? workspace : null;
-  const resolvedPractice = resolvePracticeBySlug(slug);
-  const canAccessRouteWorkspace = Boolean(resolvedPractice);
-
-  const handleCloseSettings = useCallback(() => {
-    const returnPath = getSettingsReturnPath();
-    const fallback = workspaceKey ? getWorkspaceHomePath(workspaceKey, slug, '/') : '/';
-    const validatedReturnPath = workspaceKey
-      ? getValidatedSettingsReturnPath(returnPath, workspaceKey, slug)
-      : null;
-    navigate(validatedReturnPath ?? fallback, true);
-  }, [navigate, slug, workspaceKey]);
-
-  if (!slug || !workspaceKey) {
-    return <App404 />;
-  }
-
-  if (sessionIsPending || practicesLoading) {
-    return <LoadingScreen />;
-  }
-
-  if (!session?.user) {
-    return <AuthPage />;
-  }
-
-  if (!canAccessRouteWorkspace) {
-    return <App404 />;
-  }
-
-  return (
-    <RoutePracticeProvider value={{ practiceId: resolvedPractice?.id ?? null, practiceSlug: slug, workspace: workspaceKey }}>
-      <SettingsPage
-        isMobile={isMobile}
-        onClose={handleCloseSettings}
-        className="h-full"
-      />
-    </RoutePracticeProvider>
   );
 }
 
@@ -371,12 +330,16 @@ function RootRoute() {
 function PracticeAppRoute({
   conversationId,
   invoiceId,
+  appId,
   workspaceView = 'home',
+  settingsView = 'general',
   practiceSlug
 }: {
   conversationId?: string;
   invoiceId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail';
+  appId?: string;
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
+  settingsView?: 'general' | 'notifications' | 'account' | 'account-payouts' | 'practice' | 'practice-services' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const { session, isPending } = useSessionContext();
@@ -521,6 +484,8 @@ function PracticeAppRoute({
         workspace="practice"
         routeConversationId={conversationId}
         routeInvoiceId={invoiceId}
+        routeSettingsView={settingsView}
+        routeSettingsAppId={appId}
         workspaceView={workspaceView}
         practiceSlug={normalizedPracticeSlug || undefined}
       />
@@ -531,12 +496,16 @@ function ClientPracticeRoute({
   practiceSlug,
   conversationId,
   invoiceId,
-  workspaceView = 'home'
+  appId,
+  workspaceView = 'home',
+  settingsView = 'general',
 }: {
   practiceSlug?: string;
   conversationId?: string;
   invoiceId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail';
+  appId?: string;
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'settings';
+  settingsView?: 'general' | 'notifications' | 'account' | 'account-payouts' | 'practice' | 'practice-services' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -621,6 +590,8 @@ function ClientPracticeRoute({
         clientPracticeSlug={slug || undefined}
         routeConversationId={conversationId}
         routeInvoiceId={invoiceId}
+        routeSettingsView={settingsView}
+        routeSettingsAppId={appId}
         workspaceView={workspaceView}
       />
     </>

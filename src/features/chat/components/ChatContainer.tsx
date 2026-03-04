@@ -618,7 +618,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSocketReady={isSocketReady}
                   intakeStatus={intakeStatus}
                   disabled={composerDisabled}
-                  showStatusMessage={!isPublicWorkspace}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                 />
