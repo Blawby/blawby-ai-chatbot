@@ -490,7 +490,7 @@ export const PracticeClientsPage = ({
       return;
     }
     const controller = new AbortController();
-    getUserDetail(activePracticeId, selectedClientIdFromPath)
+    getUserDetail(activePracticeId, selectedClientIdFromPath, { signal: controller.signal })
       .then((detail) => {
         if (controller.signal.aborted) return;
         if (!detail) {
@@ -500,7 +500,7 @@ export const PracticeClientsPage = ({
         setSelectedClientFallback(buildClientRecord(detail));
       })
       .catch((error) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || error.name === 'AbortError') return;
         console.error('[Clients] Failed to load selected client detail', error);
         setSelectedClientFallback(null);
       });
@@ -941,7 +941,7 @@ export const PracticeClientsPage = ({
               'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
               "before:absolute before:-inset-3.5 before:content-['']",
               currentLetter === letter
-                ? 'text-accent-500 font-bold bg-accent-500/10'
+                ? 'text-[rgb(var(--accent-foreground))] font-bold bg-accent-500'
                 : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
             )}
           >

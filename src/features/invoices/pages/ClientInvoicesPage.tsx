@@ -34,12 +34,13 @@ export function ClientInvoicesPage({
   );
 
   useEffect(() => {
+    if (renderMode === 'detailOnly') return;
     setPage(1);
     setData({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
-  }, [practiceId, memoizedStatus]);
+  }, [practiceId, memoizedStatus, renderMode]);
 
   useEffect(() => {
-    if (!practiceId) return;
+    if (!practiceId || renderMode === 'detailOnly') return;
     const controller = new AbortController();
     setLoading(page === 1);
     setLoadingMore(page > 1);
@@ -67,7 +68,7 @@ export function ClientInvoicesPage({
       });
 
     return () => controller.abort();
-  }, [page, practiceId, queryFilters, memoizedStatus]);
+  }, [page, practiceId, queryFilters, memoizedStatus, renderMode]);
 
   const hasMore = data.items.length < data.total;
 

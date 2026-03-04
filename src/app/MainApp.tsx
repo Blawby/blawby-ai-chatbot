@@ -172,6 +172,7 @@ export function MainApp({
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
+    practiceClientsPath,
     conversationResetKey,
     layoutMode,
     canReviewLeads,
@@ -751,9 +752,8 @@ export function MainApp({
     }
     return requested;
   }, [activeConversationId, isClientWorkspace, isPracticeWorkspace, isPublicWorkspace, workspaceView]);
-  const practiceClientsPath = practiceMattersPath
-    ? practiceMattersPath.replace(/\/matters$/, '/clients')
-    : (effectivePracticeSlug ? `/practice/${encodeURIComponent(effectivePracticeSlug)}/clients` : '/practice/clients');
+
+
 
   const workspacePage = (
     <WorkspacePage

@@ -60,7 +60,7 @@ import type { WorkspaceType } from '@/shared/types/workspace';
 import type { RoutingClaims } from '@/shared/types/routing';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
-import { getWorkspaceConversationsPath, getWorkspaceMattersPath } from '@/shared/utils/workspace';
+import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceClientsPath } from '@/shared/utils/workspace';
 import type { LayoutMode } from '@/app/MainApp';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 
@@ -259,6 +259,11 @@ export const useWorkspaceRouting = ({
     () => getWorkspaceMattersPath('practice', effectivePracticeSlug),
     [effectivePracticeSlug]
   );
+  
+  const practiceClientsPath = useMemo(
+    () => getWorkspaceClientsPath('practice', effectivePracticeSlug),
+    [effectivePracticeSlug]
+  );
 
   // ── layout mode ───────────────────────────────────────────────────────────
 
@@ -347,6 +352,7 @@ export const useWorkspaceRouting = ({
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
+    practiceClientsPath,
     publicConversationsBasePath,
     conversationResetKey,
 

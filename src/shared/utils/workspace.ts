@@ -116,6 +116,30 @@ export function getWorkspaceMattersPath(
   return null;
 }
 
+/**
+ * Generate a workspace clients path for the given workspace and practice slug.
+ * Returns null if required params are missing.
+ * Routes: `/practice/:practiceSlug/clients` or `/client/:practiceSlug/clients`
+ */
+export function getWorkspaceClientsPath(
+  workspace: WorkspaceType,
+  slug?: string | null
+): string | null {
+  if (!slug) return null;
+  
+  if (workspace === 'practice') {
+    return generateWorkspacePath('/practice/:practiceSlug/clients', { practiceSlug: slug });
+  }
+  if (workspace === 'client') {
+    return generateWorkspacePath('/client/:practiceSlug/clients', { practiceSlug: slug });
+  }
+  if (workspace === 'public') {
+    return generateWorkspacePath('/public/:practiceSlug/clients', { practiceSlug: slug });
+  }
+  
+  return null;
+}
+
 export function getSettingsReturnPath(): string | null {
   if (typeof window === 'undefined') return null;
   return window.sessionStorage.getItem(SETTINGS_RETURN_KEY);
