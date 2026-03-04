@@ -27,6 +27,7 @@ export function ClientInvoicesPage({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const memoizedStatus = useMemo(() => JSON.stringify(statusFilter), [statusFilter]);
   const queryFilters = useMemo(
     () => ({ status: '', dateFrom: '', dateTo: '', search: '', page, pageSize: PAGE_SIZE }),
     [page]
@@ -35,7 +36,7 @@ export function ClientInvoicesPage({
   useEffect(() => {
     setPage(1);
     setData({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
-  }, [practiceId, statusFilter]);
+  }, [practiceId, memoizedStatus]);
 
   useEffect(() => {
     if (!practiceId) return;
@@ -66,7 +67,7 @@ export function ClientInvoicesPage({
       });
 
     return () => controller.abort();
-  }, [page, practiceId, queryFilters, statusFilter]);
+  }, [page, practiceId, queryFilters, memoizedStatus]);
 
   const hasMore = data.items.length < data.total;
 

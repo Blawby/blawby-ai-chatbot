@@ -8,11 +8,12 @@ import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
 import type { InvoiceListResult } from '@/features/invoices/types';
 
 const PAGE_SIZE = 10;
+const STABLE_EMPTY_ARRAY: string[] = [];
 
 export function PracticeInvoicesPage({
   practiceId,
   practiceSlug,
-  statusFilter = [],
+  statusFilter = STABLE_EMPTY_ARRAY,
   renderMode = 'full',
 }: {
   practiceId: string | null;
@@ -35,26 +36,38 @@ export function PracticeInvoicesPage({
     [page]
   );
 
+  const memoizedStatus = useMemo(() => JSON.stringify(statusFilter), [statusFilter]);
+  const lastFiltersRef = useRef({ practiceId, statusSerialized: memoizedStatus });
+
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
 
   useEffect(() => {
-    setPage(1);
-    setData({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
-  }, [practiceId, statusFilter]);
-
-  useEffect(() => {
     if (!practiceId) return;
+
+    const filtersChanged = practiceId !== lastFiltersRef.current.practiceId ||
+      memoizedStatus !== lastFiltersRef.current.statusSerialized;
+
+    let effectivePage = page;
+    if (filtersChanged) {
+      setPage(1);
+      setData({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+      effectivePage = 1;
+      lastFiltersRef.current = { practiceId, statusSerialized: memoizedStatus };
+    }
+
     const controller = new AbortController();
-    setLoading(page === 1);
-    setLoadingMore(page > 1);
+    setLoading(effectivePage === 1);
+    setLoadingMore(effectivePage > 1);
     setError(null);
 
-    void listInvoices(practiceId, queryFilters, { signal: controller.signal, statusFilter })
+    const requestFilters = effectivePage === page ? queryFilters : { ...queryFilters, page: effectivePage };
+
+    void listInvoices(practiceId, requestFilters, { signal: controller.signal, statusFilter })
       .then((result) => {
         setData((prev) => {
-          if (page === 1) {
+          if (effectivePage === 1) {
             return result;
           }
           const merged = [...prev.items, ...result.items];
@@ -81,7 +94,7 @@ export function PracticeInvoicesPage({
       });
 
     return () => controller.abort();
-  }, [page, practiceId, queryFilters, statusFilter]);
+  }, [page, practiceId, queryFilters, memoizedStatus]);
 
   const hasMore = data.items.length < data.total;
 

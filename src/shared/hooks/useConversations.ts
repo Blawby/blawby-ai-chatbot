@@ -132,8 +132,8 @@ export function useConversations({
       if (status) {
         params.set('status', status);
       }
-      if (assignedTo) {
-        params.set('assignedTo', assignedTo);
+      if (assignedTo !== undefined) {
+        params.set('assignedTo', String(assignedTo));
       }
       if (limit) {
         params.set('limit', limit.toString());
