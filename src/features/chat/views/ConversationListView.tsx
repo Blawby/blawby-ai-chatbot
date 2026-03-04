@@ -21,13 +21,14 @@ interface ConversationListViewProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   isLoading?: boolean;
-  error?: string | null;
+  error?: unknown;
   onClose?: () => void;
   onSelectConversation: (conversationId: string) => void;
   onSendMessage: () => void;
   showBackButton?: boolean;
   showSendMessageButton?: boolean;
   activeConversationId?: string | null;
+  headerLeftControls?: ComponentChildren;
   headerControls?: ComponentChildren;
   showTitle?: boolean;
   assignedToFilter?: 'none' | null;
@@ -60,59 +61,78 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   showBackButton = true,
   showSendMessageButton = true,
   activeConversationId = null,
+  headerLeftControls,
   headerControls,
   showTitle = true,
 }) => {
   const { t } = useTranslation();
+  const errorMessage = typeof error === 'string'
+    ? error
+    : error instanceof Error
+      ? error.message
+      : error != null
+        ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
+        : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
   const sorted = [...conversations].sort((a, b) => {
     const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
     const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
     return bTime - aTime;
   });
+  const showHeaderRow = Boolean(
+    headerLeftControls
+    || (showBackButton && onClose)
+    || showTitle
+    || headerControls
+  );
 
   return (
     <div className="flex h-full flex-col bg-transparent">
-      <div className="workspace-header">
-        {showBackButton && onClose ? (
-          <Button
-            type="button"
-            variant="icon"
-            size="icon-sm"
-            onClick={onClose}
-            className="workspace-header__icon"
-            aria-label={t('common.back')}
-          >
-            <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        ) : null}
-        {showTitle ? (
-          <div className="workspace-header__identity">
-            <div className="workspace-header__title">{t('workspace.conversationList.title')}</div>
-          </div>
-        ) : null}
-        {headerControls ? (
-          <div className={cn(
-            'workspace-header__right',
-            !showTitle && 'ml-0 flex w-full max-w-none justify-center'
-          )}>
-            {headerControls}
-          </div>
-        ) : null}
-        {isLoading ? <div className="workspace-header__loading" aria-hidden="true" /> : null}
-      </div>
+      {showHeaderRow ? (
+        <div className="workspace-header">
+          {headerLeftControls ? (
+            <div className="workspace-header__icon">{headerLeftControls}</div>
+          ) : null}
+          {showBackButton && onClose ? (
+            <Button
+              type="button"
+              variant="icon"
+              size="icon-sm"
+              onClick={onClose}
+              className="workspace-header__icon"
+              aria-label={t('common.back')}
+            >
+              <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          ) : null}
+          {showTitle ? (
+            <div className="workspace-header__identity">
+              <div className="workspace-header__title">{t('workspace.conversationList.title')}</div>
+            </div>
+          ) : null}
+          {headerControls ? (
+            <div className={cn(
+              'workspace-header__right',
+              !showTitle && 'ml-0 flex w-full max-w-none justify-center'
+            )}>
+              {headerControls}
+            </div>
+          ) : null}
+          {isLoading ? <div className="workspace-header__loading" aria-hidden="true" /> : null}
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
-        ) : error ? (
+        ) : errorMessage ? (
           <div className="py-6 text-sm text-red-500 dark:text-red-300">
-            {error}
+            {errorMessage}
           </div>
         ) : sorted.length === 0 ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.empty')}</div>
         ) : (
-          <div className="divide-y divide-line-glass/20">
+          <div className="pt-1 divide-y divide-line-glass/[0.04]">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
               const title = resolveConversationTitle(conversation, fallbackName);

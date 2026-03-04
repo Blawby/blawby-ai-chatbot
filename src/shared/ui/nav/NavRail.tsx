@@ -18,6 +18,7 @@ export interface NavRailProps {
   items: NavRailItem[];
   activeHref: string;
   variant: 'rail' | 'bottom';
+  showLabels?: boolean;
   className?: string;
 }
 
@@ -37,6 +38,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   items,
   activeHref,
   variant,
+  showLabels = false,
   className,
 }) => {
   const location = useLocation();
@@ -54,7 +56,10 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
 
   const baseButtonClass = variant === 'rail'
     ? 'btn btn-tab relative h-11 w-11 rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-    : 'btn btn-tab relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border px-2 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+    : 'relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+  const inactiveClassName = variant === 'bottom'
+    ? 'border-transparent bg-transparent text-input-placeholder hover:text-input-text hover:bg-transparent'
+    : 'nav-item-inactive backdrop-blur-xl';
 
   return (
     <div
@@ -83,7 +88,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
                 ? 'text-red-400 hover:bg-red-500/10'
                 : isActive
                   ? 'active nav-item-active'
-                  : 'nav-item-inactive backdrop-blur-xl',
+                  : inactiveClassName,
             )}
             onClick={() => {
               if (item.isAction) {
@@ -102,7 +107,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
             }}
           >
             <Icon className="h-5 w-5" aria-hidden="true" />
-            {variant === 'bottom' && <span className="truncate max-w-full">{item.label}</span>}
+            {variant === 'bottom' && showLabels ? <span className="truncate max-w-full">{item.label}</span> : null}
             {item.badge && item.badge > 0 ? (
               <span className="absolute -right-1 -top-1 min-w-[1.125rem] rounded-full bg-accent-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-[rgb(var(--accent-foreground))]">
                 {item.badge}

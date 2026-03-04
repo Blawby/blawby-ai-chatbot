@@ -1,0 +1,106 @@
+import { useStore } from '@nanostores/preact';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { listUserDetails, type UserDetailRecord, type UserDetailStatus } from '@/shared/lib/apiClient';
+import {
+  clientsStore,
+  clientsLoaded,
+  clientsInFlight,
+  markClientsCacheKey,
+  resetClientsStore,
+  setClientsForPractice
+} from '@/shared/stores/clientsStore';
+
+type UseClientsDataOptions = {
+  enabled?: boolean;
+};
+
+export const useClientsData = (
+  practiceId: string,
+  statusFilter: UserDetailStatus | null,
+  userId: string | null,
+  options: UseClientsDataOptions = {}
+) => {
+  const { enabled = true } = options;
+  const store = useStore(clientsStore);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lastUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lastUserIdRef.current !== userId) {
+      resetClientsStore();
+      lastUserIdRef.current = userId;
+    }
+  }, [userId]);
+
+  const statusParts = useMemo(
+    () => (statusFilter ? [statusFilter] : []),
+    [statusFilter]
+  );
+  const cacheKey = useMemo(
+    () => `${practiceId}:${statusParts.join(',')}`,
+    [practiceId, statusParts]
+  );
+  const items = store[cacheKey] ?? [];
+  const isLoaded = clientsLoaded.has(cacheKey);
+
+  const fetch = useCallback(async (fetchOptions: { force?: boolean; signal?: AbortSignal } = {}) => {
+    if (!enabled || !practiceId) return;
+    if (!fetchOptions.force && clientsLoaded.has(cacheKey)) return;
+
+    const inFlight = clientsInFlight.get(cacheKey);
+    if (inFlight) {
+      await inFlight;
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    markClientsCacheKey(cacheKey);
+    const promise = (async () => {
+      const pageSize = 50;
+      let offset = 0;
+      const allItems: UserDetailRecord[] = [];
+      while (true) {
+        const response = await listUserDetails(practiceId, {
+          limit: pageSize,
+          offset,
+          status: statusFilter ?? undefined,
+          signal: fetchOptions.signal
+        });
+        allItems.push(...response.data);
+        if (response.data.length < pageSize) break;
+        offset += pageSize;
+      }
+      return allItems;
+    })();
+
+    clientsInFlight.set(cacheKey, promise);
+    try {
+      const result = await promise;
+      clientsLoaded.add(cacheKey);
+      setClientsForPractice(cacheKey, result);
+    } catch (err) {
+      clientsLoaded.delete(cacheKey);
+      const message = err instanceof Error ? err.message : 'Failed to load clients';
+      setError(message);
+      throw err;
+    } finally {
+      clientsInFlight.delete(cacheKey);
+      setIsLoading(false);
+    }
+  }, [cacheKey, enabled, practiceId, statusFilter]);
+
+  useEffect(() => {
+    if (!enabled || !practiceId || isLoaded) return;
+    const controller = new AbortController();
+    void fetch({ signal: controller.signal }).catch(() => undefined);
+    return () => controller.abort();
+  }, [enabled, fetch, isLoaded, practiceId]);
+
+  const refetch = useCallback(async (signal?: AbortSignal) => {
+    await fetch({ force: true, signal });
+  }, [fetch]);
+
+  return { items, isLoaded, isLoading, error, refetch };
+};

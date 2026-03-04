@@ -19,6 +19,9 @@ export default {
         surface: {
           base: 'rgb(var(--surface-base) / <alpha-value>)',
           overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
+          'nav-rail': 'rgb(var(--surface-nav-rail))',
+          'nav-secondary': 'rgb(var(--surface-nav-secondary))',
+          'nav-list': 'rgb(var(--surface-list-panel))',
         },
         line: {
 

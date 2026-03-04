@@ -9,6 +9,7 @@ export interface SecondaryPanelProps {
   activeHref?: string;
   activeItemId?: string | null;
   onSelect?: (id: string) => void;
+  onItemActivate?: () => void;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
   activeHref,
   activeItemId,
   onSelect,
+  onItemActivate,
   className,
 }) => {
   const location = useLocation();
@@ -46,7 +48,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
     }, { id: null, score: -1 }).id;
 
   return (
-    <aside className={cn('h-full min-h-0 overflow-y-auto bg-transparent px-4 py-4', className)}>
+    <aside className={cn('h-full min-h-0 overflow-y-auto bg-surface-nav-secondary px-4 py-4', className)}>
       <nav className="flex min-h-0 flex-col gap-5">
         {sections.map((section, idx) => (
           <div key={`${section.label ?? 'section'}-${idx}`} className="flex flex-col gap-2">
@@ -63,16 +65,20 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
                     key={item.id}
                     type="button"
                     className={cn(
-                      'btn btn-tab flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                      isActive ? 'active nav-item-active' : 'nav-item-inactive backdrop-blur-xl'
+                      'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                      isActive
+                        ? 'bg-accent-500/10 text-accent-400'
+                        : 'text-input-text hover:bg-white/5'
                     )}
                     aria-current={isActive ? 'page' : undefined}
                     onClick={() => {
                       if (onSelect) {
                         onSelect(item.id);
+                        onItemActivate?.();
                         return;
                       }
                       navigate(item.href);
+                      onItemActivate?.();
                     }}
                     title={item.label}
                   >

@@ -7,6 +7,9 @@
     color-scheme: light dark;
     --surface-base: 255 255 255;
     --surface-overlay: 255 255 255;
+    --surface-nav-rail: 0 0 0 / 0.03;
+    --surface-nav-secondary: 0 0 0 / 0.02;
+    --surface-list-panel: 0 0 0 / 0.015;
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
@@ -29,6 +32,9 @@
   .dark {
     --surface-base: 3 7 18;
     --surface-overlay: 10 15 26;
+    --surface-nav-rail: 255 255 255 / 0.03;
+    --surface-nav-secondary: 255 255 255 / 0.025;
+    --surface-list-panel: 255 255 255 / 0.015;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;
     --input-placeholder: 156 163 175;
@@ -144,10 +150,38 @@
 
   /* Panels — secondary surface, medium rim */
   .glass-panel {
-    @apply rounded-2xl bg-white/[0.08] backdrop-blur-2xl saturate-150 transition-all duration-300;
+    @apply rounded-2xl backdrop-blur-2xl saturate-150 transition-all duration-300;
 
     border: none;
+    background: rgb(var(--surface-overlay) / 0.6);
     box-shadow: var(--glass-rim-medium);
+  }
+
+  .dark .glass-panel {
+    background: rgb(255 255 255 / 0.08);
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .list-panel-card-gradient {
+    background:
+      linear-gradient(
+        to bottom,
+        rgb(var(--accent-500) / 0.10) 0%,
+        rgb(var(--accent-600) / 0.04) 45%,
+        transparent 100%
+      ),
+      rgb(var(--surface-overlay) / 0.6);
+  }
+
+  .dark .list-panel-card-gradient {
+    background:
+      linear-gradient(
+        to bottom,
+        rgb(var(--accent-500) / 0.10) 0%,
+        rgb(var(--accent-600) / 0.04) 45%,
+        transparent 100%
+      ),
+      rgb(255 255 255 / 0.08);
   }
 
   /* Inputs — tertiary surface, subtle rim */
@@ -172,7 +206,7 @@
   }
 
   .workspace-header {
-    @apply relative flex min-h-[56px] items-center gap-3 border-b border-line-glass/30 bg-transparent px-4 py-3 text-input-text;
+    @apply relative flex min-h-[56px] items-center gap-3 bg-transparent px-4 py-3 text-input-text;
   }
 
   .workspace-header__icon {
@@ -201,14 +235,12 @@
 
   .workspace-header__loading {
     @apply pointer-events-none absolute bottom-[-1px] left-0 h-0.5 w-full;
-    background: linear-gradient(
-      90deg,
-      rgb(var(--accent-500) / 0) 0%,
-      rgb(var(--accent-500) / 0.95) 20%,
-      rgb(var(--accent-500) / 1) 45%,
-      rgb(var(--accent-500) / 0.95) 70%,
-      rgb(var(--accent-500) / 0) 100%
-    );
+    background: linear-gradient(90deg,
+        rgb(var(--accent-500) / 0) 0%,
+        rgb(var(--accent-500) / 0.95) 20%,
+        rgb(var(--accent-500) / 1) 45%,
+        rgb(var(--accent-500) / 0.95) 70%,
+        rgb(var(--accent-500) / 0) 100%);
     transform: translateX(-100%);
     animation: workspace-header-progress 1.15s linear infinite;
   }
@@ -528,7 +560,8 @@
 
   /* Shared nav item active/inactive state */
   .nav-item-active {
-    @apply bg-white/10 text-accent-400 border-transparent backdrop-blur-xl;
+    @apply text-accent-400 border-transparent backdrop-blur-xl;
+    background-color: rgb(var(--accent-500) / 0.14);
     box-shadow: var(--glass-rim-subtle),
       0 2px 8px rgb(var(--accent-500) / 0.12);
   }
@@ -837,9 +870,9 @@
     @apply flex gap-2 scrollbar-hide;
   }
 
-  .message-composer-input-row {
-    @apply grid w-full grid-cols-[auto,minmax(0,1fr),auto] items-end gap-3;
-  }
+.message-composer-input-row {
+  @apply grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-3;
+}
 
   /* ============================================================
      MESSAGE LIST
@@ -1288,6 +1321,7 @@
     from {
       transform: translateX(-100%);
     }
+
     to {
       transform: translateX(100%);
     }

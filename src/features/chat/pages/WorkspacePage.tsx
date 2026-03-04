@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import axios from 'axios';
-import { FunnelIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useNavigation } from '@/shared/utils/navigation';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
@@ -14,6 +14,7 @@ import { DashboardHero } from '@/features/practice-dashboard/components/Dashboar
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 import { Page } from '@/shared/ui/layout/Page';
+import { Panel } from '@/shared/ui/layout/Panel';
 import { SegmentedToggle } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
@@ -22,6 +23,8 @@ import { fetchLatestConversationMessage, updateConversationMetadata } from '@/sh
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { useMattersData } from '@/shared/hooks/useMattersData';
+import { useClientsData } from '@/shared/hooks/useClientsData';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import {
   PracticeSetup,
@@ -34,6 +37,7 @@ import SetupInfoPanel from '@/features/practice-setup/components/SetupInfoPanel'
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import { CompletionRing } from '@/shared/ui/CompletionRing';
 import { ContactForm } from '@/features/intake/components/ContactForm';
+import Modal from '@/shared/components/Modal';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
@@ -59,15 +63,34 @@ import {
 } from '@/shared/config/navConfig';
 import NavRail from '@/shared/ui/nav/NavRail';
 import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
-import FilterSheet from '@/shared/ui/nav/FilterSheet';
+import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
-import type { UserDetailStatus } from '@/shared/lib/apiClient';
+import type { UserDetailRecord, UserDetailStatus } from '@/shared/lib/apiClient';
+import type { BackendMatter } from '@/features/matters/services/mattersApi';
 
 type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
+type ListViewControls = {
+  listHeaderLeftControl?: ComponentChildren;
+  detailHeaderRightControl?: ComponentChildren;
+  mattersData?: {
+    items: BackendMatter[];
+    isLoaded: boolean;
+    isLoading: boolean;
+    error: string | null;
+    refetch: (signal?: AbortSignal) => Promise<void>;
+  };
+  clientsData?: {
+    items: UserDetailRecord[];
+    isLoaded: boolean;
+    isLoading: boolean;
+    error: string | null;
+    refetch: (signal?: AbortSignal) => Promise<void>;
+  };
+};
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -87,12 +110,12 @@ interface WorkspacePageProps {
   ) => Promise<string>;
   activeConversationId?: string | null;
   chatView: ComponentChildren;
-  mattersView?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
-  mattersListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
-  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null) => ComponentChildren);
-  clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null) => ComponentChildren);
-  invoicesView?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
-  invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
+  mattersView?: ComponentChildren | ((statusFilter: string[], controls?: ListViewControls) => ComponentChildren);
+  mattersListContent?: ComponentChildren | ((statusFilter: string[], controls?: ListViewControls) => ComponentChildren);
+  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, controls?: ListViewControls) => ComponentChildren);
+  clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, controls?: ListViewControls) => ComponentChildren);
+  invoicesView?: ComponentChildren | ((statusFilter: string[], controls?: ListViewControls) => ComponentChildren);
+  invoicesListContent?: ComponentChildren | ((statusFilter: string[], controls?: ListViewControls) => ComponentChildren);
   header?: ComponentChildren;
   headerClassName?: string;
   mockConversations?: Conversation[] | null;
@@ -159,7 +182,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
   const [secondaryFilterBySection, setSecondaryFilterBySection] = useState<Partial<Record<WorkspaceSection, string>>>({});
-  const [isMobileFilterSheetOpen, setIsMobileFilterSheetOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressSnapshot | null>(null);
   const [onboardingSaveActions, setOnboardingSaveActions] = useState<OnboardingSaveActionsSnapshot>({
@@ -272,6 +296,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       : view === 'setup'
         ? 'home'
       : view;
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+    setIsInspectorOpen(false);
+  }, [workspaceSection]);
   const { session, isPending: isSessionPending, activeMemberRole } = useSessionContext();
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const navConfig = useMemo(() => {
@@ -359,6 +387,31 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     resolvedConversations,
     session?.user?.id,
   ]);
+  const selectedConversation = useMemo(
+    () => resolvedConversations.find((conversation) => conversation.id === activeConversationId) ?? null,
+    [activeConversationId, resolvedConversations]
+  );
+  const inspectorTarget = useMemo(() => {
+    if (workspaceSection === 'conversations' && activeConversationId) {
+      return { entityType: 'conversation' as const, entityId: activeConversationId };
+    }
+    if (workspaceSection === 'matters' && selectedMatterIdFromPath) {
+      return { entityType: 'matter' as const, entityId: selectedMatterIdFromPath };
+    }
+    if (workspaceSection === 'clients' && selectedClientIdFromPath) {
+      return { entityType: 'client' as const, entityId: selectedClientIdFromPath };
+    }
+    return null;
+  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, workspaceSection]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOpenInspector = () => {
+      if (!inspectorTarget) return;
+      setIsInspectorOpen(true);
+    };
+    window.addEventListener('workspace:open-inspector', handleOpenInspector);
+    return () => window.removeEventListener('workspace:open-inspector', handleOpenInspector);
+  }, [inspectorTarget]);
   const mattersStatusFilter = useMemo<string[]>(() => {
     if (workspaceSection !== 'matters') return [];
     if (!activeSecondaryFilter) return [];
@@ -386,12 +439,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return [];
   }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
+  const mattersData = useMattersData(
+    practiceId,
+    mattersStatusFilter,
+    session?.user?.id ?? null,
+    { enabled: isPracticeWorkspace && workspaceSection === 'matters' }
+  );
+  const clientsData = useClientsData(
+    practiceId,
+    clientsStatusFilter,
+    session?.user?.id ?? null,
+    { enabled: isPracticeWorkspace && workspaceSection === 'clients' }
+  );
   const showConversationListTitle = workspace === 'public';
   const isMobileLayout = layoutMode !== 'desktop';
-  const supportsSecondaryMobileFilters = workspaceSection === 'conversations'
-    || workspaceSection === 'matters'
-    || workspaceSection === 'clients'
-    || workspaceSection === 'invoices';
 
   useEffect(() => {
     onboardingConversationInitRef.current = false;
@@ -1247,12 +1308,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             showSendMessageButton={isClientFacingWorkspace}
             activeConversationId={activeConversationId}
             showTitle={showConversationListTitle}
-            headerControls={mobileFilterButton}
+            headerLeftControls={mobileConversationHeaderControls}
             assignedToFilter={conversationAssignedToFilter}
           />
         );
       case 'matters':
-        return (typeof mattersView === 'function' ? mattersView(mattersStatusFilter) : mattersView) ?? (
+        return (typeof mattersView === 'function' ? mattersView(mattersStatusFilter, listViewControls) : mattersView) ?? (
           <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-input-text">Matters</h2>
@@ -1269,7 +1330,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           </div>
         );
       case 'clients':
-        return (typeof clientsView === 'function' ? clientsView(clientsStatusFilter) : clientsView) ?? (
+        return (typeof clientsView === 'function' ? clientsView(clientsStatusFilter, listViewControls) : clientsView) ?? (
           <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-input-text">Clients</h2>
@@ -1281,7 +1342,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       case 'invoices':
       case 'invoiceDetail':
-        return (typeof invoicesView === 'function' ? invoicesView(invoicesStatusFilter) : invoicesView) ?? (
+        return (typeof invoicesView === 'function' ? invoicesView(invoicesStatusFilter, listViewControls) : invoicesView) ?? (
           <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
               <h2 className="text-lg font-semibold text-input-text">Invoices</h2>
@@ -1328,9 +1389,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const hideBottomNav = isClientFacingWorkspace && (view === 'list' || view === 'conversation');
-  const showBottomNav = workspace !== 'practice'
+  const showBottomNav = isMobileLayout && (workspace !== 'practice'
     ? !hideBottomNav
-    : true;
+    : true);
   const activeHref = location.path;
 
   const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
@@ -1341,7 +1402,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   ) : undefined;
 
-  const sidebarNav = navConfig.rail.length > 0 ? (
+  const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 ? (
     <NavRail
       variant="rail"
       items={navConfig.rail}
@@ -1358,55 +1419,80 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         : handleSecondaryFilterSelect}
     />
   ) : undefined;
-  const matterListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters'
-    ? (typeof mattersListContent === 'function' ? mattersListContent(mattersStatusFilter) : mattersListContent)
-    : undefined;
-  const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients'
-    ? (typeof clientsListContent === 'function' ? clientsListContent(clientsStatusFilter) : clientsListContent)
-    : undefined;
-  const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail')
-    ? (typeof invoicesListContent === 'function' ? invoicesListContent(invoicesStatusFilter) : invoicesListContent)
-    : undefined;
-  const showMobileFilterAction = isMobileLayout
-    && supportsSecondaryMobileFilters
+  const showMobileMenuButton = isMobileLayout
     && Boolean(navConfig.secondary?.length)
     && (
       (workspaceSection === 'conversations' && view === 'list')
       || (workspaceSection === 'matters' && !selectedMatterIdFromPath && !isMatterNonListRoute)
       || (workspaceSection === 'clients' && !selectedClientIdFromPath)
       || (workspaceSection === 'invoices' && view === 'invoices')
+      || workspaceSection === 'settings'
     );
-  const mobileFilterButton = showMobileFilterAction ? (
+  const mobileMenuButton = showMobileMenuButton ? (
     <Button
       type="button"
-      variant="secondary"
-      size="sm"
-      icon={<FunnelIcon className="h-4 w-4" />}
-      onClick={() => setIsMobileFilterSheetOpen(true)}
-    >
-      Filter
-    </Button>
+      variant="icon"
+      size="icon-sm"
+      onClick={() => setIsMobileNavOpen(true)}
+      aria-label="Open navigation menu"
+      icon={<Bars3Icon className="h-5 w-5" />}
+    />
   ) : null;
+  const inspectorToggleButton = inspectorTarget ? (
+    <Button
+      type="button"
+      variant="icon"
+      size="icon-sm"
+      onClick={() => setIsInspectorOpen(true)}
+      aria-label="Open inspector"
+      icon={<InformationCircleIcon className="h-5 w-5" />}
+    />
+  ) : null;
+  const mobileConversationHeaderControls = layoutMode !== 'desktop' && (mobileMenuButton || inspectorToggleButton)
+    ? (
+      <div className="flex items-center gap-2">
+        {mobileMenuButton}
+        {inspectorToggleButton}
+      </div>
+    )
+    : undefined;
+  const listViewControls: ListViewControls = {
+    listHeaderLeftControl: layoutMode !== 'desktop' ? mobileMenuButton ?? undefined : undefined,
+    detailHeaderRightControl: inspectorToggleButton ?? undefined,
+    mattersData,
+    clientsData,
+  };
+  const matterListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters'
+    ? (typeof mattersListContent === 'function' ? mattersListContent(mattersStatusFilter, listViewControls) : mattersListContent)
+    : undefined;
+  const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients'
+    ? (typeof clientsListContent === 'function' ? clientsListContent(clientsStatusFilter, listViewControls) : clientsListContent)
+    : undefined;
+  const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail')
+    ? (typeof invoicesListContent === 'function' ? invoicesListContent(invoicesStatusFilter, listViewControls) : invoicesListContent)
+    : undefined;
 
   const conversationListView = (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      <ConversationListView
-        conversations={filteredConversations}
-        previews={conversationPreviews}
-        practiceName={practiceName}
-        practiceLogo={practiceLogo}
-        isLoading={resolvedConversationsLoading}
-        error={resolvedConversationsError}
-        onClose={handleCloseConversationList}
-        onSelectConversation={handleSelectConversation}
-        onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-        showBackButton={false}
-        showSendMessageButton={isClientFacingWorkspace}
-        activeConversationId={activeConversationId}
-        showTitle={showConversationListTitle}
-        headerControls={mobileFilterButton}
-        assignedToFilter={conversationAssignedToFilter}
-      />
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
+      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
+        <ConversationListView
+          conversations={filteredConversations}
+          previews={conversationPreviews}
+          practiceName={practiceName}
+          practiceLogo={practiceLogo}
+          isLoading={resolvedConversationsLoading}
+          error={resolvedConversationsError}
+          onClose={handleCloseConversationList}
+          onSelectConversation={handleSelectConversation}
+          onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+          showBackButton={false}
+          showSendMessageButton={isClientFacingWorkspace}
+          activeConversationId={activeConversationId}
+          showTitle={showConversationListTitle}
+          headerLeftControls={mobileConversationHeaderControls}
+          assignedToFilter={conversationAssignedToFilter}
+        />
+      </Panel>
     </div>
   );
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
@@ -1482,26 +1568,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         {renderContent()}
       </div>
     );
-  const mainContent = view === 'settings' && layoutMode !== 'desktop' && secondaryPanel
-    ? (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="border-b border-line-glass/30 bg-transparent">
-          {secondaryPanel}
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">{baseMainContent}</div>
-      </div>
-    )
-    : baseMainContent;
-  const mainContentWithMobileFilters = mobileFilterButton && workspaceSection !== 'conversations'
+  const mainContent = baseMainContent;
+  const mainContentWithMobileMenu = mobileMenuButton && workspaceSection === 'settings'
     ? (
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="border-b border-line-glass/30 bg-transparent px-4 py-3">
-          <div className="flex items-center justify-end">{mobileFilterButton}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div>{mobileMenuButton}</div>
+            {layoutMode !== 'desktop' ? inspectorToggleButton : null}
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">{mainContent}</div>
       </div>
     )
     : mainContent;
+  const wrappedMainContent = (
+    <div className="relative h-full min-h-0">
+      {mainContentWithMobileMenu}
+    </div>
+  );
 
   const isPublicShell = layoutMode !== 'desktop';
   const isWidgetShell = layoutMode === 'widget';
@@ -1522,7 +1607,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             {header}
           </div>
         )}
-        <div className="min-h-0 h-full flex-1">{mainContentWithMobileFilters}</div>
+        <div className="min-h-0 h-full flex-1">{wrappedMainContent}</div>
         {bottomNav && (
           <div className="mt-auto">
             {bottomNav}
@@ -1537,35 +1622,61 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           {header}
         </div>
       )}
-      {mainContentWithMobileFilters}
+      {wrappedMainContent}
     </div>
   );
-
-  const mobileFilterSheet = navConfig.secondary && navConfig.secondary.length > 0 && supportsSecondaryMobileFilters ? (
-    <FilterSheet
-      title="Filters"
-      sections={navConfig.secondary}
-      activeItemId={activeSecondaryFilter}
-      isOpen={isMobileFilterSheetOpen}
-      onClose={() => setIsMobileFilterSheetOpen(false)}
-      onSelect={handleSecondaryFilterSelect}
+  const inspectorPanel = inspectorTarget ? (
+    <InspectorPanel
+      entityType={inspectorTarget.entityType}
+      entityId={inspectorTarget.entityId}
+      practiceId={practiceId}
+      conversation={selectedConversation}
+      onClose={() => setIsInspectorOpen(false)}
     />
+  ) : null;
+  const mobileSecondaryDrawer = navConfig.secondary && navConfig.secondary.length > 0 ? (
+    <Modal
+      isOpen={isMobileNavOpen}
+      onClose={() => setIsMobileNavOpen(false)}
+      title="Navigation"
+      type="drawer"
+    >
+      <SecondaryPanel
+        sections={navConfig.secondary}
+        activeHref={activeHref}
+        activeItemId={workspaceSection === 'settings' ? undefined : activeSecondaryFilter}
+        onSelect={workspaceSection === 'settings' ? undefined : handleSecondaryFilterSelect}
+        onItemActivate={() => setIsMobileNavOpen(false)}
+      />
+    </Modal>
+  ) : null;
+  const mobileInspectorDrawer = inspectorPanel ? (
+    <Modal
+      isOpen={isInspectorOpen && isMobileLayout}
+      onClose={() => setIsInspectorOpen(false)}
+      title="Inspector"
+      type="drawer-right"
+    >
+      {inspectorPanel}
+    </Modal>
   ) : null;
 
   return (
     <>
       <AppShell
         className="bg-transparent h-dvh"
-        accentBackdropVariant="workspace"
+        accentBackdropVariant="none"
         sidebar={sidebarNav}
         secondarySidebar={layoutMode === 'desktop' ? secondaryPanel : undefined}
         listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
+        inspector={layoutMode === 'desktop' && isInspectorOpen ? inspectorPanel : undefined}
         main={mainShell}
         mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
         bottomBar={isPublicShell ? undefined : bottomNav}
         bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
       />
-      {mobileFilterSheet}
+      {mobileSecondaryDrawer}
+      {mobileInspectorDrawer}
     </>
   );
 };

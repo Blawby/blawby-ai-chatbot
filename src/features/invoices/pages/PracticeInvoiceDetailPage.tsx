@@ -1,6 +1,8 @@
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -31,10 +33,14 @@ export function PracticeInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
+  headerActions,
+  showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   invoiceId: string | null;
+  headerActions?: ComponentChildren;
+  showBack?: boolean;
 }) {
   const { navigate } = useNavigation();
   const { showError, showSuccess, showInfo } = useToastContext();
@@ -201,39 +207,36 @@ export function PracticeInvoiceDetailPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold text-input-text">{detail.invoiceNumber}</h1>
-            <InvoiceStatusBadge status={detail.status} />
-          </div>
-          <p className="mt-1 text-sm text-input-placeholder">
-            Issued {renderEventDate(detail.issueDate)} • Due {renderEventDate(detail.dueDate)} • Paid {renderEventDate(detail.paidAt)}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={handleBackToList}>Back to list</Button>
-
-          {status === 'draft' ? (
-            <>
-              <Button variant="secondary" onClick={() => setEditing((prev) => !prev)}>{editing ? 'Close edit' : 'Edit'}</Button>
-              <Button onClick={() => void handleSend()}>Send</Button>
-              <Button variant="danger-ghost" onClick={() => void handleDelete()}>Delete</Button>
-            </>
-          ) : null}
-
-          {isActionableOpenStatus(status) ? (
-            <>
+      <DetailHeader
+        title={detail.invoiceNumber}
+        subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)} • Paid ${renderEventDate(detail.paidAt)}`}
+        showBack={showBack}
+        onBack={handleBackToList}
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
+            {status === 'draft' ? (
+              <>
+                <Button variant="secondary" onClick={() => setEditing((prev) => !prev)}>{editing ? 'Close edit' : 'Edit'}</Button>
+                <Button onClick={() => void handleSend()}>Send</Button>
+                <Button variant="danger-ghost" onClick={() => void handleDelete()}>Delete</Button>
+              </>
+            ) : null}
+            {isActionableOpenStatus(status) ? (
+              <>
+                <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
+                <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
+                <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
+              </>
+            ) : null}
+            {status === 'paid' ? (
               <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-              <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
-              <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
-            </>
-          ) : null}
-
-          {status === 'paid' ? (
-            <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-          ) : null}
-        </div>
+            ) : null}
+            {headerActions}
+          </div>
+        )}
+      />
+      <div className="mt-1">
+        <InvoiceStatusBadge status={detail.status} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

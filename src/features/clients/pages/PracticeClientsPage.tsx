@@ -1,6 +1,7 @@
-import { Fragment } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
@@ -16,7 +17,6 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { Address } from '@/shared/types/address';
 import {
-  listUserDetails,
   listUserDetailMemos,
   createUserDetailMemo,
   updateUserDetailMemo,
@@ -29,6 +29,7 @@ import {
   type UserDetailStatus,
   type UserDetailMemoRecord
 } from '@/shared/lib/apiClient';
+import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +37,6 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import {
-  ArrowLeftIcon,
   ArrowUpTrayIcon,
   ChatBubbleLeftRightIcon,
   EllipsisVerticalIcon,
@@ -190,11 +190,7 @@ const ClientDetailPanel = ({
   <div className={cn('h-full overflow-y-auto px-6 py-6', paddingClassName)}>
     <div className="divide-y divide-line-default">
       <div className="pb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-input-text">{client.name}</h2>
-          <p className="text-sm text-input-placeholder">{client.email}</p>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" icon={<DocumentTextOutlineIcon className="h-4 w-4" />}>
             Generate Invoice
           </Button>
@@ -277,21 +273,29 @@ export const PracticeClientsPage = ({
   basePath = '/practice/clients',
   renderMode = 'full',
   statusFilter = null,
+  prefetchedItems = [],
+  prefetchedLoading = false,
+  prefetchedError = null,
+  onRefetchList,
+  listHeaderLeftControl,
+  detailHeaderRightControl,
+  showDetailBackButton = true,
 }: {
   practiceId?: string | null;
   basePath?: string;
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
   statusFilter?: UserDetailStatus | null;
+  prefetchedItems?: UserDetailRecord[];
+  prefetchedLoading?: boolean;
+  prefetchedError?: string | null;
+  onRefetchList?: (signal?: AbortSignal) => Promise<void>;
+  listHeaderLeftControl?: ComponentChildren;
+  detailHeaderRightControl?: ComponentChildren;
+  showDetailBackButton?: boolean;
 }) => {
   const location = useLocation();
   const { currentPractice } = usePracticeManagement();
   const { showError, showSuccess } = useToastContext();
-  const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [clientsLoading, setClientsLoading] = useState(false);
-  const [clientsError, setClientsError] = useState<string | null>(null);
-  const [clientsPage, setClientsPage] = useState(1);
-  const [clientsHasMore, setClientsHasMore] = useState(true);
-  const [clientsLoadingMore, setClientsLoadingMore] = useState(false);
   const [memoTimeline, setMemoTimeline] = useState<Record<string, TimelineItem[]>>({});
   const [memoSubmitting, setMemoSubmitting] = useState(false);
   const [memoActionId, setMemoActionId] = useState<string | null>(null);
@@ -322,6 +326,38 @@ export const PracticeClientsPage = ({
     address: undefined,  // Now uses Address object like intake form!
   });
 
+  const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
+  const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
+  const selectedClientIdFromPath = useMemo(() => {
+    if (!pathSegments[0]) return null;
+    try {
+      return decodeURIComponent(pathSegments[0]);
+    } catch (e) {
+      console.warn('[Clients] Failed to decode client ID from path', e);
+      return null;
+    }
+  }, [pathSegments]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [currentLetter, setCurrentLetter] = useState('');
+  const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
+
+  const buildClientRecord = useCallback((detail: UserDetailRecord): ClientRecord => {
+    const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown Client';
+    return {
+      id: detail.id,
+      name,
+      email: detail.user?.email ?? 'Unknown email',
+      phone: detail.user?.phone ?? null,
+      status: detail.status
+    };
+  }, []);
+  const clients = useMemo(() => {
+    void statusFilter;
+    return prefetchedItems.map(buildClientRecord);
+  }, [buildClientRecord, prefetchedItems, statusFilter]);
+  const clientsLoading = prefetchedLoading;
+  const clientsLoadingMore = false;
+  const clientsError = prefetchedError;
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
     [clients]
@@ -337,24 +373,9 @@ export const PracticeClientsPage = ({
     }, {});
   }, [sortedClients]);
   const letters = useMemo(() => Object.keys(groupedClients).sort(), [groupedClients]);
-
-  const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
-  const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
-  const selectedClientIdFromPath = useMemo(() => {
-    if (!pathSegments[0]) return null;
-    try {
-      return decodeURIComponent(pathSegments[0]);
-    } catch (e) {
-      console.warn('[Clients] Failed to decode client ID from path', e);
-      return null;
-    }
-  }, [pathSegments]);
-  const [currentLetter, setCurrentLetter] = useState(() => letters[0] ?? '');
-  const listRef = useRef<HTMLDivElement>(null);
-  const loadMoreRef = useRef<HTMLLIElement>(null);
-  const pageSize = 20;
-  const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
-
+  useEffect(() => {
+    setCurrentLetter((prev) => prev || letters[0] || '');
+  }, [letters]);
   const selectedClientFromList = useMemo(() => {
     if (!selectedClientIdFromPath) return null;
     return sortedClients.find((client) => client.id === selectedClientIdFromPath) ?? null;
@@ -370,17 +391,6 @@ export const PracticeClientsPage = ({
   const handleSelectClient = useCallback((clientId: string) => {
     location.route(`${basePath}/${encodeURIComponent(clientId)}`);
   }, [basePath, location]);
-
-  const buildClientRecord = useCallback((detail: UserDetailRecord): ClientRecord => {
-    const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown Client';
-    return {
-      id: detail.id,
-      name,
-      email: detail.user?.email ?? 'Unknown email',
-      phone: detail.user?.phone ?? null,
-      status: detail.status
-    };
-  }, []);
 
   const mapMemosToTimeline = useCallback((client: ClientRecord, memos: UserDetailMemoRecord[]): TimelineItem[] => {
     const withoutId = memos.filter((memo) => !memo.id);
@@ -423,58 +433,6 @@ export const PracticeClientsPage = ({
       [client.id]: mapMemosToTimeline(client, memos)
     }));
   }, [activePracticeId, mapMemosToTimeline]);
-
-  const fetchClientsPage = useCallback(async (page: number, options?: { replace?: boolean }) => {
-    if (!activePracticeId) {
-      setClients([]);
-      setClientsHasMore(true);
-      setClientsPage(1);
-      return;
-    }
-
-    if (options?.replace) {
-      setClientsLoading(true);
-      setClientsError(null);
-      setClientsHasMore(true);
-      setClientsPage(1);
-    }
-
-    try {
-      const offset = (page - 1) * pageSize;
-      const response = await listUserDetails(activePracticeId, {
-        limit: pageSize,
-        offset,
-        status: statusFilter ?? undefined
-      });
-      const nextClients = response.data.map(buildClientRecord);
-      if (options?.replace) {
-        setClients(nextClients);
-      } else {
-        setClients((prev) => [...prev, ...nextClients]);
-      }
-      setClientsHasMore(nextClients.length === pageSize);
-      setClientsPage(page);
-    } catch (error) {
-      console.error('[Clients] Failed to load user details', error);
-      setClientsError('Failed to load clients');
-      setClientsHasMore(false);
-    } finally {
-      if (options?.replace) {
-        setClientsLoading(false);
-      }
-      setClientsLoadingMore(false);
-    }
-  }, [
-    activePracticeId,
-    buildClientRecord,
-    pageSize,
-    statusFilter
-  ]);
-
-  useEffect(() => {
-    if (renderMode === 'detailOnly') return;
-    void fetchClientsPage(1, { replace: true });
-  }, [fetchClientsPage, renderMode]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedClient) return;
@@ -661,7 +619,8 @@ export const PracticeClientsPage = ({
         event_name: 'Invite Client',
         address: editClientForm.address
       });
-      await fetchClientsPage(1, { replace: true });
+      invalidateClientsForPractice(activePracticeId);
+      await onRefetchList?.();
       showSuccess('Client updated', 'Client details have been saved.');
       resetEditClientForm();
       setIsEditClientOpen(false);
@@ -672,7 +631,7 @@ export const PracticeClientsPage = ({
     } finally {
       setEditClientSubmitting(false);
     }
-  }, [activePracticeId, editClientForm, editClientSubmitting, fetchClientsPage, resetEditClientForm, showError, showSuccess]);
+  }, [activePracticeId, editClientForm, editClientSubmitting, onRefetchList, resetEditClientForm, showError, showSuccess]);
 
   const handleDeleteClient = useCallback(async () => {
     if (!activePracticeId || !selectedClient) return;
@@ -680,14 +639,15 @@ export const PracticeClientsPage = ({
     if (!confirmed) return;
     try {
       await deleteUserDetail(activePracticeId, selectedClient.id);
-      await fetchClientsPage(1, { replace: true });
+      invalidateClientsForPractice(activePracticeId);
+      await onRefetchList?.();
       showSuccess('Client deleted', 'The client has been removed.');
       location.route(basePath);
     } catch (error) {
       console.error('[Clients] Failed to delete client', error);
       showError('Could not delete client', 'Please try again.');
     }
-  }, [activePracticeId, basePath, fetchClientsPage, location, selectedClient, showError, showSuccess]);
+  }, [activePracticeId, basePath, location, onRefetchList, selectedClient, showError, showSuccess]);
 
   const handleSubmitAddClient = useCallback(async () => {
     if (!activePracticeId) return;
@@ -710,7 +670,8 @@ export const PracticeClientsPage = ({
         address: addClientForm.address,
         event_name: 'Invite Client'
       });
-      await fetchClientsPage(1, { replace: true });
+      invalidateClientsForPractice(activePracticeId);
+      await onRefetchList?.();
       showSuccess('Client added', 'The client has been added to your practice.');
       resetAddClientForm();
       setIsAddClientOpen(false);
@@ -725,88 +686,11 @@ export const PracticeClientsPage = ({
     addClientForm,
     addClientSubmitting,
     activePracticeId,
-    fetchClientsPage,
+    onRefetchList,
     resetAddClientForm,
     showError,
     showSuccess
   ]);
-
-  const updateCurrentLetter = useCallback(() => {
-    const container = listRef.current;
-    if (!container) return;
-    const sections = Array.from(container.querySelectorAll<HTMLElement>('[data-letter]'));
-    if (sections.length === 0) return;
-    const scrollPosition = container.scrollTop + 4;
-    let nextLetter = sections[0].dataset.letter ?? '';
-    for (const section of sections) {
-      if (section.offsetTop <= scrollPosition) {
-        nextLetter = section.dataset.letter ?? nextLetter;
-      } else {
-        break;
-      }
-    }
-    setCurrentLetter((prev) => (prev === nextLetter ? prev : nextLetter));
-  }, []);
-
-  useEffect(() => {
-    const container = listRef.current;
-    if (!container) return;
-    let rafId: number | null = null;
-    const handleScroll = () => {
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        updateCurrentLetter();
-      });
-    };
-    container.addEventListener('scroll', handleScroll);
-    updateCurrentLetter();
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, [updateCurrentLetter]);
-
-  const scrollToLetter = useCallback((letter: string) => {
-    const container = listRef.current;
-    if (!container) return;
-    const target = container.querySelector<HTMLElement>(`[data-letter="${letter}"]`);
-    if (target) {
-      container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
-    }
-  }, []);
-
-  const loadMoreClients = useCallback(async () => {
-    if (!clientsHasMore || clientsLoading || clientsLoadingMore) {
-      return;
-    }
-    const nextPage = clientsPage + 1;
-    setClientsLoadingMore(true);
-    await fetchClientsPage(nextPage);
-  }, [clientsHasMore, clientsLoading, clientsLoadingMore, clientsPage, fetchClientsPage]);
-
-  useEffect(() => {
-    if (renderMode === 'detailOnly') return;
-    const target = loadMoreRef.current;
-    const root = listRef.current;
-    if (!target || !root) return;
-    if (!clientsHasMore || clientsLoading || clientsLoadingMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry?.isIntersecting) {
-          void loadMoreClients();
-        }
-      },
-      { root, rootMargin: '200px' }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [clientsHasMore, clientsLoading, clientsLoadingMore, loadMoreClients, renderMode]);
 
   const addClientModal = (
     <Modal
@@ -869,36 +753,27 @@ export const PracticeClientsPage = ({
   );
 
   const clientListPane = (
-    <div className="relative h-full">
-      <div
-        ref={listRef}
-        className="h-full overflow-y-auto"
-      >
+    <div className="relative h-full min-h-0 overflow-hidden">
+      <div ref={listRef} className="h-full overflow-y-auto">
         <ul>
           {letters.map((letter) => (
-            <Fragment key={letter}>
-              <li
-                data-letter={letter}
-                className="sticky top-0 z-10 bg-transparent px-4 py-2 text-xs font-semibold text-input-placeholder"
-              >
+            <li key={letter} data-letter={letter}>
+              <div className="sticky top-0 z-10 bg-transparent px-4 py-1.5 text-xs font-semibold text-input-placeholder">
                 {letter}
-              </li>
-              <li aria-hidden="true" className="border-b border-line-glass/20" />
+              </div>
               {groupedClients[letter].map((client, index) => {
-                const isActive = client.id === selectedClient?.id;
+                const isSelected = client.id === selectedClient?.id;
                 const nameParts = splitName(client.name);
                 const isLastInLetterGroup = index === groupedClients[letter].length - 1;
                 return (
-                  <li key={client.id}>
-                    <Button
-                      variant="ghost"
+                  <div key={client.id}>
+                    <button
+                      type="button"
                       onClick={() => handleSelectClient(client.id)}
-                      aria-current={isActive ? 'true' : undefined}
+                      aria-current={isSelected ? 'true' : undefined}
                       className={cn(
-                        'w-full justify-start px-4 py-3.5 h-auto rounded-none transition-colors duration-150',
-                        isActive
-                          ? 'bg-white/5'
-                          : 'hover:bg-white/[0.03]'
+                        'w-full justify-start px-4 py-3.5 h-auto rounded-none text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
+                        isSelected ? 'bg-white/5' : 'hover:bg-white/[0.03]'
                       )}
                     >
                       <div className="flex items-center gap-4 w-full">
@@ -920,48 +795,83 @@ export const PracticeClientsPage = ({
                           </p>
                         </div>
                       </div>
-                    </Button>
-                    {!isLastInLetterGroup && (
-                      <div aria-hidden="true" className="border-b border-line-glass/20" />
-                    )}
-                  </li>
+                    </button>
+                    {!isLastInLetterGroup ? <div aria-hidden="true" className="border-b border-line-glass/8" /> : null}
+                  </div>
                 );
               })}
-            </Fragment>
+            </li>
           ))}
-          <li
-            ref={loadMoreRef}
-            className="px-4 py-3 text-xs text-input-placeholder text-center"
-          >
-            {clientsLoadingMore
-              ? 'Loading more clients...'
-              : clientsHasMore
-                ? 'Scroll to load more'
-                : 'No more clients'}
-          </li>
+          {clientsLoadingMore ? (
+            <li className="px-4 py-3 text-xs text-input-placeholder text-center">Loading more clients...</li>
+          ) : null}
         </ul>
       </div>
-      <div className="absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder">
-        {letters.map((letter) => (
-          <Button
-            key={letter}
-            variant="ghost"
-            size="sm"
-            onClick={() => scrollToLetter(letter)}
-            className={cn(
-              'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
-              "before:absolute before:-inset-3.5 before:content-['']",
-              currentLetter === letter
-                ? 'text-[rgb(var(--accent-foreground))] font-bold bg-accent-500'
-                : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
-            )}
-          >
-            {letter}
-          </Button>
-        ))}
-      </div>
+      {letters.length > 0 ? (
+        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder">
+          {letters.map((letter) => (
+            <Button
+              key={letter}
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const container = listRef.current;
+                if (!container) return;
+                const target = container.querySelector<HTMLElement>(`[data-letter="${letter}"]`);
+                if (target) {
+                  container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+                }
+              }}
+              className={cn(
+                'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
+                "before:absolute before:-inset-3.5 before:content-['']",
+                currentLetter === letter
+                  ? 'text-[rgb(var(--accent-foreground))] font-bold bg-accent-500'
+                  : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
+              )}
+            >
+              {letter}
+            </Button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
+
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) return;
+    let rafId: number | null = null;
+    const updateCurrent = () => {
+      const sections = Array.from(container.querySelectorAll<HTMLElement>('[data-letter]'));
+      if (sections.length === 0) return;
+      const scrollPosition = container.scrollTop + 4;
+      let nextLetter = sections[0].dataset.letter ?? '';
+      for (const section of sections) {
+        if (section.offsetTop <= scrollPosition) {
+          nextLetter = section.dataset.letter ?? nextLetter;
+        } else {
+          break;
+        }
+      }
+      setCurrentLetter((prev) => (prev === nextLetter ? prev : nextLetter));
+    };
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateCurrent();
+      });
+    };
+    container.addEventListener('scroll', handleScroll);
+    updateCurrent();
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [letters]);
 
   const clientDetailBody = selectedClient ? (
     <ClientDetailPanel
@@ -992,22 +902,27 @@ export const PracticeClientsPage = ({
 
   if (renderMode === 'listOnly') {
     return (
-      <div className="h-full min-h-0 overflow-hidden">
-        {clientsLoading ? (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm text-input-placeholder">Loading clients...</p>
-          </div>
-        ) : clientsError ? (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm text-input-placeholder">{clientsError}</p>
-          </div>
-        ) : sortedClients.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm text-input-placeholder">No clients found.</p>
-          </div>
-        ) : (
-          clientListPane
-        )}
+      <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2">
+        {listHeaderLeftControl ? (
+          <div className="px-1 py-1">{listHeaderLeftControl}</div>
+        ) : null}
+        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
+          {clientsLoading ? (
+            <div className="h-full flex-1 items-center justify-center flex">
+              <p className="text-sm text-input-placeholder">Loading clients...</p>
+            </div>
+          ) : clientsError ? (
+            <div className="h-full flex-1 items-center justify-center flex">
+              <p className="text-sm text-input-placeholder">{clientsError}</p>
+            </div>
+          ) : sortedClients.length === 0 ? (
+            <div className="h-full flex-1 items-center justify-center flex">
+              <p className="text-sm text-input-placeholder">No clients found.</p>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1">{clientListPane}</div>
+          )}
+        </Panel>
       </div>
     );
   }
@@ -1025,7 +940,16 @@ export const PracticeClientsPage = ({
               <p className="text-sm text-input-placeholder">{clientsError}</p>
             </div>
           ) : (
-            clientDetailBody
+            <div className="h-full min-h-0 flex flex-col">
+              {selectedClient ? (
+                <DetailHeader
+                  title={selectedClient.name}
+                  subtitle={selectedClient.email}
+                  actions={detailHeaderRightControl}
+                />
+              ) : null}
+              <div className="min-h-0 flex-1 overflow-hidden">{clientDetailBody}</div>
+            </div>
           )}
         </div>
         {addClientModal}
@@ -1039,19 +963,12 @@ export const PracticeClientsPage = ({
       <>
         <Page className="h-full">
           <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
-            <PageHeader
-              title="Client"
-              subtitle={selectedClient?.name ?? 'Client detail'}
-              actions={(
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={<ArrowLeftIcon className="h-4 w-4" />}
-                  onClick={() => location.route(basePath)}
-                >
-                  Back to clients
-                </Button>
-              )}
+            <DetailHeader
+              title={selectedClient?.name ?? 'Client detail'}
+              subtitle={selectedClient?.email ?? undefined}
+              showBack={showDetailBackButton}
+              onBack={() => location.route(basePath)}
+              actions={detailHeaderRightControl}
             />
             <Panel className="flex-1 min-h-0 overflow-hidden">
               {clientDetailBody}
@@ -1141,19 +1058,9 @@ export const PracticeClientsPage = ({
           <PageHeader
             title="Clients"
             subtitle="A unified list of client relationships tied to conversations and matters."
-            actions={(
-              <div className="flex items-center gap-2">
-                <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={handleOpenAddClient}>
-                  Add Client
-                </Button>
-                <Button size="sm" variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />}>
-                  Import
-                </Button>
-              </div>
-            )}
           />
-          <Panel className="flex-1 min-h-0 overflow-hidden bg-transparent">
-            {clientListPane}
+          <Panel className="flex-1 min-h-0 overflow-hidden bg-transparent flex flex-col">
+            <div className="min-h-0 flex-1">{clientListPane}</div>
           </Panel>
         </div>
       </Page>
