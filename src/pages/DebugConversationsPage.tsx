@@ -278,11 +278,12 @@ export default function DebugConversationsPage() {
   };
 
   const handleSendMessage = (content: string, attachments: FileAttachment[]) => {
-    if (!activeConversation || !content.trim()) return;
+    const trimmedContent = content.trim();
+    if (!activeConversation || (!trimmedContent && attachments.length === 0)) return;
     const nextMessage: ChatMessageUI = {
       id: `debug-${Date.now()}`,
       role: 'user',
-      content: content.trim(),
+      content: trimmedContent,
       timestamp: Date.now(),
       reply_to_message_id: null,
       metadata: attachments.length > 0 ? { attachments: attachments.map((item) => item.id ?? item.name) } : undefined,

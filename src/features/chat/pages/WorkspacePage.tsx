@@ -166,6 +166,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [onboardingConversationRetryTick, setOnboardingConversationRetryTick] = useState(0);
   const onboardingConversationInitRef = useRef(false);
   const navigationInitiatedRef = useRef(false);
+  const hasAutoNavigatedRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),
@@ -309,6 +310,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   useEffect(() => {
     onboardingConversationInitRef.current = false;
     navigationInitiatedRef.current = false;
+    hasAutoNavigatedRef.current = false;
     setOnboardingConversationId(null);
     setOnboardingConversationRetryTick(0);
   }, [practiceId]);
@@ -463,6 +465,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [navigate, onCloseConversationListOverride, workspaceBasePath]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
+    hasAutoNavigatedRef.current = true;
     if (onSelectConversationOverride) {
       onSelectConversationOverride(conversationId);
       return;
@@ -472,11 +475,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') {
-      navigationInitiatedRef.current = false;
       return;
     }
-    if (activeConversationId) {
-      navigationInitiatedRef.current = false;
+    if (activeConversationId || hasAutoNavigatedRef.current) {
       return;
     }
     if (resolvedConversationsLoading) return;
@@ -486,6 +487,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (!firstConversationId) return;
 
     navigationInitiatedRef.current = true;
+    hasAutoNavigatedRef.current = true;
     handleSelectConversation(firstConversationId);
   }, [
     isClientWorkspace,
