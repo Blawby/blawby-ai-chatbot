@@ -1,6 +1,8 @@
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -25,10 +27,14 @@ export function ClientInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
+  headerActions,
+  showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   invoiceId: string | null;
+  headerActions?: ComponentChildren;
+  showBack?: boolean;
 }) {
   const { navigate } = useNavigation();
   const { showError, showSuccess, showInfo } = useToastContext();
@@ -146,32 +152,34 @@ export function ClientInvoiceDetailPage({
     return <div className="p-6 text-sm text-input-placeholder">Invoice not found.</div>;
   }
 
+  const effectiveShowBack = showBack && Boolean(practiceSlug);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold text-input-text">{detail.invoiceNumber}</h1>
-            <InvoiceStatusBadge status={detail.status} />
+      <DetailHeader
+        title={detail.invoiceNumber}
+        subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
+        showBack={effectiveShowBack}
+        onBack={effectiveShowBack ? handleBackToList : undefined}
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
+            {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
+            {detail.downloadUrl ? (
+              <Button variant="secondary" onClick={() => window.open(detail.downloadUrl as string, '_blank', 'noopener,noreferrer')}>
+                Download
+              </Button>
+            ) : null}
+            {detail.receiptUrl ? (
+              <Button variant="secondary" onClick={() => window.open(detail.receiptUrl as string, '_blank', 'noopener,noreferrer')}>
+                Receipt
+              </Button>
+            ) : null}
+            {headerActions}
           </div>
-          <p className="mt-1 text-sm text-input-placeholder">
-            Issued {renderEventDate(detail.issueDate)} • Due {renderEventDate(detail.dueDate)}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={handleBackToList}>Back to list</Button>
-          {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
-          {detail.downloadUrl ? (
-            <Button variant="secondary" onClick={() => window.open(detail.downloadUrl as string, '_blank', 'noopener,noreferrer')}>
-              Download
-            </Button>
-          ) : null}
-          {detail.receiptUrl ? (
-            <Button variant="secondary" onClick={() => window.open(detail.receiptUrl as string, '_blank', 'noopener,noreferrer')}>
-              Receipt
-            </Button>
-          ) : null}
-        </div>
+        )}
+      />
+      <div className="mt-1">
+        <InvoiceStatusBadge status={detail.status} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

@@ -1,16 +1,19 @@
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState, useErrorBoundary } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Button } from '@/shared/ui/Button';
+import { EntityList } from '@/shared/ui/list/EntityList';
 import { Breadcrumbs } from '@/shared/ui/navigation';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import { FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
-import { type MatterStatus } from '@/shared/types/matterStatus';
+import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
   type MatterExpense,
@@ -31,7 +34,8 @@ import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBui
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
 import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
-import { MatterDetailHeader } from '@/features/matters/components/MatterDetailHeader';
+import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
+import { MatterContextPanel } from '@/features/matters/components/MatterContextPanel';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -43,7 +47,6 @@ import {
   createMatter,
   getMatter,
   getMatterActivity,
-  listMatters,
   updateMatter,
   type BackendMatter,
   type BackendMatterActivity,
@@ -73,6 +76,7 @@ import { getInvoice, sendInvoice, syncInvoice, voidInvoice as voidInvoiceRequest
 import { useBillingData } from '@/features/matters/hooks/useBillingData';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
 import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
 import {
   buildActivityTimelineItem,
@@ -84,8 +88,6 @@ import {
   isEmailLike,
   isUuid,
   prunePayload,
-  resolveClientLabel,
-  resolveOptionLabel,
   sortByTimestamp,
   toExpense,
   toMatterDetail,
@@ -94,6 +96,7 @@ import {
   toMilestone,
   toTimeEntry
 } from '@/features/matters/utils/matterUtils';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -109,11 +112,14 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'messages', label: 'Messages' }
 ];
 
-const PAGE_SIZE = 20;
-
 const resolveQueryValue = (value?: string | string[] | null) => {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
+};
+
+const toBillingTypeLabel = (value?: string | null) => {
+  if (!value) return null;
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
 // ---------------------------------------------------------------------------
@@ -249,6 +255,13 @@ type PracticeMattersPageProps = {
   practiceId?: string | null;
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
   statusFilter?: string[];
+  prefetchedItems?: BackendMatter[];
+  prefetchedLoading?: boolean;
+  prefetchedError?: string | null;
+  onRefetchList?: (signal?: AbortSignal) => Promise<void>;
+  listHeaderLeftControl?: ComponentChildren;
+  detailHeaderRightControl?: ComponentChildren;
+  showDetailBackButton?: boolean;
 };
 
 export const PracticeMattersPage = ({
@@ -256,6 +269,13 @@ export const PracticeMattersPage = ({
   practiceId: routePracticeId = null,
   renderMode = 'full',
   statusFilter,
+  prefetchedItems = [],
+  prefetchedLoading = false,
+  prefetchedError = null,
+  onRefetchList,
+  listHeaderLeftControl,
+  detailHeaderRightControl,
+  showDetailBackButton = true,
 }: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
@@ -296,15 +316,6 @@ export const PracticeMattersPage = ({
     hasDetails: hasPracticeDetails,
     fetchDetails: fetchPracticeDetails
   } = usePracticeDetails(activePracticeId, null, false);
-
-  // ── List state ────────────────────────────────────────────────────────────
-  const [matters, setMatters] = useState<BackendMatter[]>([]);
-  const [mattersLoading, setMattersLoading] = useState(false);
-  const [mattersError, setMattersError] = useState<string | null>(null);
-  const [mattersRefreshKey, setMattersRefreshKey] = useState(0);
-  const [mattersPage, setMattersPage] = useState(1);
-  const [mattersHasMore, setMattersHasMore] = useState(true);
-  const [mattersLoadingMore, setMattersLoadingMore] = useState(false);
 
   // ── Detail state ──────────────────────────────────────────────────────────
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
@@ -366,7 +377,6 @@ export const PracticeMattersPage = ({
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isMounted = useRef(true);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const practiceDetailsRequestedRef = useRef<string | null>(null);
   const refreshRequestIdRef = useRef(0);
   const createdMatterIdRef = useRef<string | null>(null);
@@ -660,74 +670,13 @@ export const PracticeMattersPage = ({
     return () => controller.abort();
   }, [activePracticeId, convertIntakeUuid]);
 
-  // ── Data fetching: matters list ───────────────────────────────────────────
-  useEffect(() => {
-    if (renderMode === 'detailOnly') {
-      setMatters([]);
-      setMattersError(null);
-      setMattersLoading(false);
-      setMattersHasMore(false);
-      setMattersPage(1);
-      return;
-    }
-    if (!activePracticeId) {
-      setMatters([]);
-      setMattersError(null);
-      setMattersLoading(false);
-      setMattersHasMore(true);
-      setMattersPage(1);
-      return;
-    }
-
-    const controller = new AbortController();
-    setMattersLoading(true);
-    setMattersError(null);
-    setMattersHasMore(true);
-    setMattersPage(1);
-
-    listMatters(activePracticeId, { signal: controller.signal, page: 1, limit: PAGE_SIZE })
-      .then((items) => {
-        setMatters(items);
-        setMattersHasMore(items.length === PAGE_SIZE);
-      })
-      .catch((error: unknown) => {
-        if ((error as DOMException).name === 'AbortError') return;
-        setMattersError(error instanceof Error ? error.message : 'Failed to load matters');
-      })
-      .finally(() => setMattersLoading(false));
-
-    return () => controller.abort();
-  }, [activePracticeId, mattersRefreshKey, renderMode]);
-
-  const refreshMatters = useCallback(() => setMattersRefreshKey((prev) => prev + 1), []);
-
-  const loadMoreMatters = useCallback(async () => {
-    if (!activePracticeId || mattersLoadingMore || mattersLoading || !mattersHasMore) return;
-    const nextPage = mattersPage + 1;
-    setMattersLoadingMore(true);
-    try {
-      const items = await listMatters(activePracticeId, { page: nextPage, limit: PAGE_SIZE });
-      setMatters((prev) => [...prev, ...items]);
-      setMattersPage(nextPage);
-      setMattersHasMore(items.length === PAGE_SIZE);
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to load more matters', error);
-      showError('Could not load more matters', 'Please try again.');
-    } finally {
-      setMattersLoadingMore(false);
-    }
-  }, [activePracticeId, mattersHasMore, mattersLoading, mattersLoadingMore, mattersPage, showError]);
-
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target || !mattersHasMore || mattersLoading || mattersLoadingMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => { if (entries[0]?.isIntersecting) void loadMoreMatters(); },
-      { rootMargin: '200px' }
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [loadMoreMatters, mattersHasMore, mattersLoading, mattersLoadingMore]);
+  const refreshMatters = useCallback(() => {
+    void onRefetchList?.();
+  }, [onRefetchList]);
+  const matters = prefetchedItems;
+  const mattersLoading = prefetchedLoading;
+  const mattersLoadingMore = false;
+  const mattersError = prefetchedError;
 
   // ── Data fetching: matter detail ──────────────────────────────────────────
   useEffect(() => {
@@ -927,6 +876,7 @@ export const PracticeMattersPage = ({
     if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
 
     const created = await createMatter(activePracticeId, prunePayload(buildCreatePayload(values)));
+    invalidateMattersForPractice(activePracticeId);
     refreshMatters();
     createdMatterIdRef.current = created?.id ?? null;
   }, [activePracticeId, refreshMatters]);
@@ -975,6 +925,7 @@ export const PracticeMattersPage = ({
       throw new Error('Intake conversion response did not include a matter ID.');
     }
 
+    invalidateMattersForPractice(activePracticeId);
     refreshMatters();
     createdMatterIdRef.current = matterId;
   }, [activePracticeId, convertIntakeUuid, refreshMatters]);
@@ -989,6 +940,7 @@ export const PracticeMattersPage = ({
       selectedMatterId,
       prunePayload(buildUpdatePayload(values, selectedMatterDetail?.status))
     );
+    invalidateMattersForPractice(activePracticeId);
     refreshMatters();
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail?.status, refreshMatters, refreshSelectedMatter]);
@@ -1329,6 +1281,24 @@ export const PracticeMattersPage = ({
     [matterSummaries, selectedMatterId]
   );
   const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
+  const matterContextPanel = useMemo(() => {
+    if (!resolvedSelectedMatter) return null;
+
+    const detail = selectedMatterDetail;
+    const clientNameFromId = detail?.clientId ? clientNameById.get(detail.clientId) : null;
+    const resolvedClientName = clientNameFromId ?? detail?.clientName ?? resolvedSelectedMatter.clientName ?? null;
+    const resolvedAssigneeNames = detail?.assigneeIds?.map((id) => assigneeNameById.get(id) ?? `User ${id.slice(0, 6)}`) ?? [];
+
+    return {
+      clientName: resolvedClientName,
+      assigneeNames: resolvedAssigneeNames,
+      billingLabel: toBillingTypeLabel(detail?.billingType),
+      createdLabel: formatLongDate(resolvedSelectedMatter.createdAt),
+      updatedLabel: resolvedSelectedMatter.updatedAt
+        ? `Updated ${formatRelativeTime(resolvedSelectedMatter.updatedAt)}`
+        : null
+    };
+  }, [resolvedSelectedMatter, selectedMatterDetail, clientNameById, assigneeNameById]);
 
   const timelineItems = useMemo(() => {
     return [...activityItems, ...noteItems].sort((a, b) => {
@@ -1510,6 +1480,8 @@ export const PracticeMattersPage = ({
       await updateMatter(activePracticeId, selectedMatterId, {
         settlement_amount: settlementDraft
       });
+      invalidateMattersForPractice(activePracticeId);
+      refreshMatters();
       setSelectedMatterDetail((prev) => prev ? { ...prev, settlementAmount: settlementDraft } : prev);
       setIsSettlementModalOpen(false);
       const percent = selectedMatterDetail.contingencyPercent ?? 0;
@@ -1526,7 +1498,7 @@ export const PracticeMattersPage = ({
     } catch (error) {
       showError('Could not save settlement amount', error instanceof Error ? error.message : 'Please try again.');
     }
-  }, [activePracticeId, selectedMatterId, settlementDraft, selectedMatterDetail, openInvoiceBuilderWithItems, showError]);
+  }, [activePracticeId, selectedMatterId, settlementDraft, selectedMatterDetail, openInvoiceBuilderWithItems, refreshMatters, showError]);
 
   const handleSendInvoice = useCallback(async (invoice: Invoice) => {
     if (!activePracticeId) return;
@@ -1608,36 +1580,6 @@ export const PracticeMattersPage = ({
     closeInvoiceBuilder();
   }, [milestoneToComplete, activePracticeId, selectedMatterId, refetchBilling, refreshMilestones, showError, closeInvoiceBuilder]);
 
-  // ── Header meta ───────────────────────────────────────────────────────────
-  const headerMeta = useMemo(() => {
-    if (!resolvedSelectedMatter) return null;
-    const detail = selectedMatterDetail;
-    const clientIds = detail
-      ? [detail.clientId, ...((detail as { clientIds?: string[] }).clientIds ?? [])].filter(Boolean) as string[]
-      : [];
-
-    const clientEntries = clientIds.map((id) => {
-      const option = clientOptions.find((o) => o.id === id);
-      return {
-        id,
-        name: option?.name ?? resolveOptionLabel(clientOptions, id, resolveClientLabel(id)),
-        status: option?.status,
-        location: option?.location
-      };
-    });
-    if (clientEntries.length === 0 && resolvedSelectedMatter.clientName) {
-      clientEntries.push({ id: 'client-name-fallback', name: resolvedSelectedMatter.clientName, status: undefined, location: undefined });
-    }
-
-    return {
-      description: detail?.description,
-      clientEntries,
-      assigneeNames: detail?.assigneeIds.map((id) => resolveOptionLabel(assigneeOptions, id, `User ${id.slice(0, 6)}`)).filter(Boolean) ?? [],
-      billingLabel: detail?.billingType ? detail.billingType.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
-      createdLabel: formatLongDate(resolvedSelectedMatter.createdAt)
-    };
-  }, [resolvedSelectedMatter, selectedMatterDetail, clientOptions, assigneeOptions]);
-
   // ── Patch matter — partial update from inline field groups ───────────────
   const handlePatchMatter = useCallback(async (patch: Partial<MatterFormState>) => {
     if (!activePracticeId || !selectedMatterId || !selectedMatterDetail) return;
@@ -1648,6 +1590,7 @@ export const PracticeMattersPage = ({
       selectedMatterId,
       prunePayload(buildUpdatePayload(merged, selectedMatterDetail.status))
     );
+    invalidateMattersForPractice(activePracticeId);
     refreshMatters();
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail, refreshMatters, refreshSelectedMatter]);
@@ -1715,21 +1658,65 @@ export const PracticeMattersPage = ({
     }
 
     return (
-      <Page className="min-h-full">
-        <div className="max-w-6xl mx-auto flex flex-col gap-6">
-
-          {headerMeta && (
-            <MatterDetailHeader
-              matter={resolvedSelectedMatter}
-              detail={selectedMatterDetail}
-              headerMeta={headerMeta}
-              activeTab={detailTab}
-              onTabChange={(id) => setDetailTab(id as DetailTabId)}
-              tabs={DETAIL_TABS}
-              onUpdateStatus={handleUpdateStatus}
-              isLoading={detailLoading}
+      <>
+        <div className="h-full min-h-0 overflow-hidden flex flex-col">
+          <div className="relative z-20 overflow-visible">
+            <DetailHeader
+              title={resolvedSelectedMatter.title}
+              subtitle={MATTER_STATUS_LABELS[resolvedSelectedMatter.status]}
+              showBack={showDetailBackButton}
+              onBack={goToList}
+              actions={(
+                <div className="flex items-center gap-2">
+                  <MatterStatusPopover
+                    currentStatus={resolvedSelectedMatter.status}
+                    onSelect={handleUpdateStatus}
+                    disabled={detailLoading}
+                  />
+                  {detailHeaderRightControl}
+                </div>
+              )}
             />
-          )}
+            <nav
+              className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"
+              aria-label="Matter sections"
+              role="tablist"
+            >
+              {DETAIL_TABS.map((tab) => {
+                const isActive = detailTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setDetailTab(tab.id)}
+                    aria-selected={isActive}
+                    role="tab"
+                    className={[
+                      'relative px-3 py-3 text-sm font-medium whitespace-nowrap',
+                      'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
+                      'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
+                      isActive
+                        ? 'text-input-text after:bg-accent-500'
+                        : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-white/20'
+                    ].join(' ')}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="space-y-6 p-4 sm:p-6">
+              {matterContextPanel ? (
+                <MatterContextPanel
+                  clientName={matterContextPanel.clientName}
+                  assigneeNames={matterContextPanel.assigneeNames}
+                  billingLabel={matterContextPanel.billingLabel}
+                  createdLabel={matterContextPanel.createdLabel}
+                  updatedLabel={matterContextPanel.updatedLabel}
+                />
+              ) : null}
 
           <MatterSummaryCards
             activeTab={detailTab === 'tasks' ? 'overview' : detailTab}
@@ -1961,6 +1948,8 @@ export const PracticeMattersPage = ({
               </p>
             )}
           </section>
+            </div>
+          </div>
         </div>
 
         {/* Quick time entry modal */}
@@ -2028,7 +2017,7 @@ export const PracticeMattersPage = ({
             </div>
           </Modal>
         ) : null}
-      </Page>
+      </>
     );
   }
 
@@ -2041,34 +2030,28 @@ export const PracticeMattersPage = ({
 
   if (renderMode === 'listOnly') {
     return (
-      <div className="h-full min-h-0 flex flex-col gap-3 p-3">
+      <div className="h-full min-h-0 flex flex-col gap-2">
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-        <Panel className="min-h-0 flex-1 overflow-hidden">
-          <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-input-text">Matters</h2>
-              <p className="text-xs text-input-placeholder">{sortedMatterSummaries.length} showing</p>
-            </div>
-          </header>
-          {mattersLoading ? (
-            <LoadingState message="Loading matters..." />
-          ) : sortedMatterSummaries.length === 0 ? (
-            <div className="p-4 text-sm text-input-placeholder">No matters found.</div>
-          ) : (
-            <ul className="divide-y divide-line-default">
-              {sortedMatterSummaries.map((matter) => (
-                <MatterListItem
-                  key={matter.id}
-                  matter={matter}
-                  onSelect={(selected) => goToDetail(selected.id)}
-                />
-              ))}
-            </ul>
-          )}
-          {mattersHasMore && !mattersLoading && <div ref={loadMoreRef} className="h-10" />}
-          {mattersLoadingMore && (
-            <p className="px-6 py-4 text-sm text-input-placeholder">Loading more matters...</p>
-          )}
+        {listHeaderLeftControl ? (
+          <div className="px-1 py-1">{listHeaderLeftControl}</div>
+        ) : null}
+        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
+          <EntityList
+            items={sortedMatterSummaries}
+            renderItem={(matter, isSelected) => (
+              <MatterListItem
+                matter={matter}
+                isSelected={isSelected}
+                onSelect={(selected) => goToDetail(selected.id)}
+              />
+            )}
+            onSelect={(matter) => goToDetail(matter.id)}
+            selectedId={selectedMatterId ?? undefined}
+            isLoading={mattersLoading}
+            isLoadingMore={mattersLoadingMore}
+            error={mattersError}
+            emptyState={<div className="p-4 text-sm text-input-placeholder">No matters found.</div>}
+          />
         </Panel>
       </div>
     );
@@ -2100,32 +2083,23 @@ export const PracticeMattersPage = ({
 
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
 
-        <Panel className="overflow-hidden">
-          <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-4 sm:px-6 lg:px-8">
-            <div>
-              <h2 className="text-sm font-semibold text-input-text">Matters</h2>
-              <p className="text-xs text-input-placeholder">{sortedMatterSummaries.length} showing</p>
-            </div>
-          </header>
-          {mattersLoading ? (
-            <LoadingState message="Loading matters..." />
-          ) : sortedMatterSummaries.length === 0 ? (
-            <EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />
-          ) : (
-            <ul className="divide-y divide-line-default">
-              {sortedMatterSummaries.map((matter) => (
-                <MatterListItem
-                  key={matter.id}
-                  matter={matter}
-                  onSelect={(selected) => goToDetail(selected.id)}
-                />
-              ))}
-            </ul>
-          )}
-          {mattersHasMore && !mattersLoading && <div ref={loadMoreRef} className="h-10" />}
-          {mattersLoadingMore && (
-            <p className="px-6 py-4 text-sm text-input-placeholder">Loading more matters...</p>
-          )}
+        <Panel className="list-panel-card-gradient overflow-hidden">
+          <EntityList
+            items={sortedMatterSummaries}
+            renderItem={(matter, isSelected) => (
+              <MatterListItem
+                matter={matter}
+                isSelected={isSelected}
+                onSelect={(selected) => goToDetail(selected.id)}
+              />
+            )}
+            onSelect={(matter) => goToDetail(matter.id)}
+            selectedId={selectedMatterId ?? undefined}
+            isLoading={mattersLoading}
+            isLoadingMore={mattersLoadingMore}
+            error={mattersError}
+            emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />}
+          />
         </Panel>
       </div>
     </Page>

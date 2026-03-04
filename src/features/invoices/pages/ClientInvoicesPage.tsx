@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useCallback } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { listClientInvoices } from '@/features/invoices/services/invoicesService';
-import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
-import type { InvoiceListResult } from '@/features/invoices/types';
+import type { InvoiceSummary } from '@/features/invoices/types';
+import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
+import { Panel } from '@/shared/ui/layout/Panel';
+import { EntityList } from '@/shared/ui/list/EntityList';
+import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { formatLongDate } from '@/shared/utils/dateFormatter';
+import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
 
@@ -12,79 +19,47 @@ export function ClientInvoicesPage({
   practiceSlug,
   statusFilter = [],
   renderMode = 'full',
+  listHeaderLeftControl,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   statusFilter?: string[];
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
+  listHeaderLeftControl?: ComponentChildren;
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const [page, setPage] = useState(1);
-  const [data, setData] = useState<InvoiceListResult>({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const isListOnly = renderMode === 'listOnly';
 
-  const memoizedStatus = useMemo(() => JSON.stringify(statusFilter), [statusFilter]);
-  const queryFilters = useMemo(
-    () => ({ status: '', dateFrom: '', dateTo: '', search: '', page, pageSize: PAGE_SIZE }),
-    [page]
-  );
+  const {
+    items: invoices,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMoreRef,
+  } = usePaginatedList<InvoiceSummary>({
+    fetchPage: async (page, signal) => {
+      if (!practiceId || renderMode === 'detailOnly') {
+        return { items: [], hasMore: false };
+      }
+      const result = await listClientInvoices(
+        practiceId,
+        { status: '', dateFrom: '', dateTo: '', search: '', page, pageSize: PAGE_SIZE },
+        { signal, statusFilter }
+      );
+      const expectedCount = page * PAGE_SIZE;
+      return { items: result.items, hasMore: result.total > expectedCount };
+    },
+    deps: [practiceId, renderMode, JSON.stringify(statusFilter)]
+  });
 
-
-  useEffect(() => {
-    if (!practiceId || renderMode === 'detailOnly') return;
-    const controller = new AbortController();
-    setLoading(page === 1);
-    setLoadingMore(page > 1);
-    setError(null);
-
-    void listClientInvoices(practiceId, queryFilters, { signal: controller.signal, statusFilter })
-      .then((result) => {
-        setData((prev) => {
-          if (page === 1) {
-            return result;
-          }
-          const merged = [...prev.items, ...result.items];
-          const deduped = merged.filter((item, index, arr) => arr.findIndex((candidate) => candidate.id === item.id) === index);
-          return { ...result, items: deduped };
-        });
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        const message = err instanceof Error ? err.message : 'Failed to load invoices';
-        setError(message);
-      })
-      .finally(() => {
-        setLoading(false);
-        setLoadingMore(false);
-      });
-
-    return () => controller.abort();
-  }, [page, practiceId, queryFilters, memoizedStatus, renderMode]);
-
-  const hasMore = data.items.length < data.total;
-
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target || !hasMore || loading || loadingMore || renderMode === 'detailOnly') return;
-    const observer = new IntersectionObserver((entries) => {
-      const [entry] = entries;
-      if (!entry?.isIntersecting) return;
-      setPage((prev) => prev + 1);
-    }, { rootMargin: '200px' });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, renderMode]);
-
-  const handleRowClick = useCallback((invoiceId: string) => {
+  const handleRowClick = useCallback((invoice: InvoiceSummary) => {
     if (!practiceSlug) {
       showError('Invoices', 'Practice slug is missing from route context.');
       return;
     }
-    navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(invoiceId)}`);
+    navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(invoice.id)}`);
   }, [navigate, practiceSlug, showError]);
 
   if (renderMode === 'detailOnly') {
@@ -92,25 +67,43 @@ export function ClientInvoicesPage({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      {renderMode === 'full' ? (
-        <div>
-          <h1 className="text-xl font-semibold text-input-text">Invoices</h1>
-          <p className="mt-1 text-sm text-input-placeholder">Your invoices and payment history.</p>
-        </div>
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-2', isListOnly ? '' : 'p-4 sm:p-6')}>
+      {listHeaderLeftControl ? (
+        <div className="px-1 py-1">{listHeaderLeftControl}</div>
       ) : null}
+      {renderMode === 'full' ? <p className="mt-1 text-sm text-input-placeholder">Your invoices and payment history.</p> : null}
 
-      <InvoicesTable
-        invoices={data.items}
-        loading={loading}
-        error={error}
-        emptyMessage={statusFilter.length > 0 ? 'No invoices match these filters.' : 'No invoices yet.'}
-        onRowClick={(invoice) => handleRowClick(invoice.id)}
-      />
-      {hasMore ? <div ref={loadMoreRef} className="h-8" /> : null}
-      {loadingMore ? (
-        <p className="text-sm text-input-placeholder">Loading more invoices...</p>
-      ) : null}
+      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
+        <EntityList
+          items={invoices}
+          onSelect={handleRowClick}
+          selectedId={undefined}
+          isLoading={isLoading}
+          isLoadingMore={isLoadingMore}
+          error={error}
+          emptyState={<div className="p-4 text-sm text-input-placeholder">{statusFilter.length > 0 ? 'No invoices match these filters.' : 'No invoices yet.'}</div>}
+          loadMoreRef={hasMore ? loadMoreRef : undefined}
+          renderItem={(invoice) => (
+            <div
+              className={cn('w-full px-4 py-3 text-left hover:bg-white/[0.03]')}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber}</p>
+                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? 'Unknown client'}</p>
+                  <p className="mt-1 text-xs text-input-placeholder">
+                    Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : 'N/A'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <InvoiceStatusBadge status={invoice.status} />
+                  <p className="text-sm font-semibold text-input-text">{formatCurrency(invoice.total)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        />
+      </Panel>
     </div>
   );
 }

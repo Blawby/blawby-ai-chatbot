@@ -150,6 +150,33 @@ const practiceSeeds: SeedConversation[] = [
       { id: 'p8-1', content: 'I uploaded all requested documents.', senderName: 'Gold River', isMine: false, minutesAgo: 95 },
     ],
   },
+  {
+    id: 'practice-conv-9',
+    title: 'Bronze Compass from Portland',
+    status: 'active',
+    assignedTo: 'user-2',
+    unreadCount: 5,
+    lastMessageMinutesAgo: 110,
+    lead: true,
+    preview: 'Can you review the mediation agreement?',
+    messages: [
+      { id: 'p9-1', content: 'Can you review the mediation agreement? My ex-partner just sent it over.', senderName: 'Bronze Compass', isMine: false, minutesAgo: 115 },
+      { id: 'p9-2', content: 'Please upload it here. I can take a look and provide initial feedback within 24 hours.', senderName: 'Paul Yahoo', isMine: true, minutesAgo: 110 },
+    ],
+  },
+  {
+    id: 'practice-conv-10',
+    title: 'Emerald Flute from Seattle',
+    status: 'active',
+    assignedTo: null,
+    unreadCount: 0,
+    lastMessageMinutesAgo: 145,
+    lead: false,
+    preview: 'Thanks for the quick response on the retainer.',
+    messages: [
+      { id: 'p10-1', content: 'Thanks for the quick response on the retainer. I will wire the funds this afternoon.', senderName: 'Emerald Flute', isMine: false, minutesAgo: 145 },
+    ],
+  },
 ];
 
 const clientSeeds: SeedConversation[] = [
@@ -200,6 +227,19 @@ const clientSeeds: SeedConversation[] = [
     preview: 'We are preparing your witness questions.',
     messages: [
       { id: 'c4-1', content: 'We are preparing your witness questions.', senderName: 'Martin Duhamel', isMine: false, minutesAgo: 121 },
+    ],
+  },
+  {
+    id: 'client-conv-5',
+    title: 'Legal Research & Strategy',
+    status: 'active',
+    unreadCount: 3,
+    lastMessageMinutesAgo: 180,
+    lead: false,
+    preview: 'I found several precedents that support our case.',
+    messages: [
+      { id: 'c5-1', content: 'I found several precedents that support our case regarding the property division.', senderName: 'Martin Duhamel', isMine: false, minutesAgo: 185 },
+      { id: 'c5-2', content: 'That is great news. Does this mean we have a stronger leverage for settlement?', senderName: 'You', isMine: true, minutesAgo: 180 },
     ],
   },
 ];
@@ -315,13 +355,11 @@ export default function DebugConversationsPage() {
       headerContent={
         <WorkspaceConversationHeader
           practiceName={PRACTICE_NAME}
-          practiceLogo={PRACTICE_LOGO}
           activeLabel="Active"
           presenceStatus="active"
           onBack={() => {
             if (!isPractice) setClientView('list');
           }}
-          loading={false}
           rightSlot={isPractice
             ? (
               <div className="flex items-center gap-2">

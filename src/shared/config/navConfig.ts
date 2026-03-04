@@ -6,7 +6,7 @@ import {
   DocumentTextIcon,
   HomeIcon,
   UsersIcon,
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/24/solid';
 import type { UserDetailStatus } from '@/shared/lib/apiClient';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 

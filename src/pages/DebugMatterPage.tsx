@@ -1,19 +1,23 @@
 import { useMemo, useState } from 'preact/hooks';
 import { ulid } from 'ulid';
 import { Button } from '@/shared/ui/Button';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
-import { MatterDetailHeader } from '@/features/matters/components/MatterDetailHeader';
+import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
+import { MatterContextPanel } from '@/features/matters/components/MatterContextPanel';
 import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { asMajor } from '@/shared/utils/money';
+import { formatLongDate } from '@/shared/utils/dateFormatter';
 import type { MatterDetail, MatterOption, MatterSummary, TimeEntry } from '@/features/matters/data/matterTypes';
-import type { MatterStatus } from '@/shared/types/matterStatus';
+import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import type { TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { PencilIcon } from '@heroicons/react/24/outline';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 type DebugTab = 'overview' | 'time' | 'messages' | 'activity';
 type EditorState = 'none' | 'create';
@@ -125,6 +129,10 @@ const toSummary = (detail: MatterDetail): MatterSummary => ({
 const nowIso = () => new Date().toISOString();
 
 const normalizeOptional = (value?: string) => (value?.trim() ? value.trim() : undefined);
+const toBillingTypeLabel = (value?: string | null) => {
+  if (!value) return null;
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
 
 const buildDetailFromForm = (id: string, values: MatterFormState): MatterDetail => {
   const clientName = clientOptions.find((client) => client.id === values.clientId)?.name ?? 'Unknown client';
@@ -194,31 +202,20 @@ export default function DebugMatterPage() {
   );
   const selectedDetail = selectedMatterId ? detailsById[selectedMatterId] : null;
   const selectedMatter = selectedDetail ? toSummary(selectedDetail) : null;
-
-  const assigneeNameById = useMemo(
-    () => new Map(assigneeOptions.map((assignee) => [assignee.id, assignee.name])),
-    []
-  );
-
-  const headerMeta = useMemo(() => {
-    if (!selectedDetail) {
-      return {
-        clientEntries: [],
-        description: '',
-        assigneeNames: [],
-        billingLabel: 'Not set',
-        createdLabel: ''
-      };
-    }
-    const client = clientOptions.find((item) => item.id === selectedDetail.clientId);
+  const matterContextPanel = useMemo(() => {
+    if (!selectedDetail || !selectedMatter) return null;
+    const assigneeNames = selectedDetail.assigneeIds
+      .map((id) => assigneeOptions.find((option) => option.id === id)?.name ?? `User ${id.slice(0, 6)}`);
     return {
-      clientEntries: client ? [{ id: client.id, name: client.name, status: client.status, location: client.location }] : [],
-      description: selectedDetail.description,
-      assigneeNames: selectedDetail.assigneeIds.map((id) => assigneeNameById.get(id) ?? id),
-      billingLabel: selectedDetail.billingType,
-      createdLabel: selectedDetail.createdAt
+      clientName: selectedDetail.clientId
+        ? clientOptions.find((option) => option.id === selectedDetail.clientId)?.name ?? selectedDetail.clientName
+        : selectedDetail.clientName,
+      assigneeNames,
+      billingLabel: toBillingTypeLabel(selectedDetail.billingType),
+      createdLabel: formatLongDate(selectedMatter.createdAt),
+      updatedLabel: selectedMatter.updatedAt ? `Updated ${formatRelativeTime(selectedMatter.updatedAt)}` : null
     };
-  }, [assigneeNameById, selectedDetail]);
+  }, [selectedDetail, selectedMatter]);
 
   const selectedTimeEntries = useMemo(() => selectedDetail?.timeEntries ?? [], [selectedDetail?.timeEntries]);
   const timeStats = useMemo(() => {
@@ -364,15 +361,57 @@ export default function DebugMatterPage() {
           ) : null}
           {selectedMatter && selectedDetail ? (
             <>
-              <MatterDetailHeader
-                matter={selectedMatter}
-                detail={selectedDetail}
-                headerMeta={headerMeta}
-                activeTab={activeTab}
-                onTabChange={(next) => setActiveTab(next as DebugTab)}
-                tabs={detailTabs}
-                onUpdateStatus={handleStatusUpdate}
-              />
+              <div className="overflow-hidden">
+                <DetailHeader
+                  title={selectedMatter.title}
+                  subtitle={MATTER_STATUS_LABELS[selectedMatter.status]}
+                  actions={(
+                    <div className="flex items-center gap-2">
+                      <MatterStatusPopover
+                        currentStatus={selectedMatter.status}
+                        onSelect={handleStatusUpdate}
+                      />
+                    </div>
+                  )}
+                  className="px-0 py-0"
+                />
+                <nav
+                  className="flex items-end gap-0 border-b border-white/[0.06] px-5"
+                  aria-label="Matter sections"
+                >
+                  {detailTabs.map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id)}
+                        aria-selected={isActive}
+                        role="tab"
+                        className={[
+                          'relative px-3 py-3 text-sm font-medium whitespace-nowrap',
+                          'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
+                          'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
+                          isActive
+                            ? 'text-input-text after:bg-accent-500'
+                            : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-white/20'
+                        ].join(' ')}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+              {matterContextPanel ? (
+                <MatterContextPanel
+                  clientName={matterContextPanel.clientName}
+                  assigneeNames={matterContextPanel.assigneeNames}
+                  billingLabel={matterContextPanel.billingLabel}
+                  createdLabel={matterContextPanel.createdLabel}
+                  updatedLabel={matterContextPanel.updatedLabel}
+                />
+              ) : null}
 
               {activeTab === 'overview' || activeTab === 'time' || activeTab === 'messages' ? (
                 <MatterSummaryCards

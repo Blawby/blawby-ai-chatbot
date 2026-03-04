@@ -37,14 +37,12 @@ import { useConversationSystemMessages } from '@/features/chat/hooks/useConversa
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
 import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeConversationHeaderMenu';
-import Modal from '@/shared/components/Modal';
-import { Button } from '@/shared/ui/Button';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
-import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Button } from '@/shared/ui/Button';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -102,11 +100,9 @@ export function MainApp({
   const [isRecording, setIsRecording] = useState(false);
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const [isConversationDetailsOpen, setIsConversationDetailsOpen] = useState(false);
   const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
   const preAuthUserIdRef = useRef<string | null>(null);
-  const isMobile = useMobileDetection();
 
   const { navigate } = useNavigation();
   const { showError, showInfo } = useToastContext();
@@ -592,24 +588,24 @@ export function MainApp({
   }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
   const headerRightSlot = useMemo(() => {
-    const detailsButton = (
+    const inspectorButton = (
       <Button
         type="button"
         variant="icon"
         size="icon-sm"
-        className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
-        aria-label="Open conversation details"
-        onClick={() => setIsConversationDetailsOpen(true)}
-      >
-        <InformationCircleIcon className="h-4 w-4" aria-hidden="true" />
-      </Button>
+        onClick={() => {
+          if (typeof window === 'undefined') return;
+          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+        }}
+        aria-label="Open inspector"
+        icon={<InformationCircleIcon className="h-5 w-5" />}
+      />
     );
-
     if (isPracticeWorkspace) {
       return (
         <div className="flex items-center gap-2">
-          {detailsButton}
           <PracticeConversationHeaderMenu practiceId={practiceId} conversationId={activeConversationId ?? undefined} />
+          {inspectorButton}
         </div>
       );
     }
@@ -617,11 +613,11 @@ export function MainApp({
       return (
         <div className="flex items-center gap-2">
           <BriefStrengthIndicator intakeConversationState={intakeConversationState} />
-          {detailsButton}
+          {inspectorButton}
         </div>
       );
     }
-    return detailsButton;
+    return inspectorButton;
   }, [isPracticeWorkspace, practiceId, activeConversationId, conversationMode, intakeConversationState]);
 
   const conversationHeaderContent = useMemo(() => {
@@ -629,18 +625,16 @@ export function MainApp({
     return (
       <WorkspaceConversationHeader
         practiceName={resolvedPracticeName}
-        practiceLogo={resolvedPracticeLogo}
         activeLabel={headerActiveTimeLabel}
         presenceStatus={headerPresenceStatus}
-        onBack={() => navigate(conversationBackPath)}
-        loading={isCreatingConversation || !messagesReady}
+        onBack={layoutMode !== 'desktop' ? () => navigate(conversationBackPath) : undefined}
         rightSlot={headerRightSlot}
       />
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
     headerActiveTimeLabel, headerPresenceStatus, headerRightSlot, isCreatingConversation, messagesReady,
-    navigate, resolvedPracticeLogo, resolvedPracticeName,
+    layoutMode, navigate, resolvedPracticeLogo, resolvedPracticeName,
   ]);
 
   // ── system messages ────────────────────────────────────────────────────────
@@ -693,6 +687,10 @@ export function MainApp({
             leadReviewActions={leadReviewActions}
             messagesReady={messagesReady}
             headerContent={conversationHeaderContent}
+            onOpenSidebar={() => {
+              if (typeof window === 'undefined') return;
+              window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+            }}
             heightClassName={layoutMode === 'desktop' ? undefined : 'h-full'}
             useFrame={layoutMode === 'desktop'}
             layoutMode={layoutMode}
@@ -704,7 +702,6 @@ export function MainApp({
               slug: resolvedPracticeSlug,
               introMessage: practiceConfig.introMessage,
             }}
-            onOpenSidebar={() => setIsConversationDetailsOpen(true)}
             practiceId={practiceId}
             previewFiles={previewFiles}
             uploadingFiles={uploadingFiles}
@@ -779,13 +776,20 @@ export function MainApp({
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
-            ? (statusFilter) => (
+            ? (statusFilter, controls) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
-                  practiceId={effectivePracticeId ?? null}
+                  practiceId={effectivePracticeId ?? practiceId}
                   renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                   statusFilter={statusFilter}
+                  prefetchedItems={controls?.mattersData?.items}
+                  prefetchedLoading={controls?.mattersData?.isLoading}
+                  prefetchedError={controls?.mattersData?.error}
+                  onRefetchList={controls?.mattersData?.refetch}
+                  listHeaderLeftControl={controls?.listHeaderLeftControl}
+                  detailHeaderRightControl={controls?.detailHeaderRightControl}
+                  showDetailBackButton={layoutMode !== 'desktop'}
                 />
               </Suspense>
             )
@@ -800,78 +804,105 @@ export function MainApp({
       }
       mattersListContent={
         isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
-          ? (statusFilter) => (
+          ? (statusFilter, controls) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               <PracticeMattersPage
                 basePath={practiceMattersPath}
-                practiceId={effectivePracticeId ?? null}
+                practiceId={effectivePracticeId ?? practiceId}
                 renderMode="listOnly"
                 statusFilter={statusFilter}
+                prefetchedItems={controls?.mattersData?.items}
+                prefetchedLoading={controls?.mattersData?.isLoading}
+                prefetchedError={controls?.mattersData?.error}
+                onRefetchList={controls?.mattersData?.refetch}
+                listHeaderLeftControl={controls?.listHeaderLeftControl}
+                detailHeaderRightControl={controls?.detailHeaderRightControl}
+                showDetailBackButton={layoutMode !== 'desktop'}
               />
             </Suspense>
           )
           : undefined
       }
       clientsView={isPracticeWorkspace && practiceClientsPath != null
-        ? (statusFilter) => (
+        ? (statusFilter, controls) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
-              practiceId={effectivePracticeId ?? null}
+              practiceId={effectivePracticeId ?? practiceId}
               basePath={practiceClientsPath}
               renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
+              prefetchedItems={controls?.clientsData?.items}
+              prefetchedLoading={controls?.clientsData?.isLoading}
+              prefetchedError={controls?.clientsData?.error}
+              onRefetchList={controls?.clientsData?.refetch}
+              listHeaderLeftControl={controls?.listHeaderLeftControl}
+              detailHeaderRightControl={controls?.detailHeaderRightControl}
+              showDetailBackButton={layoutMode !== 'desktop'}
             />
           </Suspense>
         )
         : undefined}
       clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
-        ? (statusFilter) => (
+        ? (statusFilter, controls) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
-              practiceId={effectivePracticeId ?? null}
+              practiceId={effectivePracticeId ?? practiceId}
               basePath={practiceClientsPath}
               renderMode="listOnly"
               statusFilter={statusFilter}
+              prefetchedItems={controls?.clientsData?.items}
+              prefetchedLoading={controls?.clientsData?.isLoading}
+              prefetchedError={controls?.clientsData?.error}
+              onRefetchList={controls?.clientsData?.refetch}
+              listHeaderLeftControl={controls?.listHeaderLeftControl}
+              detailHeaderRightControl={controls?.detailHeaderRightControl}
+              showDetailBackButton={layoutMode !== 'desktop'}
             />
           </Suspense>
         )
         : undefined}
       invoicesView={
         isPracticeWorkspace
-          ? (statusFilter) => (
+          ? (statusFilter, controls) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
-                  practiceId={effectivePracticeId ?? null}
+                  practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={effectivePracticeSlug ?? null}
                   invoiceId={routeInvoiceId ?? null}
+                  headerActions={controls?.detailHeaderRightControl}
+                  showBack={layoutMode !== 'desktop'}
                 />
               ) : (
-                <PracticeInvoicesPage
-                  practiceId={effectivePracticeId ?? null}
-                  practiceSlug={effectivePracticeSlug ?? null}
-                  statusFilter={statusFilter}
-                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
-                />
+                  <PracticeInvoicesPage
+                    practiceId={effectivePracticeId ?? practiceId}
+                    practiceSlug={effectivePracticeSlug ?? null}
+                    statusFilter={statusFilter}
+                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    listHeaderLeftControl={controls?.listHeaderLeftControl}
+                  />
               )}
             </Suspense>
           )
           : isClientWorkspace
-            ? (statusFilter) => (
+            ? (statusFilter, controls) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <ClientInvoiceDetailPage
-                    practiceId={effectivePracticeId ?? null}
+                    practiceId={effectivePracticeId ?? practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     invoiceId={routeInvoiceId ?? null}
+                    headerActions={controls?.detailHeaderRightControl}
+                    showBack={layoutMode !== 'desktop'}
                   />
                 ) : (
                   <ClientInvoicesPage
                     key={`${effectivePracticeId}-${layoutMode === 'desktop' ? 'detailOnly' : 'full'}-${JSON.stringify(statusFilter)}`}
-                    practiceId={effectivePracticeId ?? null}
+                    practiceId={effectivePracticeId ?? practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     statusFilter={statusFilter}
                     renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    listHeaderLeftControl={controls?.listHeaderLeftControl}
                   />
                 )}
               </Suspense>
@@ -880,22 +911,24 @@ export function MainApp({
       }
       invoicesListContent={
         (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop'
-          ? (statusFilter) => (
+          ? (statusFilter, controls) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {isPracticeWorkspace ? (
                 <PracticeInvoicesPage
-                  practiceId={effectivePracticeId ?? null}
+                  practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={effectivePracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
+                  listHeaderLeftControl={controls?.listHeaderLeftControl}
                 />
               ) : (
                 <ClientInvoicesPage
                   key={`${effectivePracticeId}-listOnly-${JSON.stringify(statusFilter)}`}
-                  practiceId={effectivePracticeId ?? null}
+                  practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
+                  listHeaderLeftControl={controls?.listHeaderLeftControl}
                 />
               )}
             </Suspense>
@@ -928,40 +961,6 @@ export function MainApp({
       </div>
       {!isWidget && (
         <>
-          <Modal
-            isOpen={isConversationDetailsOpen}
-            onClose={() => setIsConversationDetailsOpen(false)}
-            title="Conversation details"
-            type={isMobile ? 'drawer' : 'drawer-right'}
-          >
-            <div className="space-y-4 text-sm text-input-text">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="glass-panel rounded-lg p-3">
-                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Workspace</div>
-                  <div className="mt-1 font-semibold capitalize">{workspace}</div>
-                </div>
-                <div className="glass-panel rounded-lg p-3">
-                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Conversation ID</div>
-                  <div className="mt-1 break-all font-mono text-xs">{activeConversationId ?? 'N/A'}</div>
-                </div>
-                <div className="glass-panel rounded-lg p-3">
-                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Practice</div>
-                  <div className="mt-1 font-semibold">{resolvedPracticeName || 'Unknown practice'}</div>
-                </div>
-                <div className="glass-panel rounded-lg p-3">
-                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Mode</div>
-                  <div className="mt-1 font-semibold">{conversationMode ?? 'No mode selected'}</div>
-                </div>
-              </div>
-              {conversationMetadata?.title ? (
-                <div className="glass-panel rounded-lg p-3">
-                  <div className="text-xs uppercase tracking-wide text-input-placeholder">Title</div>
-                  <div className="mt-1 font-semibold">{conversationMetadata.title}</div>
-                </div>
-              ) : null}
-
-            </div>
-          </Modal>
           <WelcomeModal
             isOpen={showWelcomeModal}
             onClose={handleWelcomeClose}
