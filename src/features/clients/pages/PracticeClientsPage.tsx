@@ -621,7 +621,11 @@ export const PracticeClientsPage = ({
         address: editClientForm.address
       });
       invalidateClientsForPractice(activePracticeId);
-      await onRefetchList?.();
+      try {
+        await onRefetchList?.();
+      } catch (err) {
+        console.error('[Clients] Failed to refetch after update', err);
+      }
       showSuccess('Client updated', 'Client details have been saved.');
       resetEditClientForm();
       setIsEditClientOpen(false);
@@ -641,7 +645,11 @@ export const PracticeClientsPage = ({
     try {
       await deleteUserDetail(activePracticeId, selectedClient.id);
       invalidateClientsForPractice(activePracticeId);
-      await onRefetchList?.();
+      try {
+        await onRefetchList?.();
+      } catch (err) {
+        console.error('[Clients] Failed to refetch after delete', err);
+      }
       showSuccess('Client deleted', 'The client has been removed.');
       location.route(basePath);
     } catch (error) {
@@ -672,7 +680,11 @@ export const PracticeClientsPage = ({
         event_name: 'Invite Client'
       });
       invalidateClientsForPractice(activePracticeId);
-      await onRefetchList?.();
+      try {
+        await onRefetchList?.();
+      } catch (err) {
+        console.error('[Clients] Failed to refetch after add', err);
+      }
       showSuccess('Client added', 'The client has been added to your practice.');
       resetAddClientForm();
       setIsAddClientOpen(false);

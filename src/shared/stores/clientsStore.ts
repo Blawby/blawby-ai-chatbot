@@ -28,23 +28,23 @@ export const markClientsCacheKey = (key: string | null) => {
 
 export const invalidateClientsForPractice = (practiceId: string) => {
   if (!practiceId) return;
-  const prefix = `${practiceId}:`;
+  const searchPattern = `:${practiceId}:`;
   const snapshot = clientsStore.get();
   const loadedSnapshot = clientsLoaded.get();
   const nextLoaded = new Set(loadedSnapshot);
   const next: StoreShape = {};
 
   for (const [key, value] of Object.entries(snapshot)) {
-    if (key.startsWith(prefix)) {
+    if (key.includes(searchPattern)) {
       nextLoaded.delete(key);
       continue;
     }
     next[key] = value;
   }
 
-  // Also clean up stale in-flight promises matching the prefix (even if not in store snapshot yet)
+  // Also clean up stale in-flight promises matching the pattern (even if not in store snapshot yet)
   for (const key of clientsInFlight.keys()) {
-    if (key.startsWith(prefix)) {
+    if (key.includes(searchPattern)) {
       clientsInFlight.delete(key);
     }
   }
