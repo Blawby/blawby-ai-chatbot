@@ -33,10 +33,12 @@ export const useMattersData = (
     return () => { isMountedRef.current = false; };
   }, []);
 
-  if (lastUserIdRef.current !== userId) {
-    resetMattersStore();
-    lastUserIdRef.current = userId;
-  }
+  useEffect(() => {
+    if (lastUserIdRef.current !== userId) {
+      resetMattersStore();
+      lastUserIdRef.current = userId;
+    }
+  }, [userId]);
 
   const normalizedFilter = useMemo(
     () => statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean),
