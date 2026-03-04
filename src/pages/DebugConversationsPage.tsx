@@ -38,6 +38,7 @@ const PRACTICE_ID = 'debug-practice';
 const PRACTICE_SLUG = 'debug-practice';
 const PRACTICE_NAME = 'Blawby Family Law';
 const PRACTICE_LOGO = null;
+const PRACTICE_CLIENTS_PATH = `/practice/${encodeURIComponent(PRACTICE_SLUG)}/clients`;
 
 const practiceSeeds: SeedConversation[] = [
   {
@@ -448,6 +449,7 @@ export default function DebugConversationsPage() {
           view={isPractice ? 'conversation' : clientView}
           practiceId={PRACTICE_ID}
           practiceSlug={PRACTICE_SLUG}
+          practiceClientsPath={PRACTICE_CLIENTS_PATH}
           practiceName={PRACTICE_NAME}
           practiceLogo={PRACTICE_LOGO}
           messages={activeMessages}

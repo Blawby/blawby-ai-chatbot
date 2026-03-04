@@ -21,6 +21,7 @@ import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useMattersData } from '@/shared/hooks/useMattersData';
@@ -70,6 +71,7 @@ import type { Conversation, ConversationMode } from '@/shared/types/conversation
 import type { LayoutMode } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
+import type { MatterStatus } from '@/shared/types/matterStatus';
 
 type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
@@ -96,6 +98,7 @@ interface WorkspacePageProps {
   view: WorkspaceView;
   practiceId: string;
   practiceSlug: string | null;
+  practiceClientsPath: string | null;
   practiceName?: string | null;
   practiceLogo?: string | null;
   messages: ChatMessageUI[];
@@ -150,10 +153,16 @@ const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
   });
 };
 
+const toBillingTypeLabel = (value?: string | null) => {
+  if (!value) return null;
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
   practiceId,
   practiceSlug,
+  practiceClientsPath,
   practiceName,
   practiceLogo,
   messages,
@@ -448,6 +457,53 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     session?.user?.id ?? null,
     { enabled: isPracticeWorkspace && workspaceSection === 'clients' }
   );
+  const selectedMatter = useMemo(
+    () => mattersData?.items?.find((matter) => matter.id === selectedMatterIdFromPath) ?? null,
+    [mattersData?.items, selectedMatterIdFromPath]
+  );
+  const selectedMatterInspectorData = useMemo(() => {
+    if (!selectedMatter) return null;
+
+    const clientNameById = new Map(
+      (clientsData?.items ?? []).map((client) => [
+        client.user?.id ?? '',
+        client.user?.name ?? client.user?.email ?? '',
+      ])
+    );
+    const clientNameFromId = selectedMatter.client_id ? clientNameById.get(selectedMatter.client_id) : null;
+    const selectedMatterRecord = selectedMatter as Record<string, unknown>;
+    const selectedMatterClientName = clientNameFromId
+      ?? (typeof selectedMatterRecord.client_name === 'string' ? selectedMatterRecord.client_name : null);
+
+    const assigneeNamesFromRows = Array.isArray(selectedMatter.assignees)
+      ? selectedMatter.assignees
+        .map((assignee) => {
+          if (typeof assignee === 'string') {
+            return assignee.trim();
+          }
+          if (!assignee || typeof assignee !== 'object') return '';
+          const row = assignee as Record<string, unknown>;
+          const name = typeof row.name === 'string'
+            ? row.name
+            : (typeof row.email === 'string' ? row.email : '');
+          return name.trim();
+        })
+        .filter((name): name is string => name.length > 0)
+      : [];
+    const selectedMatterAssigneeNames = assigneeNamesFromRows.length > 0
+      ? assigneeNamesFromRows
+      : (selectedMatter.assignee_ids?.map((id) => `User ${id.slice(0, 6)}`) ?? []);
+
+    return {
+      matterClientName: selectedMatterClientName,
+      matterAssigneeNames: selectedMatterAssigneeNames,
+      matterBillingLabel: toBillingTypeLabel(selectedMatter.billing_type),
+      matterCreatedLabel: formatLongDate(selectedMatter.created_at),
+      matterUpdatedLabel: selectedMatter.updated_at
+        ? `Updated ${formatRelativeTime(selectedMatter.updated_at)}`
+        : null,
+    };
+  }, [clientsData?.items, selectedMatter]);
   const showConversationListTitle = workspace === 'public';
   const isMobileLayout = layoutMode !== 'desktop';
 
@@ -1649,6 +1705,22 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceId={practiceId}
       conversation={selectedConversation}
       onClose={() => setIsInspectorOpen(false)}
+      clientBasePath={practiceClientsPath ?? undefined}
+      onMatterStatusChange={(status: MatterStatus) => {
+        if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
+        window.dispatchEvent(
+          new CustomEvent('workspace:matter-status-change', {
+            detail: { matterId: selectedMatterIdFromPath, status },
+          })
+        );
+      }}
+      {...(inspectorTarget.entityType === 'matter' && selectedMatterInspectorData ? {
+        matterClientName: selectedMatterInspectorData.matterClientName,
+        matterAssigneeNames: selectedMatterInspectorData.matterAssigneeNames,
+        matterBillingLabel: selectedMatterInspectorData.matterBillingLabel,
+        matterCreatedLabel: selectedMatterInspectorData.matterCreatedLabel,
+        matterUpdatedLabel: selectedMatterInspectorData.matterUpdatedLabel,
+      } : {})}
     />
   ) : null;
   const mobileSecondaryDrawer = navConfig.secondary && navConfig.secondary.length > 0 ? (

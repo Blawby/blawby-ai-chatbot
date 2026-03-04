@@ -74,7 +74,6 @@ export function EntityList<T extends { id: string }>({
                 onSelect && 'cursor-pointer'
               )}
               onClick={onSelect ? () => onSelect(item) : undefined}
-              aria-selected={isSelected}
             >
               {renderItem(item, isSelected)}
             </button>

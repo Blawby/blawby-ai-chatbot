@@ -633,8 +633,8 @@ export function MainApp({
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    headerActiveTimeLabel, headerPresenceStatus, headerRightSlot, isCreatingConversation, messagesReady,
-    layoutMode, navigate, resolvedPracticeLogo, resolvedPracticeName,
+    headerActiveTimeLabel, headerPresenceStatus, headerRightSlot,
+    layoutMode, navigate, resolvedPracticeName,
   ]);
 
   // ── system messages ────────────────────────────────────────────────────────
@@ -763,6 +763,7 @@ export function MainApp({
             ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
             : resolvedPublicPracticeSlug
       }
+      practiceClientsPath={practiceClientsPath}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
