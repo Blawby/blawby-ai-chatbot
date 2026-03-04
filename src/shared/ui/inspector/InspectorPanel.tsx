@@ -4,7 +4,7 @@ import { getUserDetail, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { useNavigation } from '@/shared/utils/navigation';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
-import type { MatterStatus } from '@/shared/types/matterStatus';
+import { isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
@@ -53,6 +53,9 @@ const formatDate = (value?: string | null) => {
   if (Number.isNaN(date.getTime())) return 'N/A';
   return date.toLocaleString();
 };
+
+const isValidMatterStatus = (value: unknown): value is MatterStatus =>
+  typeof value === 'string' && isMatterStatus(value);
 
 export const InspectorPanel = ({
   entityType,
@@ -173,6 +176,7 @@ export const InspectorPanel = ({
 
   const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
+  const matterStatus = isValidMatterStatus(matterDetail?.status) ? matterDetail.status : 'active';
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
@@ -246,7 +250,7 @@ export const InspectorPanel = ({
               subtitle={matterClientName ?? undefined}
               statusBadge={(
                 <MatterStatusPopover
-                  currentStatus={(matterDetail?.status ?? 'active') as MatterStatus}
+                  currentStatus={matterStatus}
                   onSelect={onMatterStatusChange ?? (() => {})}
                   disabled={!onMatterStatusChange}
                 />

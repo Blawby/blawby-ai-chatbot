@@ -55,7 +55,7 @@ export const InspectorGroup = ({ label, children }: InspectorGroupProps) => {
           {label}
         </p>
       ) : null}
-      <div className="mx-3 overflow-hidden rounded-xl bg-white/[0.04] divide-y divide-white/[0.04]">
+      <div className="mx-3 overflow-hidden rounded-xl bg-white/[0.04] divide-y divide-white/[0.08]">
         {children}
       </div>
     </div>
