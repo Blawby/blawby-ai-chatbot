@@ -322,13 +322,9 @@ export const PracticeClientsPage = ({
     address: undefined,  // Now uses Address object like intake form!
   });
 
-  const statusFilteredClients = useMemo(
-    () => (statusFilter ? clients.filter((client) => client.status === statusFilter) : clients),
-    [clients, statusFilter]
-  );
   const sortedClients = useMemo(
-    () => [...statusFilteredClients].sort((a, b) => a.name.localeCompare(b.name)),
-    [statusFilteredClients]
+    () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
+    [clients]
   );
   const groupedClients = useMemo(() => {
     return sortedClients.reduce<Record<string, ClientRecord[]>>((acc, client) => {
@@ -437,7 +433,11 @@ export const PracticeClientsPage = ({
 
     try {
       const offset = (page - 1) * pageSize;
-      const response = await listUserDetails(activePracticeId, { limit: pageSize, offset });
+      const response = await listUserDetails(activePracticeId, {
+        limit: pageSize,
+        offset,
+        status: statusFilter ?? undefined
+      });
       const nextClients = response.data.map(buildClientRecord);
       if (options?.replace) {
         setClients(nextClients);
@@ -459,7 +459,8 @@ export const PracticeClientsPage = ({
   }, [
     activePracticeId,
     buildClientRecord,
-    pageSize
+    pageSize,
+    statusFilter
   ]);
 
   useEffect(() => {

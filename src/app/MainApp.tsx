@@ -812,7 +812,7 @@ export function MainApp({
           )
           : undefined
       }
-      clientsView={isPracticeWorkspace
+      clientsView={isPracticeWorkspace && practiceClientsPath != null
         ? (statusFilter) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
@@ -824,7 +824,7 @@ export function MainApp({
           </Suspense>
         )
         : undefined}
-      clientsListContent={isPracticeWorkspace && layoutMode === 'desktop'
+      clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
         ? (statusFilter) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
@@ -867,6 +867,7 @@ export function MainApp({
                   />
                 ) : (
                   <ClientInvoicesPage
+                    key={`${effectivePracticeId}-${layoutMode === 'desktop' ? 'detailOnly' : 'full'}-${JSON.stringify(statusFilter)}`}
                     practiceId={effectivePracticeId ?? null}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     statusFilter={statusFilter}
@@ -890,6 +891,7 @@ export function MainApp({
                 />
               ) : (
                 <ClientInvoicesPage
+                  key={`${effectivePracticeId}-listOnly-${JSON.stringify(statusFilter)}`}
                   practiceId={effectivePracticeId ?? null}
                   practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                   statusFilter={statusFilter}

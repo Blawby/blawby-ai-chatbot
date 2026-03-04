@@ -33,11 +33,6 @@ export function ClientInvoicesPage({
     [page]
   );
 
-  useEffect(() => {
-    if (renderMode === 'detailOnly') return;
-    setPage(1);
-    setData({ items: [], total: 0, page: 1, pageSize: PAGE_SIZE });
-  }, [practiceId, memoizedStatus, renderMode]);
 
   useEffect(() => {
     if (!practiceId || renderMode === 'detailOnly') return;
@@ -74,7 +69,7 @@ export function ClientInvoicesPage({
 
   useEffect(() => {
     const target = loadMoreRef.current;
-    if (!target || !hasMore || loading || loadingMore) return;
+    if (!target || !hasMore || loading || loadingMore || renderMode === 'detailOnly') return;
     const observer = new IntersectionObserver((entries) => {
       const [entry] = entries;
       if (!entry?.isIntersecting) return;
@@ -82,7 +77,7 @@ export function ClientInvoicesPage({
     }, { rootMargin: '200px' });
     observer.observe(target);
     return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore]);
+  }, [hasMore, loading, loadingMore, renderMode]);
 
   const handleRowClick = useCallback((invoiceId: string) => {
     if (!practiceSlug) {
