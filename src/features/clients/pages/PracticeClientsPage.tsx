@@ -340,7 +340,15 @@ export const PracticeClientsPage = ({
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
-  const selectedClientIdFromPath = pathSegments[0] ? decodeURIComponent(pathSegments[0]) : null;
+  const selectedClientIdFromPath = useMemo(() => {
+    if (!pathSegments[0]) return null;
+    try {
+      return decodeURIComponent(pathSegments[0]);
+    } catch (e) {
+      console.warn('[Clients] Failed to decode client ID from path', e);
+      return null;
+    }
+  }, [pathSegments]);
   const [currentLetter, setCurrentLetter] = useState(() => letters[0] ?? '');
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLLIElement>(null);
@@ -464,8 +472,9 @@ export const PracticeClientsPage = ({
   ]);
 
   useEffect(() => {
+    if (renderMode === 'detailOnly') return;
     void fetchClientsPage(1, { replace: true });
-  }, [fetchClientsPage]);
+  }, [fetchClientsPage, renderMode]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedClient) return;
@@ -779,6 +788,7 @@ export const PracticeClientsPage = ({
   }, [clientsHasMore, clientsLoading, clientsLoadingMore, clientsPage, fetchClientsPage]);
 
   useEffect(() => {
+    if (renderMode === 'detailOnly') return;
     const target = loadMoreRef.current;
     const root = listRef.current;
     if (!target || !root) return;
@@ -796,7 +806,7 @@ export const PracticeClientsPage = ({
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [clientsHasMore, clientsLoading, clientsLoadingMore, loadMoreClients]);
+  }, [clientsHasMore, clientsLoading, clientsLoadingMore, loadMoreClients, renderMode]);
 
   const addClientModal = (
     <Modal
