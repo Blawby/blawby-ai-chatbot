@@ -878,7 +878,7 @@ export function MainApp({
                 </div>
                 <div className="glass-panel rounded-lg p-3">
                   <div className="text-xs uppercase tracking-wide text-input-placeholder">Mode</div>
-                  <div className="mt-1 font-semibold">{conversationMode ?? 'ASK_QUESTION'}</div>
+                  <div className="mt-1 font-semibold">{conversationMode ?? 'No mode selected'}</div>
                 </div>
               </div>
               {conversationMetadata?.title ? (
@@ -887,9 +887,7 @@ export function MainApp({
                   <div className="mt-1 font-semibold">{conversationMetadata.title}</div>
                 </div>
               ) : null}
-              <p className="text-xs text-input-placeholder">
-                This panel is intentionally generic and shared across practice, client, and public workspaces.
-              </p>
+
             </div>
           </Modal>
           <WelcomeModal

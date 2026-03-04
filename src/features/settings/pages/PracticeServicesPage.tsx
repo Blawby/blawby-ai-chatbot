@@ -16,9 +16,10 @@ import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/works
 
 interface PracticeServicesPageProps {
   onNavigate?: (path: string) => void;
+  className?: string;
 }
 
-export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) => {
+export const PracticeServicesPage = ({ onNavigate, className }: PracticeServicesPageProps) => {
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details, updateDetails } = usePracticeDetails(currentPractice?.id, null, false);
   const { showError, showSuccess } = useToastContext();
@@ -82,6 +83,7 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   return (
     <SettingsPageLayout
       title="Services"
+      className={className}
       wrapChildren={false}
       contentClassName="pb-6"
       headerLeading={(

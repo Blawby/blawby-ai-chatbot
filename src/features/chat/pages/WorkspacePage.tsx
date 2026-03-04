@@ -165,6 +165,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [onboardingConversationId, setOnboardingConversationId] = useState<string | null>(null);
   const [onboardingConversationRetryTick, setOnboardingConversationRetryTick] = useState(0);
   const onboardingConversationInitRef = useRef(false);
+  const navigationInitiatedRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),
@@ -307,6 +308,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     onboardingConversationInitRef.current = false;
+    navigationInitiatedRef.current = false;
     setOnboardingConversationId(null);
     setOnboardingConversationRetryTick(0);
   }, [practiceId]);
@@ -469,11 +471,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [conversationsPath, navigate, onSelectConversationOverride]);
 
   useEffect(() => {
-    if (!isClientWorkspace || layoutMode !== 'desktop') return;
-    if (activeConversationId) return;
+    if (!isClientWorkspace || layoutMode !== 'desktop') {
+      navigationInitiatedRef.current = false;
+      return;
+    }
+    if (activeConversationId) {
+      navigationInitiatedRef.current = false;
+      return;
+    }
     if (resolvedConversationsLoading) return;
+    if (navigationInitiatedRef.current) return;
+
     const firstConversationId = filteredConversations[0]?.id;
     if (!firstConversationId) return;
+
+    navigationInitiatedRef.current = true;
     handleSelectConversation(firstConversationId);
   }, [
     isClientWorkspace,

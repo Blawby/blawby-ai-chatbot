@@ -18,7 +18,11 @@ import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/works
 
 const DEFAULT_BILLING_INCREMENT = 1;
 
-export const PracticePricingPage = () => {
+interface PracticePricingPageProps {
+  className?: string;
+}
+
+export const PracticePricingPage = ({ className }: PracticePricingPageProps) => {
   const { activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const { currentPractice, loading, updatePracticeDetails } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showSuccess, showError } = useToastContext();
@@ -224,6 +228,7 @@ export const PracticePricingPage = () => {
   return (
     <SettingsPageLayout
       title="Pricing &amp; Fees"
+      className={className}
       wrapChildren={false}
       contentClassName="pb-6"
       headerLeading={(

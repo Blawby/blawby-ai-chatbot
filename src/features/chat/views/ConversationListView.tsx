@@ -160,7 +160,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                           )}
                           {isOnboardingConversation && (
                             <span className="flex-shrink-0 rounded-full border border-line-glass/40 bg-surface-panel/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-input-text">
-                              Setup
+                              {t('conversation.badge.setup', { defaultValue: 'Setup' })}
                             </span>
                           )}
                         </div>

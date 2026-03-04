@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
-import { mockApps, type App } from './appsData';
+import { type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { GeneralPage } from './GeneralPage';
@@ -40,6 +40,7 @@ export interface SettingsContentProps {
   practiceSlug?: string;
   view?: SettingsView;
   appId?: string;
+  apps?: App[];
 }
 
 export const SettingsContent = ({
@@ -50,9 +51,10 @@ export const SettingsContent = ({
   practiceSlug = 'workspace',
   view = 'general',
   appId,
+  apps: initialApps,
 }: SettingsContentProps) => {
   const { navigate } = useNavigation();
-  const [apps, setApps] = useState<App[]>(mockApps);
+  const [apps, setApps] = useState<App[]>(initialApps ?? []);
   const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
 
@@ -95,11 +97,11 @@ export const SettingsContent = ({
       case 'practice':
         return <PracticePage className="h-full" />;
       case 'practice-services':
-        return <PracticeServicesPage />;
+        return <PracticeServicesPage className="h-full" />;
       case 'practice-team':
-        return <PracticeTeamPage />;
+        return <PracticeTeamPage className="h-full" />;
       case 'practice-pricing':
-        return <PracticePricingPage />;
+        return <PracticePricingPage className="h-full" />;
       case 'apps':
         return (
           <AppsPage

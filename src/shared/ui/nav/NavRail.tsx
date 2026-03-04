@@ -87,7 +87,11 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
             )}
             onClick={() => {
               if (item.isAction) {
-                item.onClick?.();
+                if (!item.onClick) {
+                  console.warn(`[NavRail] Item "${item.label}" (id: ${item.id}) is marked as isAction but has no onClick handler.`);
+                  return;
+                }
+                item.onClick();
                 return;
               }
               if (item.onClick) {

@@ -115,6 +115,6 @@ export function getSettingsNavConfig(ctx: NavCtx): NavConfig {
 
   return {
     rail: usePracticeBase ? buildPracticeRail(basePath) : buildClientRail(basePath),
-    secondary: buildSettingsSecondary(basePath, ctx.canAccessPractice),
+    secondary: buildSettingsSecondary(basePath, usePracticeBase),
   };
 }

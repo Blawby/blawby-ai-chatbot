@@ -48,6 +48,8 @@ export const AppShell = ({
 
   const gridClassName = hasSidebar && hasSecondarySidebar
     ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,1fr] md:grid-rows-[auto,1fr,auto]'
+    : !hasSidebar && hasSecondarySidebar
+      ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[0px,240px,1fr] md:grid-rows-[auto,1fr,auto]'
     : hasSidebar
       ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,1fr] md:grid-rows-[auto,1fr,auto]'
     : 'grid-rows-[auto,1fr,auto] md:grid-cols-1 md:grid-rows-[auto,1fr,auto]';
@@ -97,7 +99,7 @@ export const AppShell = ({
         <aside
           className={cn(
             'relative z-10 row-start-2 min-h-0 overflow-y-auto border-r border-line-glass/15 hidden md:block',
-            hasSidebar ? 'md:col-start-2' : 'md:col-start-1',
+            hasSidebar || (!hasSidebar && hasSecondarySidebar) ? 'md:col-start-2' : 'md:col-start-1',
             secondarySidebarClassName
           )}
         >

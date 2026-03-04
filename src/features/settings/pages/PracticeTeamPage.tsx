@@ -23,9 +23,10 @@ import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/works
 
 interface PracticeTeamPageProps {
   onNavigate?: (path: string) => void;
+  className?: string;
 }
 
-export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
+export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProps) => {
   const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const {
     currentPractice,
@@ -182,6 +183,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   return (
     <SettingsPageLayout
       title="Team Members"
+      className={className}
       wrapChildren={false}
       contentClassName="pb-6"
       headerLeading={(
