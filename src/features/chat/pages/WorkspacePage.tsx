@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import axios from 'axios';
 import { useNavigation } from '@/shared/utils/navigation';
 import { SessionNotReadyError } from '@/shared/types/errors';
@@ -9,7 +10,6 @@ import { RecentActivityTable } from '@/features/practice-dashboard/components/Re
 import { RecentClientsGrid } from '@/features/practice-dashboard/components/RecentClientsGrid';
 import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import { DashboardHero } from '@/features/practice-dashboard/components/DashboardHero';
-import WorkspaceNav, { type WorkspaceNavTab } from '@/features/chat/views/WorkspaceNav';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { SplitView } from '@/shared/ui/layout/SplitView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
@@ -42,12 +42,19 @@ import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { getClientNavConfig, getPracticeNavConfig, getSettingsNavConfig } from '@/shared/config/navConfig';
+import NavRail from '@/shared/ui/nav/NavRail';
+import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
+import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import type { ChatMessageUI } from '../../../../worker/types';
-import type { ConversationMode } from '@/shared/types/conversation';
+import type { Conversation, ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
+type PracticeQueueFilter = 'unassigned' | 'open' | 'all';
+type ClientQueueFilter = 'unread' | 'read';
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -57,20 +64,29 @@ interface WorkspacePageProps {
   practiceLogo?: string | null;
   messages: ChatMessageUI[];
   layoutMode: LayoutMode;
-  showClientTabs?: boolean;
-  showPracticeTabs?: boolean;
   workspace?: 'public' | 'practice' | 'client';
+  settingsView?: SettingsView;
+  settingsAppId?: string;
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
     options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
   ) => Promise<string>;
+  activeConversationId?: string | null;
   chatView: ComponentChildren;
   mattersView?: ComponentChildren;
   clientsView?: ComponentChildren;
   invoicesView?: ComponentChildren;
   header?: ComponentChildren;
   headerClassName?: string;
+  mockConversations?: Conversation[] | null;
+  mockConversationPreviews?: Record<string, {
+    content: string;
+    role: string;
+    createdAt: string;
+  }> | null;
+  onSelectConversationOverride?: (conversationId: string) => void;
+  onCloseConversationListOverride?: () => void;
 }
 
 const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
@@ -103,20 +119,28 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   practiceLogo,
   messages,
   layoutMode,
-  showClientTabs = false,
-  showPracticeTabs = false,
   workspace = 'public',
+  settingsView = 'general',
+  settingsAppId,
   onStartNewConversation,
+  activeConversationId = null,
   chatView,
   mattersView,
   clientsView,
   invoicesView,
   header,
   headerClassName,
+  mockConversations = null,
+  mockConversationPreviews = null,
+  onSelectConversationOverride,
+  onCloseConversationListOverride,
 }) => {
+  const location = useLocation();
   const { navigate } = useNavigation();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
+  const [practiceQueueFilter, setPracticeQueueFilter] = useState<PracticeQueueFilter>('all');
+  const [clientQueueFilter, setClientQueueFilter] = useState<ClientQueueFilter>('unread');
   const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressSnapshot | null>(null);
   const [onboardingSaveActions, setOnboardingSaveActions] = useState<OnboardingSaveActionsSnapshot>({
@@ -141,12 +165,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [onboardingConversationId, setOnboardingConversationId] = useState<string | null>(null);
   const [onboardingConversationRetryTick, setOnboardingConversationRetryTick] = useState(0);
   const onboardingConversationInitRef = useRef(false);
+  const navigationInitiatedRef = useRef(false);
+  const hasAutoNavigatedRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),
     [messages]
   );
   const isPracticeWorkspace = workspace === 'practice';
+  const isClientWorkspace = workspace === 'client';
   const isClientFacingWorkspace = workspace === 'public' || workspace === 'client';
 
   const workspaceBasePath = useMemo(() => {
@@ -195,20 +222,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [navigate, normalizedBase]);
 
 
-  const isPracticeOnly = useMemo(() => ['clients'].includes(view), [view]);
-  const isSharedGuarded = useMemo(() => ['matters', 'invoices', 'invoiceDetail'].includes(view), [view]);
-  const allowed = useMemo(() => {
-    if (isPracticeOnly) return showPracticeTabs;
-    if (isSharedGuarded) return showClientTabs || showPracticeTabs;
-    return true;
-  }, [isPracticeOnly, isSharedGuarded, showClientTabs, showPracticeTabs]);
-
-  useEffect(() => {
-    if (!allowed) {
-      navigate(workspaceBasePath, true);
-    }
-  }, [allowed, workspaceBasePath, navigate]);
-
   const shouldListConversations = isPracticeWorkspace ? true : view !== 'conversation';
   const {
     conversations,
@@ -219,26 +232,100 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId,
     scope: 'practice',
     list: shouldListConversations,
-    enabled: shouldListConversations && Boolean(practiceId),
+    enabled: shouldListConversations && Boolean(practiceId) && !mockConversations,
     allowAnonymous: workspace === 'public',
     preferOrgScopedPracticeList: isPracticeWorkspace
   });
-  const { session, isPending: isSessionPending } = useSessionContext();
+  const { session, isPending: isSessionPending, activeMemberRole } = useSessionContext();
+  const normalizedRole = normalizePracticeRole(activeMemberRole);
+  const navConfig = useMemo(() => {
+    const slug = (practiceSlug ?? '').trim();
+    if (!slug) return { rail: [] };
+    const navCtx = {
+      practiceSlug: slug,
+      role: normalizedRole,
+      canAccessPractice: isPracticeWorkspace || normalizedRole !== 'client',
+    };
+    if (view === 'settings') {
+      return getSettingsNavConfig(navCtx);
+    }
+    if (workspace === 'public') {
+      return { rail: [] };
+    }
+    return isPracticeWorkspace ? getPracticeNavConfig(navCtx) : getClientNavConfig(navCtx);
+  }, [isPracticeWorkspace, normalizedRole, practiceSlug, view]);
+  const resolvedConversations = mockConversations ?? conversations;
+  const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
+  const resolvedConversationsError = mockConversations ? null : conversationsError;
+
+  const filteredConversations = useMemo(() => {
+    const activeConversations = resolvedConversations.filter((conversation) => conversation.status === 'active');
+    if (isPracticeWorkspace) {
+      if (practiceQueueFilter === 'unassigned') {
+        return activeConversations.filter((conversation) => !conversation.assigned_to || conversation.assigned_to.trim() === '');
+      }
+      if (practiceQueueFilter === 'open') {
+        return activeConversations.filter((conversation) => conversation.assigned_to && conversation.assigned_to.trim() !== '');
+      }
+      return activeConversations;
+    }
+    if (isClientWorkspace) {
+      if (clientQueueFilter === 'unread') {
+        return activeConversations.filter((conversation) => Number(conversation.unread_count ?? 0) > 0);
+      }
+      return activeConversations.filter((conversation) => Number(conversation.unread_count ?? 0) === 0);
+    }
+    return activeConversations;
+  }, [resolvedConversations, isPracticeWorkspace, isClientWorkspace, practiceQueueFilter, clientQueueFilter]);
+
+  const practiceQueueOptions = useMemo<Array<{ value: PracticeQueueFilter; label: string }>>(
+    () => ([
+      { value: 'unassigned', label: 'Unassigned' },
+      { value: 'open', label: 'Open' },
+      { value: 'all', label: 'All' }
+    ]),
+    []
+  );
+  const practiceQueueControls = isPracticeWorkspace ? (
+    <SegmentedToggle<PracticeQueueFilter>
+      value={practiceQueueFilter}
+      options={practiceQueueOptions}
+      onChange={setPracticeQueueFilter}
+      ariaLabel="Practice conversation queue"
+      className="w-full max-w-[280px] segmented-toggle--compact"
+    />
+  ) : undefined;
+  const clientQueueControls = isClientWorkspace ? (
+    <SegmentedToggle<ClientQueueFilter>
+      value={clientQueueFilter}
+      options={[
+        { value: 'unread', label: 'Unread' },
+        { value: 'read', label: 'Read' },
+      ]}
+      onChange={setClientQueueFilter}
+      ariaLabel="Client conversation queue"
+      className="w-full max-w-[220px] segmented-toggle--compact"
+    />
+  ) : undefined;
+  const listHeaderControls = practiceQueueControls ?? clientQueueControls;
+  const showConversationListTitle = workspace === 'public';
 
   useEffect(() => {
     onboardingConversationInitRef.current = false;
+    navigationInitiatedRef.current = false;
+    hasAutoNavigatedRef.current = false;
     setOnboardingConversationId(null);
     setOnboardingConversationRetryTick(0);
   }, [practiceId]);
 
   const onboardingConversationFromList = useMemo(() => {
     if (!isPracticeWorkspace) return null;
-    const match = conversations.find((conversation) => {
+    const match = resolvedConversations.find((conversation) => {
       const mode = conversation.user_info?.mode;
       return mode === 'PRACTICE_ONBOARDING';
     });
     return match?.id ?? null;
-  }, [conversations, isPracticeWorkspace]);
+  }, [resolvedConversations, isPracticeWorkspace]);
 
   const createOnboardingConversation = useCallback(async (): Promise<string> => {
     if (!practiceId) throw new Error('Practice context is required');
@@ -324,11 +411,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   useEffect(() => {
     fetchedPreviewIds.current = new Set();
     previewFailureCounts.current = {};
-    setConversationPreviews({});
-  }, [practiceId]);
+    setConversationPreviews(mockConversationPreviews ?? {});
+  }, [practiceId, mockConversationPreviews, mockConversations]);
 
   useEffect(() => {
-    if (view === 'conversation' || conversations.length === 0 || !practiceId) {
+    if (mockConversationPreviews || mockConversations) return;
+    if (view === 'conversation' || resolvedConversations.length === 0 || !practiceId) {
       return;
     }
     if (workspace === 'practice' && (isSessionPending || !session?.user?.id)) {
@@ -337,7 +425,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     let isMounted = true;
     const loadPreviews = async () => {
       const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      const toFetch = conversations.slice(0, 10).filter(
+      const toFetch = resolvedConversations.slice(0, 10).filter(
         (conversation) => !fetchedPreviewIds.current.has(conversation.id)
       );
       await Promise.all(toFetch.map(async (conversation) => {
@@ -369,14 +457,56 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [practiceId, conversations, isSessionPending, session?.user?.id, view, workspace]);
+  }, [mockConversationPreviews, practiceId, resolvedConversations, isSessionPending, session?.user?.id, view, workspace]);
+
+  const handleCloseConversationList = useCallback(() => {
+    if (onCloseConversationListOverride) {
+      onCloseConversationListOverride();
+      return;
+    }
+    navigate(workspaceBasePath);
+  }, [navigate, onCloseConversationListOverride, workspaceBasePath]);
+
+  const handleSelectConversation = useCallback((conversationId: string) => {
+    hasAutoNavigatedRef.current = true;
+    if (onSelectConversationOverride) {
+      onSelectConversationOverride(conversationId);
+      return;
+    }
+    navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
+  }, [conversationsPath, navigate, onSelectConversationOverride]);
+
+  useEffect(() => {
+    if (!isClientWorkspace || layoutMode !== 'desktop') {
+      return;
+    }
+    if (activeConversationId || hasAutoNavigatedRef.current) {
+      return;
+    }
+    if (resolvedConversationsLoading) return;
+    if (navigationInitiatedRef.current) return;
+
+    const firstConversationId = filteredConversations[0]?.id;
+    if (!firstConversationId) return;
+
+    navigationInitiatedRef.current = true;
+    hasAutoNavigatedRef.current = true;
+    handleSelectConversation(firstConversationId);
+  }, [
+    isClientWorkspace,
+    layoutMode,
+    activeConversationId,
+    resolvedConversationsLoading,
+    filteredConversations,
+    handleSelectConversation,
+  ]);
 
   const recentMessage = useMemo(() => {
     const fallbackPracticeName = typeof practiceName === 'string'
       ? practiceName.trim()
       : '';
-    if (conversations.length > 0) {
-      const sorted = [...conversations].sort((a, b) => {
+    if (resolvedConversations.length > 0) {
+      const sorted = [...resolvedConversations].sort((a, b) => {
         const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
         const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
         return bTime - aTime;
@@ -427,7 +557,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       avatarSrc: practiceLogo ?? null,
       conversationId: null
     };
-  }, [practiceLogo, practiceName, conversationPreviews, conversations, filteredMessages]);
+  }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
   const { currentPractice, updatePractice } = usePracticeManagement();
   const { showSuccess, showError } = useToastContext();
@@ -824,10 +954,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setSetupSidebarView('info');
   }, [previewStrongReady, onboardingProgress?.completionScore]);
 
-  if (!allowed) {
-    return null;
-  }
-
   const handleStartConversation = async (mode: ConversationMode) => {
     try {
       const shouldReuseConversation = mode !== 'REQUEST_CONSULTATION';
@@ -1026,18 +1152,19 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'list':
         return (
           <ConversationListView
-            conversations={conversations}
+            conversations={filteredConversations}
             previews={conversationPreviews}
             practiceName={practiceName}
             practiceLogo={practiceLogo}
-            isLoading={isConversationsLoading}
-            error={conversationsError}
-            onClose={() => navigate(workspaceBasePath)}
-            onSelectConversation={(conversationId) => {
-              navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
-            }}
+            isLoading={resolvedConversationsLoading}
+            error={resolvedConversationsError}
+            onClose={handleCloseConversationList}
+            onSelectConversation={handleSelectConversation}
             onSendMessage={() => handleStartConversation('ASK_QUESTION')}
             showSendMessageButton={isClientFacingWorkspace}
+            activeConversationId={activeConversationId}
+            showTitle={showConversationListTitle}
+            headerControls={listHeaderControls}
           />
         );
       case 'matters':
@@ -1080,6 +1207,17 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             </div>
           </div>
         );
+      case 'settings':
+        if (!practiceSlug) return null;
+        return (
+          <SettingsContent
+            workspace={workspace === 'practice' ? 'practice' : 'client'}
+            practiceSlug={practiceSlug}
+            view={settingsView}
+            appId={settingsAppId}
+            className="h-full"
+          />
+        );
       case 'setup':
         return (
           <WorkspaceHomeView
@@ -1108,88 +1246,55 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const hideBottomNav = isClientFacingWorkspace && (view === 'list' || view === 'conversation');
   const showBottomNav = workspace !== 'practice'
     ? !hideBottomNav
-    : (showClientTabs || showPracticeTabs || view === 'home' || view === 'setup' || view === 'list' || view === 'matters' || view === 'clients' || view === 'invoices' || view === 'invoiceDetail');
-  const activeTab = view === 'list' || view === 'conversation'
-    ? 'messages'
-    : view === 'matters'
-    ? 'matters'
-    : view === 'invoices' || view === 'invoiceDetail'
-    ? 'invoices'
-    : view === 'clients'
-    ? 'clients'
-    : view === 'setup'
-    ? 'home'
-    : view;
-  const handleSelectTab = (tab: WorkspaceNavTab) => {
-    if (tab === 'messages') {
-      void refreshConversations();
-      navigate(conversationsPath);
-      return;
-    }
-    if (tab === 'matters') {
-      navigate(`${workspaceBasePath}/matters`);
-      return;
-    }
-    if (tab === 'clients') {
-      navigate(`${workspaceBasePath}/clients`);
-      return;
-    }
-    if (tab === 'invoices') {
-      navigate(`${workspaceBasePath}/invoices`);
-      return;
-    }
-    if (tab === 'settings') {
-      navigate(`${workspaceBasePath}/settings`);
-      return;
-    }
-    navigate(workspaceBasePath);
-  };
+    : true;
+  const activeHref = location.path;
 
-  const bottomNav = showBottomNav ? (
-    <WorkspaceNav
+  const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
+    <NavRail
       variant="bottom"
-      activeTab={activeTab}
-      showClientTabs={showClientTabs}
-      showPracticeTabs={showPracticeTabs}
-      onSelectTab={handleSelectTab}
+      items={navConfig.rail}
+      activeHref={activeHref}
     />
   ) : undefined;
 
-  const sidebarNav = showBottomNav ? (
-    <WorkspaceNav
-      variant="sidebar"
-      activeTab={activeTab}
-      showClientTabs={showClientTabs}
-      showPracticeTabs={showPracticeTabs}
-      onSelectTab={handleSelectTab}
+  const sidebarNav = navConfig.rail.length > 0 ? (
+    <NavRail
+      variant="rail"
+      items={navConfig.rail}
+      activeHref={activeHref}
     />
+  ) : undefined;
+  const settingsSecondaryPanel = view === 'settings' && navConfig.secondary && navConfig.secondary.length > 0 ? (
+    <SecondaryPanel sections={navConfig.secondary} activeHref={activeHref} />
   ) : undefined;
 
   const conversationListView = (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <ConversationListView
-        conversations={conversations}
+        conversations={filteredConversations}
         previews={conversationPreviews}
         practiceName={practiceName}
         practiceLogo={practiceLogo}
-        isLoading={isConversationsLoading}
-        error={conversationsError}
-        onClose={() => navigate(workspaceBasePath)}
-        onSelectConversation={(conversationId) => {
-          navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
-        }}
+        isLoading={resolvedConversationsLoading}
+        error={resolvedConversationsError}
+        onClose={handleCloseConversationList}
+        onSelectConversation={handleSelectConversation}
         onSendMessage={() => handleStartConversation('ASK_QUESTION')}
         showBackButton={false}
         showSendMessageButton={isClientFacingWorkspace}
+        activeConversationId={activeConversationId}
+        showTitle={showConversationListTitle}
+        headerControls={listHeaderControls}
       />
     </div>
   );
 
   const showListOnMobile = view === 'list';
   const showChatOnMobile = view === 'conversation';
-  const isSplitView = isPracticeWorkspace && (view === 'list' || view === 'conversation');
+  const isSplitWorkspace = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace);
+  const isSplitView = isSplitWorkspace && (view === 'list' || view === 'conversation');
   const shouldAllowMainScroll = view !== 'conversation' && view !== 'list';
-  const mainContent = isSplitView
+  const baseMainContent = isSplitView
     ? (
       <SplitView
         className="h-full min-h-0 w-full"
@@ -1212,6 +1317,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         {renderContent()}
       </div>
     );
+  const mainContent = view === 'settings' && layoutMode !== 'desktop' && settingsSecondaryPanel
+    ? (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="border-b border-line-glass/30 bg-transparent">
+          {settingsSecondaryPanel}
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">{baseMainContent}</div>
+      </div>
+    )
+    : baseMainContent;
 
   const isPublicShell = layoutMode !== 'desktop';
   const isWidgetShell = layoutMode === 'widget';
@@ -1256,6 +1371,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       className="bg-transparent h-dvh"
       accentBackdropVariant="workspace"
       sidebar={sidebarNav}
+      secondarySidebar={layoutMode === 'desktop' ? settingsSecondaryPanel : undefined}
       main={mainShell}
       mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
       bottomBar={isPublicShell ? undefined : bottomNav}

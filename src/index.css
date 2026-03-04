@@ -592,6 +592,18 @@
     @apply text-input-text;
   }
 
+  .segmented-toggle--compact {
+    @apply p-0.5;
+  }
+
+  .segmented-toggle--compact .segmented-toggle-thumb {
+    @apply top-0.5 bottom-0.5;
+  }
+
+  .segmented-toggle--compact .segmented-toggle-item {
+    @apply px-3 py-1 text-xs;
+  }
+
   /* ============================================================
      MARKDOWN / CHAT
      
@@ -826,7 +838,7 @@
   }
 
   .message-composer-input-row {
-    @apply flex items-end gap-3 w-full;
+    @apply grid w-full grid-cols-[auto,minmax(0,1fr),auto] items-end gap-3;
   }
 
   /* ============================================================

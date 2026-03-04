@@ -5,7 +5,8 @@ import { PracticeInvoicesPage } from '@/features/invoices/pages/PracticeInvoices
 import { PracticeInvoiceDetailPage } from '@/features/invoices/pages/PracticeInvoiceDetailPage';
 import { ClientInvoicesPage } from '@/features/invoices/pages/ClientInvoicesPage';
 import { ClientInvoiceDetailPage } from '@/features/invoices/pages/ClientInvoiceDetailPage';
-import WorkspaceNav from '@/features/chat/views/WorkspaceNav';
+import NavRail from '@/shared/ui/nav/NavRail';
+import { getClientNavConfig } from '@/shared/config/navConfig';
 import type { InvoiceDetail, InvoiceListResult } from '@/features/invoices/types';
 import { asMajor } from '@/shared/utils/money';
 
@@ -411,16 +412,20 @@ describe('Invoices pages', () => {
 
 describe('Invoices nav tab', () => {
   it('renders invoices tab as active', () => {
+    const navConfig = getClientNavConfig({
+      practiceSlug: 'demo-practice',
+      role: 'client',
+      canAccessPractice: false,
+    });
     render(
-      <WorkspaceNav
+      <NavRail
         variant="bottom"
-        activeTab="invoices"
-        showClientTabs
-        onSelectTab={vi.fn()}
-      />
+        items={navConfig.rail}
+        activeHref="/client/demo-practice/invoices"
+      />,
     );
 
-    const invoicesTab = screen.getByRole('button', { name: 'workspace.navigation.invoices' });
+    const invoicesTab = screen.getByRole('button', { name: 'Invoices' });
     expect(invoicesTab.getAttribute('aria-current')).toBe('page');
   });
 });
