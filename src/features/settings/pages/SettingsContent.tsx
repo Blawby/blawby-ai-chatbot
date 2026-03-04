@@ -55,6 +55,11 @@ export const SettingsContent = ({
 }: SettingsContentProps) => {
   const { navigate } = useNavigation();
   const [apps, setApps] = useState<App[]>(initialApps ?? []);
+
+  useEffect(() => {
+    setApps(initialApps ?? []);
+  }, [initialApps]);
+
   const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
 
