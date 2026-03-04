@@ -869,7 +869,7 @@
   }
 
   .message-composer-input-row {
-    @apply grid w-full grid-cols-[auto_minmax(0, _1fr)_auto] items-end gap-3;
+    @apply grid w-full grid-cols-[auto_minmax(0,_1fr)_auto] items-end gap-3;
   }
 
   /* ============================================================
