@@ -5,19 +5,16 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
-import { MatterContextPanel } from '@/features/matters/components/MatterContextPanel';
 import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { asMajor } from '@/shared/utils/money';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
 import type { MatterDetail, MatterOption, MatterSummary, TimeEntry } from '@/features/matters/data/matterTypes';
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import type { TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { PencilIcon } from '@heroicons/react/24/outline';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 type DebugTab = 'overview' | 'time' | 'messages' | 'activity';
 type EditorState = 'none' | 'create';
@@ -129,10 +126,6 @@ const toSummary = (detail: MatterDetail): MatterSummary => ({
 const nowIso = () => new Date().toISOString();
 
 const normalizeOptional = (value?: string) => (value?.trim() ? value.trim() : undefined);
-const toBillingTypeLabel = (value?: string | null) => {
-  if (!value) return null;
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-};
 
 const buildDetailFromForm = (id: string, values: MatterFormState): MatterDetail => {
   const clientName = clientOptions.find((client) => client.id === values.clientId)?.name ?? 'Unknown client';
@@ -202,20 +195,6 @@ export default function DebugMatterPage() {
   );
   const selectedDetail = selectedMatterId ? detailsById[selectedMatterId] : null;
   const selectedMatter = selectedDetail ? toSummary(selectedDetail) : null;
-  const matterContextPanel = useMemo(() => {
-    if (!selectedDetail || !selectedMatter) return null;
-    const assigneeNames = selectedDetail.assigneeIds
-      .map((id) => assigneeOptions.find((option) => option.id === id)?.name ?? `User ${id.slice(0, 6)}`);
-    return {
-      clientName: selectedDetail.clientId
-        ? clientOptions.find((option) => option.id === selectedDetail.clientId)?.name ?? selectedDetail.clientName
-        : selectedDetail.clientName,
-      assigneeNames,
-      billingLabel: toBillingTypeLabel(selectedDetail.billingType),
-      createdLabel: formatLongDate(selectedMatter.createdAt),
-      updatedLabel: selectedMatter.updatedAt ? `Updated ${formatRelativeTime(selectedMatter.updatedAt)}` : null
-    };
-  }, [selectedDetail, selectedMatter]);
 
   const selectedTimeEntries = useMemo(() => selectedDetail?.timeEntries ?? [], [selectedDetail?.timeEntries]);
   const timeStats = useMemo(() => {
@@ -403,16 +382,6 @@ export default function DebugMatterPage() {
                   })}
                 </nav>
               </div>
-              {matterContextPanel ? (
-                <MatterContextPanel
-                  clientName={matterContextPanel.clientName}
-                  assigneeNames={matterContextPanel.assigneeNames}
-                  billingLabel={matterContextPanel.billingLabel}
-                  createdLabel={matterContextPanel.createdLabel}
-                  updatedLabel={matterContextPanel.updatedLabel}
-                />
-              ) : null}
-
               {activeTab === 'overview' || activeTab === 'time' || activeTab === 'messages' ? (
                 <MatterSummaryCards
                   activeTab={activeTab}

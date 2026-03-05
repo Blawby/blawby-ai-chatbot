@@ -6,7 +6,6 @@ import {
   clientsLoaded,
   clientsInFlight,
   markClientsCacheKey,
-  resetClientsStore,
   setClientsForPractice
 } from '@/shared/stores/clientsStore';
 

@@ -19,6 +19,7 @@ const PracticeSchema = z.object({
   stripeCustomerId: z.string().nullable().optional(), // API can return null
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
+  accentColor: z.string().optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 
@@ -219,7 +220,7 @@ export const usePracticeConfig = ({
           serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
-          accentColor: cfg.accentColor ?? 'gold',
+          accentColor: cfg.accentColor ?? practice.accentColor ?? 'gold',
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',

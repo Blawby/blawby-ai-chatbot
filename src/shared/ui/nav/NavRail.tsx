@@ -20,6 +20,7 @@ export interface NavRailProps {
   variant: 'rail' | 'bottom';
   showLabels?: boolean;
   className?: string;
+  onItemActivate?: () => void;
 }
 
 const normalizePath = (value: string): string => {
@@ -40,6 +41,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   variant,
   showLabels = false,
   className,
+  onItemActivate,
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
@@ -54,22 +56,17 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
     return best;
   }, { id: null, score: -1 }).id;
 
-  const baseButtonClass = variant === 'rail'
-    ? 'btn btn-tab relative h-11 w-11 rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-    : 'relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
-  const inactiveClassName = variant === 'bottom'
-    ? 'border-transparent bg-transparent text-input-placeholder hover:text-input-text hover:bg-transparent'
-    : 'nav-item-inactive backdrop-blur-xl';
+  const baseButtonClass = 'relative flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+  const layoutClass = variant === 'rail'
+    ? 'h-11 w-11'
+    : 'min-w-0 flex-1 flex-col gap-1 rounded-2xl px-2 py-2 text-xs';
+
+  const containerClass = variant === 'rail'
+    ? 'flex h-full flex-col items-center gap-2 border-r border-line-glass/30 bg-surface-nav-rail/95 px-3 py-4'
+    : 'grid grid-cols-[repeat(auto-fit,minmax(56px,1fr))] gap-2 rounded-3xl border border-line-glass/25 bg-surface-nav-rail px-4 py-3 shadow-glass';
 
   return (
-    <div
-      className={cn(
-        variant === 'rail'
-          ? 'flex h-full flex-col items-center gap-2 border-r border-line-glass/30 bg-transparent px-2 py-3'
-          : 'grid grid-cols-[repeat(auto-fit,minmax(56px,1fr))] gap-2 bg-transparent px-3 py-2',
-        className,
-      )}
-    >
+    <div className={cn(containerClass, className)}>
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = !item.isAction && activeItemId === item.id;
@@ -84,11 +81,12 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               baseButtonClass,
+              layoutClass,
               isDanger
                 ? 'text-red-400 hover:bg-red-500/10'
                 : isActive
-                  ? 'active nav-item-active'
-                  : inactiveClassName,
+                  ? 'nav-item-active'
+                  : 'nav-item-inactive',
             )}
             onClick={() => {
               if (item.isAction) {
@@ -97,13 +95,16 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
                   return;
                 }
                 item.onClick();
+                onItemActivate?.();
                 return;
               }
               if (item.onClick) {
                 item.onClick();
+                onItemActivate?.();
                 return;
               }
               navigate(item.href);
+              onItemActivate?.();
             }}
           >
             <Icon className="h-5 w-5" aria-hidden="true" />

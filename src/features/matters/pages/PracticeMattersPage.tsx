@@ -34,15 +34,12 @@ import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBui
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
 import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
-import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
-import { MatterContextPanel } from '@/features/matters/components/MatterContextPanel';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
 import {
   createMatter,
   getMatter,
@@ -96,7 +93,6 @@ import {
   toMilestone,
   toTimeEntry
 } from '@/features/matters/utils/matterUtils';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -115,11 +111,6 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
 const resolveQueryValue = (value?: string | string[] | null) => {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
-};
-
-const toBillingTypeLabel = (value?: string | null) => {
-  if (!value) return null;
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
 // ---------------------------------------------------------------------------
@@ -327,6 +318,7 @@ export const PracticeMattersPage = ({
   const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
   const [noteItems, setNoteItems] = useState<TimelineItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const rawActivityRef = useRef<BackendMatterActivity[]>([]);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -519,6 +511,10 @@ export const PracticeMattersPage = ({
       }),
     [matterContext, clientNameById, serviceNameById, assigneeNameById, resolvePerson]
   );
+  const remapActivities = useCallback((activities: BackendMatterActivity[]) => {
+    const filtered = activities.filter((item) => !String(item.action ?? '').startsWith('note_'));
+    setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, activities)));
+  }, [toActivityItem]);
 
   const toNoteItem = useCallback(
     (note: Parameters<typeof buildNoteTimelineItem>[0]): TimelineItem =>
@@ -707,6 +703,7 @@ export const PracticeMattersPage = ({
   // ── Data fetching: activity ───────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
+      rawActivityRef.current = [];
       setActivityItems([]);
       setActivityLoading(false);
       return;
@@ -717,18 +714,24 @@ export const PracticeMattersPage = ({
 
     getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((items) => {
-        const filtered = items.filter((item) => !String(item.action ?? '').startsWith('note_'));
-        setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, items)));
+        rawActivityRef.current = items;
+        remapActivities(items);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
         console.warn('[PracticeMattersPage] Failed to load activity', error);
+        rawActivityRef.current = [];
         setActivityItems([]);
       })
       .finally(() => setActivityLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, toActivityItem]);
+  }, [activePracticeId, selectedMatterId, remapActivities]);
+
+  useEffect(() => {
+    if (rawActivityRef.current.length === 0) return;
+    remapActivities(rawActivityRef.current);
+  }, [remapActivities]);
 
   // ── Data fetching: notes ──────────────────────────────────────────────────
   useEffect(() => {
@@ -950,6 +953,21 @@ export const PracticeMattersPage = ({
     if (!selectedMatterDetail || !activePracticeId) return;
     void handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, { status: newStatus }));
   }, [selectedMatterDetail, activePracticeId, handleUpdateMatter]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleWorkspaceMatterStatusChange = (
+      event: Event
+    ) => {
+      const customEvent = event as CustomEvent<{ matterId: string; status: MatterStatus }>;
+      const detail = customEvent.detail;
+      if (!detail || detail.matterId !== selectedMatterId) return;
+      handleUpdateStatus(detail.status);
+    };
+    window.addEventListener('workspace:matter-status-change', handleWorkspaceMatterStatusChange);
+    return () => {
+      window.removeEventListener('workspace:matter-status-change', handleWorkspaceMatterStatusChange);
+    };
+  }, [handleUpdateStatus, selectedMatterId]);
 
   // ── Description edit handlers ─────────────────────────────────────────────
   const startDescriptionEdit = useCallback(() => {
@@ -1281,25 +1299,6 @@ export const PracticeMattersPage = ({
     [matterSummaries, selectedMatterId]
   );
   const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
-  const matterContextPanel = useMemo(() => {
-    if (!resolvedSelectedMatter) return null;
-
-    const detail = selectedMatterDetail;
-    const clientNameFromId = detail?.clientId ? clientNameById.get(detail.clientId) : null;
-    const resolvedClientName = clientNameFromId ?? detail?.clientName ?? resolvedSelectedMatter.clientName ?? null;
-    const resolvedAssigneeNames = detail?.assigneeIds?.map((id) => assigneeNameById.get(id) ?? `User ${id.slice(0, 6)}`) ?? [];
-
-    return {
-      clientName: resolvedClientName,
-      assigneeNames: resolvedAssigneeNames,
-      billingLabel: toBillingTypeLabel(detail?.billingType),
-      createdLabel: formatLongDate(resolvedSelectedMatter.createdAt),
-      updatedLabel: resolvedSelectedMatter.updatedAt
-        ? `Updated ${formatRelativeTime(resolvedSelectedMatter.updatedAt)}`
-        : null
-    };
-  }, [resolvedSelectedMatter, selectedMatterDetail, clientNameById, assigneeNameById]);
-
   const timelineItems = useMemo(() => {
     return [...activityItems, ...noteItems].sort((a, b) => {
       const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
@@ -1666,21 +1665,11 @@ export const PracticeMattersPage = ({
               subtitle={MATTER_STATUS_LABELS[resolvedSelectedMatter.status]}
               showBack={showDetailBackButton}
               onBack={goToList}
-              actions={(
-                <div className="flex items-center gap-2">
-                  <MatterStatusPopover
-                    currentStatus={resolvedSelectedMatter.status}
-                    onSelect={handleUpdateStatus}
-                    disabled={detailLoading}
-                  />
-                  {detailHeaderRightControl}
-                </div>
-              )}
+              actions={detailHeaderRightControl}
             />
             <nav
               className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"
               aria-label="Matter sections"
-              role="tablist"
             >
               {DETAIL_TABS.map((tab) => {
                 const isActive = detailTab === tab.id;
@@ -1708,16 +1697,6 @@ export const PracticeMattersPage = ({
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="space-y-6 p-4 sm:p-6">
-              {matterContextPanel ? (
-                <MatterContextPanel
-                  clientName={matterContextPanel.clientName}
-                  assigneeNames={matterContextPanel.assigneeNames}
-                  billingLabel={matterContextPanel.billingLabel}
-                  createdLabel={matterContextPanel.createdLabel}
-                  updatedLabel={matterContextPanel.updatedLabel}
-                />
-              ) : null}
-
           <MatterSummaryCards
             activeTab={detailTab === 'tasks' ? 'overview' : detailTab}
             onAddTime={() => {

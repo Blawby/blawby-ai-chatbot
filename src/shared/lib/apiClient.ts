@@ -188,6 +188,8 @@ export interface PracticeDetailsUpdate {
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  businessOnboardingHasDraft?: boolean;
 }
 
 export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
@@ -1464,6 +1466,13 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     } else {
       normalized.services = payload.services;
     }
+  }
+
+  if (payload.businessOnboardingStatus !== undefined) {
+    normalized.business_onboarding_status = payload.businessOnboardingStatus;
+  }
+  if (payload.businessOnboardingHasDraft !== undefined) {
+    normalized.business_onboarding_has_draft = payload.businessOnboardingHasDraft;
   }
 
   return normalized;

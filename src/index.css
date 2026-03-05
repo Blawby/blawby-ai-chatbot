@@ -7,9 +7,9 @@
     color-scheme: light dark;
     --surface-base: 255 255 255;
     --surface-overlay: 255 255 255;
-    --surface-nav-rail: 0 0 0 / 0.03;
-    --surface-nav-secondary: 0 0 0 / 0.02;
-    --surface-list-panel: 0 0 0 / 0.015;
+    --surface-nav-rail: 244 246 251;
+    --surface-nav-secondary: 240 242 249;
+    --surface-list-panel: 236 239 247;
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
@@ -32,9 +32,9 @@
   .dark {
     --surface-base: 3 7 18;
     --surface-overlay: 10 15 26;
-    --surface-nav-rail: 255 255 255 / 0.03;
-    --surface-nav-secondary: 255 255 255 / 0.025;
-    --surface-list-panel: 255 255 255 / 0.015;
+    --surface-nav-rail: 18 22 34;
+    --surface-nav-secondary: 14 18 30;
+    --surface-list-panel: 11 15 25;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;
     --input-placeholder: 156 163 175;
@@ -557,19 +557,27 @@
 
   /* Shared nav item active/inactive state */
   .nav-item-active {
-    @apply border-transparent backdrop-blur-xl;
     color: rgb(var(--accent-foreground));
-    background-color: rgb(var(--accent-500) / 0.14);
-    box-shadow: var(--glass-rim-subtle),
-      0 2px 8px rgb(var(--accent-500) / 0.12);
+    background-color: rgb(var(--accent-500) / 0.18);
+    box-shadow: none;
+  }
+
+  .dark .nav-item-active {
+    background-color: rgb(var(--accent-400) / 0.18);
   }
 
   .nav-item-inactive {
-    @apply text-input-text/70 border-transparent;
+    color: rgb(var(--input-text) / 0.75);
+    background-color: transparent;
   }
 
   .nav-item-inactive:hover {
-    @apply bg-white/[0.08] text-input-text;
+    color: rgb(var(--input-text) / 0.85);
+    background-color: rgb(255 255 255 / 0.06);
+  }
+
+  .dark .nav-item-inactive:hover {
+    background-color: rgb(255 255 255 / 0.08);
   }
 
   /* Semantic status surfaces */
@@ -869,7 +877,9 @@
   }
 
   .message-composer-input-row {
-    @apply grid w-full grid-cols-[auto_minmax(0,_1fr)_auto] items-end gap-3;
+    @apply grid w-full items-end gap-3;
+
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   /* ============================================================

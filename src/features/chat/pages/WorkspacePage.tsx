@@ -21,6 +21,7 @@ import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useMattersData } from '@/shared/hooks/useMattersData';
@@ -70,6 +71,7 @@ import type { Conversation, ConversationMode } from '@/shared/types/conversation
 import type { LayoutMode } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
+import type { MatterStatus } from '@/shared/types/matterStatus';
 
 type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
@@ -148,6 +150,11 @@ const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
     if (meta?.intakeComplete === true) return true;
     return false;
   });
+};
+
+const toBillingTypeLabel = (value?: string | null) => {
+  if (!value) return null;
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
@@ -448,6 +455,53 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     session?.user?.id ?? null,
     { enabled: isPracticeWorkspace && workspaceSection === 'clients' }
   );
+  const selectedMatter = useMemo(
+    () => mattersData?.items?.find((matter) => matter.id === selectedMatterIdFromPath) ?? null,
+    [mattersData?.items, selectedMatterIdFromPath]
+  );
+  const selectedMatterInspectorData = useMemo(() => {
+    if (!selectedMatter) return null;
+
+    const clientNameById = new Map(
+      (clientsData?.items ?? []).map((client) => [
+        client.user?.id ?? '',
+        client.user?.name ?? client.user?.email ?? '',
+      ])
+    );
+    const clientNameFromId = selectedMatter.client_id ? clientNameById.get(selectedMatter.client_id) : null;
+    const selectedMatterRecord = selectedMatter as Record<string, unknown>;
+    const selectedMatterClientName = clientNameFromId
+      ?? (typeof selectedMatterRecord.client_name === 'string' ? selectedMatterRecord.client_name : null);
+
+    const assigneeNamesFromRows = Array.isArray(selectedMatter.assignees)
+      ? selectedMatter.assignees
+        .map((assignee) => {
+          if (typeof assignee === 'string') {
+            return assignee.trim();
+          }
+          if (!assignee || typeof assignee !== 'object') return '';
+          const row = assignee as Record<string, unknown>;
+          const name = typeof row.name === 'string'
+            ? row.name
+            : (typeof row.email === 'string' ? row.email : '');
+          return name.trim();
+        })
+        .filter((name): name is string => name.length > 0)
+      : [];
+    const selectedMatterAssigneeNames = assigneeNamesFromRows.length > 0
+      ? assigneeNamesFromRows
+      : (selectedMatter.assignee_ids?.map((id) => `User ${id.slice(0, 6)}`) ?? []);
+
+    return {
+      matterClientName: selectedMatterClientName,
+      matterAssigneeNames: selectedMatterAssigneeNames,
+      matterBillingLabel: toBillingTypeLabel(selectedMatter.billing_type),
+      matterCreatedLabel: formatLongDate(selectedMatter.created_at),
+      matterUpdatedLabel: selectedMatter.updated_at
+        ? `Updated ${formatRelativeTime(selectedMatter.updated_at)}`
+        : null,
+    };
+  }, [clientsData?.items, selectedMatter]);
   const showConversationListTitle = workspace === 'public';
   const isMobileLayout = layoutMode !== 'desktop';
 
@@ -700,7 +754,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice } = usePracticeManagement();
+  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -898,6 +952,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const payload = await getOnboardingStatusPayload(organizationId, { signal: options?.signal });
       const status = extractStripeStatusFromPayload(payload);
       setStripeStatus(status ?? null);
+      const statusPayload = payload as { completed?: boolean; connectedAccountId?: string } | null;
+      // Update PracticeManagement's currentPractice to sync onboarding status
+      if (statusPayload) {
+        await updatePractice(organizationId, {
+          businessOnboardingStatus: statusPayload.completed ? 'completed' : 'pending',
+          businessOnboardingHasDraft: Boolean(statusPayload.connectedAccountId)
+        });
+      }
     } catch (error) {
       if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) return;
       if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -1305,7 +1367,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             showSendMessageButton={isClientFacingWorkspace}
             activeConversationId={activeConversationId}
             showTitle={showConversationListTitle}
-            headerLeftControls={mobileConversationHeaderControls}
+            headerLeftControls={mobileConversationHeaderLeftControl}
             assignedToFilter={conversationAssignedToFilter}
           />
         );
@@ -1391,31 +1453,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : true);
   const activeHref = location.path;
 
+  const handleNavActivate = () => {
+    setIsMobileNavOpen(false);
+    setIsInspectorOpen(false);
+  };
   const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
     <NavRail
       variant="bottom"
-      items={navConfig.rail.map(item => ({
-        ...item,
-        onClick: () => {
-          setIsMobileNavOpen(false);
-          setIsInspectorOpen(false);
-        }
-      }))}
+      items={navConfig.rail}
       activeHref={activeHref}
+      onItemActivate={handleNavActivate}
     />
   ) : undefined;
 
   const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 ? (
     <NavRail
       variant="rail"
-      items={navConfig.rail.map(item => ({
-        ...item,
-        onClick: () => {
-          setIsMobileNavOpen(false);
-          setIsInspectorOpen(false);
-        }
-      }))}
+      items={navConfig.rail}
       activeHref={activeHref}
+      onItemActivate={handleNavActivate}
     />
   ) : undefined;
   const secondaryPanel = navConfig.secondary && navConfig.secondary.length > 0 ? (
@@ -1465,10 +1521,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={<InformationCircleIcon className="h-5 w-5" />}
     />
   ) : null;
-  const mobileConversationHeaderControls = layoutMode !== 'desktop' && (mobileMenuButton || inspectorToggleButton)
+  const mobileConversationHeaderLeftControl = layoutMode !== 'desktop' && mobileMenuButton
     ? (
       <div className="flex items-center gap-2">
         {mobileMenuButton}
+      </div>
+    )
+    : undefined;
+  const mobileConversationHeaderRightControl = layoutMode !== 'desktop' && inspectorToggleButton
+    ? (
+      <div className="flex items-center gap-2">
         {inspectorToggleButton}
       </div>
     )
@@ -1506,7 +1568,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           showSendMessageButton={isClientFacingWorkspace}
           activeConversationId={activeConversationId}
           showTitle={showConversationListTitle}
-          headerLeftControls={mobileConversationHeaderControls}
+          headerLeftControls={mobileConversationHeaderLeftControl}
+          headerControls={mobileConversationHeaderRightControl}
           assignedToFilter={conversationAssignedToFilter}
         />
       </Panel>
@@ -1649,6 +1712,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceId={practiceId}
       conversation={selectedConversation}
       onClose={() => setIsInspectorOpen(false)}
+      onMatterStatusChange={(status: MatterStatus) => {
+        if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
+        window.dispatchEvent(
+          new CustomEvent('workspace:matter-status-change', {
+            detail: { matterId: selectedMatterIdFromPath, status },
+          })
+        );
+      }}
+      {...(inspectorTarget.entityType === 'matter' && selectedMatterInspectorData ? {
+        matterClientName: selectedMatterInspectorData.matterClientName,
+        matterAssigneeNames: selectedMatterInspectorData.matterAssigneeNames,
+        matterBillingLabel: selectedMatterInspectorData.matterBillingLabel,
+        matterCreatedLabel: selectedMatterInspectorData.matterCreatedLabel,
+        matterUpdatedLabel: selectedMatterInspectorData.matterUpdatedLabel,
+      } : {})}
     />
   ) : null;
   const mobileSecondaryDrawer = navConfig.secondary && navConfig.secondary.length > 0 ? (
@@ -1670,17 +1748,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     </Modal>
   ) : null;
-  const mobileInspectorDrawer = inspectorPanel ? (
-    <Modal
-      isOpen={isInspectorOpen && isMobileLayout}
-      onClose={() => setIsInspectorOpen(false)}
-      title="Inspector"
-      type="drawer-right"
-    >
-      {inspectorPanel}
-    </Modal>
-  ) : null;
-
   return (
     <>
       <AppShell
@@ -1689,14 +1756,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         sidebar={sidebarNav}
         secondarySidebar={layoutMode === 'desktop' ? secondaryPanel : undefined}
         listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
-        inspector={layoutMode === 'desktop' && isInspectorOpen ? inspectorPanel : undefined}
+        inspector={isInspectorOpen ? inspectorPanel : undefined}
+        inspectorMobileOpen={isInspectorOpen && isMobileLayout}
+        onInspectorMobileClose={() => setIsInspectorOpen(false)}
         main={mainShell}
         mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
         bottomBar={isPublicShell ? undefined : bottomNav}
         bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
       />
       {mobileSecondaryDrawer}
-      {mobileInspectorDrawer}
     </>
   );
 };
