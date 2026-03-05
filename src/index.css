@@ -878,6 +878,7 @@
 
   .message-composer-input-row {
     @apply grid w-full items-end gap-3;
+
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 

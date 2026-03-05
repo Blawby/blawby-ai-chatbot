@@ -690,7 +690,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
 
       if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
-        return;
+        if (!fetchOnboardingStatus) return;
       }
 
       const userId = session?.user?.id ?? null;
@@ -764,7 +764,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             ...sharedPracticeSnapshot,
             currentPractice: selectedCurrentPractice
           });
-          return;
+          
+          if (!fetchPracticeDetails && !fetchOnboardingStatus) {
+            return;
+          }
         }
       }
 
@@ -783,14 +786,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
         if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !snapshotToApply.currentPractice) {
           applySnapshot(snapshotToApply);
-          return;
+          if (!fetchOnboardingStatus) return;
+        } else {
+          setLoading(true);
+          setError(null);
+          const hydrated = await hydrateSnapshotDetails(snapshotToApply);
+          applySnapshot(hydrated);
+          if (!fetchOnboardingStatus) return;
         }
-
-        setLoading(true);
-        setError(null);
-        const hydrated = await hydrateSnapshotDetails(snapshotToApply);
-        applySnapshot(hydrated);
-        return;
       }
 
       if (sharedPracticePromise) {
@@ -815,10 +818,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             setError(null);
             const hydrated = await hydrateSnapshotDetails(cachedToApply);
             applySnapshot(hydrated);
-            return;
+            if (!fetchOnboardingStatus) return;
+          } else {
+            applySnapshot(cachedToApply);
+            if (!fetchOnboardingStatus) return;
           }
-          applySnapshot(cachedToApply);
-          return;
         } catch (_err) {
           console.warn('Cached practice promise failed, retrying with fresh fetch.');
           if (sharedPracticePromise === cachedPromise) {
