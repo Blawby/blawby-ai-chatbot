@@ -206,10 +206,10 @@ export const AppShell = ({
           <button
             type="button"
             className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-            onClick={onInspectorMobileClose}
+            onClick={onInspectorMobileClose ? () => onInspectorMobileClose() : undefined}
             aria-label="Close inspector"
           />
-          <aside className="absolute right-0 top-0 h-dvh w-full max-w-xl border-l border-line-glass/15 bg-surface-base">
+          <aside className="absolute right-0 top-0 h-dvh w-full max-w-xl overflow-y-auto border-l border-line-glass/15 bg-surface-base">
             {inspector}
           </aside>
         </div>

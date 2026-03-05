@@ -768,7 +768,6 @@ export function MainApp({
             ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
             : resolvedPublicPracticeSlug
       }
-      practiceClientsPath={practiceClientsPath}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}

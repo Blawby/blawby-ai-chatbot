@@ -19,6 +19,7 @@ const PracticeSchema = z.object({
   stripeCustomerId: z.string().nullable().optional(), // API can return null
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
+  accentColor: z.string().optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 

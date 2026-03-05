@@ -135,8 +135,10 @@ export const InspectorAction = ({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full py-2.5 text-center text-[13px] font-medium transition-opacity hover:opacity-70 active:opacity-50 ${
-        destructive ? 'text-red-400' : 'text-accent-400'
+      className={`w-full py-2.5 text-center text-[13px] font-medium transition-opacity hover:opacity-70 active:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+        destructive
+          ? 'text-red-400 focus-visible:ring-red-400/50'
+          : 'text-accent-400 focus-visible:ring-accent-400/50'
       }`}
     >
       {label}

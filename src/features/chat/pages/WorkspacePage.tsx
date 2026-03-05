@@ -98,7 +98,6 @@ interface WorkspacePageProps {
   view: WorkspaceView;
   practiceId: string;
   practiceSlug: string | null;
-  practiceClientsPath: string | null;
   practiceName?: string | null;
   practiceLogo?: string | null;
   messages: ChatMessageUI[];
@@ -162,7 +161,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
   practiceId,
   practiceSlug,
-  practiceClientsPath,
   practiceName,
   practiceLogo,
   messages,

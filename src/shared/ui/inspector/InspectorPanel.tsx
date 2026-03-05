@@ -54,6 +54,9 @@ const formatDate = (value?: string | null) => {
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
   typeof value === 'string' && isMatterStatus(value);
 
+const isValidInvoiceStatus = (value: unknown): value is InvoiceStatus =>
+  typeof value === 'string' && ['draft', 'pending', 'sent', 'open', 'overdue', 'paid', 'void', 'cancelled'].includes(value);
+
 export const InspectorPanel = ({
   entityType,
   entityId,
@@ -171,6 +174,7 @@ export const InspectorPanel = ({
 
   const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
+  const matterSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const matterStatus = isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null;
   const canEditMatterStatus = Boolean(onMatterStatusChange && matterDetail && !isLoading && matterStatus);
   const handleMatterStatusSelect = (status: MatterStatus) => {
@@ -215,6 +219,13 @@ export const InspectorPanel = ({
             ))}
           </div>
         ) : null}
+        {isLoading && entityType === 'matter' ? (
+          <div className="py-3">
+            {matterSkeletonRows.map((row) => (
+              <SkeletonRow key={`matter-skeleton-${row}`} wide={row === 0 || row === 2} />
+            ))}
+          </div>
+        ) : null}
         {error ? <p className="px-4 py-3 text-sm text-red-400">{error}</p> : null}
 
         {entityType === 'conversation' && !isLoading ? (
@@ -243,7 +254,7 @@ export const InspectorPanel = ({
           </div>
         ) : null}
 
-        {entityType === 'matter' ? (
+        {entityType === 'matter' && !isLoading ? (
           <div className="pb-4">
             <InspectorHeaderEntity
               chip="MATTER"
@@ -306,8 +317,8 @@ export const InspectorPanel = ({
               title={invoiceMatterTitle ?? 'Invoice'}
               subtitle={invoiceClientName ?? undefined}
               statusBadge={
-                invoiceStatus
-                  ? <InvoiceStatusBadge status={invoiceStatus as InvoiceStatus} />
+                isValidInvoiceStatus(invoiceStatus)
+                  ? <InvoiceStatusBadge status={invoiceStatus} />
                   : <span className="text-[11px] text-input-placeholder">—</span>
               }
             />
