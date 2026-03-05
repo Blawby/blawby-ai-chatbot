@@ -1173,6 +1173,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
     const updatedPractice = normalizePracticeRecord(mergedResponse);
 
+    if (payload.businessOnboardingStatus !== undefined) {
+      updatedPractice.businessOnboardingStatus = payload.businessOnboardingStatus;
+    }
+    if (payload.businessOnboardingHasDraft !== undefined) {
+      updatedPractice.businessOnboardingHasDraft = payload.businessOnboardingHasDraft;
+    }
+
     if (sharedPracticeSnapshot) {
       const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
         practice.id === id ? updatedPractice : practice
