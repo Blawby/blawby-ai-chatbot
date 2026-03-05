@@ -1089,12 +1089,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
 
     if (data.businessOnboardingStatus) {
-      // @ts-expect-error - we need to pass this through manually
       payload.businessOnboardingStatus = data.businessOnboardingStatus;
     }
     
     if (data.businessOnboardingHasDraft !== undefined) {
-      // @ts-expect-error - we need to pass this through manually
       payload.businessOnboardingHasDraft = data.businessOnboardingHasDraft;
     }
 
