@@ -38,7 +38,6 @@ import SetupInfoPanel from '@/features/practice-setup/components/SetupInfoPanel'
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import { CompletionRing } from '@/shared/ui/CompletionRing';
 import { ContactForm } from '@/features/intake/components/ContactForm';
-import Modal from '@/shared/components/Modal';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
@@ -118,8 +117,6 @@ interface WorkspacePageProps {
   clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, controls?: ListViewControls) => ComponentChildren);
   invoicesView?: ComponentChildren | ((statusFilter: string[], controls?: ListViewControls) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[], controls?: ListViewControls) => ComponentChildren);
-  header?: ComponentChildren;
-  headerClassName?: string;
   mockConversations?: Conversation[] | null;
   mockConversationPreviews?: Record<string, {
     content: string;
@@ -177,8 +174,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   clientsListContent,
   invoicesView,
   invoicesListContent,
-  header,
-  headerClassName,
   mockConversations = null,
   mockConversationPreviews = null,
   onSelectConversationOverride,
@@ -971,7 +966,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setIsStripeLoading(false);
     }
-  }, [organizationId, showError]);
+  }, [organizationId, showError, updatePractice]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1649,60 +1644,24 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     );
   const mainContent = baseMainContent;
-  const mainContentWithMobileMenu = mobileMenuButton && workspaceSection === 'settings'
-    ? (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="border-b border-line-glass/30 bg-transparent px-4 py-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>{mobileMenuButton}</div>
-            {layoutMode !== 'desktop' ? inspectorToggleButton : null}
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">{mainContent}</div>
-      </div>
-    )
-    : mainContent;
   const wrappedMainContent = (
     <div className="relative h-full min-h-0">
-      {mainContentWithMobileMenu}
+      {mainContent}
     </div>
   );
-
-  const isPublicShell = layoutMode !== 'desktop';
-  const isWidgetShell = layoutMode === 'widget';
-
-  const publicShellFrameClass = workspace === 'public' || workspace === 'client'
-    ? 'bg-transparent border-line-glass/30'
-    : 'bg-white/[0.08] border-line-glass/30 backdrop-blur-xl shadow-glass';
-
-  const mainShell = isPublicShell ? (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
-      <div className={cn(
-        'flex h-full min-h-0 flex-1 flex-col overflow-hidden',
-        isWidgetShell ? 'rounded-none border-0 shadow-none bg-transparent' : 'rounded-3xl border',
-        isWidgetShell ? undefined : publicShellFrameClass
-      )}>
-        {header && (
-          <div className={cn('w-full', headerClassName)}>
-            {header}
-          </div>
-        )}
-        <div className="min-h-0 h-full flex-1">{wrappedMainContent}</div>
-        {bottomNav && (
-          <div className="mt-auto">
-            {bottomNav}
-          </div>
-        )}
-      </div>
-    </div>
-  ) : (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
-      {header && (
-        <div className={cn('w-full', headerClassName)}>
-          {header}
-        </div>
+  const unifiedMainShell = (
+    <div
+      className={cn(
+        'flex h-full min-h-0 w-full flex-1 flex-col',
+        layoutMode === 'widget' ? 'bg-transparent' : undefined
       )}
+    >
       {wrappedMainContent}
+      {bottomNav ? (
+        <div className="mt-auto">
+          {bottomNav}
+        </div>
+      ) : null}
     </div>
   );
   const inspectorPanel = inspectorTarget ? (
@@ -1729,43 +1688,24 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       } : {})}
     />
   ) : null;
-  const mobileSecondaryDrawer = navConfig.secondary && navConfig.secondary.length > 0 ? (
-    <Modal
-      isOpen={isMobileNavOpen}
-      onClose={() => setIsMobileNavOpen(false)}
-      title="Navigation"
-      type="drawer"
-    >
-      <SecondaryPanel
-        sections={navConfig.secondary}
-        activeHref={activeHref}
-        activeItemId={workspaceSection === 'settings' ? undefined : activeSecondaryFilter}
-        onSelect={workspaceSection === 'settings' ? undefined : handleSecondaryFilterSelect}
-        onItemActivate={() => {
-          setIsMobileNavOpen(false);
-          setIsInspectorOpen(false);
-        }}
-      />
-    </Modal>
-  ) : null;
+  const activeInspector = isInspectorOpen ? inspectorPanel : null;
   return (
-    <>
-      <AppShell
-        className="bg-transparent h-dvh"
-        accentBackdropVariant="none"
-        sidebar={sidebarNav}
-        secondarySidebar={layoutMode === 'desktop' ? secondaryPanel : undefined}
-        listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
-        inspector={isInspectorOpen ? inspectorPanel : undefined}
-        inspectorMobileOpen={isInspectorOpen && isMobileLayout}
-        onInspectorMobileClose={() => setIsInspectorOpen(false)}
-        main={mainShell}
-        mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
-        bottomBar={isPublicShell ? undefined : bottomNav}
-        bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
-      />
-      {mobileSecondaryDrawer}
-    </>
+    <AppShell
+      className="bg-transparent h-dvh"
+      accentBackdropVariant="none"
+      sidebar={sidebarNav}
+      secondarySidebar={secondaryPanel}
+      listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
+      inspector={activeInspector ?? undefined}
+      inspectorMobileOpen={isInspectorOpen && isMobileLayout}
+      onInspectorMobileClose={() => setIsInspectorOpen(false)}
+      mobileSecondaryNavOpen={isMobileNavOpen}
+      onMobileSecondaryNavClose={() => setIsMobileNavOpen(false)}
+      main={unifiedMainShell}
+      mainClassName="min-h-0 h-full overflow-hidden"
+      bottomBar={layoutMode === 'desktop' ? bottomNav : undefined}
+      bottomBarClassName={layoutMode === 'desktop' && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
+    />
   );
 };
 
