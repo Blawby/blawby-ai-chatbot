@@ -16,6 +16,8 @@ export interface AppShellProps {
   inspector?: ComponentChildren;
   inspectorMobileOpen?: boolean;
   onInspectorMobileClose?: () => void;
+  mobileSecondaryNavOpen?: boolean;
+  onMobileSecondaryNavClose?: () => void;
   main: ComponentChildren;
   bottomBar?: ComponentChildren;
   backgroundDecor?: ComponentChildren;
@@ -39,6 +41,8 @@ export const AppShell = ({
   inspector,
   inspectorMobileOpen = false,
   onInspectorMobileClose,
+  mobileSecondaryNavOpen = false,
+  onMobileSecondaryNavClose,
   main,
   bottomBar,
   backgroundDecor,
@@ -59,6 +63,8 @@ export const AppShell = ({
   const hasInspector = Boolean(inspector);
   const hasHeader = Boolean(header);
   const hasBottomBar = Boolean(bottomBar);
+  const showMobileInspector = hasInspector && inspectorMobileOpen;
+  const showMobileSecondaryNav = hasSecondarySidebar && mobileSecondaryNavOpen;
 
   const leftPanelCount = (hasSidebar ? 1 : 0) + (hasSecondarySidebar ? 1 : 0) + (hasListPanel ? 1 : 0);
   const mainColStartClass = leftPanelCount === 0
@@ -201,7 +207,7 @@ export const AppShell = ({
         </aside>
       )}
 
-      {hasInspector && inspectorMobileOpen && (
+      {showMobileInspector && (
         <div className="fixed inset-0 z-[70] md:hidden">
           {onInspectorMobileClose ? (
             <button
@@ -215,6 +221,24 @@ export const AppShell = ({
           )}
           <aside className="absolute right-0 top-0 h-dvh w-full max-w-xl overflow-y-auto border-l border-line-glass/15 bg-surface-base">
             {inspector}
+          </aside>
+        </div>
+      )}
+
+      {showMobileSecondaryNav && (
+        <div className="fixed inset-0 z-[70] md:hidden">
+          {onMobileSecondaryNavClose ? (
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+              onClick={() => onMobileSecondaryNavClose()}
+              aria-label="Close navigation"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+          )}
+          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto border-r border-line-glass/15 bg-surface-base">
+            {secondarySidebar}
           </aside>
         </div>
       )}
