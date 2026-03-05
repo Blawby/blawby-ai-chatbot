@@ -144,7 +144,12 @@ export function MainApp({
       ? clientPracticeSlug
       : (currentPractice?.slug ?? practiceConfig.slug ?? null);
 
-  const { details: practiceDetails, fetchDetails: fetchPracticeDetails, hasDetails: hasPracticeDetails } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug);
+  const allowPublicPracticeDetails = workspace === 'public' || workspace === 'client';
+  const {
+    details: practiceDetails,
+    fetchDetails: fetchPracticeDetails,
+    hasDetails: hasPracticeDetails
+  } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug, allowPublicPracticeDetails);
 
   useEffect(() => {
     if (!practiceDetailsId || hasPracticeDetails) return;

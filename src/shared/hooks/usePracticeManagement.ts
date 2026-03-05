@@ -44,12 +44,16 @@ let sharedPracticeSnapshot: SharedPracticeSnapshot | null = null;
 let sharedPracticePromise: Promise<SharedPracticeSnapshot> | null = null;
 let sharedPracticeUserId: string | null = null;
 let sharedPracticeIncludesDetails = false;
+let practicesLoaded = false;
+let practicesInFlight: Promise<void> | null = null;
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
   sharedPracticePromise = null;
   sharedPracticeUserId = null;
   sharedPracticeIncludesDetails = false;
+  practicesLoaded = false;
+  practicesInFlight = null;
 };
 
 const membersStore = atom<Record<string, Member[]>>({});
@@ -187,6 +191,12 @@ interface UsePracticeManagementOptions {
    * Falls back to the first practice if not found or not provided.
    */
   practiceSlug?: string | null;
+  /**
+   * When true, fetches onboarding status for the active practice so payout UI
+   * can show accurate Stripe onboarding banners. Defaults to false to avoid
+   * extra network calls on pages that don't need this information.
+   */
+  fetchOnboardingStatus?: boolean;
 }
 
 interface UsePracticeManagementReturn {
@@ -553,6 +563,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     fetchInvitations: shouldFetchInvitations = true,
     fetchPracticeDetails = false,
     practiceSlug,
+    fetchOnboardingStatus = false,
   } = options;
   const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
   const routePractice = useContext(RoutePracticeContext);
@@ -650,7 +661,28 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     try {
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
+      const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
+        setPractices(snapshot.practices);
+        setCurrentPractice(snapshot.currentPractice);
+        setLoading(false);
+        practicesFetchedRef.current = true;
+        // Track that we've selected this slug
+        lastSelectedSlugRef.current = requestedPracticeSlug ?? undefined;
+      };
       
+      if (practicesLoaded && sharedPracticeSnapshot && !slugChanged) {
+        let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+        if (requestedPracticeSlug) {
+          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === requestedPracticeSlug);
+          selectedCurrentPractice = foundBySlug || null;
+        }
+        applySnapshot({
+          ...sharedPracticeSnapshot,
+          currentPractice: selectedCurrentPractice
+        });
+        return;
+      }
+
       if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
         return;
       }
@@ -670,15 +702,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       if (sharedPracticeUserId && sharedPracticeUserId !== userId) {
         resetSharedPracticeCache();
       }
-
-      const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
-        setPractices(snapshot.practices);
-        setCurrentPractice(snapshot.currentPractice);
-        setLoading(false);
-        practicesFetchedRef.current = true;
-        // Track that we've selected this slug
-        lastSelectedSlugRef.current = requestedPracticeSlug ?? undefined;
-      };
 
       const hydrateSnapshotDetails = async (snapshot: SharedPracticeSnapshot) => {
         if (!fetchPracticeDetails) return snapshot;
@@ -718,6 +741,26 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticeIncludesDetails = true;
         return updatedSnapshot;
       };
+
+      if (practicesInFlight) {
+        try {
+          await practicesInFlight;
+        } catch (inFlightError) {
+          console.warn('[usePracticeManagement] Shared practices fetch failed', inFlightError);
+        }
+        if (sharedPracticeSnapshot) {
+          let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+          if (requestedPracticeSlug) {
+            const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === requestedPracticeSlug);
+            selectedCurrentPractice = foundBySlug || null;
+          }
+          applySnapshot({
+            ...sharedPracticeSnapshot,
+            currentPractice: selectedCurrentPractice
+          });
+          return;
+        }
+      }
 
       if (sharedPracticeSnapshot) {
         // Re-select currentPractice based on practiceSlug even when using cached snapshot
@@ -805,7 +848,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           currentPracticeNext = normalizedList[0] || null;
         }
         let details: PracticeDetails | null = null;
-        let stripeDetailsSubmitted: boolean | null = ENABLE_PAYOUT_STATUS ? null : false;
+        const shouldFetchStripeStatus = ENABLE_PAYOUT_STATUS && fetchOnboardingStatus;
+        let stripeDetailsSubmitted: boolean | null = shouldFetchStripeStatus ? null : false;
         if (currentPracticeNext) {
           if (fetchPracticeDetails) {
             try {
@@ -815,7 +859,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
               console.warn('Failed to fetch practice details:', detailsError);
             }
           }
-          if (ENABLE_PAYOUT_STATUS) {
+          if (shouldFetchStripeStatus) {
             try {
               const payload = await getOnboardingStatusPayload(
                 currentPracticeNext.betterAuthOrgId ?? currentPracticeNext.id,
@@ -833,7 +877,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         }
 
         const applyStripeOverride = (practice: Practice): Practice => {
-          if (stripeDetailsSubmitted === null || practice.id !== currentPracticeNext?.id) {
+          if (!shouldFetchStripeStatus || stripeDetailsSubmitted === null || practice.id !== currentPracticeNext?.id) {
             return practice;
           }
           return {
@@ -864,6 +908,12 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
         return { practices: mergedPractices, currentPractice: mergedCurrentPractice };
       })();
+      practicesInFlight = sharedPracticePromise
+        .then(() => undefined)
+        .finally(() => {
+          practicesInFlight = null;
+          practicesLoaded = true;
+        });
       currentFetchPromise = sharedPracticePromise;
 
       const snapshot = await sharedPracticePromise;
@@ -888,7 +938,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
+  }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {

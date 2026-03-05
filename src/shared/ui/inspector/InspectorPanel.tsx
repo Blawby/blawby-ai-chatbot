@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Conversation } from '@/shared/types/conversation';
 import { getUserDetail, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
-import { useNavigation } from '@/shared/utils/navigation';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
 import { isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
@@ -10,7 +9,6 @@ import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
 import {
   InfoRow,
-  InspectorAction,
   InspectorGroup,
   InspectorHeaderEntity,
   InspectorHeaderPerson,
@@ -44,7 +42,6 @@ type InspectorPanelProps = {
   invoiceTotal?: string | null;
   invoiceAmountDue?: string | null;
   invoiceDueDate?: string | null;
-  clientBasePath?: string;
 };
 
 const formatDate = (value?: string | null) => {
@@ -75,9 +72,7 @@ export const InspectorPanel = ({
   invoiceTotal,
   invoiceAmountDue,
   invoiceDueDate,
-  clientBasePath,
 }: InspectorPanelProps) => {
-  const { navigate } = useNavigation();
   const userCacheRef = useRef<Map<string, UserDetailRecord | null>>(new Map());
   const matterCacheRef = useRef<Map<string, BackendMatter | null>>(new Map());
   const [userDetail, setUserDetail] = useState<UserDetailRecord | null>(null);
@@ -176,7 +171,13 @@ export const InspectorPanel = ({
 
   const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
-  const matterStatus = isValidMatterStatus(matterDetail?.status) ? matterDetail.status : 'active';
+  const matterStatus = isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null;
+  const canEditMatterStatus = Boolean(onMatterStatusChange && matterDetail && !isLoading && matterStatus);
+  const handleMatterStatusSelect = (status: MatterStatus) => {
+    if (canEditMatterStatus && onMatterStatusChange) {
+      onMatterStatusChange(status);
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
@@ -249,11 +250,15 @@ export const InspectorPanel = ({
               title={matterDetail?.title ?? 'Matter'}
               subtitle={matterClientName ?? undefined}
               statusBadge={(
-                <MatterStatusPopover
-                  currentStatus={matterStatus}
-                  onSelect={onMatterStatusChange ?? (() => {})}
-                  disabled={!onMatterStatusChange}
-                />
+                matterStatus ? (
+                  <MatterStatusPopover
+                    currentStatus={matterStatus}
+                    onSelect={handleMatterStatusSelect}
+                    disabled={!canEditMatterStatus}
+                  />
+                ) : (
+                  <span className="text-[11px] text-input-placeholder">—</span>
+                )
               )}
             />
             <div className="border-t border-white/[0.06]">
@@ -277,7 +282,7 @@ export const InspectorPanel = ({
         ) : null}
 
         {entityType === 'client' && !isLoading ? (
-          <div className="pb-2">
+          <div className="pb-4">
             <InspectorHeaderPerson
               name={userDetail?.user?.name ?? userDetail?.user?.email ?? 'Unknown'}
               secondaryLine={userDetail?.user?.email ?? undefined}
@@ -290,16 +295,6 @@ export const InspectorPanel = ({
               <InspectorGroup label="DETAILS">
                 <InfoRow label="Status" value={userDetail?.status ?? undefined} />
               </InspectorGroup>
-            </div>
-            <div className="px-3 pt-2">
-              <InspectorAction
-                label="View full profile"
-                onClick={() => {
-                  if (clientBasePath && entityId) {
-                    navigate(`${clientBasePath}/${encodeURIComponent(entityId)}`);
-                  }
-                }}
-              />
             </div>
           </div>
         ) : null}

@@ -1,8 +1,10 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
-import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { getPracticeDetails, getPublicPracticeDetails, type PracticeDetails } from '@/shared/lib/apiClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+
+const practiceDetailsInFlight = new Map<string, Promise<PracticeDetails | null>>();
 
 /**
  * usePracticeDetails
@@ -72,26 +74,33 @@ export const usePracticeDetails = (
       }
     }
 
-    // 3. Network fallback — choose the correct endpoint.
-    if (!allowPublicFallback) {
-      // Authenticated path: practice-owner CMS context. 
-      // Hits authorized endpoint; works with slug or UUID.
-      const fetched = await getPracticeDetails(practiceId);
-      setPracticeDetailsEntry(practiceId, fetched);
-      return fetched;
+    const inFlight = practiceDetailsInFlight.get(practiceId);
+    if (inFlight) {
+      return inFlight;
     }
 
-    // Public path: widget/client context (or UUID with public fallback allowed).
-    // Use the slug hint when available so we hit the same module-level cache
-    // inside getPublicPracticeDetails that usePracticeConfig uses.
-    const slugToFetch = practiceSlug?.trim() || practiceId;
-    const publicDetails = await getPublicPracticeDetails(slugToFetch);
-    // Seed under both the primary key and canonical UUID.
-    setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
-    if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
-      setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
+    const loadDetails = (async (): Promise<PracticeDetails | null> => {
+      if (!allowPublicFallback) {
+        const fetched = await getPracticeDetails(practiceId);
+        setPracticeDetailsEntry(practiceId, fetched);
+        return fetched;
+      }
+
+      const slugToFetch = practiceSlug?.trim() || practiceId;
+      const publicDetails = await getPublicPracticeDetails(slugToFetch);
+      setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
+      if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
+        setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
+      }
+      return publicDetails?.details ?? null;
+    })();
+
+    practiceDetailsInFlight.set(practiceId, loadDetails);
+    try {
+      return await loadDetails;
+    } finally {
+      practiceDetailsInFlight.delete(practiceId);
     }
-    return publicDetails?.details ?? null;
   }, [practiceId, practiceSlug, allowPublicFallback]);
 
   // ------------------------------------------------------------------

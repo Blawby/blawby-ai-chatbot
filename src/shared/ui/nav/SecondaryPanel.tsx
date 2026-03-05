@@ -65,10 +65,8 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
                     key={item.id}
                     type="button"
                     className={cn(
-                      'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                      isActive
-                        ? 'bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
-                        : 'text-input-text hover:bg-white/5'
+                      'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                      isActive ? 'nav-item-active' : 'nav-item-inactive'
                     )}
                     aria-current={isActive ? 'page' : undefined}
                     onClick={() => {

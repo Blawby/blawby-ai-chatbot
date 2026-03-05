@@ -14,6 +14,8 @@ export interface AppShellProps {
   secondarySidebar?: ComponentChildren;
   listPanel?: ComponentChildren;
   inspector?: ComponentChildren;
+  inspectorMobileOpen?: boolean;
+  onInspectorMobileClose?: () => void;
   main: ComponentChildren;
   bottomBar?: ComponentChildren;
   backgroundDecor?: ComponentChildren;
@@ -35,6 +37,8 @@ export const AppShell = ({
   secondarySidebar,
   listPanel,
   inspector,
+  inspectorMobileOpen = false,
+  onInspectorMobileClose,
   main,
   bottomBar,
   backgroundDecor,
@@ -195,6 +199,20 @@ export const AppShell = ({
         >
           {inspector}
         </aside>
+      )}
+
+      {hasInspector && inspectorMobileOpen && (
+        <div className="fixed inset-0 z-[70] md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={onInspectorMobileClose}
+            aria-label="Close inspector"
+          />
+          <aside className="absolute right-0 top-0 h-dvh w-full max-w-xl border-l border-line-glass/15 bg-surface-base">
+            {inspector}
+          </aside>
+        </div>
       )}
 
       {hasBottomBar && (

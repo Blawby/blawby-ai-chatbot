@@ -756,7 +756,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice } = usePracticeManagement();
+  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: true });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -1361,7 +1361,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             showSendMessageButton={isClientFacingWorkspace}
             activeConversationId={activeConversationId}
             showTitle={showConversationListTitle}
-            headerLeftControls={mobileConversationHeaderControls}
+            headerLeftControls={mobileConversationHeaderLeftControl}
             assignedToFilter={conversationAssignedToFilter}
           />
         );
@@ -1447,31 +1447,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : true);
   const activeHref = location.path;
 
+  const handleNavActivate = () => {
+    setIsMobileNavOpen(false);
+    setIsInspectorOpen(false);
+  };
   const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
     <NavRail
       variant="bottom"
-      items={navConfig.rail.map(item => ({
-        ...item,
-        onClick: () => {
-          setIsMobileNavOpen(false);
-          setIsInspectorOpen(false);
-        }
-      }))}
+      items={navConfig.rail}
       activeHref={activeHref}
+      onItemActivate={handleNavActivate}
     />
   ) : undefined;
 
   const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 ? (
     <NavRail
       variant="rail"
-      items={navConfig.rail.map(item => ({
-        ...item,
-        onClick: () => {
-          setIsMobileNavOpen(false);
-          setIsInspectorOpen(false);
-        }
-      }))}
+      items={navConfig.rail}
       activeHref={activeHref}
+      onItemActivate={handleNavActivate}
     />
   ) : undefined;
   const secondaryPanel = navConfig.secondary && navConfig.secondary.length > 0 ? (
@@ -1521,10 +1515,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={<InformationCircleIcon className="h-5 w-5" />}
     />
   ) : null;
-  const mobileConversationHeaderControls = layoutMode !== 'desktop' && (mobileMenuButton || inspectorToggleButton)
+  const mobileConversationHeaderLeftControl = layoutMode !== 'desktop' && mobileMenuButton
     ? (
       <div className="flex items-center gap-2">
         {mobileMenuButton}
+      </div>
+    )
+    : undefined;
+  const mobileConversationHeaderRightControl = layoutMode !== 'desktop' && inspectorToggleButton
+    ? (
+      <div className="flex items-center gap-2">
         {inspectorToggleButton}
       </div>
     )
@@ -1562,7 +1562,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           showSendMessageButton={isClientFacingWorkspace}
           activeConversationId={activeConversationId}
           showTitle={showConversationListTitle}
-          headerLeftControls={mobileConversationHeaderControls}
+          headerLeftControls={mobileConversationHeaderLeftControl}
+          headerControls={mobileConversationHeaderRightControl}
           assignedToFilter={conversationAssignedToFilter}
         />
       </Panel>
@@ -1705,7 +1706,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceId={practiceId}
       conversation={selectedConversation}
       onClose={() => setIsInspectorOpen(false)}
-      clientBasePath={practiceClientsPath ?? undefined}
       onMatterStatusChange={(status: MatterStatus) => {
         if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
         window.dispatchEvent(
@@ -1742,17 +1742,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     </Modal>
   ) : null;
-  const mobileInspectorDrawer = inspectorPanel ? (
-    <Modal
-      isOpen={isInspectorOpen && isMobileLayout}
-      onClose={() => setIsInspectorOpen(false)}
-      title="Inspector"
-      type="drawer-right"
-    >
-      {inspectorPanel}
-    </Modal>
-  ) : null;
-
   return (
     <>
       <AppShell
@@ -1761,14 +1750,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         sidebar={sidebarNav}
         secondarySidebar={layoutMode === 'desktop' ? secondaryPanel : undefined}
         listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
-        inspector={layoutMode === 'desktop' && isInspectorOpen ? inspectorPanel : undefined}
+        inspector={isInspectorOpen ? inspectorPanel : undefined}
+        inspectorMobileOpen={isInspectorOpen && isMobileLayout}
+        onInspectorMobileClose={() => setIsInspectorOpen(false)}
         main={mainShell}
         mainClassName={cn('min-h-0 h-full overflow-hidden', !isPublicShell && showBottomNav ? 'pb-20 md:pb-0' : undefined)}
         bottomBar={isPublicShell ? undefined : bottomNav}
         bottomBarClassName={!isPublicShell && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
       />
       {mobileSecondaryDrawer}
-      {mobileInspectorDrawer}
     </>
   );
 };

@@ -34,7 +34,6 @@ import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBui
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
 import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
-import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -319,6 +318,7 @@ export const PracticeMattersPage = ({
   const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
   const [noteItems, setNoteItems] = useState<TimelineItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const rawActivityRef = useRef<BackendMatterActivity[]>([]);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -511,6 +511,10 @@ export const PracticeMattersPage = ({
       }),
     [matterContext, clientNameById, serviceNameById, assigneeNameById, resolvePerson]
   );
+  const remapActivities = useCallback((activities: BackendMatterActivity[]) => {
+    const filtered = activities.filter((item) => !String(item.action ?? '').startsWith('note_'));
+    setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, activities)));
+  }, [toActivityItem]);
 
   const toNoteItem = useCallback(
     (note: Parameters<typeof buildNoteTimelineItem>[0]): TimelineItem =>
@@ -699,6 +703,7 @@ export const PracticeMattersPage = ({
   // ── Data fetching: activity ───────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
+      rawActivityRef.current = [];
       setActivityItems([]);
       setActivityLoading(false);
       return;
@@ -709,18 +714,24 @@ export const PracticeMattersPage = ({
 
     getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((items) => {
-        const filtered = items.filter((item) => !String(item.action ?? '').startsWith('note_'));
-        setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, items)));
+        rawActivityRef.current = items;
+        remapActivities(items);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
         console.warn('[PracticeMattersPage] Failed to load activity', error);
+        rawActivityRef.current = [];
         setActivityItems([]);
       })
       .finally(() => setActivityLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, toActivityItem]);
+  }, [activePracticeId, selectedMatterId, remapActivities]);
+
+  useEffect(() => {
+    if (rawActivityRef.current.length === 0) return;
+    remapActivities(rawActivityRef.current);
+  }, [remapActivities]);
 
   // ── Data fetching: notes ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1654,16 +1665,7 @@ export const PracticeMattersPage = ({
               subtitle={MATTER_STATUS_LABELS[resolvedSelectedMatter.status]}
               showBack={showDetailBackButton}
               onBack={goToList}
-              actions={(
-                <div className="flex items-center gap-2">
-                  <MatterStatusPopover
-                    currentStatus={resolvedSelectedMatter.status}
-                    onSelect={handleUpdateStatus}
-                    disabled={detailLoading}
-                  />
-                  {detailHeaderRightControl}
-                </div>
-              )}
+              actions={detailHeaderRightControl}
             />
             <nav
               className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"

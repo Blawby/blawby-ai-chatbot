@@ -20,6 +20,7 @@ interface ModalProps {
     disableBackdropClick?: boolean;
     contentClassName?: string;
     headerClassName?: string;
+    bodyClassName?: string;
 }
 
 const Modal: FunctionComponent<ModalProps> = ({ 
@@ -32,7 +33,8 @@ const Modal: FunctionComponent<ModalProps> = ({
     mobileBehavior = 'drawer',
     disableBackdropClick = false,
     contentClassName,
-    headerClassName
+    headerClassName,
+    bodyClassName
 }) => {
     // Add state to track if we're in browser environment
     const [isBrowser, setIsBrowser] = useState(false);
@@ -161,9 +163,12 @@ const Modal: FunctionComponent<ModalProps> = ({
                         )}
                         
                         {/* Content */}
-                        <div className={shouldUseFullscreen 
-                          ? 'min-h-full flex flex-col'
-                          : 'p-4 overflow-auto flex-1 min-h-0'}>
+                        <div className={cn(
+                          shouldUseFullscreen
+                            ? 'min-h-full flex flex-col'
+                            : 'p-4 overflow-auto flex-1 min-h-0',
+                          bodyClassName
+                        )}>
                             {children}
                         </div>
                     </motion.div>
