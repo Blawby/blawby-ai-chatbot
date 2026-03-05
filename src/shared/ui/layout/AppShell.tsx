@@ -203,12 +203,16 @@ export const AppShell = ({
 
       {hasInspector && inspectorMobileOpen && (
         <div className="fixed inset-0 z-[70] md:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-            onClick={onInspectorMobileClose ? () => onInspectorMobileClose() : undefined}
-            aria-label="Close inspector"
-          />
+          {onInspectorMobileClose ? (
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+              onClick={() => onInspectorMobileClose()}
+              aria-label="Close inspector"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+          )}
           <aside className="absolute right-0 top-0 h-dvh w-full max-w-xl overflow-y-auto border-l border-line-glass/15 bg-surface-base">
             {inspector}
           </aside>

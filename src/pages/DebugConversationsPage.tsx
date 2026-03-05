@@ -449,7 +449,7 @@ export default function DebugConversationsPage() {
           view={isPractice ? 'conversation' : clientView}
           practiceId={PRACTICE_ID}
           practiceSlug={PRACTICE_SLUG}
-          practiceClientsPath={PRACTICE_CLIENTS_PATH}
+
           practiceName={PRACTICE_NAME}
           practiceLogo={PRACTICE_LOGO}
           messages={activeMessages}

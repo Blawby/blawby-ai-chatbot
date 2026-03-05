@@ -754,7 +754,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: true });
+  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -952,6 +952,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const payload = await getOnboardingStatusPayload(organizationId, { signal: options?.signal });
       const status = extractStripeStatusFromPayload(payload);
       setStripeStatus(status ?? null);
+      const statusPayload = payload as { completed?: boolean; connectedAccountId?: string } | null;
+      // Update PracticeManagement's currentPractice to sync onboarding status
+      if (statusPayload) {
+        await updatePractice(organizationId, {
+          businessOnboardingStatus: statusPayload.completed ? 'completed' : 'pending',
+          businessOnboardingHasDraft: Boolean(statusPayload.connectedAccountId)
+        });
+      }
     } catch (error) {
       if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) return;
       if (axios.isAxiosError(error) && error.response?.status === 404) {

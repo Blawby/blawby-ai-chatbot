@@ -74,7 +74,8 @@ export const usePracticeDetails = (
       }
     }
 
-    const inFlight = practiceDetailsInFlight.get(practiceId);
+    const inFlightKey = `${practiceId}:${allowPublicFallback}:${practiceSlug?.trim() || ''}`;
+    const inFlight = practiceDetailsInFlight.get(inFlightKey);
     if (inFlight) {
       return inFlight;
     }
@@ -95,11 +96,11 @@ export const usePracticeDetails = (
       return publicDetails?.details ?? null;
     })();
 
-    practiceDetailsInFlight.set(practiceId, loadDetails);
+    practiceDetailsInFlight.set(inFlightKey, loadDetails);
     try {
       return await loadDetails;
     } finally {
-      practiceDetailsInFlight.delete(practiceId);
+      practiceDetailsInFlight.delete(inFlightKey);
     }
   }, [practiceId, practiceSlug, allowPublicFallback]);
 

@@ -165,6 +165,8 @@ export interface UpdatePracticeData {
   consultationFee?: MajorAmount | null;
   logo?: string;
   metadata?: Record<string, unknown>;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  businessOnboardingHasDraft?: boolean;
 }
 
 interface UsePracticeManagementOptions {
@@ -680,7 +682,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           ...sharedPracticeSnapshot,
           currentPractice: selectedCurrentPractice
         });
-        return;
+
+        // Only early-return if no extra data is requested
+        if (!fetchPracticeDetails && !fetchOnboardingStatus) {
+          return;
+        }
       }
 
       if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
@@ -1080,6 +1086,16 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     if (typeof data.businessEmail === 'string' && data.businessEmail.trim().length > 0) {
       payload.businessEmail = data.businessEmail.trim();
+    }
+
+    if (data.businessOnboardingStatus) {
+      // @ts-expect-error - we need to pass this through manually
+      payload.businessOnboardingStatus = data.businessOnboardingStatus;
+    }
+    
+    if (data.businessOnboardingHasDraft !== undefined) {
+      // @ts-expect-error - we need to pass this through manually
+      payload.businessOnboardingHasDraft = data.businessOnboardingHasDraft;
     }
 
     if (data.consultationFee === null) {
