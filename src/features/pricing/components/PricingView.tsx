@@ -4,6 +4,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SegmentedToggle } from '@/shared/ui/input';
 import { CheckIcon } from '@heroicons/react/20/solid';
+import { Icon } from '@/shared/ui/Icon';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -183,7 +184,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
               <ul className="space-y-3 text-base text-input-placeholder">
                 {features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
-                    <CheckIcon className="mt-0.5 h-5 w-5 flex-none text-accent-500" />
+                    <Icon icon={CheckIcon} className="mt-0.5 h-5 w-5 flex-none text-accent-500"  />
                     <span>{feature}</span>
                   </li>
                 ))}

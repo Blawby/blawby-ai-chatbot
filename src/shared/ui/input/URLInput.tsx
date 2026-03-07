@@ -1,5 +1,6 @@
 import { forwardRef, useCallback } from 'preact/compat';
 import { LinkIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -256,7 +257,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <LinkIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <Icon icon={LinkIcon} className="w-4 h-4 text-gray-400 dark:text-gray-500"  />
         </div>
         
         <input
@@ -276,9 +277,9 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
             {isURLValid ? (
-              <CheckIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
             ) : (
-              <XMarkIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <Icon icon={XMarkIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
             )}
           </div>
         )}

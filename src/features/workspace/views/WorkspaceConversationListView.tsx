@@ -12,6 +12,7 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { ChatBubbleLeftRightIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 
@@ -85,7 +86,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
             disabled={!practice}
             className="flex items-center gap-2"
           >
-            <PlusIcon className="w-4 h-4" />
+            <Icon icon={PlusIcon} className="w-4 h-4"  />
             New Conversation
           </Button>
         }
@@ -108,7 +109,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
           </div>
         ) : sortedConversations.length === 0 ? (
           <div className="glass-card p-8 text-center">
-            <ChatBubbleLeftRightIcon className="w-16 h-16 mx-auto mb-4 text-input-placeholder opacity-50" />
+            <Icon icon={ChatBubbleLeftRightIcon} className="w-16 h-16 mx-auto mb-4 text-input-placeholder opacity-50"  />
             <h3 className="text-lg font-semibold text-input-text mb-2">No conversations yet</h3>
             <p className="text-input-placeholder mb-6">
               Start your first conversation to begin helping clients
@@ -138,7 +139,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-accent-100 rounded-full flex items-center justify-center">
-                    <ChatBubbleLeftRightIcon className="w-6 h-6 text-accent-600" />
+                    <Icon icon={ChatBubbleLeftRightIcon} className="w-6 h-6 text-accent-600"  />
                   </div>
                   
                   <div className="flex-1 min-w-0">

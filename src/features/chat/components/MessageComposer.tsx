@@ -188,7 +188,7 @@ const MessageComposer = ({
                 className="h-6 w-6 rounded-full"
                 aria-label="Cancel reply"
                 onClick={() => onCancelReply?.()}
-                icon={<XMarkIcon className="h-4 w-4" />}
+                icon={XMarkIcon} iconClassName="h-4 w-4"
               />
             </div>
           )}
@@ -266,7 +266,7 @@ const MessageComposer = ({
                         ? 'Send message (disabled)'
                         : 'Send message')}
                 className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
-                icon={<ArrowUpIcon className="w-3.5 h-3.5" aria-hidden="true" />}
+                icon={ArrowUpIcon} iconClassName="w-3.5 h-3.5"
                 data-testid="message-send-button"
               />
             </div>

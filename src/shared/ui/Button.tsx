@@ -1,6 +1,7 @@
 import { ComponentChildren, toChildArray, cloneElement } from 'preact';
 import type { JSX } from 'preact';
 import { forwardRef } from 'preact/compat';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 
 type ButtonVariant =
   | 'primary'
@@ -27,6 +28,8 @@ type ButtonSize =
   | 'icon-md'
   | 'icon-lg';
 
+type ButtonIcon = IconComponent | ComponentChildren;
+
 interface ButtonProps extends JSX.HTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -36,7 +39,8 @@ interface ButtonProps extends JSX.HTMLAttributes<HTMLButtonElement> {
   type?: 'button' | 'submit' | 'reset';
   form?: string;
   style?: JSX.CSSProperties;
-  icon?: ComponentChildren;
+  icon?: ButtonIcon;
+  iconClassName?: string;
   iconPosition?: 'left' | 'right';
   'aria-current'?: 'page' | 'step' | 'location' | 'date' | 'time' | 'true' | 'false';
   'aria-pressed'?: boolean | 'true' | 'false' | 'mixed';
@@ -56,6 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   type = 'button',
   style,
   icon,
+  iconClassName = '',
   iconPosition = 'left',
   'aria-current': ariaCurrent,
   'aria-pressed': ariaPressed,
@@ -116,40 +121,49 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     className
   ].filter(Boolean).join(' ');
 
+  const makeIconDecorative = (iconElement: ComponentChildren) => {
+    if (typeof iconElement === 'object' && iconElement !== null && 'type' in iconElement) {
+      return cloneElement(iconElement as JSX.Element, {
+        'aria-hidden': 'true',
+        focusable: 'false'
+      });
+    }
+    return <span aria-hidden="true">{iconElement}</span>;
+  };
+
+  const renderIcon = () => {
+    if (!icon) {
+      return null;
+    }
+
+    if (isIconComponent(icon)) {
+      return <Icon icon={icon} className={iconClassName} />;
+    }
+
+    return makeIconDecorative(icon);
+  };
+
   const renderContent = () => {
     if (isIconOnly) {
-      return icon;
+      return renderIcon();
     }
-    
+
     if (!icon) {
       return children;
     }
-    
-    // Helper function to make icon decorative
-    const makeIconDecorative = (iconElement: ComponentChildren) => {
-      if (typeof iconElement === 'object' && iconElement !== null && 'type' in iconElement) {
-        // If it's a Preact element, clone it with decorative attributes
-        return cloneElement(iconElement as JSX.Element, { 
-          'aria-hidden': 'true', 
-          focusable: 'false' 
-        });
-      }
-      // If it's a string or other type, wrap it in a span with decorative attributes
-      return <span aria-hidden="true">{iconElement}</span>;
-    };
-    
+
     if (iconPosition === 'right') {
       return (
         <>
           {children}
-          <span className={variant === 'menu-item' ? '' : 'ml-2'}>{makeIconDecorative(icon)}</span>
+          <span className={variant === 'menu-item' ? '' : 'ml-2'}>{renderIcon()}</span>
         </>
       );
     }
-    
+
     return (
       <>
-        <span className={variant === 'menu-item' ? '' : 'mr-2'}>{makeIconDecorative(icon)}</span>
+        <span className={variant === 'menu-item' ? '' : 'mr-2'}>{renderIcon()}</span>
         {children}
       </>
     );
@@ -174,3 +188,5 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   );
 }); 
+  const isIconComponent = (iconValue: ButtonIcon | undefined): iconValue is IconComponent =>
+    typeof iconValue === 'function';

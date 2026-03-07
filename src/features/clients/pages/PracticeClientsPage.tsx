@@ -44,6 +44,7 @@ import {
   UserIcon,
   DocumentTextIcon as DocumentTextOutlineIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 
 const STATUS_LABELS: Record<UserDetailStatus, string> = {
   lead: 'Lead',
@@ -100,17 +101,17 @@ const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/5 border border-white/10">
-        <UserIcon className="h-6 w-6 text-input-placeholder" aria-hidden="true" />
+        <Icon icon={UserIcon} className="h-6 w-6 text-input-placeholder" aria-hidden="true"  />
       </div>
       <h3 className="mt-4 text-sm font-semibold text-input-text">No clients yet</h3>
       <p className="mt-2 text-sm text-input-placeholder">
         Get started by creating a new client or importing your existing clients.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={onAddClient}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={onAddClient}>
           Add Client
         </Button>
-        <Button size="sm" variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled>
+        <Button size="sm" variant="secondary" icon={ArrowUpTrayIcon} iconClassName="h-4 w-4" disabled>
           Import Clients
         </Button>
       </div>
@@ -191,13 +192,13 @@ const ClientDetailPanel = ({
     <div className="divide-y divide-line-default">
       <div className="pb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" icon={<DocumentTextOutlineIcon className="h-4 w-4" />}>
+          <Button size="sm" icon={DocumentTextOutlineIcon} iconClassName="h-4 w-4">
             Generate Invoice
           </Button>
           <Button
             variant="secondary"
             size="sm"
-            icon={<ChatBubbleLeftRightIcon className="h-4 w-4" />}
+            icon={ChatBubbleLeftRightIcon} iconClassName="h-4 w-4"
             disabled={!client.phone}
           >
             Send message
@@ -207,7 +208,7 @@ const ClientDetailPanel = ({
               <Button
                 variant="secondary"
                 size="icon"
-                icon={<EllipsisVerticalIcon className="h-5 w-5" />}
+                icon={EllipsisVerticalIcon} iconClassName="h-5 w-5"
                 aria-label="Open client actions"
               />
             </DropdownMenuTrigger>
@@ -903,7 +904,7 @@ export const PracticeClientsPage = ({
     <div className="h-full flex items-center justify-center">
       <div className="text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-          <UserIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
+          <Icon icon={UserIcon} className="h-6 w-6 text-input-text/70" aria-hidden="true"  />
         </div>
         <h3 className="mt-4 text-sm font-semibold text-input-text">Select a client</h3>
         <p className="mt-2 text-sm text-input-placeholder">
@@ -1044,10 +1045,10 @@ export const PracticeClientsPage = ({
               subtitle="A unified list of client relationships tied to conversations and matters."
               actions={(
                 <div className="flex items-center gap-2">
-                  <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={handleOpenAddClient}>
+                  <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={handleOpenAddClient}>
                     Add Client
                   </Button>
-                  <Button size="sm" variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled>
+                  <Button size="sm" variant="secondary" icon={ArrowUpTrayIcon} iconClassName="h-4 w-4" disabled>
                     Import
                   </Button>
                 </div>

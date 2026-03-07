@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import {
@@ -158,7 +159,7 @@ export const MatterTasksPanel = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openCreate}>
+          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openCreate}>
             Add task
           </Button>
         </div>
@@ -259,20 +260,20 @@ export const MatterTasksPanel = ({
                           variant="ghost"
                           size="sm"
                           aria-label="Open task actions"
-                          icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                          icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
                         />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-32">
                         <div className="py-1">
                           <DropdownMenuItem onSelect={() => openEdit(task)}>
                             <span className="flex items-center gap-2">
-                              <PencilIcon className="h-4 w-4" />
+                              <Icon icon={PencilIcon} className="h-4 w-4"  />
                               Edit
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => setDeleteTarget(task)}>
                             <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                              <TrashIcon className="h-4 w-4" />
+                              <Icon icon={TrashIcon} className="h-4 w-4"  />
                               Delete
                             </span>
                           </DropdownMenuItem>

@@ -1,8 +1,11 @@
 import { forwardRef } from 'preact/compat';
 import { ComponentChildren, JSX } from 'preact';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
+
+type InputIcon = IconComponent | ComponentChildren;
 
 export interface InputProps extends Omit<JSX.IntrinsicElements['input'], 'type' | 'value' | 'onChange' | 'onBlur' | 'size'> {
   type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search' | 'date';
@@ -15,7 +18,8 @@ export interface InputProps extends Omit<JSX.IntrinsicElements['input'], 'type' 
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'error' | 'success';
-  icon?: ComponentChildren;
+  icon?: InputIcon;
+  iconClassName?: string;
   iconPosition?: 'left' | 'right';
   label?: string;
   description?: string;
@@ -43,6 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   size = 'md',
   variant = 'default',
   icon,
+  iconClassName = '',
   iconPosition = 'left',
   label,
   description,
@@ -72,6 +77,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const displayDescription = descriptionKey ? t(descriptionKey) : description;
   const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
   const displayError = errorKey ? t(errorKey) : error;
+  const isIconComponent = (iconValue: InputIcon | undefined): iconValue is IconComponent =>
+    typeof iconValue === 'function';
 
   // Generate stable IDs for description and error elements
   const descriptionId = displayDescription ? `${inputId}-description` : undefined;
@@ -113,6 +120,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     className
   );
 
+  const renderIcon = () => {
+    if (!icon) return null;
+
+    if (isIconComponent(icon)) {
+      return <Icon icon={icon} className={cn('w-4 h-4 text-gray-400 dark:text-gray-500', iconClassName)} />;
+    }
+
+    return (
+      <div className="w-4 h-4 text-gray-400 dark:text-gray-500">
+        {icon}
+      </div>
+    );
+  };
+
   return (
     <div className="w-full">
       {displayLabel && (
@@ -125,9 +146,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       <div className="relative">
         {icon && iconPosition === 'left' && (
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <div className="w-4 h-4 text-gray-400 dark:text-gray-500">
-              {icon}
-            </div>
+            {renderIcon()}
           </div>
         )}
         
@@ -151,9 +170,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         
         {icon && iconPosition === 'right' && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-            <div className="w-4 h-4 text-gray-400 dark:text-gray-500">
-              {icon}
-            </div>
+            {renderIcon()}
           </div>
         )}
       </div>

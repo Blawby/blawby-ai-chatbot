@@ -4,6 +4,7 @@ import {
 	MusicalNoteIcon,
 	VideoCameraIcon
 } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { FileAttachment } from '../../../../worker/types';
 import type { VNode } from 'preact';
 
@@ -24,7 +25,7 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 	// PDF icon
 	if (file.type === 'application/pdf' || ext === 'pdf') {
 		return (
-			<DocumentIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+			<Icon icon={DocumentIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
 		);
 	}
 
@@ -33,7 +34,7 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 		file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
 		ext === 'doc' || ext === 'docx') {
 		return (
-			<DocumentIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+			<Icon icon={DocumentIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
 		);
 	}
 
@@ -42,27 +43,27 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 		file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
 		ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
 		return (
-			<TableCellsIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+			<Icon icon={TableCellsIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
 		);
 	}
 
 	// Audio file icon
 	if (file.type?.startsWith('audio/')) {
 		return (
-			<MusicalNoteIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+			<Icon icon={MusicalNoteIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
 		);
 	}
 
 	// Video file icon
 	if (file.type?.startsWith('video/')) {
 		return (
-			<VideoCameraIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+			<Icon icon={VideoCameraIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
 		);
 	}
 
 	// Default file icon
 	return (
-		<DocumentIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+		<Icon icon={DocumentIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
 	);
 };
 

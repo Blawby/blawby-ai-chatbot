@@ -94,7 +94,8 @@ const PersonalInfoStep = ({
                           value={(value as string) || ''}
                           onChange={(value) => onChange(value)}
                           placeholder={t('onboarding.step1.fullNamePlaceholder')}
-                          icon={<UserIcon className="h-5 w-5 text-input-placeholder" />}
+                          icon={UserIcon}
+                          iconClassName="h-5 w-5 text-input-placeholder"
                           error={error?.message}
                         />
                       </FormControl>

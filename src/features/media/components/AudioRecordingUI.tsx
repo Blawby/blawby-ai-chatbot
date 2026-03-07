@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useEffect, useState, useRef, useCallback } from 'preact/hooks';
 import { XMarkIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 
 // Type-safe interface for AudioContext globals
@@ -329,7 +330,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 title="Cancel recording"
                 className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-all duration-200 text-input-placeholder hover:text-red-400 bg-white/5 hover:bg-red-500/10 animate-zoom-in"
             >
-                <XMarkIcon className="w-5 h-5" aria-hidden="true" />
+                <Icon icon={XMarkIcon} className="w-5 h-5" aria-hidden="true"  />
             </Button>
             <div className="flex-1 flex items-center gap-4 h-8 animate-zoom-in bg-transparent" aria-live="polite">
                 <canvas ref={canvasRef} width="300" height="40" aria-hidden="true" className="flex-1 h-8 rounded-lg block image-rendering-crisp-edges image-rendering-webkit-optimize-contrast bg-white/5" />
@@ -349,7 +350,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 ref={confirmBtnRef}
                 className="flex items-center justify-center w-8 h-8 p-1.5 rounded-full shadow-lg shadow-accent-500/20 cursor-pointer transition-all duration-200 animate-zoom-in hover:scale-110 active:scale-95"
             >
-                <CheckIcon className="w-5 h-5" aria-hidden="true" />
+                <Icon icon={CheckIcon} className="w-5 h-5" aria-hidden="true"  />
             </Button>
         </div>
     );

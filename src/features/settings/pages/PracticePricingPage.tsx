@@ -237,7 +237,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
           size="icon"
           onClick={() => navigate(toSettingsPath('practice'))}
           aria-label="Back to practice settings"
-          icon={<ArrowLeftIcon className="w-5 h-5" />}
+          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
         />
       )}
     >

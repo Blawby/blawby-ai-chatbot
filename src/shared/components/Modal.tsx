@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/shared/ui/Button';
 import { THEME } from '@/shared/utils/constants';
@@ -141,7 +142,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                                         className="text-input-placeholder hover:text-input-text hover:bg-white/5"
                                         aria-label="Close modal"
                                         icon={
-                                            <XMarkIcon className="w-6 h-6" />
+                                            <Icon icon={XMarkIcon} className="w-6 h-6"  />
                                         }
                                     />
                                 )}
@@ -157,7 +158,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                                 className="absolute top-4 right-4 w-10 h-10 border-none bg-black bg-opacity-50 text-white rounded-full hover:bg-black hover:bg-opacity-70 hover:scale-110 z-10 transition-all duration-200"
                                 aria-label="Close modal"
                                 icon={
-                                    <XMarkIcon className="w-6 h-6" />
+                                    <Icon icon={XMarkIcon} className="w-6 h-6"  />
                                 }
                             />
                         )}

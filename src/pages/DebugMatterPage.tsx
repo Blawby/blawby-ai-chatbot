@@ -426,7 +426,7 @@ export default function DebugMatterPage() {
                           size="icon-sm"
                           variant="icon"
                           onClick={startDescriptionEdit}
-                          icon={<PencilIcon className="h-4 w-4" />}
+                          icon={PencilIcon} iconClassName="h-4 w-4"
                           aria-label="Edit description"
                           className="shrink-0"
                         />

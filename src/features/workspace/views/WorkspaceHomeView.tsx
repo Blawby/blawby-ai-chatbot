@@ -11,6 +11,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { SparklesIcon, ChatBubbleLeftRightIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 
@@ -66,7 +67,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
         <section className="glass-card p-6 sm:p-8">
           <div className="flex items-center gap-4 mb-4">
             <div className="p-3 bg-accent-100 rounded-full">
-              <SparklesIcon className="w-6 h-6 text-accent-600" />
+              <Icon icon={SparklesIcon} className="w-6 h-6 text-accent-600"  />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-input-text">Practice Dashboard</h2>
@@ -127,7 +128,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
         <section className="glass-card p-6">
           <h3 className="text-lg font-semibold text-input-text mb-4">Recent Activity</h3>
           <div className="text-center py-8 text-input-placeholder">
-            <ChatBubbleLeftRightIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <Icon icon={ChatBubbleLeftRightIcon} className="w-12 h-12 mx-auto mb-3 opacity-50"  />
             <p>No recent conversations</p>
             <p className="text-sm mt-2">Start a new conversation to see activity here</p>
           </div>

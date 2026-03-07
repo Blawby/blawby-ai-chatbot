@@ -1,6 +1,7 @@
 import { FunctionComponent, Fragment } from 'preact';
 import { useState } from 'preact/hooks';
 import { LinkIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +41,7 @@ const PracticeConversationHeaderMenu: FunctionComponent<PracticeConversationHead
             className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
             aria-label="Conversation actions"
           >
-            <LinkIcon className="h-4 w-4" aria-hidden="true" />
+            <Icon icon={LinkIcon} className="h-4 w-4" aria-hidden="true"  />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">

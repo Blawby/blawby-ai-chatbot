@@ -23,6 +23,7 @@ import {
   ShieldCheckIcon,
   UserCircleIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 
 const maskStripeAccountId = (value?: string | null) => {
   if (!value) return 'Not created';
@@ -238,7 +239,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
           <div className="space-y-4">
             <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <ShieldCheckIcon className="h-5 w-5 text-input-placeholder" />
+                <Icon icon={ShieldCheckIcon} className="h-5 w-5 text-input-placeholder"  />
               </span>
               <p>
                 Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
@@ -246,7 +247,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
             </div>
             <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <UserCircleIcon className="h-5 w-5 text-input-placeholder" />
+                <Icon icon={UserCircleIcon} className="h-5 w-5 text-input-placeholder"  />
               </span>
               <p>
                 It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
@@ -254,7 +255,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
             </div>
             <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <LockClosedIcon className="h-5 w-5 text-input-placeholder" />
+                <Icon icon={LockClosedIcon} className="h-5 w-5 text-input-placeholder"  />
               </span>
               <p>
                 Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
@@ -263,7 +264,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
             {missingBusinessEmail && (
               <div className="flex items-start gap-3 text-sm text-input-placeholder">
                 <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-amber-600 dark:text-amber-400"  />
                 </span>
                 <p>
                   Add a business email in your practice contact settings before starting Stripe verification.

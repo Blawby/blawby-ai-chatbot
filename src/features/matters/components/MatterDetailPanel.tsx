@@ -170,14 +170,14 @@ const SectionHeader = ({
           variant="ghost"
           onClick={onCancel}
           disabled={isSaving}
-          icon={<XMarkIcon className="h-3.5 w-3.5" />}
+          icon={XMarkIcon} iconClassName="h-3.5 w-3.5"
           aria-label="Cancel editing"
         />
         <Button
           size="xs"
           onClick={onSave}
           disabled={isSaving}
-          icon={<CheckIcon className="h-3.5 w-3.5" />}
+          icon={CheckIcon} iconClassName="h-3.5 w-3.5"
           aria-label="Save changes"
         >
           {isSaving ? 'Saving…' : 'Save'}
@@ -189,7 +189,7 @@ const SectionHeader = ({
         variant="icon"
         size="icon-sm"
         onClick={onEdit}
-        icon={<PencilIcon className="h-4 w-4" />}
+        icon={PencilIcon} iconClassName="h-4 w-4"
         className={cn(
           'text-input-placeholder/80 transition-colors',
           'hover:text-input-text focus-visible:text-input-text'
@@ -605,7 +605,7 @@ export const MatterDetailsPanel = ({
                 size="sm"
                 variant="outline"
                 onClick={() => startEdit(group.key)}
-                icon={<PlusIcon className="h-3.5 w-3.5" />}
+                icon={PlusIcon} iconClassName="h-3.5 w-3.5"
                 className="rounded-full"
               >
                 {group.label}

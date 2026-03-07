@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useEffect, useRef, useCallback } from 'preact/hooks';
 import { motion } from 'framer-motion';
 import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 
 export interface Toast {
   id: string;
@@ -38,14 +39,14 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+        return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-green-500"  />;
       case 'error':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
+        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-red-500"  />;
       case 'warning':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
+        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-yellow-500"  />;
       case 'info':
       default:
-        return <InformationCircleIcon className="h-5 w-5 text-accent-400" />;
+        return <Icon icon={InformationCircleIcon} className="h-5 w-5 text-accent-400"  />;
     }
   };
 
@@ -90,7 +91,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
             onClick={handleRemove}
             className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
           >
-            <XMarkIcon className="h-4 w-4" />
+            <Icon icon={XMarkIcon} className="h-4 w-4"  />
           </button>
         </div>
       </div>

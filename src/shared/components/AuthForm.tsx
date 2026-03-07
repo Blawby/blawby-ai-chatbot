@@ -308,7 +308,7 @@ const AuthForm = ({
                           setFormData(prev => ({ ...prev, name: String(value) }));
                         }}
                         placeholder={t('signup.fullNamePlaceholder')}
-                        icon={<UserIcon className="h-5 w-5 text-input-placeholder" />}
+                        icon={UserIcon} iconClassName="h-5 w-5 text-input-placeholder"
                         error={fieldError?.message}
                         data-testid="signup-name-input"
                       />

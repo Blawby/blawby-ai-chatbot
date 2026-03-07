@@ -1,4 +1,5 @@
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { SettingSection } from './SettingSection';
 
 export interface EmailSettingsSectionProps {
@@ -24,7 +25,7 @@ export const EmailSettingsSection = ({
     <SettingSection title={title} className={className}>
       {/* Email Address */}
       <div className="flex items-center gap-3 py-3">
-        <EnvelopeIcon className="w-4 h-4 text-input-placeholder" />
+        <Icon icon={EnvelopeIcon} className="w-4 h-4 text-input-placeholder"  />
         <span className="text-sm text-input-text">
           {email}
         </span>

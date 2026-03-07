@@ -8,6 +8,7 @@ import {
   CloudArrowUpIcon,
   XMarkIcon
 } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 
 interface DocumentItem {
   id: string;
@@ -67,13 +68,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
+        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-green-500"  />;
       case 'pending':
-        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
+        return <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <ExclamationTriangleIcon className="w-5 h-5 text-red-500" /> :
-          <DocumentIcon className="w-5 h-5 text-gray-400" />;
+          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-red-500"  /> :
+          <Icon icon={DocumentIcon} className="w-5 h-5 text-gray-400"  />;
     }
   };
 
@@ -171,7 +172,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       <Button
                         variant="secondary"
                         size="sm"
-                        icon={<CloudArrowUpIcon className="w-4 h-4" />}
+                        icon={CloudArrowUpIcon} iconClassName="w-4 h-4"
                       >
                         Choose Document
                       </Button>
@@ -185,14 +186,14 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                 {/* Uploaded DocumentIcon Display */}
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
-                    <DocumentIcon className="w-4 h-4 text-emerald-400" />
+                    <Icon icon={DocumentIcon} className="w-4 h-4 text-emerald-400"  />
                     <span className="text-sm text-input-text">
                       {doc.file.name}
                     </span>
                     <Button
                       variant="danger-ghost"
                       size="sm"
-                      icon={<XMarkIcon className="w-4 h-4" />}
+                      icon={XMarkIcon} iconClassName="w-4 h-4"
                       aria-label={`Remove ${doc.name ?? 'document'}`}
                       onClick={() => onDocumentRemove(doc.id)}
                     />

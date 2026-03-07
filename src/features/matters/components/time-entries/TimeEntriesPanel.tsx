@@ -152,7 +152,7 @@ export const TimeEntriesPanel = ({
                 <p className="text-sm font-semibold text-input-text">{weekRangeLabel}</p>
               </div>
             </div>
-            <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => openNewEntry()}>
+            <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
               Add time entry
             </Button>
           </header>

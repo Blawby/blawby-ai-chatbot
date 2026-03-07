@@ -37,7 +37,7 @@ export const DetailHeader = ({
             size="icon-sm"
             onClick={onBack}
             aria-label="Back"
-            icon={<ChevronLeftIcon className="h-4 w-4" />}
+            icon={ChevronLeftIcon} iconClassName="h-4 w-4"
           />
         </div>
       ) : null}
@@ -55,7 +55,7 @@ export const DetailHeader = ({
               size="icon-sm"
               onClick={onInspector}
               aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-              icon={<InformationCircleIcon className="h-5 w-5" />}
+              icon={InformationCircleIcon} iconClassName="h-5 w-5"
             />
           ) : null}
         </div>

@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 
 type IconComponent = typeof ChatBubbleLeftRightIcon;
@@ -110,7 +111,7 @@ export const WorkspaceDashboardView: FunctionComponent<{
             </div>
             <div className="p-12 text-center">
               <div className="w-16 h-16 bg-surface-panel/40 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircleIcon className="w-8 h-8 text-input-placeholder" />
+                <Icon icon={CheckCircleIcon} className="w-8 h-8 text-input-placeholder"  />
               </div>
               <p className="text-input-placeholder text-sm">No recent activity found. Once you share your intake link, you&apos;ll see updates here.</p>
             </div>

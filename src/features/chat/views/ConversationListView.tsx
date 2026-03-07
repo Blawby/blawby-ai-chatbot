@@ -1,6 +1,7 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -102,7 +103,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
               className="workspace-header__icon"
               aria-label={t('common.back')}
             >
-              <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
+              <Icon icon={ChevronLeftIcon} className="h-4 w-4" aria-hidden="true"  />
             </Button>
           ) : null}
           {showTitle ? (
@@ -217,7 +218,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
             variant="primary"
             size="lg"
             className="w-full"
-            icon={<PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />}
+            icon={PaperAirplaneIcon} iconClassName="h-4 w-4"
             iconPosition="right"
             onClick={onSendMessage}
           >

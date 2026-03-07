@@ -10,6 +10,7 @@ import {
   EllipsisHorizontalIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Textarea } from '@/shared/ui/input';
 
@@ -129,7 +130,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
               className="grid gap-3 sm:grid-cols-2"
             >
               {useCaseOptions.map((option) => {
-                const Icon = option.icon;
+                const optionIcon = option.icon;
                 const isSelected = selectedUseCases.includes(option.id);
 
                 return (
@@ -147,7 +148,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <Icon className={`h-6 w-6 ${
+                        <Icon icon={optionIcon} className={`h-6 w-6 ${
                           isSelected 
                             ? 'text-[rgb(var(--accent-foreground))]' 
                             : 'text-input-placeholder'
@@ -161,7 +162,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                         </span>
                       </div>
                       {isSelected && (
-                        <CheckIcon className="h-5 w-5 text-[rgb(var(--accent-foreground))]" />
+                        <Icon icon={CheckIcon} className="h-5 w-5 text-[rgb(var(--accent-foreground))]"  />
                       )}
                     </div>
                   </button>

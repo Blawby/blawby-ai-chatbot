@@ -135,7 +135,7 @@ export const LineItemsBuilder = ({ lineItems, onChange }: LineItemsBuilderProps)
                         variant="danger-ghost"
                         onClick={() => removeItem(index)}
                         disabled={disableRemoval}
-                        icon={<TrashIcon className="h-4 w-4" />}
+                        icon={TrashIcon} iconClassName="h-4 w-4"
                         aria-label="Remove line item"
                       />
                     </td>

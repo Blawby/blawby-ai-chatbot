@@ -9,6 +9,7 @@ import { FunctionComponent } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { useMemo } from 'preact/hooks';
 import { SparklesIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import ConversationalCorrection from './ConversationalCorrection';
 import type { ChatMessageUI } from '../../../../worker/types';
@@ -194,7 +195,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             headerContent={
               <div className="flex items-center justify-between mb-2 gap-3 px-4 pt-3">
                 <div className="flex items-center gap-2">
-                  <SparklesIcon className="w-4 h-4 text-accent-500" />
+                  <Icon icon={SparklesIcon} className="w-4 h-4 text-accent-500"  />
                   <div>
                     <div className="text-sm font-semibold">Setup assistant</div>
                     {status.needsSetup ? (

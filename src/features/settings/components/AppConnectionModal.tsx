@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { XMarkIcon, ShieldCheckIcon, LockClosedIcon, ExclamationTriangleIcon, PuzzlePieceIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { App } from '../pages/appsData';
 import { SectionDivider } from '@/shared/ui/layout';
@@ -100,7 +101,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="glass-input w-10 h-10 rounded-lg flex items-center justify-center">
-              <PuzzlePieceIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" aria-hidden="true" />
+              <Icon icon={PuzzlePieceIcon} className="w-6 h-6 text-gray-700 dark:text-gray-200" aria-hidden="true"  />
             </div>
             <h2 id={titleId} className="text-lg font-semibold text-input-text">
               {t('settings:apps.clio.connectModal.title', { app: app.name })}
@@ -112,7 +113,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             onClick={onClose}
             ref={closeButtonRef}
             aria-label="Close"
-            icon={<XMarkIcon className="w-5 h-5" />}
+            icon={XMarkIcon} iconClassName="w-5 h-5"
           />
         </div>
         <SectionDivider />
@@ -123,7 +124,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             label={t('settings:apps.clio.connectModal.permissions.title')}
             labelNode={(
               <div className="flex items-center gap-2">
-                <ShieldCheckIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
+                <Icon icon={ShieldCheckIcon} className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true"  />
                 <span className="text-sm font-semibold text-input-text">
                   {t('settings:apps.clio.connectModal.permissions.title')}
                 </span>
@@ -138,7 +139,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             label={t('settings:apps.clio.connectModal.control.title')}
             labelNode={(
               <div className="flex items-center gap-2">
-                <LockClosedIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
+                <Icon icon={LockClosedIcon} className="w-5 h-5 text-gray-700 dark:text-gray-300" aria-hidden="true"  />
                 <span className="text-sm font-semibold text-input-text">
                   {t('settings:apps.clio.connectModal.control.title')}
                 </span>
@@ -165,7 +166,7 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             label={t('settings:apps.clio.connectModal.risk.title')}
             labelNode={(
               <div className="flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-amber-600 dark:text-amber-400" aria-hidden="true"  />
                 <span className="text-sm font-semibold text-input-text">
                   {t('settings:apps.clio.connectModal.risk.title')}
                 </span>

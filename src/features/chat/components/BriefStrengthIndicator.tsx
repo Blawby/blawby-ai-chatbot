@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,7 +122,7 @@ const BriefStrengthIndicator: FunctionComponent<BriefStrengthIndicatorProps> = (
               />
             </svg>
             <span className="absolute inset-0 flex items-center justify-center">
-              <InformationCircleIcon className="h-3.5 w-3.5 text-input-text/80" aria-hidden="true" />
+              <Icon icon={InformationCircleIcon} className="h-3.5 w-3.5 text-input-text/80" aria-hidden="true"  />
             </span>
           </span>
         </Button>

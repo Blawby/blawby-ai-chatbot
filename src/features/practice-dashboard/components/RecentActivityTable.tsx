@@ -1,5 +1,6 @@
 import { Fragment } from 'preact';
 import { ArrowDownCircleIcon, ArrowPathIcon, ArrowUpCircleIcon } from '@heroicons/react/20/solid';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -100,8 +101,8 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                           <td className="relative py-5 pr-6">
                             <div className="flex gap-x-6">
                               {(() => {
-                                const Icon = statusIcon(entry.status);
-                                return <Icon aria-hidden="true" className="hidden h-6 w-5 flex-none text-input-placeholder sm:block" />;
+                                const activityIcon = statusIcon(entry.status);
+                                return <Icon icon={activityIcon} className="hidden h-6 w-5 flex-none text-input-placeholder sm:block" />;
                               })()}
                               <div className="flex-auto">
                                 <div className="flex items-start gap-x-3">

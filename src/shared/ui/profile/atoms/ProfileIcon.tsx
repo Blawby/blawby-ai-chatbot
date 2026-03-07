@@ -5,10 +5,10 @@
  * No interactions, no state. Just renders an icon with consistent sizing.
  */
 
-import type { ComponentChildren } from 'preact';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 
 interface ProfileIconProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   className?: string;
 }
 
@@ -17,8 +17,8 @@ export const ProfileIcon = ({
   className = ''
 }: ProfileIconProps) => {
   return (
-    <span className={`w-4 h-4 flex-shrink-0 ${className}`}>
-      {icon}
+    <span className={`flex-shrink-0 ${className}`}>
+      <Icon icon={icon} className="w-4 h-4" />
     </span>
   );
 };

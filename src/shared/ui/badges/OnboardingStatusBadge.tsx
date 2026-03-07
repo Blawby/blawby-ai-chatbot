@@ -6,6 +6,7 @@
  */
 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import type { ComponentChildren } from 'preact';
 
@@ -49,7 +50,7 @@ export const OnboardingStatusBadge = ({
     if (variant === 'compact') {
       return (
         <>
-          {status !== 'completed' && <ExclamationTriangleIcon className="w-3 h-3 mr-1" />}
+          {status !== 'completed' && <Icon icon={ExclamationTriangleIcon} className="w-3 h-3 mr-1"  />}
           Setup
         </>
       );

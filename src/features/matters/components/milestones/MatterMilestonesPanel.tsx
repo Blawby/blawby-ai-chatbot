@@ -186,7 +186,7 @@ export const MatterMilestonesPanel = ({
             {resolvedMilestones.length} milestones tracked
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openForm} disabled={!canCreate}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openForm} disabled={!canCreate}>
           Add milestone
         </Button>
       </header>
@@ -231,7 +231,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<PencilIcon className="h-4 w-4" />}
+                        icon={PencilIcon} iconClassName="h-4 w-4"
                         onClick={() => openEditForm(milestone)}
                         aria-label="Edit milestone"
                       />
@@ -240,7 +240,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<TrashIcon className="h-4 w-4" />}
+                        icon={TrashIcon} iconClassName="h-4 w-4"
                         onClick={() => confirmDelete(milestone)}
                         aria-label="Delete milestone"
                       />
@@ -251,14 +251,14 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<ArrowUpIcon className="h-4 w-4" />}
+                        icon={ArrowUpIcon} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, -1)}
                         aria-label="Move milestone up"
                       />
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<ArrowDownIcon className="h-4 w-4" />}
+                        icon={ArrowDownIcon} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, 1)}
                         aria-label="Move milestone down"
                       />

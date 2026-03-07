@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { UserIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -156,7 +157,7 @@ export const UserProfileDisplay = ({
       <div className={`p-2 border-t border-line-glass/30`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
           <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
-            <UserIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <Icon icon={UserIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
@@ -186,7 +187,7 @@ export const UserProfileDisplay = ({
           title={isCollapsed ? t('profile:menu.signIn') : undefined}
           aria-label={t('profile:aria.signInButton')}
         >
-          <UserIcon className="w-5 h-5 flex-shrink-0" />
+          <Icon icon={UserIcon} className="w-5 h-5 flex-shrink-0"  />
           {!isCollapsed && <span className="text-sm font-medium">{t('profile:menu.signIn')}</span>}
         </button>
       </div>

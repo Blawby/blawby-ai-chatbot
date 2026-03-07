@@ -3,6 +3,7 @@ import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { FolderIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { listMatters, getMatter } from '@/features/matters/services/mattersApi';
 import { updateConversationMatter } from '@/shared/lib/apiClient';
 import type { Conversation } from '@/shared/types/conversation';
@@ -231,8 +232,8 @@ export const LinkMatterModal = ({
             options={matterOptions}
             onChange={setSelectedMatterId}
             disabled={saving || loadingState === 'loading'}
-            leading={() => <FolderIcon className="h-4 w-4 text-input-placeholder" />}
-            optionLeading={() => <FolderIcon className="h-4 w-4 text-input-placeholder" />}
+            leading={() => <Icon icon={FolderIcon} className="h-4 w-4 text-input-placeholder"  />}
+            optionLeading={() => <Icon icon={FolderIcon} className="h-4 w-4 text-input-placeholder"  />}
           />
           {loadingState === 'loading' && (
             <div className="text-xs text-gray-500 dark:text-gray-400">Loading matters…</div>

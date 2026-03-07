@@ -21,6 +21,7 @@ import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/a
 import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/20/solid';
+import { Icon } from '@/shared/ui/Icon';
 import type { UserLinks, EmailSettings } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -742,7 +743,7 @@ export const AccountPage = ({
                         variant="secondary"
                         size="sm"
                         disabled={submitting}
-                        icon={<ChevronDownIcon className="w-4 h-4" />}
+                        icon={ChevronDownIcon} iconClassName="w-4 h-4"
                         iconPosition="right"
                       >
                         {t('settings:account.plan.manage')}
@@ -766,7 +767,7 @@ export const AccountPage = ({
                         }}
                       >
                         <span className="flex items-center gap-2 whitespace-nowrap text-red-600 dark:text-red-400">
-                          <XMarkIcon className="h-4 w-4" />
+                          <Icon icon={XMarkIcon} className="h-4 w-4"  />
                           {t('settings:account.plan.cancelSubscription')}
                         </span>
                       </DropdownMenuItem>
@@ -903,7 +904,7 @@ export const AccountPage = ({
               label={t('settings:account.links.domainLabel')}
               labelNode={
                 <div className="flex items-center gap-3">
-                  <GlobeAltIcon className="w-5 h-5 text-input-placeholder" />
+                  <Icon icon={GlobeAltIcon} className="w-5 h-5 text-input-placeholder"  />
                   <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
                 </div>
               }
@@ -938,7 +939,7 @@ export const AccountPage = ({
                 variant="secondary"
                 size="sm"
                 onClick={handleAddLinkedIn}
-                icon={<PlusIcon className="w-4 h-4" />}
+                icon={PlusIcon} iconClassName="w-4 h-4"
                 iconPosition="right"
               >
                 {t('settings:account.links.addButton')}
@@ -963,7 +964,7 @@ export const AccountPage = ({
                 variant="secondary"
                 size="sm"
                 onClick={handleAddGitHub}
-                icon={<PlusIcon className="w-4 h-4" />}
+                icon={PlusIcon} iconClassName="w-4 h-4"
                 iconPosition="right"
               >
                 {t('settings:account.links.addButton')}

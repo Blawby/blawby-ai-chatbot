@@ -27,6 +27,7 @@ import {
   ArrowUturnRightIcon
 } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
+import { Icon } from '@/shared/ui/Icon';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
@@ -336,12 +337,12 @@ const MatterFormModalInner = ({
               const selectedStatus = (selectedOption?.value ?? formState.status) as MatterStatus;
               const StatusIcon = STATUS_ICON[selectedStatus] ?? ScaleIcon;
               return (
-                <StatusIcon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />
+                <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />
               );
             }}
             optionLeading={(option) => {
               const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? ScaleIcon;
-              return <StatusIcon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />;
+              return <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />;
             }}
             onChange={(value) => updateForm('status', value as MatterStatus)}
           />
@@ -358,7 +359,7 @@ const MatterFormModalInner = ({
                   return renderUserAvatar(client.name, client.image, 'sm');
                 }
               }
-              return buildLeadingIcon(<UserIcon className="h-4 w-4" />);
+              return buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />);
             }}
             optionLeading={(option) => {
               const client = clientById.get(option.value);
@@ -377,7 +378,7 @@ const MatterFormModalInner = ({
             placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
             value={formState.practiceAreaId}
             options={practiceAreaOptions}
-            leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+            leading={buildLeadingIcon(<Icon icon={ScaleIcon} className="h-4 w-4"  />)}
             onChange={(value) => updateForm('practiceAreaId', value)}
             disabled={practiceAreasLoading}
           />
@@ -398,7 +399,7 @@ const MatterFormModalInner = ({
               onChange={(value) => updateForm('matterType', value)}
               placeholder="e.g. Contract dispute"
               options={[]}
-              leading={buildLeadingIcon(<BriefcaseIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={BriefcaseIcon} className="h-4 w-4"  />)}
               allowCustomValues
               addNewLabel="Add matter type"
             />
@@ -425,7 +426,7 @@ const MatterFormModalInner = ({
               onChange={(value) => updateForm('court', value)}
               placeholder="e.g. Superior Court of CA"
               options={[]}
-              leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={ScaleIcon} className="h-4 w-4"  />)}
               allowCustomValues
               addNewLabel="Add court"
             />
@@ -437,7 +438,7 @@ const MatterFormModalInner = ({
               onChange={(values) => updateForm('judge', serializeMultiValueText(values))}
               placeholder="e.g. Hon. A. Smith"
               options={[]}
-              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
               multiple
               allowCustomValues
               addNewLabel="Add judge"
@@ -448,7 +449,7 @@ const MatterFormModalInner = ({
               onChange={(values) => updateForm('opposingParty', serializeMultiValueText(values))}
               placeholder="Enter opposing party"
               options={[]}
-              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
               multiple
               allowCustomValues
               addNewLabel="Add opposing party"
@@ -461,7 +462,7 @@ const MatterFormModalInner = ({
               onChange={(values) => updateForm('opposingCounsel', serializeMultiValueText(values))}
               placeholder="Enter opposing counsel"
               options={[]}
-              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
               multiple
               allowCustomValues
               addNewLabel="Add opposing counsel"
@@ -485,7 +486,7 @@ const MatterFormModalInner = ({
               placeholder="Select attorney"
               value={formState.responsibleAttorneyId}
               options={assigneeOptions}
-              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
               optionLeading={(option) => {
                 const assignee = assigneeById.get(option.value);
                 if (!assignee) return null;
@@ -499,7 +500,7 @@ const MatterFormModalInner = ({
               placeholder="Select attorney"
               value={formState.originatingAttorneyId}
               options={assigneeOptions}
-              leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
               optionLeading={(option) => {
                 const assignee = assigneeById.get(option.value);
                 if (!assignee) return null;
@@ -643,7 +644,7 @@ const MatterFormModalInner = ({
                       type="button"
                       onClick={() => setIsMilestoneFormVisible(true)}
                       icon={
-                        <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                        <Icon icon={PlusIcon} className="h-4 w-4" aria-hidden="true"  />
                       }
                     >
                       Add Milestone
@@ -681,7 +682,7 @@ const MatterFormModalInner = ({
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-xs text-input-placeholder">
-            <ShieldCheckIcon className="h-4 w-4 text-input-placeholder" />
+            <Icon icon={ShieldCheckIcon} className="h-4 w-4 text-input-placeholder"  />
             <span>
               Payments are built for securing IOLTA compliance.{' '}
               <a
