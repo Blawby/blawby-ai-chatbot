@@ -187,6 +187,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {renderContent()}
     </button>
   );
-}); 
-  const isIconComponent = (iconValue: ButtonIcon | undefined): iconValue is IconComponent =>
-    typeof iconValue === 'function';
+});
+
+const isIconComponent = (iconValue: ButtonIcon | undefined): iconValue is IconComponent =>
+  typeof iconValue === 'function'
+  || (
+    typeof iconValue === 'object'
+    && iconValue !== null
+    && !('type' in iconValue)
+    && ('$$typeof' in iconValue || 'render' in iconValue)
+  );

@@ -203,7 +203,13 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                     : 'text-input-text hover:bg-white/10'
                 )}
               >
-                <Icon icon={statusIcon} className="h-4 w-4 shrink-0 text-input-placeholder" />
+                <Icon
+                  icon={statusIcon}
+                  className={cn(
+                    'h-4 w-4 shrink-0',
+                    isSelected ? 'text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder'
+                  )}
+                />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>
                 {isSelected && <Icon icon={CheckIcon} className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden  />}
               </button>

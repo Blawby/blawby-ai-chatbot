@@ -643,9 +643,8 @@ const MatterFormModalInner = ({
                       size="sm"
                       type="button"
                       onClick={() => setIsMilestoneFormVisible(true)}
-                      icon={
-                        <Icon icon={PlusIcon} className="h-4 w-4" aria-hidden="true"  />
-                      }
+                      icon={PlusIcon}
+                      iconClassName="h-4 w-4"
                     >
                       Add Milestone
                     </Button>
