@@ -99,7 +99,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
           variant="ghost"
           size="sm"
           aria-label="Previous month"
-          icon={<ChevronLeftIcon className="h-4 w-4" />}
+          icon={ChevronLeftIcon} iconClassName="h-4 w-4"
           onClick={handlePrevMonth}
         />
         <div className="text-sm font-semibold text-input-text">{monthLabel}</div>
@@ -107,7 +107,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
           variant="ghost"
           size="sm"
           aria-label="Next month"
-          icon={<ChevronRightIcon className="h-4 w-4" />}
+          icon={ChevronRightIcon} iconClassName="h-4 w-4"
           onClick={handleNextMonth}
         />
       </div>

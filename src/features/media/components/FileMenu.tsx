@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import { PlusIcon, PhotoIcon, CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import CameraModal from '@/features/modals/components/CameraModal';
 import { THEME } from '@/shared/utils/constants';
@@ -146,7 +147,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             ? 'bg-white/20 border-white/35'
             : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30 hover:scale-105'
         }`}
-        icon={<PlusIcon className="w-5 h-5" aria-hidden="true" />}
+        icon={PlusIcon} iconClassName="w-5 h-5"
       />
 
       {(isOpen || isClosing) && (
@@ -170,7 +171,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             className="file-menu-item py-3 text-xs sm:text-sm"
           >
             <span>Add photos &amp; files</span>
-            <PhotoIcon className="w-5 h-5" aria-hidden="true" />
+            <Icon icon={PhotoIcon} className="w-5 h-5" aria-hidden="true"  />
           </Button>
 
           <Button
@@ -182,7 +183,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             className="file-menu-item py-3 border-t border-white/10 text-xs sm:text-sm"
           >
             <span>Take Photo</span>
-            <CameraIcon className="w-5 h-5" aria-hidden="true" />
+            <Icon icon={CameraIcon} className="w-5 h-5" aria-hidden="true"  />
           </Button>
         </div>
       )}
@@ -201,7 +202,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
               className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 transition-colors"
               aria-label="Dismiss error message"
             >
-              <XMarkIcon className="w-4 h-4" />
+              <Icon icon={XMarkIcon} className="w-4 h-4"  />
             </button>
           </div>
         </div>

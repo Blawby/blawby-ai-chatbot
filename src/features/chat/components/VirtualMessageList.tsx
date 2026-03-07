@@ -3,6 +3,7 @@ import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } fr
 import Message from './Message';
 import { memo } from 'preact/compat';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
@@ -940,7 +941,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 onClick={scrollToBottom}
                 aria-label="Scroll to latest message"
             >
-                <ChevronDownIcon className="h-5 w-5" />
+                <Icon icon={ChevronDownIcon} className="h-5 w-5"  />
             </button>
         )}
         </div>

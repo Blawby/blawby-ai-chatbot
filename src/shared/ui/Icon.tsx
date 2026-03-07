@@ -1,5 +1,6 @@
 import type { ComponentType, JSX } from 'preact';
-type IconComponent = ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
+
+export type IconComponent = ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
 
 interface IconProps extends JSX.SVGAttributes<SVGSVGElement> {
   icon: IconComponent;

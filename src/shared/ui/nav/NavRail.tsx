@@ -1,12 +1,13 @@
-import type { ComponentType, FunctionComponent, JSX } from 'preact';
+import type { FunctionComponent } from 'preact';
 import { useLocation } from 'preact-iso';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 
 export interface NavRailItem {
   id: string;
   label: string;
-  icon: ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
+  icon: IconComponent;
   href: string;
   badge?: number | null;
   variant?: 'default' | 'danger';
@@ -68,7 +69,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   return (
     <div className={cn(containerClass, className)}>
       {items.map((item) => {
-        const Icon = item.icon;
+        const icon = item.icon;
         const isActive = !item.isAction && activeItemId === item.id;
         const isDanger = item.variant === 'danger';
 
@@ -107,7 +108,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
               onItemActivate?.();
             }}
           >
-            <Icon className="h-5 w-5" aria-hidden="true" />
+            <Icon icon={icon} className="h-5 w-5" />
             {variant === 'bottom' && showLabels ? <span className="truncate max-w-full">{item.label}</span> : null}
             {item.badge && item.badge > 0 ? (
               <span className="absolute -right-1 -top-1 min-w-[1.125rem] rounded-full bg-accent-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-[rgb(var(--accent-foreground))]">

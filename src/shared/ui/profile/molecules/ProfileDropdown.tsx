@@ -39,7 +39,7 @@ export const ProfileDropdown = ({
     >
       {/* Settings */}
       <ProfileMenuItem
-        icon={<Cog6ToothIcon />}
+        icon={Cog6ToothIcon}
         label={t('profile:menu.settings')}
         onClick={onSettings}
       />
@@ -49,14 +49,14 @@ export const ProfileDropdown = ({
       
       {/* Help */}
       <ProfileMenuItem
-        icon={<QuestionMarkCircleIcon />}
+        icon={QuestionMarkCircleIcon}
         label={t('profile:menu.help')}
         onClick={onHelp}
       />
       
       {/* Log out */}
       <ProfileMenuItem
-        icon={<ArrowRightOnRectangleIcon />}
+        icon={ArrowRightOnRectangleIcon}
         label={t('profile:menu.signOut')}
         onClick={onLogout}
       />

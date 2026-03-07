@@ -5,10 +5,10 @@
  * Just renders an icon with consistent sizing and styling.
  */
 
-import type { ComponentChildren } from 'preact';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 
 interface NavigationIconProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -25,8 +25,8 @@ export const NavigationIcon = ({
   };
 
   return (
-    <span className={`flex-shrink-0 ${sizeClasses[size]} ${className}`}>
-      {icon}
+    <span className={`flex-shrink-0 ${className}`}>
+      <Icon icon={icon} className={sizeClasses[size]} />
     </span>
   );
 };

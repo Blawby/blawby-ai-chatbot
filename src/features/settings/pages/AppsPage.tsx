@@ -4,6 +4,7 @@ import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { SectionDivider } from '@/shared/ui/layout';
 import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
 import { ChevronRightIcon, PuzzlePieceIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 
 interface AppsPageProps {
@@ -41,7 +42,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                         loading="lazy"
                       />
                     ) : (
-                      <PuzzlePieceIcon className="w-6 h-6 text-input-text/70" aria-hidden="true" />
+                      <Icon icon={PuzzlePieceIcon} className="w-6 h-6 text-input-text/70" aria-hidden="true"  />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -49,7 +50,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                       <p className="text-base font-medium text-input-text truncate">{app.name}</p>
                       {app.connected && (
                         <SettingsBadge variant="success">
-                          <CheckBadgeIcon className="w-4 h-4" aria-hidden="true" />
+                          <Icon icon={CheckBadgeIcon} className="w-4 h-4" aria-hidden="true"  />
                           {t('settings:apps.clio.connected')}
                         </SettingsBadge>
                       )}
@@ -63,7 +64,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                 </div>
               )}
             >
-              <ChevronRightIcon className="w-5 h-5 text-input-placeholder" aria-hidden="true" />
+              <Icon icon={ChevronRightIcon} className="w-5 h-5 text-input-placeholder" aria-hidden="true"  />
             </SettingRow>
           </button>
           {index < apps.length - 1 && <SectionDivider />}

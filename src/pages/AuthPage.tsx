@@ -120,7 +120,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               size="sm"
               onClick={handleBackToHome}
               className="text-sm text-input-placeholder hover:text-input-text"
-              icon={<ArrowLeftIcon className="h-4 w-4" />}
+              icon={ArrowLeftIcon} iconClassName="h-4 w-4"
               iconPosition="left"
             >
               {t('navigation.backToHome')}

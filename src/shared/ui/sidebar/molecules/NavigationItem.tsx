@@ -9,7 +9,7 @@ import { NavigationIcon } from '../atoms/NavigationIcon';
 import { StatusDot } from '../atoms/StatusDot';
 import { NotificationDot } from '../atoms/NotificationDot';
 import { MatterStatus } from '@/shared/types/matter';
-import type { ComponentChildren } from 'preact';
+import type { IconComponent } from '@/shared/ui/Icon';
 
 /**
  * Translates matter status to user-friendly screen reader text
@@ -30,7 +30,7 @@ const translateMatterStatus = (status: MatterStatus | null | undefined): string 
 };
 
 interface NavigationItemProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   label: string;
   isActive: boolean;
   onClick: () => void;

@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
 
@@ -123,7 +124,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300 group-hover:scale-110 group-hover:shadow-accent-500/40"
             aria-hidden="true"
           >
-            <PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />
+            <Icon icon={PaperAirplaneIcon} className="h-5 w-5" aria-hidden="true"  />
           </span>
         </button>
 

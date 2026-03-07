@@ -65,7 +65,7 @@ const PricingPage = () => {
               size="sm"
               onClick={handleClose}
               className="text-sm text-input-placeholder hover:text-input-text"
-              icon={<ArrowLeftIcon className="h-4 w-4" />}
+              icon={ArrowLeftIcon} iconClassName="h-4 w-4"
               iconPosition="left"
             >
               Back

@@ -11,6 +11,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 
@@ -62,7 +63,7 @@ const WorkspaceConversationView: FunctionComponent<WorkspaceConversationViewProp
           subtitle="Error loading conversation"
           actions={
             <Button onClick={handleBack} variant="secondary" className="flex items-center gap-2">
-              <ArrowLeftIcon className="w-4 h-4" />
+              <Icon icon={ArrowLeftIcon} className="w-4 h-4"  />
               Back
             </Button>
           }
@@ -86,7 +87,7 @@ const WorkspaceConversationView: FunctionComponent<WorkspaceConversationViewProp
         subtitle={`${messageCount} message${messageCount !== 1 ? 's' : ''} • ${practiceName}`}
         actions={
           <Button onClick={handleBack} variant="secondary" className="flex items-center gap-2">
-            <ArrowLeftIcon className="w-4 h-4" />
+            <Icon icon={ArrowLeftIcon} className="w-4 h-4"  />
             Back
           </Button>
         }

@@ -8,6 +8,7 @@ import {
   ListBulletIcon,
   NumberedListIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
@@ -301,28 +302,28 @@ export const MarkdownUploadTextarea = ({
                   <span className="text-xs italic leading-none">I</span>
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
-                  <Bars3BottomLeftIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={Bars3BottomLeftIcon} className="h-4 w-4" aria-hidden="true"  />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
-                  <CodeBracketIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={CodeBracketIcon} className="h-4 w-4" aria-hidden="true"  />
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
-                  <LinkIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={LinkIcon} className="h-4 w-4" aria-hidden="true"  />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
-                  <ListBulletIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={ListBulletIcon} className="h-4 w-4" aria-hidden="true"  />
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
-                  <NumberedListIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={NumberedListIcon} className="h-4 w-4" aria-hidden="true"  />
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
-                  <DocumentTextIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true"  />
                 </button>
               </div>
             </div>
@@ -413,7 +414,7 @@ export const MarkdownUploadTextarea = ({
         {showFooter ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-glass/30 px-4 py-2 text-sm">
             <div className="flex items-center gap-2 text-input-placeholder">
-              <CloudArrowUpIcon className="h-4 w-4" aria-hidden="true" />
+              <Icon icon={CloudArrowUpIcon} className="h-4 w-4" aria-hidden="true"  />
               <button
                 type="button"
                 className="hover:text-input-text"
@@ -446,7 +447,7 @@ export const MarkdownUploadTextarea = ({
         <div className="space-y-1 rounded-xl border border-line-glass/30 bg-surface-overlay/50 px-3 py-2">
           {uploadItems.map((item) => (
             <div key={item.id} className="flex items-center gap-2 text-xs text-input-placeholder">
-              <DocumentTextIcon className="h-4 w-4" aria-hidden="true" />
+              <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true"  />
               <span className="truncate">{item.name}</span>
               {item.status === 'uploading' && <span>{item.progress}%</span>}
               {item.status === 'uploaded' && <span className="text-emerald-300">uploaded</span>}

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { ClipboardIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from './Button';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 
@@ -57,7 +58,7 @@ export const CopyButton = ({ text, label, className = '', disabled = false }: Co
       aria-label={copied ? 'Copied!' : 'Copy to clipboard'}
       className={className}
     >
-      <ClipboardIcon className="w-4 h-4" />
+      <Icon icon={ClipboardIcon} className="w-4 h-4"  />
       {copied ? 'Copied!' : (label || 'Copy')}
     </Button>
   );

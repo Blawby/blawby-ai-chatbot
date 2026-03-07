@@ -16,6 +16,7 @@ import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 
 interface AppDetailPageProps {
   app: App;
@@ -122,7 +123,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           size="icon"
           onClick={onBack}
           aria-label={t('settings:navigation.backToSettings')}
-          icon={<ArrowLeftIcon className="w-5 h-5" />}
+          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
         />
       )}
     >
@@ -140,7 +141,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <PuzzlePieceIcon className="w-8 h-8 text-input-text/80" aria-hidden="true" />
+                  <Icon icon={PuzzlePieceIcon} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -179,13 +180,13 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   variant="ghost"
                   size="sm"
                   aria-label="More options"
-                  icon={<EllipsisVerticalIcon className="w-5 h-5" />}
+                  icon={EllipsisVerticalIcon} iconClassName="w-5 h-5"
                 />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={handleOpenSettings}>
                   <div className="flex items-center gap-2">
-                    <Cog6ToothIcon className="w-4 h-4" aria-hidden="true" />
+                    <Icon icon={Cog6ToothIcon} className="w-4 h-4" aria-hidden="true"  />
                     <span>{t('settings:apps.clio.settings')}</span>
                   </div>
                 </DropdownMenuItem>
@@ -221,7 +222,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   size="sm"
                   disabled={!slug}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
-                  icon={copiedScript ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
+                  icon={copiedScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-green-500"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
                   onClick={copySnippet}
                 >
                   {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
@@ -263,7 +264,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
               >
                 {app.website}
-                <GlobeAltIcon className="w-4 h-4" aria-hidden="true" />
+                <Icon icon={GlobeAltIcon} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />
@@ -277,7 +278,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
               >
                 {app.privacyPolicy}
-                <GlobeAltIcon className="w-4 h-4" aria-hidden="true" />
+                <Icon icon={GlobeAltIcon} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />
