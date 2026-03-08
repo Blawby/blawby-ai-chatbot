@@ -6,7 +6,7 @@
  */
 
 import { FunctionComponent } from 'preact';
-import { useMemo, useCallback, useState } from 'preact/hooks';
+import { useMemo, useCallback, useState, useEffect } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { SplitView } from '@/shared/ui/layout/SplitView';
@@ -92,6 +92,13 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   const { state, actions } = useOnboardingState();
   const [basicsSaved, setBasicsSaved] = useState(false);
   const [contactSaved, setContactSaved] = useState(false);
+  
+  // Reset saved flags when the underlying data source changes allowing saves again
+  useEffect(() => {
+    setBasicsSaved(false);
+    setContactSaved(false);
+  }, [practice, details]);
+
   const normalizedContactAddress = useMemo(() => {
     const candidate = details?.address;
     if (candidate && typeof candidate === 'object') {

@@ -11,8 +11,7 @@ type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
 type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ? { user: BetterAuthSessionUser | any; session: S; transformError?: boolean }
+  ? ({ user: BetterAuthSessionUser; session: S; transformError?: false } | { user: unknown; session: S; transformError: true })
   : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.

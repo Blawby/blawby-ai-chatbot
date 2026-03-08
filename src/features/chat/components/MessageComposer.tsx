@@ -214,7 +214,7 @@ const MessageComposer = ({
       const label = (candidate.email ?? candidate.name).trim();
       // Use a more robust check that handles multi-word names and word boundaries
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`@${escapedLabel}(?:\\s|$)`);
+      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
       return regex.test(inputValue);
     });
 
@@ -442,7 +442,7 @@ const MessageComposer = ({
                       if (!candidate) return false;
                       const label = (candidate.email ?? candidate.name).trim();
                       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      const regex = new RegExp(`@${escapedLabel}(?:\\s|$)`);
+                      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
                       return regex.test(inputValue);
                     });
                     

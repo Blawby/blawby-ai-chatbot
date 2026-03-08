@@ -168,16 +168,18 @@ export const InspectorPanel = ({
     return member?.name ?? assignedTo;
   }, [conversation?.assigned_to, conversationMembers]);
 
+  const currentUserId = session?.transformError ? undefined : session?.user?.id;
+
   const currentAssignedLabel = assignedMemberLabel ?? (
     <span className="flex items-center gap-1">
       No one —{' '}
-      {session?.user?.id ? (
+      {currentUserId ? (
         <button 
           type="button" 
           className="text-accent-500 transition-colors hover:text-accent-600 hover:underline focus:outline-none"
           onClick={(e) => {
             e.stopPropagation();
-            void handleConversationAssignmentChange(session.user.id);
+            void handleConversationAssignmentChange(currentUserId);
           }}
         >
           Assign yourself
@@ -598,8 +600,8 @@ export const InspectorPanel = ({
                     <Textarea
                       className="w-full relative z-10"
                       value={notesDraft}
-                      onChange={(value) => onConversationInternalNotesChange?.(value)}
-                      onBlur={() => { void handleConversationNotesBlur(); }}
+                      onChange={(value) => setNotesDraft(value)}
+                      onBlur={() => { void handleConversationNotesBlur(notesDraft); }}
                       placeholder="Add internal notes..."
                       disabled={isSavingNotes}
                       autoFocus
