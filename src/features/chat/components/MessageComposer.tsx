@@ -288,7 +288,7 @@ const MessageComposer = ({
       );
       lastIndex = index + mention.length;
     }
-    parts.push(<span className="text-transparent">{inputValue.slice(lastIndex)}</span>);
+    parts.push(<span key={`final-${lastIndex}`} className="text-transparent">{inputValue.slice(lastIndex)}</span>);
     
     return parts;
   }, [inputValue, mentionCandidates]);

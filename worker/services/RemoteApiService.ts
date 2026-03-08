@@ -299,11 +299,13 @@ export class RemoteApiService {
       return [];
     }
 
-    return members.map((m: any) => ({
-      user_id: typeof m.userId === 'string' ? m.userId : m.user_id,
-      email: m.email,
-      role: m.role,
-    }));
+    return members
+      .filter((m: any) => typeof m.userId === 'string' || typeof m.user_id === 'string')
+      .map((m: any) => ({
+        user_id: (typeof m.userId === 'string' ? m.userId : m.user_id) as string,
+        email: m.email,
+        role: m.role,
+      }));
   }
 
   /**

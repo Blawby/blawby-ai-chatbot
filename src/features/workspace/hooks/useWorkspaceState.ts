@@ -54,11 +54,15 @@ export interface WorkspaceActions {
 export interface UseWorkspaceStateOptions {
   workspace: WorkspaceType;
   practiceId: string;
+  onNavigateToConversation?: (conversationId: string) => void;
+  onSetCurrentPractice?: (practice: Practice) => void;
 }
 
 export const useWorkspaceState = ({
   workspace,
   practiceId,
+  onNavigateToConversation,
+  onSetCurrentPractice,
 }: UseWorkspaceStateOptions): WorkspaceState & WorkspaceActions => {
   const { isPending: isSessionPending } = useSessionContext();
   const { 
@@ -91,8 +95,14 @@ export const useWorkspaceState = ({
     },
     
     navigateToConversation: (conversationId) => {
-      // Navigation logic would be handled by router
-      console.warn(`navigateToConversation called with ${conversationId}, but not implemented in useWorkspaceState`);
+      if (onNavigateToConversation) {
+        onNavigateToConversation(conversationId);
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          throw new Error('onNavigateToConversation callback is required for navigateToConversation action');
+        }
+        console.warn(`navigateToConversation called with ${conversationId}, but no callback provided`);
+      }
     },
     
     navigateToMatters: () => {
@@ -108,8 +118,14 @@ export const useWorkspaceState = ({
     },
     
     setCurrentPractice: (practice: Practice) => {
-      // This would normally update practice in management hook
-      console.warn('setCurrentPractice called but implementation is pending wiring to usePracticeManagement', practice);
+      if (onSetCurrentPractice) {
+        onSetCurrentPractice(practice);
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          throw new Error('onSetCurrentPractice callback is required for setCurrentPractice action');
+        }
+        console.warn('setCurrentPractice called but no callback provided', practice);
+      }
     },
     
     setCurrentDetails: (newDetails: PracticeDetails) => {
@@ -132,7 +148,7 @@ export const useWorkspaceState = ({
     setLoading: (loading) => {
       setIsLoading(loading);
     },
-  }), [setDetails]);
+  }), [setDetails, onNavigateToConversation, onSetCurrentPractice]);
 
   const state: WorkspaceState = {
     currentPractice,

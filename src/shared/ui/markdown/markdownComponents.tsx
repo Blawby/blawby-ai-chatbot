@@ -93,7 +93,6 @@ export const markdownComponents: Components = {
     const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
     
     const isMentionToken = isMention || isMentionLikeEmail;
-    console.log('[markdownComponents] link component. href:', hrefValue, 'text:', linkText, 'isMention:', isMention, 'isMentionLikeEmail:', isMentionLikeEmail);
     
     if (isMentionToken) {
       let cleanLabel = linkText.trim();
@@ -104,7 +103,7 @@ export const markdownComponents: Components = {
         cleanLabel = `@${cleanLabel}`;
       }
 
-      const pillClass = "inline-flex items-center rounded-full bg-accent-500/25 px-2 py-0 text-[0.85em] font-semibold leading-relaxed text-input-text no-underline mx-0.5 shadow-sm border border-accent-500/20 hover:bg-accent-500/30 transition-colors cursor-pointer whitespace-nowrap align-baseline";
+      const pillClass = "inline-flex items-center rounded-full bg-accent-500/25 px-2 py-0 text-[0.85em] font-semibold leading-relaxed text-input-text no-underline mx-0.5 shadow-sm border border-accent-500/20 whitespace-nowrap align-baseline";
 
       return (
         <span className={pillClass} title={cleanLabel}>

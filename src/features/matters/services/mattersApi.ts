@@ -296,7 +296,6 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
 };
 
 const extractMatterArray = (payload: unknown): BackendMatter[] => {
-  console.log('[mattersApi] extractMatterArray input:', payload);
   if (Array.isArray(payload)) {
     return payload.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
@@ -305,7 +304,6 @@ const extractMatterArray = (payload: unknown): BackendMatter[] => {
   const record = payload as Record<string, unknown>;
   
   // Try 'matters' key first (standard paginated response)
-  console.log("[mattersApi] Checking matters key:", Array.isArray(record.matters), record.matters);
   if (Array.isArray(record.matters)) {
     return record.matters.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
@@ -471,17 +469,16 @@ export const listMatters = async (
   params.set('page', String(options.page ?? 1));
   params.set('limit', String(options.limit ?? 20));
 
-  console.log(`[mattersApi] listMatters fetching for practice: ${practiceId}`);
-  const { data: payload } = await apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}/matters`, {
-    params: Object.fromEntries(params.entries()),
-    signal: options.signal
-  });
-  console.log('[mattersApi] listMatters raw payload:', payload);
+  const payload = await requestData(
+    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}/matters`, {
+      params: Object.fromEntries(params.entries()),
+      signal: options.signal
+    }),
+    'Failed to load matters'
+  );
+  
   const matters = extractMatterArray(payload);
-  console.log(`[mattersApi] extractMatterArray found ${matters.length} matters`);
-  const result = matters.map(normalizeMatter);
-  console.log('[mattersApi] listMatters success. Item count:', result.length);
-  return result;
+  return matters.map(normalizeMatter);
 };
 
 export const getMatter = async (

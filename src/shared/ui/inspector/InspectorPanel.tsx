@@ -144,7 +144,7 @@ export const InspectorPanel = ({
     ],
     [conversationMembers]
   );
-  console.log('[InspectorPanel] Render. Entity:', entityType, entityId, 'Practice:', practiceId, 'Matters:', matters.length);
+
 
   const currentTags = useMemo(
     () => Array.isArray(conversation?.tags) ? conversation.tags.filter((tag) => typeof tag === 'string' && tag.trim().length > 0) : [],
@@ -377,10 +377,12 @@ export const InspectorPanel = ({
     setIsSavingMatter(true);
     try {
       const nextId = value.trim().length > 0 ? value.trim() : null;
-      await updateConversationMatter(conversation.id, nextId);
-      console.log('[InspectorPanel] Matter updated successfully:', nextId);
+      if (onConversationMatterChange) {
+        await onConversationMatterChange(nextId);
+      } else {
+        await updateConversationMatter(conversation.id, nextId);
+      }
       setActiveConversationEditor(null);
-      // Wait a moment for cache to potentially catch up or let parent refresh
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to update linked matter');
     } finally {

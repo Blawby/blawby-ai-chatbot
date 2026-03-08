@@ -2,7 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import { useRef } from 'preact/hooks';
+import { useRef, useMemo } from 'preact/hooks';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
@@ -172,38 +172,27 @@ export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSess
   const client = getAuthClient();
   const session = client.useSession();
 
-  const prevSession = useRef(session);
-  const prevData = useRef<TypedSessionData | undefined>();
-
-  if (prevSession.current !== session || !prevData.current) {
-    prevSession.current = session;
-    const rawUser = session.data?.user as Record<string, unknown> | undefined;
-    let typedUser: BetterAuthSessionUser | undefined;
-
-    if (rawUser) {
-      try {
-        typedUser = transformSessionUser(rawUser);
-      } catch (error) {
-        console.error('[Auth] Failed to transform session user', {
-          error,
-          userId: typeof rawUser.id === 'string' ? rawUser.id : undefined
-        });
-      }
-    }
-
-    if (session.data && typedUser) {
-      prevData.current = {
+  const data = useMemo(() => {
+    if (!session.data?.user) return undefined;
+    
+    try {
+      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
+      return {
         ...session.data,
         user: typedUser
       } as TypedSessionData;
-    } else {
-      prevData.current = undefined;
+    } catch (error) {
+      console.error('[Auth] Failed to transform session user', {
+        error,
+        userId: (session.data.user as any)?.id
+      });
+      return undefined;
     }
-  }
+  }, [session.data]);
 
   return {
     ...session,
-    data: prevData.current
+    data
   };
 };
 

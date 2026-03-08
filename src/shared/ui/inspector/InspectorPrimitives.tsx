@@ -70,6 +70,8 @@ export const InspectorGroup = ({
               type="button"
               onClick={onToggle}
               disabled={disabled}
+              aria-expanded={isOpen}
+              aria-label="Toggle group options"
               className={`flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-white/[0.08] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-white/[0.08] text-input-text' : ''}`}
             >
               <Cog6ToothIcon className="h-4 w-4" />

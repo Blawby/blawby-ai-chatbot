@@ -257,7 +257,6 @@ export function Combobox({
 
   const filteredOptions = useMemo(() => {
     const q = normalize(query);
-    console.log('[Combobox] Filtering options. Query:', q, 'Total options:', options.length);
     if (!q || !searchable) return options;
     return options.filter((o) =>
       normalize(`${o.label} ${o.value} ${o.meta ?? ''}`).includes(q)

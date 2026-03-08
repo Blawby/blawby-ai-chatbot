@@ -74,7 +74,7 @@ export function useConversations({
   // Ref that always points to the latest fetchConversations callback.
   // Initialised with a no-op; the effect below keeps it current every render.
   // This lets the fetch effect below depend only on primitive query params.
-  const fetchConversationsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const fetchConversationsRef = useRef<(signal?: AbortSignal) => Promise<void>>(() => Promise.resolve());
   useEffect(() => {
     fetchConversationsRef.current = fetchConversations;
   });
@@ -95,7 +95,7 @@ export function useConversations({
   }, []);
 
   // Fetch conversations
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (signal?: AbortSignal) => {
     if (!enabled) {
       setIsLoading(false);
       return;
@@ -162,6 +162,7 @@ export function useConversations({
         method: 'GET',
         headers,
         credentials: 'include',
+        signal,
       });
 
       if (!response.ok) {
@@ -214,7 +215,7 @@ export function useConversations({
         setError(null);
       }
     } catch (err) {
-      if (isDisposedRef.current) return;
+      if (isDisposedRef.current || (err instanceof DOMException && err.name === 'AbortError')) return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversations';
       setError(errorMessage);
       onErrorRef.current?.(errorMessage);
@@ -340,13 +341,13 @@ export function useConversations({
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    void fetchConversationsRef.current();
+    void fetchConversationsRef.current(controller.signal);
 
     return () => {
       controller.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [practiceId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList]);
+  }, [practiceId, sessionPracticeId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList, limit, offset]);
 
   return {
     conversations,
