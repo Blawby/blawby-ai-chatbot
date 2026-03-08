@@ -4,6 +4,7 @@ import { useTypedSession } from '@/shared/lib/authClient';
 import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
+import type { BetterAuthSessionUser } from '@/shared/types/user';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -47,8 +48,12 @@ const buildSessionContextValue = ({
   isPending: boolean;
   error: unknown;
 }): SessionContextValue => {
-  const userRecord = (sessionData?.user as unknown as Record<string, unknown> | undefined) ?? undefined;
-  const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
+  // Safely narrow to fully-typed user, checking the new transformError discriminator
+  const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
+  const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
+  
+  const userRecord = (typedUser as unknown as Record<string, unknown> | undefined) ?? undefined;
+  const isAnonymous = typedUser?.isAnonymous ?? !sessionData?.user;
   const stripeCustomerId =
     (typeof userRecord?.stripeCustomerId === 'string'
       ? userRecord.stripeCustomerId
@@ -81,8 +86,11 @@ const buildSessionContextValue = ({
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
 
+  const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
+  const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
+
   const sessionKey =
-    sessionData?.user?.id ??
+    typedUser?.id ??
     (sessionData?.session as { id?: string } | undefined)?.id ??
     null;
 
@@ -110,17 +118,20 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   const value = useMemo(() => buildSessionContextValue({ sessionData, isPending, error }), [sessionData, isPending, error]);
 
+  const valueIsTransformError = value.session && 'transformError' in value.session && value.session.transformError === true;
+  const valueTypedUser = (valueIsTransformError ? null : value.session?.user) as BetterAuthSessionUser | null | undefined;
+
   useEffect(() => {
-    if (!value.session?.user?.id) return;
-    if (!value.session?.user?.isAnonymous) return;
-    rememberAnonymousUserId(value.session.user.id);
+    if (!valueTypedUser?.id) return;
+    if (!valueTypedUser?.isAnonymous) return;
+    rememberAnonymousUserId(valueTypedUser.id);
     const anonSessionId = typeof (value.session.session as { id?: string } | null | undefined)?.id === 'string'
       ? (value.session.session as { id: string }).id
       : null;
     if (anonSessionId) {
       rememberAnonymousSessionId(anonSessionId);
     }
-  }, [value.session?.session, value.session?.user?.id, value.session?.user?.isAnonymous]);
+  }, [value.session?.session, valueTypedUser?.id, valueTypedUser?.isAnonymous]);
 
   return (
     <SessionContext.Provider value={value}>

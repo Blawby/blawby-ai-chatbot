@@ -10,8 +10,8 @@ import { getWorkerApiUrl } from '@/config/urls';
 type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
-type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
-  ? ({ user: BetterAuthSessionUser; session: S; transformError?: false } | { user: unknown; session: S; transformError: true })
+type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
+  ? ({ user: BetterAuthSessionUser; session: S; transformError?: false } | { user: unknown; session: S; transformError: true }) | Extract<AuthSessionData, null | undefined>
   : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
