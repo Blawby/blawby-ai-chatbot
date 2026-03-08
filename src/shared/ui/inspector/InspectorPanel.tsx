@@ -7,7 +7,7 @@ import { isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
-import { Combobox, type ComboboxOption, Textarea } from '@/shared/ui/input';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input';
 import {
   InfoRow,
   InspectorEditableRow,
@@ -42,7 +42,6 @@ type InspectorPanelProps = {
   onConversationAssignedToChange?: (assignedTo: string | null) => Promise<void> | void;
   onConversationPriorityChange?: (priority: 'low' | 'normal' | 'high' | 'urgent') => Promise<void> | void;
   onConversationTagsChange?: (tags: string[]) => Promise<void> | void;
-  onConversationInternalNotesChange?: (internalNotes: string | null) => Promise<void> | void;
   onConversationMatterChange?: (matterId: string | null) => Promise<void> | void;
   matterClientName?: string | null;
   matterAssigneeNames?: string[];
@@ -84,7 +83,6 @@ export const InspectorPanel = ({
   onConversationAssignedToChange,
   onConversationPriorityChange,
   onConversationTagsChange,
-  onConversationInternalNotesChange,
   onConversationMatterChange,
   matterClientName,
   matterAssigneeNames,
@@ -114,10 +112,8 @@ export const InspectorPanel = ({
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [isSavingPriority, setIsSavingPriority] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingMatter, setIsSavingMatter] = useState(false);
-  const [notesDraft, setNotesDraft] = useState(conversation?.internal_notes ?? '');
-  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'notes' | 'matter' | null>(null);
+  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | null>(null);
   const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
@@ -198,12 +194,6 @@ export const InspectorPanel = ({
     () => (currentTags.length > 0 ? currentTags.join(', ') : 'No tags'),
     [currentTags]
   );
-  const currentNotesLabel = useMemo(() => {
-    const raw = conversation?.internal_notes?.trim();
-    if (!raw) return 'No notes';
-    if (raw.length <= 72) return raw;
-    return `${raw.slice(0, 69)}...`;
-  }, [conversation?.internal_notes]);
 
   useEffect(() => {
     if (lastPracticeIdRef.current !== practiceId) {
@@ -217,10 +207,6 @@ export const InspectorPanel = ({
   useEffect(() => {
     setActiveConversationEditor(null);
   }, [conversation?.id, entityId, entityType]);
-
-  useEffect(() => {
-    setNotesDraft(conversation?.internal_notes ?? '');
-  }, [conversation?.id, conversation?.internal_notes]);
 
   useEffect(() => {
     setUserDetail(null);
@@ -356,21 +342,6 @@ export const InspectorPanel = ({
       setError(nextError instanceof Error ? nextError.message : 'Failed to update tags');
     } finally {
       setIsSavingTags(false);
-    }
-  };
-  const handleConversationNotesBlur = async (value: string) => {
-    if (!onConversationInternalNotesChange) return;
-    const nextValue = value.trim().length > 0 ? value.trim() : null;
-    const previousValue = conversation?.internal_notes?.trim() || null;
-    if (nextValue === previousValue) return;
-    setError(null);
-    setIsSavingNotes(true);
-    try {
-      await onConversationInternalNotesChange(nextValue);
-    } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update internal notes');
-    } finally {
-      setIsSavingNotes(false);
     }
   };
   const handleConversationMatterChange = async (value: string) => {
@@ -585,29 +556,6 @@ export const InspectorPanel = ({
                   </InspectorEditableRow>
                 </InspectorGroup>
 
-                <InspectorGroup
-                  label="Internal Notes"
-                  onToggle={() => setActiveConversationEditor((prev) => prev === 'notes' ? null : 'notes')}
-                  isOpen={activeConversationEditor === 'notes'}
-                  disabled={isSavingNotes}
-                >
-                  <InspectorEditableRow
-                    label=""
-                    summary={currentNotesLabel}
-                    summaryMuted={!notesDraft}
-                    isOpen={activeConversationEditor === 'notes'}
-                  >
-                    <Textarea
-                      className="w-full relative z-10"
-                      value={notesDraft}
-                      onChange={(value) => setNotesDraft(value)}
-                      onBlur={() => { void handleConversationNotesBlur(notesDraft); }}
-                      placeholder="Add internal notes..."
-                      disabled={isSavingNotes}
-                      autoFocus
-                    />
-                  </InspectorEditableRow>
-                </InspectorGroup>
               </div>
             )}
           </div>

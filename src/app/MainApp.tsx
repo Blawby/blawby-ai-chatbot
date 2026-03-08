@@ -38,7 +38,7 @@ import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceCon
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
@@ -109,7 +109,7 @@ export function MainApp({
   useEffect(() => { showErrorRef.current = showError; }, [showError]);
 
   // ── practice data ──────────────────────────────────────────────────────────
-  const { currentPractice, getMembers, fetchMembers } = usePracticeManagement({
+  const { currentPractice } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
     practiceSlug: workspace === 'practice'
       ? (practiceSlug ?? null)
@@ -199,13 +199,6 @@ export function MainApp({
   useEffect(() => {
     setConversationMode(null);
   }, [conversationResetKey]);
-
-  useEffect(() => {
-    if (!isPracticeWorkspace || !practiceId) return;
-    void fetchMembers(practiceId).catch((error) => {
-      console.warn('[MainApp] Failed to fetch members for mentions', error);
-    });
-  }, [fetchMembers, isPracticeWorkspace, practiceId]);
 
   const handleSetupError = useCallback((msg: string) => {
     showErrorRef.current?.(msg);
@@ -460,17 +453,40 @@ export function MainApp({
     });
   }, [activeConversationId, isCreatingConversation, createConversation, sendMessage, isPracticeWorkspace]);
 
-  const mentionCandidates = useMemo(() => {
-    if (!isPracticeWorkspace || !practiceId) return [];
-    return getMembers(practiceId)
-      .filter((member) => member.role !== 'client')
-      .map((member) => ({
-        userId: member.userId,
-        name: member.name?.trim() || member.email,
-        email: member.email,
-      }))
-      .filter((entry) => entry.userId.trim().length > 0 && entry.name.trim().length > 0);
-  }, [getMembers, isPracticeWorkspace, practiceId]);
+  const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
+  useEffect(() => {
+    if (!isPracticeWorkspace || !practiceId || !activeConversationId) {
+      setMentionCandidates([]);
+      return;
+    }
+
+    const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const participants = await getConversationParticipants(activeConversationId, practiceId, { signal: controller.signal });
+        const nextMentionCandidates = participants
+          .filter((participant) => participant.role !== 'client')
+          .map((participant) => ({
+            userId: participant.userId,
+            name: (participant.name ?? '').trim(),
+          }))
+          .filter((participant) => (
+            participant.userId.trim().length > 0
+            && participant.name.length > 0
+            && !looksLikeEmail(participant.name)
+          ));
+        setMentionCandidates(nextMentionCandidates);
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError') return;
+        console.warn('[MainApp] Failed to load conversation participants for mentions', error);
+        setMentionCandidates([]);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [activeConversationId, isPracticeWorkspace, practiceId]);
 
   const handleUploadError = useCallback((error: unknown) => {
     console.error('File upload error:', error);

@@ -1193,6 +1193,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             : (typeof (member.user as Record<string, unknown> | undefined)?.email === 'string'
               ? (member.user as Record<string, unknown>).email as string
               : '');
+          const userRecord = (member.user && typeof member.user === 'object')
+            ? (member.user as Record<string, unknown>)
+            : null;
+          const normalizedName = typeof member.name === 'string'
+            ? member.name
+            : (typeof userRecord?.name === 'string' ? userRecord.name : undefined);
+          const normalizedImage = typeof member.image === 'string'
+            ? member.image
+            : (typeof userRecord?.image === 'string' ? userRecord.image : undefined);
 
           if (!userId) {
             console.error('Invalid or missing member userId:', member);
@@ -1213,8 +1222,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             userId,
             role: normalizedRole,
             email,
-            name: typeof member.name === 'string' ? member.name : undefined,
-            image: typeof member.image === 'string' ? member.image : undefined,
+            name: normalizedName,
+            image: normalizedImage,
             createdAt: Number.isFinite(createdAt ?? NaN) ? (createdAt as number) : Date.now(),
           } as Member;
         })

@@ -66,8 +66,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   size = 'md',
 }) => {
   const { component: ReactMarkdown, error: markdownError } = useReactMarkdown();
-
-  if (!text) return null;
+  const sourceText = text ?? '';
 
   const classes = [
     'chat-markdown',
@@ -76,7 +75,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
     className,
   ].filter(Boolean).join(' ');
 
-  const hasVisibleText = text.trim().length > 0;
+  const hasVisibleText = sourceText.trim().length > 0;
   const streamingCursor = (isStreaming && !hasVisibleText)
     ? <span className="chat-cursor" aria-hidden="true" />
     : null;
@@ -84,21 +83,26 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   // Pre-process text to wrap @mentions in a specific link format that doesn't split the @
   // Skip formatting inside inline code and code blocks.
   const processedText = useMemo(() => {
-    if (!text) return '';
+    if (!sourceText) return '';
     
     // Split text by markdown code blocks (```...```) or inline code (`...`)
     // The regex captures the code segment, preserving it during split
-    const parts = text.split(/(```[\s\S]*?```|`[^`]*`)/g);
+    const parts = sourceText.split(/(```[\s\S]*?```|`[^`]*`)/g);
     
     return parts.map((part, index) => {
       // Even indices are text outside of code blocks/spans, odd indices are the captured code
       if (index % 2 === 0) {
-        // Match @ followed by an email address and wrap it in a mention:// link
-        return part.replace(/(^|\s)(@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1[$2](mention://$2)');
+        // Match @Name-style mentions (allow up to 3 words) and wrap in mention:// links
+        return part.replace(
+          /(^|\s)(@(?:[A-Za-z][A-Za-z0-9._'-]*)(?:\s+[A-Za-z][A-Za-z0-9._'-]*){0,2})(?=(?:\s|$|[.,!?;:]))/g,
+          '$1[$2](mention://$2)'
+        );
       }
       return part; // Leave code segments unmodified
     }).join('');
-  }, [text]);
+  }, [sourceText]);
+
+  if (!sourceText) return null;
 
   return (
     <div className={classes}>

@@ -781,6 +781,68 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse({ logged: true });
   }
 
+  // GET /api/conversations/:id/participants - Get participant profiles for a conversation
+  if (segments.length === 4 && segments[3] === 'participants' && request.method === 'GET') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    // Allow if caller is either a participant OR a staff practice member.
+    let hasAccess = false;
+    try {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      hasAccess = true;
+    } catch (error) {
+      if (!(error instanceof HttpError) || error.status !== 403) {
+        throw error;
+      }
+    }
+    if (!hasAccess) {
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+      if (!isStaffMemberRole(membership.memberRole)) {
+        throw HttpErrors.forbidden('User is not authorized to view participants for this conversation');
+      }
+    }
+
+    const [conversation, members] = await Promise.all([
+      conversationService.getConversation(conversationId, practiceId),
+      RemoteApiService.getPracticeMembers(env, practiceId, request)
+    ]);
+
+    const participantIds = Array.from(new Set([
+      ...conversation.participants.filter((id) => typeof id === 'string' && id.trim().length > 0),
+      ...(conversation.user_id ? [conversation.user_id] : [])
+    ]));
+    const staffMemberIds = members
+      .filter((member) => member.role !== 'client')
+      .map((member) => member.user_id)
+      .filter((id) => typeof id === 'string' && id.trim().length > 0);
+    const mentionableUserIds = Array.from(new Set([
+      ...participantIds,
+      ...staffMemberIds
+    ]));
+    const memberById = new Map(members.map((member) => [member.user_id, member]));
+
+    const participants = mentionableUserIds.map((participantUserId) => {
+      const member = memberById.get(participantUserId);
+      return {
+        userId: participantUserId,
+        role: member?.role ?? null,
+        name: member?.name ?? null,
+        image: member?.image ?? null,
+      };
+    });
+
+    return createJsonResponse({
+      conversationId,
+      practiceId,
+      participants
+    });
+  }
+
   // POST /api/conversations/:id/participants - Add participants to a conversation
   if (segments.length === 4 && segments[3] === 'participants' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {

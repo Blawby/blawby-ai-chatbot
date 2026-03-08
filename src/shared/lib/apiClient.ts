@@ -362,6 +362,50 @@ export async function updateConversationMatter(
   return data as unknown as Conversation;
 }
 
+export type ConversationParticipant = {
+  userId: string;
+  role?: string | null;
+  name?: string | null;
+  image?: string | null;
+};
+
+export async function getConversationParticipants(
+  conversationId: string,
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<ConversationParticipant[]> {
+  if (!conversationId) {
+    throw new Error('conversationId is required');
+  }
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+
+  const response = await apiClient.get(
+    `/api/conversations/${encodeURIComponent(conversationId)}/participants`,
+    {
+      params: { practiceId },
+      signal: config?.signal
+    }
+  );
+  const payload = unwrapApiData(response.data);
+  const rows = isRecord(payload) && Array.isArray(payload.participants)
+    ? payload.participants
+    : (Array.isArray(payload) ? payload : []);
+
+  return rows
+    .filter((row): row is Record<string, unknown> => isRecord(row))
+    .map((row) => ({
+      userId: typeof row.userId === 'string'
+        ? row.userId
+        : (typeof row.user_id === 'string' ? row.user_id : ''),
+      role: typeof row.role === 'string' ? row.role : null,
+      name: typeof row.name === 'string' ? row.name : null,
+      image: typeof row.image === 'string' ? row.image : null,
+    }))
+    .filter((row) => row.userId.trim().length > 0);
+}
+
 export async function listMatterConversations(
   practiceId: string,
   matterId: string,

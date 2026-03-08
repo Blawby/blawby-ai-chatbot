@@ -94,6 +94,7 @@ const MessageComposer = ({
   const [mentionFocusIndex, setMentionFocusIndex] = useState(0);
   const [selectedMentionUserIds, setSelectedMentionUserIds] = useState<string[]>([]);
   const highlighterRef = useRef<HTMLDivElement>(null);
+  const getMentionLabel = useCallback((candidate: { name: string }) => candidate.name.trim(), []);
 
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
@@ -107,13 +108,12 @@ const MessageComposer = ({
   const filteredMentionCandidates = useMemo(() => {
     if (!mentionMenuOpen) return [];
     const normalizedQuery = mentionQuery.trim().toLowerCase();
-    const base = mentionCandidates.filter((candidate) => candidate.userId.trim().length > 0);
+    const base = mentionCandidates.filter((candidate) => candidate.userId.trim().length > 0 && candidate.name.trim().length > 0);
     if (!normalizedQuery) return base.slice(0, 8);
     return base
       .filter((candidate) => {
         const name = candidate.name.toLowerCase();
-        const email = (candidate.email ?? '').toLowerCase();
-        return name.includes(normalizedQuery) || email.includes(normalizedQuery);
+        return name.includes(normalizedQuery);
       })
       .slice(0, 8);
   }, [mentionCandidates, mentionMenuOpen, mentionQuery]);
@@ -211,7 +211,8 @@ const MessageComposer = ({
     const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
       const candidate = mentionCandidates.find(c => c.userId === id);
       if (!candidate) return false;
-      const label = (candidate.email ?? candidate.name).trim();
+      const label = getMentionLabel(candidate);
+      if (!label) return false;
       // Use a more robust check that handles multi-word names and word boundaries
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
@@ -240,7 +241,8 @@ const MessageComposer = ({
     const caretIndex = textarea.selectionStart ?? currentValue.length;
     const beforeMention = currentValue.slice(0, mentionStartIndex);
     const afterMention = currentValue.slice(caretIndex);
-    const mentionLabel = (candidate.email ?? candidate.name).trim();
+    const mentionLabel = getMentionLabel(candidate);
+    if (!mentionLabel) return;
     const mentionText = `@${mentionLabel} `;
     const nextValue = `${beforeMention}${mentionText}${afterMention}`;
     const nextCaret = (beforeMention + mentionText).length;
@@ -258,12 +260,12 @@ const MessageComposer = ({
       textarea.setSelectionRange(nextCaret, nextCaret);
       resizeTextarea(textarea);
     });
-  }, [closeMentionMenu, filteredMentionCandidates, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
+  }, [closeMentionMenu, filteredMentionCandidates, getMentionLabel, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
 
   const highlightedContent = useMemo(() => {
     if (!inputValue) return null;
     
-    const candidates = mentionCandidates?.map(c => (c.email ?? c.name).trim()) ?? [];
+    const candidates = mentionCandidates?.map((candidate) => getMentionLabel(candidate)).filter(Boolean) ?? [];
     if (candidates.length === 0) {
       return <span className="text-transparent">{inputValue}</span>;
     }
@@ -282,7 +284,7 @@ const MessageComposer = ({
       
       parts.push(<span key={`text-${index}`} className="text-transparent">{inputValue.slice(lastIndex, index)}</span>);
       parts.push(
-        <span key={`mention-${index}`} className="rounded-[4px] bg-accent-500/20 text-transparent">
+        <span key={`mention-${index}`} className="nav-item-active rounded-[6px] px-0.5 ring-1 ring-accent-400/25 text-transparent">
           {mention}
         </span>
       );
@@ -291,7 +293,7 @@ const MessageComposer = ({
     parts.push(<span key={`final-${lastIndex}`} className="text-transparent">{inputValue.slice(lastIndex)}</span>);
     
     return parts;
-  }, [inputValue, mentionCandidates]);
+  }, [getMentionLabel, inputValue, mentionCandidates]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -440,7 +442,8 @@ const MessageComposer = ({
                     const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
                       const candidate = mentionCandidates.find(c => c.userId === id);
                       if (!candidate) return false;
-                      const label = (candidate.email ?? candidate.name).trim();
+                      const label = getMentionLabel(candidate);
+                      if (!label) return false;
                       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                       const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
                       return regex.test(inputValue);
@@ -479,9 +482,6 @@ const MessageComposer = ({
                         }`}
                       >
                         <span className="truncate">{candidate.name}</span>
-                        {candidate.email ? (
-                          <span className="ml-2 truncate text-xs text-input-placeholder">{candidate.email}</span>
-                        ) : null}
                       </button>
                     ))}
                   </div>
