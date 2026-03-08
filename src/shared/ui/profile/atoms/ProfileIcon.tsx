@@ -18,7 +18,7 @@ export const ProfileIcon = ({
 }: ProfileIconProps) => {
   return (
     <span className={`flex-shrink-0 ${className}`}>
-      <Icon icon={icon} className="w-4 h-4" />
+      <Icon icon={icon} className="w-4 h-4" aria-hidden="true" />
     </span>
   );
 };
