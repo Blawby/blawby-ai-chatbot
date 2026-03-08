@@ -47,9 +47,14 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     || (typeof window !== 'undefined' ? window.location.origin : '')
   ).replace(/\/+$/, '');
   const widgetLoaderSrc = `${widgetLoaderBaseUrl}/widget-loader.js`;
+  const widgetBaseUrl = new URL(
+    widgetLoaderSrc,
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+  ).origin;
 
   const messengerSnippet = slug ? `<script>
   window.BlawbyWidget = {
+    baseUrl: ${JSON.stringify(widgetBaseUrl)},
     practiceSlug: ${JSON.stringify(slug)},
   };
 </script>

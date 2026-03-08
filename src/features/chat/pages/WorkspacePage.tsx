@@ -1356,7 +1356,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             onClose={handleCloseConversationList}
             onSelectConversation={handleSelectConversation}
             onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-            showSendMessageButton={false}
+            showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
             activeConversationId={activeConversationId}
             showTitle={showConversationListTitle}
             headerLeftControls={mobileConversationHeaderLeftControl}
@@ -1557,7 +1557,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           onSelectConversation={handleSelectConversation}
           onSendMessage={() => handleStartConversation('ASK_QUESTION')}
           showBackButton={false}
-          showSendMessageButton={false}
+          showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
           activeConversationId={activeConversationId}
           showTitle={showConversationListTitle}
           headerLeftControls={mobileConversationHeaderLeftControl}
