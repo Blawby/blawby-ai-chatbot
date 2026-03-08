@@ -98,10 +98,7 @@ export const useWorkspaceState = ({
       if (onNavigateToConversation) {
         onNavigateToConversation(conversationId);
       } else {
-        if (process.env.NODE_ENV === 'development') {
-          throw new Error('onNavigateToConversation callback is required for navigateToConversation action');
-        }
-        console.warn(`navigateToConversation called with ${conversationId}, but no callback provided`);
+        console.warn('navigateToConversation called but no callback provided');
       }
     },
     
@@ -121,10 +118,7 @@ export const useWorkspaceState = ({
       if (onSetCurrentPractice) {
         onSetCurrentPractice(practice);
       } else {
-        if (process.env.NODE_ENV === 'development') {
-          throw new Error('onSetCurrentPractice callback is required for setCurrentPractice action');
-        }
-        console.warn('setCurrentPractice called but no callback provided', practice);
+        console.warn('setCurrentPractice called but no callback provided');
       }
     },
     
@@ -133,7 +127,7 @@ export const useWorkspaceState = ({
       if (typeof setDetails === 'function') {
         setDetails(newDetails);
       } else {
-        console.warn('setCurrentDetails called but setDetails is not available', newDetails);
+        console.warn('setCurrentDetails called but setDetails is not available');
       }
     },
     
