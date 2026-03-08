@@ -3,10 +3,13 @@ import type { FunctionComponent } from 'preact';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
 
+type UrlTransform = (url: string, key: string, node: unknown) => string;
+
 // Custom hook to dynamically import react-markdown on client
 function useReactMarkdown() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
+  const [defaultUrlTransform, setDefaultUrlTransform] = useState<UrlTransform | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,6 +20,7 @@ function useReactMarkdown() {
         const mod = await import('react-markdown');
         if (mounted) {
           setReactMarkdown(() => mod.default);
+          setDefaultUrlTransform(() => mod.defaultUrlTransform ?? null);
           setError(null);
         }
       } catch (err) {
@@ -24,6 +28,7 @@ function useReactMarkdown() {
           const errorMsg = err instanceof Error ? err.message : 'Failed to load markdown component';
           setError(errorMsg);
           setReactMarkdown(null);
+          setDefaultUrlTransform(null);
         }
       }
     };
@@ -35,7 +40,7 @@ function useReactMarkdown() {
     };
   }, []);
 
-  return { component: ReactMarkdown, error };
+  return { component: ReactMarkdown, defaultUrlTransform, error };
 }
 
 interface ChatMarkdownProps {
@@ -65,7 +70,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   variant = 'default',
   size = 'md',
 }) => {
-  const { component: ReactMarkdown, error: markdownError } = useReactMarkdown();
+  const { component: ReactMarkdown, defaultUrlTransform, error: markdownError } = useReactMarkdown();
   const sourceText = text ?? '';
 
   const classes = [
@@ -109,7 +114,14 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
       {markdownError ? (
         <div className="text-red-500 text-sm">Failed to load markdown: {markdownError}</div>
       ) : ReactMarkdown ? (
-        <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+        <ReactMarkdown
+          components={markdownComponents}
+          remarkPlugins={[remarkGfm]}
+          urlTransform={(url, key, node) => {
+            if (url.startsWith('mention://')) return url;
+            return defaultUrlTransform ? defaultUrlTransform(url, key, node) : url;
+          }}
+        >
           {processedText}
         </ReactMarkdown>
       ) : (
