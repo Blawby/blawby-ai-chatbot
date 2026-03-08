@@ -146,7 +146,7 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
     
     try {
       if (onSaveBasics) {
-        const accentColor = normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37';
+        const accentColor = normalizeAccentColor(details?.accentColor || practice?.accentColor) ?? '#D4AF37';
         await onSaveBasics({
           name: practice?.name ?? '',
           slug: practice?.slug ?? '',

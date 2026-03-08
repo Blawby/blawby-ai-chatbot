@@ -84,7 +84,7 @@ export const markdownComponents: Components = {
     const isEmailText = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
     const isAtEmailText = /^@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
     const isMention = Boolean(hrefValue?.startsWith('mention://'));
-    const isMentionLikeMailto = Boolean(hrefValue?.startsWith('mailto:') && (isEmailText || isAtEmailText));
+    const isMentionLikeMailto = Boolean(hrefValue?.startsWith('mailto:') && isAtEmailText);
     const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
     if (isMention || isMentionLikeMailto) {
       const mentionLabel = linkText.startsWith('@') ? linkText : `@${linkText}`;

@@ -1736,10 +1736,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           const toAdd = [...next].filter((tag) => !current.has(tag));
           const toRemove = [...current].filter((tag) => !next.has(tag));
           
-          await Promise.all([
-            ...toAdd.map((tag) => addConversationTag(selectedConversation!.id, practiceId, tag)),
-            ...toRemove.map((tag) => removeConversationTag(selectedConversation!.id, practiceId, tag))
-          ]);
+          for (const tag of toAdd) {
+            await addConversationTag(selectedConversation.id, practiceId, tag);
+          }
+          for (const tag of toRemove) {
+            await removeConversationTag(selectedConversation.id, practiceId, tag);
+          }
           
           await refreshConversations();
         } catch (error) {

@@ -24,7 +24,7 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInvitations = useCallback(async () => {
+  const fetchInvitations = useCallback(async (signal?: AbortSignal) => {
     if (!practiceId || !session?.user?.id || isAnonymous) {
       setInvitations([]);
       return;
@@ -33,7 +33,7 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
     setIsLoading(true);
     setError(null);
     try {
-      const rawInvitations = await listPracticeInvitations(practiceId);
+      const rawInvitations = await listPracticeInvitations(practiceId, { signal });
       const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
       const validStatuses: Array<'pending' | 'accepted' | 'declined'> = ['pending', 'accepted', 'declined'];
 
@@ -74,10 +74,17 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
 
       setInvitations(validatedInvitations);
     } catch (nextError: unknown) {
+      if (nextError instanceof Error && nextError.name === 'AbortError') {
+        return;
+      }
       setError(nextError instanceof Error ? nextError.message : 'Failed to fetch invitations');
       setInvitations([]);
     } finally {
-      setIsLoading(false);
+      if (signal && !signal.aborted) {
+        setIsLoading(false);
+      } else if (!signal) {
+        setIsLoading(false);
+      }
     }
   }, [isAnonymous, practiceId, session?.user?.id]);
 
@@ -100,7 +107,9 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
   }, [fetchInvitations]);
 
   useEffect(() => {
-    void fetchInvitations();
+    const controller = new AbortController();
+    void fetchInvitations(controller.signal);
+    return () => controller.abort();
   }, [fetchInvitations]);
 
   return {

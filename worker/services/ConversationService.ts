@@ -534,8 +534,19 @@ export class ConversationService {
     }
 
     if (updates.assignedTo !== undefined) {
-      updatesList.push('assigned_to = ?');
-      bindings.push(updates.assignedTo ? updates.assignedTo.trim() : null);
+      if (updates.assignedTo && updates.assignedTo.trim()) {
+        const trimmedId = updates.assignedTo.trim();
+        // Verify user is a member of the practice
+        const members = await RemoteApiService.getPracticeMembers(this.env, practiceId);
+        const isMember = members.some(m => m.user_id === trimmedId);
+        if (!isMember) {
+          throw HttpErrors.badRequest(`User ${trimmedId} is not a member of practice ${practiceId}`);
+        }
+        updatesList.push('assigned_to = ?');
+        bindings.push(trimmedId);
+      } else {
+        updatesList.push('assigned_to = NULL');
+      }
     }
 
     if (updates.priority !== undefined) {
@@ -618,15 +629,24 @@ export class ConversationService {
     practiceId: string,
     mentionUserIds: string[]
   ): Promise<Conversation> {
-    const normalizedMentionUserIds = Array.from(
+    const rawMentionUserIds = Array.from(
       new Set(
         mentionUserIds
           .map((userId) => userId.trim())
           .filter((userId) => userId.length > 0)
       )
     );
+
+    // Fetch practice members to validate mentions
+    const members = await RemoteApiService.getPracticeMembers(this.env, practiceId);
+    const memberIds = new Set(members.map(m => m.user_id));
+    
+    // Filter to only include valid members
+    const normalizedMentionUserIds = rawMentionUserIds.filter(id => memberIds.has(id));
+
     const conversation = await this.getConversation(conversationId, practiceId);
     const metadata = { ...(conversation.user_info ?? {}) } as Record<string, unknown>;
+    
     if (normalizedMentionUserIds.length > 0) {
       metadata.mentioned_user_ids = normalizedMentionUserIds;
     } else {

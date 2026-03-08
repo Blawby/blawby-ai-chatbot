@@ -650,11 +650,17 @@ export async function setActivePractice(practiceId: string): Promise<void> {
   await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}/active`);
 }
 
-export async function listPracticeInvitations(practiceId: string): Promise<unknown[]> {
+export async function listPracticeInvitations(
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<unknown[]> {
   if (!practiceId || practiceId.trim().length === 0) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/invitations`);
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
+    { signal: config?.signal }
+  );
   const payload = unwrapApiData(response.data);
   if (Array.isArray(payload)) {
     return payload;

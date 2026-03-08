@@ -82,6 +82,8 @@ export const useWorkspaceState = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { setDetails } = practiceDetails;
+  
   // Actions
   const actions: WorkspaceActions = useMemo(() => ({
     navigateToView: (view) => {
@@ -112,8 +114,8 @@ export const useWorkspaceState = ({
     
     setCurrentDetails: (newDetails: PracticeDetails) => {
       // Use the setDetails action from usePracticeDetails hook if available
-      if (practiceDetails && typeof practiceDetails.setDetails === 'function') {
-        practiceDetails.setDetails(newDetails);
+      if (typeof setDetails === 'function') {
+        setDetails(newDetails);
       } else {
         console.warn('setCurrentDetails called but setDetails is not available', newDetails);
       }
@@ -130,7 +132,7 @@ export const useWorkspaceState = ({
     setLoading: (loading) => {
       setIsLoading(loading);
     },
-  }), [practiceDetails]);
+  }), [setDetails]);
 
   const state: WorkspaceState = {
     currentPractice,
