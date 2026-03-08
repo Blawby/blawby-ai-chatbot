@@ -51,9 +51,12 @@ const buildSessionContextValue = ({
   // Safely narrow to fully-typed user, checking the new transformError discriminator
   const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
   const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
+  const rawUserRecord = isTransformError ? (sessionData?.user as Record<string, unknown> | undefined) : undefined;
   
   const userRecord = (typedUser as unknown as Record<string, unknown> | undefined) ?? undefined;
-  const isAnonymous = typedUser?.isAnonymous ?? !sessionData?.user;
+  const isAnonymous = isTransformError
+    ? (rawUserRecord?.isAnonymous as boolean | undefined ?? !sessionData?.user)
+    : (typedUser?.isAnonymous ?? !sessionData?.user);
   const stripeCustomerId =
     (typeof userRecord?.stripeCustomerId === 'string'
       ? userRecord.stripeCustomerId
@@ -88,9 +91,11 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
   const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
+  const rawUserRecord1 = isTransformError ? (sessionData?.user as Record<string, unknown> | undefined) : undefined;
+  const currentUserId1 = isTransformError ? (rawUserRecord1?.id as string | undefined) : typedUser?.id;
 
   const sessionKey =
-    typedUser?.id ??
+    currentUserId1 ??
     (sessionData?.session as { id?: string } | undefined)?.id ??
     null;
 
@@ -120,18 +125,21 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   const valueIsTransformError = value.session && 'transformError' in value.session && value.session.transformError === true;
   const valueTypedUser = (valueIsTransformError ? null : value.session?.user) as BetterAuthSessionUser | null | undefined;
+  const rawUserRecord2 = valueIsTransformError ? (value.session?.user as Record<string, unknown> | undefined) : undefined;
+  const currentUserId2 = valueIsTransformError ? (rawUserRecord2?.id as string | undefined) : valueTypedUser?.id;
+  const isAnon2 = valueIsTransformError ? (rawUserRecord2?.isAnonymous as boolean | undefined ?? !value.session?.user) : valueTypedUser?.isAnonymous;
 
   useEffect(() => {
-    if (!valueTypedUser?.id) return;
-    if (!valueTypedUser?.isAnonymous) return;
-    rememberAnonymousUserId(valueTypedUser.id);
+    if (!currentUserId2) return;
+    if (!isAnon2) return;
+    rememberAnonymousUserId(currentUserId2);
     const anonSessionId = typeof (value.session.session as { id?: string } | null | undefined)?.id === 'string'
       ? (value.session.session as { id: string }).id
       : null;
     if (anonSessionId) {
       rememberAnonymousSessionId(anonSessionId);
     }
-  }, [value.session?.session, valueTypedUser?.id, valueTypedUser?.isAnonymous]);
+  }, [value.session?.session, currentUserId2, isAnon2]);
 
   return (
     <SessionContext.Provider value={value}>
