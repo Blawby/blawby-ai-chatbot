@@ -102,7 +102,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
     }).join('');
   }, [sourceText]);
 
-  if (!sourceText) return null;
+  if (!sourceText && !isStreaming) return null;
 
   return (
     <div className={classes}>
