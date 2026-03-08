@@ -35,6 +35,7 @@ export interface TextareaProps {
   errorKey?: string;
   namespace?: string;
   id?: string;
+  autoFocus?: boolean;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
@@ -61,7 +62,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  id
+  id,
+  autoFocus
 }, ref) => {
   // Generate stable ID for accessibility
   const generatedId = useUniqueId('textarea');
@@ -197,6 +199,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         disabled={disabled}
         required={required}
         rows={rows}
+        autoFocus={autoFocus}
         maxLength={enforceMaxLength === 'soft' ? undefined : maxLength}
         className={textareaClasses}
       />

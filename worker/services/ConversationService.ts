@@ -499,7 +499,8 @@ export class ConversationService {
       assignedTo?: string | null;
       priority?: 'low' | 'normal' | 'high' | 'urgent';
       internalNotes?: string | null;
-    }
+    },
+    options?: { request?: Request }
   ): Promise<Conversation> {
     // Verify conversation exists and belongs to practice
     const currentConversation = await this.getConversation(conversationId, practiceId);
@@ -537,7 +538,7 @@ export class ConversationService {
       if (updates.assignedTo && updates.assignedTo.trim()) {
         const trimmedId = updates.assignedTo.trim();
         // Verify user is a member of the practice
-        const members = await RemoteApiService.getPracticeMembers(this.env, practiceId);
+        const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
         const isMember = members.some(m => m.user_id === trimmedId);
         if (!isMember) {
           throw HttpErrors.badRequest(`User ${trimmedId} is not a member of practice ${practiceId}`);

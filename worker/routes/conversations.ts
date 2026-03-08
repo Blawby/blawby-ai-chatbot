@@ -729,7 +729,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         assignedTo: body.assignedTo,
         priority: body.priority,
         internalNotes: body.internalNotes
-      }
+      },
+      { request }
     );
 
     return createJsonResponse(conversation);

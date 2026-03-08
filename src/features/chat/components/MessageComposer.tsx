@@ -1,5 +1,5 @@
 import type { RefObject } from 'preact';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
@@ -11,6 +11,7 @@ import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { Trans } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
+import { useTranslation } from 'react-i18next';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -81,6 +82,7 @@ const MessageComposer = ({
   hideMediaControls = false,
   mentionCandidates = [],
 }: MessageComposerProps) => {
+  const { t } = useTranslation('common');
   const [isInputExpanded, setIsInputExpanded] = useState(false);
   const [isTextareaScrollable, setIsTextareaScrollable] = useState(false);
   const [showScrollFade, setShowScrollFade] = useState(false);
@@ -91,6 +93,8 @@ const MessageComposer = ({
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
   const [mentionFocusIndex, setMentionFocusIndex] = useState(0);
   const [selectedMentionUserIds, setSelectedMentionUserIds] = useState<string[]>([]);
+  const highlighterRef = useRef<HTMLDivElement>(null);
+
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
     intakeStep === 'pending_review' ||
@@ -181,9 +185,17 @@ const MessageComposer = ({
     resizeTextarea(element);
     const caretIndex = element.selectionStart ?? element.value.length;
     refreshMentionMenu(element.value, caretIndex);
+    
+    // Sync scroll to highlighter
+    if (highlighterRef.current) {
+      highlighterRef.current.scrollTop = element.scrollTop;
+    }
   };
 
   const handleTextareaScroll = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
+    if (highlighterRef.current) {
+      highlighterRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
     if (!isTextareaScrollable) {
       setShowScrollFade(false);
       return;
@@ -201,7 +213,6 @@ const MessageComposer = ({
       if (!candidate) return false;
       const label = (candidate.email ?? candidate.name).trim();
       // Use a more robust check that handles multi-word names and word boundaries
-      // Escaping label for regex and checking for it in the input value
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`@${escapedLabel}(?:\\s|$)`);
       return regex.test(inputValue);
@@ -249,6 +260,39 @@ const MessageComposer = ({
     });
   }, [closeMentionMenu, filteredMentionCandidates, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
 
+  const highlightedContent = useMemo(() => {
+    if (!inputValue) return null;
+    
+    const candidates = mentionCandidates?.map(c => (c.email ?? c.name).trim()) ?? [];
+    if (candidates.length === 0) {
+      return <span className="text-transparent">{inputValue}</span>;
+    }
+
+    const escapedLabels = candidates.map(l => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regex = new RegExp(`(^|\\s)(@(?:${escapedLabels.join('|')}))(?=\\s|$)`, 'g');
+    
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = regex.exec(inputValue)) !== null) {
+      const prefix = match[1];
+      const mention = match[2];
+      const index = match.index + prefix.length;
+      
+      parts.push(<span key={`text-${index}`} className="text-transparent">{inputValue.slice(lastIndex, index)}</span>);
+      parts.push(
+        <span key={`mention-${index}`} className="rounded-[4px] bg-accent-500/20 text-transparent">
+          {mention}
+        </span>
+      );
+      lastIndex = index + mention.length;
+    }
+    parts.push(<span className="text-transparent">{inputValue.slice(lastIndex)}</span>);
+    
+    return parts;
+  }, [inputValue, mentionCandidates]);
+
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -260,6 +304,8 @@ const MessageComposer = ({
     (!inputValue.trim() && previewFiles.length === 0) ||
     isComposerDisabled
   );
+
+  const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
 
   return (
     <div className="pl-4 pr-4 pb-2 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
@@ -296,14 +342,12 @@ const MessageComposer = ({
               />
             </div>
           )}
-          {/* Show all files (uploading + preview) in one horizontal container */}
           {(uploadingFiles.length > 0 || previewFiles.length > 0) && (
             <div
               className={`message-composer-preview-container ${shouldWrapAttachments ? 'flex-wrap max-h-[104px] overflow-y-auto pr-1' : 'overflow-x-auto'}`}
               role="list"
               aria-label="File attachments"
             >
-              {/* Uploading files - newest first */}
               {uploadingFiles.slice().reverse().map(file => (
                 <FileUploadStatus
                   key={file.id}
@@ -313,7 +357,6 @@ const MessageComposer = ({
                 />
               ))}
               
-              {/* Preview files - newest first */}
               {previewFiles.slice().reverse().map((file, index) => (
                 <FileDisplay
                   key={file.url || `${file.name}-${index}`}
@@ -339,58 +382,69 @@ const MessageComposer = ({
 
             <div className={`col-start-2 min-w-0 relative flex flex-1 items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
               {showScrollFade && (
-                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-black/20 to-transparent" />
+                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-black/20 to-transparent z-10" />
               )}
-              <textarea
-                ref={textareaRef}
-                data-testid="message-input"
-                className="w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder"
-                placeholder="Type a message..."
-                rows={1}
-                value={inputValue}
-                onInput={handleInput}
-                onScroll={handleTextareaScroll}
-                onClick={(event) => {
-                  const element = event.currentTarget;
-                  const caretIndex = element.selectionStart ?? element.value.length;
-                  refreshMentionMenu(element.value, caretIndex);
-                }}
-                onFocus={() => setIsInputFocused(true)}
-                onBlur={() => {
-                  setIsInputFocused(false);
-                  setTimeout(() => closeMentionMenu(), 80);
-                }}
-                onKeyDown={(event) => {
-                  if (mentionMenuOpen && filteredMentionCandidates.length > 0) {
-                    if (event.key === 'ArrowDown') {
-                      event.preventDefault();
-                      setMentionFocusIndex((prev) => (prev + 1) % filteredMentionCandidates.length);
-                      return;
+              <div className="relative flex-1 min-w-0 self-stretch flex items-center">
+                <div 
+                  ref={highlighterRef}
+                  className={`${textareaClasses} pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words border-none select-none`}
+                  aria-hidden="true"
+                  style={{ color: 'transparent' }}
+                >
+                  {highlightedContent}
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  data-testid="message-input"
+                  className={`${textareaClasses} relative z-0`}
+                  placeholder={t('forms.placeholders.message')}
+                  rows={1}
+                  value={inputValue}
+                  onInput={handleInput}
+                  onScroll={handleTextareaScroll}
+                  onClick={(event) => {
+                    const element = event.currentTarget;
+                    const caretIndex = element.selectionStart ?? element.value.length;
+                    refreshMentionMenu(element.value, caretIndex);
+                  }}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => {
+                    setIsInputFocused(false);
+                    setTimeout(() => closeMentionMenu(), 80);
+                  }}
+                  onKeyDown={(event) => {
+                    if (mentionMenuOpen && filteredMentionCandidates.length > 0) {
+                      if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        setMentionFocusIndex((prev) => (prev + 1) % filteredMentionCandidates.length);
+                        return;
+                      }
+                      if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        setMentionFocusIndex((prev) => (prev - 1 + filteredMentionCandidates.length) % filteredMentionCandidates.length);
+                        return;
+                      }
+                      if (event.key === 'Enter' || event.key === 'Tab') {
+                        event.preventDefault();
+                        handleMentionSelect(mentionFocusIndex);
+                        return;
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        closeMentionMenu();
+                        return;
+                      }
                     }
-                    if (event.key === 'ArrowUp') {
-                      event.preventDefault();
-                      setMentionFocusIndex((prev) => (prev - 1 + filteredMentionCandidates.length) % filteredMentionCandidates.length);
-                      return;
-                    }
-                    if (event.key === 'Enter' || event.key === 'Tab') {
-                      event.preventDefault();
-                      handleMentionSelect(mentionFocusIndex);
-                      return;
-                    }
-                    if (event.key === 'Escape') {
-                      event.preventDefault();
-                      closeMentionMenu();
-                      return;
-                    }
-                  }
-                  onKeyDown(event, selectedMentionUserIds);
-                }}
-                aria-label="Message input"
-                aria-expanded={mentionMenuOpen}
-                aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
-                aria-activedescendant={mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined}
-                disabled={isComposerDisabled}
-              />
+                    onKeyDown(event, selectedMentionUserIds);
+                  }}
+                  aria-label="Message input"
+                  aria-expanded={mentionMenuOpen}
+                  aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
+                  aria-activedescendant={mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined}
+                  disabled={isComposerDisabled}
+                  style={{ background: 'transparent' }}
+                />
+              </div>
               {mentionMenuOpen && filteredMentionCandidates.length > 0 ? (
                 <div 
                   id="mention-listbox"

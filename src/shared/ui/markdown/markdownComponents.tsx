@@ -81,33 +81,34 @@ export const markdownComponents: Components = {
     const linkText = getNodeText(children).trim();
     // NOTE(next PR): mention pills are currently coupled to markdown autolink output;
     // raw "@email" often renders as plain text + separate email link, so full-token pill styling is inconsistent.
+    const isMention = Boolean(hrefValue?.startsWith('mention://'));
     const isEmailText = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
     const isAtEmailText = /^@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
-    const isMention = Boolean(hrefValue?.startsWith('mention://'));
-    const isMentionLikeMailto = Boolean(hrefValue?.startsWith('mailto:') && isAtEmailText);
+    
+    // More permissive regex to catch emails that might have weird chars or case, anywhere in the token
+    const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/i;
+    const isEmailHref = hrefValue ? emailRegex.test(hrefValue) : false;
+    const isEmailLinkText = emailRegex.test(linkText);
+    const isMentionLikeEmail = Boolean((isEmailHref || isEmailText || isAtEmailText) && (isEmailLinkText || isAtEmailText));
     const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
-    if (isMention || isMentionLikeMailto) {
-      const mentionLabel = linkText.startsWith('@') ? linkText : `@${linkText}`;
-      const className = "inline-flex items-center rounded-full bg-accent-500/20 px-2 py-px font-semibold leading-tight text-[rgb(var(--accent-foreground))] no-underline";
-
-      if (isMentionLikeMailto) {
-        return (
-          <a
-            href={hrefValue}
-            className={`${className} hover:bg-accent-500/30 transition-colors`}
-            {...props}
-          >
-            {mentionLabel}
-          </a>
-        );
+    
+    const isMentionToken = isMention || isMentionLikeEmail;
+    console.log('[markdownComponents] link component. href:', hrefValue, 'text:', linkText, 'isMention:', isMention, 'isMentionLikeEmail:', isMentionLikeEmail);
+    
+    if (isMentionToken) {
+      let cleanLabel = linkText.trim();
+      if (cleanLabel.startsWith('mention://')) {
+        cleanLabel = cleanLabel.replace(/^mention:\/\//, '');
+      }
+      if (!cleanLabel.startsWith('@')) {
+        cleanLabel = `@${cleanLabel}`;
       }
 
+      const pillClass = "inline-flex items-center rounded-full bg-accent-500/25 px-2 py-0 text-[0.85em] font-semibold leading-relaxed text-input-text no-underline mx-0.5 shadow-sm border border-accent-500/20 hover:bg-accent-500/30 transition-colors cursor-pointer whitespace-nowrap align-baseline";
+
       return (
-        <span
-          className={className}
-          {...props}
-        >
-          {mentionLabel}
+        <span className={pillClass} title={cleanLabel}>
+          {cleanLabel}
         </span>
       );
     }

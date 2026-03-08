@@ -160,49 +160,40 @@ type FetchOptions = {
   signal?: AbortSignal;
 };
 
-const normalizeMatter = (matter: BackendMatter): BackendMatter => ({
-  ...matter,
-  total_fixed_price: (() => {
-    if (typeof matter.total_fixed_price === 'number') {
-      assertMinorUnits(matter.total_fixed_price, 'matter.total_fixed_price');
-    }
-    return toMajorUnits(matter.total_fixed_price ?? null);
-  })(),
-  settlement_amount: (() => {
-    if (typeof matter.settlement_amount === 'number') {
-      assertMinorUnits(matter.settlement_amount, 'matter.settlement_amount');
-    }
-    return toMajorUnits(matter.settlement_amount ?? null);
-  })(),
-  admin_hourly_rate: (() => {
-    if (typeof matter.admin_hourly_rate === 'number') {
-      assertMinorUnits(matter.admin_hourly_rate, 'matter.admin_hourly_rate');
-    }
-    return toMajorUnits(matter.admin_hourly_rate ?? null);
-  })(),
-  attorney_hourly_rate: (() => {
-    if (typeof matter.attorney_hourly_rate === 'number') {
-      assertMinorUnits(matter.attorney_hourly_rate, 'matter.attorney_hourly_rate');
-    }
-    return toMajorUnits(matter.attorney_hourly_rate ?? null);
-  })(),
-  milestones: Array.isArray(matter.milestones)
-    ? matter.milestones.map((item) => {
-      if (!item || typeof item !== 'object') return item;
-      const record = item as Record<string, unknown>;
-      return {
-        ...record,
-        amount: (() => {
-          if (typeof record.amount === 'number') {
-            assertMinorUnits(record.amount, 'matter.milestone.amount');
-            return toMajorUnits(record.amount);
-          }
-          return record.amount;
-        })()
-      };
-    })
-    : matter.milestones
-});
+const normalizeMatter = (matter: BackendMatter): BackendMatter => {
+  try {
+    return {
+      ...matter,
+      total_fixed_price: typeof matter.total_fixed_price === 'number' 
+        ? toMajorUnits(matter.total_fixed_price) 
+        : matter.total_fixed_price,
+      settlement_amount: typeof matter.settlement_amount === 'number'
+        ? toMajorUnits(matter.settlement_amount)
+        : matter.settlement_amount,
+      admin_hourly_rate: typeof matter.admin_hourly_rate === 'number'
+        ? toMajorUnits(matter.admin_hourly_rate)
+        : matter.admin_hourly_rate,
+      attorney_hourly_rate: typeof matter.attorney_hourly_rate === 'number'
+        ? toMajorUnits(matter.attorney_hourly_rate)
+        : matter.attorney_hourly_rate,
+      milestones: Array.isArray(matter.milestones)
+        ? matter.milestones.map((item) => {
+          if (!item || typeof item !== 'object') return item;
+          const record = item as Record<string, unknown>;
+          return {
+            ...record,
+            amount: typeof record.amount === 'number'
+              ? toMajorUnits(record.amount)
+              : record.amount,
+          };
+        })
+        : matter.milestones,
+    };
+  } catch (err) {
+    console.warn('[mattersApi] Failed to normalize matter money fields', err, matter);
+    return matter;
+  }
+};
 
 const normalizeMatterPayload = (payload: Record<string, unknown>) => {
   const normalized = { ...payload };
@@ -305,24 +296,41 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
 };
 
 const extractMatterArray = (payload: unknown): BackendMatter[] => {
+  console.log('[mattersApi] extractMatterArray input:', payload);
   if (Array.isArray(payload)) {
     return payload.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
   if (!payload || typeof payload !== 'object') return [];
 
   const record = payload as Record<string, unknown>;
+  
+  // Try 'matters' key first (standard paginated response)
+  console.log("[mattersApi] Checking matters key:", Array.isArray(record.matters), record.matters);
   if (Array.isArray(record.matters)) {
     return record.matters.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
+  
+  // Try 'items' key (alternative paginated response)
   if (Array.isArray(record.items)) {
     return record.items.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
+
+  // Handle nested 'data' key (standard worker wrapping)
   if (record.data) {
     return extractMatterArray(record.data);
   }
-  if (record.matter && typeof record.matter === 'object') {
+
+  // Handle single matter object returned as 'matter'
+  if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
     return [record.matter as BackendMatter];
   }
+  
+  // Handle flat objects that have an 'id' - fallback if not in known keys
+  if (record.id && (record.title || record.slug || record.organization_id)) {
+    return [record as BackendMatter];
+  }
+
+  console.warn('[mattersApi] extractMatterArray: could not extract array from payload', payload);
   return [];
 };
 
@@ -463,14 +471,17 @@ export const listMatters = async (
   params.set('page', String(options.page ?? 1));
   params.set('limit', String(options.limit ?? 20));
 
-  const payload = await requestData(
-    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}/matters`, {
-      params: Object.fromEntries(params.entries()),
-      signal: options.signal
-    }),
-    'Failed to load matters'
-  );
-  return extractMatterArray(payload).map(normalizeMatter);
+  console.log(`[mattersApi] listMatters fetching for practice: ${practiceId}`);
+  const { data: payload } = await apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}/matters`, {
+    params: Object.fromEntries(params.entries()),
+    signal: options.signal
+  });
+  console.log('[mattersApi] listMatters raw payload:', payload);
+  const matters = extractMatterArray(payload);
+  console.log(`[mattersApi] extractMatterArray found ${matters.length} matters`);
+  const result = matters.map(normalizeMatter);
+  console.log('[mattersApi] listMatters success. Item count:', result.length);
+  return result;
 };
 
 export const getMatter = async (

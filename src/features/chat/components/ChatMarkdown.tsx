@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'preact/compat';
+import { memo, useEffect, useMemo, useState } from 'preact/compat';
 import type { FunctionComponent } from 'preact';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
@@ -77,9 +77,16 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   ].filter(Boolean).join(' ');
 
   const hasVisibleText = text.trim().length > 0;
-  const streamingCursor = isStreaming && !hasVisibleText
+  const streamingCursor = (isStreaming && !hasVisibleText)
     ? <span className="chat-cursor" aria-hidden="true" />
     : null;
+
+  // Pre-process text to wrap @mentions in a specific link format that doesn't split the @
+  const processedText = useMemo(() => {
+    if (!text) return '';
+    // Match @ followed by an email address and wrap it in a mention:// link
+    return text.replace(/(^|\s)(@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1[$2](mention://$2)');
+  }, [text]);
 
   return (
     <div className={classes}>
@@ -87,7 +94,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
         <div className="text-red-500 text-sm">Failed to load markdown: {markdownError}</div>
       ) : ReactMarkdown ? (
         <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
-          {text}
+          {processedText}
         </ReactMarkdown>
       ) : (
         <div className="text-gray-500 text-sm">Loading markdown...</div>

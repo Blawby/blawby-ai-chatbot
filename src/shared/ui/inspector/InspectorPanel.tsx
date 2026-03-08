@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Conversation } from '@/shared/types/conversation';
-import { getUserDetail, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { getUserDetail, updateConversationMatter, getPracticeDetails, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
 import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
 import { isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
@@ -17,6 +17,7 @@ import {
   SkeletonRow,
 } from './InspectorPrimitives';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 type InspectorConfig =
   | { type: 'conversation' }
@@ -42,6 +43,7 @@ type InspectorPanelProps = {
   onConversationPriorityChange?: (priority: 'low' | 'normal' | 'high' | 'urgent') => Promise<void> | void;
   onConversationTagsChange?: (tags: string[]) => Promise<void> | void;
   onConversationInternalNotesChange?: (internalNotes: string | null) => Promise<void> | void;
+  onConversationMatterChange?: (matterId: string | null) => Promise<void> | void;
   matterClientName?: string | null;
   matterAssigneeNames?: string[];
   matterBillingLabel?: string | null;
@@ -54,6 +56,9 @@ type InspectorPanelProps = {
   invoiceTotal?: string | null;
   invoiceAmountDue?: string | null;
   invoiceDueDate?: string | null;
+  matters?: BackendMatter[];
+  isClientView?: boolean;
+  practiceName?: string;
 };
 
 const formatDate = (value?: string | null) => {
@@ -80,6 +85,7 @@ export const InspectorPanel = ({
   onConversationPriorityChange,
   onConversationTagsChange,
   onConversationInternalNotesChange,
+  onConversationMatterChange,
   matterClientName,
   matterAssigneeNames,
   matterBillingLabel,
@@ -92,10 +98,16 @@ export const InspectorPanel = ({
   invoiceTotal,
   invoiceAmountDue,
   invoiceDueDate,
+  matters = [],
+  isClientView,
+  practiceName,
 }: InspectorPanelProps) => {
+  const { session } = useSessionContext();
   const userCacheRef = useRef<Map<string, UserDetailRecord | null>>(new Map());
+  const practiceCacheRef = useRef<Map<string, PracticeDetails | null>>(new Map());
   const matterCacheRef = useRef<Map<string, BackendMatter | null>>(new Map());
   const [userDetail, setUserDetail] = useState<UserDetailRecord | null>(null);
+  const [practiceDetail, setPracticeDetail] = useState<PracticeDetails | null>(null);
   const [matterDetail, setMatterDetail] = useState<BackendMatter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -103,8 +115,9 @@ export const InspectorPanel = ({
   const [isSavingPriority, setIsSavingPriority] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isSavingMatter, setIsSavingMatter] = useState(false);
   const [notesDraft, setNotesDraft] = useState(conversation?.internal_notes ?? '');
-  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'notes' | null>(null);
+  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'notes' | 'matter' | null>(null);
   const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
@@ -131,6 +144,8 @@ export const InspectorPanel = ({
     ],
     [conversationMembers]
   );
+  console.log('[InspectorPanel] Render. Entity:', entityType, entityId, 'Practice:', practiceId, 'Matters:', matters.length);
+
   const currentTags = useMemo(
     () => Array.isArray(conversation?.tags) ? conversation.tags.filter((tag) => typeof tag === 'string' && tag.trim().length > 0) : [],
     [conversation?.tags]
@@ -139,12 +154,40 @@ export const InspectorPanel = ({
     () => currentTags.map((tag) => ({ value: tag, label: tag })),
     [currentTags]
   );
+  const matterOptions = useMemo<ComboboxOption[]>(
+    () => [
+      { value: '', label: 'Unlinked' },
+      ...matters.map((m) => ({ value: m.id, label: m.title ?? 'Untitled Matter' })),
+    ],
+    [matters]
+  );
   const assignedMemberLabel = useMemo(() => {
     const assignedTo = conversation?.assigned_to;
     if (!assignedTo) return null;
     const member = conversationMembers.find((entry) => entry.userId === assignedTo);
     return member?.name ?? assignedTo;
   }, [conversation?.assigned_to, conversationMembers]);
+
+  const currentAssignedLabel = assignedMemberLabel ?? (
+    <span className="flex items-center gap-1">
+      No one —{' '}
+      {session?.user?.id ? (
+        <button 
+          type="button" 
+          className="text-accent-500 transition-colors hover:text-accent-600 hover:underline focus:outline-none"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleConversationAssignmentChange(session.user.id);
+          }}
+        >
+          Assign yourself
+        </button>
+      ) : (
+        'Assign yourself'
+      )}
+    </span>
+  );
+  const currentMatterLabel = matterDetail?.title ?? 'Not linked';
   const currentPriorityLabel = useMemo(() => {
     const raw = conversation?.priority ?? 'normal';
     return raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -164,6 +207,7 @@ export const InspectorPanel = ({
     if (lastPracticeIdRef.current !== practiceId) {
       userCacheRef.current.clear();
       matterCacheRef.current.clear();
+      practiceCacheRef.current.clear();
       lastPracticeIdRef.current = practiceId;
     }
   }, [practiceId]);
@@ -178,6 +222,7 @@ export const InspectorPanel = ({
 
   useEffect(() => {
     setUserDetail(null);
+    setPracticeDetail(null);
     setMatterDetail(null);
     if (!practiceId || !entityId) return;
     const controller = new AbortController();
@@ -195,13 +240,23 @@ export const InspectorPanel = ({
           const matterId = conversationMatterId;
 
           if (userId) {
-            const cacheKey = makeCacheKey(practiceId, userId);
-            if (userCacheRef.current.has(cacheKey)) {
-              setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
+            if (isClientView) {
+              if (practiceCacheRef.current.has(practiceId)) {
+                setPracticeDetail(practiceCacheRef.current.get(practiceId) ?? null);
+              } else {
+                const detail = await getPracticeDetails(practiceId, { signal: controller.signal });
+                practiceCacheRef.current.set(practiceId, detail);
+                setPracticeDetail(detail);
+              }
             } else {
-              const detail = await getUserDetail(practiceId, userId, { signal: controller.signal });
-              userCacheRef.current.set(cacheKey, detail);
-              setUserDetail(detail);
+              const cacheKey = makeCacheKey(practiceId, userId);
+              if (userCacheRef.current.has(cacheKey)) {
+                setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
+              } else {
+                const detail = await getUserDetail(practiceId, userId, { signal: controller.signal });
+                userCacheRef.current.set(cacheKey, detail);
+                setUserDetail(detail);
+              }
             }
           }
 
@@ -249,7 +304,7 @@ export const InspectorPanel = ({
 
     void load();
     return () => controller.abort();
-  }, [conversationMatterId, conversationUserId, entityId, entityType, practiceId]);
+  }, [conversationMatterId, conversationUserId, entityId, entityType, practiceId, isClientView]);
 
   const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
@@ -316,6 +371,22 @@ export const InspectorPanel = ({
       setIsSavingNotes(false);
     }
   };
+  const handleConversationMatterChange = async (value: string) => {
+    if (!practiceId || !conversation?.id) return;
+    setError(null);
+    setIsSavingMatter(true);
+    try {
+      const nextId = value.trim().length > 0 ? value.trim() : null;
+      await updateConversationMatter(conversation.id, nextId);
+      console.log('[InspectorPanel] Matter updated successfully:', nextId);
+      setActiveConversationEditor(null);
+      // Wait a moment for cache to potentially catch up or let parent refresh
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update linked matter');
+    } finally {
+      setIsSavingMatter(false);
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
@@ -364,29 +435,77 @@ export const InspectorPanel = ({
 
         {entityType === 'conversation' && !isLoading ? (
           <div className="pb-4">
-            <InspectorHeaderPerson
-              name={userDetail?.user?.name ?? userDetail?.user?.email ?? 'Unknown'}
-              secondaryLine={userDetail?.user?.email ?? undefined}
-            />
-            <div className="border-t border-white/[0.06]">
-              <InspectorGroup label="CONTACT">
-                <InfoRow label="Phone" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
-                <InfoRow label="Status" value={userDetail?.status ?? undefined} />
-              </InspectorGroup>
-              <InspectorGroup label="MATTER">
-                <InfoRow label="Linked" value={matterDetail?.title ?? undefined} muted={!matterDetail} />
-                <InfoRow label="Status" value={matterDetail?.status ?? undefined} muted={!matterDetail?.status} />
-              </InspectorGroup>
-              <InspectorGroup label="ASSIGNMENT">
+            {isClientView ? (
+              <>
+                <InspectorHeaderPerson
+                  name={practiceName ?? 'Practice'}
+                  secondaryLine={practiceDetail?.businessEmail ?? undefined}
+                />
+                <div className="">
+                  <InspectorGroup label="Practice Details">
+                    <InfoRow label="Phone" value={practiceDetail?.businessPhone ?? undefined} muted={!practiceDetail?.businessPhone} />
+                    <InfoRow label="Email" value={practiceDetail?.businessEmail ?? undefined} muted={!practiceDetail?.businessEmail} />
+                    <InfoRow label="Website" value={practiceDetail?.website ?? undefined} muted={!practiceDetail?.website} />
+                  </InspectorGroup>
+                </div>
+              </>
+            ) : (
+              <>
+                <InspectorHeaderPerson
+                  name={userDetail?.user?.name ?? userDetail?.user?.email ?? 'Unknown'}
+                  secondaryLine={userDetail?.user?.email ?? undefined}
+                />
+                <div className="">
+                  <InspectorGroup label="Client Details">
+                    <InfoRow label="Phone" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
+                    <InfoRow label="Status" value={userDetail?.status ?? undefined} />
+                  </InspectorGroup>
+                </div>
+              </>
+            )}
+
+            {!isClientView && (
+              <div className="">
+                <InspectorGroup
+                  label="Linked Matter"
+                  onToggle={() => setActiveConversationEditor((prev) => (prev === 'matter' ? null : 'matter'))}
+                  isOpen={activeConversationEditor === 'matter'}
+                  disabled={isSavingMatter}
+                >
                 <InspectorEditableRow
-                  label="Assignee"
-                  summary={assignedMemberLabel ?? 'Unassigned'}
+                  label=""
+                  summary={currentMatterLabel}
+                  summaryMuted={!matterDetail}
+                  isOpen={activeConversationEditor === 'matter'}
+                >
+                  <div className="relative z-40">
+                    <Combobox
+                      value={conversation?.matter_id ?? ''}
+                      onChange={(value) => { void handleConversationMatterChange(value); }}
+                      options={matterOptions}
+                      searchable
+                      autoFocus
+                      defaultOpen
+                      hideTrigger
+                      placeholder="Search matters"
+                      disabled={isSavingMatter}
+                    />
+                  </div>
+                </InspectorEditableRow>
+              </InspectorGroup>
+              <InspectorGroup
+                label="Assignee"
+                onToggle={onConversationAssignedToChange
+                  ? () => setActiveConversationEditor((prev) => prev === 'assignment' ? null : 'assignment')
+                  : undefined}
+                isOpen={activeConversationEditor === 'assignment'}
+                disabled={isSavingAssignment}
+              >
+                <InspectorEditableRow
+                  label=""
+                  summary={currentAssignedLabel}
                   summaryMuted={!assignedMemberLabel}
                   isOpen={activeConversationEditor === 'assignment'}
-                  onToggle={onConversationAssignedToChange
-                    ? () => setActiveConversationEditor((prev) => prev === 'assignment' ? null : 'assignment')
-                    : undefined}
-                  disabled={isSavingAssignment}
                 >
                   <div className="relative z-30">
                     <Combobox
@@ -394,21 +513,27 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleConversationAssignmentChange(value); }}
                       options={assignedToOptions}
                       searchable
+                      autoFocus
+                      defaultOpen
+                      hideTrigger
                       placeholder="Assign owner"
                       disabled={isSavingAssignment}
                     />
                   </div>
                 </InspectorEditableRow>
               </InspectorGroup>
-              <InspectorGroup label="TRIAGE">
+              <InspectorGroup
+                label="Priority"
+                onToggle={onConversationPriorityChange
+                  ? () => setActiveConversationEditor((prev) => prev === 'priority' ? null : 'priority')
+                  : undefined}
+                isOpen={activeConversationEditor === 'priority'}
+                disabled={isSavingPriority}
+              >
                 <InspectorEditableRow
-                  label="Priority"
+                  label=""
                   summary={currentPriorityLabel}
                   isOpen={activeConversationEditor === 'priority'}
-                  onToggle={onConversationPriorityChange
-                    ? () => setActiveConversationEditor((prev) => prev === 'priority' ? null : 'priority')
-                    : undefined}
-                  disabled={isSavingPriority}
                 >
                   <div className="relative z-20">
                     <Combobox
@@ -416,19 +541,28 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleConversationPriorityChange(value); }}
                       options={priorityOptions}
                       searchable={false}
+                      autoFocus
+                      defaultOpen
+                      hideTrigger
                       disabled={isSavingPriority}
                     />
                   </div>
                 </InspectorEditableRow>
+              </InspectorGroup>
+
+              <InspectorGroup
+                label="Tags"
+                onToggle={onConversationTagsChange
+                  ? () => setActiveConversationEditor((prev) => prev === 'tags' ? null : 'tags')
+                  : undefined}
+                isOpen={activeConversationEditor === 'tags'}
+                disabled={isSavingTags}
+              >
                 <InspectorEditableRow
-                  label="Tags"
+                  label=""
                   summary={currentTagsLabel}
                   summaryMuted={currentTags.length === 0}
                   isOpen={activeConversationEditor === 'tags'}
-                  onToggle={onConversationTagsChange
-                    ? () => setActiveConversationEditor((prev) => prev === 'tags' ? null : 'tags')
-                    : undefined}
-                  disabled={isSavingTags}
                 >
                   <div className="relative z-10">
                     <Combobox
@@ -437,37 +571,17 @@ export const InspectorPanel = ({
                       onChange={(values) => { void handleConversationTagsChange(values); }}
                       options={tagOptions}
                       allowCustomValues
+                      autoFocus
+                      defaultOpen
+                      hideTrigger
                       placeholder="Add tags"
                       disabled={isSavingTags}
                     />
-                  </div>
-                </InspectorEditableRow>
-                <InspectorEditableRow
-                  label="Internal notes"
-                  summary={currentNotesLabel}
-                  summaryMuted={!conversation?.internal_notes?.trim()}
-                  isOpen={activeConversationEditor === 'notes'}
-                  onToggle={onConversationInternalNotesChange
-                    ? () => setActiveConversationEditor((prev) => prev === 'notes' ? null : 'notes')
-                    : undefined}
-                  disabled={isSavingNotes}
-                >
-                  <Textarea
-                    key={`${conversation?.id ?? 'conversation'}-internal-notes`}
-                    value={notesDraft}
-                    onChange={setNotesDraft}
-                    rows={3}
-                    placeholder="Notes visible to practice staff only"
-                    onBlur={() => { void handleConversationNotesBlur(notesDraft); }}
-                    disabled={isSavingNotes}
-                  />
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup label="METADATA">
-                <InfoRow label="Created" value={formatDate(conversation?.created_at)} />
-                <InfoRow label="Last active" value={formatDate(conversation?.last_message_at ?? conversation?.updated_at)} />
-              </InspectorGroup>
-            </div>
+                    </div>
+                  </InspectorEditableRow>
+                </InspectorGroup>
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -489,19 +603,15 @@ export const InspectorPanel = ({
                 )
               )}
             />
-            <div className="border-t border-white/[0.06]">
-              <InspectorGroup label="PEOPLE">
+            <div className="">
+              <InspectorGroup label="Matter Details">
                 <InfoRow label="Client" value={matterClientName ?? undefined} muted={!matterClientName} />
                 <InfoRow
                   label="Assignees"
                   value={matterAssigneeNames && matterAssigneeNames.length > 0 ? matterAssigneeNames.join(', ') : undefined}
                   muted={!matterAssigneeNames?.length}
                 />
-              </InspectorGroup>
-              <InspectorGroup label="BILLING">
-                <InfoRow label="Type" value={matterBillingLabel ?? undefined} muted={!matterBillingLabel} />
-              </InspectorGroup>
-              <InspectorGroup label="DATES">
+                <InfoRow label="Billing Type" value={matterBillingLabel ?? undefined} muted={!matterBillingLabel} />
                 <InfoRow label="Created" value={matterCreatedLabel ?? undefined} />
                 <InfoRow label="Updated" value={matterUpdatedLabel ?? undefined} />
               </InspectorGroup>
@@ -515,12 +625,10 @@ export const InspectorPanel = ({
               name={userDetail?.user?.name ?? userDetail?.user?.email ?? 'Unknown'}
               secondaryLine={userDetail?.user?.email ?? undefined}
             />
-            <div className="border-t border-white/[0.06]">
-              <InspectorGroup label="CONTACT">
+            <div className="">
+              <InspectorGroup label="Contact Information">
                 <InfoRow label="Email" value={userDetail?.user?.email ?? undefined} muted={!userDetail?.user?.email} />
                 <InfoRow label="Phone" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
-              </InspectorGroup>
-              <InspectorGroup label="DETAILS">
                 <InfoRow label="Status" value={userDetail?.status ?? undefined} />
               </InspectorGroup>
             </div>
@@ -539,15 +647,13 @@ export const InspectorPanel = ({
                   : <span className="text-[11px] text-input-placeholder">—</span>
               }
             />
-            <div className="border-t border-white/[0.06]">
-              <InspectorGroup label="DETAILS">
+            <div className="">
+              <InspectorGroup label="Invoice Details">
                 <InfoRow label="Client" value={invoiceClientName ?? undefined} muted={!invoiceClientName} />
                 <InfoRow label="Matter" value={invoiceMatterTitle ?? undefined} muted={!invoiceMatterTitle} />
-                <InfoRow label="Due" value={invoiceDueDate ?? undefined} muted={!invoiceDueDate} />
-              </InspectorGroup>
-              <InspectorGroup label="BILLING">
-                <InfoRow label="Total" value={invoiceTotal ?? undefined} muted={!invoiceTotal} />
-                <InfoRow label="Amount due" value={invoiceAmountDue ?? undefined} muted={!invoiceAmountDue} />
+                <InfoRow label="Due Date" value={invoiceDueDate ?? undefined} muted={!invoiceDueDate} />
+                <InfoRow label="Total Amount" value={invoiceTotal ?? undefined} muted={!invoiceTotal} />
+                <InfoRow label="Amount Due" value={invoiceAmountDue ?? undefined} muted={!invoiceAmountDue} />
               </InspectorGroup>
             </div>
           </div>

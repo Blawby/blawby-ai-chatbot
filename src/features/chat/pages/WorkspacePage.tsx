@@ -26,6 +26,11 @@ import {
   updateConversationMetadata,
   updateConversationTriage,
 } from '@/shared/lib/conversationApi';
+import { 
+  createConnectedAccount, 
+  getOnboardingStatusPayload, 
+  updateConversationMatter 
+} from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -48,7 +53,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
-import { createConnectedAccount, getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
@@ -453,12 +457,24 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return [];
   }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
+  // Always fetch the full unfiltered matters list so the inspector can use it.
+  // The mattersStore handles deduplication — this fires once and caches.
   const mattersData = useMattersData(
     practiceId,
-    mattersStatusFilter,
+    [], // no status filter — fetch all, filter at display time
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && workspaceSection === 'matters' }
+    { enabled: isPracticeWorkspace }
   );
+  // Filtered view for the matters list page (status filter applied after fetch)
+  const filteredMattersItems = useMemo(() => {
+    if (!mattersStatusFilter || mattersStatusFilter.length === 0) return mattersData.items;
+    const accepted = new Set(mattersStatusFilter.map((s) => s.trim().toLowerCase()));
+    return mattersData.items.filter((m) => accepted.has(String(m.status ?? '').toLowerCase()));
+  }, [mattersData.items, mattersStatusFilter]);
+  const mattersDataForView = useMemo(() => ({
+    ...mattersData,
+    items: filteredMattersItems,
+  }), [mattersData, filteredMattersItems]);
   const clientsData = useClientsData(
     practiceId,
     clientsStatusFilter,
@@ -798,8 +814,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId: isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null,
     enabled: isPracticeWorkspace,
     matterLimit: 25,
-    windowSize: dashboardWindow
+    windowSize: dashboardWindow,
+    matters: mattersData.isLoaded ? mattersData.items : undefined,
   });
+
 
   useEffect(() => {
     if (!currentPractice?.id) return;
@@ -971,8 +989,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);
 
+  // Only fetch Stripe/onboarding status when the user is in the settings section.
+  // Fetching it on every workspace mount hammers the rate-limited API endpoint.
+  const isSettingsSection = workspaceSection === 'settings';
+
+  const showErrorRef = useRef(showError);
+  useEffect(() => { showErrorRef.current = showError; });
+
   const refreshStripeStatus = useCallback(async (options?: { signal?: AbortSignal }) => {
-    if (!organizationId) {
+    if (!organizationId || !isSettingsSection) {
       setStripeStatus(null);
       return;
     }
@@ -988,17 +1013,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return;
       }
       console.warn('[WorkspacePage] Failed to load payout status:', error);
-      showError('Payouts', 'Unable to load payout account status.');
+      showErrorRef.current('Payouts', 'Unable to load payout account status.');
     } finally {
       setIsStripeLoading(false);
     }
-  }, [organizationId, showError]);
+  // organizationId and isSettingsSection are both stable primitives
+  }, [organizationId, isSettingsSection]);
 
+  // Only fetch when organizationId changes AND we're on the settings section
   useEffect(() => {
+    if (!organizationId || !isSettingsSection) return;
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
-  }, [refreshStripeStatus]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, isSettingsSection]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
     if (!organizationId) {
@@ -1559,7 +1588,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const listViewControls: ListViewControls = {
     listHeaderLeftControl: layoutMode !== 'desktop' ? mobileMenuButton ?? undefined : undefined,
     detailHeaderRightControl: inspectorToggleButton ?? undefined,
-    mattersData,
+    mattersData: mattersDataForView, // filtered for the list view
     clientsData,
   };
   const matterListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters'
@@ -1698,6 +1727,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceId={practiceId}
       conversation={selectedConversation}
       conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
+      isClientView={!isPracticeWorkspace}
+      practiceName={practiceName ?? undefined}
       onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
         if (!selectedConversation?.id) return;
         try {
@@ -1749,7 +1780,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           showError('Update Failed', 'Failed to update conversation tags.');
         }
       } : undefined}
+      onConversationMatterChange={isPracticeWorkspace ? async (matterId) => {
+        if (!selectedConversation?.id) return;
+        try {
+          await updateConversationMatter(selectedConversation.id, matterId);
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update matter:', error);
+          showError('Update Failed', 'Failed to link matter to conversation.');
+        }
+      } : undefined}
       onClose={() => setIsInspectorOpen(false)}
+      matters={mattersData.items}
       onMatterStatusChange={(status: MatterStatus) => {
         if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
         window.dispatchEvent(
