@@ -800,11 +800,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         throw error;
       }
     }
-    if (!hasAccess) {
+    let callerIsStaff = false;
+    try {
       const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
-      if (!isStaffMemberRole(membership.memberRole)) {
-        throw HttpErrors.forbidden('User is not authorized to view participants for this conversation');
+      callerIsStaff = isStaffMemberRole(membership.memberRole);
+    } catch (error) {
+      if (!(error instanceof HttpError) || error.status !== 403) {
+        throw error;
       }
+    }
+    if (!hasAccess && !callerIsStaff) {
+      throw HttpErrors.forbidden('User is not authorized to view participants for this conversation');
     }
 
     const [conversation, members] = await Promise.all([
@@ -820,10 +826,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       .filter((member) => member.role !== 'client')
       .map((member) => member.user_id)
       .filter((id) => typeof id === 'string' && id.trim().length > 0);
-    const mentionableUserIds = Array.from(new Set([
-      ...participantIds,
-      ...staffMemberIds
-    ]));
+    const mentionableUserIds = callerIsStaff
+      ? Array.from(new Set([
+        ...participantIds,
+        ...staffMemberIds
+      ]))
+      : participantIds;
     const memberById = new Map(members.map((member) => [member.user_id, member]));
 
     const participants = mentionableUserIds.map((participantUserId) => {

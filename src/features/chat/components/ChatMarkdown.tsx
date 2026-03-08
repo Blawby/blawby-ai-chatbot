@@ -94,7 +94,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
       if (index % 2 === 0) {
         // Match @Name-style mentions (allow up to 3 words) and wrap in mention:// links
         return part.replace(
-          /(^|\s)(@(?:[A-Za-z][A-Za-z0-9._'-]*)(?:\s+[A-Za-z][A-Za-z0-9._'-]*){0,2})(?=(?:\s|$|[.,!?;:]))/g,
+          /(^|\s)(@(?:[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}._'-]*)(?:\s+[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}._'-]*){0,2})(?=(?:\s|$|[.,!?;:]))/gu,
           (_match, p1, p2) => `${p1}[${p2}](mention://${encodeURIComponent(p2)})`
         );
       }

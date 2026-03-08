@@ -91,7 +91,7 @@ export const markdownComponents: Components = {
         cleanLabel = `@${cleanLabel}`;
       }
 
-      const pillClass = 'mention-token nav-item-active inline-flex items-center rounded-full px-2 py-0 text-[0.85em] font-semibold leading-relaxed no-underline mx-0.5 ring-1 ring-accent-400/25 whitespace-nowrap align-baseline';
+      const pillClass = 'mention-token nav-item-active text-[rgb(var(--accent-foreground))] inline-flex items-center rounded-full px-2 py-0 text-[0.85em] font-semibold leading-relaxed no-underline mx-0.5 ring-1 ring-accent-400/25 whitespace-nowrap align-baseline';
 
       return (
         <span className={pillClass} title={cleanLabel}>
