@@ -8,6 +8,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
 import Modal from '@/shared/components/Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -431,7 +432,7 @@ export const SecurityPage = ({
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
-                  <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
+                  <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-orange-500"  />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-input-text mb-2">

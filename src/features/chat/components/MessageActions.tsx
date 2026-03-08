@@ -6,6 +6,7 @@ import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
 import MatterCanvas from '@/features/matters/components/MatterCanvas';
 import { DocumentIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { Button } from '@/shared/ui/Button';
 import type { IntakeConversationState } from '@/shared/types/intake';
@@ -334,7 +335,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="my-2">
 					<div className="flex items-center gap-2 p-3 rounded-lg glass-panel">
 						<div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center flex-shrink-0">
-							<DocumentIcon className="w-4 h-4 text-input-text" />
+							<Icon icon={DocumentIcon} className="w-4 h-4 text-input-text"  />
 						</div>
 						<div className="flex-1 min-w-0">
 							<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>

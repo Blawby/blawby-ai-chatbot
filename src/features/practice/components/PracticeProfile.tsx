@@ -1,4 +1,5 @@
 import { FaceSmileIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from 'react-i18next';
 
 interface PracticeProfileProps {
@@ -30,7 +31,7 @@ export default function PracticeProfile({
 					/>
 				) : (
 					<div className="flex items-center justify-center rounded-lg bg-surface-subtle border border-line-glass/30 w-12 h-12">
-						<FaceSmileIcon className="w-8 h-8 text-input-placeholder" />
+						<Icon icon={FaceSmileIcon} className="w-8 h-8 text-input-placeholder"  />
 					</div>
 				)}
 			</div>
@@ -39,7 +40,7 @@ export default function PracticeProfile({
 			<div className="flex items-center justify-center gap-2 w-full">
 				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-input-text leading-tight truncate min-w-0" title={name}>{name}</h3>
 				{showVerified && (
-					<CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-accent-500 flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')} />
+					<Icon icon={CheckBadgeIcon} className="w-4 h-4 sm:w-5 sm:h-5 text-accent-500 flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')}  />
 				)}
 			</div>
 

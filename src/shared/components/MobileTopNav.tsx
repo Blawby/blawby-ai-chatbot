@@ -35,7 +35,7 @@ const MobileTopNav = ({
                 variant="ghost"
                 size="md"
                 onClick={onOpenSidebar}
-                icon={<Bars3Icon className="w-5 h-5" aria-hidden="true" focusable="false" />}
+                icon={Bars3Icon} iconClassName="w-5 h-5"
                 aria-label="Open menu"
               />
               
@@ -45,7 +45,7 @@ const MobileTopNav = ({
                   variant="primary"
                   size="md"
                   onClick={onPlusClick}
-                  icon={<SparklesIcon className="w-4 h-4" />}
+                  icon={SparklesIcon} iconClassName="w-4 h-4"
                   aria-label="Get Plus"
                 >
                   Get Plus

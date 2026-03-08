@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
@@ -192,7 +193,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
           size="icon"
           onClick={() => navigate(toSettingsPath('practice'))}
           aria-label="Back to practice settings"
-          icon={<ArrowLeftIcon className="w-5 h-5" />}
+          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
         />
       )}
     >
@@ -211,7 +212,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
               size="sm"
               onClick={() => setIsInvitingMember(!isInvitingMember)}
             >
-              <UserPlusIcon className="w-4 h-4 mr-2" />
+              <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2"  />
               {isInvitingMember ? 'Cancel' : 'Invite'}
             </Button>
           )}

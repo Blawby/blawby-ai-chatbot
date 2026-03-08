@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
@@ -38,7 +39,6 @@ const PRACTICE_ID = 'debug-practice';
 const PRACTICE_SLUG = 'debug-practice';
 const PRACTICE_NAME = 'Blawby Family Law';
 const PRACTICE_LOGO = null;
-
 const practiceSeeds: SeedConversation[] = [
   {
     id: 'practice-conv-1',
@@ -371,7 +371,7 @@ export default function DebugConversationsPage() {
                   aria-label="Open conversation details"
                   onClick={() => setIsConversationDetailsOpen(true)}
                 >
-                  <InformationCircleIcon className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
                 </Button>
                 <PracticeConversationHeaderMenu practiceId={PRACTICE_ID} conversationId={activeConversation?.id} />
               </div>
@@ -385,7 +385,7 @@ export default function DebugConversationsPage() {
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >
-                <InformationCircleIcon className="h-4 w-4" aria-hidden="true" />
+                <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
               </Button>
             )}
         />
@@ -413,7 +413,7 @@ export default function DebugConversationsPage() {
     <main className="mx-auto max-w-[1480px] space-y-4 p-4 md:p-6">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <ChatBubbleLeftRightIcon className="h-6 w-6 text-accent-500" aria-hidden="true" />
+          <Icon icon={ChatBubbleLeftRightIcon} className="h-6 w-6 text-accent-500" aria-hidden="true"  />
           <h1 className="text-2xl font-semibold text-input-text">Debug Conversations</h1>
           <span className="rounded-full border border-line-glass/30 bg-surface-panel/60 px-2.5 py-1 text-xs font-medium text-input-placeholder">
             No API

@@ -200,7 +200,7 @@ export const InspectorPanel = ({
           size="icon-sm"
           onClick={onClose}
           aria-label="Close inspector"
-          icon={<XMarkIcon className="h-4 w-4" />}
+          icon={XMarkIcon} iconClassName="h-4 w-4"
         />
       </div>
 

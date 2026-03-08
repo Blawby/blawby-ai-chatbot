@@ -6,6 +6,7 @@ import {
   PlusCircleIcon,
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
@@ -65,10 +66,10 @@ const DEFAULT_ACTIONS: Record<TimelineItem['type'], string> = {
 };
 
 const TYPE_ICONS: Partial<Record<TimelineItem['type'], (props: { className?: string }) => JSX.Element>> = {
-  created: (props) => <PlusCircleIcon {...props} />,
-  edited: (props) => <PencilSquareIcon {...props} />,
-  sent: (props) => <PaperAirplaneIcon {...props} />,
-  viewed: (props) => <EyeIcon {...props} />
+  created: (props) => <Icon icon={PlusCircleIcon} {...props}  />,
+  edited: (props) => <Icon icon={PencilSquareIcon} {...props}  />,
+  sent: (props) => <Icon icon={PaperAirplaneIcon} {...props}  />,
+  viewed: (props) => <Icon icon={EyeIcon} {...props}  />
 };
 
 export const ActivityTimeline = ({
@@ -176,13 +177,13 @@ export const ActivityTimeline = ({
                     className="ring-1 ring-black/10 bg-white/10 text-input-text dark:ring-white/20"
                   />
                   <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
-                    <ChatBubbleLeftRightIcon className="h-3 w-3" aria-hidden="true" />
+                    <Icon icon={ChatBubbleLeftRightIcon} className="h-3 w-3" aria-hidden="true"  />
                   </span>
                 </div>
               ) : (
                 <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                   {item.type === 'paid' ? (
-                    <CheckCircleIcon aria-hidden="true" className="h-5 w-5 text-emerald-500" />
+                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-emerald-500"  />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];

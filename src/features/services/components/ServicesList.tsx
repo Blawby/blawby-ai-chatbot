@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { TrashIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import type { Service } from '../types';
@@ -65,7 +66,7 @@ export function ServicesList({
                   onClick={() => onRemoveService(service.id)}
                   aria-label={`Remove ${service.title}`}
                 >
-                  <TrashIcon className="w-4 h-4" />
+                  <Icon icon={TrashIcon} className="w-4 h-4"  />
                 </Button>
               </>
             )}

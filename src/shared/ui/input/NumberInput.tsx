@@ -1,5 +1,6 @@
 import { forwardRef, useCallback } from 'preact/compat';
 import { PlusIcon, MinusIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -191,7 +192,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
                 'rounded-tr-lg'
               )}
             >
-              <PlusIcon className="w-3 h-3" />
+              <Icon icon={PlusIcon} className="w-3 h-3"  />
             </button>
             <button
               type="button"
@@ -205,7 +206,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
                 'rounded-br-lg'
               )}
             >
-              <MinusIcon className="w-3 h-3" />
+              <Icon icon={MinusIcon} className="w-3 h-3"  />
             </button>
           </div>
         )}

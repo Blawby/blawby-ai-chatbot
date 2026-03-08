@@ -6,20 +6,22 @@
  */
 
 import { Button } from '../../Button';
-import type { ComponentChildren } from 'preact';
+import type { IconComponent } from '@/shared/ui/Icon';
 
 interface CollapsibleToggleProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   onClick: () => void;
   ariaLabel: string;
   className?: string;
+  iconClassName?: string;
 }
 
 export const CollapsibleToggle = ({ 
   icon, 
   onClick, 
   ariaLabel,
-  className = ''
+  className = '',
+  iconClassName = ''
 }: CollapsibleToggleProps) => {
   return (
     <Button
@@ -27,6 +29,7 @@ export const CollapsibleToggle = ({
       size="sm"
       onClick={onClick}
       icon={icon}
+      iconClassName={iconClassName}
       aria-label={ariaLabel}
       className={`w-8 h-8 p-0 ${className}`}
     />

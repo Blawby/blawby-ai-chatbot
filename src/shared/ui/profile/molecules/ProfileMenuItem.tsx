@@ -6,10 +6,10 @@
  */
 
 import { ProfileIcon } from '../atoms/ProfileIcon';
-import type { ComponentChildren } from 'preact';
+import type { IconComponent } from '@/shared/ui/Icon';
 
 interface ProfileMenuItemProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   label: string;
   onClick: () => void;
   isActive?: boolean;

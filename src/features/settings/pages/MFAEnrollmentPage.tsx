@@ -202,7 +202,7 @@ export const MFAEnrollmentPage = ({
           size="icon"
           onClick={() => navigate(toSettingsPath('security'))}
           aria-label={t('settings:mfa.back')}
-          icon={<ArrowLeftIcon className="w-5 h-5" />}
+          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
         />
       )}
     >

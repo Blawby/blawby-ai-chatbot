@@ -15,6 +15,7 @@ import {
   DocumentIcon,
   LinkIcon
 } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { useActivity } from '@/shared/hooks/useActivity';
 
 interface ActivityTimelineProps {
@@ -153,7 +154,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
               {/* Empty state */}
               {!error && events.length === 0 && (
                 <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                  <ClockIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <Icon icon={ClockIcon} className="w-8 h-8 mx-auto mb-2 opacity-50"  />
                   <p className="text-sm">No activity yet</p>
                   <p className="text-xs mt-1">Activity will appear here as you use the system</p>
                 </div>

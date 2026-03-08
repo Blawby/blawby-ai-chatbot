@@ -6,6 +6,7 @@ import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 
 const buttonVariants = [
   'primary',
@@ -225,7 +226,7 @@ export default function DebugStylesPage() {
               options={comboboxOptions}
               value={comboboxValue}
               onChange={setComboboxValue}
-              leading={<UserCircleIcon className="h-4 w-4 text-input-placeholder" />}
+              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
             />
           </div>
           <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -237,7 +238,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiOnlyValue}
               multiple
               searchable={false}
-              leading={<UserCircleIcon className="h-4 w-4 text-input-placeholder" />}
+              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
             />
           </div>
           <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -249,7 +250,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiValue}
               multiple
               allowCustomValues
-              leading={<UserCircleIcon className="h-4 w-4 text-input-placeholder" />}
+              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
             />
           </div>
         </div>

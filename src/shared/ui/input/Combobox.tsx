@@ -21,6 +21,7 @@ import {
   XMarkIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 
 // ---------------------------------------------------------------------------
@@ -112,7 +113,7 @@ function Chip({
         className="ml-0.5 rounded hover:text-red-400 transition-colors"
         aria-label={`Remove ${label}`}
       >
-        <XMarkIcon className="h-3 w-3" />
+        <Icon icon={XMarkIcon} className="h-3 w-3"  />
       </button>
     </span>
   );
@@ -170,7 +171,7 @@ function DropdownOption({
           <span className="text-xs text-input-placeholder">{resolvedOptionMeta}</span>
         )}
         {isSelected && (
-          <CheckIcon className="h-4 w-4 text-accent-400" aria-hidden="true" />
+          <Icon icon={CheckIcon} className="h-4 w-4 text-accent-400" aria-hidden="true"  />
         )}
       </span>
     </button>
@@ -481,13 +482,13 @@ export function Combobox({
           className="flex-shrink-0 text-input-placeholder hover:text-input-text transition-colors"
           aria-label="Clear selection"
         >
-          <XMarkIcon className="h-4 w-4" />
+          <Icon icon={XMarkIcon} className="h-4 w-4"  />
         </button>
       ) : (
         <span className="flex-shrink-0 text-input-placeholder pointer-events-none">
           {searchable
-            ? <ChevronUpDownIcon className="h-4 w-4" />
-            : <ChevronDownIcon className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+            ? <Icon icon={ChevronUpDownIcon} className="h-4 w-4"  />
+            : <Icon icon={ChevronDownIcon} className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')}  />
           }
         </span>
       )}
@@ -604,7 +605,7 @@ export function Combobox({
                 )}
               >
                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-400">
-                  <PlusIcon className="h-3.5 w-3.5" />
+                  <Icon icon={PlusIcon} className="h-3.5 w-3.5"  />
                 </span>
                 <span>
                   {addNewLabel}{' '}

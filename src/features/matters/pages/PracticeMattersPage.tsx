@@ -13,6 +13,7 @@ import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import { FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
@@ -121,14 +122,14 @@ const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disabl
   <div className="flex h-full items-center justify-center p-8">
     <div className="max-w-md text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.12]">
-        <FolderIcon className="h-6 w-6 text-input-text/70" aria-hidden="true" />
+        <Icon icon={FolderIcon} className="h-6 w-6 text-input-text/70" aria-hidden="true"  />
       </div>
       <h3 className="mt-4 text-sm font-semibold text-input-text">No matters yet</h3>
       <p className="mt-2 text-sm text-input-placeholder">
         Create your first matter to start tracking progress and milestones.
       </p>
       <div className="mt-6 flex justify-center">
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={onCreate} disabled={disableCreate}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={onCreate} disabled={disableCreate}>
           Add Matter
         </Button>
       </div>
@@ -1748,7 +1749,7 @@ export const PracticeMattersPage = ({
                     size="icon-sm"
                     variant="icon"
                     onClick={startDescriptionEdit}
-                    icon={<PencilIcon className="h-4 w-4" />}
+                    icon={PencilIcon} iconClassName="h-4 w-4"
                     aria-label="Edit description"
                     className="shrink-0"
                   />
@@ -2045,7 +2046,7 @@ export const PracticeMattersPage = ({
           actions={
             <Button
               size="sm"
-              icon={<PlusIcon className="h-4 w-4" />}
+              icon={PlusIcon} iconClassName="h-4 w-4"
               onClick={() => navigate(`${basePath}/new`)}
               disabled={!activePracticeId}
             >

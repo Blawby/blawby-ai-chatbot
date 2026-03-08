@@ -10,6 +10,7 @@ import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
 import type { ReplyTarget } from '@/features/chat/types';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import type { IntakeConversationState } from '@/shared/types/intake';
@@ -241,7 +242,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							aria-label="Reply to message"
 							onClick={onReply}
 						>
-							<ArrowUturnLeftIcon className="h-4 w-4" />
+							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4"  />
 						</button>
 					)}
 				</div>

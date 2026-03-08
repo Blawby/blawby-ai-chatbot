@@ -92,7 +92,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
           </div>
         ) : sortedConversations.length === 0 ? (
           <div className="glass-card p-8 text-center">
-            <ChatBubbleLeftRightIcon className="w-16 h-16 mx-auto mb-4 text-input-placeholder opacity-50" />
+            <Icon icon={ChatBubbleLeftRightIcon} className="w-16 h-16 mx-auto mb-4 text-input-placeholder opacity-50"  />
             <h3 className="text-lg font-semibold text-input-text mb-2">No conversations yet</h3>
             <p className="text-input-placeholder mb-6">
               Start your first conversation to begin helping clients
@@ -121,7 +121,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-accent-100 rounded-full flex items-center justify-center">
-                    <ChatBubbleLeftRightIcon className="w-6 h-6 text-accent-600" />
+                    <Icon icon={ChatBubbleLeftRightIcon} className="w-6 h-6 text-accent-600"  />
                   </div>
                   
                   <div className="flex-1 min-w-0">

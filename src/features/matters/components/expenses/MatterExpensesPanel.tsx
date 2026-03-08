@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { EllipsisVerticalIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { ulid } from 'ulid';
 import { format, parseISO } from 'date-fns';
 import Modal from '@/shared/components/Modal';
@@ -178,7 +179,7 @@ export const MatterExpensesPanel = ({
             {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense} disabled={!canCreate}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
           Add expense
         </Button>
       </header>
@@ -243,20 +244,20 @@ export const MatterExpensesPanel = ({
                         variant="ghost"
                         size="sm"
                         aria-label="Open expense actions"
-                        icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                        icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
                       />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-32">
                       <div className="py-1">
                         <DropdownMenuItem onSelect={() => openEditExpense(expense)}>
                           <span className="flex items-center gap-2">
-                            <PencilIcon className="h-4 w-4" />
+                            <Icon icon={PencilIcon} className="h-4 w-4"  />
                             Edit
                           </span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => confirmDelete(expense)}>
                           <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                            <TrashIcon className="h-4 w-4" />
+                            <Icon icon={TrashIcon} className="h-4 w-4"  />
                             Delete
                           </span>
                         </DropdownMenuItem>

@@ -1,5 +1,6 @@
 
 import type { ComponentChildren, ComponentType, JSX } from 'preact';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 
 interface ServiceCardProps {
@@ -23,7 +24,6 @@ export function ServiceCard({
   headerActions,
   className = ''
 }: ServiceCardProps) {
-  const Icon = icon;
   const rightContent = headerActions ? (
     <div className="flex items-center gap-2">
       {headerActions}
@@ -32,12 +32,12 @@ export function ServiceCard({
   const content = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-start gap-3">
-        {Icon && (
+        {icon && (
           <span className={cn(
             'mt-0.5 transition-colors',
             selected ? 'text-accent-500' : 'text-input-text/70'
           )}>
-            <Icon className="h-5 w-5" />
+            <Icon icon={icon} className="h-5 w-5" />
           </span>
         )}
         <div>

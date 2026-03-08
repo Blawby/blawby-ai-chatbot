@@ -6,6 +6,7 @@ import {
   PhoneIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
 import { FormActions } from '@/shared/ui/form';
@@ -696,15 +697,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     <h3 className="text-sm font-semibold text-input-text">Contact</h3>
                     <div className="mt-2 space-y-2">
                       <div className="flex items-start gap-2">
-                        <GlobeAltIcon className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true" />
+                        <Icon icon={GlobeAltIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
                         <SettingsHelperText>{websiteValue || 'Not set'}</SettingsHelperText>
                       </div>
                       <div className="flex items-start gap-2">
-                        <PhoneIcon className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true" />
+                        <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
                         <SettingsHelperText>{phoneValue || 'Not set'}</SettingsHelperText>
                       </div>
                       <div className="flex items-start gap-2">
-                        <MapPinIcon className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true" />
+                        <Icon icon={MapPinIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
                         <SettingsHelperText>{addressSummary || 'Not set'}</SettingsHelperText>
                       </div>
                     </div>
@@ -726,7 +727,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     onClick={openContactModal}
                     className="sm:hidden"
                     aria-label="Manage contact details"
-                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
                   />
                 </div>
               </SettingRow>
@@ -767,7 +768,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     onClick={() => navigateTo(toSettingsPath('practice/services'))}
                     className="sm:hidden"
                     aria-label="Manage services"
-                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
                   />
                 </div>
               </SettingRow>
@@ -800,7 +801,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
                     className="sm:hidden"
                     aria-label="Manage pricing"
-                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
                   />
                 </div>
               </SettingRow>
@@ -845,7 +846,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                       : toSettingsPath('practice/team'))}
                     className="sm:hidden"
                     aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
-                    icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
                   />
                 </div>
               </SettingRow>
@@ -907,7 +908,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                         onClick={() => setShowDeleteModal(true)}
                         data-testid="practice-delete-action"
                       >
-                        <TrashIcon className="w-4 h-4 mr-2" />
+                        <Icon icon={TrashIcon} className="w-4 h-4 mr-2"  />
                         Delete
                       </Button>
                     )}

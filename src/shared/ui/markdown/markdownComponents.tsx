@@ -2,6 +2,7 @@ import type { Components } from 'react-markdown';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { ClipboardDocumentCheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 
 /**
  * Shared react-markdown component overrides used across chat bubbles
@@ -61,12 +62,12 @@ const CopyButton = ({ text }: { text: string }) => {
     >
       {copied ? (
         <>
-          <ClipboardDocumentCheckIcon className="h-4 w-4" aria-hidden="true" />
+          <Icon icon={ClipboardDocumentCheckIcon} className="h-4 w-4" aria-hidden="true"  />
           Copied
         </>
       ) : (
         <>
-          <ClipboardDocumentIcon className="h-4 w-4" aria-hidden="true" />
+          <Icon icon={ClipboardDocumentIcon} className="h-4 w-4" aria-hidden="true"  />
           Copy
         </>
       )}

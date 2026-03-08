@@ -14,6 +14,7 @@ import {
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
+import { Icon } from '@/shared/ui/Icon';
 import {
   MATTER_STATUS_LABELS,
   MATTER_WORKFLOW_STATUSES,
@@ -157,12 +158,12 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           colorClasses
         )}
       >
-        <StatusIcon className="h-4 w-4 shrink-0" aria-hidden />
+        <Icon icon={StatusIcon} className="h-4 w-4 shrink-0" />
         {MATTER_STATUS_LABELS[currentStatus]}
-        <ChevronDownIcon
+        <Icon icon={ChevronDownIcon}
           className={cn('h-3.5 w-3.5 shrink-0 transition-transform duration-150', open && 'rotate-180')}
           aria-hidden
-        />
+         />
       </button>
 
       {open && (
@@ -179,7 +180,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           )}
         >
           {MATTER_WORKFLOW_STATUSES.map((status, index) => {
-            const Icon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
+            const statusIcon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
             const isSelected = status === currentStatus;
             const isFocused = index === focusedIndex;
             return (
@@ -202,9 +203,15 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                     : 'text-input-text hover:bg-white/10'
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0 text-input-placeholder" aria-hidden />
+                <Icon
+                  icon={statusIcon}
+                  className={cn(
+                    'h-4 w-4 shrink-0',
+                    isSelected ? 'text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder'
+                  )}
+                />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>
-                {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden />}
+                {isSelected && <Icon icon={CheckIcon} className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden  />}
               </button>
             );
           })}

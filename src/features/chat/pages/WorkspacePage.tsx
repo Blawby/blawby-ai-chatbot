@@ -1500,7 +1500,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       size="icon-sm"
       onClick={() => setIsMobileNavOpen(true)}
       aria-label="Open navigation menu"
-      icon={<Bars3Icon className="h-5 w-5" />}
+      icon={Bars3Icon} iconClassName="h-5 w-5"
     />
   ) : null;
   const inspectorToggleButton = inspectorTarget ? (
@@ -1510,7 +1510,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       size="icon-sm"
       onClick={() => setIsInspectorOpen(true)}
       aria-label="Open inspector"
-      icon={<InformationCircleIcon className="h-5 w-5" />}
+      icon={InformationCircleIcon} iconClassName="h-5 w-5"
     />
   ) : null;
   const mobileConversationHeaderLeftControl = layoutMode !== 'desktop' && mobileMenuButton

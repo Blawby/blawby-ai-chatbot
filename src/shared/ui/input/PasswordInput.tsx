@@ -1,5 +1,6 @@
 import { forwardRef, useState } from 'preact/compat';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -180,9 +181,9 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
         >
           {showPassword ? (
-            <EyeSlashIcon className="w-4 h-4" />
+            <Icon icon={EyeSlashIcon} className="w-4 h-4"  />
           ) : (
-            <EyeIcon className="w-4 h-4" />
+            <Icon icon={EyeIcon} className="w-4 h-4"  />
           )}
         </button>
       </div>

@@ -9,13 +9,13 @@ import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
 import UserProfile from '@/shared/components/UserProfile';
-import type { ComponentChildren } from 'preact';
+import type { IconComponent } from '@/shared/ui/Icon';
 import type { MatterStatus } from '@/shared/types/matter';
 
 export interface SidebarNavItem {
   id: string;
   label: string;
-  icon: ComponentChildren;
+  icon: IconComponent;
   isActive: boolean;
   onClick: () => void;
   matterStatus?: MatterStatus;

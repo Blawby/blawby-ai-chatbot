@@ -603,7 +603,7 @@ export function MainApp({
           window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
         }}
         aria-label="Open inspector"
-        icon={<InformationCircleIcon className="h-5 w-5" />}
+        icon={InformationCircleIcon} iconClassName="h-5 w-5"
       />
     );
     if (isPracticeWorkspace) {

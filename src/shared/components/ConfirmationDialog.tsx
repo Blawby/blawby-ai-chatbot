@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import Modal from '@/shared/components/Modal';
 import { FormActions } from '@/shared/ui/form';
 import { handleError } from '@/shared/utils/errorHandler';
@@ -114,7 +115,7 @@ export default function ConfirmationDialog({
           {/* Warning Content */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
+              <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
             </div>
             <div className="flex-1">
               <p className="text-sm text-input-placeholder mb-4">
