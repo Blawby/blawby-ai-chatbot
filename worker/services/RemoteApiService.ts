@@ -278,15 +278,28 @@ export class RemoteApiService {
     env: Env,
     practiceId: string,
     request?: Request
-  ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null }>> {
+  ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null; name?: string | null; image?: string | null }>> {
+    type PracticeMemberPayload = {
+      user_id?: string;
+      userId?: string;
+      email?: string | null;
+      role?: string | null;
+      name?: string | null;
+      image?: string | null;
+      user?: {
+        name?: string | null;
+        image?: string | null;
+        email?: string | null;
+      };
+    };
     const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
     const data = await response.json() as {
-      practice?: { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+      practice?: { members?: PracticeMemberPayload[] };
       data?: {
-        members?: Array<{ user_id: string; email?: string | null; role?: string | null }>;
-        practice?: { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+        members?: PracticeMemberPayload[];
+        practice?: { members?: PracticeMemberPayload[] };
       };
-      members?: Array<{ user_id: string; email?: string | null; role?: string | null }>;
+      members?: PracticeMemberPayload[];
     };
 
     const members =
@@ -300,11 +313,19 @@ export class RemoteApiService {
     }
 
     return members
-      .filter((m: any) => typeof m.userId === 'string' || typeof m.user_id === 'string')
-      .map((m: any) => ({
+      .filter((m): m is PracticeMemberPayload => typeof m.userId === 'string' || typeof m.user_id === 'string')
+      .map((m) => ({
         user_id: (typeof m.userId === 'string' ? m.userId : m.user_id) as string,
-        email: m.email,
+        email: typeof m.email === 'string'
+          ? m.email
+          : (typeof m.user?.email === 'string' ? m.user.email : undefined),
         role: m.role,
+        name: typeof m.name === 'string'
+          ? m.name
+          : (typeof m.user?.name === 'string' ? m.user.name : undefined),
+        image: typeof m.image === 'string'
+          ? m.image
+          : (typeof m.user?.image === 'string' ? m.user.image : undefined),
       }));
   }
 

@@ -46,7 +46,6 @@ export const updateConversationTriage = async (
   updates: {
     assignedTo?: string | null;
     priority?: 'low' | 'normal' | 'high' | 'urgent';
-    internalNotes?: string | null;
   }
 ): Promise<Conversation | null> => {
   const response = await fetch(

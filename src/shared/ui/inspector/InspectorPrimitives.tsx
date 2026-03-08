@@ -117,7 +117,7 @@ export const InspectorEditableRow = ({
             <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder group-hover:text-input-text transition-colors cursor-default">{label}</p>
           ) : null}
           {!isOpen && (
-            <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'} ${onToggle ? 'cursor-pointer' : 'cursor-default'}`} onClick={onToggle}>
+            <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'} cursor-default`}>
               {resolvedSummary}
             </p>
           )}

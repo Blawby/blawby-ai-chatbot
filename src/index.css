@@ -678,11 +678,19 @@
     content: " ";
   }
 
-  .chat-markdown.truncate .inline-flex {
-    display: inline-flex;
+  .chat-markdown.truncate .mention-token {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
     vertical-align: middle;
-    /* Ensure pills don't take up too much space in previews */
-    max-width: 140px;
+  }
+
+  .chat-markdown.truncate .mention-token__label {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* General pill styling for non-truncated messages */

@@ -972,10 +972,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       .filter((member) => member.role !== 'client')
       .map((member) => ({
         userId: member.userId,
-        name: member.name ?? member.email,
+        name: member.name?.trim() ?? '',
         email: member.email,
         role: member.role,
-      })),
+      }))
+      .filter((member) => member.userId.trim().length > 0 && member.name.length > 0),
     [practiceMembers]
   );
 
@@ -1747,16 +1748,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         } catch (error) {
           console.error('[WorkspacePage] Failed to update priority:', error);
           showError('Update Failed', 'Failed to update conversation priority.');
-        }
-      } : undefined}
-      onConversationInternalNotesChange={isPracticeWorkspace ? async (internalNotes) => {
-        if (!selectedConversation?.id) return;
-        try {
-          await updateConversationTriage(selectedConversation.id, practiceId, { internalNotes });
-          await refreshConversations();
-        } catch (error) {
-          console.error('[WorkspacePage] Failed to update internal notes:', error);
-          showError('Update Failed', 'Failed to update internal notes.');
         }
       } : undefined}
       onConversationTagsChange={isPracticeWorkspace ? async (nextTags) => {

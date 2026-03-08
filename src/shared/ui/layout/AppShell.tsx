@@ -68,56 +68,56 @@ export const AppShell = ({
 
   const leftPanelCount = (hasSidebar ? 1 : 0) + (hasSecondarySidebar ? 1 : 0) + (hasListPanel ? 1 : 0);
   const mainColStartClass = leftPanelCount === 0
-    ? 'col-start-1 md:col-start-1'
+    ? 'col-start-1 lg:col-start-1'
     : leftPanelCount === 1
-      ? 'col-start-1 md:col-start-2'
+      ? 'col-start-1 lg:col-start-2'
       : leftPanelCount === 2
-        ? 'col-start-1 md:col-start-3'
-        : 'col-start-1 md:col-start-4';
-  const secondarySidebarColStartClass = hasSidebar ? 'md:col-start-2' : 'md:col-start-1';
+        ? 'col-start-1 lg:col-start-3'
+        : 'col-start-1 lg:col-start-4';
+  const secondarySidebarColStartClass = hasSidebar ? 'lg:col-start-2' : 'lg:col-start-1';
   const listPanelColStartClass = hasSidebar && hasSecondarySidebar
-    ? 'md:col-start-3'
+    ? 'lg:col-start-3'
     : hasSidebar || hasSecondarySidebar
-      ? 'md:col-start-2'
-      : 'md:col-start-1';
+      ? 'lg:col-start-2'
+      : 'lg:col-start-1';
   const inspectorColStartClass = leftPanelCount === 0
-    ? 'md:col-start-2'
+    ? 'lg:col-start-2'
     : leftPanelCount === 1
-      ? 'md:col-start-3'
+      ? 'lg:col-start-3'
       : leftPanelCount === 2
-        ? 'md:col-start-4'
-        : 'md:col-start-5';
+        ? 'lg:col-start-4'
+        : 'lg:col-start-5';
   const gridClassName = hasInspector
     ? hasSidebar && hasSecondarySidebar && hasListPanel
-      ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+      ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
       : hasSidebar && hasSecondarySidebar
-        ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+        ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
         : hasSidebar && hasListPanel
-          ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+          ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
           : hasSecondarySidebar && hasListPanel
-            ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+            ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
             : hasSidebar
-              ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+              ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
               : hasSecondarySidebar
-                ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+                ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
                 : hasListPanel
-                  ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
-                  : 'grid-rows-[auto,1fr,auto] md:grid-cols-[1fr,336px] md:grid-rows-[auto,1fr,auto]'
+                  ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
+                  : 'grid-rows-[auto,1fr,auto] lg:grid-cols-[1fr,336px] lg:grid-rows-[auto,1fr,auto]'
     : hasSidebar && hasSecondarySidebar && hasListPanel
-      ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,280px,1fr] md:grid-rows-[auto,1fr,auto]'
+      ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,280px,1fr] lg:grid-rows-[auto,1fr,auto]'
       : hasSidebar && hasSecondarySidebar
-        ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,1fr] md:grid-rows-[auto,1fr,auto]'
+        ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,1fr] lg:grid-rows-[auto,1fr,auto]'
         : hasSidebar && hasListPanel
-          ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,280px,1fr] md:grid-rows-[auto,1fr,auto]'
+          ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,280px,1fr] lg:grid-rows-[auto,1fr,auto]'
           : hasSecondarySidebar && hasListPanel
-            ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,280px,1fr] md:grid-rows-[auto,1fr,auto]'
+            ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,280px,1fr] lg:grid-rows-[auto,1fr,auto]'
             : hasSidebar
-              ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,1fr] md:grid-rows-[auto,1fr,auto]'
+              ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,1fr] lg:grid-rows-[auto,1fr,auto]'
               : hasSecondarySidebar
-                ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,1fr] md:grid-rows-[auto,1fr,auto]'
+                ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,1fr] lg:grid-rows-[auto,1fr,auto]'
                 : hasListPanel
-                  ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr] md:grid-rows-[auto,1fr,auto]'
-                  : 'grid-rows-[auto,1fr,auto] md:grid-cols-1 md:grid-rows-[auto,1fr,auto]';
+                  ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[280px,1fr] lg:grid-rows-[auto,1fr,auto]'
+                  : 'grid-rows-[auto,1fr,auto] lg:grid-cols-1 lg:grid-rows-[auto,1fr,auto]';
   const accentDefaults = getAccentBackdropDefaults(accentBackdropVariant);
   const showAccentBackdrop = Boolean(accentDefaults);
   const resolvedAccentClasses = accentDefaults
@@ -152,7 +152,7 @@ export const AppShell = ({
       {hasSidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-r border-line-glass/15 bg-transparent hidden md:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-r border-line-glass/15 bg-transparent hidden lg:block',
             sidebarClassName
           )}
         >
@@ -163,7 +163,7 @@ export const AppShell = ({
       {hasSecondarySidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden md:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
             !hasListPanel ? 'border-r border-line-glass/15' : undefined,
             secondarySidebarColStartClass,
             secondarySidebarClassName
@@ -176,7 +176,7 @@ export const AppShell = ({
       {hasListPanel && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-list px-2 pt-3 pb-2 hidden md:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-list px-2 pt-3 pb-2 hidden lg:block',
             listPanelColStartClass,
             listPanelClassName
           )}
@@ -198,7 +198,7 @@ export const AppShell = ({
       {hasInspector && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-l border-line-glass/15 hidden md:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-l border-line-glass/15 hidden lg:block',
             inspectorColStartClass,
             inspectorClassName
           )}
@@ -208,7 +208,7 @@ export const AppShell = ({
       )}
 
       {showMobileInspector && (
-        <div className="fixed inset-0 z-[70] md:hidden">
+        <div className="fixed inset-0 z-[70] lg:hidden">
           {onInspectorMobileClose ? (
             <button
               type="button"
@@ -226,7 +226,7 @@ export const AppShell = ({
       )}
 
       {showMobileSecondaryNav && (
-        <div className="fixed inset-0 z-[70] md:hidden">
+        <div className="fixed inset-0 z-[70] lg:hidden">
           {onMobileSecondaryNavClose ? (
             <button
               type="button"
