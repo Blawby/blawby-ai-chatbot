@@ -220,7 +220,7 @@ export const usePracticeConfig = ({
           serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
-          accentColor: cfg.accentColor ?? practice.accentColor ?? 'gold',
+          accentColor: practice.accentColor ?? cfg.accentColor ?? 'gold',
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',

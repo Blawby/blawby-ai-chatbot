@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
-import { type App } from './appsData';
+import { mockApps, type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { GeneralPage } from './GeneralPage';
@@ -54,10 +54,10 @@ export const SettingsContent = ({
   apps: initialApps,
 }: SettingsContentProps) => {
   const { navigate } = useNavigation();
-  const [apps, setApps] = useState<App[]>(initialApps ?? []);
+  const [apps, setApps] = useState<App[]>(initialApps ?? mockApps);
 
   useEffect(() => {
-    setApps(initialApps ?? []);
+    setApps(initialApps ?? mockApps);
   }, [initialApps]);
 
   const { isPending: sessionPending } = useSessionContext();

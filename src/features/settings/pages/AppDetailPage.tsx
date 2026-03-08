@@ -42,12 +42,18 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     };
   }, []);
 
+  const widgetLoaderBaseUrl = (
+    import.meta.env.VITE_APP_BASE_URL
+    || (typeof window !== 'undefined' ? window.location.origin : '')
+  ).replace(/\/+$/, '');
+  const widgetLoaderSrc = `${widgetLoaderBaseUrl}/widget-loader.js`;
+
   const messengerSnippet = slug ? `<script>
   window.BlawbyWidget = {
     practiceSlug: ${JSON.stringify(slug)},
   };
 </script>
-<script src="https://ai.blawby.com/widget-loader.js" defer></script>` : undefined;
+<script src="${widgetLoaderSrc}" defer></script>` : undefined;
 
   const copySnippet = () => {
     if (!messengerSnippet) return;
