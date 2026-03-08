@@ -196,12 +196,15 @@ const MessageComposer = ({
     if (isComposerDisabled) return;
 
     // Validate and sanitize selectedMentionUserIds before sending
-    const tokens = inputValue.match(/@\S+/g) ?? [];
     const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
       const candidate = mentionCandidates.find(c => c.userId === id);
       if (!candidate) return false;
       const label = (candidate.email ?? candidate.name).trim();
-      return tokens.some(token => token === `@${label}`);
+      // Use a more robust check that handles multi-word names and word boundaries
+      // Escaping label for regex and checking for it in the input value
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`@${escapedLabel}(?:\\s|$)`);
+      return regex.test(inputValue);
     });
 
     onSubmit(sanitizedMentionIds.length > 0 ? sanitizedMentionIds : undefined);

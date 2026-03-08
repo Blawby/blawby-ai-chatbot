@@ -136,7 +136,8 @@ export const useWorkspaceData = ({
       }
     },
 
-    setCurrentPractice: () => {
+    setCurrentPractice: (practice: Practice) => {
+      void practice;
       throw new Error("setCurrentPractice not implemented");
     },
 
@@ -159,15 +160,19 @@ export const useWorkspaceData = ({
       }
     },
 
-    addConversation: () => {
+    addConversation: (conversation: Conversation) => {
+      void conversation;
       throw new Error("addConversation not implemented");
     },
 
-    updateConversation: () => {
+    updateConversation: (conversationId: string, updates: Partial<Conversation>) => {
+      void conversationId;
+      void updates;
       throw new Error("updateConversation not implemented");
     },
 
-    removeConversation: () => {
+    removeConversation: (conversationId: string) => {
+      void conversationId;
       throw new Error("removeConversation not implemented");
     },
 

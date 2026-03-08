@@ -68,9 +68,8 @@ export const useWorkspaceState = ({
     fetchPracticeDetails: false
   });
   
-  const { 
-    details
-  } = usePracticeDetails(practiceId);
+  const practiceDetails = usePracticeDetails(practiceId);
+  const { details } = practiceDetails;
 
   // Derived state
   const isPracticeWorkspace = workspace === 'practice';
@@ -89,8 +88,9 @@ export const useWorkspaceState = ({
       setCurrentView(view);
     },
     
-    navigateToConversation: () => {
-      throw new Error("navigateToConversation not implemented");
+    navigateToConversation: (conversationId) => {
+      // Navigation logic would be handled by router
+      console.warn(`navigateToConversation called with ${conversationId}, but not implemented in useWorkspaceState`);
     },
     
     navigateToMatters: () => {
@@ -105,13 +105,18 @@ export const useWorkspaceState = ({
       setCurrentView('home');
     },
     
-    setCurrentPractice: () => {
-      throw new Error("setCurrentPractice not implemented");
+    setCurrentPractice: (practice: Practice) => {
+      // This would normally update practice in management hook
+      console.warn('setCurrentPractice called but implementation is pending wiring to usePracticeManagement', practice);
     },
     
-    setCurrentDetails: (newDetails) => {
-      void newDetails;
-      throw new Error("setCurrentDetails not implemented");
+    setCurrentDetails: (newDetails: PracticeDetails) => {
+      // Use the setDetails action from usePracticeDetails hook if available
+      if (practiceDetails && typeof practiceDetails.setDetails === 'function') {
+        practiceDetails.setDetails(newDetails);
+      } else {
+        console.warn('setCurrentDetails called but setDetails is not available', newDetails);
+      }
     },
     
     setError: (errorMessage) => {
@@ -125,7 +130,7 @@ export const useWorkspaceState = ({
     setLoading: (loading) => {
       setIsLoading(loading);
     },
-  }), []);
+  }), [practiceDetails]);
 
   const state: WorkspaceState = {
     currentPractice,
