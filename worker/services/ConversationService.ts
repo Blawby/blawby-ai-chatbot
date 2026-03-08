@@ -589,9 +589,8 @@ export class ConversationService {
           .filter((tag) => tag.length > 0)
       )
     );
-    const conversation = await this.getConversation(conversationId, practiceId);
+    // updateConversation will only update provided fields
     return this.updateConversation(conversationId, practiceId, {
-      metadata: conversation.user_info ?? {},
       tags: normalized
     });
   }
@@ -628,7 +627,8 @@ export class ConversationService {
   async setConversationMentions(
     conversationId: string,
     practiceId: string,
-    mentionUserIds: string[]
+    mentionUserIds: string[],
+    options?: { request?: Request }
   ): Promise<Conversation> {
     const rawMentionUserIds = Array.from(
       new Set(
@@ -639,7 +639,7 @@ export class ConversationService {
     );
 
     // Fetch practice members to validate mentions
-    const members = await RemoteApiService.getPracticeMembers(this.env, practiceId);
+    const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
     const memberIds = new Set(members.map(m => m.user_id));
     
     // Filter to only include valid members

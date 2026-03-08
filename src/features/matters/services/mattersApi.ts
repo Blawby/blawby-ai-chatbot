@@ -164,16 +164,16 @@ const normalizeMatter = (matter: BackendMatter): BackendMatter => {
   try {
     return {
       ...matter,
-      total_fixed_price: typeof matter.total_fixed_price === 'number' 
+      total_fixed_price: typeof matter.total_fixed_price === 'number' && Number.isFinite(matter.total_fixed_price) && Number.isInteger(matter.total_fixed_price)
         ? toMajorUnits(matter.total_fixed_price) 
         : matter.total_fixed_price,
-      settlement_amount: typeof matter.settlement_amount === 'number'
+      settlement_amount: typeof matter.settlement_amount === 'number' && Number.isFinite(matter.settlement_amount) && Number.isInteger(matter.settlement_amount)
         ? toMajorUnits(matter.settlement_amount)
         : matter.settlement_amount,
-      admin_hourly_rate: typeof matter.admin_hourly_rate === 'number'
+      admin_hourly_rate: typeof matter.admin_hourly_rate === 'number' && Number.isFinite(matter.admin_hourly_rate) && Number.isInteger(matter.admin_hourly_rate)
         ? toMajorUnits(matter.admin_hourly_rate)
         : matter.admin_hourly_rate,
-      attorney_hourly_rate: typeof matter.attorney_hourly_rate === 'number'
+      attorney_hourly_rate: typeof matter.attorney_hourly_rate === 'number' && Number.isFinite(matter.attorney_hourly_rate) && Number.isInteger(matter.attorney_hourly_rate)
         ? toMajorUnits(matter.attorney_hourly_rate)
         : matter.attorney_hourly_rate,
       milestones: Array.isArray(matter.milestones)
@@ -182,7 +182,7 @@ const normalizeMatter = (matter: BackendMatter): BackendMatter => {
           const record = item as Record<string, unknown>;
           return {
             ...record,
-            amount: typeof record.amount === 'number'
+            amount: typeof record.amount === 'number' && Number.isFinite(record.amount) && Number.isInteger(record.amount)
               ? toMajorUnits(record.amount)
               : record.amount,
           };
@@ -190,7 +190,7 @@ const normalizeMatter = (matter: BackendMatter): BackendMatter => {
         : matter.milestones,
     };
   } catch (err) {
-    console.warn('[mattersApi] Failed to normalize matter money fields', err, matter);
+    console.warn('[mattersApi] Failed to normalize matter money fields', err instanceof Error ? err.message : String(err), { matterId: matter?.id });
     return matter;
   }
 };
@@ -324,7 +324,7 @@ const extractMatterArray = (payload: unknown): BackendMatter[] => {
   }
   
   // Handle flat objects that have an 'id' - fallback if not in known keys
-  if (record.id && (record.title || record.slug || record.organization_id)) {
+  if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
     return [record as BackendMatter];
   }
 

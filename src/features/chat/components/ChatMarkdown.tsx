@@ -82,10 +82,22 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
     : null;
 
   // Pre-process text to wrap @mentions in a specific link format that doesn't split the @
+  // Skip formatting inside inline code and code blocks.
   const processedText = useMemo(() => {
     if (!text) return '';
-    // Match @ followed by an email address and wrap it in a mention:// link
-    return text.replace(/(^|\s)(@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1[$2](mention://$2)');
+    
+    // Split text by markdown code blocks (```...```) or inline code (`...`)
+    // The regex captures the code segment, preserving it during split
+    const parts = text.split(/(```[\s\S]*?```|`[^`]*`)/g);
+    
+    return parts.map((part, index) => {
+      // Even indices are text outside of code blocks/spans, odd indices are the captured code
+      if (index % 2 === 0) {
+        // Match @ followed by an email address and wrap it in a mention:// link
+        return part.replace(/(^|\s)(@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1[$2](mention://$2)');
+      }
+      return part; // Leave code segments unmodified
+    }).join('');
   }, [text]);
 
   return (

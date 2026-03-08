@@ -435,7 +435,18 @@ const MessageComposer = ({
                         return;
                       }
                     }
-                    onKeyDown(event, selectedMentionUserIds);
+                    
+                    // Validate and sanitize selectedMentionUserIds before forwarding
+                    const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
+                      const candidate = mentionCandidates.find(c => c.userId === id);
+                      if (!candidate) return false;
+                      const label = (candidate.email ?? candidate.name).trim();
+                      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      const regex = new RegExp(`@${escapedLabel}(?:\\s|$)`);
+                      return regex.test(inputValue);
+                    });
+                    
+                    onKeyDown(event, sanitizedMentionIds);
                   }}
                   aria-label="Message input"
                   aria-expanded={mentionMenuOpen}

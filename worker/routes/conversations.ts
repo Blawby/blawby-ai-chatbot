@@ -627,7 +627,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const conversation = await conversationService.setConversationMentions(
       conversationId,
       practiceId,
-      sanitizedMentionedUserIds
+      sanitizedMentionedUserIds,
+      { request }
     );
 
     return createJsonResponse(conversation);
@@ -704,12 +705,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         throw HttpErrors.unauthorized('Authentication required');
       }
       await requirePracticeMember(request, env, practiceId, 'paralegal');
-    } else if (authContext.isAnonymous) {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } else {
-      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
-      if (!isStaffMemberRole(membership.memberRole)) {
+      if (body.metadata && 'mentionedUserIds' in body.metadata) {
+        delete body.metadata.mentionedUserIds;
+      }
+      if (authContext.isAnonymous) {
         await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      } else {
+        const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+        if (!isStaffMemberRole(membership.memberRole)) {
+          await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+        }
       }
     }
 
