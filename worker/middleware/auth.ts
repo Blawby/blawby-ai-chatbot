@@ -400,8 +400,14 @@ function extractMembersPayload(payload: unknown): RemoteMemberRecord[] {
     return payload.filter(isRecord);
   }
   if (isRecord(payload)) {
+    if (isRecord(payload.practice) && Array.isArray(payload.practice.members)) {
+      return payload.practice.members.filter(isRecord);
+    }
     if (Array.isArray(payload.members)) {
       return payload.members.filter(isRecord);
+    }
+    if (isRecord(payload.data) && isRecord(payload.data.practice) && Array.isArray(payload.data.practice.members)) {
+      return payload.data.practice.members.filter(isRecord);
     }
     if (isRecord(payload.data) && Array.isArray(payload.data.members)) {
       return payload.data.members.filter(isRecord);
@@ -424,6 +430,8 @@ function extractMemberIdentifiers(member: RemoteMemberRecord): {
   const email =
     typeof member.email === 'string'
       ? member.email.toLowerCase()
+      : isRecord(member.user) && typeof member.user.email === 'string'
+        ? member.user.email.toLowerCase()
       : undefined;
   const role =
     typeof member.role === 'string'
@@ -473,7 +481,7 @@ async function fetchMemberRoleFromRemote(
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       try {
         const response = await fetch(
-          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}/members`,
+          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}`,
           {
             method: 'GET',
             headers,

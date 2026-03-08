@@ -29,7 +29,7 @@ export const mockApps: App[] = [
     developer: 'Blawby',
     website: 'https://ai.blawby.com',
     privacyPolicy: 'https://ai.blawby.com/privacy',
-    logo: '/favicon.svg', // Assumes Blawby logo is available at this path
+    logo: '/blawby-favicon-iframe.png',
     connected: true,      // Natively enabled, no OAuth flow needed
     comingSoon: false,
   },

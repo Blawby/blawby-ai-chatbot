@@ -464,7 +464,7 @@ export const listMatters = async (
   params.set('limit', String(options.limit ?? 20));
 
   const payload = await requestData(
-    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {
+    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}/matters`, {
       params: Object.fromEntries(params.entries()),
       signal: options.signal
     }),
@@ -482,11 +482,8 @@ export const getMatter = async (
     return null;
   }
 
-  const params = new URLSearchParams();
-  params.set('matter_uuid', matterId);
   const payload = await requestData(
-    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {
-      params: Object.fromEntries(params.entries()),
+    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}`, {
       signal: options.signal
     }),
     'Failed to load matter'
