@@ -372,7 +372,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent, mentionedUserIds?: string[]) => {
     // isComposing is not in TypeScript's KeyboardEvent but exists at runtime
     if ((e as KeyboardEvent & { isComposing?: boolean }).isComposing || e.repeat) {
       return;
@@ -380,6 +380,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (isChatInputLocked) {
       return;
     }
+    
+    // Check for Enter (without Shift) to handle submission with mention data
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(mentionedUserIds);
+      return;
+    }
+
     baseKeyHandler(e);
   };
 

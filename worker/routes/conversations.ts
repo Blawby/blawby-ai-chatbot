@@ -614,10 +614,20 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('mentionedUserIds must be an array');
     }
 
+    // Validate each element is a non-empty string and sanitize
+    const sanitizedMentionedUserIds: string[] = [];
+    for (let i = 0; i < body.mentionedUserIds.length; i++) {
+      const el = body.mentionedUserIds[i];
+      if (typeof el !== 'string' || el.trim().length === 0) {
+        throw HttpErrors.badRequest(`mentionedUserIds contains invalid element at index ${i}: must be a non-empty string`);
+      }
+      sanitizedMentionedUserIds.push(el.trim());
+    }
+
     const conversation = await conversationService.setConversationMentions(
       conversationId,
       practiceId,
-      body.mentionedUserIds
+      sanitizedMentionedUserIds
     );
 
     return createJsonResponse(conversation);

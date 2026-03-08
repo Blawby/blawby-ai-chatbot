@@ -101,6 +101,7 @@ export const InspectorEditableRow = ({
               type="button"
               onClick={onToggle}
               disabled={disabled}
+              aria-expanded={isOpen}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-input-placeholder transition hover:bg-white/[0.06] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={`${isOpen ? 'Close' : 'Open'} ${label} controls`}
             >

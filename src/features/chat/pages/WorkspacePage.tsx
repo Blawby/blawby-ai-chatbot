@@ -1700,32 +1700,52 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
       onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
         if (!selectedConversation?.id) return;
-        await updateConversationTriage(selectedConversation.id, practiceId, { assignedTo });
-        await refreshConversations();
+        try {
+          await updateConversationTriage(selectedConversation.id, practiceId, { assignedTo });
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update assignment:', error);
+          showError('Update Failed', 'Failed to update conversation assignment.');
+        }
       } : undefined}
       onConversationPriorityChange={isPracticeWorkspace ? async (priority) => {
         if (!selectedConversation?.id) return;
-        await updateConversationTriage(selectedConversation.id, practiceId, { priority });
-        await refreshConversations();
+        try {
+          await updateConversationTriage(selectedConversation.id, practiceId, { priority });
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update priority:', error);
+          showError('Update Failed', 'Failed to update conversation priority.');
+        }
       } : undefined}
       onConversationInternalNotesChange={isPracticeWorkspace ? async (internalNotes) => {
         if (!selectedConversation?.id) return;
-        await updateConversationTriage(selectedConversation.id, practiceId, { internalNotes });
-        await refreshConversations();
+        try {
+          await updateConversationTriage(selectedConversation.id, practiceId, { internalNotes });
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update internal notes:', error);
+          showError('Update Failed', 'Failed to update internal notes.');
+        }
       } : undefined}
       onConversationTagsChange={isPracticeWorkspace ? async (nextTags) => {
         if (!selectedConversation?.id) return;
-        const current = new Set((selectedConversation.tags ?? []).map((tag) => tag.trim()).filter(Boolean));
-        const next = new Set(nextTags.map((tag) => tag.trim()).filter(Boolean));
-        const toAdd = [...next].filter((tag) => !current.has(tag));
-        const toRemove = [...current].filter((tag) => !next.has(tag));
-        for (const tag of toAdd) {
-          await addConversationTag(selectedConversation.id, practiceId, tag);
+        try {
+          const current = new Set((selectedConversation.tags ?? []).map((tag) => tag.trim()).filter(Boolean));
+          const next = new Set(nextTags.map((tag) => tag.trim()).filter(Boolean));
+          const toAdd = [...next].filter((tag) => !current.has(tag));
+          const toRemove = [...current].filter((tag) => !next.has(tag));
+          
+          await Promise.all([
+            ...toAdd.map((tag) => addConversationTag(selectedConversation!.id, practiceId, tag)),
+            ...toRemove.map((tag) => removeConversationTag(selectedConversation!.id, practiceId, tag))
+          ]);
+          
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update tags:', error);
+          showError('Update Failed', 'Failed to update conversation tags.');
         }
-        for (const tag of toRemove) {
-          await removeConversationTag(selectedConversation.id, practiceId, tag);
-        }
-        await refreshConversations();
       } : undefined}
       onClose={() => setIsInspectorOpen(false)}
       onMatterStatusChange={(status: MatterStatus) => {

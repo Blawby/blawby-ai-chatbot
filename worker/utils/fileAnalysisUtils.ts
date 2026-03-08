@@ -70,8 +70,6 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
       ) as unknown as Record<string, unknown>;
     }
 
-    // Get the file body as ArrayBuffer
-    await fileObject.arrayBuffer();
 
     // File analysis is now handled by the /api/analyze endpoint
     // This utility function is kept for backward compatibility but should not be used directly

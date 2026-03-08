@@ -89,9 +89,8 @@ export const useWorkspaceState = ({
       setCurrentView(view);
     },
     
-    navigateToConversation: (conversationId) => {
-      // Navigation logic would be handled by router
-      void conversationId;
+    navigateToConversation: () => {
+      throw new Error("navigateToConversation not implemented");
     },
     
     navigateToMatters: () => {
@@ -106,14 +105,13 @@ export const useWorkspaceState = ({
       setCurrentView('home');
     },
     
-    setCurrentPractice: (practice) => {
-      // This would update practice in management hook
-      void practice;
+    setCurrentPractice: () => {
+      throw new Error("setCurrentPractice not implemented");
     },
     
-    setCurrentDetails: (details) => {
-      // This would update details in details hook
-      void details;
+    setCurrentDetails: (newDetails) => {
+      void newDetails;
+      throw new Error("setCurrentDetails not implemented");
     },
     
     setError: (errorMessage) => {

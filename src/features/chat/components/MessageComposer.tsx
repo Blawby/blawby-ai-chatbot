@@ -25,7 +25,7 @@ interface MessageComposerProps {
   handleMediaCapture: (blob: Blob, type: 'audio' | 'video') => void;
   setIsRecording: (recording: boolean) => void;
   onSubmit: (mentionedUserIds?: string[]) => void;
-  onKeyDown: (e: KeyboardEvent) => void;
+  onKeyDown: (e: KeyboardEvent, mentionedUserIds?: string[]) => void;
   textareaRef: RefObject<HTMLTextAreaElement>;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
@@ -194,7 +194,17 @@ const MessageComposer = ({
   const handleSubmit = () => {
     if (!inputValue.trim() && previewFiles.length === 0) return;
     if (isComposerDisabled) return;
-    onSubmit(selectedMentionUserIds.length > 0 ? selectedMentionUserIds : undefined);
+
+    // Validate and sanitize selectedMentionUserIds before sending
+    const tokens = inputValue.match(/@\S+/g) ?? [];
+    const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
+      const candidate = mentionCandidates.find(c => c.userId === id);
+      if (!candidate) return false;
+      const label = (candidate.email ?? candidate.name).trim();
+      return tokens.some(token => token === `@${label}`);
+    });
+
+    onSubmit(sanitizedMentionIds.length > 0 ? sanitizedMentionIds : undefined);
     const el = textareaRef.current;
     if (el) {
       el.style.height = '';
@@ -370,17 +380,27 @@ const MessageComposer = ({
                       return;
                     }
                   }
-                  onKeyDown(event);
+                  onKeyDown(event, selectedMentionUserIds);
                 }}
                 aria-label="Message input"
+                aria-expanded={mentionMenuOpen}
+                aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
+                aria-activedescendant={mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined}
                 disabled={isComposerDisabled}
               />
               {mentionMenuOpen && filteredMentionCandidates.length > 0 ? (
-                <div className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 shadow-glass backdrop-blur-2xl">
+                <div 
+                  id="mention-listbox"
+                  role="listbox"
+                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
+                >
                   <div className="max-h-56 overflow-y-auto py-1">
                     {filteredMentionCandidates.map((candidate, index) => (
                       <button
                         key={candidate.userId}
+                        id={`mention-option-${index}`}
+                        role="option"
+                        aria-selected={index === mentionFocusIndex}
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => handleMentionSelect(index)}

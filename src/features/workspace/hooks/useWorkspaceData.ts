@@ -137,8 +137,7 @@ export const useWorkspaceData = ({
     },
 
     setCurrentPractice: () => {
-      // Note: setCurrentPractice functionality not implemented yet
-      // This would need to be added to UsePracticeManagementReturn
+      throw new Error("setCurrentPractice not implemented");
     },
 
     updatePracticeDetails: async (updates) => {
@@ -160,20 +159,16 @@ export const useWorkspaceData = ({
       }
     },
 
-    addConversation: (conversation) => {
-      // This would be handled by the conversations hook
-      void conversation;
+    addConversation: () => {
+      throw new Error("addConversation not implemented");
     },
 
-    updateConversation: (conversationId, updates) => {
-      // This would be handled by the conversations hook
-      void conversationId;
-      void updates;
+    updateConversation: () => {
+      throw new Error("updateConversation not implemented");
     },
 
-    removeConversation: (conversationId) => {
-      // This would be handled by the conversations hook
-      void conversationId;
+    removeConversation: () => {
+      throw new Error("removeConversation not implemented");
     },
 
     refreshAll: async () => {

@@ -88,9 +88,23 @@ export const markdownComponents: Components = {
     const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
     if (isMention || isMentionLikeMailto) {
       const mentionLabel = linkText.startsWith('@') ? linkText : `@${linkText}`;
+      const className = "inline-flex items-center rounded-full bg-accent-500/20 px-2 py-px font-semibold leading-tight text-[rgb(var(--accent-foreground))] no-underline";
+
+      if (isMentionLikeMailto) {
+        return (
+          <a
+            href={hrefValue}
+            className={`${className} hover:bg-accent-500/30 transition-colors`}
+            {...props}
+          >
+            {mentionLabel}
+          </a>
+        );
+      }
+
       return (
         <span
-          className="inline-flex items-center rounded-full bg-accent-500/20 px-2 py-px font-semibold leading-tight text-[rgb(var(--accent-foreground))] no-underline"
+          className={className}
           {...props}
         >
           {mentionLabel}
