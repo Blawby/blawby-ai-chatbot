@@ -36,7 +36,6 @@ const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/Cli
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
-import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeConversationHeaderMenu';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
@@ -110,9 +109,8 @@ export function MainApp({
   useEffect(() => { showErrorRef.current = showError; }, [showError]);
 
   // ── practice data ──────────────────────────────────────────────────────────
-  const { currentPractice } = usePracticeManagement({
+  const { currentPractice, getMembers, fetchMembers } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
-    fetchInvitations: workspace !== 'public',
     practiceSlug: workspace === 'practice'
       ? (practiceSlug ?? null)
       : workspace === 'client'
@@ -201,6 +199,13 @@ export function MainApp({
   useEffect(() => {
     setConversationMode(null);
   }, [conversationResetKey]);
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || !practiceId) return;
+    void fetchMembers(practiceId).catch((error) => {
+      console.warn('[MainApp] Failed to fetch members for mentions', error);
+    });
+  }, [fetchMembers, isPracticeWorkspace, practiceId]);
 
   const handleSetupError = useCallback((msg: string) => {
     showErrorRef.current?.(msg);
@@ -441,15 +446,31 @@ export function MainApp({
   const handleSendMessage = useCallback(async (
     message: string,
     attachments: FileAttachment[] = [],
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    options?: { mentionedUserIds?: string[] }
   ) => {
     if (!activeConversationId) {
       showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
       if (!isCreatingConversation) void createConversation();
       return;
     }
-    await sendMessage(message, attachments, replyToMessageId ?? null);
-  }, [activeConversationId, isCreatingConversation, createConversation, sendMessage]);
+    await sendMessage(message, attachments, replyToMessageId ?? null, {
+      mentionedUserIds: options?.mentionedUserIds,
+      suppressAi: isPracticeWorkspace,
+    });
+  }, [activeConversationId, isCreatingConversation, createConversation, sendMessage, isPracticeWorkspace]);
+
+  const mentionCandidates = useMemo(() => {
+    if (!isPracticeWorkspace || !practiceId) return [];
+    return getMembers(practiceId)
+      .filter((member) => member.role !== 'client')
+      .map((member) => ({
+        userId: member.userId,
+        name: member.name?.trim() || member.email,
+        email: member.email,
+      }))
+      .filter((entry) => entry.userId.trim().length > 0 && entry.name.trim().length > 0);
+  }, [getMembers, isPracticeWorkspace, practiceId]);
 
   const handleUploadError = useCallback((error: unknown) => {
     console.error('File upload error:', error);
@@ -607,12 +628,7 @@ export function MainApp({
       />
     );
     if (isPracticeWorkspace) {
-      return (
-        <div className="flex items-center gap-2">
-          <PracticeConversationHeaderMenu practiceId={practiceId} conversationId={activeConversationId ?? undefined} />
-          {inspectorButton}
-        </div>
-      );
+      return inspectorButton;
     }
     if (conversationMode === 'REQUEST_CONSULTATION') {
       return (
@@ -623,7 +639,7 @@ export function MainApp({
       );
     }
     return inspectorButton;
-  }, [isPracticeWorkspace, practiceId, activeConversationId, conversationMode, intakeConversationState]);
+  }, [isPracticeWorkspace, conversationMode, intakeConversationState]);
 
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
@@ -740,6 +756,7 @@ export function MainApp({
             onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
             onAuthPromptClose={handleAuthPromptClose}
             onAuthPromptSuccess={handleAuthPromptSuccess}
+            mentionCandidates={mentionCandidates}
           />
         </div>
       )}

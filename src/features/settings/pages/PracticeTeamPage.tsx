@@ -3,6 +3,7 @@ import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { normalizeSeats } from '@/shared/utils/subscription';
@@ -35,12 +36,14 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     fetchMembers,
     updateMemberRole,
     removeMember,
-    sendInvitation,
-    invitations,
-    acceptInvitation,
-    declineInvitation,
     loading
   } = usePracticeManagement();
+  const {
+    invitations,
+    sendInvitation: sendPracticeInvitation,
+    acceptInvitation,
+    declineInvitation,
+  } = usePracticeInvitations(currentPractice?.id ?? null);
   const { showSuccess, showError } = useToastContext();
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { navigate: baseNavigate } = useNavigation();
@@ -116,7 +119,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     }
 
     try {
-      await sendInvitation(currentPractice.id, inviteForm.email, inviteForm.role);
+      await sendPracticeInvitation(inviteForm.email, inviteForm.role);
       showSuccess('Invitation sent successfully!');
       setIsInvitingMember(false);
       setInviteForm({ email: '', role: 'admin' });

@@ -40,14 +40,14 @@ export const useMattersData = (
     }
   }, [userId]);
 
+  // Serialize before memoising — stable even when caller passes a new [] literal each render
+  const filterKey = statusFilter.map((v) => v.trim().toLowerCase()).filter(Boolean).sort().join(',');
   const normalizedFilter = useMemo(
-    () => statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean),
-    [statusFilter]
+    () => (filterKey.length > 0 ? filterKey.split(',') : []),
+    [filterKey]  // filterKey is a derived string — stable for same contents
   );
-  const cacheKey = useMemo(
-    () => `${practiceId}:${normalizedFilter.join(',')}`,
-    [practiceId, normalizedFilter]
-  );
+  const cacheKey = `${practiceId}:${filterKey}`;
+
   const items = store[cacheKey] ?? [];
   const isLoaded = loadedStore.has(cacheKey);
 

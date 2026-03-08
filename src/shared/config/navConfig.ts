@@ -89,6 +89,7 @@ export type ConversationAssignedToFilter = 'none' | null;
 
 export const PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP: Record<string, ConversationAssignedToFilter> = {
   'your-inbox': null,
+  'assigned-to-me': null,
   mentions: null,
   all: null,
   unassigned: 'none',
@@ -125,6 +126,7 @@ const buildConversationsSecondary = (basePath: string, workspace: 'practice' | '
       label: 'Inbox',
       items: [
         { id: 'your-inbox', label: 'Your Inbox', href: `${basePath}/conversations` },
+        { id: 'assigned-to-me', label: 'Assigned to me', href: `${basePath}/conversations` },
         { id: 'mentions', label: 'Mentions', href: `${basePath}/conversations` },
         { id: 'all', label: 'All', href: `${basePath}/conversations` },
         { id: 'unassigned', label: 'Unassigned', href: `${basePath}/conversations` },

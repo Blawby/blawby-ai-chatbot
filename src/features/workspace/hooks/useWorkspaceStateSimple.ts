@@ -59,7 +59,6 @@ export const useWorkspaceState = ({
   // Practice management
   const practiceManagement = usePracticeManagement({
     autoFetchPractices: true,
-    fetchInvitations: false,
     fetchPracticeDetails: false, // We'll handle this separately
   });
 

@@ -668,6 +668,30 @@
     word-break: normal;
   }
 
+  /* Support truncation in previews by making inner paragraphs inline */
+  .chat-markdown.truncate p {
+    display: inline;
+    margin: 0;
+  }
+
+  .chat-markdown.truncate p+p::before {
+    content: " ";
+  }
+
+  .chat-markdown.truncate .inline-flex {
+    display: inline-flex;
+    vertical-align: middle;
+    /* Ensure pills don't take up too much space in previews */
+    max-width: 140px;
+  }
+
+  /* General pill styling for non-truncated messages */
+  .chat-markdown .inline-flex {
+    display: inline-flex;
+    vertical-align: middle;
+    margin: 0.1em 0.25em;
+  }
+
   /* ── Headings ──────────────────────────────────────────── */
 
   .chat-markdown h1,

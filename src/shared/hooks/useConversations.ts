@@ -71,6 +71,15 @@ export function useConversations({
   const isDisposedRef = useRef(false);
   const onErrorRef = useRef(onError);
 
+  // Ref that always points to the latest fetchConversations callback.
+  // Initialised with a no-op; the effect below keeps it current every render.
+  // This lets the fetch effect below depend only on primitive query params.
+  const fetchConversationsRef = useRef<(signal?: AbortSignal) => Promise<void>>(() => Promise.resolve());
+  useEffect(() => {
+    fetchConversationsRef.current = fetchConversations;
+  });
+
+
   // Keep onError ref in sync
   useEffect(() => {
     onErrorRef.current = onError;
@@ -86,7 +95,7 @@ export function useConversations({
   }, []);
 
   // Fetch conversations
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (signal?: AbortSignal) => {
     if (!enabled) {
       setIsLoading(false);
       return;
@@ -153,6 +162,7 @@ export function useConversations({
         method: 'GET',
         headers,
         credentials: 'include',
+        signal,
       });
 
       if (!response.ok) {
@@ -205,7 +215,7 @@ export function useConversations({
         setError(null);
       }
     } catch (err) {
-      if (isDisposedRef.current) return;
+      if (isDisposedRef.current || (err instanceof DOMException && err.name === 'AbortError')) return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversations';
       setError(errorMessage);
       onErrorRef.current?.(errorMessage);
@@ -309,7 +319,10 @@ export function useConversations({
     }
   }, [practiceId, onError, refresh]);
 
-  // Initial load and refetch when filters change
+  // Initial load and refetch when the query parameters change.
+  // Note: fetchConversations is intentionally NOT in this dep array — it's
+  // stored in a ref above. The primitives here are the actual query axes;
+  // including the callback would cause re-fires on every render cycle.
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
@@ -326,15 +339,15 @@ export function useConversations({
       return;
     }
 
-    abortControllerRef.current = new AbortController();
-    fetchConversations();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    void fetchConversationsRef.current(controller.signal);
 
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      controller.abort();
     };
-  }, [practiceId, matterId, status, assignedTo, fetchConversations, scope, enabled, sessionReady]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceId, sessionPracticeId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList, limit, offset]);
 
   return {
     conversations,

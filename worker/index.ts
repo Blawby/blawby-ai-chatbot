@@ -94,7 +94,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleAnalyze(request, env);
     } else if (path.startsWith('/api/pdf')) {
       response = await handlePDF(request, env);
-    } else if (path.startsWith('/api/debug') || path.startsWith('/api/test')) {
+    } else if ((path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true') {
       response = await handleDebug(request, env);
     } else if (path.startsWith('/api/status')) {
       response = await handleStatus(request, env);

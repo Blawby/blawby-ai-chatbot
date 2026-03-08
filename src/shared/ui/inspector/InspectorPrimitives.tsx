@@ -1,4 +1,5 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, ComponentChild } from 'preact';
+import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 
 type SkeletonRowProps = {
   wide?: boolean;
@@ -29,12 +30,12 @@ export const InfoRow = ({
   const hasValue = typeof value === 'string' ? value.trim().length > 0 : false;
 
   return (
-    <div className="flex min-h-[40px] items-center justify-between px-4 py-2.5">
-      <p className="w-24 shrink-0 truncate text-[13px] text-input-placeholder">{label}</p>
+    <div className="flex flex-col gap-1.5 px-5 py-2 group">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder group-hover:text-input-text transition-colors cursor-default">{label}</p>
       {valueNode != null ? (
-        <div className="flex min-w-0 flex-1 justify-end">{valueNode}</div>
+        <div className="flex min-w-0 flex-1">{valueNode}</div>
       ) : (
-        <p className={`ml-2 flex-1 truncate text-right text-[13px] ${muted ? 'text-input-placeholder' : 'text-input-text'}`}>
+        <p className={`truncate text-[14px] ${muted ? 'text-input-placeholder' : 'text-input-text'}`}>
           {hasValue ? value : '—'}
         </p>
       )}
@@ -45,19 +46,100 @@ export const InfoRow = ({
 type InspectorGroupProps = {
   label?: string;
   children: ComponentChildren;
+  onToggle?: () => void;
+  isOpen?: boolean;
+  disabled?: boolean;
 };
 
-export const InspectorGroup = ({ label, children }: InspectorGroupProps) => {
+export const InspectorGroup = ({
+  label,
+  children,
+  onToggle,
+  isOpen,
+  disabled = false,
+}: InspectorGroupProps) => {
   return (
-    <div>
+    <div className="mb-1.5">
       {label ? (
-        <p className="px-4 pb-1 pt-3 text-[10px] font-medium uppercase tracking-widest text-input-placeholder">
-          {label}
-        </p>
+        <div className="flex items-center justify-between px-5 pb-0.5 pt-2">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/70">
+            {label}
+          </p>
+          {onToggle ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              disabled={disabled}
+              aria-expanded={isOpen}
+              aria-label="Toggle group options"
+              className={`flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-white/[0.08] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-white/[0.08] text-input-text' : ''}`}
+            >
+              <Cog6ToothIcon className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       ) : null}
-      <div className="mx-3 overflow-hidden rounded-xl bg-white/[0.04] divide-y divide-white/[0.08]">
+      <div className="overflow-visible">
         {children}
       </div>
+    </div>
+  );
+};
+
+type InspectorEditableRowProps = {
+  label: string;
+  summary?: ComponentChild;
+  summaryMuted?: boolean;
+  isOpen?: boolean;
+  onToggle?: () => void;
+  disabled?: boolean;
+  children?: ComponentChildren;
+};
+
+export const InspectorEditableRow = ({
+  label,
+  summary,
+  summaryMuted = false,
+  isOpen = false,
+  onToggle,
+  disabled = false,
+  children,
+}: InspectorEditableRowProps) => {
+  const resolvedSummary = typeof summary === 'string' 
+    ? (summary.trim().length > 0 ? summary.trim() : '—')
+    : (summary ?? '—');
+
+  return (
+    <div className={`px-5 ${label ? 'py-1.5' : 'py-0.5'}`}>
+      <div className="flex items-start justify-between gap-1.5 group">
+        <div className="min-w-0 flex-1">
+          {label ? (
+            <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder group-hover:text-input-text transition-colors cursor-default">{label}</p>
+          ) : null}
+          {!isOpen && (
+            <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'} ${onToggle ? 'cursor-pointer' : 'cursor-default'}`} onClick={onToggle}>
+              {resolvedSummary}
+            </p>
+          )}
+        </div>
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={disabled}
+            aria-expanded={isOpen}
+            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-white/[0.08] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-white/[0.08] text-input-text' : ''}`}
+            aria-label={`${isOpen ? 'Close' : 'Open'} ${label} controls`}
+          >
+            <Cog6ToothIcon className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      {isOpen && children ? (
+        <div className={label ? 'mt-1.5' : 'mt-0'}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -79,7 +161,7 @@ export const InspectorHeaderPerson = ({
     : '??').toUpperCase();
 
   return (
-    <div className="flex flex-col items-center px-4 pb-4 pt-5">
+    <div className="flex flex-col items-center px-5 pb-4 pt-5">
       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white/[0.08]">
         {avatarUrl ? (
           <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
@@ -109,7 +191,7 @@ export const InspectorHeaderEntity = ({
   statusBadge,
 }: InspectorHeaderEntityProps) => {
   return (
-    <div className="flex flex-col gap-1.5 px-4 pb-4 pt-5">
+    <div className="flex flex-col gap-1.5 px-5 pb-4 pt-5">
       <p className="text-[10px] font-medium uppercase tracking-widest text-input-placeholder">{chip}</p>
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-input-text">{title}</p>

@@ -300,7 +300,6 @@ export const PracticeMattersPage = ({
   // ── External hooks ────────────────────────────────────────────────────────
   const { getMembers, fetchMembers } = usePracticeManagement({
     autoFetchPractices: false,
-    fetchInvitations: false,
     fetchPracticeDetails: false
   });
   const {

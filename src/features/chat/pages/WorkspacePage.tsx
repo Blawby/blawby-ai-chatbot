@@ -19,7 +19,18 @@ import { SegmentedToggle } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
-import { fetchLatestConversationMessage, updateConversationMetadata } from '@/shared/lib/conversationApi';
+import {
+  addConversationTag,
+  fetchLatestConversationMessage,
+  removeConversationTag,
+  updateConversationMetadata,
+  updateConversationTriage,
+} from '@/shared/lib/conversationApi';
+import { 
+  createConnectedAccount, 
+  getOnboardingStatusPayload, 
+  updateConversationMatter 
+} from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -42,7 +53,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
-import { createConnectedAccount, getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
@@ -367,6 +377,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         if (!sessionUserId) return activeConversations;
         return activeConversations.filter((conversation) => conversation.assigned_to === sessionUserId);
       }
+      if (conversationFilterId === 'assigned-to-me') {
+        if (!sessionUserId) return activeConversations;
+        return activeConversations.filter((conversation) => conversation.assigned_to === sessionUserId);
+      }
       if (conversationFilterId === 'unassigned') {
         return activeConversations.filter((conversation) => !conversation.assigned_to || conversation.assigned_to.trim() === '');
       }
@@ -443,12 +457,24 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return [];
   }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
+  // Always fetch the full unfiltered matters list so the inspector can use it.
+  // The mattersStore handles deduplication — this fires once and caches.
   const mattersData = useMattersData(
     practiceId,
-    mattersStatusFilter,
+    [], // no status filter — fetch all, filter at display time
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && workspaceSection === 'matters' }
+    { enabled: isPracticeWorkspace }
   );
+  // Filtered view for the matters list page (status filter applied after fetch)
+  const filteredMattersItems = useMemo(() => {
+    if (!mattersStatusFilter || mattersStatusFilter.length === 0) return mattersData.items;
+    const accepted = new Set(mattersStatusFilter.map((s) => s.trim().toLowerCase()));
+    return mattersData.items.filter((m) => accepted.has(String(m.status ?? '').toLowerCase()));
+  }, [mattersData.items, mattersStatusFilter]);
+  const mattersDataForView = useMemo(() => ({
+    ...mattersData,
+    items: filteredMattersItems,
+  }), [mattersData, filteredMattersItems]);
   const clientsData = useClientsData(
     practiceId,
     clientsStatusFilter,
@@ -754,7 +780,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
+  const { currentPractice, updatePractice, getMembers, fetchMembers } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -788,8 +814,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId: isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null,
     enabled: isPracticeWorkspace,
     matterLimit: 25,
-    windowSize: dashboardWindow
+    windowSize: dashboardWindow,
+    matters: mattersData.isLoaded ? mattersData.items : undefined,
   });
+
 
   useEffect(() => {
     if (!currentPractice?.id) return;
@@ -938,12 +966,38 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [forcePreviewReload, updateSetupDetails]);
 
   const organizationId = currentPractice?.id ?? null;
+  const practiceMembers = useMemo(() => getMembers(practiceId), [getMembers, practiceId]);
+  const conversationMemberOptions = useMemo(
+    () => practiceMembers
+      .filter((member) => member.role !== 'client')
+      .map((member) => ({
+        userId: member.userId,
+        name: member.name ?? member.email,
+        email: member.email,
+        role: member.role,
+      })),
+    [practiceMembers]
+  );
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || !practiceId) return;
+    void fetchMembers(practiceId).catch((error) => {
+      console.warn('[WorkspacePage] Failed to fetch members for inspector', error);
+    });
+  }, [fetchMembers, isPracticeWorkspace, practiceId]);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);
 
+  // Only fetch Stripe/onboarding status when the user is in the settings section.
+  // Fetching it on every workspace mount hammers the rate-limited API endpoint.
+  const isSettingsSection = workspaceSection === 'settings';
+
+  const showErrorRef = useRef(showError);
+  useEffect(() => { showErrorRef.current = showError; });
+
   const refreshStripeStatus = useCallback(async (options?: { signal?: AbortSignal }) => {
-    if (!organizationId) {
+    if (!organizationId || !isSettingsSection) {
       setStripeStatus(null);
       return;
     }
@@ -959,17 +1013,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return;
       }
       console.warn('[WorkspacePage] Failed to load payout status:', error);
-      showError('Payouts', 'Unable to load payout account status.');
+      showErrorRef.current('Payouts', 'Unable to load payout account status.');
     } finally {
       setIsStripeLoading(false);
     }
-  }, [organizationId, showError]);
+  // organizationId and isSettingsSection are both stable primitives
+  }, [organizationId, isSettingsSection]);
 
+  // Only fetch when organizationId changes AND we're on the settings section
   useEffect(() => {
+    if (!organizationId || !isSettingsSection) return;
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
-  }, [refreshStripeStatus]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, isSettingsSection]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
     if (!organizationId) {
@@ -1530,7 +1588,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const listViewControls: ListViewControls = {
     listHeaderLeftControl: layoutMode !== 'desktop' ? mobileMenuButton ?? undefined : undefined,
     detailHeaderRightControl: inspectorToggleButton ?? undefined,
-    mattersData,
+    mattersData: mattersDataForView, // filtered for the list view
     clientsData,
   };
   const matterListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters'
@@ -1663,11 +1721,77 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const inspectorPanel = inspectorTarget ? (
     <InspectorPanel
+      key={`${inspectorTarget.entityType}:${inspectorTarget.entityId}`}
       entityType={inspectorTarget.entityType}
       entityId={inspectorTarget.entityId}
       practiceId={practiceId}
       conversation={selectedConversation}
+      conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
+      isClientView={!isPracticeWorkspace}
+      practiceName={practiceName ?? undefined}
+      onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
+        if (!selectedConversation?.id) return;
+        try {
+          await updateConversationTriage(selectedConversation.id, practiceId, { assignedTo });
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update assignment:', error);
+          showError('Update Failed', 'Failed to update conversation assignment.');
+        }
+      } : undefined}
+      onConversationPriorityChange={isPracticeWorkspace ? async (priority) => {
+        if (!selectedConversation?.id) return;
+        try {
+          await updateConversationTriage(selectedConversation.id, practiceId, { priority });
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update priority:', error);
+          showError('Update Failed', 'Failed to update conversation priority.');
+        }
+      } : undefined}
+      onConversationInternalNotesChange={isPracticeWorkspace ? async (internalNotes) => {
+        if (!selectedConversation?.id) return;
+        try {
+          await updateConversationTriage(selectedConversation.id, practiceId, { internalNotes });
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update internal notes:', error);
+          showError('Update Failed', 'Failed to update internal notes.');
+        }
+      } : undefined}
+      onConversationTagsChange={isPracticeWorkspace ? async (nextTags) => {
+        if (!selectedConversation?.id) return;
+        try {
+          const current = new Set((selectedConversation.tags ?? []).map((tag) => tag.trim()).filter(Boolean));
+          const next = new Set(nextTags.map((tag) => tag.trim()).filter(Boolean));
+          const toAdd = [...next].filter((tag) => !current.has(tag));
+          const toRemove = [...current].filter((tag) => !next.has(tag));
+          
+          for (const tag of toAdd) {
+            await addConversationTag(selectedConversation.id, practiceId, tag);
+          }
+          for (const tag of toRemove) {
+            await removeConversationTag(selectedConversation.id, practiceId, tag);
+          }
+          
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update tags:', error);
+          showError('Update Failed', 'Failed to update conversation tags.');
+        }
+      } : undefined}
+      onConversationMatterChange={isPracticeWorkspace ? async (matterId) => {
+        if (!selectedConversation?.id) return;
+        try {
+          await updateConversationMatter(selectedConversation.id, matterId);
+          await refreshConversations();
+        } catch (error) {
+          console.error('[WorkspacePage] Failed to update matter:', error);
+          showError('Update Failed', 'Failed to link matter to conversation.');
+        }
+      } : undefined}
       onClose={() => setIsInspectorOpen(false)}
+      matters={mattersData.items}
       onMatterStatusChange={(status: MatterStatus) => {
         if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
         window.dispatchEvent(

@@ -61,6 +61,10 @@ type BaseProps = {
   description?: string;
   'aria-labelledby'?: string;
   id?: string;
+  autoFocus?: boolean;
+  defaultOpen?: boolean;
+  /** Hide the trigger button. Useful when the dropdown is auto-opened by an external toggle. */
+  hideTrigger?: boolean;
 };
 
 export type ComboboxProps =
@@ -202,6 +206,9 @@ export function Combobox({
   description,
   'aria-labelledby': ariaLabelledBy,
   id,
+  autoFocus,
+  defaultOpen,
+  hideTrigger = false,
 }: ComboboxProps) {
   const isMultiple = multiple === true;
   const internalId = useMemo(() => `cbx-${uid()}`, []);
@@ -212,9 +219,15 @@ export function Combobox({
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen === true);
   const [query, setQuery] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(-1);
+
+  useEffect(() => {
+    if (autoFocus && !disabled) {
+      open();
+    }
+  }, [autoFocus, disabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------------
   // Derived state
@@ -505,31 +518,35 @@ export function Combobox({
       )}
 
       {/* Trigger */}
-      <div
-        ref={triggerRef}
-        id={inputId}
-        role="combobox"
-        tabIndex={disabled ? -1 : 0}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-controls={listboxId}
-        aria-labelledby={ariaLabelledBy}
-        aria-activedescendant={
-          !searchable && isOpen && clampedFocus >= 0
-            ? `${inputId}-option-${clampedFocus}`
-            : undefined
-        }
-        onClick={() => (isOpen ? close() : open())}
-        onKeyDown={handleKeyDown}
-        className={cn(
-          'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
-          'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
-          isOpen && 'ring-2 ring-accent-500/50',
-          !disabled && 'cursor-pointer'
-        )}
-      >
-        {triggerContent}
-      </div>
+      {!hideTrigger ? (
+        <div
+          ref={triggerRef}
+          id={inputId}
+          role="combobox"
+          tabIndex={disabled ? -1 : 0}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          aria-controls={listboxId}
+          aria-labelledby={ariaLabelledBy}
+          aria-activedescendant={
+            !searchable && isOpen && clampedFocus >= 0
+              ? `${inputId}-option-${clampedFocus}`
+              : undefined
+          }
+          onClick={() => (isOpen ? close() : open())}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
+            'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
+            isOpen && 'ring-2 ring-accent-500/50',
+            !disabled && 'cursor-pointer'
+          )}
+        >
+          {triggerContent}
+        </div>
+      ) : (
+        <div ref={triggerRef} tabIndex={-1} className="h-0 w-0 overflow-hidden pointer-events-none opacity-0 absolute" />
+      )}
 
       {/* Dropdown */}
       {isOpen && (
@@ -540,9 +557,8 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'absolute z-50 w-full overflow-hidden rounded-xl',
-            'border border-white/10 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
-            direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+            'z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass absolute',
+            hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
           {/* Multi chips inside dropdown header */}

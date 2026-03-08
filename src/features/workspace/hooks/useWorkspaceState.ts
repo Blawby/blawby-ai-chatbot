@@ -54,24 +54,26 @@ export interface WorkspaceActions {
 export interface UseWorkspaceStateOptions {
   workspace: WorkspaceType;
   practiceId: string;
+  onNavigateToConversation?: (conversationId: string) => void;
+  onSetCurrentPractice?: (practice: Practice) => void;
 }
 
 export const useWorkspaceState = ({
   workspace,
   practiceId,
+  onNavigateToConversation,
+  onSetCurrentPractice,
 }: UseWorkspaceStateOptions): WorkspaceState & WorkspaceActions => {
   const { isPending: isSessionPending } = useSessionContext();
   const { 
     currentPractice
   } = usePracticeManagement({
     autoFetchPractices: false,
-    fetchInvitations: false,
     fetchPracticeDetails: false
   });
   
-  const { 
-    details
-  } = usePracticeDetails(practiceId);
+  const practiceDetails = usePracticeDetails(practiceId);
+  const { details } = practiceDetails;
 
   // Derived state
   const isPracticeWorkspace = workspace === 'practice';
@@ -84,6 +86,8 @@ export const useWorkspaceState = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { setDetails } = practiceDetails;
+  
   // Actions
   const actions: WorkspaceActions = useMemo(() => ({
     navigateToView: (view) => {
@@ -91,8 +95,11 @@ export const useWorkspaceState = ({
     },
     
     navigateToConversation: (conversationId) => {
-      console.log(`Navigate to conversation: ${conversationId}`);
-      // Navigation logic would be handled by router
+      if (onNavigateToConversation) {
+        onNavigateToConversation(conversationId);
+      } else {
+        console.warn('navigateToConversation called but no callback provided');
+      }
     },
     
     navigateToMatters: () => {
@@ -107,14 +114,21 @@ export const useWorkspaceState = ({
       setCurrentView('home');
     },
     
-    setCurrentPractice: (practice) => {
-      // This would update practice in management hook
-      console.log('Setting current practice:', practice);
+    setCurrentPractice: (practice: Practice) => {
+      if (onSetCurrentPractice) {
+        onSetCurrentPractice(practice);
+      } else {
+        console.warn('setCurrentPractice called but no callback provided');
+      }
     },
     
-    setCurrentDetails: (details) => {
-      // This would update details in details hook
-      console.log('Setting practice details:', details);
+    setCurrentDetails: (newDetails: PracticeDetails) => {
+      // Use the setDetails action from usePracticeDetails hook if available
+      if (typeof setDetails === 'function') {
+        setDetails(newDetails);
+      } else {
+        console.warn('setCurrentDetails called but setDetails is not available');
+      }
     },
     
     setError: (errorMessage) => {
@@ -128,7 +142,7 @@ export const useWorkspaceState = ({
     setLoading: (loading) => {
       setIsLoading(loading);
     },
-  }), []);
+  }), [setDetails, onNavigateToConversation, onSetCurrentPractice]);
 
   const state: WorkspaceState = {
     currentPractice,

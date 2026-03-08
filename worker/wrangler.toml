@@ -245,4 +245,4 @@ zone_name = "blawby.com"
 [observability.logs]
 enabled = false
 head_sampling_rate = 1
-invocation_logs = true
+invocation_logs = false

@@ -75,7 +75,6 @@ export const useWorkspaceData = ({
   // Practice management
   const practiceManagement = usePracticeManagement({
     autoFetchPractices: true,
-    fetchInvitations: false,
     fetchPracticeDetails: autoLoadPracticeDetails,
   });
 
@@ -137,9 +136,9 @@ export const useWorkspaceData = ({
       }
     },
 
-    setCurrentPractice: () => {
-      // Note: setCurrentPractice functionality not implemented yet
-      // This would need to be added to UsePracticeManagementReturn
+    setCurrentPractice: (practice: Practice) => {
+      void practice;
+      throw new Error("setCurrentPractice not implemented");
     },
 
     updatePracticeDetails: async (updates) => {
@@ -161,19 +160,20 @@ export const useWorkspaceData = ({
       }
     },
 
-    addConversation: (conversation) => {
-      // This would be handled by the conversations hook
-      console.log('Adding conversation:', conversation);
+    addConversation: (conversation: Conversation) => {
+      void conversation;
+      throw new Error("addConversation not implemented");
     },
 
-    updateConversation: (conversationId, updates) => {
-      // This would be handled by the conversations hook
-      console.log('Updating conversation:', conversationId, updates);
+    updateConversation: (conversationId: string, updates: Partial<Conversation>) => {
+      void conversationId;
+      void updates;
+      throw new Error("updateConversation not implemented");
     },
 
-    removeConversation: (conversationId) => {
-      // This would be handled by the conversations hook
-      console.log('Removing conversation:', conversationId);
+    removeConversation: (conversationId: string) => {
+      void conversationId;
+      throw new Error("removeConversation not implemented");
     },
 
     refreshAll: async () => {

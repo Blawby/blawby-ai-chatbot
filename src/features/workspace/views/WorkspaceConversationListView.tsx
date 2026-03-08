@@ -10,6 +10,7 @@ import { useMemo } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import type { Conversation } from '@/shared/types/conversation';

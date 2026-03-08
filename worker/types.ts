@@ -139,6 +139,7 @@ export interface Env {
   ADOBE_SCOPE?: string;
   ENABLE_ADOBE_EXTRACT?: string | boolean;
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
+  ALLOW_DEBUG?: string;
 
   // ENV VAR: BACKEND_API_URL (worker/.dev.vars or wrangler.toml)
   // Points to Better Auth backend for session validation (e.g., http://localhost:3000 or https://staging-api.blawby.com)

@@ -47,7 +47,6 @@ export const usePracticeDetails = (
 
   const { updatePracticeDetails } = usePracticeManagement({
     autoFetchPractices: false,
-    fetchInvitations: false,
   });
 
   // ------------------------------------------------------------------

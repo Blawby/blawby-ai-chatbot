@@ -6,7 +6,7 @@
  */
 
 import { FunctionComponent } from 'preact';
-import { useMemo, useCallback } from 'preact/hooks';
+import { useMemo, useCallback, useState, useEffect } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { SplitView } from '@/shared/ui/layout/SplitView';
@@ -18,6 +18,7 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment, ChatMessageUI } from '../../../../worker/types';
 import { useOnboardingState } from '../hooks/useOnboardingState';
+import { normalizeAccentColor } from '@/shared/utils/accentColors';
 
 export interface PracticeOnboardingPageProps {
   status: PracticeSetupStatus;
@@ -89,6 +90,22 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   chatAdapter,
 }) => {
   const { state, actions } = useOnboardingState();
+  const [basicsSaved, setBasicsSaved] = useState(false);
+  const [contactSaved, setContactSaved] = useState(false);
+  
+  // Reset saved flags when the underlying data source changes allowing saves again
+  useEffect(() => {
+    setBasicsSaved(false);
+    setContactSaved(false);
+  }, [practice, details]);
+
+  const normalizedContactAddress = useMemo(() => {
+    const candidate = details?.address;
+    if (candidate && typeof candidate === 'object') {
+      return candidate;
+    }
+    return undefined;
+  }, [details?.address]);
   
   const handleEditBasics = useCallback(() => {
     // Modal opening logic would go here
@@ -135,17 +152,49 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   const handleSaveAll = useCallback(async () => {
     actions.setIsSaving(true);
     actions.setSaveError(null);
+    let basicsErr = '';
+    let contactErr = '';
     
     try {
-      // This would trigger saving of all pending changes
-      // Implementation depends on how you want to handle "Save All"
-      console.log('Save all triggered');
-    } catch (error) {
-      actions.setSaveError(error instanceof Error ? error.message : 'Failed to save');
+      if (onSaveBasics && !basicsSaved) {
+        try {
+          const accentColor = normalizeAccentColor(details?.accentColor || practice?.accentColor) ?? '#D4AF37';
+          await onSaveBasics({
+            name: practice?.name ?? '',
+            slug: practice?.slug ?? '',
+            introMessage: details?.introMessage ?? practice?.introMessage ?? '',
+            accentColor
+          });
+          setBasicsSaved(true);
+        } catch (e) {
+          basicsErr = e instanceof Error ? e.message : 'Failed to save basics';
+        }
+      }
+
+      if (onSaveContact && !contactSaved) {
+        try {
+          await onSaveContact({
+            website: details?.website ?? practice?.website ?? '',
+            businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+            businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+            address: normalizedContactAddress
+          });
+          setContactSaved(true);
+        } catch (e) {
+          contactErr = e instanceof Error ? e.message : 'Failed to save contact';
+        }
+      }
+      
+      if (basicsErr || contactErr) {
+        const errors = [];
+        if (basicsErr) errors.push(`Basics: ${basicsErr}`);
+        if (contactErr) errors.push(`Contact: ${contactErr}`);
+        actions.setSaveError(errors.join(' | '));
+      }
     } finally {
       actions.setIsSaving(false);
     }
-  }, [actions]);
+  }, [actions, basicsSaved, contactSaved, details, normalizedContactAddress, onSaveBasics, onSaveContact, practice]);
 
   const chatAdapterProps = useMemo(() => ({
     messages: chatAdapter?.messages || [],

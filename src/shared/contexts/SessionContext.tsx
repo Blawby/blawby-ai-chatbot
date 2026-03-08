@@ -4,6 +4,7 @@ import { useTypedSession } from '@/shared/lib/authClient';
 import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
+import type { BetterAuthSessionUser } from '@/shared/types/user';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -47,8 +48,15 @@ const buildSessionContextValue = ({
   isPending: boolean;
   error: unknown;
 }): SessionContextValue => {
-  const userRecord = (sessionData?.user as unknown as Record<string, unknown> | undefined) ?? undefined;
-  const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
+  // Safely narrow to fully-typed user, checking the new transformError discriminator
+  const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
+  const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
+  const rawUserRecord = isTransformError ? (sessionData?.user as Record<string, unknown> | undefined) : undefined;
+  
+  const userRecord = (typedUser as unknown as Record<string, unknown> | undefined) ?? undefined;
+  const isAnonymous = isTransformError
+    ? (rawUserRecord?.isAnonymous as boolean | undefined ?? !sessionData?.user)
+    : (typedUser?.isAnonymous ?? !sessionData?.user);
   const stripeCustomerId =
     (typeof userRecord?.stripeCustomerId === 'string'
       ? userRecord.stripeCustomerId
@@ -81,8 +89,13 @@ const buildSessionContextValue = ({
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
 
+  const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
+  const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
+  const rawUserRecord1 = isTransformError ? (sessionData?.user as Record<string, unknown> | undefined) : undefined;
+  const currentUserId1 = isTransformError ? (rawUserRecord1?.id as string | undefined) : typedUser?.id;
+
   const sessionKey =
-    sessionData?.user?.id ??
+    currentUserId1 ??
     (sessionData?.session as { id?: string } | undefined)?.id ??
     null;
 
@@ -110,17 +123,23 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   const value = useMemo(() => buildSessionContextValue({ sessionData, isPending, error }), [sessionData, isPending, error]);
 
+  const valueIsTransformError = value.session && 'transformError' in value.session && value.session.transformError === true;
+  const valueTypedUser = (valueIsTransformError ? null : value.session?.user) as BetterAuthSessionUser | null | undefined;
+  const rawUserRecord2 = valueIsTransformError ? (value.session?.user as Record<string, unknown> | undefined) : undefined;
+  const currentUserId2 = valueIsTransformError ? (rawUserRecord2?.id as string | undefined) : valueTypedUser?.id;
+  const isAnon2 = valueIsTransformError ? (rawUserRecord2?.isAnonymous as boolean | undefined ?? !value.session?.user) : valueTypedUser?.isAnonymous;
+
   useEffect(() => {
-    if (!value.session?.user?.id) return;
-    if (!value.session?.user?.isAnonymous) return;
-    rememberAnonymousUserId(value.session.user.id);
+    if (!currentUserId2) return;
+    if (!isAnon2) return;
+    rememberAnonymousUserId(currentUserId2);
     const anonSessionId = typeof (value.session.session as { id?: string } | null | undefined)?.id === 'string'
       ? (value.session.session as { id: string }).id
       : null;
     if (anonSessionId) {
       rememberAnonymousSessionId(anonSessionId);
     }
-  }, [value.session?.session, value.session?.user?.id, value.session?.user?.isAnonymous]);
+  }, [value.session?.session, currentUserId2, isAnon2]);
 
   return (
     <SessionContext.Provider value={value}>

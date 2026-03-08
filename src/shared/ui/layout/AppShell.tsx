@@ -89,20 +89,20 @@ export const AppShell = ({
         : 'md:col-start-5';
   const gridClassName = hasInspector
     ? hasSidebar && hasSecondarySidebar && hasListPanel
-      ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,280px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
+      ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
       : hasSidebar && hasSecondarySidebar
-        ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
+        ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
         : hasSidebar && hasListPanel
-          ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,280px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
+          ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
           : hasSecondarySidebar && hasListPanel
-            ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,280px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
+            ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
             : hasSidebar
-              ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
+              ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
               : hasSecondarySidebar
-                ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
+                ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[240px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
                 : hasListPanel
-                  ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr,280px] md:grid-rows-[auto,1fr,auto]'
-                  : 'grid-rows-[auto,1fr,auto] md:grid-cols-[1fr,280px] md:grid-rows-[auto,1fr,auto]'
+                  ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[280px,1fr,336px] md:grid-rows-[auto,1fr,auto]'
+                  : 'grid-rows-[auto,1fr,auto] md:grid-cols-[1fr,336px] md:grid-rows-[auto,1fr,auto]'
     : hasSidebar && hasSecondarySidebar && hasListPanel
       ? 'grid-rows-[auto,1fr,auto] md:grid-cols-[64px,240px,280px,1fr] md:grid-rows-[auto,1fr,auto]'
       : hasSidebar && hasSecondarySidebar
@@ -219,7 +219,7 @@ export const AppShell = ({
           ) : (
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
           )}
-          <aside className="absolute right-0 top-0 h-dvh w-full max-w-xl overflow-y-auto border-l border-line-glass/15 bg-surface-base">
+          <aside className="absolute right-0 top-0 h-dvh w-full max-w-2xl overflow-y-auto border-l border-line-glass/15 bg-surface-base">
             {inspector}
           </aside>
         </div>

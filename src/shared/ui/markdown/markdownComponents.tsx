@@ -78,7 +78,39 @@ const CopyButton = ({ text }: { text: string }) => {
 export const markdownComponents: Components = {
   a({ href, children, ...props }) {
     const hrefValue = typeof href === 'string' ? href : undefined;
+    const linkText = getNodeText(children).trim();
+    // NOTE(next PR): mention pills are currently coupled to markdown autolink output;
+    // raw "@email" often renders as plain text + separate email link, so full-token pill styling is inconsistent.
+    const isMention = Boolean(hrefValue?.startsWith('mention://'));
+    const isEmailText = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
+    const isAtEmailText = /^@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
+    
+    // More permissive regex to catch emails that might have weird chars or case, anywhere in the token
+    const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/i;
+    const isEmailHref = hrefValue ? emailRegex.test(hrefValue) : false;
+    const isEmailLinkText = emailRegex.test(linkText);
+    const isMentionLikeEmail = Boolean((isEmailHref || isEmailText || isAtEmailText) && (isEmailLinkText || isAtEmailText));
     const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
+    
+    const isMentionToken = isMention || isMentionLikeEmail;
+    
+    if (isMentionToken) {
+      let cleanLabel = linkText.trim();
+      if (cleanLabel.startsWith('mention://')) {
+        cleanLabel = cleanLabel.replace(/^mention:\/\//, '');
+      }
+      if (!cleanLabel.startsWith('@')) {
+        cleanLabel = `@${cleanLabel}`;
+      }
+
+      const pillClass = "inline-flex items-center rounded-full bg-accent-500/25 px-2 py-0 text-[0.85em] font-semibold leading-relaxed text-[rgb(var(--accent-foreground))] no-underline mx-0.5 shadow-sm border border-accent-500/20 whitespace-nowrap align-baseline";
+
+      return (
+        <span className={pillClass} title={cleanLabel}>
+          {cleanLabel}
+        </span>
+      );
+    }
     return (
       <a
         href={hrefValue}

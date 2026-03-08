@@ -70,6 +70,8 @@ type UsePracticeBillingDataProps = {
   enabled?: boolean;
   matterLimit?: number;
   windowSize?: BillingWindow;
+  /** Pre-fetched matters list. When provided, the internal listMatters call is skipped. */
+  matters?: BackendMatter[];
 };
 
 type MatterBillingSnapshot = {
@@ -173,7 +175,8 @@ export const usePracticeBillingData = ({
   practiceId,
   enabled = true,
   matterLimit = 15,
-  windowSize = '7d'
+  windowSize = '7d',
+  matters: externalMatters,
 }: UsePracticeBillingDataProps) => {
   const [billingActions, setBillingActions] = useState<BillingAction[]>([]);
   const [outstandingSummary, setOutstandingSummary] = useState<OutstandingPaymentsSummary | null>(null);
@@ -255,8 +258,11 @@ export const usePracticeBillingData = ({
     setLoading(true);
     setError(null);
     try {
+      // Use pre-fetched matters when available — avoids a redundant API call
       const [matters, invoices] = await Promise.all([
-        listMatters(practiceId, { limit: matterLimit, signal }),
+        externalMatters != null
+          ? Promise.resolve(externalMatters)
+          : listMatters(practiceId, { limit: matterLimit, signal }),
         listInvoices(practiceId, undefined, { signal })
       ]);
       if (signal?.aborted) return;
@@ -469,7 +475,7 @@ export const usePracticeBillingData = ({
         setLoading(false);
       }
     }
-  }, [practiceId, enabled, matterLimit, windowSize, buildActions]);
+  }, [practiceId, enabled, matterLimit, windowSize, buildActions, externalMatters]);
 
   useEffect(() => {
     const controller = new AbortController();

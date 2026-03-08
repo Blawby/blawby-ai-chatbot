@@ -2,6 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
+import { useRef, useMemo } from 'preact/hooks';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
@@ -9,8 +10,8 @@ import { getWorkerApiUrl } from '@/config/urls';
 type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
-type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
-  ? { user: BetterAuthSessionUser; session: S }
+type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
+  ? ({ user: BetterAuthSessionUser; session: S; transformError?: false } | { user: unknown; session: S; transformError: true }) | Extract<AuthSessionData, null | undefined>
   : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
@@ -170,30 +171,33 @@ export const useSession = () => {
 export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData | undefined } => {
   const client = getAuthClient();
   const session = client.useSession();
-  const rawUser = session.data?.user as Record<string, unknown> | undefined;
-  let typedUser: BetterAuthSessionUser | undefined;
 
-  if (rawUser) {
+  const data = useMemo(() => {
+    if (!session.data?.user) return undefined;
+    
     try {
-      typedUser = transformSessionUser(rawUser);
+      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
+      return {
+        ...session.data,
+        user: typedUser
+      } as TypedSessionData;
     } catch (error) {
       console.error('[Auth] Failed to transform session user', {
         error,
-        userId: typeof rawUser.id === 'string' ? rawUser.id : undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        userId: (session.data.user as any)?.id
       });
+      return {
+        ...session.data,
+        user: session.data.user,
+        transformError: true
+      } as TypedSessionData;
     }
-  }
-
-  if (session.data && typedUser) {
-    return {
-      ...session,
-      data: { ...session.data, user: typedUser }
-    };
-  }
+  }, [session.data]);
 
   return {
     ...session,
-    data: undefined
+    data
   };
 };
 

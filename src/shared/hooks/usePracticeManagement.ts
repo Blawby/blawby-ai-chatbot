@@ -3,7 +3,6 @@ import { atom } from 'nanostores';
 import { useStore } from '@nanostores/preact';
 import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
-import { getBackendApiUrl } from '@/config/urls';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import {
@@ -17,9 +16,6 @@ import {
   getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
-  listPracticeInvitations,
-  createPracticeInvitation,
-  respondToPracticeInvitation,
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
   deletePracticeMember as apiDeletePracticeMember,
@@ -177,12 +173,6 @@ interface UsePracticeManagementOptions {
    */
   autoFetchPractices?: boolean;
   /**
-   * When true (default), the hook will fetch pending invitations for the
-   * current user. Disable this if you don't need invitations for a given
-   * screen or test.
-   */
-  fetchInvitations?: boolean;
-  /**
    * When true, fetches practice details for the active practice and merges
    * them into the practice list snapshot.
    */
@@ -219,12 +209,6 @@ interface UsePracticeManagementReturn {
   fetchMembers: (practiceId: string, options?: { force?: boolean }) => Promise<void>;
   updateMemberRole: (practiceId: string, userId: string, role: Role) => Promise<void>;
   removeMember: (practiceId: string, userId: string) => Promise<void>;
-  
-  // Invitations
-  invitations: Invitation[];
-  sendInvitation: (practiceId: string, email: string, role: Role) => Promise<void>;
-  acceptInvitation: (invitationId: string) => Promise<void>;
-  declineInvitation: (invitationId: string) => Promise<void>;
   
   // Workspace data
   getWorkspaceData: (practiceId: string, resource: string) => Record<string, unknown>[];
@@ -562,7 +546,6 @@ function _generateIdempotencyKey(): string {
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
   const {
     autoFetchPractices = true,
-    fetchInvitations: shouldFetchInvitations = true,
     fetchPracticeDetails = false,
     practiceSlug,
     fetchOnboardingStatus = false,
@@ -572,7 +555,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const members = useStore(membersStore);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   // Initialize loading to true when autoFetchPractices is enabled
   // This ensures the UI shows a loading state during the first render before the fetch effect runs
@@ -950,81 +932,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
 
-  // Fetch practice invitations
-  const fetchInvitations = useCallback(async () => {
-    if (!session?.user?.id || isAnonymous) return;
-
-    if (getBackendApiUrl().includes('staging')) {
-      console.debug('Skipping fetchInvitations on staging because invitations are not available');
-      return;
-    }
-
-    try {
-      // Use imported function directly
-      const rawInvitations = await listPracticeInvitations();
-
-      // Define valid role and status values
-      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
-      const validStatuses: Array<'pending' | 'accepted' | 'declined'> = ['pending', 'accepted', 'declined'];
-
-      const validatedInvitations = rawInvitations
-        .map(invitation => {
-          // Validate invitation structure manually
-          if (!invitation || typeof invitation !== 'object') {
-            return null;
-          }
-          const inv = invitation as Record<string, unknown>;
-          if (
-            typeof inv.id === 'string' &&
-            typeof inv.practiceId === 'string' &&
-            typeof inv.email === 'string' &&
-            typeof inv.role === 'string' &&
-            typeof inv.status === 'string' &&
-            typeof inv.invitedBy === 'string' &&
-            typeof inv.expiresAt === 'number' &&
-            typeof inv.createdAt === 'number'
-          ) {
-            const normalizedRole = normalizePracticeRole(inv.role);
-            if (!normalizedRole || !validRoles.includes(normalizedRole)) {
-              console.error('Invalid invitation role:', inv.role, 'Expected one of:', validRoles, 'Invitation:', invitation);
-              return null;
-            }
-            // Validate status is one of the allowed values
-            if (!validStatuses.includes(inv.status as 'pending' | 'accepted' | 'declined')) {
-              console.error('Invalid invitation status:', inv.status, 'Expected one of:', validStatuses, 'Invitation:', invitation);
-              return null;
-            }
-            return {
-              id: inv.id,
-              practiceId: inv.practiceId,
-              practiceName: typeof inv.practiceName === 'string' ? inv.practiceName : undefined,
-              email: inv.email,
-              role: normalizedRole,
-              status: inv.status as 'pending' | 'accepted' | 'declined',
-              invitedBy: inv.invitedBy,
-              expiresAt: inv.expiresAt,
-              createdAt: inv.createdAt,
-            } as Invitation;
-          }
-          console.error('Invalid invitation data:', invitation);
-          return null;
-        })
-        .filter((invitation): invitation is Invitation => invitation !== null);
-
-      setInvitations(validatedInvitations);
-    } catch (err: unknown) {
-      // Don't set global error for invitation failures as it blocks the main UI
-      const axiosError = err as { response?: { status: number, data: unknown }, message?: string };
-      if (axiosError.response) {
-        // Use debug for expected API errors (like 400 Invalid Practice UUID) to avoid console noise
-        console.debug('Failed to fetch invitations:', axiosError.response.status, axiosError.response.data);
-      } else {
-        console.debug('Failed to fetch invitations:', axiosError.message || err);
-      }
-      setInvitations([]);
-    }
-  }, [isAnonymous, session]);
-
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {
     if (!data?.name || data.name.trim().length === 0) {
@@ -1061,11 +968,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const normalized = normalizePracticeRecord(practice as unknown as Record<string, unknown>);
     practicesFetchedRef.current = false;
     await fetchPractices();
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
     return normalized;
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchPractices]);
 
   // Update practice
   const updatePractice = useCallback(async (id: string, data: UpdatePracticeData): Promise<void> => {
@@ -1198,10 +1102,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       prev.map((practice) => (practice.id === id ? updatedPractice : practice))
     );
 
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
-  }, [fetchInvitations, practices, shouldFetchInvitations]);
+  }, [practices]);
 
   const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
     if (!id) {
@@ -1246,10 +1147,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await apiDeletePractice(id);
     practicesFetchedRef.current = false;
     await fetchPractices();
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchPractices]);
 
   // Fetch members
   const fetchMembers = useCallback(async (
@@ -1350,27 +1248,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await fetchMembers(practiceId, { force: true });
   }, [fetchMembers]);
 
-  // Send invitation
-  const sendInvitation = useCallback(async (practiceId: string, email: string, role: Role): Promise<void> => {
-    await createPracticeInvitation(practiceId, { email, role });
-    await fetchInvitations();
-  }, [fetchInvitations]);
-
-  // Accept invitation
-  const acceptInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await respondToPracticeInvitation(invitationId, 'accept');
-    practicesFetchedRef.current = false;
-    await fetchPractices();
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
-
-  const declineInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await respondToPracticeInvitation(invitationId, 'decline');
-    await fetchInvitations();
-  }, [fetchInvitations]);
-
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (practiceId: string, resource: string): Promise<void> => {
     try {
@@ -1393,15 +1270,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     practicesFetchedRef.current = false;
     resetSharedPracticeCache();
     
-    const promises = [fetchPractices()];
-    
-    // Only fetch invitations if explicitly requested
-    if (shouldFetchInvitations) {
-      promises.push(fetchInvitations());
-    }
-    
-    await Promise.all(promises);
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
+    await fetchPractices();
+  }, [fetchPractices]);
 
   // Refetch when session changes
   useEffect(() => {
@@ -1409,11 +1279,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       return;
     }
 
-    void fetchPractices().then(() => {
-      if (shouldFetchInvitations) {
-        void fetchInvitations();
-      }
-    });
+    void fetchPractices();
 
     return () => {
       currentRequestRef.current?.abort();
@@ -1423,9 +1289,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     sessionLoading,
     session?.user?.id,
     isAnonymous,
-    fetchPractices,
-    fetchInvitations,
-    shouldFetchInvitations
+    fetchPractices
   ]);
 
   return {
@@ -1441,10 +1305,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     fetchMembers,
     updateMemberRole,
     removeMember,
-    invitations,
-    sendInvitation,
-    acceptInvitation,
-    declineInvitation,
     getWorkspaceData,
     fetchWorkspaceData,
     refetch,

@@ -40,6 +40,100 @@ export const updateConversationMetadata = async (
   return data.data ?? null;
 };
 
+export const updateConversationTriage = async (
+  conversationId: string,
+  practiceId: string,
+  updates: {
+    assignedTo?: string | null;
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    internalNotes?: string | null;
+  }
+): Promise<Conversation | null> => {
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as { success: boolean; data?: Conversation };
+  return data.data ?? null;
+};
+
+export const addConversationTag = async (
+  conversationId: string,
+  practiceId: string,
+  tag: string
+): Promise<Conversation | null> => {
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/tags?practiceId=${encodeURIComponent(practiceId)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ tag })
+    }
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+  const data = await response.json() as { success: boolean; data?: Conversation };
+  return data.data ?? null;
+};
+
+export const removeConversationTag = async (
+  conversationId: string,
+  practiceId: string,
+  tag: string
+): Promise<Conversation | null> => {
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/tags?practiceId=${encodeURIComponent(practiceId)}`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ tag })
+    }
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+  const data = await response.json() as { success: boolean; data?: Conversation };
+  return data.data ?? null;
+};
+
+export const updateConversationMentions = async (
+  conversationId: string,
+  practiceId: string,
+  mentionedUserIds: string[]
+): Promise<Conversation | null> => {
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/mentions?practiceId=${encodeURIComponent(practiceId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ mentionedUserIds })
+    }
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+  const data = await response.json() as { success: boolean; data?: Conversation };
+  return data.data ?? null;
+};
+
 export const logConversationEvent = async (
   conversationId: string,
   practiceId: string,

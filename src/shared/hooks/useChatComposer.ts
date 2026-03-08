@@ -369,7 +369,7 @@ export const useChatComposer = ({
     message: string,
     attachments: FileAttachment[] = [],
     replyToMessageId?: string | null,
-    options?: { additionalContext?: string }
+    options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => {
     const metadataMode = conversationMetadataRef.current?.mode ?? null;
     if (metadataMode) {
@@ -379,13 +379,28 @@ export const useChatComposer = ({
     }
     const activeMode = metadataMode ?? mode ?? lastKnownModeRef.current ?? null;
     const shouldUseAi =
-      activeMode === 'ASK_QUESTION' ||
-      activeMode === 'REQUEST_CONSULTATION' ||
-      activeMode === 'PRACTICE_ONBOARDING';
+      !options?.suppressAi && (
+        activeMode === 'ASK_QUESTION' ||
+        activeMode === 'REQUEST_CONSULTATION' ||
+        activeMode === 'PRACTICE_ONBOARDING'
+      );
     const shouldClassifyIntent = activeMode === 'ASK_QUESTION';
     const preSendMessages = [...messagesRef.current];
     const hasUserMessages = preSendMessages.some(msg => msg.isUser);
     const trimmedMessage = message.trim();
+    const mentionUserIds = Array.from(new Set(
+      (options?.mentionedUserIds ?? [])
+        .filter((value): value is string => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+    ));
+    const messageMetadata = mentionUserIds.length > 0
+      ? {
+        mentionedUserIds: mentionUserIds,
+        mentionUserIds,
+        mentions: mentionUserIds,
+      }
+      : undefined;
 
     // Ensure intake state is initialized before first consultation message
     if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
@@ -400,7 +415,7 @@ export const useChatComposer = ({
     }
 
     try {
-      await sendMessageOverWs(message, attachments, undefined, replyToMessageId ?? null);
+      await sendMessageOverWs(message, attachments, messageMetadata, replyToMessageId ?? null);
       if (!shouldUseAi || trimmedMessage.length === 0) return;
 
       const resolvedPracticeId = (practiceId ?? '').trim();
