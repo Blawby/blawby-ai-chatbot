@@ -7,9 +7,6 @@ import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
-import DebugStylesPage from '@/pages/DebugStylesPage';
-import DebugChatPage from '@/pages/DebugChatPage';
-import DebugConversationsPage from '@/pages/DebugConversationsPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -32,20 +29,23 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 
+const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
+const DebugChatPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugChatPage')) : null;
+const DebugConversationsPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugConversationsPage')) : null;
 const DebugMatterPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugMatterPage')) : null;
 
 const DevDebugStylesRoute = () => {
-  if (!import.meta.env.DEV) return <App404 />;
+  if (!import.meta.env.DEV || !DebugStylesPage) return <App404 />;
   return <DebugStylesPage />;
 };
 
 const DevDebugChatRoute = () => {
-  if (!import.meta.env.DEV) return <App404 />;
+  if (!import.meta.env.DEV || !DebugChatPage) return <App404 />;
   return <DebugChatPage />;
 };
 
 const DevDebugConversationsRoute = () => {
-  if (!import.meta.env.DEV) return <App404 />;
+  if (!import.meta.env.DEV || !DebugConversationsPage) return <App404 />;
   return <DebugConversationsPage />;
 };
 
@@ -654,21 +654,13 @@ function PublicPracticeRoute({
       // Only attempt once per browser session, or retry if previous attempt failed
       if (!attemptStatus || attemptStatus === 'failed') {
         sessionStorage.setItem(key, 'pending');
-        console.log('[Auth] Attempting anonymous sign-in');
         (async () => {
           try {
             const client = getClient();
-            console.log('[Auth] Client obtained, checking for anonymous method...');
 
             // Type assertion needed: Better Auth anonymous plugin types may not be fully exposed
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const signIn = client.signIn as any;
-            console.log('[Auth] signIn object:', {
-              hasSignIn: !!signIn,
-              signInKeys: signIn ? Object.keys(signIn) : null,
-              hasAnonymous: !!(signIn?.anonymous),
-              anonymousType: typeof signIn?.anonymous
-            });
 
             const anonymousSignIn = signIn?.anonymous;
 
@@ -684,7 +676,6 @@ function PublicPracticeRoute({
               return;
             }
 
-            console.log('[Auth] Calling anonymous sign-in...');
             const result = await anonymousSignIn();
 
             if (result?.error) {
@@ -696,9 +687,6 @@ function PublicPracticeRoute({
               sessionStorage.setItem(key, 'failed');
             } else {
               sessionStorage.setItem(key, 'success');
-              console.log('[Auth] Anonymous sign-in successful for widget user', {
-                hasData: !!result?.data
-              });
             }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -713,9 +701,7 @@ function PublicPracticeRoute({
           }
         })();
       } else {
-        console.log('[Auth] Anonymous sign-in already attempted, skipping', {
-          status: sessionStorage.getItem(key)
-        });
+        // Skip duplicate anonymous sign-in attempts in the same tab session.
       }
     }
   }, [isWidget, session?.user, sessionIsPending]);

@@ -5,6 +5,10 @@ import { AdobeDocumentService } from '../services/AdobeDocumentService.js';
  * Debug endpoint to test Adobe extraction and capture request details
  */
 export async function handleDebug(request: Request, env: Env): Promise<Response> {
+  if (env.NODE_ENV === 'production') {
+    return new Response('Not found', { status: 404 });
+  }
+
   const url = new URL(request.url);
   const path = url.pathname;
 

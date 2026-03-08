@@ -18,6 +18,7 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment, ChatMessageUI } from '../../../../worker/types';
 import { useOnboardingState } from '../hooks/useOnboardingState';
+import { normalizeAccentColor } from '@/shared/utils/accentColors';
 
 export interface PracticeOnboardingPageProps {
   status: PracticeSetupStatus;
@@ -89,6 +90,13 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   chatAdapter,
 }) => {
   const { state, actions } = useOnboardingState();
+  const normalizedContactAddress = useMemo(() => {
+    const candidate = details?.address;
+    if (candidate && typeof candidate === 'object') {
+      return candidate;
+    }
+    return undefined;
+  }, [details?.address]);
   
   const handleEditBasics = useCallback(() => {
     // Modal opening logic would go here
@@ -137,15 +145,30 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
     actions.setSaveError(null);
     
     try {
-      // This would trigger saving of all pending changes
-      // Implementation depends on how you want to handle "Save All"
-      console.log('Save all triggered');
+      if (onSaveBasics) {
+        const accentColor = normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37';
+        await onSaveBasics({
+          name: practice?.name ?? '',
+          slug: practice?.slug ?? '',
+          introMessage: details?.introMessage ?? practice?.introMessage ?? '',
+          accentColor
+        });
+      }
+
+      if (onSaveContact) {
+        await onSaveContact({
+          website: details?.website ?? practice?.website ?? '',
+          businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+          businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+          address: normalizedContactAddress
+        });
+      }
     } catch (error) {
       actions.setSaveError(error instanceof Error ? error.message : 'Failed to save');
     } finally {
       actions.setIsSaving(false);
     }
-  }, [actions]);
+  }, [actions, details, normalizedContactAddress, onSaveBasics, onSaveContact, practice]);
 
   const chatAdapterProps = useMemo(() => ({
     messages: chatAdapter?.messages || [],

@@ -1,5 +1,5 @@
 import type { RefObject } from 'preact';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
@@ -24,7 +24,7 @@ interface MessageComposerProps {
   isRecording: boolean;
   handleMediaCapture: (blob: Blob, type: 'audio' | 'video') => void;
   setIsRecording: (recording: boolean) => void;
-  onSubmit: () => void;
+  onSubmit: (mentionedUserIds?: string[]) => void;
   onKeyDown: (e: KeyboardEvent) => void;
   textareaRef: RefObject<HTMLTextAreaElement>;
   isReadyToUpload?: boolean;
@@ -43,6 +43,11 @@ interface MessageComposerProps {
   footerActions?: preact.ComponentChildren;
   hideAttachmentControls?: boolean;
   hideMediaControls?: boolean;
+  mentionCandidates?: Array<{
+    userId: string;
+    name: string;
+    email?: string;
+  }>;
 }
 
 const MIN_TEXTAREA_HEIGHT = 32;
@@ -73,13 +78,19 @@ const MessageComposer = ({
   onCancelReply,
   footerActions,
   hideAttachmentControls = false,
-  hideMediaControls = false
+  hideMediaControls = false,
+  mentionCandidates = [],
 }: MessageComposerProps) => {
   const [isInputExpanded, setIsInputExpanded] = useState(false);
   const [isTextareaScrollable, setIsTextareaScrollable] = useState(false);
   const [showScrollFade, setShowScrollFade] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
+  const [mentionFocusIndex, setMentionFocusIndex] = useState(0);
+  const [selectedMentionUserIds, setSelectedMentionUserIds] = useState<string[]>([]);
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
     intakeStep === 'pending_review' ||
@@ -89,6 +100,53 @@ const MessageComposer = ({
   const attachmentCount = uploadingFiles.length + previewFiles.length;
   const shouldWrapAttachments = attachmentCount > 4;
   const maxTextareaHeight = isCompactViewport ? MOBILE_MAX_TEXTAREA_HEIGHT : MAX_TEXTAREA_HEIGHT;
+  const filteredMentionCandidates = useMemo(() => {
+    if (!mentionMenuOpen) return [];
+    const normalizedQuery = mentionQuery.trim().toLowerCase();
+    const base = mentionCandidates.filter((candidate) => candidate.userId.trim().length > 0);
+    if (!normalizedQuery) return base.slice(0, 8);
+    return base
+      .filter((candidate) => {
+        const name = candidate.name.toLowerCase();
+        const email = (candidate.email ?? '').toLowerCase();
+        return name.includes(normalizedQuery) || email.includes(normalizedQuery);
+      })
+      .slice(0, 8);
+  }, [mentionCandidates, mentionMenuOpen, mentionQuery]);
+
+  const closeMentionMenu = useCallback(() => {
+    setMentionMenuOpen(false);
+    setMentionQuery('');
+    setMentionStartIndex(null);
+    setMentionFocusIndex(0);
+  }, []);
+
+  const refreshMentionMenu = useCallback((value: string, caretIndex: number) => {
+    if (mentionCandidates.length === 0) {
+      closeMentionMenu();
+      return;
+    }
+    const beforeCursor = value.slice(0, caretIndex);
+    const atIndex = beforeCursor.lastIndexOf('@');
+    if (atIndex < 0) {
+      closeMentionMenu();
+      return;
+    }
+    const charBefore = atIndex === 0 ? ' ' : beforeCursor[atIndex - 1];
+    if (!/\s/.test(charBefore)) {
+      closeMentionMenu();
+      return;
+    }
+    const query = beforeCursor.slice(atIndex + 1);
+    if (query.includes(' ') || query.includes('\n') || query.includes('\t')) {
+      closeMentionMenu();
+      return;
+    }
+    setMentionStartIndex(atIndex);
+    setMentionQuery(query);
+    setMentionMenuOpen(true);
+    setMentionFocusIndex(0);
+  }, [closeMentionMenu, mentionCandidates.length]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
@@ -121,6 +179,8 @@ const MessageComposer = ({
     const element = e.currentTarget;
     setInputValue(element.value);
     resizeTextarea(element);
+    const caretIndex = element.selectionStart ?? element.value.length;
+    refreshMentionMenu(element.value, caretIndex);
   };
 
   const handleTextareaScroll = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
@@ -134,7 +194,7 @@ const MessageComposer = ({
   const handleSubmit = () => {
     if (!inputValue.trim() && previewFiles.length === 0) return;
     if (isComposerDisabled) return;
-    onSubmit();
+    onSubmit(selectedMentionUserIds.length > 0 ? selectedMentionUserIds : undefined);
     const el = textareaRef.current;
     if (el) {
       el.style.height = '';
@@ -143,7 +203,38 @@ const MessageComposer = ({
     setIsInputExpanded(false);
     setIsTextareaScrollable(false);
     setShowScrollFade(false);
+    setSelectedMentionUserIds([]);
+    closeMentionMenu();
   };
+
+  const handleMentionSelect = useCallback((index: number) => {
+    const candidate = filteredMentionCandidates[index];
+    const textarea = textareaRef.current;
+    if (!candidate || !textarea || mentionStartIndex === null) return;
+
+    const currentValue = inputValue;
+    const caretIndex = textarea.selectionStart ?? currentValue.length;
+    const beforeMention = currentValue.slice(0, mentionStartIndex);
+    const afterMention = currentValue.slice(caretIndex);
+    const mentionLabel = (candidate.email ?? candidate.name).trim();
+    const mentionText = `@${mentionLabel} `;
+    const nextValue = `${beforeMention}${mentionText}${afterMention}`;
+    const nextCaret = (beforeMention + mentionText).length;
+
+    setInputValue(nextValue);
+    setSelectedMentionUserIds((prev) => {
+      const next = new Set(prev);
+      next.add(candidate.userId);
+      return Array.from(next);
+    });
+    closeMentionMenu();
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextCaret, nextCaret);
+      resizeTextarea(textarea);
+    });
+  }, [closeMentionMenu, filteredMentionCandidates, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -246,12 +337,68 @@ const MessageComposer = ({
                 value={inputValue}
                 onInput={handleInput}
                 onScroll={handleTextareaScroll}
+                onClick={(event) => {
+                  const element = event.currentTarget;
+                  const caretIndex = element.selectionStart ?? element.value.length;
+                  refreshMentionMenu(element.value, caretIndex);
+                }}
                 onFocus={() => setIsInputFocused(true)}
-                onBlur={() => setIsInputFocused(false)}
-                onKeyDown={onKeyDown}
+                onBlur={() => {
+                  setIsInputFocused(false);
+                  setTimeout(() => closeMentionMenu(), 80);
+                }}
+                onKeyDown={(event) => {
+                  if (mentionMenuOpen && filteredMentionCandidates.length > 0) {
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      setMentionFocusIndex((prev) => (prev + 1) % filteredMentionCandidates.length);
+                      return;
+                    }
+                    if (event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      setMentionFocusIndex((prev) => (prev - 1 + filteredMentionCandidates.length) % filteredMentionCandidates.length);
+                      return;
+                    }
+                    if (event.key === 'Enter' || event.key === 'Tab') {
+                      event.preventDefault();
+                      handleMentionSelect(mentionFocusIndex);
+                      return;
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      closeMentionMenu();
+                      return;
+                    }
+                  }
+                  onKeyDown(event);
+                }}
                 aria-label="Message input"
                 disabled={isComposerDisabled}
               />
+              {mentionMenuOpen && filteredMentionCandidates.length > 0 ? (
+                <div className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 shadow-glass backdrop-blur-2xl">
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {filteredMentionCandidates.map((candidate, index) => (
+                      <button
+                        key={candidate.userId}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handleMentionSelect(index)}
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                          index === mentionFocusIndex
+                            ? 'bg-accent-500/15 text-accent-400'
+                            : 'text-input-text hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <span className="truncate">{candidate.name}</span>
+                        {candidate.email ? (
+                          <span className="ml-2 truncate text-xs text-input-placeholder">{candidate.email}</span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <Button
                 type="submit"
                 variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}

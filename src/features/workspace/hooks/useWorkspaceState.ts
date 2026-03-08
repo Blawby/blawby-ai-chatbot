@@ -65,7 +65,6 @@ export const useWorkspaceState = ({
     currentPractice
   } = usePracticeManagement({
     autoFetchPractices: false,
-    fetchInvitations: false,
     fetchPracticeDetails: false
   });
   
@@ -91,8 +90,8 @@ export const useWorkspaceState = ({
     },
     
     navigateToConversation: (conversationId) => {
-      console.log(`Navigate to conversation: ${conversationId}`);
       // Navigation logic would be handled by router
+      void conversationId;
     },
     
     navigateToMatters: () => {
@@ -109,12 +108,12 @@ export const useWorkspaceState = ({
     
     setCurrentPractice: (practice) => {
       // This would update practice in management hook
-      console.log('Setting current practice:', practice);
+      void practice;
     },
     
     setCurrentDetails: (details) => {
       // This would update details in details hook
-      console.log('Setting practice details:', details);
+      void details;
     },
     
     setError: (errorMessage) => {

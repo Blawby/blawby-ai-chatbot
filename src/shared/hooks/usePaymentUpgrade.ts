@@ -368,15 +368,6 @@ export const usePaymentUpgrade = () => {
             'error' in response &&
             !hasHeaders;
 
-          // Log response for debugging
-          if (import.meta.env.DEV) {
-            const status = isResponseObject && 'status' in response
-              ? (response as { status?: number }).status
-              : undefined;
-            console.log('[UPGRADE] Response status:', status);
-            console.log('[UPGRADE] Response headers:', headersToObject(headers));
-          }
-
           // Check for Location header (in case of redirect)
           const locationHeader = headers
             ? headers.get('location') || headers.get('Location')
@@ -413,10 +404,6 @@ export const usePaymentUpgrade = () => {
             data = response;
           }
 
-          if (import.meta.env.DEV) {
-            console.log('[UPGRADE] Response data:', data);
-          }
-
           // Handle different response structures
           let checkoutUrl: string | undefined;
 
@@ -433,9 +420,6 @@ export const usePaymentUpgrade = () => {
           // Also check Location header if checkoutUrl not in body (for redirects)
           if (!checkoutUrl && locationHeader) {
             checkoutUrl = locationHeader;
-            if (import.meta.env.DEV) {
-              console.log('[UPGRADE] Using checkoutUrl from Location header:', checkoutUrl);
-            }
           }
 
           if (!checkoutUrl || typeof checkoutUrl !== 'string') {

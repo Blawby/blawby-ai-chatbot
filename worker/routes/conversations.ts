@@ -569,6 +569,60 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(conversation);
   }
 
+  // POST/DELETE /api/conversations/:id/tags - Add/remove conversation tags
+  if (segments.length === 4 && segments[3] === 'tags' && (request.method === 'POST' || request.method === 'DELETE')) {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+    await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+    const body = await parseJsonBody(request) as { tag?: string };
+    if (typeof body.tag !== 'string' || body.tag.trim().length === 0) {
+      throw HttpErrors.badRequest('tag is required');
+    }
+
+    const conversation = request.method === 'POST'
+      ? await conversationService.addConversationTag(conversationId, practiceId, body.tag)
+      : await conversationService.removeConversationTag(conversationId, practiceId, body.tag);
+
+    return createJsonResponse(conversation);
+  }
+
+  // PATCH /api/conversations/:id/mentions - Set mention user IDs on conversation metadata
+  if (segments.length === 4 && segments[3] === 'mentions' && request.method === 'PATCH') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+    const body = await parseJsonBody(request) as { mentionedUserIds?: string[] };
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+    await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+    if (!Array.isArray(body.mentionedUserIds)) {
+      throw HttpErrors.badRequest('mentionedUserIds must be an array');
+    }
+
+    const conversation = await conversationService.setConversationMentions(
+      conversationId,
+      practiceId,
+      body.mentionedUserIds
+    );
+
+    return createJsonResponse(conversation);
+  }
+
   // PATCH /api/conversations/:id/link - Link anonymous conversation to authenticated user
   if (
     segments.length === 4 &&
@@ -626,17 +680,45 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';
       metadata?: Record<string, unknown>;
+      assignedTo?: string | null;
+      priority?: 'low' | 'normal' | 'high' | 'urgent';
+      internalNotes?: string | null;
     };
 
-    // Validate user has access
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    const isTriageUpdate = body.assignedTo !== undefined
+      || body.priority !== undefined
+      || body.internalNotes !== undefined;
+
+    if (isTriageUpdate) {
+      if (authContext.isAnonymous) {
+        throw HttpErrors.unauthorized('Authentication required');
+      }
+      await requirePracticeMember(request, env, practiceId, 'paralegal');
+    } else if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+      if (!isStaffMemberRole(membership.memberRole)) {
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      }
+    }
+
+    if (body.priority !== undefined) {
+      const allowed = new Set(['low', 'normal', 'high', 'urgent']);
+      if (!allowed.has(body.priority)) {
+        throw HttpErrors.badRequest('priority must be one of: low, normal, high, urgent');
+      }
+    }
 
     const conversation = await conversationService.updateConversation(
       conversationId,
       practiceId,
       {
         status: body.status,
-        metadata: body.metadata
+        metadata: body.metadata,
+        assignedTo: body.assignedTo,
+        priority: body.priority,
+        internalNotes: body.internalNotes
       }
     );
 

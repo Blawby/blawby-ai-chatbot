@@ -495,6 +495,10 @@ export class ConversationService {
     updates: {
       status?: 'active' | 'archived' | 'closed';
       metadata?: Record<string, unknown>;
+      tags?: string[];
+      assignedTo?: string | null;
+      priority?: 'low' | 'normal' | 'high' | 'urgent';
+      internalNotes?: string | null;
     }
   ): Promise<Conversation> {
     // Verify conversation exists and belongs to practice
@@ -524,6 +528,26 @@ export class ConversationService {
       bindings.push(JSON.stringify(updates.metadata));
     }
 
+    if (updates.tags !== undefined) {
+      updatesList.push('tags = ?');
+      bindings.push(JSON.stringify(updates.tags));
+    }
+
+    if (updates.assignedTo !== undefined) {
+      updatesList.push('assigned_to = ?');
+      bindings.push(updates.assignedTo ? updates.assignedTo.trim() : null);
+    }
+
+    if (updates.priority !== undefined) {
+      updatesList.push('priority = ?');
+      bindings.push(updates.priority);
+    }
+
+    if (updates.internalNotes !== undefined) {
+      updatesList.push('internal_notes = ?');
+      bindings.push(updates.internalNotes?.trim() || null);
+    }
+
     if (updatesList.length === 0) {
       return this.getConversation(conversationId, practiceId);
     }
@@ -539,6 +563,86 @@ export class ConversationService {
     `).bind(...bindings).run();
 
     return this.getConversation(conversationId, practiceId);
+  }
+
+  async setConversationTags(
+    conversationId: string,
+    practiceId: string,
+    tags: string[]
+  ): Promise<Conversation> {
+    const normalized = Array.from(
+      new Set(
+        tags
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0)
+      )
+    );
+    const conversation = await this.getConversation(conversationId, practiceId);
+    return this.updateConversation(conversationId, practiceId, {
+      metadata: conversation.user_info ?? {},
+      tags: normalized
+    });
+  }
+
+  async addConversationTag(
+    conversationId: string,
+    practiceId: string,
+    tag: string
+  ): Promise<Conversation> {
+    const normalizedTag = tag.trim();
+    if (!normalizedTag) {
+      throw HttpErrors.badRequest('tag is required');
+    }
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const existingTags = Array.isArray(conversation.tags) ? conversation.tags : [];
+    return this.setConversationTags(conversationId, practiceId, [...existingTags, normalizedTag]);
+  }
+
+  async removeConversationTag(
+    conversationId: string,
+    practiceId: string,
+    tag: string
+  ): Promise<Conversation> {
+    const normalizedTag = tag.trim();
+    if (!normalizedTag) {
+      throw HttpErrors.badRequest('tag is required');
+    }
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const existingTags = Array.isArray(conversation.tags) ? conversation.tags : [];
+    const nextTags = existingTags.filter((value) => value !== normalizedTag);
+    return this.setConversationTags(conversationId, practiceId, nextTags);
+  }
+
+  async setConversationMentions(
+    conversationId: string,
+    practiceId: string,
+    mentionUserIds: string[]
+  ): Promise<Conversation> {
+    const normalizedMentionUserIds = Array.from(
+      new Set(
+        mentionUserIds
+          .map((userId) => userId.trim())
+          .filter((userId) => userId.length > 0)
+      )
+    );
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const metadata = { ...(conversation.user_info ?? {}) } as Record<string, unknown>;
+    if (normalizedMentionUserIds.length > 0) {
+      metadata.mentioned_user_ids = normalizedMentionUserIds;
+    } else {
+      delete metadata.mentioned_user_ids;
+    }
+
+    const existingTags = Array.isArray(conversation.tags) ? conversation.tags : [];
+    const withoutMentionTag = existingTags.filter((tag) => tag !== 'mention');
+    const nextTags = normalizedMentionUserIds.length > 0
+      ? [...withoutMentionTag, 'mention']
+      : withoutMentionTag;
+
+    return this.updateConversation(conversationId, practiceId, {
+      metadata,
+      tags: nextTags
+    });
   }
 
   /**

@@ -19,7 +19,13 @@ import { SegmentedToggle } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
-import { fetchLatestConversationMessage, updateConversationMetadata } from '@/shared/lib/conversationApi';
+import {
+  addConversationTag,
+  fetchLatestConversationMessage,
+  removeConversationTag,
+  updateConversationMetadata,
+  updateConversationTriage,
+} from '@/shared/lib/conversationApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -364,6 +370,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     const sessionUserId = session?.user?.id ?? null;
     if (isPracticeWorkspace) {
       if (conversationFilterId === 'your-inbox') {
+        if (!sessionUserId) return activeConversations;
+        return activeConversations.filter((conversation) => conversation.assigned_to === sessionUserId);
+      }
+      if (conversationFilterId === 'assigned-to-me') {
         if (!sessionUserId) return activeConversations;
         return activeConversations.filter((conversation) => conversation.assigned_to === sessionUserId);
       }
@@ -754,7 +764,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
+  const { currentPractice, updatePractice, getMembers, fetchMembers } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -938,6 +948,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [forcePreviewReload, updateSetupDetails]);
 
   const organizationId = currentPractice?.id ?? null;
+  const practiceMembers = useMemo(() => getMembers(practiceId), [getMembers, practiceId]);
+  const conversationMemberOptions = useMemo(
+    () => practiceMembers
+      .filter((member) => member.role !== 'client')
+      .map((member) => ({
+        userId: member.userId,
+        name: member.name ?? member.email,
+        email: member.email,
+        role: member.role,
+      })),
+    [practiceMembers]
+  );
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || !practiceId) return;
+    void fetchMembers(practiceId).catch((error) => {
+      console.warn('[WorkspacePage] Failed to fetch members for inspector', error);
+    });
+  }, [fetchMembers, isPracticeWorkspace, practiceId]);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);
@@ -1663,10 +1692,41 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const inspectorPanel = inspectorTarget ? (
     <InspectorPanel
+      key={`${inspectorTarget.entityType}:${inspectorTarget.entityId}`}
       entityType={inspectorTarget.entityType}
       entityId={inspectorTarget.entityId}
       practiceId={practiceId}
       conversation={selectedConversation}
+      conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
+      onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
+        if (!selectedConversation?.id) return;
+        await updateConversationTriage(selectedConversation.id, practiceId, { assignedTo });
+        await refreshConversations();
+      } : undefined}
+      onConversationPriorityChange={isPracticeWorkspace ? async (priority) => {
+        if (!selectedConversation?.id) return;
+        await updateConversationTriage(selectedConversation.id, practiceId, { priority });
+        await refreshConversations();
+      } : undefined}
+      onConversationInternalNotesChange={isPracticeWorkspace ? async (internalNotes) => {
+        if (!selectedConversation?.id) return;
+        await updateConversationTriage(selectedConversation.id, practiceId, { internalNotes });
+        await refreshConversations();
+      } : undefined}
+      onConversationTagsChange={isPracticeWorkspace ? async (nextTags) => {
+        if (!selectedConversation?.id) return;
+        const current = new Set((selectedConversation.tags ?? []).map((tag) => tag.trim()).filter(Boolean));
+        const next = new Set(nextTags.map((tag) => tag.trim()).filter(Boolean));
+        const toAdd = [...next].filter((tag) => !current.has(tag));
+        const toRemove = [...current].filter((tag) => !next.has(tag));
+        for (const tag of toAdd) {
+          await addConversationTag(selectedConversation.id, practiceId, tag);
+        }
+        for (const tag of toRemove) {
+          await removeConversationTag(selectedConversation.id, practiceId, tag);
+        }
+        await refreshConversations();
+      } : undefined}
       onClose={() => setIsInspectorOpen(false)}
       onMatterStatusChange={(status: MatterStatus) => {
         if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;

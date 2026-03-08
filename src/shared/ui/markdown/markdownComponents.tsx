@@ -78,7 +78,25 @@ const CopyButton = ({ text }: { text: string }) => {
 export const markdownComponents: Components = {
   a({ href, children, ...props }) {
     const hrefValue = typeof href === 'string' ? href : undefined;
+    const linkText = getNodeText(children).trim();
+    // NOTE(next PR): mention pills are currently coupled to markdown autolink output;
+    // raw "@email" often renders as plain text + separate email link, so full-token pill styling is inconsistent.
+    const isEmailText = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
+    const isAtEmailText = /^@[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(linkText);
+    const isMention = Boolean(hrefValue?.startsWith('mention://'));
+    const isMentionLikeMailto = Boolean(hrefValue?.startsWith('mailto:') && (isEmailText || isAtEmailText));
     const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
+    if (isMention || isMentionLikeMailto) {
+      const mentionLabel = linkText.startsWith('@') ? linkText : `@${linkText}`;
+      return (
+        <span
+          className="inline-flex items-center rounded-full bg-accent-500/20 px-2 py-px font-semibold leading-tight text-[rgb(var(--accent-foreground))] no-underline"
+          {...props}
+        >
+          {mentionLabel}
+        </span>
+      );
+    }
     return (
       <a
         href={hrefValue}

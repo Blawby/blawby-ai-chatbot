@@ -13,6 +13,8 @@ import { useUniqueId } from '@/shared/hooks/useUniqueId';
 export interface TextareaProps {
   value?: string;
   onChange?: (value: string) => void;
+  onBlur?: (event: FocusEvent) => void;
+  onFocus?: (event: FocusEvent) => void;
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
@@ -38,6 +40,8 @@ export interface TextareaProps {
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   value = '',
   onChange,
+  onBlur,
+  onFocus,
   placeholder,
   disabled = false,
   required = false,
@@ -187,6 +191,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
             onChange?.(truncatedValue);
           }
         }}
+        onBlur={onBlur}
+        onFocus={onFocus}
         placeholder={displayPlaceholder}
         disabled={disabled}
         required={required}

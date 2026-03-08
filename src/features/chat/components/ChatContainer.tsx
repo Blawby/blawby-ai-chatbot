@@ -26,7 +26,12 @@ import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
-  onSendMessage: (message: string, attachments: FileAttachment[], replyToMessageId?: string | null) => void;
+  onSendMessage: (
+    message: string,
+    attachments: FileAttachment[],
+    replyToMessageId?: string | null,
+    options?: { mentionedUserIds?: string[] }
+  ) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   conversationMode?: ConversationMode | null;
   onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
@@ -106,6 +111,11 @@ export interface ChatContainerProps {
   onAuthPromptClose?: () => void;
   onAuthPromptSuccess?: () => void;
   onboardingActions?: OnboardingActions;
+  mentionCandidates?: Array<{
+    userId: string;
+    name: string;
+    email?: string;
+  }>;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -160,7 +170,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAuthPromptRequest,
   onAuthPromptClose,
   onAuthPromptSuccess,
-  onboardingActions
+  onboardingActions,
+  mentionCandidates = []
 }) => {
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
@@ -183,7 +194,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = hasNonSystemMessages
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
-  const shouldShowSlimForm = intakeStatus?.step === 'contact_form_slim' && conversationMode === 'REQUEST_CONSULTATION';
+  const shouldShowSlimForm = isPublicWorkspace && intakeStatus?.step === 'contact_form_slim' && conversationMode === 'REQUEST_CONSULTATION';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
   // Simple resize handler for window size changes
   useEffect(() => {
@@ -252,7 +263,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   }, [shouldShowSlimForm]);
 
 
-  const handleSubmit = () => {
+  const handleSubmit = (mentionedUserIds?: string[]) => {
     if (isChatInputLocked) return;
     if (!inputValue.trim() && previewFiles.length === 0) return;
 
@@ -292,7 +303,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
 
     // Send message to API
-    onSendMessage(message, attachments, replyToMessageId);
+    onSendMessage(message, attachments, replyToMessageId, { mentionedUserIds });
 
     // Clear preview files after sending
     clearPreviewFiles();
@@ -620,6 +631,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   disabled={composerDisabled}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
+                  mentionCandidates={mentionCandidates}
                 />
               ) : null}
             </div>

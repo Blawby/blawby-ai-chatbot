@@ -531,7 +531,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         throw HttpErrors.badRequest('File ID is required');
       }
 
-      console.log('File download request:', { fileId, path });
 
       // Try to get file metadata from database first
       let fileRecord = null;
@@ -540,7 +539,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           SELECT * FROM files WHERE id = ? AND is_deleted = FALSE
         `);
         fileRecord = await stmt.bind(fileId).first();
-        console.log('Database file record:', fileRecord);
       } catch (dbError) {
         console.warn('Failed to get file metadata from database:', dbError);
         // Continue without database metadata
@@ -554,23 +552,14 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       // Try to construct the file path from the fileId if we don't have database metadata
       let filePath = fileRecord?.file_path;
       if (!filePath) {
-        console.log('No file path found for fileId:', fileId);
         throw HttpErrors.notFound('File not found');
       }
 
-      if (!filePath) {
-        console.log('No file path found for fileId:', fileId);
-        throw HttpErrors.notFound('File not found');
-      }
-
-      console.log('Attempting to get file from R2:', filePath);
       const fileObject = await env.FILES_BUCKET.get(filePath);
       if (!fileObject) {
-        console.log('File not found in R2 storage:', filePath);
         throw HttpErrors.notFound('File not found in storage');
       }
 
-      console.log('File found in R2, returning response');
 
       // Guard against nullable fileObject.body
       if (!fileObject.body) {

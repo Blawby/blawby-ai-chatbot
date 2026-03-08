@@ -75,7 +75,6 @@ export const useWorkspaceData = ({
   // Practice management
   const practiceManagement = usePracticeManagement({
     autoFetchPractices: true,
-    fetchInvitations: false,
     fetchPracticeDetails: autoLoadPracticeDetails,
   });
 
@@ -163,17 +162,18 @@ export const useWorkspaceData = ({
 
     addConversation: (conversation) => {
       // This would be handled by the conversations hook
-      console.log('Adding conversation:', conversation);
+      void conversation;
     },
 
     updateConversation: (conversationId, updates) => {
       // This would be handled by the conversations hook
-      console.log('Updating conversation:', conversationId, updates);
+      void conversationId;
+      void updates;
     },
 
     removeConversation: (conversationId) => {
       // This would be handled by the conversations hook
-      console.log('Removing conversation:', conversationId);
+      void conversationId;
     },
 
     refreshAll: async () => {

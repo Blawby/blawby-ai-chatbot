@@ -135,7 +135,6 @@ describe('usePracticeManagement', () => {
     const { result } = renderHook(() =>
       usePracticeManagement({
         autoFetchPractices: false,
-        fetchInvitations: false,
       })
     );
 
@@ -165,7 +164,6 @@ describe('usePracticeManagement', () => {
     const { result } = renderHook(() =>
       usePracticeManagement({
         autoFetchPractices: false,
-        fetchInvitations: false,
       })
     );
 
@@ -181,7 +179,6 @@ describe('usePracticeManagement', () => {
     const { result } = renderHook(() =>
       usePracticeManagement({
         autoFetchPractices: false,
-        fetchInvitations: false,
       })
     );
 

@@ -91,9 +91,6 @@ apiClient.interceptors.request.use(
     // Always set baseURL fresh - don't rely on existing value
     if (config.baseURL !== baseUrl) {
       config.baseURL = baseUrl;
-      if (import.meta.env.DEV) {
-        console.log('[apiClient] Updated baseURL to:', baseUrl, 'for request:', config.url);
-      }
     }
 
     // Use session cookies for auth; include credentials for cross-origin requests when allowed.
@@ -653,8 +650,11 @@ export async function setActivePractice(practiceId: string): Promise<void> {
   await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}/active`);
 }
 
-export async function listPracticeInvitations(): Promise<unknown[]> {
-  const response = await apiClient.get('/api/practice/invitations');
+export async function listPracticeInvitations(practiceId: string): Promise<unknown[]> {
+  if (!practiceId || practiceId.trim().length === 0) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/invitations`);
   const payload = unwrapApiData(response.data);
   if (Array.isArray(payload)) {
     return payload;
@@ -1213,9 +1213,6 @@ export async function getPublicPracticeDetails(
   const requestPromise = (async () => {
     try {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
-      if (import.meta.env.DEV) {
-        console.log('[getPublicPracticeDetails] Making request to:', apiUrl);
-      }
 
       const response = await axios.get(
         apiUrl,

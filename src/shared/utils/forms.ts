@@ -401,11 +401,7 @@ export async function submitContactForm(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    
-    if (import.meta.env.DEV) {
-      console.log('[Forms] Sending payload to backend:', JSON.stringify(createPayload, null, 2));
-    }
-    
+
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
       headers,
@@ -419,7 +415,6 @@ export async function submitContactForm(
         throw new Error(result.error || 'Form submission failed');
       }
       const intakeData = resolveIntakeCreateData(result);
-      console.log('Form submitted successfully:', result);
       
       // Create confirmation message for matter vs lead first
       const baseMessage = '✅ Your lead has been submitted. The legal team will review and contact you.';

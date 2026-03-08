@@ -7,8 +7,10 @@ import { isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
+import { Combobox, type ComboboxOption, Textarea } from '@/shared/ui/input';
 import {
   InfoRow,
+  InspectorEditableRow,
   InspectorGroup,
   InspectorHeaderEntity,
   InspectorHeaderPerson,
@@ -30,6 +32,16 @@ type InspectorPanelProps = {
   practiceId: string;
   onClose: () => void;
   conversation?: Conversation | null;
+  conversationMembers?: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+  }>;
+  onConversationAssignedToChange?: (assignedTo: string | null) => Promise<void> | void;
+  onConversationPriorityChange?: (priority: 'low' | 'normal' | 'high' | 'urgent') => Promise<void> | void;
+  onConversationTagsChange?: (tags: string[]) => Promise<void> | void;
+  onConversationInternalNotesChange?: (internalNotes: string | null) => Promise<void> | void;
   matterClientName?: string | null;
   matterAssigneeNames?: string[];
   matterBillingLabel?: string | null;
@@ -63,6 +75,11 @@ export const InspectorPanel = ({
   practiceId,
   onClose,
   conversation,
+  conversationMembers = [],
+  onConversationAssignedToChange,
+  onConversationPriorityChange,
+  onConversationTagsChange,
+  onConversationInternalNotesChange,
   matterClientName,
   matterAssigneeNames,
   matterBillingLabel,
@@ -82,12 +99,66 @@ export const InspectorPanel = ({
   const [matterDetail, setMatterDetail] = useState<BackendMatter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [isSavingPriority, setIsSavingPriority] = useState(false);
+  const [isSavingTags, setIsSavingTags] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(conversation?.internal_notes ?? '');
+  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'notes' | null>(null);
   const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
   const conversationMatterId = conversation?.matter_id ?? null;
 
   const makeCacheKey = (pId: string, eId: string) => `${pId}:${eId}`;
+  const priorityOptions = useMemo<ComboboxOption[]>(
+    () => [
+      { value: 'low', label: 'Low' },
+      { value: 'normal', label: 'Normal' },
+      { value: 'high', label: 'High' },
+      { value: 'urgent', label: 'Urgent' },
+    ],
+    []
+  );
+  const assignedToOptions = useMemo<ComboboxOption[]>(
+    () => [
+      { value: '', label: 'Unassigned' },
+      ...conversationMembers.map((member) => ({
+        value: member.userId,
+        label: member.name,
+        meta: member.email,
+      })),
+    ],
+    [conversationMembers]
+  );
+  const currentTags = useMemo(
+    () => Array.isArray(conversation?.tags) ? conversation.tags.filter((tag) => typeof tag === 'string' && tag.trim().length > 0) : [],
+    [conversation?.tags]
+  );
+  const tagOptions = useMemo<ComboboxOption[]>(
+    () => currentTags.map((tag) => ({ value: tag, label: tag })),
+    [currentTags]
+  );
+  const assignedMemberLabel = useMemo(() => {
+    const assignedTo = conversation?.assigned_to;
+    if (!assignedTo) return null;
+    const member = conversationMembers.find((entry) => entry.userId === assignedTo);
+    return member?.name ?? assignedTo;
+  }, [conversation?.assigned_to, conversationMembers]);
+  const currentPriorityLabel = useMemo(() => {
+    const raw = conversation?.priority ?? 'normal';
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [conversation?.priority]);
+  const currentTagsLabel = useMemo(
+    () => (currentTags.length > 0 ? currentTags.join(', ') : 'No tags'),
+    [currentTags]
+  );
+  const currentNotesLabel = useMemo(() => {
+    const raw = conversation?.internal_notes?.trim();
+    if (!raw) return 'No notes';
+    if (raw.length <= 72) return raw;
+    return `${raw.slice(0, 69)}...`;
+  }, [conversation?.internal_notes]);
 
   useEffect(() => {
     if (lastPracticeIdRef.current !== practiceId) {
@@ -96,6 +167,14 @@ export const InspectorPanel = ({
       lastPracticeIdRef.current = practiceId;
     }
   }, [practiceId]);
+
+  useEffect(() => {
+    setActiveConversationEditor(null);
+  }, [conversation?.id, entityId, entityType]);
+
+  useEffect(() => {
+    setNotesDraft(conversation?.internal_notes ?? '');
+  }, [conversation?.id, conversation?.internal_notes]);
 
   useEffect(() => {
     setUserDetail(null);
@@ -182,6 +261,61 @@ export const InspectorPanel = ({
       onMatterStatusChange(status);
     }
   };
+  const handleConversationAssignmentChange = async (value: string) => {
+    if (!onConversationAssignedToChange) return;
+    setError(null);
+    setIsSavingAssignment(true);
+    try {
+      await onConversationAssignedToChange(value.trim().length > 0 ? value : null);
+      setActiveConversationEditor(null);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update assignee');
+    } finally {
+      setIsSavingAssignment(false);
+    }
+  };
+  const handleConversationPriorityChange = async (value: string) => {
+    if (!onConversationPriorityChange) return;
+    if (value !== 'low' && value !== 'normal' && value !== 'high' && value !== 'urgent') return;
+    setError(null);
+    setIsSavingPriority(true);
+    try {
+      await onConversationPriorityChange(value);
+      setActiveConversationEditor(null);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update priority');
+    } finally {
+      setIsSavingPriority(false);
+    }
+  };
+  const handleConversationTagsChange = async (values: string[]) => {
+    if (!onConversationTagsChange) return;
+    setError(null);
+    setIsSavingTags(true);
+    try {
+      await onConversationTagsChange(values);
+      setActiveConversationEditor(null);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update tags');
+    } finally {
+      setIsSavingTags(false);
+    }
+  };
+  const handleConversationNotesBlur = async (value: string) => {
+    if (!onConversationInternalNotesChange) return;
+    const nextValue = value.trim().length > 0 ? value.trim() : null;
+    const previousValue = conversation?.internal_notes?.trim() || null;
+    if (nextValue === previousValue) return;
+    setError(null);
+    setIsSavingNotes(true);
+    try {
+      await onConversationInternalNotesChange(nextValue);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update internal notes');
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
@@ -244,7 +378,90 @@ export const InspectorPanel = ({
                 <InfoRow label="Status" value={matterDetail?.status ?? undefined} muted={!matterDetail?.status} />
               </InspectorGroup>
               <InspectorGroup label="ASSIGNMENT">
-                <InfoRow label="Assigned to" value={conversation?.assigned_to ?? undefined} muted={!conversation?.assigned_to} />
+                <InspectorEditableRow
+                  label="Assignee"
+                  summary={assignedMemberLabel ?? 'Unassigned'}
+                  summaryMuted={!assignedMemberLabel}
+                  isOpen={activeConversationEditor === 'assignment'}
+                  onToggle={onConversationAssignedToChange
+                    ? () => setActiveConversationEditor((prev) => prev === 'assignment' ? null : 'assignment')
+                    : undefined}
+                  disabled={isSavingAssignment}
+                >
+                  <div className="relative z-30">
+                    <Combobox
+                      value={conversation?.assigned_to ?? ''}
+                      onChange={(value) => { void handleConversationAssignmentChange(value); }}
+                      options={assignedToOptions}
+                      searchable
+                      placeholder="Assign owner"
+                      disabled={isSavingAssignment}
+                    />
+                  </div>
+                </InspectorEditableRow>
+              </InspectorGroup>
+              <InspectorGroup label="TRIAGE">
+                <InspectorEditableRow
+                  label="Priority"
+                  summary={currentPriorityLabel}
+                  isOpen={activeConversationEditor === 'priority'}
+                  onToggle={onConversationPriorityChange
+                    ? () => setActiveConversationEditor((prev) => prev === 'priority' ? null : 'priority')
+                    : undefined}
+                  disabled={isSavingPriority}
+                >
+                  <div className="relative z-20">
+                    <Combobox
+                      value={conversation?.priority ?? 'normal'}
+                      onChange={(value) => { void handleConversationPriorityChange(value); }}
+                      options={priorityOptions}
+                      searchable={false}
+                      disabled={isSavingPriority}
+                    />
+                  </div>
+                </InspectorEditableRow>
+                <InspectorEditableRow
+                  label="Tags"
+                  summary={currentTagsLabel}
+                  summaryMuted={currentTags.length === 0}
+                  isOpen={activeConversationEditor === 'tags'}
+                  onToggle={onConversationTagsChange
+                    ? () => setActiveConversationEditor((prev) => prev === 'tags' ? null : 'tags')
+                    : undefined}
+                  disabled={isSavingTags}
+                >
+                  <div className="relative z-10">
+                    <Combobox
+                      multiple
+                      value={currentTags}
+                      onChange={(values) => { void handleConversationTagsChange(values); }}
+                      options={tagOptions}
+                      allowCustomValues
+                      placeholder="Add tags"
+                      disabled={isSavingTags}
+                    />
+                  </div>
+                </InspectorEditableRow>
+                <InspectorEditableRow
+                  label="Internal notes"
+                  summary={currentNotesLabel}
+                  summaryMuted={!conversation?.internal_notes?.trim()}
+                  isOpen={activeConversationEditor === 'notes'}
+                  onToggle={onConversationInternalNotesChange
+                    ? () => setActiveConversationEditor((prev) => prev === 'notes' ? null : 'notes')
+                    : undefined}
+                  disabled={isSavingNotes}
+                >
+                  <Textarea
+                    key={`${conversation?.id ?? 'conversation'}-internal-notes`}
+                    value={notesDraft}
+                    onChange={setNotesDraft}
+                    rows={3}
+                    placeholder="Notes visible to practice staff only"
+                    onBlur={() => { void handleConversationNotesBlur(notesDraft); }}
+                    disabled={isSavingNotes}
+                  />
+                </InspectorEditableRow>
               </InspectorGroup>
               <InspectorGroup label="METADATA">
                 <InfoRow label="Created" value={formatDate(conversation?.created_at)} />
