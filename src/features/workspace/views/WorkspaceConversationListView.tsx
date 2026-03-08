@@ -11,7 +11,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { ChatBubbleLeftRightIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 
@@ -30,7 +30,6 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
   conversations,
   isLoading,
   error,
-  onStartNewConversation,
   onSelectConversation,
   onRefreshConversations,
 }) => {
@@ -44,10 +43,6 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
 
   const handleSelectConversation = (conversationId: string) => {
     onSelectConversation?.(conversationId);
-  };
-
-  const handleStartNewConversation = () => {
-    onStartNewConversation?.();
   };
 
   const handleRefresh = () => {
@@ -78,17 +73,6 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
       <PageHeader
         title="Conversations"
         subtitle={`Manage your client conversations${practice ? ` for ${practice.name}` : ''}`}
-        actions={
-          <Button
-            onClick={handleStartNewConversation}
-            variant="primary"
-            disabled={!practice}
-            className="flex items-center gap-2"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Conversation
-          </Button>
-        }
       />
 
       <div className="space-y-4">
@@ -114,11 +98,10 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
               Start your first conversation to begin helping clients
             </p>
             <Button
-              onClick={handleStartNewConversation}
+              onClick={handleRefresh}
               variant="primary"
-              disabled={!practice}
             >
-              Start First Conversation
+              Refresh
             </Button>
           </div>
         ) : (
@@ -144,7 +127,9 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <h4 className="font-semibold text-input-text truncate">
-                        {conversation.user_info?.title || 'New Conversation'}
+                        {typeof conversation.user_info?.title === 'string' && conversation.user_info.title.trim()
+                          ? conversation.user_info.title.trim()
+                          : 'New Conversation'}
                       </h4>
                       <span className="text-xs text-input-placeholder ml-2">
                         {formatRelativeTime(conversation.updated_at || conversation.created_at)}

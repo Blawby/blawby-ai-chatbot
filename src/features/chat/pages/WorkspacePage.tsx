@@ -319,7 +319,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       ? getPracticeNavConfig(navCtx, workspaceSection)
       : getClientNavConfig(navCtx, workspaceSection);
   }, [isPracticeWorkspace, normalizedRole, practiceSlug, view, workspace, workspaceSection]);
-  const defaultSecondaryFilterId = navConfig.secondary?.[0]?.items[0]?.id ?? null;
+  const defaultSecondaryFilterId = useMemo(() => {
+    if (workspaceSection === 'conversations' && isPracticeWorkspace) {
+      return 'all';
+    }
+    return navConfig.secondary?.[0]?.items[0]?.id ?? null;
+  }, [isPracticeWorkspace, navConfig.secondary, workspaceSection]);
   const activeSecondaryFilter = workspaceSection === 'settings'
     ? null
     : (secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId);
@@ -344,7 +349,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     list: shouldListConversations,
     enabled: shouldListConversations && Boolean(practiceId) && !mockConversations,
     allowAnonymous: workspace === 'public',
-    preferOrgScopedPracticeList: isPracticeWorkspace,
+    preferOrgScopedPracticeList: false,
     assignedTo: conversationAssignedToFilter
   });
   const resolvedConversations = mockConversations ?? conversations;
@@ -947,14 +952,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const payload = await getOnboardingStatusPayload(organizationId, { signal: options?.signal });
       const status = extractStripeStatusFromPayload(payload);
       setStripeStatus(status ?? null);
-      const statusPayload = payload as { completed?: boolean; connectedAccountId?: string } | null;
-      // Update PracticeManagement's currentPractice to sync onboarding status
-      if (statusPayload) {
-        await updatePractice(organizationId, {
-          businessOnboardingStatus: statusPayload.completed ? 'completed' : 'pending',
-          businessOnboardingHasDraft: Boolean(statusPayload.connectedAccountId)
-        });
-      }
     } catch (error) {
       if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) return;
       if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -966,7 +963,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setIsStripeLoading(false);
     }
-  }, [organizationId, showError, updatePractice]);
+  }, [organizationId, showError]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1359,7 +1356,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             onClose={handleCloseConversationList}
             onSelectConversation={handleSelectConversation}
             onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-            showSendMessageButton={isClientFacingWorkspace}
+            showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
             activeConversationId={activeConversationId}
             showTitle={showConversationListTitle}
             headerLeftControls={mobileConversationHeaderLeftControl}
@@ -1560,7 +1557,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           onSelectConversation={handleSelectConversation}
           onSendMessage={() => handleStartConversation('ASK_QUESTION')}
           showBackButton={false}
-          showSendMessageButton={isClientFacingWorkspace}
+          showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
           activeConversationId={activeConversationId}
           showTitle={showConversationListTitle}
           headerLeftControls={mobileConversationHeaderLeftControl}

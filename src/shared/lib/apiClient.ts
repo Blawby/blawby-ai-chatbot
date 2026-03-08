@@ -669,6 +669,9 @@ export async function createPracticeInvitation(
   practiceId: string,
   payload: { email: string; role: string }
 ): Promise<{ inviteUrl?: string; invitationId?: string } | null> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   const response = await apiClient.post(
     `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
     payload
@@ -724,8 +727,15 @@ export async function respondToPracticeInvitation(
 }
 
 export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/members`);
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`);
   const payload = unwrapApiData(response.data);
+  const practiceRecord = isRecord(payload) && isRecord(payload.practice) ? payload.practice : payload;
+  if (isRecord(practiceRecord) && Array.isArray(practiceRecord.members)) {
+    return practiceRecord.members as unknown[];
+  }
   if (Array.isArray(payload)) {
     return payload;
   }
@@ -739,6 +749,9 @@ export async function updatePracticeMemberRole(
   practiceId: string,
   payload: { userId: string; role: string }
 ): Promise<void> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   await apiClient.patch(`/api/practice/${encodeURIComponent(practiceId)}/members`, payload);
 }
 
@@ -746,6 +759,9 @@ export async function deletePracticeMember(
   practiceId: string,
   userId: string
 ): Promise<void> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   await apiClient.delete(
     `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`
   );
@@ -1504,6 +1520,10 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     'calendly_url',
     'calendlyUrl',
     'website',
+    'accent_color',
+    'accentColor',
+    'primary_color',
+    'primaryColor',
     'is_public',
     'isPublic',
     'services',

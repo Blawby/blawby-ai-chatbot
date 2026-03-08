@@ -279,14 +279,27 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null }>> {
-    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}/members`, request);
-    const data = await response.json() as { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
+    const data = await response.json() as {
+      practice?: { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+      data?: {
+        members?: Array<{ user_id: string; email?: string | null; role?: string | null }>;
+        practice?: { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+      };
+      members?: Array<{ user_id: string; email?: string | null; role?: string | null }>;
+    };
 
-    if (!Array.isArray(data.members)) {
+    const members =
+      data.practice?.members ??
+      data.data?.practice?.members ??
+      data.data?.members ??
+      data.members;
+
+    if (!Array.isArray(members)) {
       return [];
     }
 
-    return data.members;
+    return members;
   }
 
   /**
