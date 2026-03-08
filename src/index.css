@@ -674,6 +674,10 @@
     margin: 0;
   }
 
+  .chat-markdown.truncate p+p::before {
+    content: " ";
+  }
+
   .chat-markdown.truncate .inline-flex {
     display: inline-flex;
     vertical-align: middle;

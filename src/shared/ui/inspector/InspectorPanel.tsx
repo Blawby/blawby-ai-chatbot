@@ -582,6 +582,30 @@ export const InspectorPanel = ({
                     </div>
                   </InspectorEditableRow>
                 </InspectorGroup>
+
+                <InspectorGroup
+                  label="Internal Notes"
+                  onToggle={() => setActiveConversationEditor((prev) => prev === 'notes' ? null : 'notes')}
+                  isOpen={activeConversationEditor === 'notes'}
+                  disabled={isSavingNotes}
+                >
+                  <InspectorEditableRow
+                    label=""
+                    summary={currentNotesLabel}
+                    summaryMuted={!notesDraft}
+                    isOpen={activeConversationEditor === 'notes'}
+                  >
+                    <Textarea
+                      className="w-full relative z-10"
+                      value={notesDraft}
+                      onChange={(value) => onConversationInternalNotesChange?.(value)}
+                      onBlur={() => { void handleConversationNotesBlur(); }}
+                      placeholder="Add internal notes..."
+                      disabled={isSavingNotes}
+                      autoFocus
+                    />
+                  </InspectorEditableRow>
+                </InspectorGroup>
               </div>
             )}
           </div>

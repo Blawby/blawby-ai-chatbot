@@ -6,7 +6,7 @@
  */
 
 import { FunctionComponent } from 'preact';
-import { useMemo, useCallback } from 'preact/hooks';
+import { useMemo, useCallback, useState } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { SplitView } from '@/shared/ui/layout/SplitView';
@@ -90,6 +90,8 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   chatAdapter,
 }) => {
   const { state, actions } = useOnboardingState();
+  const [basicsSaved, setBasicsSaved] = useState(false);
+  const [contactSaved, setContactSaved] = useState(false);
   const normalizedContactAddress = useMemo(() => {
     const candidate = details?.address;
     if (candidate && typeof candidate === 'object') {
@@ -143,32 +145,49 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   const handleSaveAll = useCallback(async () => {
     actions.setIsSaving(true);
     actions.setSaveError(null);
+    let basicsErr = '';
+    let contactErr = '';
     
     try {
-      if (onSaveBasics) {
-        const accentColor = normalizeAccentColor(details?.accentColor || practice?.accentColor) ?? '#D4AF37';
-        await onSaveBasics({
-          name: practice?.name ?? '',
-          slug: practice?.slug ?? '',
-          introMessage: details?.introMessage ?? practice?.introMessage ?? '',
-          accentColor
-        });
+      if (onSaveBasics && !basicsSaved) {
+        try {
+          const accentColor = normalizeAccentColor(details?.accentColor || practice?.accentColor) ?? '#D4AF37';
+          await onSaveBasics({
+            name: practice?.name ?? '',
+            slug: practice?.slug ?? '',
+            introMessage: details?.introMessage ?? practice?.introMessage ?? '',
+            accentColor
+          });
+          setBasicsSaved(true);
+        } catch (e) {
+          basicsErr = e instanceof Error ? e.message : 'Failed to save basics';
+        }
       }
 
-      if (onSaveContact) {
-        await onSaveContact({
-          website: details?.website ?? practice?.website ?? '',
-          businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
-          businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
-          address: normalizedContactAddress
-        });
+      if (onSaveContact && !contactSaved) {
+        try {
+          await onSaveContact({
+            website: details?.website ?? practice?.website ?? '',
+            businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+            businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+            address: normalizedContactAddress
+          });
+          setContactSaved(true);
+        } catch (e) {
+          contactErr = e instanceof Error ? e.message : 'Failed to save contact';
+        }
       }
-    } catch (error) {
-      actions.setSaveError(error instanceof Error ? error.message : 'Failed to save');
+      
+      if (basicsErr || contactErr) {
+        const errors = [];
+        if (basicsErr) errors.push(`Basics: ${basicsErr}`);
+        if (contactErr) errors.push(`Contact: ${contactErr}`);
+        actions.setSaveError(errors.join(' | '));
+      }
     } finally {
       actions.setIsSaving(false);
     }
-  }, [actions, details, normalizedContactAddress, onSaveBasics, onSaveContact, practice]);
+  }, [actions, basicsSaved, contactSaved, details, normalizedContactAddress, onSaveBasics, onSaveContact, practice]);
 
   const chatAdapterProps = useMemo(() => ({
     messages: chatAdapter?.messages || [],

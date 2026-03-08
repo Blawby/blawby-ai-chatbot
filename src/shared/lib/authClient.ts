@@ -11,7 +11,8 @@ type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
 type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
-  ? { user: BetterAuthSessionUser; session: S }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ? { user: BetterAuthSessionUser | any; session: S; transformError?: boolean }
   : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
@@ -184,9 +185,14 @@ export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSess
     } catch (error) {
       console.error('[Auth] Failed to transform session user', {
         error,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         userId: (session.data.user as any)?.id
       });
-      return undefined;
+      return {
+        ...session.data,
+        user: session.data.user,
+        transformError: true
+      } as TypedSessionData;
     }
   }, [session.data]);
 

@@ -545,7 +545,7 @@ export function Combobox({
           {triggerContent}
         </div>
       ) : (
-        <div ref={triggerRef} className="h-0 w-0 overflow-hidden pointer-events-none invisible" />
+        <div ref={triggerRef} tabIndex={-1} className="h-0 w-0 overflow-hidden pointer-events-none opacity-0 absolute" />
       )}
 
       {/* Dropdown */}
@@ -557,8 +557,8 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass absolute top-0 mt-1',
-            !hideTrigger && direction === 'up' && 'bottom-full mb-1 top-auto'
+            'z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass absolute',
+            hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
           {/* Multi chips inside dropdown header */}

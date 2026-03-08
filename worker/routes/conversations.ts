@@ -701,6 +701,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       || body.internalNotes !== undefined;
 
     if (isTriageUpdate) {
+      if (body.assignedTo !== undefined && body.assignedTo !== null && typeof body.assignedTo !== 'string') {
+        throw HttpErrors.badRequest('assignedTo must be a string or null');
+      }
+      if (body.internalNotes !== undefined && body.internalNotes !== null && typeof body.internalNotes !== 'string') {
+        throw HttpErrors.badRequest('internalNotes must be a string or null');
+      }
+
       if (authContext.isAnonymous) {
         throw HttpErrors.unauthorized('Authentication required');
       }
