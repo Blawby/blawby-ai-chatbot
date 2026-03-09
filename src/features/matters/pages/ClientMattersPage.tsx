@@ -40,6 +40,9 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'messages', label: 'Messages' }
 ];
 
+const isDetailTabId = (value: string): value is DetailTabId =>
+  value === 'overview' || value === 'tasks' || value === 'messages';
+
 type ClientMattersPageProps = {
   basePath?: string;
   practiceId?: string | null;
@@ -96,14 +99,20 @@ export const ClientMattersPage = ({
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const firstSegment = pathSegments[0] ?? '';
+  const secondSegment = pathSegments[1] ?? '';
   const selectedMatterIdFromPath = firstSegment && firstSegment !== 'activity'
     ? decodeURIComponent(firstSegment)
     : null;
+  const detailTabFromPath: DetailTabId = isDetailTabId(secondSegment) ? secondSegment : 'overview';
   const selectedMatterId = renderMode === 'listOnly' ? null : selectedMatterIdFromPath;
+  const detailTab: DetailTabId = renderMode === 'listOnly' ? 'overview' : detailTabFromPath;
 
   const navigate = (path: string) => location.route(path);
   const goToList = () => navigate(basePath);
-  const goToDetail = (id: string) => navigate(`${basePath}/${encodeURIComponent(id)}`);
+  const goToDetail = (id: string, tab: DetailTabId = detailTab) =>
+    navigate(tab === 'overview'
+      ? `${basePath}/${encodeURIComponent(id)}`
+      : `${basePath}/${encodeURIComponent(id)}/${tab}`);
   const conversationBasePath = basePath.endsWith('/matters')
     ? basePath.replace(/\/matters$/, '/conversations')
     : '/client/conversations';
@@ -111,8 +120,6 @@ export const ClientMattersPage = ({
   const [internalMatters, setInternalMatters] = useState<BackendMatter[]>([]);
   const [internalLoading, setInternalLoading] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
-
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -285,7 +292,7 @@ export const ClientMattersPage = ({
         const mergedTimeline = [...activityTimeline, ...noteTimeline].sort((a, b) => {
           const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
           const bt = b.dateTime ? new Date(b.dateTime).getTime() : 0;
-          return (Number.isNaN(at) ? 0 : at) - (Number.isNaN(bt) ? 0 : bt);
+          return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
         });
         setActivityItems(mergedTimeline);
       })
@@ -345,7 +352,10 @@ export const ClientMattersPage = ({
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setDetailTab(tab.id)}
+                  onClick={() => {
+                    if (!selectedMatterId) return;
+                    goToDetail(selectedMatterId, tab.id);
+                  }}
                   aria-selected={isActive}
                   role="tab"
                   className={[

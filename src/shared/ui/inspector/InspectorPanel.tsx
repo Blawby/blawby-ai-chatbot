@@ -348,8 +348,13 @@ export const InspectorPanel = ({
   const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
   const matterSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
-  const matterStatus = isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null;
-  const canEditMatterStatus = Boolean(onMatterStatusChange && matterDetail && !isLoading && matterStatus);
+  const [inspectorMatterStatus, setInspectorMatterStatus] = useState<MatterStatus | null>(
+    isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null
+  );
+  useEffect(() => {
+    setInspectorMatterStatus(isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null);
+  }, [entityId, entityType, matterDetail?.status]);
+  const canEditMatterStatus = Boolean(onMatterStatusChange && matterDetail && !isLoading && inspectorMatterStatus);
   const canEditMatterFields = Boolean(onMatterPatchChange && matterDetail && !isLoading);
   const matterDetailRecord = matterDetail as Record<string, unknown> | null;
   const resolvedMatterClientName = matterClientName
@@ -454,6 +459,7 @@ export const InspectorPanel = ({
     setIsSavingMatterStatus(true);
     try {
       await Promise.resolve(onMatterStatusChange(value));
+      setInspectorMatterStatus(value);
       setActiveMatterEditor(null);
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to update matter status');
@@ -860,13 +866,13 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={matterStatus ? MATTER_STATUS_LABELS[matterStatus] : '—'}
-                  summaryMuted={!matterStatus}
+                  summary={inspectorMatterStatus ? MATTER_STATUS_LABELS[inspectorMatterStatus] : '—'}
+                  summaryMuted={!inspectorMatterStatus}
                   isOpen={activeMatterEditor === 'status'}
                 >
                   <div className="relative z-40">
                     <Combobox
-                      value={matterStatus ?? ''}
+                      value={inspectorMatterStatus ?? ''}
                       onChange={(value) => { void handleMatterStatusChange(value); }}
                       options={matterStatusOptions}
                       searchable={false}

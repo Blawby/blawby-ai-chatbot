@@ -401,7 +401,7 @@ export const PracticeMattersPage = ({
     practiceId: activePracticeId,
     matterId: selectedMatterId,
     matter: selectedMatterDetail,
-    enabled: detailSection === 'billing' && Boolean(activePracticeId && selectedMatterId)
+    enabled: Boolean(activePracticeId && selectedMatterId)
   });
 
   useEffect(() => {
@@ -768,11 +768,34 @@ export const PracticeMattersPage = ({
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId, toNoteItem]);
 
+  // ── Data fetching: time stats (used by summary cards) ────────────────────
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setTimeStats(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setTimeStats(null);
+
+    getMatterTimeEntryStats(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((stats) => {
+        setTimeStats(stats);
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        console.warn('[PracticeMattersPage] Failed to load time stats', error);
+        setTimeStats(null);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
   // ── Data fetching: time entries ───────────────────────────────────────────
   useEffect(() => {
     if (detailSection !== 'billing') return;
     if (!activePracticeId || !selectedMatterId) {
-      setTimeEntries([]); setTimeEntriesError(null); setTimeEntriesLoading(false); setTimeStats(null);
+      setTimeEntries([]); setTimeEntriesError(null); setTimeEntriesLoading(false);
       return;
     }
 
@@ -781,10 +804,9 @@ export const PracticeMattersPage = ({
     setTimeEntriesError(null);
 
     Promise.all([
-      listMatterTimeEntries(activePracticeId, selectedMatterId, { signal: controller.signal }),
-      getMatterTimeEntryStats(activePracticeId, selectedMatterId, { signal: controller.signal })
+      listMatterTimeEntries(activePracticeId, selectedMatterId, { signal: controller.signal })
     ])
-      .then(([entries, stats]) => { setTimeEntries(entries.map(toTimeEntry)); setTimeStats(stats); })
+      .then(([entries]) => { setTimeEntries(entries.map(toTimeEntry)); })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
         setTimeEntriesError(error instanceof Error ? error.message : 'Failed to load time entries');
