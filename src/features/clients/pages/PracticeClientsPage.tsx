@@ -245,8 +245,8 @@ const ClientDetailPanel = ({
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
-                <h3 className="truncate text-4xl font-semibold text-[rgb(var(--accent-foreground))] md:text-5xl">{client.name}</h3>
-                <p className="mt-2 truncate text-base text-[rgb(var(--accent-foreground))]/80 md:text-lg">{client.email}</p>
+                <h3 className="truncate pb-1 text-4xl font-semibold leading-[1.15] text-[rgb(var(--accent-foreground))] md:text-5xl">{client.name}</h3>
+                <p className="mt-2 truncate pb-0.5 text-base leading-snug text-[rgb(var(--accent-foreground))]/80 md:text-lg">{client.email}</p>
                 {messagingHint ? (
                   <p className="mt-2 text-xs text-[rgb(var(--accent-foreground))]/70">{messagingHint}</p>
                 ) : null}

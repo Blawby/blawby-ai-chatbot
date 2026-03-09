@@ -11,8 +11,17 @@ import { Breadcrumbs } from '@/shared/ui/navigation';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
+import { Avatar } from '@/shared/ui/profile';
 import Modal from '@/shared/components/Modal';
-import { FolderIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
+import {
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  CurrencyDollarIcon,
+  FolderIcon,
+  HomeIcon,
+  PencilSquareIcon,
+  PlusIcon
+} from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
@@ -23,12 +32,10 @@ import {
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
-import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailPanel';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
-import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBuilder';
@@ -99,14 +106,14 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-type DetailTabId = 'overview' | 'tasks' | 'time' | 'messages';
+type DetailSectionId = 'overview' | 'tasks' | 'billing' | 'messages';
 type IntakeTriageStatus = 'pending_review' | 'accepted' | 'declined' | string;
 
-const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'time', label: 'Billing' },
-  { id: 'messages', label: 'Messages' }
+const DETAIL_TABS: Array<{ id: DetailSectionId; label: string; icon: typeof CheckCircleIcon }> = [
+  { id: 'overview', label: 'Overview', icon: HomeIcon },
+  { id: 'tasks', label: 'Tasks', icon: CheckCircleIcon },
+  { id: 'billing', label: 'Billing', icon: CurrencyDollarIcon },
+  { id: 'messages', label: 'Messages', icon: ChatBubbleLeftRightIcon }
 ];
 
 const resolveQueryValue = (value?: string | string[] | null) => {
@@ -278,24 +285,26 @@ export const PracticeMattersPage = ({
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const firstSegment = pathSegments[0] ?? '';
-  const _secondSegment = pathSegments[1] ?? '';
+  const secondSegment = pathSegments[1] ?? '';
   const isCreateRouteFromPath = firstSegment === 'new';
   const selectedMatterIdFromPath = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
+  const detailSection: DetailSectionId = selectedMatterIdFromPath
+    ? (secondSegment === 'tasks' || secondSegment === 'billing' || secondSegment === 'messages'
+      ? secondSegment
+      : 'overview')
+    : 'overview';
   const isCreateRoute = renderMode === 'listOnly' ? false : isCreateRouteFromPath;
   const selectedMatterId = renderMode === 'listOnly' ? null : selectedMatterIdFromPath;
   const convertIntakeUuid = useMemo(
     () => resolveQueryValue(location.query?.convertIntake),
     [location.query?.convertIntake]
   );
-  const conversationBasePath = basePath.endsWith('/matters')
-    ? basePath.replace(/\/matters$/, '/conversations')
-    : '/practice/conversations';
-
   const navigate = (path: string) => location.route(path);
   const goToList = () => navigate(basePath);
-  const goToDetail = (id: string) => navigate(`${basePath}/${encodeURIComponent(id)}`);
+  const goToDetail = (id: string, section: Exclude<DetailSectionId, 'overview'> | null = null) =>
+    navigate(section ? `${basePath}/${encodeURIComponent(id)}/${section}` : `${basePath}/${encodeURIComponent(id)}`);
 
   // ── External hooks ────────────────────────────────────────────────────────
   const { getMembers, fetchMembers } = usePracticeManagement({
@@ -312,12 +321,13 @@ export const PracticeMattersPage = ({
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
   const [noteItems, setNoteItems] = useState<TimelineItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [activityRetryCount, setActivityRetryCount] = useState(0);
   const rawActivityRef = useRef<BackendMatterActivity[]>([]);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
@@ -334,6 +344,7 @@ export const PracticeMattersPage = ({
   const [tasks, setTasks] = useState<MatterTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
+  const [tasksNotImplemented, setTasksNotImplemented] = useState(false);
 
   // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
@@ -361,6 +372,7 @@ export const PracticeMattersPage = ({
   const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
   const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
   const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [convertInitialValues, setConvertInitialValues] = useState<Partial<MatterFormState> | undefined>(undefined);
@@ -385,7 +397,7 @@ export const PracticeMattersPage = ({
     practiceId: activePracticeId,
     matterId: selectedMatterId,
     matter: selectedMatterDetail,
-    enabled: detailTab === 'time' && Boolean(activePracticeId && selectedMatterId)
+    enabled: detailSection === 'billing' && Boolean(activePracticeId && selectedMatterId)
   });
 
   useEffect(() => {
@@ -706,11 +718,13 @@ export const PracticeMattersPage = ({
       rawActivityRef.current = [];
       setActivityItems([]);
       setActivityLoading(false);
+      setActivityError(null);
       return;
     }
 
     const controller = new AbortController();
     setActivityLoading(true);
+    setActivityError(null);
 
     getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((items) => {
@@ -722,11 +736,12 @@ export const PracticeMattersPage = ({
         console.warn('[PracticeMattersPage] Failed to load activity', error);
         rawActivityRef.current = [];
         setActivityItems([]);
+        setActivityError(error instanceof Error ? error.message : 'Failed to load activity');
       })
       .finally(() => setActivityLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, remapActivities]);
+  }, [activePracticeId, selectedMatterId, remapActivities, activityRetryCount]);
 
   useEffect(() => {
     if (rawActivityRef.current.length === 0) return;
@@ -751,6 +766,7 @@ export const PracticeMattersPage = ({
 
   // ── Data fetching: time entries ───────────────────────────────────────────
   useEffect(() => {
+    if (detailSection !== 'billing') return;
     if (!activePracticeId || !selectedMatterId) {
       setTimeEntries([]); setTimeEntriesError(null); setTimeEntriesLoading(false); setTimeStats(null);
       return;
@@ -772,10 +788,11 @@ export const PracticeMattersPage = ({
       .finally(() => setTimeEntriesLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [detailSection, activePracticeId, selectedMatterId]);
 
   // ── Data fetching: expenses ───────────────────────────────────────────────
   useEffect(() => {
+    if (detailSection !== 'billing') return;
     if (!activePracticeId || !selectedMatterId) {
       setExpenses([]); setExpensesError(null); setExpensesLoading(false);
       return;
@@ -794,12 +811,20 @@ export const PracticeMattersPage = ({
       .finally(() => setExpensesLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [detailSection, activePracticeId, selectedMatterId]);
 
   // ── Data fetching: milestones ─────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
       setMilestones([]); setMilestonesError(null); setMilestonesLoading(false);
+      return;
+    }
+    const billing = selectedMatterDetail?.billingType;
+    const freq = selectedMatterDetail?.paymentFrequency;
+    if (billing !== 'fixed' || freq !== 'milestone') {
+      setMilestones([]);
+      setMilestonesError(null);
+      setMilestonesLoading(false);
       return;
     }
 
@@ -821,31 +846,43 @@ export const PracticeMattersPage = ({
       .finally(() => setMilestonesLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, selectedMatterDetail?.billingType, selectedMatterDetail?.paymentFrequency]);
 
   // ── Data fetching: tasks ──────────────────────────────────────────────────
   useEffect(() => {
+    if (detailSection !== 'tasks') return;
     if (!activePracticeId || !selectedMatterId) {
       setTasks([]);
       setTasksError(null);
       setTasksLoading(false);
+      setTasksNotImplemented(false);
       return;
     }
 
     const controller = new AbortController();
     setTasksLoading(true);
     setTasksError(null);
+    setTasksNotImplemented(false);
 
     listMatterTasks(activePracticeId, selectedMatterId, {}, { signal: controller.signal })
       .then((items) => setTasks(items.map(toMatterTask)))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
+        const maybeStatus = (error as { status?: number; response?: { status?: number } });
+        const status = maybeStatus.status ?? maybeStatus.response?.status;
+        const message = error instanceof Error ? error.message : 'Failed to load tasks';
+        if (status === 404 || message.includes('404') || message.includes('Not Found')) {
+          setTasksNotImplemented(true);
+          setTasksError(null);
+          setTasks([]);
+          return;
+        }
         setTasksError(error instanceof Error ? error.message : 'Failed to load tasks');
       })
       .finally(() => setTasksLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [detailSection, activePracticeId, selectedMatterId]);
 
   // ── Refresh helpers ───────────────────────────────────────────────────────
   const refreshSelectedMatter = useCallback(async () => {
@@ -972,12 +1009,14 @@ export const PracticeMattersPage = ({
   // ── Description edit handlers ─────────────────────────────────────────────
   const startDescriptionEdit = useCallback(() => {
     if (!selectedMatterDetail) return;
+    setTitleDraft(selectedMatterDetail.title ?? '');
     setDescriptionDraft(selectedMatterDetail.description ?? '');
     setIsDescriptionEditing(true);
   }, [selectedMatterDetail]);
 
   const cancelDescriptionEdit = useCallback(() => {
     setIsDescriptionEditing(false);
+    setTitleDraft('');
     setDescriptionDraft('');
   }, []);
 
@@ -985,16 +1024,20 @@ export const PracticeMattersPage = ({
     if (!selectedMatterDetail || !activePracticeId) return;
     setIsSavingDescription(true);
     try {
-      await handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, { description: descriptionDraft }));
+      await handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, {
+        title: titleDraft.trim() || selectedMatterDetail.title,
+        description: descriptionDraft
+      }));
       setIsDescriptionEditing(false);
+      setTitleDraft('');
       setDescriptionDraft('');
     } catch (error) {
-      console.error('[PracticeMattersPage] Failed to update description', error);
-      showError('Could not save description', 'Please try again.');
+      console.error('[PracticeMattersPage] Failed to update matter title/description', error);
+      showError('Could not save matter details', 'Please try again.');
     } finally {
       setIsSavingDescription(false);
     }
-  }, [selectedMatterDetail, activePracticeId, descriptionDraft, handleUpdateMatter, showError]);
+  }, [selectedMatterDetail, activePracticeId, titleDraft, descriptionDraft, handleUpdateMatter, showError]);
 
   // ── Time entry handlers ───────────────────────────────────────────────────
   const refreshTimeEntries = useCallback(async () => {
@@ -1299,6 +1342,42 @@ export const PracticeMattersPage = ({
     [matterSummaries, selectedMatterId]
   );
   const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
+  const clientOptionById = useMemo(
+    () => new Map(clientOptions.map((client) => [client.id, client])),
+    [clientOptions]
+  );
+  const fallbackMatterDetailForReadViews = useMemo<MatterDetail | null>(() => {
+    if (selectedMatterDetail) return selectedMatterDetail;
+    if (!resolvedSelectedMatter) return null;
+    return {
+      ...resolvedSelectedMatter,
+      clientId: '',
+      practiceAreaId: '',
+      assigneeIds: [],
+      description: '',
+      billingType: 'hourly',
+      milestones: [],
+      tasks: [],
+      timeEntries: [],
+      expenses: [],
+      notes: []
+    };
+  }, [resolvedSelectedMatter, selectedMatterDetail]);
+  const detailHeaderMeta = selectedMatterDetail ?? fallbackMatterDetailForReadViews;
+  const detailClientOption = useMemo(() => {
+    const detail = detailHeaderMeta;
+    if (!detail) return null;
+    if (detail.clientId) {
+      const option = clientOptionById.get(detail.clientId);
+      if (option) return option;
+    }
+    return {
+      id: detail.clientId || 'matter-client',
+      name: detail.clientName || 'Unassigned client',
+      image: null,
+      role: 'client'
+    } satisfies MatterOption;
+  }, [detailHeaderMeta, clientOptionById]);
   const timelineItems = useMemo(() => {
     return [...activityItems, ...noteItems].sort((a, b) => {
       const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
@@ -1594,6 +1673,22 @@ export const PracticeMattersPage = ({
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail, refreshMatters, refreshSelectedMatter]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleWorkspaceMatterPatchChange = (
+      event: Event
+    ) => {
+      const customEvent = event as CustomEvent<{ matterId: string; patch: Partial<MatterFormState> }>;
+      const detail = customEvent.detail;
+      if (!detail || detail.matterId !== selectedMatterId || !detail.patch) return;
+      void handlePatchMatter(detail.patch);
+    };
+    window.addEventListener('workspace:matter-patch-change', handleWorkspaceMatterPatchChange);
+    return () => {
+      window.removeEventListener('workspace:matter-patch-change', handleWorkspaceMatterPatchChange);
+    };
+  }, [handlePatchMatter, selectedMatterId]);
+
   // =========================================================================
   // Render — create route
   // =========================================================================
@@ -1656,127 +1751,253 @@ export const PracticeMattersPage = ({
       return <MatterNotFound matterId={selectedMatterId} onBack={goToList} />;
     }
 
+    const matterDetailHeaderActions = (
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant={isDescriptionEditing ? 'secondary' : 'icon'}
+          size="icon-sm"
+          onClick={isDescriptionEditing ? cancelDescriptionEdit : startDescriptionEdit}
+          icon={PencilSquareIcon}
+          iconClassName="h-4 w-4"
+          aria-label={isDescriptionEditing ? 'Close matter editor' : 'Edit matter title and description'}
+        />
+        {detailHeaderRightControl}
+      </div>
+    );
+
     return (
       <>
-        <div className="h-full min-h-0 overflow-hidden flex flex-col">
+        <div className="h-full overflow-y-auto">
           <div className="relative z-20 overflow-visible">
             <DetailHeader
-              title={resolvedSelectedMatter.title}
-              subtitle={MATTER_STATUS_LABELS[resolvedSelectedMatter.status]}
+              title="Matter details"
               showBack={showDetailBackButton}
               onBack={goToList}
-              actions={detailHeaderRightControl}
+              actions={matterDetailHeaderActions}
             />
-            <nav
-              className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"
-              aria-label="Matter sections"
-            >
-              {DETAIL_TABS.map((tab) => {
-                const isActive = detailTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setDetailTab(tab.id)}
-                    aria-selected={isActive}
-                    role="tab"
-                    className={[
-                      'relative px-3 py-3 text-sm font-medium whitespace-nowrap',
-                      'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
-                      'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
-                      isActive
-                        ? 'text-input-text after:bg-accent-500'
-                        : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-white/20'
-                    ].join(' ')}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="space-y-6 p-4 sm:p-6">
-          <MatterSummaryCards
-            activeTab={detailTab === 'tasks' ? 'overview' : detailTab}
-            onAddTime={() => {
-              if (detailTab !== 'overview') return;
-              setQuickTimeEntryKey((k) => k + 1);
-              setIsQuickTimeEntryOpen(true);
-            }}
-            onViewTimesheet={() => setDetailTab('time')}
-            timeStats={timeStats}
-            unbilledTotal={unbilledSummary?.totalUnbilled ?? null}
-            onInvoiceNow={handleCreateInvoiceFromSummary}
-            billingType={selectedMatterDetail?.billingType}
-          />
-
-          {/* Description — inline editable */}
-          {detailTab === 'overview' && selectedMatterDetail && (
-            <div className="glass-panel overflow-hidden">
-              <div className="border-b border-white/[0.06] px-6 py-4">
-                <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
-              </div>
-              {isDescriptionEditing ? (
-                <div className="space-y-3 px-6 py-5">
-                  <MarkdownUploadTextarea
-                    label="Description"
-                    value={descriptionDraft}
-                    onChange={setDescriptionDraft}
-                    practiceId={activePracticeId}
-                    showLabel={false}
-                    showTabs
-                    showFooter
-                    rows={12}
-                    defaultTab="preview"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="secondary" onClick={cancelDescriptionEdit} disabled={isSavingDescription}>
-                      Cancel
-                    </Button>
-                    <Button size="sm" onClick={() => void saveDescription()} disabled={isSavingDescription}>
-                      {isSavingDescription ? 'Saving...' : 'Save description'}
-                    </Button>
+            {detailHeaderMeta ? (
+              <div className="px-4 py-4">
+                <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-glass/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-white/10" />
+                  <div className="relative px-6 pb-12 pt-10">
+                    <div className="flex flex-col items-start gap-6 md:flex-row md:items-start md:gap-8">
+                      <Avatar
+                        size="xl"
+                        src={detailClientOption?.image ?? null}
+                        name={detailClientOption?.name ?? 'Unassigned client'}
+                      />
+                      <div className="min-w-0 flex-1">
+                        {selectedMatterDetail ? (
+                          <div>
+                            {isDescriptionEditing ? (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/80" htmlFor="matter-title-editor">
+                                    Title
+                                  </label>
+                                  <input
+                                    id="matter-title-editor"
+                                    type="text"
+                                    value={titleDraft}
+                                    onInput={(event) => setTitleDraft((event.currentTarget as HTMLInputElement).value)}
+                                    placeholder="Matter title"
+                                    className="glass-input h-10 w-full rounded-xl px-3 text-sm"
+                                  />
+                                </div>
+                                <MarkdownUploadTextarea
+                                  label="Description"
+                                  value={descriptionDraft}
+                                  onChange={setDescriptionDraft}
+                                  practiceId={activePracticeId}
+                                  showLabel={false}
+                                  showTabs
+                                  showFooter
+                                  rows={10}
+                                  defaultTab="write"
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" variant="secondary" onClick={cancelDescriptionEdit} disabled={isSavingDescription}>
+                                    Cancel
+                                  </Button>
+                                  <Button size="sm" onClick={() => void saveDescription()} disabled={isSavingDescription}>
+                                    {isSavingDescription ? 'Saving...' : 'Save changes'}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-baseline justify-between gap-3">
+                                  <h4 className="text-4xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] md:text-5xl">
+                                    {selectedMatterDetail.title?.trim() || 'Untitled matter'}
+                                  </h4>
+                                  {selectedMatterDetail.caseNumber?.trim() ? (
+                                    <span className="shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65">
+                                      #{selectedMatterDetail.caseNumber.trim()}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[rgb(var(--accent-foreground))]/85">
+                                  {selectedMatterDetail.description?.trim() || 'No description yet.'}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        ) : null}
+                        <nav className="mt-6 flex items-center gap-3" aria-label="Matter detail tabs">
+                          {DETAIL_TABS.map((tab) => {
+                            const isActive = detailSection === tab.id;
+                            const TabIcon = tab.icon;
+                            return (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => {
+                                  if (!selectedMatterId) return;
+                                  goToDetail(selectedMatterId, tab.id === 'overview' ? null : tab.id);
+                                }}
+                                aria-selected={isActive}
+                                aria-label={tab.label}
+                                title={tab.label}
+                                role="tab"
+                                className={[
+                                  'flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-150',
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
+                                  isActive
+                                    ? 'bg-white/20 text-[rgb(var(--accent-foreground))]'
+                                    : 'bg-white/10 text-[rgb(var(--accent-foreground))]/80 hover:bg-white/15 hover:text-[rgb(var(--accent-foreground))]'
+                                ].join(' ')}
+                              >
+                                <TabIcon className="h-5 w-5" aria-hidden="true" />
+                              </button>
+                            );
+                          })}
+                        </nav>
+                        {selectedMatterDetail ? (
+                          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Client</p>
+                              <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]">
+                                {detailClientOption?.name ?? 'Unassigned client'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Assigned</p>
+                              <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]">
+                                {assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId ?? '') || 'Not set'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Status</p>
+                              <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]">
+                                {MATTER_STATUS_LABELS[selectedMatterDetail.status]}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-4 px-6 py-5">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
-                    {selectedMatterDetail.description?.trim() || 'No description yet.'}
-                  </p>
-                  <Button
-                    size="icon-sm"
-                    variant="icon"
-                    onClick={startDescriptionEdit}
-                    icon={PencilIcon} iconClassName="h-4 w-4"
-                    aria-label="Edit description"
-                    className="shrink-0"
-                  />
-                </div>
-              )}
+                </section>
+              </div>
+            ) : null}
+            <div className="px-4 pb-4 pt-2">
+              <MatterSummaryCards
+                activeTab="overview"
+                onAddTime={() => {
+                  setQuickTimeEntryKey((k) => k + 1);
+                  setIsQuickTimeEntryOpen(true);
+                }}
+                onViewTimesheet={() => {
+                  if (!selectedMatterId) return;
+                  goToDetail(selectedMatterId, 'billing');
+                }}
+                timeStats={timeStats}
+                billingType={selectedMatterDetail?.billingType}
+                attorneyHourlyRate={selectedMatterDetail?.attorneyHourlyRate ?? null}
+                adminHourlyRate={selectedMatterDetail?.adminHourlyRate ?? null}
+                totalFixedPrice={selectedMatterDetail?.totalFixedPrice ?? null}
+                contingencyPercent={selectedMatterDetail?.contingencyPercent ?? null}
+                paymentFrequency={selectedMatterDetail?.paymentFrequency ?? null}
+              />
             </div>
-          )}
-
+          </div>
+          <div className="space-y-6 p-4 sm:p-6">
           {/* Tab panels */}
           <section>
-            {detailTab === 'overview' ? (
-              <div className="space-y-6">
+            {detailSection === 'overview' ? (
+            <div className="space-y-6">
 
-                {/* Inline-editable matter details */}
+                {/* Read-only matter details */}
                 {selectedMatterDetail && (
-                  <MatterDetailsPanel
-                    detail={selectedMatterDetail}
-                    assigneeOptions={assigneeOptions}
-                    onSave={handlePatchMatter}
-                  />
+                  <section className="glass-panel rounded-2xl">
+                    <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+                      <dl className="divide-y divide-line-glass/5">
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Court</dt>
+                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.court?.trim() || 'Not set'}</dd>
+                        </div>
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Judge</dt>
+                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.judge?.trim() || 'Not set'}</dd>
+                        </div>
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Opposing party</dt>
+                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.opposingParty?.trim() || 'Not set'}</dd>
+                        </div>
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Opposing counsel</dt>
+                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.opposingCounsel?.trim() || 'Not set'}</dd>
+                        </div>
+                      </dl>
+                      <dl className="divide-y divide-line-glass/5">
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Matter type</dt>
+                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.matterType?.trim() || 'Not set'}</dd>
+                        </div>
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Urgency</dt>
+                          <dd className="mt-1 text-sm text-input-text">
+                            {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : 'Not set'}
+                          </dd>
+                        </div>
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Responsible attorney</dt>
+                          <dd className="mt-1 text-sm text-input-text">
+                            {assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId ?? '') || 'Not set'}
+                          </dd>
+                        </div>
+                        <div className="px-5 py-4">
+                          <dt className="text-sm font-medium text-input-placeholder">Originating attorney</dt>
+                          <dd className="mt-1 text-sm text-input-text">
+                            {assigneeNameById.get(selectedMatterDetail.originatingAttorneyId ?? '') || 'Not set'}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </section>
                 )}
 
                 {/* Activity timeline */}
                 <div>
                   <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
-                  <Panel className="mt-4 p-4">
+                  <div className="mt-4">
                     {activityLoading && activityItems.length === 0 ? (
                       <LoadingState message="Loading activity..." />
+                    ) : activityError && activityItems.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-input-placeholder">
+                        Could not load activity.{' '}
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => {
+                            setActivityError(null);
+                            setActivityRetryCount((count) => count + 1);
+                          }}
+                        >
+                          Retry
+                        </button>
+                      </p>
                     ) : (
                       <ActivityTimeline
                         items={timelineItems}
@@ -1789,7 +2010,10 @@ export const PracticeMattersPage = ({
                           name: session?.user?.name ?? session?.user?.email ?? 'You',
                           imageUrl: session?.user?.image ?? null
                         }}
-                        onTaskClick={() => setDetailTab('tasks')}
+                        onTaskClick={() => {
+                          if (!selectedMatterId) return;
+                          goToDetail(selectedMatterId, 'tasks');
+                        }}
                         onComposerSubmit={async (value) => {
                           try {
                             await handleCreateNote({ content: value });
@@ -1800,11 +2024,30 @@ export const PracticeMattersPage = ({
                         }}
                       />
                     )}
-                  </Panel>
+                  </div>
                 </div>
 
-                {/* Milestones */}
-                {selectedMatterDetail && (
+              </div>
+            ) : null}
+            {detailSection === 'tasks' ? (
+              <div className="space-y-6">
+                {tasksNotImplemented ? (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[200px] gap-3 text-center p-8">
+                    <p className="text-sm font-medium text-muted-foreground">Tasks coming soon</p>
+                    <p className="text-xs text-muted-foreground/70">Task management for this matter is not yet available.</p>
+                  </div>
+                ) : (
+                  <MatterTasksPanel
+                    tasks={tasks}
+                    loading={tasksLoading}
+                    error={tasksError}
+                    assignees={assigneeOptions}
+                    onCreateTask={handleCreateTask}
+                    onUpdateTask={handleUpdateTask}
+                    onDeleteTask={handleDeleteTask}
+                  />
+                )}
+                {selectedMatterDetail?.billingType === 'fixed' && selectedMatterDetail.paymentFrequency === 'milestone' ? (
                   <MatterMilestonesPanel
                     key={`milestones-${selectedMatterDetail.id}`}
                     matter={selectedMatterDetail}
@@ -1817,20 +2060,9 @@ export const PracticeMattersPage = ({
                     onReorderMilestones={handleReorderMilestones}
                     allowReorder
                   />
-                )}
+                ) : null}
               </div>
-
-            ) : detailTab === 'tasks' && selectedMatterDetail ? (
-              <MatterTasksPanel
-                tasks={tasks}
-                loading={tasksLoading}
-                error={tasksError}
-                assignees={assigneeOptions}
-                onCreateTask={handleCreateTask}
-                onUpdateTask={handleUpdateTask}
-                onDeleteTask={handleDeleteTask}
-              />
-            ) : detailTab === 'time' && selectedMatterDetail ? (
+            ) : detailSection === 'billing' && selectedMatterDetail ? (
               <BillingErrorBoundary onRetry={refetchBilling}>
                 <div className="space-y-6">
                   {invoicesError ? (
@@ -1914,20 +2146,15 @@ export const PracticeMattersPage = ({
                   />
                 </div>
               </BillingErrorBoundary>
-            ) : detailTab === 'messages' && selectedMatterDetail ? (
-              <MatterMessagesPanel
-                key={`messages-${selectedMatterDetail.id}`}
-                matter={selectedMatterDetail}
-                practiceId={activePracticeId}
-                conversationBasePath={conversationBasePath}
-              />
-            ) : (
-              <p className="text-sm text-input-placeholder">
-                We will add the {DETAIL_TABS.find((t) => t.id === detailTab)?.label ?? 'tab'} details next.
-              </p>
-            )}
+            ) : detailSection === 'messages' ? (
+              <Panel className="p-5">
+                <h3 className="text-sm font-semibold text-input-text">Messages</h3>
+                <p className="mt-2 text-sm text-input-placeholder">
+                  Matter messages will open the linked conversation route for this matter when messaging-route integration is fixed.
+                </p>
+              </Panel>
+            ) : null}
           </section>
-            </div>
           </div>
         </div>
 
