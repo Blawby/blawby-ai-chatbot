@@ -931,7 +931,7 @@ export const InspectorPanel = ({
                   <div className="relative z-30">
                     <Combobox
                       value={resolvedMatterResponsibleAttorneyId ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ responsibleAttorneyId: value }); }}
+                      onChange={(value) => { void handleMatterPatchChange({ responsibleAttorneyId: value === '' ? null : value }); }}
                       options={[{ value: '', label: 'Not set' }, ...matterAssigneeOptions]}
                       searchable
                       autoFocus
@@ -960,7 +960,7 @@ export const InspectorPanel = ({
                   <div className="relative z-30">
                     <Combobox
                       value={resolvedMatterOriginatingAttorneyId ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ originatingAttorneyId: value }); }}
+                      onChange={(value) => { void handleMatterPatchChange({ originatingAttorneyId: value === '' ? null : value }); }}
                       options={[{ value: '', label: 'Not set' }, ...matterAssigneeOptions]}
                       searchable
                       autoFocus
@@ -989,7 +989,7 @@ export const InspectorPanel = ({
                   <div className="relative z-30">
                     <Combobox
                       value={resolvedMatterUrgency ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ urgency: value }); }}
+                      onChange={(value) => { void handleMatterPatchChange({ urgency: value === '' ? null : value }); }}
                       options={urgencyOptions}
                       searchable={false}
                       autoFocus

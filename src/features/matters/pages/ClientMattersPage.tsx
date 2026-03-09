@@ -248,6 +248,34 @@ export const ClientMattersPage = ({
       : null;
     return matchingDetail ?? (selectedMatterSummary ? buildFallbackDetail(selectedMatterSummary) : null);
   }, [selectedMatterDetail, selectedMatterSummary, selectedMatterId]);
+  const summaryTimeStats = useMemo(() => {
+    const entries = resolvedMatter?.timeEntries ?? [];
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return {
+        totalBillableSeconds: 0,
+        totalSeconds: 0
+      };
+    }
+
+    const totals = entries.reduce(
+      (acc, entry) => {
+        const startMs = entry?.startTime ? new Date(entry.startTime).getTime() : Number.NaN;
+        const endMs = entry?.endTime ? new Date(entry.endTime).getTime() : Number.NaN;
+        if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+          return acc;
+        }
+        const durationSeconds = Math.round((endMs - startMs) / 1000);
+        acc.totalSeconds += durationSeconds;
+        if (entry.billable) {
+          acc.totalBillableSeconds += durationSeconds;
+        }
+        return acc;
+      },
+      { totalBillableSeconds: 0, totalSeconds: 0 }
+    );
+
+    return totals;
+  }, [resolvedMatter?.timeEntries]);
   const resolvePerson = useCallback((userId?: string | null): TimelinePerson => {
     if (!userId) return { name: 'System' };
     if (session?.user?.id === userId) {
@@ -377,7 +405,16 @@ export const ClientMattersPage = ({
           <div className="space-y-6 p-4 sm:p-6">
             {detailTab === 'overview' ? (
               <>
-                <MatterSummaryCards activeTab="overview" />
+                <MatterSummaryCards
+                  activeTab="overview"
+                  timeStats={summaryTimeStats}
+                  billingType={resolvedMatter.billingType}
+                  attorneyHourlyRate={resolvedMatter.attorneyHourlyRate ?? null}
+                  adminHourlyRate={resolvedMatter.adminHourlyRate ?? null}
+                  totalFixedPrice={resolvedMatter.totalFixedPrice ?? null}
+                  contingencyPercent={resolvedMatter.contingencyPercent ?? null}
+                  paymentFrequency={resolvedMatter.paymentFrequency ?? null}
+                />
                 <section className="glass-panel overflow-hidden">
                   <header className="border-b border-line-glass/30 px-6 py-4">
                     <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
