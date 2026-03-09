@@ -1,3 +1,5 @@
+// NOTE: 'client' here is a practice access role from auth/membership data,
+// not the People-directory umbrella identity term.
 export type PracticeRole = 'owner' | 'admin' | 'attorney' | 'paralegal' | 'member' | 'client';
 
 export const PRACTICE_ROLE_LABELS: Record<PracticeRole, string> = {

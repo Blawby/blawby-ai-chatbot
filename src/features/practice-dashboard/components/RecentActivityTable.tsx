@@ -64,7 +64,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
               <thead className="sr-only">
                 <tr>
                   <th>Amount</th>
-                  <th className="hidden sm:table-cell">Client</th>
+                  <th className="hidden sm:table-cell">Person</th>
                   <th>More details</th>
                 </tr>
               </thead>

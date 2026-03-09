@@ -90,7 +90,7 @@ export function ClientInvoicesPage({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber}</p>
-                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? 'Unknown client'}</p>
+                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? 'Unknown person'}</p>
                   <p className="mt-1 text-xs text-input-placeholder">
                     Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : 'N/A'}
                   </p>

@@ -26,7 +26,7 @@ export const SendInvoiceDialog = ({
   >
     <div className="space-y-4">
       <p className="text-sm text-input-placeholder">
-        You are about to send this invoice to the client.
+        You are about to send this invoice to the person.
       </p>
       <p className="text-sm font-semibold text-input-text">
         Total due: {formatCurrency(totalAmount)}

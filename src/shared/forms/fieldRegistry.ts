@@ -7,11 +7,11 @@ import { Textarea } from '@/shared/ui/input/Textarea';
 import type { Address } from '@/shared/types/ui';
 import type { FunctionalComponent } from 'preact';
 
-// Status options for client forms
+// Relationship status options for people forms
 const STATUS_OPTIONS: ComboboxOption[] = [
   { value: 'lead', label: 'Lead' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
+  { value: 'active', label: 'Client' },
+  { value: 'inactive', label: 'Former client' },
   { value: 'archived', label: 'Archived' },
 ];
 
@@ -107,11 +107,11 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
     ui: { gridSpan: 1, section: 'contact' },
   },
   
-  // Client-specific fields
+  // People relationship fields
   status: {
     component: asComponentFactory(Combobox),
-    label: 'Status',
-    placeholder: 'Select status',
+    label: 'Relationship status',
+    placeholder: 'Select relationship status',
     defaultValue: 'lead',
     options: STATUS_OPTIONS,
     ui: { gridSpan: 1, section: 'client' },

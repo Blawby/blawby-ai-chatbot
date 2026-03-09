@@ -107,6 +107,7 @@ export interface ConversationMessage {
   content: string;
   reply_to_message_id?: string | null;
   metadata: Record<string, unknown> | null;
+  // Protocol-level message dedupe/ordering id. Not a person/client relationship identifier.
   client_id: string;
   seq: number;
   server_ts: string;

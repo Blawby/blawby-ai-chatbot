@@ -335,7 +335,7 @@ export const PracticeMattersPage = ({
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
 
-  // ── Client / service / assignee options ───────────────────────────────────
+  // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
   const [isClientListTruncated, setIsClientListTruncated] = useState(false);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -528,10 +528,10 @@ export const PracticeMattersPage = ({
     void fetchMembers(activePracticeId, { force: false });
   }, [activePracticeId, fetchMembers]);
 
-  // ── Data fetching: clients (paginated) ────────────────────────────────────
+  // ── Data fetching: people (paginated) ─────────────────────────────────────
   const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => ({
     id: detail.id,
-    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown Client',
+    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown person',
     email: detail.user?.email ?? undefined,
     role: 'client',
     status: detail.status
@@ -576,10 +576,10 @@ export const PracticeMattersPage = ({
       } catch (error) {
         if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
         if (!cancelled) {
-          console.error('[PracticeMattersPage] Failed to load clients', error);
+          console.error('[PracticeMattersPage] Failed to load people', error);
           setClientOptions(allClients);
           setIsClientListTruncated(true);
-          showError('Failed to load full client list', 'Some clients may be missing.');
+          showError('Failed to load full people list', 'Some people may be missing.');
         }
       }
     };
@@ -2041,7 +2041,7 @@ export const PracticeMattersPage = ({
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <PageHeader
           title="Matters"
-          subtitle="Track matter progress, client updates, and case milestones."
+          subtitle="Track matter progress, people updates, and case milestones."
           actions={
             <Button
               size="sm"
@@ -2056,7 +2056,7 @@ export const PracticeMattersPage = ({
 
         {isClientListTruncated && (
           <WarningBanner>
-            <strong>Warning:</strong> The client list is incomplete. Some names or options may be missing.
+            <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
           </WarningBanner>
         )}
 

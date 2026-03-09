@@ -231,10 +231,14 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
           <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
           <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
+          <Route path="/practice/:practiceSlug/people" component={PracticeAppRoute} workspaceView="clients" />
+          <Route path="/practice/:practiceSlug/people/*" component={PracticeAppRoute} workspaceView="clients" />
           <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} workspaceView="clients" />
           <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
+          <Route path="/practice/:practiceSlug/reports" component={PracticeAppRoute} workspaceView="reports" />
+          <Route path="/practice/:practiceSlug/reports/*" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
           <Route path="/practice/:practiceSlug/invoices/:invoiceId" component={PracticeAppRoute} workspaceView="invoiceDetail" />
           <Route path="/practice/:practiceSlug/settings" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
@@ -338,7 +342,7 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'account-payouts' | 'practice' | 'practice-services' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {

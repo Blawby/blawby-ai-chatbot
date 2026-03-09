@@ -12,6 +12,7 @@ import {
 export type BackendMatter = {
   id: string;
   organization_id?: string | null;
+  // Backend contract: single linked client/person reference for the matter.
   client_id?: string | null;
   title?: string | null;
   description?: string | null;

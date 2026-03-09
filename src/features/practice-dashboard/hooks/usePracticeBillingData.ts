@@ -429,7 +429,7 @@ export const usePracticeBillingData = ({
           invoiceNumber: invoice.stripe_invoice_number ?? invoice.invoice_number,
           amount: invoice.total,
           status: invoice.status,
-          clientName: invoice.client?.user?.name ?? invoice.client?.user?.email ?? 'Client',
+          clientName: invoice.client?.user?.name ?? invoice.client?.user?.email ?? 'Person',
           description: invoice.memo ?? invoice.notes ?? null,
           issuedAt: isoDate
         };
@@ -453,7 +453,7 @@ export const usePracticeBillingData = ({
         if (!existing || (latestDate && (!existing.lastInvoice?.date || new Date(latestDate) > new Date(existing.lastInvoice.date)))) {
           clientMap.set(invoice.client_id, {
             id: invoice.client_id,
-            name: invoice.client?.user?.name ?? invoice.client?.user?.email ?? `Client ${invoice.client_id.slice(0, 5)}`,
+            name: invoice.client?.user?.name ?? invoice.client?.user?.email ?? `Person ${invoice.client_id.slice(0, 5)}`,
             avatarUrl: invoice.client?.user?.image ?? null,
             lastInvoice: latestDate ? { date: latestDate, amount, status: invoice.status } : null
           });

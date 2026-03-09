@@ -848,6 +848,7 @@ export async function listUserDetails(
     status?: UserDetailStatus;
     limit?: number;
     offset?: number;
+    // Backend contract field name; maps to user-details lookup key.
     client_id?: string;
     signal?: AbortSignal;
   }
@@ -883,6 +884,7 @@ export async function getUserDetail(
   }
   const response = await apiClient.get(
     `/api/user-details/${encodeURIComponent(practiceId)}`,
+    // Backend contract uses `client_id` even though this record is presented as Person in UI.
     { params: { client_id: userDetailId }, signal: config?.signal }
   );
   const payload = response.data;
@@ -990,12 +992,12 @@ export async function createUserDetail(
       console.info('[apiClient] inviteMember', {
         organizationId: practiceId,
         email: normalizedEmail,
-        role: 'member'
+        role: 'client'
       });
     }
     await authClient.organization.inviteMember({
       email: normalizedEmail,
-      role: 'member',
+      role: 'client',
       organizationId: practiceId,
     });
     return null;

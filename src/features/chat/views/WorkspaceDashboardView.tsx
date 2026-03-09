@@ -79,7 +79,7 @@ export const WorkspaceDashboardView: FunctionComponent<{
           onClick={onNavigateToMatters}
         />
         <DashboardCard 
-          title="Potential Clients" 
+          title="Potential People" 
           value="0" 
           label="new leads" 
           icon={UsersIcon}
@@ -98,7 +98,7 @@ export const WorkspaceDashboardView: FunctionComponent<{
           <section className="glass-card p-6">
             <h2 className="text-lg font-semibold text-input-text mb-4">Quick Actions</h2>
             <div className="flex flex-wrap gap-4">
-              <Button variant="secondary" onClick={onNavigateToConversations}>View all messages</Button>
+              <Button variant="secondary" onClick={onNavigateToConversations}>View all conversations</Button>
               <Button variant="secondary" onClick={onNavigateToMatters}>Manage matters</Button>
               <Button variant="primary">Share intake link</Button>
             </div>

@@ -61,6 +61,7 @@ export type PaymentFrequency = 'project' | 'milestone';
 
 export type MatterFormState = {
   title: string;
+  // UI treats this as "person", but backend contract remains `client_id`.
   clientId: string;
   practiceAreaId: string;
   assigneeIds: string[];
@@ -315,7 +316,7 @@ const MatterFormModalInner = ({
             value={formState.description}
             onChange={(value) => updateForm('description', value)}
             practiceId={practiceId}
-            placeholder="Let the client know how you'd approach the project and drop supporting files directly into the description."
+            placeholder="Share how you would approach the project and drop supporting files directly into the description."
             rows={8}
             maxLength={5000}
           />
@@ -348,8 +349,8 @@ const MatterFormModalInner = ({
           />
 
           <Combobox
-            label="Client *"
-            placeholder="Select customer"
+            label="Person *"
+            placeholder="Select person"
             value={formState.clientId}
             options={clientOptions}
             leading={(selectedOption) => {

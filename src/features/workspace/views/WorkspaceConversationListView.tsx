@@ -55,7 +55,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
       <Page className="h-full">
         <PageHeader
           title="Conversations"
-          subtitle="Manage your client conversations"
+          subtitle="Manage your conversations"
         />
         
         <div className="glass-card p-6 text-center">
@@ -73,7 +73,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
     <Page className="h-full">
       <PageHeader
         title="Conversations"
-        subtitle={`Manage your client conversations${practice ? ` for ${practice.name}` : ''}`}
+        subtitle={`Manage your conversations${practice ? ` for ${practice.name}` : ''}`}
       />
 
       <div className="space-y-4">
@@ -96,7 +96,7 @@ const WorkspaceConversationListView: FunctionComponent<WorkspaceConversationList
             <Icon icon={ChatBubbleLeftRightIcon} className="w-16 h-16 mx-auto mb-4 text-input-placeholder opacity-50"  />
             <h3 className="text-lg font-semibold text-input-text mb-2">No conversations yet</h3>
             <p className="text-input-placeholder mb-6">
-              Start your first conversation to begin helping clients
+              Start your first conversation to begin helping people
             </p>
             <Button
               onClick={handleRefresh}

@@ -65,7 +65,7 @@ export const LinkMatterModal = ({
             setCurrentMatter({
               id: m.id,
               title: m.title ?? 'Untitled Matter',
-              clientName: m.client_id ? `Client ${m.client_id.slice(0, 8)}` : null,
+              clientName: m.client_id ? `Person ${m.client_id.slice(0, 8)}` : null,
               matterType: m.matter_type ?? null,
               status: m.status ?? null
             });
@@ -112,7 +112,7 @@ export const LinkMatterModal = ({
       const normalized = results.map((m) => ({
         id: m.id,
         title: m.title ?? 'Untitled Matter',
-        clientName: m.client_id ? `Client ${m.client_id.slice(0, 8)}` : null,
+        clientName: m.client_id ? `Person ${m.client_id.slice(0, 8)}` : null,
         matterType: m.matter_type ?? null,
         status: m.status ?? null
       }));
