@@ -1,13 +1,13 @@
 import type { ComponentType, JSX } from 'preact';
 import {
+  ChartBarIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
   HomeIcon,
-  UsersIcon,
 } from '@heroicons/react/24/solid';
-import type { UserDetailStatus } from '@/shared/lib/apiClient';
+import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 
 export type NavCtx = {
@@ -16,7 +16,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'matters' | 'clients' | 'invoices' | 'settings';
+export type WorkspaceSection = 'home' | 'conversations' | 'matters' | 'invoices' | 'reports' | 'settings';
 
 export type NavRailItem = {
   id: string;
@@ -32,8 +32,9 @@ export type NavRailItem = {
 export type SecondaryNavItem = {
   id: string;
   label: string;
-  href: string;
+  href?: string;
   badge?: number | null;
+  children?: SecondaryNavItem[];
 };
 
 export type NavSection = {
@@ -59,14 +60,6 @@ export const CLIENT_MATTERS_FILTER_MAP: Record<string, string[]> = {
   all: [],
   active: MATTERS_FILTER_MAP.active,
   closed: MATTERS_FILTER_MAP.closed,
-};
-
-export const CLIENTS_FILTER_MAP: Record<string, UserDetailStatus | null> = {
-  all: null,
-  leads: 'lead',
-  active: 'active',
-  inactive: 'inactive',
-  archived: 'archived',
 };
 
 export const PRACTICE_INVOICES_FILTER_MAP: Record<string, string[]> = {
@@ -105,16 +98,16 @@ const buildClientBase = (slug: string) => `/client/${encodeURIComponent(slug)}`;
 
 const buildPracticeRail = (basePath: string): NavRailItem[] => [
   { id: 'home', label: 'Home', icon: HomeIcon, href: basePath },
-  { id: 'messages', label: 'Messages', icon: ChatBubbleOvalLeftEllipsisIcon, href: `${basePath}/conversations` },
+  { id: 'conversations', label: 'Conversations', icon: ChatBubbleOvalLeftEllipsisIcon, href: `${basePath}/conversations` },
   { id: 'matters', label: 'Matters', icon: ClipboardDocumentListIcon, href: `${basePath}/matters` },
   { id: 'invoices', label: 'Invoices', icon: DocumentTextIcon, href: `${basePath}/invoices` },
-  { id: 'clients', label: 'Clients', icon: UsersIcon, href: `${basePath}/clients` },
+  { id: 'reports', label: 'Reports', icon: ChartBarIcon, href: `${basePath}/reports` },
   { id: 'settings', label: 'Settings', icon: Cog6ToothIcon, href: `${basePath}/settings/general` },
 ];
 
 const buildClientRail = (basePath: string): NavRailItem[] => [
   { id: 'home', label: 'Home', icon: HomeIcon, href: basePath },
-  { id: 'messages', label: 'Messages', icon: ChatBubbleOvalLeftEllipsisIcon, href: `${basePath}/conversations` },
+  { id: 'conversations', label: 'Conversations', icon: ChatBubbleOvalLeftEllipsisIcon, href: `${basePath}/conversations` },
   { id: 'matters', label: 'Matters', icon: ClipboardDocumentListIcon, href: `${basePath}/matters` },
   { id: 'invoices', label: 'Invoices', icon: DocumentTextIcon, href: `${basePath}/invoices` },
   { id: 'settings', label: 'Settings', icon: Cog6ToothIcon, href: `${basePath}/settings/general` },
@@ -166,16 +159,38 @@ const buildMattersSecondary = (basePath: string, workspace: 'practice' | 'client
   }];
 };
 
-const buildClientsSecondary = (basePath: string): NavSection[] => [{
-  label: 'Status',
-  items: [
-    { id: 'all', label: 'All', href: `${basePath}/clients` },
-    { id: 'leads', label: 'Leads', href: `${basePath}/clients` },
-    { id: 'active', label: 'Active', href: `${basePath}/clients` },
-    { id: 'inactive', label: 'Inactive', href: `${basePath}/clients` },
-    { id: 'archived', label: 'Archived', href: `${basePath}/clients` },
-  ],
-}];
+const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
+  if (workspace !== 'practice') return undefined;
+  return [{
+    label: 'Home',
+    items: [
+      { id: 'overview', label: 'Overview', href: `${basePath}` },
+      {
+        id: 'people',
+        label: PEOPLE_DIRECTORY_LABEL,
+        children: [
+          { id: 'people-all', label: 'All', href: `${basePath}/people` },
+          { id: 'people-clients', label: 'Clients', href: `${basePath}/people/clients` },
+          { id: 'people-team', label: 'Team', href: `${basePath}/people/team` },
+          { id: 'people-archived', label: 'Archived', href: `${basePath}/people/archived` },
+        ],
+      },
+    ],
+  }];
+};
+
+const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
+  if (workspace !== 'practice') return undefined;
+  return [{
+    label: 'Reports',
+    items: [
+      { id: 'all-reports', label: 'All reports', href: `${basePath}/reports` },
+      { id: 'payroll-matter-activity', label: 'Payroll & Matter Activity', href: `${basePath}/reports/payroll-matter-activity` },
+      { id: 'trust-reconciliation', label: 'Trust Reconciliation', href: `${basePath}/reports/trust-reconciliation` },
+      { id: 'stale-matters', label: 'Stale Matters', href: `${basePath}/reports/stale-matters` },
+    ],
+  }];
+};
 
 const buildInvoicesSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
   if (workspace === 'practice') {
@@ -242,12 +257,14 @@ const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 
       return buildConversationsSecondary(basePath, workspace);
     case 'matters':
       return buildMattersSecondary(basePath, workspace);
-    case 'clients':
-      return workspace === 'practice' ? buildClientsSecondary(basePath) : undefined;
     case 'invoices':
       return buildInvoicesSecondary(basePath, workspace);
+    case 'reports':
+      return buildReportsSecondary(basePath, workspace);
     case 'settings':
       return buildSettingsSecondary(basePath, canAccessPractice);
+    case 'home':
+      return buildHomeSecondary(basePath, workspace);
     default:
       return undefined;
   }

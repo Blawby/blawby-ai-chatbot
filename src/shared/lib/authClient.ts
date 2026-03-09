@@ -2,7 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import { useRef, useMemo } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
@@ -10,8 +10,19 @@ import { getWorkerApiUrl } from '@/config/urls';
 type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
+type UntrustedSessionUser = {
+  id: string;
+  email?: string;
+  name?: string;
+  image?: string;
+  isAnonymous?: boolean;
+  onboardingComplete?: boolean;
+} & Record<string, unknown>;
 type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
-  ? ({ user: BetterAuthSessionUser; session: S; transformError?: false } | { user: unknown; session: S; transformError: true }) | Extract<AuthSessionData, null | undefined>
+  ? (
+    { user: BetterAuthSessionUser; session: S; transformError?: false }
+    | { user: UntrustedSessionUser; session: S; transformError: true }
+  ) | Extract<AuthSessionData, null | undefined>
   : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
@@ -189,7 +200,16 @@ export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSess
       });
       return {
         ...session.data,
-        user: session.data.user,
+        user: (() => {
+          const raw = session.data.user;
+          const userRecord = (raw && typeof raw === 'object')
+            ? raw as Record<string, unknown>
+            : {};
+          return {
+            ...userRecord,
+            id: typeof userRecord.id === 'string' ? userRecord.id : '',
+          } as UntrustedSessionUser;
+        })(),
         transformError: true
       } as TypedSessionData;
     }

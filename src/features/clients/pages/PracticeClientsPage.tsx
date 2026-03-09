@@ -22,55 +22,49 @@ import {
   updateUserDetailMemo,
   deleteUserDetailMemo,
   createUserDetail,
-  updateUserDetail,
-  deleteUserDetail,
   getUserDetail,
-  type UserDetailRecord,
-  type UserDetailStatus,
+  getUserDetailAddressById,
   type UserDetailMemoRecord
 } from '@/shared/lib/apiClient';
 import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/shared/ui/dropdown';
+  PEOPLE_DIRECTORY_LABEL,
+  PERSON_RELATIONSHIP_STATUS_LABELS,
+  type PersonRecord,
+  type PersonRelationshipStatus,
+} from '@/shared/domain/people';
+import { getPracticeRoleLabel, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
-  ArrowUpTrayIcon,
   ChatBubbleLeftRightIcon,
-  EllipsisVerticalIcon,
   PlusIcon,
   UserIcon,
-  DocumentTextIcon as DocumentTextOutlineIcon
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { getWorkerApiUrl } from '@/config/urls';
 
-const STATUS_LABELS: Record<UserDetailStatus, string> = {
-  lead: 'Lead',
-  active: 'Active',
-  inactive: 'Inactive',
-  archived: 'Archived',
-};
+const STATUS_LABELS = PERSON_RELATIONSHIP_STATUS_LABELS;
+const PEOPLE_PAGE_SUBTITLE = 'Home > People directory for lookup and relationship status context.';
 
-type ClientRecord = {
+type DirectoryRecord = {
   id: string;
+  kind: 'client' | 'team';
+  userId: string | null;
   name: string;
   email: string;
   phone?: string | null;
-  status: UserDetailStatus;
+  status?: PersonRelationshipStatus;
+  teamRole?: string | null;
+  addressDisplay?: string | null;
 };
 
 type ClientFormState = {
   name: string;
   email: string;
   phone: string;
-  status: UserDetailStatus;
+  status: PersonRelationshipStatus;
   currency: string;
   address?: Address;  // Now uses Address object like intake form!
 };
-
-type EditClientFormState = ClientFormState & { id: string };
 
 const formatPhoneNumber = (phone?: string | null) => {
   if (!phone) return 'Not provided';
@@ -97,43 +91,89 @@ const splitName = (fullName: string) => {
   return { first, last };
 };
 
+const formatAddressDisplay = (raw: unknown): string | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = raw as Record<string, unknown>;
+  const line1 = typeof value.address === 'string'
+    ? value.address
+    : typeof value.line1 === 'string'
+      ? value.line1
+      : '';
+  const line2 = typeof value.apartment === 'string'
+    ? value.apartment
+    : typeof value.line2 === 'string'
+      ? value.line2
+      : '';
+  const city = typeof value.city === 'string' ? value.city : '';
+  const state = typeof value.state === 'string' ? value.state : '';
+  const postalCode = typeof value.postalCode === 'string'
+    ? value.postalCode
+    : typeof value.postal_code === 'string'
+      ? value.postal_code
+      : '';
+  const country = typeof value.country === 'string' ? value.country : '';
+  const parts = [line1, line2, [city, state, postalCode].filter(Boolean).join(' '), country]
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : null;
+};
+
+const resolveUserDetailAddressValue = (detail: PersonRecord): unknown => {
+  const detailRecord = detail as unknown as Record<string, unknown>;
+  const nestedAddress = detailRecord.address;
+  if (nestedAddress && typeof nestedAddress === 'object') {
+    return nestedAddress;
+  }
+
+  // Some user-details responses include flattened address fields instead of a nested object.
+  const flattened: Record<string, unknown> = {};
+  const line1 = typeof detailRecord.line1 === 'string'
+    ? detailRecord.line1
+    : (typeof detailRecord.address === 'string' ? detailRecord.address : undefined);
+  if (line1) flattened.line1 = line1;
+  if (typeof detailRecord.apartment === 'string') flattened.apartment = detailRecord.apartment;
+  if (typeof detailRecord.line2 === 'string') flattened.line2 = detailRecord.line2;
+  if (typeof detailRecord.city === 'string') flattened.city = detailRecord.city;
+  if (typeof detailRecord.state === 'string') flattened.state = detailRecord.state;
+  if (typeof detailRecord.postal_code === 'string') flattened.postal_code = detailRecord.postal_code;
+  if (typeof detailRecord.postalCode === 'string') flattened.postalCode = detailRecord.postalCode;
+  if (typeof detailRecord.country === 'string') flattened.country = detailRecord.country;
+
+  return Object.keys(flattened).length > 0 ? flattened : null;
+};
+
+const hasRenderableAddressFields = (raw: unknown): boolean => {
+  if (!raw || typeof raw !== 'object') return false;
+  const value = raw as Record<string, unknown>;
+  return typeof value.address === 'string'
+    || typeof value.line1 === 'string'
+    || typeof value.city === 'string'
+    || typeof value.state === 'string'
+    || typeof value.postalCode === 'string'
+    || typeof value.postal_code === 'string'
+    || typeof value.country === 'string';
+};
+
 const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/5 border border-white/10">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line-glass/30 bg-surface-glass">
         <Icon icon={UserIcon} className="h-6 w-6 text-input-placeholder" aria-hidden="true"  />
       </div>
-      <h3 className="mt-4 text-sm font-semibold text-input-text">No clients yet</h3>
+      <h3 className="mt-4 text-sm font-semibold text-input-text">No people yet</h3>
       <p className="mt-2 text-sm text-input-placeholder">
-        Get started by creating a new client or importing your existing clients.
+        People are usually created from intake, conversation, and matter workflows.
       </p>
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={onAddClient}>
-          Add Client
-        </Button>
-        <Button size="sm" variant="secondary" icon={ArrowUpTrayIcon} iconClassName="h-4 w-4" disabled>
-          Import Clients
+      <p className="mt-2 text-xs text-input-placeholder">
+        Backoffice only: manual person creation is intentionally low-emphasis.
+      </p>
+      <div className="mt-4 flex justify-center">
+        <Button size="sm" variant="ghost" icon={PlusIcon} iconClassName="h-4 w-4" onClick={onAddClient}>
+          Backoffice: Add person manually
         </Button>
       </div>
     </div>
   </div>
-);
-
-const StatusPill = ({ status }: { status: UserDetailStatus }) => (
-  <span
-    className={cn(
-      'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-      status === 'active'
-        ? 'bg-emerald-500/10 text-emerald-400'
-        : status === 'lead'
-          ? 'bg-amber-500/10 text-amber-400'
-          : status === 'inactive'
-            ? 'glass-panel text-input-placeholder px-2 py-0.5'
-            : 'glass-panel opacity-60 text-input-placeholder px-2 py-0.5'
-    )}
-  >
-    {STATUS_LABELS[status]}
-  </span>
 );
 
 const CLIENT_FIELDS = ['name', 'email', 'phone', 'status', 'currency', 'address'] as const;
@@ -172,11 +212,9 @@ const ClientDetailPanel = ({
   onEditMemo,
   onDeleteMemo,
   memoActionId,
-  onEditClient,
-  onDeleteClient,
   paddingClassName = ''
 }: {
-  client: ClientRecord;
+  client: DirectoryRecord;
   activity: TimelineItem[];
   practiceId?: string | null;
   onAddMemo?: (value: string) => void | Promise<void>;
@@ -184,94 +222,102 @@ const ClientDetailPanel = ({
   onEditMemo?: (memoId: string, value: string) => void | Promise<void>;
   onDeleteMemo?: (memoId: string) => void | Promise<void>;
   memoActionId?: string | null;
-  onEditClient?: () => void;
-  onDeleteClient?: () => void;
   paddingClassName?: string;
-}) => (
-  <div className={cn('h-full overflow-y-auto px-6 py-6', paddingClassName)}>
-    <div className="divide-y divide-line-default">
-      <div className="pb-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" icon={DocumentTextOutlineIcon} iconClassName="h-4 w-4">
-            Generate Invoice
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={ChatBubbleLeftRightIcon} iconClassName="h-4 w-4"
-            disabled={!client.phone}
-          >
-            Send message
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                icon={EllipsisVerticalIcon} iconClassName="h-5 w-5"
-                aria-label="Open client actions"
-              />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="py-1">
-                <DropdownMenuItem onSelect={onEditClient} disabled={!onEditClient}>
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={onDeleteClient}
-                  disabled={!onDeleteClient}
-                  className="text-red-600 dark:text-red-400"
-                >
-                  Delete
-                </DropdownMenuItem>
+}) => {
+  const isClientRecord = client.kind === 'client';
+  const resolvedTeamRole = normalizePracticeRole(client.teamRole);
+  const relationshipLabel = isClientRecord
+    ? (client.status ? STATUS_LABELS[client.status] : 'Client')
+    : 'Team member';
+  const teamRoleLabel = !isClientRecord
+    ? (resolvedTeamRole ? getPracticeRoleLabel(resolvedTeamRole) : 'Team member')
+    : null;
+  const messagingHint = isClientRecord && !client.userId
+    ? 'No linked portal account yet'
+    : null;
+
+  return (
+    <div className={cn('h-full overflow-y-auto', paddingClassName)}>
+      <div className="space-y-6">
+        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-glass/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
+          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-white/10" />
+          <div className="relative px-6 pb-12 pt-10">
+            <div className="flex flex-col items-center text-center">
+              <Avatar name={client.name} size="xl" />
+              <div className="mt-8 min-w-0 max-w-full">
+                <h3 className="truncate text-4xl font-semibold text-[rgb(var(--accent-foreground))] md:text-5xl">{client.name}</h3>
+                <p className="mt-2 truncate text-base text-[rgb(var(--accent-foreground))]/80 md:text-lg">{client.email}</p>
+                {messagingHint ? (
+                  <p className="mt-2 text-xs text-[rgb(var(--accent-foreground))]/70">{messagingHint}</p>
+                ) : null}
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      <div className="py-6">
-        <dl className="divide-y divide-line-default">
-          <div className="py-4">
-            <dt className="text-sm font-medium text-input-placeholder">Email</dt>
-            <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
+            </div>
           </div>
-          <div className="py-4">
-            <dt className="text-sm font-medium text-input-placeholder">Phone</dt>
-            <dd className="mt-1 text-sm text-input-text">{formatPhoneNumber(client.phone)}</dd>
+        </section>
+
+        <section className="glass-panel rounded-2xl">
+          <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+            <dl className="divide-y divide-line-glass/5">
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">Email</dt>
+                <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
+              </div>
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">Phone</dt>
+                <dd className="mt-1 text-sm text-input-text">{isClientRecord ? formatPhoneNumber(client.phone) : 'Not provided'}</dd>
+              </div>
+            </dl>
+            <dl className="divide-y divide-line-glass/5">
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">Address</dt>
+                <dd className="mt-1 text-sm text-input-text">{client.addressDisplay ?? 'Not provided'}</dd>
+              </div>
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">
+                  {isClientRecord ? 'Relationship status' : 'Team role'}
+                </dt>
+                <dd className="mt-1 text-sm text-input-text">
+                  {isClientRecord ? relationshipLabel : teamRoleLabel}
+                </dd>
+              </div>
+            </dl>
           </div>
-          <div className="py-4">
-            <dt className="text-sm font-medium text-input-placeholder">Status</dt>
-            <dd className="mt-2">
-              <StatusPill status={client.status} />
-            </dd>
+        </section>
+
+        <section className="px-1 py-1">
+          <h3 className="text-sm font-semibold text-input-text">
+            {isClientRecord ? 'Recent activity' : 'Team access'}
+          </h3>
+          <div className="mt-4">
+            {isClientRecord ? (
+              <ActivityTimeline
+                items={activity}
+                showComposer
+                composerDisabled={!onAddMemo}
+                composerSubmitting={memoSubmitting}
+                onComposerSubmit={onAddMemo}
+                composerLabel="Comment"
+                composerPlaceholder="Add your comment..."
+                composerPracticeId={practiceId}
+                onEditComment={onEditMemo}
+                onDeleteComment={onDeleteMemo}
+                commentActionsDisabled={memoSubmitting || Boolean(memoActionId)}
+              />
+            ) : (
+              <p className="text-sm text-input-placeholder">
+                Team member access and role changes are managed in Settings &gt; Team.
+              </p>
+            )}
           </div>
-        </dl>
-      </div>
-      <div className="pt-6">
-        <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
-        <div className="mt-4">
-          <ActivityTimeline
-            items={activity}
-            showComposer
-            composerDisabled={!onAddMemo}
-            composerSubmitting={memoSubmitting}
-            onComposerSubmit={onAddMemo}
-            composerLabel="Comment"
-            composerPlaceholder="Add your comment..."
-            composerPracticeId={practiceId}
-            onEditComment={onEditMemo}
-            onDeleteComment={onDeleteMemo}
-            commentActionsDisabled={memoSubmitting || Boolean(memoActionId)}
-          />
-        </div>
+        </section>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const PracticeClientsPage = ({
   practiceId: routePracticeId,
-  basePath = '/practice/clients',
+  basePath = '/practice/people',
   renderMode = 'full',
   statusFilter = null,
   prefetchedItems = [],
@@ -286,8 +332,8 @@ export const PracticeClientsPage = ({
   practiceId?: string | null;
   basePath?: string;
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
-  statusFilter?: UserDetailStatus | null;
-  prefetchedItems?: UserDetailRecord[];
+  statusFilter?: PersonRelationshipStatus | null;
+  prefetchedItems?: PersonRecord[];
   prefetchedLoading?: boolean;
   prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
@@ -297,76 +343,209 @@ export const PracticeClientsPage = ({
   showDetailBackButton?: boolean;
 }) => {
   const location = useLocation();
-  const { currentPractice } = usePracticeManagement();
+  const { currentPractice, fetchMembers, getMembers } = usePracticeManagement();
   const { showError, showSuccess } = useToastContext();
   const [memoTimeline, setMemoTimeline] = useState<Record<string, TimelineItem[]>>({});
   const [memoSubmitting, setMemoSubmitting] = useState(false);
   const [memoActionId, setMemoActionId] = useState<string | null>(null);
+  const [sendMessagePending, setSendMessagePending] = useState(false);
+  const [isFetchingMembers, setIsFetchingMembers] = useState(false);
+  const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
+  const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
+  const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
+  const processedDetailIdsRef = useRef<Set<string>>(new Set());
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
-  const [isEditClientOpen, setIsEditClientOpen] = useState(false);
-  const [editClientSubmitting, setEditClientSubmitting] = useState(false);
-  const [editClientError, setEditClientError] = useState<string | null>(null);
 
   const defaultClientFormState: ClientFormState = {
     name: '',
     email: '',
     phone: '',
-    status: 'lead' as UserDetailStatus,
+    status: 'lead' as PersonRelationshipStatus,
     currency: 'usd',
     address: undefined,  // Now uses Address object like intake form!
   };
 
   const [addClientForm, setAddClientForm] = useState<ClientFormState>(defaultClientFormState);
-  const [editClientForm, setEditClientForm] = useState<EditClientFormState>({
-    id: '',
-    name: '',
-    email: '',
-    phone: '',
-    status: 'lead' as UserDetailStatus,
-    currency: 'usd',
-    address: undefined,  // Now uses Address object like intake form!
-  });
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
+  const peopleScope = (() => {
+    if (pathSegments[0] === 'archived') return 'archived';
+    if (pathSegments[0] === 'team') return 'team';
+    if (pathSegments[0] === 'clients') return 'clients';
+    return 'all';
+  })();
+  const isArchivedListRoute = peopleScope === 'archived';
+  const isTeamListRoute = peopleScope === 'team';
+  const isClientsListRoute = peopleScope === 'clients';
   const selectedClientIdFromPath = useMemo(() => {
-    if (!pathSegments[0]) return null;
+    const selectedSegment = isArchivedListRoute || isTeamListRoute || isClientsListRoute
+      ? pathSegments[1]
+      : pathSegments[0];
+    if (!selectedSegment) return null;
     try {
-      return decodeURIComponent(pathSegments[0]);
+      const decoded = decodeURIComponent(selectedSegment);
+      if (isTeamListRoute) {
+        return `team:${decoded}`;
+      }
+      return decoded;
     } catch (e) {
-      console.warn('[Clients] Failed to decode client ID from path', e);
+      console.warn('[People] Failed to decode client ID from path', e);
       return null;
     }
-  }, [pathSegments]);
+  }, [isArchivedListRoute, isClientsListRoute, isTeamListRoute, pathSegments]);
   const listRef = useRef<HTMLDivElement>(null);
   const [currentLetter, setCurrentLetter] = useState('');
   const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
 
-  const buildClientRecord = useCallback((detail: UserDetailRecord): ClientRecord => {
-    const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown Client';
+  const buildClientRecord = useCallback((detail: PersonRecord): DirectoryRecord => {
+    const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown person';
+    const hydratedAddress = hydratedAddressByDetailId[detail.id];
+    const resolvedAddress = hasRenderableAddressFields(hydratedAddress)
+      ? hydratedAddress
+      : resolveUserDetailAddressValue(detail);
     return {
       id: detail.id,
+      kind: 'client',
+      userId: detail.user_id,
       name,
       email: detail.user?.email ?? 'Unknown email',
       phone: detail.user?.phone ?? null,
-      status: detail.status
+      status: detail.status,
+      addressDisplay: formatAddressDisplay(resolvedAddress)
     };
-  }, []);
+  }, [hydratedAddressByDetailId]);
+  useEffect(() => {
+    processedDetailIdsRef.current = new Set();
+  }, [activePracticeId]);
+  useEffect(() => {
+    if (!activePracticeId) return;
+
+    const candidates = prefetchedItems.filter((detail) => {
+      if (processedDetailIdsRef.current.has(detail.id)) return false;
+      const hasAddressId = Boolean((detail as Record<string, unknown>).address_id ?? (detail as Record<string, unknown>).addressId);
+      if (!hasAddressId) return false;
+      const inlineAddress = resolveUserDetailAddressValue(detail);
+      return !hasRenderableAddressFields(inlineAddress);
+    });
+
+    if (candidates.length === 0) return;
+
+    let cancelled = false;
+    void Promise.allSettled(
+      candidates.map(async (detail) => {
+        const hydrated = await getUserDetail(activePracticeId, detail.id);
+        let resolved = hydrated ? resolveUserDetailAddressValue(hydrated) : null;
+        if (hydrated && !hasRenderableAddressFields(resolved)) {
+          const hydratedRecord = hydrated as unknown as Record<string, unknown>;
+          const addressId = typeof hydratedRecord.address_id === 'string'
+            ? hydratedRecord.address_id
+            : (typeof hydratedRecord.addressId === 'string' ? hydratedRecord.addressId : '');
+          if (addressId.trim().length > 0) {
+            const fetchedAddress = await getUserDetailAddressById(activePracticeId, addressId.trim());
+            if (fetchedAddress && hasRenderableAddressFields(fetchedAddress)) {
+              resolved = fetchedAddress;
+            }
+          }
+        }
+        if (!resolved || !hasRenderableAddressFields(resolved)) return null;
+        return { id: detail.id, address: resolved };
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      const updates: Record<string, unknown> = {};
+      results.forEach((result, index) => {
+        const detailId = candidates[index]?.id;
+        if (detailId) {
+          processedDetailIdsRef.current.add(detailId);
+        }
+        if (result.status === 'rejected') {
+          console.error('[People] Failed to hydrate person address', {
+            detailId,
+            reason: result.reason
+          });
+          return;
+        }
+        if (!result.value) return;
+        updates[result.value.id] = result.value.address;
+      });
+      if (Object.keys(updates).length === 0) return;
+      setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePracticeId, prefetchedItems]);
+  const teamMembers = useMemo(() => {
+    if (!activePracticeId) return [];
+    return getMembers(activePracticeId)
+      .filter((member) => member.role !== 'client')
+      .map<DirectoryRecord>((member) => ({
+        id: `team:${member.userId}`,
+        kind: 'team',
+        userId: member.userId,
+        name: member.name?.trim() || member.email,
+        email: member.email,
+        phone: null,
+        teamRole: member.role
+      }));
+  }, [activePracticeId, getMembers]);
+  useEffect(() => {
+    if (!activePracticeId) {
+      setIsFetchingMembers(false);
+      setTeamMembersLoaded(false);
+      setTeamMembersError(null);
+      return;
+    }
+    setIsFetchingMembers(true);
+    setTeamMembersLoaded(false);
+    setTeamMembersError(null);
+    fetchMembers(activePracticeId)
+      .then(() => {
+        setTeamMembersLoaded(true);
+      })
+      .catch((error) => {
+        console.error('[People] Failed to load team members', error);
+        setTeamMembersLoaded(false);
+        setTeamMembersError(error instanceof Error ? error.message : 'Failed to load team members');
+      })
+      .finally(() => {
+        setIsFetchingMembers(false);
+      });
+  }, [activePracticeId, fetchMembers]);
   const clients = useMemo(() => {
-    const items = prefetchedItems.map(buildClientRecord);
-    if (!statusFilter) return items;
-    return items.filter((client) => client.status === statusFilter);
-  }, [buildClientRecord, prefetchedItems, statusFilter]);
-  const clientsLoading = prefetchedLoading;
-  const clientsError = prefetchedError;
+    const peopleItems = prefetchedItems.map(buildClientRecord);
+    if (isArchivedListRoute) {
+      return peopleItems.filter((client) => client.status === 'archived');
+    }
+    const activePeople = statusFilter
+      ? peopleItems.filter((client) => client.status === statusFilter)
+      : peopleItems.filter((client) => client.status !== 'archived');
+    if (isTeamListRoute) {
+      if (!teamMembersLoaded) return [];
+      return teamMembers;
+    }
+    if (isClientsListRoute) {
+      return activePeople;
+    }
+    return teamMembersLoaded ? [...activePeople, ...teamMembers] : activePeople;
+  }, [buildClientRecord, isArchivedListRoute, isClientsListRoute, isTeamListRoute, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
+  const isTeamSelectionRoute = isTeamListRoute || selectedClientIdFromPath?.startsWith('team:') === true;
+  const isCombinedPeopleRoute = !isClientsListRoute && !isTeamListRoute && !isArchivedListRoute;
+  const clientsLoading = prefetchedLoading
+    || (isTeamSelectionRoute && isFetchingMembers)
+    || (isCombinedPeopleRoute && !teamMembersLoaded);
+  const clientsError = prefetchedError
+    ?? ((isCombinedPeopleRoute || isTeamListRoute) ? teamMembersError : null);
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
     [clients]
   );
   const groupedClients = useMemo(() => {
-    return sortedClients.reduce<Record<string, ClientRecord[]>>((acc, client) => {
+    return sortedClients.reduce<Record<string, DirectoryRecord[]>>((acc, client) => {
       const letter = client.name.charAt(0).toUpperCase();
       if (!acc[letter]) {
         acc[letter] = [];
@@ -382,7 +561,7 @@ export const PracticeClientsPage = ({
     if (!selectedClientIdFromPath) return null;
     return sortedClients.find((client) => client.id === selectedClientIdFromPath) ?? null;
   }, [selectedClientIdFromPath, sortedClients]);
-  const [selectedClientFallback, setSelectedClientFallback] = useState<ClientRecord | null>(null);
+  const [selectedClientFallback, setSelectedClientFallback] = useState<DirectoryRecord | null>(null);
   const selectedClient = selectedClientFromList ?? selectedClientFallback;
 
   const selectedClientActivity = useMemo(() => {
@@ -390,14 +569,25 @@ export const PracticeClientsPage = ({
     return memoTimeline[selectedClient.id] ?? [];
   }, [memoTimeline, selectedClient]);
 
-  const handleSelectClient = useCallback((clientId: string) => {
-    location.route(`${basePath}/${encodeURIComponent(clientId)}`);
-  }, [basePath, location]);
+  const handleSelectClient = useCallback((record: DirectoryRecord) => {
+    const rawId = record.kind === 'team' ? (record.userId ?? '').trim() : record.id;
+    if (!rawId) return;
+    const nextPath = isArchivedListRoute
+      ? `${basePath}/archived/${encodeURIComponent(rawId)}`
+      : isTeamListRoute
+        ? `${basePath}/team/${encodeURIComponent(rawId)}`
+        : isClientsListRoute
+          ? `${basePath}/clients/${encodeURIComponent(rawId)}`
+          : record.kind === 'team'
+            ? `${basePath}/team/${encodeURIComponent(rawId)}`
+            : `${basePath}/${encodeURIComponent(rawId)}`;
+    location.route(nextPath);
+  }, [basePath, isArchivedListRoute, isClientsListRoute, isTeamListRoute, location]);
 
-  const mapMemosToTimeline = useCallback((client: ClientRecord, memos: UserDetailMemoRecord[]): TimelineItem[] => {
+  const mapMemosToTimeline = useCallback((client: DirectoryRecord, memos: UserDetailMemoRecord[]): TimelineItem[] => {
     const withoutId = memos.filter((memo) => !memo.id);
     if (withoutId.length > 0) {
-      console.warn('[Clients] Skipping memos without id', { clientId: client.id, count: withoutId.length });
+      console.warn('[People] Skipping memos without id', { clientId: client.id, count: withoutId.length });
     }
 
     return memos.filter((memo) => Boolean(memo.id)).map((memo) => {
@@ -427,8 +617,9 @@ export const PracticeClientsPage = ({
     });
   }, []);
 
-  const refreshClientMemos = useCallback(async (client: ClientRecord) => {
+  const refreshClientMemos = useCallback(async (client: DirectoryRecord) => {
     if (!activePracticeId) return;
+    if (client.kind !== 'client') return;
     const memos = await listUserDetailMemos(activePracticeId, client.id);
     setMemoTimeline((prev) => ({
       ...prev,
@@ -437,12 +628,12 @@ export const PracticeClientsPage = ({
   }, [activePracticeId, mapMemosToTimeline]);
 
   useEffect(() => {
-    if (!activePracticeId || !selectedClient) return;
+    if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;
     if (memoTimeline[selectedClient.id]) return;
 
     refreshClientMemos(selectedClient)
       .catch((error) => {
-        console.error('[Clients] Failed to load client memos', error);
+        console.error('[People] Failed to load client memos', error);
         setMemoTimeline((prev) => ({
           ...prev,
           [selectedClient.id]: []
@@ -452,6 +643,10 @@ export const PracticeClientsPage = ({
 
   useEffect(() => {
     if (!activePracticeId || !selectedClientIdFromPath) {
+      setSelectedClientFallback(null);
+      return;
+    }
+    if (selectedClientIdFromPath.startsWith('team:')) {
       setSelectedClientFallback(null);
       return;
     }
@@ -471,14 +666,14 @@ export const PracticeClientsPage = ({
       })
       .catch((error) => {
         if (controller.signal.aborted || error.name === 'AbortError') return;
-        console.error('[Clients] Failed to load selected client detail', error);
+        console.error('[People] Failed to load selected client detail', error);
         setSelectedClientFallback(null);
       });
     return () => controller.abort();
-  }, [activePracticeId, buildClientRecord, selectedClientFromList, selectedClientIdFromPath]);
+  }, [activePracticeId, buildClientRecord, selectedClientFromList, selectedClientIdFromPath, teamMembersLoaded]);
 
   const handleMemoSubmit = useCallback(async (text: string) => {
-    if (!activePracticeId || !selectedClient) return;
+    if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;
     if (memoSubmitting) return;
 
     setMemoSubmitting(true);
@@ -486,7 +681,7 @@ export const PracticeClientsPage = ({
       await createUserDetailMemo(activePracticeId, selectedClient.id, { content: text });
       await refreshClientMemos(selectedClient);
     } catch (error) {
-      console.error('[Clients] Failed to create memo', error);
+      console.error('[People] Failed to create memo', error);
       showError('Could not add memo', 'Please try again.');
     } finally {
       setMemoSubmitting(false);
@@ -494,14 +689,14 @@ export const PracticeClientsPage = ({
   }, [activePracticeId, memoSubmitting, refreshClientMemos, selectedClient, showError]);
 
   const handleMemoEdit = useCallback(async (memoId: string, text: string) => {
-    if (!activePracticeId || !selectedClient) return;
+    if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;
     if (memoActionId) return;
     setMemoActionId(memoId);
     try {
       await updateUserDetailMemo(activePracticeId, selectedClient.id, memoId, { content: text });
       await refreshClientMemos(selectedClient);
     } catch (error) {
-      console.error('[Clients] Failed to update memo', error);
+      console.error('[People] Failed to update memo', error);
       showError('Could not update memo', 'Please try again.');
     } finally {
       setMemoActionId(null);
@@ -509,7 +704,7 @@ export const PracticeClientsPage = ({
   }, [activePracticeId, memoActionId, refreshClientMemos, selectedClient, showError]);
 
   const handleMemoDelete = useCallback(async (memoId: string) => {
-    if (!activePracticeId || !selectedClient) return;
+    if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;
     if (memoActionId) return;
     const confirmed = window.confirm('Delete this memo?');
     if (!confirmed) return;
@@ -518,17 +713,77 @@ export const PracticeClientsPage = ({
       await deleteUserDetailMemo(activePracticeId, selectedClient.id, memoId);
       await refreshClientMemos(selectedClient);
     } catch (error) {
-      console.error('[Clients] Failed to delete memo', error);
+      console.error('[People] Failed to delete memo', error);
       showError('Could not delete memo', 'Please try again.');
     } finally {
       setMemoActionId(null);
     }
   }, [activePracticeId, memoActionId, refreshClientMemos, selectedClient, showError]);
 
+  const handleSendMessage = useCallback(async (client: DirectoryRecord) => {
+    if (client.kind !== 'client') return;
+    if (!activePracticeId) {
+      showError('Could not start conversation', 'Practice context is required.');
+      return;
+    }
+    if (!client.userId) {
+      showError('Could not start conversation', 'This person does not have a linked portal account.');
+      return;
+    }
+    if (sendMessagePending) return;
+    setSendMessagePending(true);
+    try {
+      const endpoint = new URL('/api/conversations', getWorkerApiUrl());
+      endpoint.searchParams.set('practiceId', activePracticeId);
+      const response = await fetch(endpoint.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          participantUserIds: [client.userId],
+          metadata: {
+            source: 'people_detail',
+            personId: client.id,
+            directMessage: true,
+            threadMode: 'new'
+          },
+          practiceId: activePracticeId,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      const payload = await response.json() as {
+        success?: boolean;
+        data?: { id?: string };
+        error?: string;
+      };
+      const conversationId = payload.data?.id;
+      if (!payload.success || !conversationId) {
+        throw new Error(payload.error || 'Failed to create conversation');
+      }
+      const conversationsBasePath = basePath.replace(/\/(clients|people)$/, '/conversations');
+      if (conversationsBasePath === basePath) {
+        throw new Error('People base path does not map to conversations path');
+      }
+      location.route(`${conversationsBasePath}/${encodeURIComponent(conversationId)}`);
+    } catch (error) {
+      console.error('[People] Failed to start conversation from person detail', error);
+      showError('Could not start conversation', error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setSendMessagePending(false);
+    }
+  }, [activePracticeId, basePath, location, sendMessagePending, showError]);
+
   const handleOpenAddClient = useCallback(() => {
     setAddClientError(null);
     setIsAddClientOpen(true);
   }, []);
+  const handleOpenTeamInvite = useCallback(() => {
+    const settingsTeamPath = basePath.replace(/\/(clients|people)$/, '/settings/practice/team');
+    location.route(`${settingsTeamPath}?invite=1`);
+  }, [basePath, location]);
 
   const updateAddClientField = useCallback(<K extends keyof ClientFormState>(
     field: K,
@@ -553,112 +808,6 @@ export const PracticeClientsPage = ({
     setAddClientError(null);
   }, []);
 
-  const updateEditClientField = useCallback(<K extends keyof ClientFormState>(
-    field: K,
-    value: ClientFormState[K]
-  ) => {
-    setEditClientForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const resetEditClientForm = useCallback(() => {
-    setEditClientForm({
-      id: '',
-      name: '',
-      email: '',
-      phone: '',
-      status: 'lead',
-      currency: 'usd',
-      address: undefined,  // Now uses Address object like intake form!
-    });
-  }, []);
-
-  const handleCloseEditClient = useCallback(() => {
-    setIsEditClientOpen(false);
-    setEditClientError(null);
-  }, []);
-
-  const handleOpenEditClient = useCallback(async () => {
-    if (!activePracticeId || !selectedClient) return;
-    setEditClientError(null);
-    try {
-      const detail = await getUserDetail(activePracticeId, selectedClient.id);
-      const name = detail?.user?.name?.trim() || detail?.user?.email?.trim() || selectedClient.name;
-      setEditClientForm({
-        id: selectedClient.id,
-        name,
-        email: detail?.user?.email ?? selectedClient.email,
-        phone: detail?.user?.phone ?? selectedClient.phone ?? '',
-        status: detail?.status ?? selectedClient.status,
-        currency: detail?.currency ?? 'usd',
-        address: undefined,  // Now uses Address object like intake form!
-      });
-      setIsEditClientOpen(true);
-    } catch (error) {
-      console.error('[Clients] Failed to load client detail', error);
-      setEditClientError('Failed to load client');
-      setIsEditClientOpen(true);
-    }
-  }, [activePracticeId, selectedClient]);
-
-  const handleSubmitEditClient = useCallback(async () => {
-    if (!activePracticeId || !editClientForm.id) return;
-    const name = editClientForm.name.trim();
-    const email = editClientForm.email.trim();
-    if (!name || !email) {
-      setEditClientError('Name and email are required');
-      return;
-    }
-    if (editClientSubmitting) return;
-    setEditClientSubmitting(true);
-    setEditClientError(null);
-    try {
-      await updateUserDetail(activePracticeId, editClientForm.id, {
-        name,
-        email,
-        phone: editClientForm.phone.trim() || undefined,
-        status: editClientForm.status,
-        currency: editClientForm.currency.trim() || 'usd',
-        event_name: 'Invite Client',
-        address: editClientForm.address
-      });
-      invalidateClientsForPractice(activePracticeId);
-      try {
-        await onRefetchList?.();
-      } catch (err) {
-        console.error('[Clients] Failed to refetch after update', err);
-      }
-      showSuccess('Client updated', 'Client details have been saved.');
-      resetEditClientForm();
-      setIsEditClientOpen(false);
-    } catch (error) {
-      console.error('[Clients] Failed to update client', error);
-      setEditClientError('Failed to update client');
-      showError('Could not update client', 'Please try again.');
-    } finally {
-      setEditClientSubmitting(false);
-    }
-  }, [activePracticeId, editClientForm, editClientSubmitting, onRefetchList, resetEditClientForm, showError, showSuccess]);
-
-  const handleDeleteClient = useCallback(async () => {
-    if (!activePracticeId || !selectedClient) return;
-    const confirmed = window.confirm('Delete this client?');
-    if (!confirmed) return;
-    try {
-      await deleteUserDetail(activePracticeId, selectedClient.id);
-      invalidateClientsForPractice(activePracticeId);
-      try {
-        await onRefetchList?.();
-      } catch (err) {
-        console.error('[Clients] Failed to refetch after delete', err);
-      }
-      showSuccess('Client deleted', 'The client has been removed.');
-      location.route(basePath);
-    } catch (error) {
-      console.error('[Clients] Failed to delete client', error);
-      showError('Could not delete client', 'Please try again.');
-    }
-  }, [activePracticeId, basePath, location, onRefetchList, selectedClient, showError, showSuccess]);
-
   const handleSubmitAddClient = useCallback(async () => {
     if (!activePracticeId) return;
     const name = addClientForm.name.trim();
@@ -678,21 +827,21 @@ export const PracticeClientsPage = ({
         status: addClientForm.status,
         currency: addClientForm.currency.trim() || 'usd',
         address: addClientForm.address,
-        event_name: 'Invite Client'
+        event_name: 'Add Person Manually'
       });
       invalidateClientsForPractice(activePracticeId);
       try {
         await onRefetchList?.();
       } catch (err) {
-        console.error('[Clients] Failed to refetch after add', err);
+        console.error('[People] Failed to refetch after add', err);
       }
-      showSuccess('Client added', 'The client has been added to your practice.');
+      showSuccess('Person added', 'The person has been added to your practice.');
       resetAddClientForm();
       setIsAddClientOpen(false);
     } catch (error) {
-      console.error('[Clients] Failed to create client', error);
-      setAddClientError('Failed to create client');
-      showError('Could not add client', 'Please try again.');
+      console.error('[People] Failed to create client', error);
+      setAddClientError('Failed to create person');
+      showError('Could not add person', 'Please try again.');
     } finally {
       setAddClientSubmitting(false);
     }
@@ -710,7 +859,7 @@ export const PracticeClientsPage = ({
     <Modal
       isOpen={isAddClientOpen}
       onClose={handleCloseAddClient}
-      title="Add Client"
+      title="Backoffice: Add person manually"
       type="modal"
     >
       <div className="space-y-4">
@@ -729,38 +878,8 @@ export const PracticeClientsPage = ({
           onCancel={handleCloseAddClient}
           onSubmit={handleSubmitAddClient}
           submitType="button"
-          submitText={addClientSubmitting ? 'Saving...' : 'Add Client'}
+          submitText={addClientSubmitting ? 'Saving...' : 'Add person manually'}
           disabled={addClientSubmitting}
-        />
-      </div>
-    </Modal>
-  );
-
-  const editClientModal = (
-    <Modal
-      isOpen={isEditClientOpen}
-      onClose={handleCloseEditClient}
-      title="Edit Client"
-      type="modal"
-    >
-      <div className="space-y-4">
-        {editClientError && (
-          <div className="glass-panel p-3 border-red-500/20 text-sm text-red-200">
-            {editClientError}
-          </div>
-        )}
-        <ClientForm
-          values={editClientForm}
-          onChange={updateEditClientField}
-          disabled={editClientSubmitting}
-        />
-        <FormActions
-          className="justify-end gap-2"
-          onCancel={handleCloseEditClient}
-          onSubmit={handleSubmitEditClient}
-          submitType="button"
-          submitText={editClientSubmitting ? 'Saving...' : 'Save Changes'}
-          disabled={editClientSubmitting}
         />
       </div>
     </Modal>
@@ -775,15 +894,15 @@ export const PracticeClientsPage = ({
               <div className="sticky top-0 z-10 bg-transparent px-4 py-1.5 text-xs font-semibold text-input-placeholder">
                 {letter}
               </div>
-              {groupedClients[letter].map((client, index) => {
+              {groupedClients[letter].map((client) => {
                 const isSelected = client.id === selectedClient?.id;
                 const nameParts = splitName(client.name);
-                const isLastInLetterGroup = index === groupedClients[letter].length - 1;
+                const normalizedTeamRole = normalizePracticeRole(client.teamRole);
                 return (
                   <div key={client.id}>
                     <button
                       type="button"
-                      onClick={() => handleSelectClient(client.id)}
+                      onClick={() => handleSelectClient(client)}
                       aria-current={isSelected ? 'true' : undefined}
                       className={cn(
                         'w-full justify-start px-4 py-3.5 h-auto rounded-none text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
@@ -793,7 +912,7 @@ export const PracticeClientsPage = ({
                       <div className="flex items-center gap-4 w-full">
                         <Avatar
                           name={client.name}
-                          size="sm"
+                          size="md"
                           className="text-input-text"
                         />
                         <div className="min-w-0 flex-1 text-left">
@@ -807,17 +926,21 @@ export const PracticeClientsPage = ({
                               <span className="font-semibold">{nameParts.last}</span>
                             )}
                           </p>
+                          <p className="mt-0.5 text-xs text-input-placeholder truncate">
+                            {client.kind === 'team'
+                              ? `Team member${normalizedTeamRole ? ` • ${getPracticeRoleLabel(normalizedTeamRole)}` : ''}`
+                              : (client.status ? STATUS_LABELS[client.status] : 'Client')}
+                          </p>
                         </div>
                       </div>
                     </button>
-                    {!isLastInLetterGroup ? <div aria-hidden="true" className="border-b border-line-glass/8" /> : null}
                   </div>
                 );
               })}
             </li>
           ))}
           {prefetchedLoadingMore ? (
-            <li className="px-4 py-3 text-xs text-input-placeholder text-center">Loading more clients...</li>
+            <li className="px-4 py-3 text-xs text-input-placeholder text-center">Loading more people...</li>
           ) : null}
         </ul>
       </div>
@@ -897,8 +1020,6 @@ export const PracticeClientsPage = ({
       onEditMemo={handleMemoEdit}
       onDeleteMemo={handleMemoDelete}
       memoActionId={memoActionId}
-      onEditClient={handleOpenEditClient}
-      onDeleteClient={handleDeleteClient}
     />
   ) : (
     <div className="h-full flex items-center justify-center">
@@ -906,13 +1027,37 @@ export const PracticeClientsPage = ({
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
           <Icon icon={UserIcon} className="h-6 w-6 text-input-text/70" aria-hidden="true"  />
         </div>
-        <h3 className="mt-4 text-sm font-semibold text-input-text">Select a client</h3>
+        <h3 className="mt-4 text-sm font-semibold text-input-text">Invite someone to get started</h3>
         <p className="mt-2 text-sm text-input-placeholder">
-          Choose a client from the list to view their details.
+          Invite clients or team members, then select them from the list to view details.
         </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <Button size="sm" onClick={handleOpenAddClient}>
+            Invite client
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleOpenTeamInvite}>
+            Invite team member
+          </Button>
+        </div>
       </div>
     </div>
   );
+  const detailHeaderActions = selectedClient ? (
+    <div className="flex items-center gap-2">
+      {selectedClient.kind === 'client' ? (
+        <Button
+          variant="icon"
+          size="icon-sm"
+          onClick={() => { void handleSendMessage(selectedClient); }}
+          disabled={!selectedClient.userId || sendMessagePending}
+          title={!selectedClient.userId ? 'Messaging requires a linked portal account.' : 'Send message'}
+          aria-label="Send message"
+          icon={ChatBubbleLeftRightIcon} iconClassName="h-5 w-5"
+        />
+      ) : null}
+      {detailHeaderRightControl}
+    </div>
+  ) : detailHeaderRightControl;
 
   if (renderMode === 'listOnly') {
     return (
@@ -923,7 +1068,7 @@ export const PracticeClientsPage = ({
         <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex-1 items-center justify-center flex">
-              <p className="text-sm text-input-placeholder">Loading clients...</p>
+              <p className="text-sm text-input-placeholder">Loading people...</p>
             </div>
           ) : clientsError ? (
             <div className="h-full flex-1 items-center justify-center flex">
@@ -931,7 +1076,7 @@ export const PracticeClientsPage = ({
             </div>
           ) : sortedClients.length === 0 ? (
             <div className="h-full flex-1 items-center justify-center flex">
-              <p className="text-sm text-input-placeholder">No clients found.</p>
+              <p className="text-sm text-input-placeholder">No people found.</p>
             </div>
           ) : (
             <div className="min-h-0 flex-1">{clientListPane}</div>
@@ -947,7 +1092,7 @@ export const PracticeClientsPage = ({
         <div className="h-full min-h-0 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex items-center justify-center">
-              <p className="text-sm text-input-placeholder">Loading clients...</p>
+              <p className="text-sm text-input-placeholder">Loading people...</p>
             </div>
           ) : clientsError ? (
             <div className="h-full flex items-center justify-center">
@@ -957,17 +1102,15 @@ export const PracticeClientsPage = ({
             <div className="h-full min-h-0 flex flex-col">
               {selectedClient ? (
                 <DetailHeader
-                  title={selectedClient.name}
-                  subtitle={selectedClient.email}
-                  actions={detailHeaderRightControl}
+                  title="Person details"
+                  actions={detailHeaderActions}
                 />
               ) : null}
-              <div className="min-h-0 flex-1 overflow-hidden">{clientDetailBody}</div>
+              <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">{clientDetailBody}</div>
             </div>
           )}
         </div>
         {addClientModal}
-        {editClientModal}
       </>
     );
   }
@@ -975,22 +1118,38 @@ export const PracticeClientsPage = ({
   if (selectedClientIdFromPath) {
     return (
       <>
-        <Page className="h-full">
-          <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
+        <div className="h-full min-h-0 overflow-hidden">
+          <div className="h-full min-h-0 flex flex-col">
             <DetailHeader
-              title={selectedClient?.name ?? 'Client detail'}
-              subtitle={selectedClient?.email ?? undefined}
+              title="Person details"
               showBack={showDetailBackButton}
-              onBack={() => location.route(basePath)}
-              actions={detailHeaderRightControl}
+              onBack={() => location.route(
+                isArchivedListRoute
+                  ? `${basePath}/archived`
+                  : isTeamListRoute
+                    ? `${basePath}/team`
+                    : isClientsListRoute
+                      ? `${basePath}/clients`
+                      : basePath
+              )}
+              actions={detailHeaderActions}
             />
-            <Panel className="flex-1 min-h-0 overflow-hidden">
-              {clientDetailBody}
-            </Panel>
+            <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
+              {clientsLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-input-placeholder">Loading people...</p>
+                </div>
+              ) : clientsError ? (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-input-placeholder">{clientsError}</p>
+                </div>
+              ) : (
+                clientDetailBody
+              )}
+            </div>
           </div>
-        </Page>
+        </div>
         {addClientModal}
-        {editClientModal}
       </>
     );
   }
@@ -1001,16 +1160,15 @@ export const PracticeClientsPage = ({
         <Page className="h-full">
           <div className="max-w-6xl mx-auto h-full">
             <PageHeader
-              title="Clients"
-              subtitle="A unified list of client relationships tied to conversations and matters."
+              title={PEOPLE_DIRECTORY_LABEL}
+              subtitle={PEOPLE_PAGE_SUBTITLE}
             />
             <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
-              <p className="text-sm text-input-placeholder">Loading clients...</p>
+              <p className="text-sm text-input-placeholder">Loading people...</p>
             </Panel>
           </div>
         </Page>
         {addClientModal}
-        {editClientModal}
       </>
     );
   }
@@ -1021,8 +1179,8 @@ export const PracticeClientsPage = ({
         <Page className="h-full">
           <div className="max-w-6xl mx-auto h-full">
             <PageHeader
-              title="Clients"
-              subtitle="A unified list of client relationships tied to conversations and matters."
+              title={PEOPLE_DIRECTORY_LABEL}
+              subtitle={PEOPLE_PAGE_SUBTITLE}
             />
             <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
               <p className="text-sm text-input-placeholder">{clientsError}</p>
@@ -1030,7 +1188,6 @@ export const PracticeClientsPage = ({
           </div>
         </Page>
         {addClientModal}
-        {editClientModal}
       </>
     );
   }
@@ -1041,18 +1198,8 @@ export const PracticeClientsPage = ({
         <Page className="h-full">
           <div className="max-w-6xl mx-auto h-full">
             <PageHeader
-              title="Clients"
-              subtitle="A unified list of client relationships tied to conversations and matters."
-              actions={(
-                <div className="flex items-center gap-2">
-                  <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={handleOpenAddClient}>
-                    Add Client
-                  </Button>
-                  <Button size="sm" variant="secondary" icon={ArrowUpTrayIcon} iconClassName="h-4 w-4" disabled>
-                    Import
-                  </Button>
-                </div>
-              )}
+              title={PEOPLE_DIRECTORY_LABEL}
+              subtitle={PEOPLE_PAGE_SUBTITLE}
             />
             <Panel className="mt-6 min-h-[520px]">
               <EmptyState onAddClient={handleOpenAddClient} />
@@ -1060,7 +1207,6 @@ export const PracticeClientsPage = ({
           </div>
         </Page>
         {addClientModal}
-        {editClientModal}
       </>
     );
   }
@@ -1070,8 +1216,8 @@ export const PracticeClientsPage = ({
       <Page className="h-full">
         <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
           <PageHeader
-            title="Clients"
-            subtitle="A unified list of client relationships tied to conversations and matters."
+            title={PEOPLE_DIRECTORY_LABEL}
+            subtitle={PEOPLE_PAGE_SUBTITLE}
           />
           <Panel className="flex-1 min-h-0 overflow-hidden bg-transparent flex flex-col">
             <div className="min-h-0 flex-1">{clientListPane}</div>
@@ -1079,7 +1225,8 @@ export const PracticeClientsPage = ({
         </div>
       </Page>
       {addClientModal}
-      {editClientModal}
     </>
   );
 };
+
+export const PracticePeoplePage = PracticeClientsPage;

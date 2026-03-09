@@ -30,7 +30,7 @@ export const RecentClientsGrid = ({
   <section className="w-full">
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-input-text">Recent clients</h2>
+        <h2 className="text-base font-semibold text-input-text">Recent people</h2>
         <button
           type="button"
           onClick={() => onViewAll?.()}
@@ -40,13 +40,13 @@ export const RecentClientsGrid = ({
         </button>
       </div>
       {loading ? (
-        <p className="mt-6 text-sm text-input-placeholder">Loading clients...</p>
+        <p className="mt-6 text-sm text-input-placeholder">Loading people...</p>
       ) : error ? (
         <div className="mt-6 rounded-lg border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
           {error}
         </div>
       ) : clients.length === 0 ? (
-        <p className="mt-6 text-sm text-input-placeholder">No recent client invoices.</p>
+        <p className="mt-6 text-sm text-input-placeholder">No recent invoices.</p>
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-3 xl:gap-x-8">
           {clients.map((client) => (
@@ -65,7 +65,7 @@ export const RecentClientsGrid = ({
                     <button
                       type="button"
                       className="relative block text-input-placeholder hover:text-input-text"
-                      aria-label={`Client actions for ${client.name}`}
+                      aria-label={`Person actions for ${client.name}`}
                     >
                       <span className="absolute -inset-2.5" />
                       <Icon icon={EllipsisHorizontalIcon} className="h-5 w-5"  />
@@ -73,7 +73,7 @@ export const RecentClientsGrid = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[140px]">
                     <DropdownMenuItem onSelect={() => onViewClient?.(client.id)}>
-                      View client
+                      View person
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

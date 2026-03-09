@@ -73,7 +73,7 @@ export function PracticeInvoicesPage({
         <div className="px-1 py-1">{listHeaderLeftControl}</div>
       ) : null}
       {renderMode === 'full' ? (
-        <p className="mt-1 text-sm text-input-placeholder">Practice-wide invoices across matters and clients.</p>
+        <p className="mt-1 text-sm text-input-placeholder">Practice-wide invoices across matters and people.</p>
       ) : null}
 
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
@@ -93,7 +93,7 @@ export function PracticeInvoicesPage({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber}</p>
-                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? 'Unknown client'}</p>
+                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? 'Unknown person'}</p>
                   <p className="mt-1 text-xs text-input-placeholder">
                     Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : 'N/A'}
                   </p>

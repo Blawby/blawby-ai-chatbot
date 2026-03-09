@@ -49,7 +49,7 @@ export const statusOrder = Object.fromEntries(
 export const FIELD_LABELS: Record<string, string> = {
   title: 'title',
   description: 'description',
-  client_id: 'client',
+  client_id: 'person',
   practice_service_id: 'practice area',
   billing_type: 'billing type',
   case_number: 'case number',
@@ -116,7 +116,7 @@ export const formatUrgencyLabel = (value: string) => value.replace(/_/g, ' ');
 
 export const resolveClientLabel = (clientId?: string | null, fallback?: string) => {
   if (fallback) return fallback;
-  return clientId ? `Client ${clientId.slice(0, 8)}` : 'Unassigned client';
+  return clientId ? `Person ${clientId.slice(0, 8)}` : 'Unassigned person';
 };
 
 export const resolvePracticeServiceLabel = (serviceId?: string | null, fallback?: string) => {
@@ -582,8 +582,8 @@ export const buildSingleFieldUpdateAction = (
   const value = changeRecord[field];
 
   if (field === 'client_id' && typeof value === 'string' && value.trim()) {
-    const clientName = options.clientNameById.get(value) ?? `Client ${value.slice(0, 6)}`;
-    return `updated client to ${clientName}.`;
+    const clientName = options.clientNameById.get(value) ?? `Person ${value.slice(0, 6)}`;
+    return `updated person to ${clientName}.`;
   }
   if (field === 'practice_service_id' && typeof value === 'string' && value.trim()) {
     const serviceName = options.serviceNameById.get(value) ?? `Service ${value.slice(0, 6)}`;
@@ -733,13 +733,13 @@ export const buildActivityTimelineItem = (
 
     if (actionKey === 'matter_updated') {
       const fields = extractChangedFields(metadata);
-      if (fields.length === 1 && fields[0].label === 'client') {
+      if (fields.length === 1 && fields[0].label === 'person') {
         const changes = metadata.changes;
         if (changes && typeof changes === 'object') {
           const clientId = (changes as Record<string, unknown>).client_id;
           if (typeof clientId === 'string' && clientId.trim()) {
             const clientName = context.clientNameById.get(clientId);
-            if (clientName) return `updated client to ${clientName}.`;
+            if (clientName) return `updated person to ${clientName}.`;
           }
         }
       }

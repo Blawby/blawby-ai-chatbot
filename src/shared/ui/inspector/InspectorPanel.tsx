@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Conversation } from '@/shared/types/conversation';
-import { getUserDetail, updateConversationMatter, getPracticeDetails, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
+import { getUserDetail, updateConversationMatter, updateUserDetail, getPracticeDetails, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
 import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
 import { isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
@@ -8,6 +8,9 @@ import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatus
 import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input';
+import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
+import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
+import Modal from '@/shared/components/Modal';
 import {
   InfoRow,
   InspectorEditableRow,
@@ -18,6 +21,8 @@ import {
 } from './InspectorPrimitives';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { PERSON_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/people';
+import type { Address } from '@/shared/types/address';
 
 type InspectorConfig =
   | { type: 'conversation' }
@@ -58,13 +63,6 @@ type InspectorPanelProps = {
   matters?: BackendMatter[];
   isClientView?: boolean;
   practiceName?: string;
-};
-
-const formatDate = (value?: string | null) => {
-  if (!value) return 'N/A';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'N/A';
-  return date.toLocaleString();
 };
 
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
@@ -114,6 +112,18 @@ export const InspectorPanel = ({
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [isSavingMatter, setIsSavingMatter] = useState(false);
   const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | null>(null);
+  const [activePersonEditor, setActivePersonEditor] = useState<'address' | null>(null);
+  const [isSavingPersonField, setIsSavingPersonField] = useState(false);
+  const [isArchivingPerson, setIsArchivingPerson] = useState(false);
+  const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
+  const [personAddressDraft, setPersonAddressDraft] = useState<Address>({
+    address: '',
+    apartment: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'US',
+  });
   const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
@@ -206,6 +216,7 @@ export const InspectorPanel = ({
 
   useEffect(() => {
     setActiveConversationEditor(null);
+    setActivePersonEditor(null);
   }, [conversation?.id, entityId, entityType]);
 
   useEffect(() => {
@@ -362,6 +373,113 @@ export const InspectorPanel = ({
       setIsSavingMatter(false);
     }
   };
+  const readAddressFromDetail = (detail: UserDetailRecord | null): Address => {
+    const record = detail as unknown as Record<string, unknown> | null;
+    const addressValue = record?.address;
+    const address = (addressValue && typeof addressValue === 'object')
+      ? addressValue as Record<string, unknown>
+      : {};
+    const line1 = typeof address.address === 'string'
+      ? address.address
+      : (typeof address.line1 === 'string' ? address.line1 : '');
+    const line2 = typeof address.apartment === 'string'
+      ? address.apartment
+      : (typeof address.line2 === 'string' ? address.line2 : '');
+    const city = typeof address.city === 'string' ? address.city : '';
+    const state = typeof address.state === 'string' ? address.state : '';
+    const postalCode = typeof address.postalCode === 'string'
+      ? address.postalCode
+      : (typeof address.postal_code === 'string' ? address.postal_code : '');
+    const country = typeof address.country === 'string' && address.country.trim().length > 0
+      ? address.country
+      : 'US';
+    return {
+      address: line1,
+      apartment: line2,
+      city,
+      state,
+      postalCode,
+      country,
+    };
+  };
+  const formatAddressSummary = (detail: UserDetailRecord | null): string => {
+    const value = readAddressFromDetail(detail);
+    const parts = [
+      value.address,
+      value.apartment ?? '',
+      [value.city, value.state, value.postalCode].filter(Boolean).join(' '),
+      value.country
+    ].map((part) => part.trim()).filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '—';
+  };
+  const openPersonEditor = (editor: 'address') => {
+    setError(null);
+    setPersonAddressDraft(readAddressFromDetail(userDetail));
+    setActivePersonEditor((prev) => (prev === editor ? null : editor));
+  };
+  const handlePersonFieldUpdate = async (
+    payload: Partial<{ address: Partial<Address> }>
+  ) => {
+    if (!practiceId || !entityId) return;
+    setError(null);
+    setIsSavingPersonField(true);
+    try {
+      await updateUserDetail(practiceId, entityId, payload);
+      setUserDetail((prev) => {
+        if (!prev) return prev;
+        const previousUser = prev.user;
+        return {
+          ...prev,
+          ...(payload.address ? { address: payload.address } as Record<string, unknown> : {}),
+          user: previousUser
+        };
+      });
+      const cacheKey = makeCacheKey(practiceId, entityId);
+      const cached = userCacheRef.current.get(cacheKey);
+      if (cached) {
+        userCacheRef.current.set(cacheKey, {
+          ...cached,
+          ...(payload.address ? { address: payload.address } as Record<string, unknown> : {}),
+          user: cached.user
+        });
+      }
+      setActivePersonEditor(null);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update person');
+    } finally {
+      setIsSavingPersonField(false);
+    }
+  };
+  const handlePersonStatusChange = async (
+    status: 'archived' | 'active',
+    eventName: 'Archive Person' | 'Restore Person'
+  ) => {
+    if (!practiceId || !entityId) return;
+    setError(null);
+    setIsArchivingPerson(true);
+    try {
+      await updateUserDetail(practiceId, entityId, { status, event_name: eventName });
+      setUserDetail((prev) => {
+        if (!prev) return prev;
+        return { ...prev, status };
+      });
+      const cacheKey = makeCacheKey(practiceId, entityId);
+      const cached = userCacheRef.current.get(cacheKey);
+      if (cached) {
+        userCacheRef.current.set(cacheKey, {
+          ...cached,
+          status
+        });
+      }
+      setActivePersonEditor(null);
+      setIsArchiveConfirmOpen(false);
+      invalidateClientsForPractice(practiceId);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update person status');
+    } finally {
+      setIsArchivingPerson(false);
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
@@ -373,7 +491,7 @@ export const InspectorPanel = ({
               ? 'Matter Info'
               : entityType === 'invoice'
                 ? 'Invoice Info'
-                : 'Client Info'}
+                : 'Person Info'}
         </h2>
         <Button
           variant="icon"
@@ -431,9 +549,12 @@ export const InspectorPanel = ({
                   secondaryLine={userDetail?.user?.email ?? undefined}
                 />
                 <div className="">
-                  <InspectorGroup label="Client Details">
+                  <InspectorGroup label="Person Details">
                     <InfoRow label="Phone" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
-                    <InfoRow label="Status" value={userDetail?.status ?? undefined} />
+                    <InfoRow
+                      label="Relationship status"
+                      value={userDetail?.status ? PERSON_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
+                    />
                   </InspectorGroup>
                 </div>
               </>
@@ -581,7 +702,7 @@ export const InspectorPanel = ({
             />
             <div className="">
               <InspectorGroup label="Matter Details">
-                <InfoRow label="Client" value={matterClientName ?? undefined} muted={!matterClientName} />
+                <InfoRow label="Person" value={matterClientName ?? undefined} muted={!matterClientName} />
                 <InfoRow
                   label="Assignees"
                   value={matterAssigneeNames && matterAssigneeNames.length > 0 ? matterAssigneeNames.join(', ') : undefined}
@@ -602,10 +723,97 @@ export const InspectorPanel = ({
               secondaryLine={userDetail?.user?.email ?? undefined}
             />
             <div className="">
-              <InspectorGroup label="Contact Information">
-                <InfoRow label="Email" value={userDetail?.user?.email ?? undefined} muted={!userDetail?.user?.email} />
-                <InfoRow label="Phone" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
-                <InfoRow label="Status" value={userDetail?.status ?? undefined} />
+              <InspectorGroup label="Email">
+                <InfoRow label="" value={userDetail?.user?.email ?? undefined} muted={!userDetail?.user?.email} />
+              </InspectorGroup>
+              <InspectorGroup label="Phone">
+                <InfoRow label="" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
+              </InspectorGroup>
+              <InspectorGroup label="Relationship status">
+                <InfoRow
+                  label=""
+                  value={userDetail?.status ? PERSON_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
+                  muted={!userDetail?.status}
+                />
+              </InspectorGroup>
+              <InspectorGroup
+                label="Address"
+                onToggle={() => openPersonEditor('address')}
+                isOpen={activePersonEditor === 'address'}
+                disabled={isSavingPersonField}
+              >
+                <InspectorEditableRow
+                  label=""
+                  summary={formatAddressSummary(userDetail)}
+                  summaryMuted={formatAddressSummary(userDetail) === '—'}
+                  isOpen={activePersonEditor === 'address'}
+                >
+                  <div className="space-y-2">
+                    <AddressExperienceForm
+                      initialValues={{ address: personAddressDraft }}
+                      fields={['address']}
+                      required={[]}
+                      variant="plain"
+                      showSubmitButton={false}
+                      disabled={isSavingPersonField}
+                      onValuesChange={(updates) => {
+                        const nextAddress = updates.address;
+                        if (!nextAddress || typeof nextAddress !== 'object') return;
+                        setPersonAddressDraft((prev) => ({
+                          ...prev,
+                          ...nextAddress,
+                        }));
+                      }}
+                      addressOptions={{
+                        enableAutocomplete: true,
+                        showCountry: true,
+                        stackedFields: true,
+                      }}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setActivePersonEditor(null)}
+                        disabled={isSavingPersonField}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => void handlePersonFieldUpdate({ address: personAddressDraft })}
+                        disabled={isSavingPersonField}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                </InspectorEditableRow>
+              </InspectorGroup>
+              <InspectorGroup label="Record">
+                <div className="px-5 py-1.5">
+                  {userDetail?.status === 'archived' ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[13px] text-input-placeholder">This person is archived.</p>
+                      <Button
+                        size="sm"
+                        onClick={() => { void handlePersonStatusChange('active', 'Restore Person'); }}
+                        disabled={isArchivingPerson || isSavingPersonField}
+                      >
+                        {isArchivingPerson ? 'Restoring...' : 'Restore'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setIsArchiveConfirmOpen(true)}
+                      disabled={isArchivingPerson || isSavingPersonField}
+                    >
+                      {isArchivingPerson ? 'Archiving...' : 'Archive'}
+                    </Button>
+                  )}
+                </div>
               </InspectorGroup>
             </div>
           </div>
@@ -625,7 +833,7 @@ export const InspectorPanel = ({
             />
             <div className="">
               <InspectorGroup label="Invoice Details">
-                <InfoRow label="Client" value={invoiceClientName ?? undefined} muted={!invoiceClientName} />
+                <InfoRow label="Person" value={invoiceClientName ?? undefined} muted={!invoiceClientName} />
                 <InfoRow label="Matter" value={invoiceMatterTitle ?? undefined} muted={!invoiceMatterTitle} />
                 <InfoRow label="Due Date" value={invoiceDueDate ?? undefined} muted={!invoiceDueDate} />
                 <InfoRow label="Total Amount" value={invoiceTotal ?? undefined} muted={!invoiceTotal} />
@@ -635,6 +843,39 @@ export const InspectorPanel = ({
           </div>
         ) : null}
       </div>
+      <Modal
+        isOpen={isArchiveConfirmOpen}
+        onClose={() => {
+          if (isArchivingPerson) return;
+          setIsArchiveConfirmOpen(false);
+        }}
+        title="Archive person"
+        type="modal"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-input-placeholder">
+            Archive this person? They will move to the Archived list and can be restored later.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsArchiveConfirmOpen(false)}
+              disabled={isArchivingPerson}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => { void handlePersonStatusChange('archived', 'Archive Person'); }}
+              disabled={isArchivingPerson}
+            >
+              {isArchivingPerson ? 'Archiving...' : 'Archive'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

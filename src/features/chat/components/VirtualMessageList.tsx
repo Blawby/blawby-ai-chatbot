@@ -180,7 +180,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     };
     const clientProfile = {
         src: null,
-        name: conversationTitle?.trim() || 'Client'
+        name: conversationTitle?.trim() || 'Person'
     };
     const blawbyProfile = {
         src: '/blawby-favicon-iframe.png',
@@ -456,10 +456,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 showSuccess(
                     action === 'accept' ? 'Intake accepted' : 'Intake declined',
                     systemMessageFailed
-                        ? 'Status updated; client notification failed.'
+                            ? 'Status updated; person notification failed.'
                         : (action === 'accept' && !participantAdded)
                             ? 'Intake updated; failed to add participant.'
-                        : (action === 'accept' ? 'Client has been notified.' : 'Client has been notified of the decline.')
+                            : (action === 'accept' ? 'Person has been notified.' : 'Person has been notified of the decline.')
                 );
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Failed to update intake';

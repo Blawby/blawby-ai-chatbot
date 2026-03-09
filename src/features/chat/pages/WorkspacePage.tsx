@@ -62,7 +62,6 @@ import {
   CLIENT_CONVERSATIONS_ASSIGNED_TO_MAP,
   CLIENT_INVOICES_FILTER_MAP,
   CLIENT_MATTERS_FILTER_MAP,
-  CLIENTS_FILTER_MAP,
   MATTERS_FILTER_MAP,
   PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP,
   PRACTICE_INVOICES_FILTER_MAP,
@@ -71,6 +70,7 @@ import {
   getPracticeNavConfig,
   getSettingsNavConfig
 } from '@/shared/config/navConfig';
+import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
 import NavRail from '@/shared/ui/nav/NavRail';
 import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
@@ -82,7 +82,7 @@ import type { UserDetailRecord, UserDetailStatus } from '@/shared/lib/apiClient'
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { MatterStatus } from '@/shared/types/matterStatus';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type ListViewControls = {
   listHeaderLeftControl?: ComponentChildren;
@@ -163,6 +163,14 @@ const toBillingTypeLabel = (value?: string | null) => {
   if (!value) return null;
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
+
+const REPORT_SECTION_TITLES: Record<string, string> = {
+  'all-reports': 'All reports',
+  'payroll-matter-activity': 'Payroll & Matter Activity',
+  'trust-reconciliation': 'Trust Reconciliation',
+  'stale-matters': 'Stale Matters',
+};
+const REPORT_SECTION_IDS = new Set(Object.keys(REPORT_SECTION_TITLES));
 
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
@@ -268,11 +276,72 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [isPracticeWorkspace, location.path, normalizedBase, view]);
   const selectedClientIdFromPath = useMemo(() => {
     if (view !== 'clients' || !isPracticeWorkspace) return null;
-    const marker = `${normalizedBase}/clients/`;
-    if (!location.path.startsWith(marker)) return null;
+    const peopleMarker = `${normalizedBase}/people/`;
+    const legacyMarker = `${normalizedBase}/clients/`;
+    const activeBaseMarker = location.path.startsWith(peopleMarker)
+      ? peopleMarker
+      : location.path.startsWith(legacyMarker)
+        ? legacyMarker
+        : null;
+    if (!activeBaseMarker) return null;
+    const peopleSubpath = location.path.slice(activeBaseMarker.length);
+    if (peopleSubpath.startsWith('archived/')) {
+      const rawArchived = peopleSubpath.slice('archived/'.length).split('/')[0] ?? '';
+      const archivedCandidate = decodeURIComponent(rawArchived).trim();
+      return archivedCandidate.length > 0 ? archivedCandidate : null;
+    }
+    if (peopleSubpath.startsWith('clients/')) {
+      const rawClients = peopleSubpath.slice('clients/'.length).split('/')[0] ?? '';
+      const clientsCandidate = decodeURIComponent(rawClients).trim();
+      return clientsCandidate.length > 0 ? clientsCandidate : null;
+    }
+    if (peopleSubpath.startsWith('team/')) {
+      const rawTeam = peopleSubpath.slice('team/'.length).split('/')[0] ?? '';
+      const teamCandidate = decodeURIComponent(rawTeam).trim();
+      return teamCandidate.length > 0 ? `team:${teamCandidate}` : null;
+    }
+    const raw = peopleSubpath.split('/')[0] ?? '';
+    const candidate = decodeURIComponent(raw).trim();
+    if (candidate === 'archived' || candidate === 'clients' || candidate === 'team') return null;
+    return candidate.length > 0 ? candidate : null;
+  }, [isPracticeWorkspace, location.path, normalizedBase, view]);
+  const isArchivedPeopleRoute = useMemo(() => {
+    if (view !== 'clients' || !isPracticeWorkspace) return false;
+    return location.path === `${normalizedBase}/people/archived`
+      || location.path.startsWith(`${normalizedBase}/people/archived/`)
+      || location.path === `${normalizedBase}/clients/archived`
+      || location.path.startsWith(`${normalizedBase}/clients/archived/`);
+  }, [isPracticeWorkspace, location.path, normalizedBase, view]);
+  const isTeamPeopleRoute = useMemo(() => {
+    if (view !== 'clients' || !isPracticeWorkspace) return false;
+    return location.path === `${normalizedBase}/people/team`
+      || location.path.startsWith(`${normalizedBase}/people/team/`)
+      || location.path === `${normalizedBase}/clients/team`
+      || location.path.startsWith(`${normalizedBase}/clients/team/`);
+  }, [isPracticeWorkspace, location.path, normalizedBase, view]);
+  const isClientsPeopleRoute = useMemo(() => {
+    if (view !== 'clients' || !isPracticeWorkspace) return false;
+    return location.path === `${normalizedBase}/people/clients`
+      || location.path.startsWith(`${normalizedBase}/people/clients/`)
+      || location.path === `${normalizedBase}/clients/clients`
+      || location.path.startsWith(`${normalizedBase}/clients/clients/`);
+  }, [isPracticeWorkspace, location.path, normalizedBase, view]);
+  useEffect(() => {
+    if (view !== 'clients' || !isPracticeWorkspace) return;
+    const legacyPrefix = `${normalizedBase}/clients`;
+    if (!location.path.startsWith(legacyPrefix)) return;
+    const nextPath = `${normalizedBase}/people${location.path.slice(legacyPrefix.length)}`;
+    if (nextPath === location.path) return;
+    navigate(nextPath, true);
+  }, [isPracticeWorkspace, location.path, navigate, normalizedBase, view]);
+  const reportSectionFromPath = useMemo(() => {
+    if (view !== 'reports' || !isPracticeWorkspace) return 'all-reports';
+    const marker = `${normalizedBase}/reports/`;
+    if (!location.path.startsWith(marker)) return 'all-reports';
     const raw = location.path.slice(marker.length).split('/')[0] ?? '';
     const candidate = decodeURIComponent(raw).trim();
-    return candidate.length > 0 ? candidate : null;
+    if (candidate.length === 0) return 'all-reports';
+    return REPORT_SECTION_IDS.has(candidate) ? candidate : 'all-reports';
   }, [isPracticeWorkspace, location.path, normalizedBase, view]);
   const previewBaseUrl = useMemo(() => {
     const path = practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
@@ -305,9 +374,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? 'conversations'
     : view === 'invoiceDetail'
       ? 'invoices'
-      : view === 'setup'
+      : view === 'setup' || view === 'clients'
         ? 'home'
-      : view;
+        : view;
 
   const { session, isPending: isSessionPending, activeMemberRole } = useSessionContext();
   const normalizedRole = normalizePracticeRole(activeMemberRole);
@@ -333,15 +402,81 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (workspaceSection === 'conversations' && isPracticeWorkspace) {
       return 'all';
     }
+    if (workspaceSection === 'home' && isPracticeWorkspace) {
+      return view === 'clients'
+        ? (isArchivedPeopleRoute
+          ? 'people-archived'
+          : isTeamPeopleRoute
+            ? 'people-team'
+            : isClientsPeopleRoute
+              ? 'people-clients'
+              : 'people-all')
+        : 'overview';
+    }
+    if (workspaceSection === 'reports' && isPracticeWorkspace) {
+      return reportSectionFromPath;
+    }
     return navConfig.secondary?.[0]?.items[0]?.id ?? null;
-  }, [isPracticeWorkspace, navConfig.secondary, workspaceSection]);
-  const activeSecondaryFilter = workspaceSection === 'settings'
-    ? null
-    : (secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId);
+  }, [isArchivedPeopleRoute, isClientsPeopleRoute, isPracticeWorkspace, isTeamPeopleRoute, navConfig.secondary, reportSectionFromPath, view, workspaceSection]);
+  const activeSecondaryFilter = useMemo(() => {
+    if (workspaceSection === 'settings') return null;
+    if (workspaceSection === 'home' && isPracticeWorkspace) {
+      return view === 'clients'
+        ? (isArchivedPeopleRoute
+          ? 'people-archived'
+          : isTeamPeopleRoute
+            ? 'people-team'
+            : isClientsPeopleRoute
+              ? 'people-clients'
+              : 'people-all')
+        : 'overview';
+    }
+    if (workspaceSection === 'reports' && isPracticeWorkspace) {
+      return reportSectionFromPath;
+    }
+    return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
+  }, [
+    defaultSecondaryFilterId,
+    isArchivedPeopleRoute,
+    isClientsPeopleRoute,
+    isPracticeWorkspace,
+    isTeamPeopleRoute,
+    reportSectionFromPath,
+    secondaryFilterBySection,
+    view,
+    workspaceSection
+  ]);
   const handleSecondaryFilterSelect = useCallback((id: string) => {
     if (workspaceSection === 'settings') return;
+    const basePath = normalizedBase || '/';
+    if (workspaceSection === 'home') {
+      const peopleBasePath = `${basePath}/people`;
+      const target = id === 'people-archived'
+        ? `${peopleBasePath}/archived`
+        : id === 'people-team'
+          ? `${peopleBasePath}/team`
+          : id === 'people-clients'
+            ? `${peopleBasePath}/clients`
+        : id === 'people' || id === 'people-all'
+          ? peopleBasePath
+          : basePath;
+      navigate(target);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
+    if (workspaceSection === 'reports') {
+      const reportPathById: Record<string, string> = {
+        'all-reports': `${basePath}/reports`,
+        'payroll-matter-activity': `${basePath}/reports/payroll-matter-activity`,
+        'trust-reconciliation': `${basePath}/reports/trust-reconciliation`,
+        'stale-matters': `${basePath}/reports/stale-matters`,
+      };
+      navigate(reportPathById[id] ?? `${basePath}/reports`);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
     setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
-  }, [workspaceSection]);
+  }, [navigate, normalizedBase, workspaceSection]);
   const conversationAssignedToFilter = workspaceSection === 'conversations'
     ? (isPracticeWorkspace
       ? (activeSecondaryFilter ? PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP[activeSecondaryFilter] : null)
@@ -416,11 +551,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (workspaceSection === 'matters' && selectedMatterIdFromPath) {
       return { entityType: 'matter' as const, entityId: selectedMatterIdFromPath };
     }
-    if (workspaceSection === 'clients' && selectedClientIdFromPath) {
+    if (view === 'clients' && selectedClientIdFromPath) {
       return { entityType: 'client' as const, entityId: selectedClientIdFromPath };
     }
     return null;
-  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, workspaceSection]);
+  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleOpenInspector = () => {
@@ -441,11 +576,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return [];
   }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
-  const clientsStatusFilter = useMemo<UserDetailStatus | null>(() => {
-    if (workspaceSection !== 'clients') return null;
-    if (!activeSecondaryFilter) return null;
-    return CLIENTS_FILTER_MAP[activeSecondaryFilter] ?? null;
-  }, [activeSecondaryFilter, workspaceSection]);
+  const clientsStatusFilter = useMemo<UserDetailStatus | null>(() => null, []);
   const invoicesStatusFilter = useMemo<string[]>(() => {
     if (workspaceSection !== 'invoices') return [];
     if (!activeSecondaryFilter) return [];
@@ -479,7 +610,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId,
     clientsStatusFilter,
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && workspaceSection === 'clients' }
+    { enabled: isPracticeWorkspace && view === 'clients' }
   );
   const selectedMatter = useMemo(
     () => mattersData?.items?.find((matter) => matter.id === selectedMatterIdFromPath) ?? null,
@@ -920,7 +1051,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       });
       await updateSetupDetails(detailsPayload);
       if (!options?.suppressSuccessToast) {
-        showSuccess('Contact info updated', 'Clients and receipts will use your latest details.');
+        showSuccess('Contact info updated', 'People and receipts will use your latest details.');
       }
       forcePreviewReload();
     } catch (error) {
@@ -1383,8 +1514,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                 clients={recentClients}
                 loading={practiceBillingLoading}
                 error={null}
-                onViewAll={() => navigate(`${normalizedBase}/clients`)}
-                onViewClient={(clientId) => navigate(`${normalizedBase}/clients?id=${encodeURIComponent(clientId)}`)}
+                onViewAll={() => navigate(`${normalizedBase}/people`)}
+                onViewClient={(clientId) => navigate(`${normalizedBase}/people/${encodeURIComponent(clientId)}`)}
               />
             </div>
           );
@@ -1443,9 +1574,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return (typeof clientsView === 'function' ? clientsView(clientsStatusFilter, listViewControls) : clientsView) ?? (
           <div className="flex flex-1 flex-col glass-card">
             <div className="px-6 py-6">
-              <h2 className="text-lg font-semibold text-input-text">Clients</h2>
+              <h2 className="text-lg font-semibold text-input-text">{PEOPLE_DIRECTORY_LABEL}</h2>
               <p className="mt-2 text-sm text-input-placeholder">
-                Manage your practice clients here.
+                Manage people and relationship statuses here.
               </p>
             </div>
           </div>
@@ -1459,6 +1590,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               <p className="mt-2 text-sm text-input-placeholder">
                 Invoice details and payments will appear here.
               </p>
+            </div>
+          </div>
+        );
+      case 'reports':
+        return (
+          <div className="flex flex-1 flex-col glass-card">
+            <div className="px-6 py-6">
+              <h2 className="text-lg font-semibold text-input-text">Reports</h2>
+              <p className="mt-2 text-sm text-input-placeholder">
+                {REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? REPORT_SECTION_TITLES['all-reports']}
+              </p>
+            </div>
+            <div className="mx-6 mb-6 glass-panel p-5">
+              <div className="text-sm font-semibold text-input-text">
+                {REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? REPORT_SECTION_TITLES['all-reports']}
+              </div>
+              <div className="mt-2 text-sm text-input-placeholder">
+                Report data and exports will appear here.
+              </div>
             </div>
           </div>
         );
@@ -1502,7 +1652,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const showBottomNav = isMobileLayout && (workspace !== 'practice'
     ? !hideBottomNav
     : true);
-  const activeHref = location.path;
+  const activeHref = view === 'clients'
+    ? (normalizedBase || '/')
+    : location.path;
 
   const handleNavActivate = () => {
     setIsMobileNavOpen(false);
@@ -1548,8 +1700,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && (
       (workspaceSection === 'conversations' && view === 'list')
       || (workspaceSection === 'matters' && !selectedMatterIdFromPath && !isMatterNonListRoute)
-      || (workspaceSection === 'clients' && !selectedClientIdFromPath)
+      || (workspaceSection === 'home' && isPracticeWorkspace && (view === 'home' || (view === 'clients' && !selectedClientIdFromPath)))
       || (workspaceSection === 'invoices' && view === 'invoices')
+      || workspaceSection === 'reports'
       || workspaceSection === 'settings'
     );
   const mobileMenuButton = showMobileMenuButton ? (
@@ -1631,6 +1784,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : undefined;
   const desktopMattersShell = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters';
   const desktopClientsShell = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients';
+  const desktopReportsShell = layoutMode === 'desktop' && isPracticeWorkspace && view === 'reports';
   const desktopInvoicesShell = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail');
 
   const isDesktopConversationShell = layoutMode === 'desktop'
@@ -1661,22 +1815,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           </div>
         )
       : desktopClientsShell
-        ? selectedClientIdFromPath
-          ? (
-            <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
-              {renderContent()}
-            </div>
-          )
-          : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <h3 className="text-sm font-semibold text-input-text">Select a client</h3>
-                <p className="mt-2 text-sm text-input-placeholder">
-                  Choose a client from the list to view their details.
-                </p>
-              </div>
-            </div>
-          )
+        ? (
+          <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
+            {renderContent()}
+          </div>
+        )
       : desktopInvoicesShell
         ? view === 'invoiceDetail'
           ? (
@@ -1694,6 +1837,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               </div>
             </div>
           )
+      : desktopReportsShell
+        ? (
+          <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
+            {renderContent()}
+          </div>
+        )
     : (
       <div className={cn('min-h-0 h-full flex flex-1 flex-col', shouldAllowMainScroll ? 'overflow-y-auto' : 'overflow-hidden')}>
         {renderContent()}

@@ -38,7 +38,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
     {
       id: 'new-conversation',
       label: 'Start Conversation',
-      description: 'Begin a new client consultation',
+      description: 'Begin a new consultation',
       icon: ChatBubbleLeftRightIcon,
       onClick: onStartNewConversation,
       disabled: !practice,
@@ -47,7 +47,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
     {
       id: 'view-matters',
       label: 'View Matters',
-      description: 'Manage client matters and cases',
+      description: 'Manage matter and case progress',
       icon: DocumentTextIcon,
       onClick: onNavigateToMatters,
       disabled: !practice,
@@ -72,7 +72,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             <div>
               <h2 className="text-2xl font-bold text-input-text">Practice Dashboard</h2>
               <p className="text-sm text-input-placeholder">
-                Manage your practice and client interactions
+                Manage your practice and people interactions
               </p>
             </div>
           </div>
