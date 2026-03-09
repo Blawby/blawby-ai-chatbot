@@ -17,6 +17,7 @@ export interface AddressInputProps {
   label?: string;
   placeholder?: string;
   showCountry?: boolean;
+  stackedFields?: boolean;
   countryOptions?: ComboboxOption[];
   minChars?: number;
   debounceMs?: number;
@@ -49,6 +50,7 @@ export const AddressInput = ({
   label,
   placeholder,
   showCountry = true,
+  stackedFields = false,
   countryOptions,
   minChars = 3,
   debounceMs = 300,
@@ -256,6 +258,7 @@ export const AddressInput = ({
           size={size}
           variant={variant}
           showCountry={showCountry}
+          stackedFields={stackedFields}
           countryOptions={countryOptions}
           label={label}
           placeholder={placeholder}

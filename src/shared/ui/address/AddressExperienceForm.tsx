@@ -62,6 +62,7 @@ export interface AddressExperienceFormProps {
   addressOptions?: {
     country?: string;
     showCountry?: boolean;
+    stackedFields?: boolean;
     enableAutocomplete?: boolean;
     autocompleteUrl?: string;
     minChars?: number;
@@ -478,6 +479,7 @@ export const AddressExperienceForm = ({
                         limit={addressOptions.limit}
                         country={addressOptions.country}
                         showCountry={addressOptions.showCountry ?? true}
+                        stackedFields={addressOptions.stackedFields ?? false}
                         size={addressOptions.size || 'md'}
                         disabled={disabled}
                         inputClassName={inputClassName}

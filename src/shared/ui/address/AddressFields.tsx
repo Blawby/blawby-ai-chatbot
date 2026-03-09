@@ -23,6 +23,7 @@ export interface AddressFieldsProps {
   className?: string;
   showCountry?: boolean;
   countryOptions?: ComboboxOption[];
+  stackedFields?: boolean;
   label?: string;
   placeholder?: string;
   /** Props for street address autocomplete behaviour */
@@ -133,6 +134,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
       className,
       showCountry = true,
       countryOptions = DEFAULT_COUNTRY_OPTIONS,
+      stackedFields = false,
       label,
       placeholder,
       streetAddressProps,
@@ -307,7 +309,12 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
         />
 
         {/* ── City / State / ZIP ────────────────────────────────────── */}
-        <div className={cn('grid gap-4 grid-cols-1', showCountry ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+        <div
+          className={cn(
+            'grid gap-4 grid-cols-1',
+            !stackedFields && (showCountry ? 'sm:grid-cols-4' : 'sm:grid-cols-3')
+          )}
+        >
 
           {/* City */}
           <div className={'sm:col-span-1'}>
