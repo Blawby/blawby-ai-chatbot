@@ -1701,16 +1701,30 @@ export const PracticeMattersPage = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const normalizeWorkspaceMatterPatch = (patch: Record<string, unknown>): Partial<MatterFormState> => {
+      const keyMap: Record<string, keyof MatterFormState> = {
+        client_id: 'clientId',
+        responsible_attorney_id: 'responsibleAttorneyId',
+        originating_attorney_id: 'originatingAttorneyId',
+        case_number: 'caseNumber',
+        matter_type: 'matterType',
+        opposing_party: 'opposingParty',
+        opposing_counsel: 'opposingCounsel',
+      };
+      const normalizedEntries = Object.entries(patch).map(([key, value]) => [keyMap[key] ?? key, value]);
+      return Object.fromEntries(normalizedEntries) as Partial<MatterFormState>;
+    };
     const handleWorkspaceMatterPatchChange = (event: Event) => {
       const customEvent = event as CustomEvent<{
         matterId: string;
-        patch: Partial<MatterFormState>;
+        patch: Record<string, unknown>;
         resolve?: () => void;
         reject?: (reason?: unknown) => void;
       }>;
       const detail = customEvent.detail;
       if (!detail || detail.matterId !== selectedMatterId || !detail.patch) return;
-      void handlePatchMatter(detail.patch)
+      const normalizedPatch = normalizeWorkspaceMatterPatch(detail.patch);
+      void handlePatchMatter(normalizedPatch)
         .then(() => {
           detail.resolve?.();
         })

@@ -472,7 +472,19 @@ export const InspectorPanel = ({
     setError(null);
     setIsSavingMatterField(true);
     try {
-      await Promise.resolve(onMatterPatchChange(patch));
+      const keyMap: Record<string, string> = {
+        clientId: 'client_id',
+        responsibleAttorneyId: 'responsible_attorney_id',
+        originatingAttorneyId: 'originating_attorney_id',
+        caseNumber: 'case_number',
+        matterType: 'matter_type',
+        opposingParty: 'opposing_party',
+        opposingCounsel: 'opposing_counsel',
+      };
+      const normalizedPatch = Object.fromEntries(
+        Object.entries(patch).map(([key, value]) => [keyMap[key] ?? key, value])
+      );
+      await Promise.resolve(onMatterPatchChange(normalizedPatch));
       setActiveMatterEditor(null);
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to update matter');
