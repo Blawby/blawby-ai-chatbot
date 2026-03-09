@@ -255,7 +255,7 @@ export const InvoiceBuilder = ({
                 value={dueDate}
                 onChange={setDueDate}
               />
-              <Textarea label="Notes to person" value={notes} onChange={setNotes} rows={3} />
+              <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} />
               <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} />
               {sendError ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">

@@ -1,6 +1,6 @@
 import type { FunctionComponent } from 'preact';
 import { useLocation } from 'preact-iso';
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo, useState, useCallback } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import type { NavSection, SecondaryNavItem } from '@/shared/config/navConfig';
 import { cn } from '@/shared/utils/cn';
@@ -38,11 +38,11 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
   const { navigate } = useNavigation();
   const resolvedPath = normalizePath(activeHref || location.path);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
-  const flattenItems = (items: SecondaryNavItem[]): SecondaryNavItem[] =>
-    items.flatMap((item) => [item, ...(item.children ? flattenItems(item.children) : [])]);
+  const flattenItems = useCallback((items: SecondaryNavItem[]): SecondaryNavItem[] =>
+    items.flatMap((item) => [item, ...(item.children ? flattenItems(item.children) : [])]), []);
   const allItems = useMemo(
     () => sections.flatMap((section) => flattenItems(section.items)),
-    [sections]
+    [flattenItems, sections]
   );
   const resolvedActiveItemId = activeItemId ?? allItems
     .reduce<{ id: string | null; score: number }>((best, item) => {
@@ -62,7 +62,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
     const isGroupLabel = hasChildren && !item.href;
     const childActive = hasActiveDescendant(item);
     const isExpanded = hasChildren && (isGroupLabel ? true : (expandedIds[item.id] ?? childActive));
-    const isActive = resolvedActiveItemId === item.id || (!hasChildren && childActive);
+    const isActive = resolvedActiveItemId === item.id;
     const indentClass = depth === 0 ? '' : 'pl-4';
 
     return (
@@ -70,7 +70,6 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
         {isGroupLabel ? (
           <div
             className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-input-placeholder"
-            aria-expanded={isExpanded}
             title={item.label}
           >
             <span className="truncate">{item.label}</span>
@@ -121,7 +120,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
         )}
         {hasChildren && isExpanded ? (
           <div className="ml-1 flex flex-col gap-1">
-            {item.children!.map((child) => renderItem(child, depth + 1))}
+            {(item.children ?? []).map((child) => renderItem(child, depth + 1))}
           </div>
         ) : null}
       </div>
