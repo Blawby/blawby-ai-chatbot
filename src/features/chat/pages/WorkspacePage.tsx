@@ -1979,12 +1979,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         );
       }}
       onMatterPatchChange={(patch) => {
-        if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
-        window.dispatchEvent(
-          new CustomEvent('workspace:matter-patch-change', {
-            detail: { matterId: selectedMatterIdFromPath, patch },
-          })
-        );
+        if (typeof window === 'undefined' || !selectedMatterIdFromPath) {
+          return Promise.resolve();
+        }
+        return new Promise<void>((resolve, reject) => {
+          window.dispatchEvent(
+            new CustomEvent('workspace:matter-patch-change', {
+              detail: { matterId: selectedMatterIdFromPath, patch, resolve, reject },
+            })
+          );
+        });
       }}
       matterClientOptions={matterClientOptions}
       matterAssigneeOptions={matterAssigneeOptions}

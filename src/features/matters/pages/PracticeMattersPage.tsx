@@ -38,6 +38,7 @@ import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/comp
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
+import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBuilder';
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
 import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
@@ -305,6 +306,9 @@ export const PracticeMattersPage = ({
   const goToList = () => navigate(basePath);
   const goToDetail = (id: string, section: Exclude<DetailSectionId, 'overview'> | null = null) =>
     navigate(section ? `${basePath}/${encodeURIComponent(id)}/${section}` : `${basePath}/${encodeURIComponent(id)}`);
+  const conversationBasePath = basePath.endsWith('/matters')
+    ? basePath.replace(/\/matters$/, '/conversations')
+    : '/practice/conversations';
 
   // ── External hooks ────────────────────────────────────────────────────────
   const { getMembers, fetchMembers } = usePracticeManagement({
@@ -1675,20 +1679,28 @@ export const PracticeMattersPage = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handleWorkspaceMatterPatchChange = (
-      event: Event
-    ) => {
-      const customEvent = event as CustomEvent<{ matterId: string; patch: Partial<MatterFormState> }>;
+    const handleWorkspaceMatterPatchChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        matterId: string;
+        patch: Partial<MatterFormState>;
+        resolve?: () => void;
+        reject?: (reason?: unknown) => void;
+      }>;
       const detail = customEvent.detail;
       if (!detail || detail.matterId !== selectedMatterId || !detail.patch) return;
-      void handlePatchMatter(detail.patch).catch((error) => {
-        console.error('[PracticeMattersPage] Failed to apply workspace matter patch', {
-          selectedMatterId,
-          patch: detail.patch,
-          error
+      void handlePatchMatter(detail.patch)
+        .then(() => {
+          detail.resolve?.();
+        })
+        .catch((error) => {
+          console.error('[PracticeMattersPage] Failed to apply workspace matter patch', {
+            selectedMatterId,
+            patch: detail.patch,
+            error
+          });
+          detail.reject?.(error);
+          showError('Could not update matter details', error instanceof Error ? error.message : 'Please try again.');
         });
-        showError('Could not update matter details', error instanceof Error ? error.message : 'Please try again.');
-      });
     };
     window.addEventListener('workspace:matter-patch-change', handleWorkspaceMatterPatchChange);
     return () => {
@@ -2153,13 +2165,13 @@ export const PracticeMattersPage = ({
                   />
                 </div>
               </BillingErrorBoundary>
-            ) : detailSection === 'messages' ? (
-              <Panel className="p-5">
-                <h3 className="text-sm font-semibold text-input-text">Messages</h3>
-                <p className="mt-2 text-sm text-input-placeholder">
-                  Matter messages will open the linked conversation route for this matter when messaging-route integration is fixed.
-                </p>
-              </Panel>
+            ) : detailSection === 'messages' && selectedMatterDetail ? (
+              <MatterMessagesPanel
+                key={`messages-${selectedMatterDetail.id}`}
+                matter={selectedMatterDetail}
+                practiceId={activePracticeId}
+                conversationBasePath={conversationBasePath}
+              />
             ) : null}
           </section>
           </div>

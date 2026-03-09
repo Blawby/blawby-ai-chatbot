@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
@@ -177,10 +177,21 @@ export const ClientMattersPage = ({
       setSelectedMatterDetail(null);
       setDetailLoading(false);
       setDetailError(null);
+      setTasks([]);
+      setTasksLoading(false);
+      setTasksError(null);
+      setActivityItems([]);
+      setActivityLoading(false);
       return;
     }
 
     const controller = new AbortController();
+    setSelectedMatterDetail(null);
+    setTasks([]);
+    setTasksError(null);
+    setTasksLoading(false);
+    setActivityItems([]);
+    setActivityLoading(false);
     setDetailLoading(true);
     setDetailError(null);
     getMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
@@ -224,8 +235,13 @@ export const ClientMattersPage = ({
     return () => controller.abort();
   }, [activePracticeId, detailTab, selectedMatterId]);
 
-  const resolvedMatter = selectedMatterDetail ?? (selectedMatterSummary ? buildFallbackDetail(selectedMatterSummary) : null);
-  const resolvePerson = (userId?: string | null): TimelinePerson => {
+  const resolvedMatter = useMemo(() => {
+    const matchingDetail = selectedMatterDetail && selectedMatterDetail.id === selectedMatterId
+      ? selectedMatterDetail
+      : null;
+    return matchingDetail ?? (selectedMatterSummary ? buildFallbackDetail(selectedMatterSummary) : null);
+  }, [selectedMatterDetail, selectedMatterSummary, selectedMatterId]);
+  const resolvePerson = useCallback((userId?: string | null): TimelinePerson => {
     if (!userId) return { name: 'System' };
     if (session?.user?.id === userId) {
       return {
@@ -234,7 +250,7 @@ export const ClientMattersPage = ({
       };
     }
     return { name: `User ${userId.slice(0, 6)}` };
-  };
+  }, [session?.user?.email, session?.user?.id, session?.user?.image, session?.user?.name]);
 
   useEffect(() => {
     if (detailTab !== 'overview' || !activePracticeId || !selectedMatterId) {
@@ -284,7 +300,7 @@ export const ClientMattersPage = ({
       });
 
     return () => controller.abort();
-  }, [activePracticeId, detailTab, resolvedMatter?.clientName, resolvedMatter?.practiceArea, resolvedMatter?.title, selectedMatterId, session?.user?.email, session?.user?.id, session?.user?.image, session?.user?.name]);
+  }, [activePracticeId, detailTab, resolvedMatter?.clientName, resolvedMatter?.practiceArea, resolvedMatter?.title, resolvePerson, selectedMatterId]);
 
   if (renderMode === 'detailOnly' && !selectedMatterId) {
     return null;

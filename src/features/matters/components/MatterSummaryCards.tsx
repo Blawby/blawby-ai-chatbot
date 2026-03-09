@@ -56,6 +56,9 @@ export const MatterSummaryCards = ({
   contingencyPercent,
   paymentFrequency
 }: MatterSummaryCardsProps) => {
+  const resolveMajorAmount = (amount: MajorAmount | null | undefined): number | null =>
+    amount === null || amount === undefined ? null : getMajorAmountValue(amount);
+
   const totalBillableSeconds = timeStats?.totalBillableSeconds ?? null;
   const totalSeconds = timeStats?.totalSeconds ?? null;
   const totalBillableHours = timeStats?.totalBillableHours ?? null;
@@ -70,18 +73,22 @@ export const MatterSummaryCards = ({
   const billingTypeLabel = billingType
     ? billingType.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase())
     : 'Not set';
-  const billingRateLabel = (() => {
+  const billingRateLines = (() => {
     if (!billingType) return 'Rate not set';
     if (billingType === 'pro_bono') return 'No charge';
     if (billingType === 'hourly') {
-      const hourlyRate = attorneyHourlyRate ?? adminHourlyRate ?? null;
-      const value = getMajorAmountValue(hourlyRate);
-      return value > 0 ? `${formatCurrency(value)}/hr` : 'Rate not set';
+      const attorneyRateValue = resolveMajorAmount(attorneyHourlyRate);
+      const adminRateValue = resolveMajorAmount(adminHourlyRate);
+      if (attorneyRateValue === null && adminRateValue === null) return 'Rate not set';
+      const lines: string[] = [];
+      if (attorneyRateValue !== null) lines.push(`Attorney: ${formatCurrency(attorneyRateValue)}/hr`);
+      if (adminRateValue !== null) lines.push(`Admin: ${formatCurrency(adminRateValue)}/hr`);
+      return lines;
     }
     if (billingType === 'fixed') {
       if (paymentFrequency === 'milestone') return 'Milestone schedule';
-      const value = getMajorAmountValue(totalFixedPrice ?? null);
-      return value > 0 ? `${formatCurrency(value)} total` : 'Rate not set';
+      const value = resolveMajorAmount(totalFixedPrice);
+      return value !== null ? `${formatCurrency(value)} total` : 'Rate not set';
     }
     const percent = typeof contingencyPercent === 'number' ? contingencyPercent : null;
     return percent !== null ? `${percent}% contingency` : 'Rate not set';
@@ -113,7 +120,15 @@ export const MatterSummaryCards = ({
           </div>
           <div className={summaryItemBase}>
             <p className="text-xs font-medium text-input-placeholder">{billingTypeLabel}</p>
-            <p className="mt-2 text-lg font-semibold text-input-text">{billingRateLabel}</p>
+            {Array.isArray(billingRateLines) ? (
+              <div className="mt-2 space-y-1 text-sm text-input-text">
+                {billingRateLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-lg font-semibold text-input-text">{billingRateLines}</p>
+            )}
           </div>
           <div className={summaryItemBase}>
             <p className="text-xs font-medium text-input-placeholder">Total time tracked</p>

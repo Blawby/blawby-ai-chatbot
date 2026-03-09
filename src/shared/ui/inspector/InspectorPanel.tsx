@@ -385,7 +385,7 @@ export const InspectorPanel = ({
   const resolvedMatterOpposingCounsel = matterOpposingCounsel
     ?? resolveString(matterDetailRecord?.opposing_counsel)
     ?? null;
-  const resolvedMatterBillingLabel = matterBillingLabel
+  const _resolvedMatterBillingLabel = matterBillingLabel
     ?? resolveString(matterDetailRecord?.billing_type)
     ?? null;
   const resolvedMatterCreatedLabel = matterCreatedLabel
@@ -394,7 +394,7 @@ export const InspectorPanel = ({
   const resolvedMatterUpdatedLabel = matterUpdatedLabel
     ?? resolveString(matterDetailRecord?.updated_at)
     ?? null;
-  const resolvedMatterAssigneeNames = useMemo(() => {
+  const _resolvedMatterAssigneeNames = useMemo(() => {
     if (matterAssigneeNames && matterAssigneeNames.length > 0) return matterAssigneeNames;
     const assigneesValue = matterDetailRecord?.assignees;
     const assignees = Array.isArray(assigneesValue) ? assigneesValue : [];
@@ -424,6 +424,12 @@ export const InspectorPanel = ({
     }
     return 'Unassigned client';
   }, [resolvedMatterClientId, resolvedMatterClientName, matterClientOptions]);
+  const matterClientOptionsWithNone = useMemo<ComboboxOption[]>(() => {
+    const hasEmptyOption = matterClientOptions.some((option) => option.value === '');
+    return hasEmptyOption
+      ? matterClientOptions
+      : [{ value: '', label: '— none —' }, ...matterClientOptions];
+  }, [matterClientOptions]);
   const resolveAttorneyLabel = useCallback((id: string | null) => {
     if (!id) return 'Not set';
     const option = matterAssigneeOptions.find((entry) => entry.value === id);
@@ -890,8 +896,8 @@ export const InspectorPanel = ({
                   <div className="relative z-30">
                     <Combobox
                       value={resolvedMatterClientId ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ clientId: value }); }}
-                      options={matterClientOptions}
+                      onChange={(value) => { void handleMatterPatchChange({ clientId: value === '' ? null : value }); }}
+                      options={matterClientOptionsWithNone}
                       searchable
                       autoFocus
                       defaultOpen
