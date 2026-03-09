@@ -1681,13 +1681,20 @@ export const PracticeMattersPage = ({
       const customEvent = event as CustomEvent<{ matterId: string; patch: Partial<MatterFormState> }>;
       const detail = customEvent.detail;
       if (!detail || detail.matterId !== selectedMatterId || !detail.patch) return;
-      void handlePatchMatter(detail.patch);
+      void handlePatchMatter(detail.patch).catch((error) => {
+        console.error('[PracticeMattersPage] Failed to apply workspace matter patch', {
+          selectedMatterId,
+          patch: detail.patch,
+          error
+        });
+        showError('Could not update matter details', error instanceof Error ? error.message : 'Please try again.');
+      });
     };
     window.addEventListener('workspace:matter-patch-change', handleWorkspaceMatterPatchChange);
     return () => {
       window.removeEventListener('workspace:matter-patch-change', handleWorkspaceMatterPatchChange);
     };
-  }, [handlePatchMatter, selectedMatterId]);
+  }, [handlePatchMatter, selectedMatterId, showError]);
 
   // =========================================================================
   // Render — create route

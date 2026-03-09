@@ -502,9 +502,7 @@ export const getMatter = async (
   // Backend returns list payload; narrow to requested item.
   const matters = extractMatterArray(payload);
 
-  const matter = matters.length === 1
-    ? matters[0]
-    : matters.find(m => m.id === matterId) ?? null;
+  const matter = matters.find((m) => m.id === matterId) ?? null;
 
   return matter ? normalizeMatter(matter) : null;
 };

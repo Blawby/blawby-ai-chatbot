@@ -408,10 +408,10 @@ export const InspectorPanel = ({
       .filter((name): name is string => name.length > 0);
     if (namesFromRows.length > 0) return namesFromRows;
     const assigneeIds = Array.isArray(matterDetailRecord?.assignee_ids)
-      ? matterDetailRecord?.assignee_ids as unknown[]
+      ? [...matterDetailRecord.assignee_ids].filter((id) => typeof id === 'string' || typeof id === 'number')
       : [];
     return assigneeIds
-      .map((id) => (typeof id === 'string' ? id : ''))
+      .map((id) => String(id).trim())
       .filter((id) => id.length > 0)
       .map((id) => `User ${id.slice(0, 6)}`);
   }, [matterAssigneeNames, matterDetailRecord]);
