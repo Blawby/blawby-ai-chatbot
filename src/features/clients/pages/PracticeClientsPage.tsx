@@ -23,6 +23,7 @@ import {
   deleteUserDetailMemo,
   createUserDetail,
   getUserDetail,
+  getUserDetailAddressById,
   type UserDetailMemoRecord
 } from '@/shared/lib/apiClient';
 import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
@@ -436,7 +437,19 @@ export const PracticeClientsPage = ({
     void Promise.allSettled(
       candidates.map(async (detail) => {
         const hydrated = await getUserDetail(activePracticeId, detail.id);
-        const resolved = hydrated ? resolveUserDetailAddressValue(hydrated) : null;
+        let resolved = hydrated ? resolveUserDetailAddressValue(hydrated) : null;
+        if (hydrated && !hasRenderableAddressFields(resolved)) {
+          const hydratedRecord = hydrated as unknown as Record<string, unknown>;
+          const addressId = typeof hydratedRecord.address_id === 'string'
+            ? hydratedRecord.address_id
+            : (typeof hydratedRecord.addressId === 'string' ? hydratedRecord.addressId : '');
+          if (addressId.trim().length > 0) {
+            const fetchedAddress = await getUserDetailAddressById(activePracticeId, addressId.trim());
+            if (fetchedAddress && hasRenderableAddressFields(fetchedAddress)) {
+              resolved = fetchedAddress;
+            }
+          }
+        }
         if (!resolved || !hasRenderableAddressFields(resolved)) return null;
         return { id: detail.id, address: resolved };
       })

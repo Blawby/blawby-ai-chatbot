@@ -897,6 +897,27 @@ export async function getUserDetail(
   return null;
 }
 
+export async function getUserDetailAddressById(
+  practiceId: string,
+  addressId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Record<string, unknown> | null> {
+  if (!practiceId || !addressId) {
+    throw new Error('practiceId and addressId are required');
+  }
+  const response = await apiClient.get(
+    `/api/user-details/${encodeURIComponent(practiceId)}/addresses/${encodeURIComponent(addressId)}`,
+    { signal: config?.signal }
+  );
+  const payload = unwrapApiData(response.data);
+  const container = isRecord(payload) && isRecord(payload.data)
+    ? payload.data
+    : (isRecord(payload) ? payload : null);
+  if (!container) return null;
+  const address = isRecord(container.address) ? container.address : container;
+  return isRecord(address) ? address : null;
+}
+
 export type CreateUserDetailPayload = {
   name: string;
   email: string;
