@@ -352,6 +352,7 @@ export const PracticeClientsPage = ({
   const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
+  const processedDetailIdsRef = useRef<Set<string>>(new Set());
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
@@ -416,10 +417,13 @@ export const PracticeClientsPage = ({
     };
   }, [hydratedAddressByDetailId]);
   useEffect(() => {
+    processedDetailIdsRef.current = new Set();
+  }, [activePracticeId]);
+  useEffect(() => {
     if (!activePracticeId) return;
 
     const candidates = prefetchedItems.filter((detail) => {
-      if (hydratedAddressByDetailId[detail.id]) return false;
+      if (processedDetailIdsRef.current.has(detail.id)) return false;
       const hasAddressId = Boolean((detail as Record<string, unknown>).address_id ?? (detail as Record<string, unknown>).addressId);
       if (!hasAddressId) return false;
       const inlineAddress = resolveUserDetailAddressValue(detail);
@@ -439,21 +443,29 @@ export const PracticeClientsPage = ({
     ).then((results) => {
       if (cancelled) return;
       const updates: Record<string, unknown> = {};
-      for (const result of results) {
-        if (result.status !== 'fulfilled' || !result.value) continue;
+      results.forEach((result, index) => {
+        const detailId = candidates[index]?.id;
+        if (detailId) {
+          processedDetailIdsRef.current.add(detailId);
+        }
+        if (result.status === 'rejected') {
+          console.error('[People] Failed to hydrate person address', {
+            detailId,
+            reason: result.reason
+          });
+          return;
+        }
+        if (!result.value) return;
         updates[result.value.id] = result.value.address;
-      }
+      });
       if (Object.keys(updates).length === 0) return;
       setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
-    }).catch((error) => {
-      if (cancelled) return;
-      console.error('[People] Failed to hydrate person addresses from user-details', error);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [activePracticeId, hydratedAddressByDetailId, prefetchedItems]);
+  }, [activePracticeId, prefetchedItems]);
   const teamMembers = useMemo(() => {
     if (!activePracticeId) return [];
     return getMembers(activePracticeId)
