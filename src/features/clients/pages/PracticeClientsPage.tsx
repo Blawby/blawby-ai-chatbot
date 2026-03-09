@@ -200,16 +200,16 @@ const ClientDetailPanel = ({
     : null;
 
   return (
-    <div className={cn('h-full overflow-y-auto px-6 py-6', paddingClassName)}>
+    <div className={cn('h-full overflow-y-auto', paddingClassName)}>
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-glass/70 to-surface-overlay/85">
+        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-glass/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
           <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-white/10" />
           <div className="relative px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
-                <h3 className="truncate text-5xl font-semibold text-[rgb(var(--accent-foreground))]">{client.name}</h3>
-                <p className="mt-2 truncate text-lg text-[rgb(var(--accent-foreground))]/80">{client.email}</p>
+                <h3 className="truncate text-4xl font-semibold text-[rgb(var(--accent-foreground))] md:text-5xl">{client.name}</h3>
+                <p className="mt-2 truncate text-base text-[rgb(var(--accent-foreground))]/80 md:text-lg">{client.email}</p>
                 {messagingHint ? (
                   <p className="mt-2 text-xs text-[rgb(var(--accent-foreground))]/70">{messagingHint}</p>
                 ) : null}
@@ -219,28 +219,32 @@ const ClientDetailPanel = ({
         </section>
 
         <section className="glass-panel rounded-2xl">
-          <dl className="divide-y divide-line-glass/30">
-            <div className="px-5 py-4">
-              <dt className="text-sm font-medium text-input-placeholder">Email</dt>
-              <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
-            </div>
-            <div className="px-5 py-4">
-              <dt className="text-sm font-medium text-input-placeholder">Phone</dt>
-              <dd className="mt-1 text-sm text-input-text">{isClientRecord ? formatPhoneNumber(client.phone) : 'Not provided'}</dd>
-            </div>
-            <div className="px-5 py-4">
-              <dt className="text-sm font-medium text-input-placeholder">Address</dt>
-              <dd className="mt-1 text-sm text-input-text">{client.addressDisplay ?? 'Not provided'}</dd>
-            </div>
-            <div className="px-5 py-4">
-              <dt className="text-sm font-medium text-input-placeholder">
-                {isClientRecord ? 'Relationship status' : 'Team role'}
-              </dt>
-              <dd className="mt-1 text-sm text-input-text">
-                {isClientRecord ? relationshipLabel : teamRoleLabel}
-              </dd>
-            </div>
-          </dl>
+          <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+            <dl className="divide-y divide-line-glass/5">
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">Email</dt>
+                <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
+              </div>
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">Phone</dt>
+                <dd className="mt-1 text-sm text-input-text">{isClientRecord ? formatPhoneNumber(client.phone) : 'Not provided'}</dd>
+              </div>
+            </dl>
+            <dl className="divide-y divide-line-glass/5">
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">Address</dt>
+                <dd className="mt-1 text-sm text-input-text">{client.addressDisplay ?? 'Not provided'}</dd>
+              </div>
+              <div className="px-5 py-4">
+                <dt className="text-sm font-medium text-input-placeholder">
+                  {isClientRecord ? 'Relationship status' : 'Team role'}
+                </dt>
+                <dd className="mt-1 text-sm text-input-text">
+                  {isClientRecord ? relationshipLabel : teamRoleLabel}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </section>
 
         <section className="px-1 py-1">
@@ -986,7 +990,7 @@ export const PracticeClientsPage = ({
                   actions={detailHeaderActions}
                 />
               ) : null}
-              <div className="min-h-0 flex-1 overflow-hidden">{clientDetailBody}</div>
+              <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">{clientDetailBody}</div>
             </div>
           )}
         </div>
@@ -998,8 +1002,8 @@ export const PracticeClientsPage = ({
   if (selectedClientIdFromPath) {
     return (
       <>
-        <Page className="h-full">
-          <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
+        <div className="h-full min-h-0 overflow-hidden">
+          <div className="h-full min-h-0 flex flex-col">
             <DetailHeader
               title="Person details"
               showBack={showDetailBackButton}
@@ -1014,7 +1018,7 @@ export const PracticeClientsPage = ({
               )}
               actions={detailHeaderActions}
             />
-            <Panel className="flex-1 min-h-0 overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
               {clientsLoading ? (
                 <div className="h-full flex items-center justify-center">
                   <p className="text-sm text-input-placeholder">Loading people...</p>
@@ -1026,9 +1030,9 @@ export const PracticeClientsPage = ({
               ) : (
                 clientDetailBody
               )}
-            </Panel>
+            </div>
           </div>
-        </Page>
+        </div>
         {addClientModal}
       </>
     );

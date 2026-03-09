@@ -10,6 +10,11 @@ SET is_anonymous = COALESCE(
     WHERE backup.id = conversations.id
   ),
   0
+)
+WHERE EXISTS (
+  SELECT 1
+  FROM sqlite_master
+  WHERE type = 'table' AND name = 'conversations_is_anonymous_backup'
 );
 
 DROP TABLE IF EXISTS conversations_is_anonymous_backup;

@@ -207,7 +207,7 @@ export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSess
             : {};
           return {
             ...userRecord,
-            id: (typeof userRecord.id === 'string' ? userRecord.id : undefined) as unknown as string,
+            id: typeof userRecord.id === 'string' ? userRecord.id : '',
           } as UntrustedSessionUser;
         })(),
         transformError: true
