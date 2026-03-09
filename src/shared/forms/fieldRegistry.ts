@@ -8,7 +8,7 @@ import type { Address } from '@/shared/types/ui';
 import type { FunctionalComponent } from 'preact';
 
 // Relationship status options for people forms
-const STATUS_OPTIONS: ComboboxOption[] = [
+export const STATUS_OPTIONS: ComboboxOption[] = [
   { value: 'lead', label: 'Lead' },
   { value: 'active', label: 'Client' },
   { value: 'inactive', label: 'Former client' },

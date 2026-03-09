@@ -9,6 +9,16 @@ PRAGMA foreign_keys = OFF;
 
 BEGIN TRANSACTION;
 
+DROP TABLE IF EXISTS conversations_is_anonymous_backup;
+CREATE TABLE conversations_is_anonymous_backup (
+  id TEXT PRIMARY KEY,
+  is_anonymous INTEGER NOT NULL
+);
+
+INSERT INTO conversations_is_anonymous_backup (id, is_anonymous)
+SELECT id, COALESCE(is_anonymous, 0)
+FROM conversations;
+
 DROP TRIGGER IF EXISTS matters_after_update_timestamp;
 
 DROP INDEX IF EXISTS idx_matters_practice;

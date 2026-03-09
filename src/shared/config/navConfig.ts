@@ -170,9 +170,9 @@ const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'):
         label: PEOPLE_DIRECTORY_LABEL,
         children: [
           { id: 'people-all', label: 'All', href: `${basePath}/people` },
-          { id: 'people-clients', label: 'Clients', href: `${basePath}/clients` },
-          { id: 'people-team', label: 'Team', href: `${basePath}/team` },
-          { id: 'people-archived', label: 'Archived', href: `${basePath}/archived` },
+          { id: 'people-clients', label: 'Clients', href: `${basePath}/people/clients` },
+          { id: 'people-team', label: 'Team', href: `${basePath}/people/team` },
+          { id: 'people-archived', label: 'Archived', href: `${basePath}/people/archived` },
         ],
       },
     ],

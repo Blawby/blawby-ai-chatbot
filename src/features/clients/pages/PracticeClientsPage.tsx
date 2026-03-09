@@ -39,6 +39,7 @@ import {
   UserIcon,
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { getWorkerApiUrl } from '@/config/urls';
 
 const STATUS_LABELS = PERSON_RELATIONSHIP_STATUS_LABELS;
 const PEOPLE_PAGE_SUBTITLE = 'Home > People directory for lookup and relationship status context.';
@@ -207,10 +208,10 @@ const ClientDetailPanel = ({
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
-                <h3 className="truncate text-5xl font-semibold text-input-text">{client.name}</h3>
-                <p className="mt-2 truncate text-lg text-input-placeholder">{client.email}</p>
+                <h3 className="truncate text-5xl font-semibold text-[rgb(var(--accent-foreground))]">{client.name}</h3>
+                <p className="mt-2 truncate text-lg text-[rgb(var(--accent-foreground))]/80">{client.email}</p>
                 {messagingHint ? (
-                  <p className="mt-2 text-xs text-input-placeholder">{messagingHint}</p>
+                  <p className="mt-2 text-xs text-[rgb(var(--accent-foreground))]/70">{messagingHint}</p>
                 ) : null}
               </div>
             </div>
@@ -307,6 +308,8 @@ export const PracticeClientsPage = ({
   const [memoSubmitting, setMemoSubmitting] = useState(false);
   const [memoActionId, setMemoActionId] = useState<string | null>(null);
   const [sendMessagePending, setSendMessagePending] = useState(false);
+  const [isFetchingMembers, setIsFetchingMembers] = useState(false);
+  const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
@@ -381,10 +384,21 @@ export const PracticeClientsPage = ({
       }));
   }, [activePracticeId, getMembers]);
   useEffect(() => {
-    if (!activePracticeId) return;
-    fetchMembers(activePracticeId).catch((error) => {
-      console.error('[People] Failed to load team members', error);
-    });
+    if (!activePracticeId) {
+      setIsFetchingMembers(false);
+      setTeamMembersLoaded(false);
+      return;
+    }
+    setIsFetchingMembers(true);
+    setTeamMembersLoaded(false);
+    fetchMembers(activePracticeId)
+      .catch((error) => {
+        console.error('[People] Failed to load team members', error);
+      })
+      .finally(() => {
+        setIsFetchingMembers(false);
+        setTeamMembersLoaded(true);
+      });
   }, [activePracticeId, fetchMembers]);
   const clients = useMemo(() => {
     const peopleItems = prefetchedItems.map(buildClientRecord);
@@ -395,14 +409,16 @@ export const PracticeClientsPage = ({
       ? peopleItems.filter((client) => client.status === statusFilter)
       : peopleItems.filter((client) => client.status !== 'archived');
     if (isTeamListRoute) {
+      if (!teamMembersLoaded) return [];
       return teamMembers;
     }
     if (isClientsListRoute) {
       return activePeople;
     }
-    return [...activePeople, ...teamMembers];
-  }, [buildClientRecord, isArchivedListRoute, isClientsListRoute, isTeamListRoute, prefetchedItems, statusFilter, teamMembers]);
-  const clientsLoading = prefetchedLoading;
+    return teamMembersLoaded ? [...activePeople, ...teamMembers] : activePeople;
+  }, [buildClientRecord, isArchivedListRoute, isClientsListRoute, isTeamListRoute, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
+  const isTeamSelectionRoute = isTeamListRoute || selectedClientIdFromPath?.startsWith('team:') === true;
+  const clientsLoading = prefetchedLoading || (isTeamSelectionRoute && isFetchingMembers);
   const clientsError = prefetchedError;
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
@@ -534,7 +550,7 @@ export const PracticeClientsPage = ({
         setSelectedClientFallback(null);
       });
     return () => controller.abort();
-  }, [activePracticeId, buildClientRecord, selectedClientFromList, selectedClientIdFromPath]);
+  }, [activePracticeId, buildClientRecord, selectedClientFromList, selectedClientIdFromPath, teamMembersLoaded]);
 
   const handleMemoSubmit = useCallback(async (text: string) => {
     if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;
@@ -597,8 +613,9 @@ export const PracticeClientsPage = ({
     if (sendMessagePending) return;
     setSendMessagePending(true);
     try {
-      const params = new URLSearchParams({ practiceId: activePracticeId });
-      const response = await fetch(`/api/conversations?${params.toString()}`, {
+      const endpoint = new URL('/api/conversations', getWorkerApiUrl());
+      endpoint.searchParams.set('practiceId', activePracticeId);
+      const response = await fetch(endpoint.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -998,7 +1015,17 @@ export const PracticeClientsPage = ({
               actions={detailHeaderActions}
             />
             <Panel className="flex-1 min-h-0 overflow-hidden">
-              {clientDetailBody}
+              {clientsLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-input-placeholder">Loading people...</p>
+                </div>
+              ) : clientsError ? (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-input-placeholder">{clientsError}</p>
+                </div>
+              ) : (
+                clientDetailBody
+              )}
             </Panel>
           </div>
         </Page>

@@ -13,6 +13,7 @@ import { isAddressEmpty } from '@/shared/utils/addressFormat';
 import { commonSchemas } from '@/shared/ui/validation/schemas';
 import { addressLooseSchema, addressStrictWithCountrySchema } from '@/shared/ui/validation/schemas/address';
 import type { Address } from '@/shared/types/address';
+import { STATUS_OPTIONS } from '@/shared/forms/fieldRegistry';
 
 export const ADDRESS_EXPERIENCE_FIELDS = [
   'name',
@@ -73,13 +74,6 @@ export interface AddressExperienceFormProps {
   className?: string;
   inputClassName?: string;
 }
-
-const STATUS_OPTIONS: ComboboxOption[] = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'archived', label: 'Archived' },
-];
 
 const CURRENCY_OPTIONS: ComboboxOption[] = [
   { value: 'usd', label: 'USD' },

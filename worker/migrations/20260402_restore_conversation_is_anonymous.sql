@@ -3,7 +3,16 @@
 ALTER TABLE conversations ADD COLUMN is_anonymous INTEGER NOT NULL DEFAULT 0;
 
 UPDATE conversations
-SET is_anonymous = CASE WHEN user_id IS NULL THEN 1 ELSE 0 END;
+SET is_anonymous = COALESCE(
+  (
+    SELECT backup.is_anonymous
+    FROM conversations_is_anonymous_backup AS backup
+    WHERE backup.id = conversations.id
+  ),
+  0
+);
+
+DROP TABLE IF EXISTS conversations_is_anonymous_backup;
 
 CREATE INDEX IF NOT EXISTS idx_conversations_practice_anonymous_updated
   ON conversations(practice_id, is_anonymous, updated_at DESC);

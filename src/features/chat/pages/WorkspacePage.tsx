@@ -332,7 +332,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (!location.path.startsWith(legacyPrefix)) return;
     const nextPath = `${normalizedBase}/people${location.path.slice(legacyPrefix.length)}`;
     if (nextPath === location.path) return;
-    navigate(nextPath);
+    navigate(nextPath, true);
   }, [isPracticeWorkspace, location.path, navigate, normalizedBase, view]);
   const reportSectionFromPath = useMemo(() => {
     if (view !== 'reports' || !isPracticeWorkspace) return 'all-reports';
