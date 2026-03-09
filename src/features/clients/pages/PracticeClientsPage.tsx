@@ -117,6 +117,30 @@ const formatAddressDisplay = (raw: unknown): string | null => {
   return parts.length > 0 ? parts.join(', ') : null;
 };
 
+const resolveUserDetailAddressValue = (detail: PersonRecord): unknown => {
+  const detailRecord = detail as unknown as Record<string, unknown>;
+  const nestedAddress = detailRecord.address;
+  if (nestedAddress && typeof nestedAddress === 'object') {
+    return nestedAddress;
+  }
+
+  // Some user-details responses include flattened address fields instead of a nested object.
+  const flattened: Record<string, unknown> = {};
+  const line1 = typeof detailRecord.line1 === 'string'
+    ? detailRecord.line1
+    : (typeof detailRecord.address === 'string' ? detailRecord.address : undefined);
+  if (line1) flattened.line1 = line1;
+  if (typeof detailRecord.apartment === 'string') flattened.apartment = detailRecord.apartment;
+  if (typeof detailRecord.line2 === 'string') flattened.line2 = detailRecord.line2;
+  if (typeof detailRecord.city === 'string') flattened.city = detailRecord.city;
+  if (typeof detailRecord.state === 'string') flattened.state = detailRecord.state;
+  if (typeof detailRecord.postal_code === 'string') flattened.postal_code = detailRecord.postal_code;
+  if (typeof detailRecord.postalCode === 'string') flattened.postalCode = detailRecord.postalCode;
+  if (typeof detailRecord.country === 'string') flattened.country = detailRecord.country;
+
+  return Object.keys(flattened).length > 0 ? flattened : null;
+};
+
 const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
@@ -314,6 +338,7 @@ export const PracticeClientsPage = ({
   const [sendMessagePending, setSendMessagePending] = useState(false);
   const [isFetchingMembers, setIsFetchingMembers] = useState(false);
   const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
+  const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
@@ -370,7 +395,7 @@ export const PracticeClientsPage = ({
       email: detail.user?.email ?? 'Unknown email',
       phone: detail.user?.phone ?? null,
       status: detail.status,
-      addressDisplay: formatAddressDisplay((detail as Record<string, unknown>).address)
+      addressDisplay: formatAddressDisplay(resolveUserDetailAddressValue(detail))
     };
   }, []);
   const teamMembers = useMemo(() => {
@@ -391,17 +416,23 @@ export const PracticeClientsPage = ({
     if (!activePracticeId) {
       setIsFetchingMembers(false);
       setTeamMembersLoaded(false);
+      setTeamMembersError(null);
       return;
     }
     setIsFetchingMembers(true);
     setTeamMembersLoaded(false);
+    setTeamMembersError(null);
     fetchMembers(activePracticeId)
+      .then(() => {
+        setTeamMembersLoaded(true);
+      })
       .catch((error) => {
         console.error('[People] Failed to load team members', error);
+        setTeamMembersLoaded(false);
+        setTeamMembersError(error instanceof Error ? error.message : 'Failed to load team members');
       })
       .finally(() => {
         setIsFetchingMembers(false);
-        setTeamMembersLoaded(true);
       });
   }, [activePracticeId, fetchMembers]);
   const clients = useMemo(() => {
@@ -422,8 +453,12 @@ export const PracticeClientsPage = ({
     return teamMembersLoaded ? [...activePeople, ...teamMembers] : activePeople;
   }, [buildClientRecord, isArchivedListRoute, isClientsListRoute, isTeamListRoute, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
   const isTeamSelectionRoute = isTeamListRoute || selectedClientIdFromPath?.startsWith('team:') === true;
-  const clientsLoading = prefetchedLoading || (isTeamSelectionRoute && isFetchingMembers);
-  const clientsError = prefetchedError;
+  const isCombinedPeopleRoute = !isClientsListRoute && !isTeamListRoute && !isArchivedListRoute;
+  const clientsLoading = prefetchedLoading
+    || (isTeamSelectionRoute && isFetchingMembers)
+    || (isCombinedPeopleRoute && !teamMembersLoaded);
+  const clientsError = prefetchedError
+    ?? ((isCombinedPeopleRoute || isTeamListRoute) ? teamMembersError : null);
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
     [clients]
