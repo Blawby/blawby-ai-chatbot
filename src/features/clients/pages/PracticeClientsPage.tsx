@@ -141,6 +141,18 @@ const resolveUserDetailAddressValue = (detail: PersonRecord): unknown => {
   return Object.keys(flattened).length > 0 ? flattened : null;
 };
 
+const hasRenderableAddressFields = (raw: unknown): boolean => {
+  if (!raw || typeof raw !== 'object') return false;
+  const value = raw as Record<string, unknown>;
+  return typeof value.address === 'string'
+    || typeof value.line1 === 'string'
+    || typeof value.city === 'string'
+    || typeof value.state === 'string'
+    || typeof value.postalCode === 'string'
+    || typeof value.postal_code === 'string'
+    || typeof value.country === 'string';
+};
+
 const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
   <div className="flex h-full items-center justify-center p-6">
     <div className="max-w-md text-center">
@@ -339,6 +351,7 @@ export const PracticeClientsPage = ({
   const [isFetchingMembers, setIsFetchingMembers] = useState(false);
   const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
+  const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
@@ -387,6 +400,10 @@ export const PracticeClientsPage = ({
 
   const buildClientRecord = useCallback((detail: PersonRecord): DirectoryRecord => {
     const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown person';
+    const hydratedAddress = hydratedAddressByDetailId[detail.id];
+    const resolvedAddress = hasRenderableAddressFields(hydratedAddress)
+      ? hydratedAddress
+      : resolveUserDetailAddressValue(detail);
     return {
       id: detail.id,
       kind: 'client',
@@ -395,9 +412,48 @@ export const PracticeClientsPage = ({
       email: detail.user?.email ?? 'Unknown email',
       phone: detail.user?.phone ?? null,
       status: detail.status,
-      addressDisplay: formatAddressDisplay(resolveUserDetailAddressValue(detail))
+      addressDisplay: formatAddressDisplay(resolvedAddress)
     };
-  }, []);
+  }, [hydratedAddressByDetailId]);
+  useEffect(() => {
+    if (!activePracticeId) return;
+
+    const candidates = prefetchedItems.filter((detail) => {
+      if (hydratedAddressByDetailId[detail.id]) return false;
+      const hasAddressId = Boolean((detail as Record<string, unknown>).address_id ?? (detail as Record<string, unknown>).addressId);
+      if (!hasAddressId) return false;
+      const inlineAddress = resolveUserDetailAddressValue(detail);
+      return !hasRenderableAddressFields(inlineAddress);
+    });
+
+    if (candidates.length === 0) return;
+
+    let cancelled = false;
+    void Promise.allSettled(
+      candidates.map(async (detail) => {
+        const hydrated = await getUserDetail(activePracticeId, detail.id);
+        const resolved = hydrated ? resolveUserDetailAddressValue(hydrated) : null;
+        if (!resolved || !hasRenderableAddressFields(resolved)) return null;
+        return { id: detail.id, address: resolved };
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      const updates: Record<string, unknown> = {};
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value) continue;
+        updates[result.value.id] = result.value.address;
+      }
+      if (Object.keys(updates).length === 0) return;
+      setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
+    }).catch((error) => {
+      if (cancelled) return;
+      console.error('[People] Failed to hydrate person addresses from user-details', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePracticeId, hydratedAddressByDetailId, prefetchedItems]);
   const teamMembers = useMemo(() => {
     if (!activePracticeId) return [];
     return getMembers(activePracticeId)
