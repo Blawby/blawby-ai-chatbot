@@ -26,6 +26,26 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
   }
 
   const remoteResponse = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
+  if (!remoteResponse.ok) {
+    const errorBody = await remoteResponse.text().catch(() => '');
+    const headers = new Headers({
+      'Cache-Control': 'no-store',
+    });
+
+    const contentType = remoteResponse.headers.get('Content-Type') || '';
+    if (contentType) {
+      headers.set('Content-Type', contentType);
+    } else {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    return new Response(errorBody || JSON.stringify({ error: remoteResponse.statusText || 'Upstream request failed' }), {
+      status: remoteResponse.status,
+      statusText: remoteResponse.statusText,
+      headers,
+    });
+  }
+
   const payload = await remoteResponse.json().catch(() => null) as Record<string, unknown> | null;
 
   const dataRecord =
