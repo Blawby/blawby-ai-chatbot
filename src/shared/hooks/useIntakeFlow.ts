@@ -27,6 +27,50 @@ const sanitizeName = (name: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
+const parseWidgetAttributionFromQuery = (): Record<string, string> | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('bw_attribution');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== 'string') continue;
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      result[key] = trimmed;
+    }
+    return Object.keys(result).length > 0 ? result : null;
+  } catch {
+    return null;
+  }
+};
+
+const emitWidgetLeadSubmitted = (payload: {
+  intakeUuid: string;
+  status: string;
+  requiresPayment: boolean;
+}) => {
+  if (typeof window === 'undefined') return;
+  if (window.parent === window) return;
+
+  const attribution = parseWidgetAttributionFromQuery();
+  const message = {
+    type: 'blawby:lead-submitted',
+    intakeUuid: payload.intakeUuid,
+    status: payload.status,
+    requiresPayment: payload.requiresPayment,
+    ...(attribution ? { attribution } : {})
+  };
+
+  try {
+    window.parent.postMessage(message, '*');
+  } catch (error) {
+    console.warn('[Intake] Failed to notify parent frame about lead submission', error);
+  }
+};
+
 interface UseIntakeFlowOptions {
   conversationId: string | undefined;
   practiceId: string | undefined;
@@ -329,6 +373,11 @@ export function useIntakeFlow({
         throw new Error('Intake submission returned an unexpected response');
       }
       const { intake_uuid: intakeUuid, payment_link_url: paymentLinkUrl } = result.data;
+      emitWidgetLeadSubmitted({
+        intakeUuid,
+        status: result.data.status ?? 'submitted',
+        requiresPayment: Boolean(paymentLinkUrl)
+      });
       if (paymentLinkUrl) {
         keepLockedForRedirect = true;
         if (typeof window !== 'undefined') {
