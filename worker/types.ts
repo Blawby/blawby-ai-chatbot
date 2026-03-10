@@ -158,6 +158,7 @@ export interface Env {
   OPENAI_TOKEN?: string;
   AI_PROVIDER?: string;
   AI_MODEL?: string;
+  AI_GATEWAY_WORKERS_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
 

@@ -115,21 +115,20 @@ export async function extractPracticeContext(
         ? authContext.activeOrganizationId.trim()
         : null;
 
-    if (!isAnonymous && authPracticeId) {
-      return {
-        practiceId: authPracticeId,
-        source: 'auth',
-        isAuthenticated: true,
-        userId: authContext.user.id
-      };
-    }
-
-    // Authenticated but no active org (e.g., client workspace) falls through to URL/default logic
     if (urlPracticeId) {
       return {
         practiceId: urlPracticeId,
         source: 'url',
         isAuthenticated: !isAnonymous,
+        userId: authContext.user.id
+      };
+    }
+
+    if (!isAnonymous && authPracticeId) {
+      return {
+        practiceId: authPracticeId,
+        source: 'auth',
+        isAuthenticated: true,
         userId: authContext.user.id
       };
     }

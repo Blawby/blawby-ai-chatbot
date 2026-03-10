@@ -39,6 +39,7 @@ import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndi
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
+import { peekAnonymousSessionId, peekAnonymousUserId, peekConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
@@ -332,7 +333,19 @@ export function MainApp({
     const hadPreAuthIdentity = Boolean(preAuthUserIdRef.current);
     if (activeConversationId && practiceId && hadPreAuthIdentity) {
       try {
-        await linkConversationToUser(activeConversationId, practiceId);
+        const previousParticipantId =
+          peekConversationAnonymousParticipant(activeConversationId) ??
+          peekAnonymousUserId();
+        const anonymousSessionId = peekAnonymousSessionId();
+        await linkConversationToUser(
+          activeConversationId,
+          practiceId,
+          undefined,
+          {
+            previousParticipantId: previousParticipantId ?? undefined,
+            anonymousSessionId: anonymousSessionId ?? undefined,
+          }
+        );
         preAuthUserIdRef.current = null;
       } catch (error) {
         console.warn('[MainApp] Conversation link after auth failed', error);

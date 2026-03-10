@@ -107,8 +107,6 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     data?: { id?: string };
     id?: string;
     practiceId?: string;
-    organization_id?: string;
-    organizationId?: string;
   };
   const practiceId = 'practiceId' in practiceDetails && typeof practiceDetails.practiceId === 'string'
       ? practiceDetails.practiceId 
@@ -116,11 +114,10 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
         ? practiceDetails.data.id
         : 'id' in practiceDetails && typeof practiceDetails.id === 'string'
           ? practiceDetails.id
-          : 'organization_id' in practiceDetails && typeof practiceDetails.organization_id === 'string'
-            ? practiceDetails.organization_id
-            : 'organizationId' in practiceDetails && typeof practiceDetails.organizationId === 'string'
-              ? practiceDetails.organizationId
           : null;
+  if (!practiceId) {
+    throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
+  }
 
   // 4. Bootstrap an anon-safe active conversation so the widget can skip the extra
   // client-side get-or-create round-trip after bootstrap.
