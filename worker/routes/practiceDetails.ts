@@ -31,8 +31,6 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
   const normalizedHeaders = new Headers(response.headers);
   normalizedHeaders.delete('content-encoding');
   normalizedHeaders.delete('content-length');
-  // Public details are intentionally readable by external websites embedding the widget.
-  normalizedHeaders.set('Access-Control-Allow-Origin', '*');
 
   let payload: Record<string, unknown> | null = null;
   try {

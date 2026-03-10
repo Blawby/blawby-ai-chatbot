@@ -101,7 +101,16 @@ export function withCORS(
 ) {
   return async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
     const resolvedOptions = typeof options === 'function' ? options(env) : options;
-    const corsOptions = { ...DEFAULT_CORS_OPTIONS, ...resolvedOptions };
+    const baseCorsOptions = { ...DEFAULT_CORS_OPTIONS, ...resolvedOptions };
+    const requestPath = new URL(request.url).pathname;
+    const corsOptions: Required<CorsOptions> = requestPath.startsWith('/api/practice/details/')
+      ? {
+        ...baseCorsOptions,
+        // Public practice details are consumed by third-party websites embedding the widget.
+        allowedOrigins: '*',
+        allowCredentials: false
+      }
+      : baseCorsOptions;
     // Handle preflight requests
     if (request.method === 'OPTIONS') {
       const corsHeaders = createCorsHeaders(request, corsOptions);
