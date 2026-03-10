@@ -45,10 +45,31 @@ const SESSION_CACHE_MAX_ENTRIES = 200;
 const sessionCache = new Map<string, CachedSession>();
 const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
 const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
+const ANON_USER_HEADER = 'x-blawby-anon-user-id';
+const ANON_SESSION_HEADER = 'x-blawby-anon-session-id';
 const MEMBERSHIP_CACHE_TTL_MS = 30 * 1000;
 const MEMBERSHIP_CACHE_MAX_ENTRIES = 500;
 const membershipCache = new Map<string, CachedMembership>();
 const membershipValidationInflight = new Map<string, Promise<string>>();
+
+const ANON_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
+
+const supportsAnonymousHeaderAuth = (request: Request): boolean => {
+  const path = new URL(request.url).pathname;
+  if (path.startsWith('/api/conversations')) return true;
+  if (path === '/api/ai/chat') return true;
+  if (path === '/api/ai/intent') return true;
+  return false;
+};
+
+const readAnonymousHeaderAuth = (request: Request): { userId: string; sessionId: string } | null => {
+  if (!supportsAnonymousHeaderAuth(request)) return null;
+  const userId = request.headers.get(ANON_USER_HEADER)?.trim() || '';
+  if (!ANON_ID_PATTERN.test(userId)) return null;
+  const sessionIdRaw = request.headers.get(ANON_SESSION_HEADER)?.trim() || '';
+  const sessionId = ANON_ID_PATTERN.test(sessionIdRaw) ? sessionIdRaw : `anon-${userId}`;
+  return { userId, sessionId };
+};
 
 const getSessionCacheKey = (cookieHeader: string): string => {
   const cookies = cookieHeader.split(';');
@@ -362,6 +383,26 @@ export async function requireAuth(
     previousAnonUserId?: string | null;
   };
   if (!cookieHeader || !cookieHeader.trim()) {
+    const headerAuth = readAnonymousHeaderAuth(request);
+    if (headerAuth) {
+      return {
+        user: {
+          id: headerAuth.userId,
+          email: '',
+          name: 'Anonymous User',
+          emailVerified: false,
+          isAnonymous: true
+        },
+        session: {
+          id: headerAuth.sessionId,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        },
+        cookie: '',
+        isAnonymous: true,
+        activeOrganizationId: null,
+        previousAnonUserId: null
+      };
+    }
     throw HttpErrors.unauthorized('Authentication required - session cookie missing');
   }
 

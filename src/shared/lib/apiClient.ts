@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -15,6 +15,7 @@ import {
   assertMinorUnits,
   type MajorAmount
 } from '@/shared/utils/money';
+import { peekAnonymousSessionId, peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -95,6 +96,24 @@ apiClient.interceptors.request.use(
 
     // Use session cookies for auth; include credentials for cross-origin requests when allowed.
     config.withCredentials = true;
+
+    // In embedded widget contexts, third-party cookies may be blocked.
+    // Send cached anonymous identity headers so the worker can resolve the same visitor.
+    if (typeof window !== 'undefined') {
+      const isWidgetRuntime = new URLSearchParams(window.location.search).get('v') === 'widget';
+      if (isWidgetRuntime) {
+        const anonUserId = peekAnonymousUserId();
+        const anonSessionId = peekAnonymousSessionId();
+        const headers = AxiosHeaders.from(config.headers);
+        if (anonUserId) {
+          headers.set('X-Blawby-Anon-User-Id', anonUserId);
+        }
+        if (anonSessionId) {
+          headers.set('X-Blawby-Anon-Session-Id', anonSessionId);
+        }
+        config.headers = headers;
+      }
+    }
 
     return config;
   },
