@@ -103,7 +103,10 @@ export function withCORS(
     const resolvedOptions = typeof options === 'function' ? options(env) : options;
     const baseCorsOptions = { ...DEFAULT_CORS_OPTIONS, ...resolvedOptions };
     const requestPath = new URL(request.url).pathname;
-    const corsOptions: Required<CorsOptions> = requestPath.startsWith('/api/practice/details/')
+    const corsOptions: Required<CorsOptions> = (
+      requestPath.startsWith('/api/practice/details/') ||
+      requestPath.startsWith('/api/widget/practice-details/')
+    )
       ? {
         ...baseCorsOptions,
         // Public practice details are consumed by third-party websites embedding the widget.

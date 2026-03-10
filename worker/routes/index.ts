@@ -5,6 +5,7 @@ export { handlePractices } from './practices';
 export { handleActivity } from './activity';
 export { handleConfig } from './config';
 export { handlePracticeDetails } from './practiceDetails';
+export { handleWidgetPracticeDetails } from './widgetPracticeDetails';
 export { handleAiChat } from './aiChat';
 export { handleAiIntent } from './aiIntent';
 export { handleParalegal } from './paralegal';

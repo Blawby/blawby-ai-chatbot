@@ -9,6 +9,7 @@ import {
   handleConfig,
   handleNotifications,
   handlePracticeDetails,
+  handleWidgetPracticeDetails,
   handlePractices,
   handleAuthProxy,
   handleBackendProxy,
@@ -100,6 +101,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleStatus(request, env);
     } else if (path.startsWith('/api/notifications')) {
       response = await handleNotifications(request, env);
+    } else if (path.startsWith('/api/widget/practice-details/')) {
+      response = await handleWidgetPracticeDetails(request, env);
     } else if (path.startsWith('/api/practice/details/')) {
       response = await handlePracticeDetails(request, env);
     } else if (path.startsWith('/api/config')) {
