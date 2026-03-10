@@ -809,8 +809,14 @@ function WidgetRoute({
   const practiceConfig = useMemo<UIPracticeConfig | null>(() => {
     if (!data?.practiceDetails) return null;
     const pd = data.practiceDetails as Record<string, unknown>;
+    const dataRecord = (pd.data && typeof pd.data === 'object'
+      ? pd.data as Record<string, unknown>
+      : null);
     const detailsRecord = (pd.details && typeof pd.details === 'object'
       ? pd.details as Record<string, unknown>
+      : null);
+    const nestedDetailsRecord = (dataRecord?.details && typeof dataRecord.details === 'object'
+      ? dataRecord.details as Record<string, unknown>
       : null);
     const resolveString = (value: unknown): string | null =>
       typeof value === 'string' && value.trim().length > 0 ? value : null;
@@ -825,8 +831,12 @@ function WidgetRoute({
       ?? resolveString(pd.organizationId);
     const accentColor = resolveString(pd.accentColor)
       ?? resolveString(pd.accent_color)
+      ?? resolveString(dataRecord?.accentColor)
+      ?? resolveString(dataRecord?.accent_color)
       ?? resolveString(detailsRecord?.accentColor)
-      ?? resolveString(detailsRecord?.accent_color);
+      ?? resolveString(detailsRecord?.accent_color)
+      ?? resolveString(nestedDetailsRecord?.accentColor)
+      ?? resolveString(nestedDetailsRecord?.accent_color);
     const introMessage = resolveString(pd.introMessage)
       ?? resolveString(pd.intro_message)
       ?? resolveString(detailsRecord?.introMessage)

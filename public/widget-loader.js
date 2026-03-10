@@ -14,7 +14,7 @@
  *   practiceSlug  – (required) Your practice slug
  *   baseUrl       – Override the Blawby app URL (default: https://ai.blawby.com)
  *   position      – 'bottom-right' (default) | 'bottom-left'
- *   primaryColor  – Optional launcher color override; if omitted, uses practice accent_color from /api/practice/details/:slug
+ *   primaryColor  – Optional launcher color override; if omitted, uses practice accent_color from /api/widget/practice-details/:slug
  *   launcherSize  – Size in pixels of the circular button (default: 56)
  *   zIndex        – CSS z-index for the widget layer      (default: 2147483647)
  *   label         – Accessible label for the launcher     (default: 'Chat with us')
@@ -290,7 +290,7 @@
   chatIcon.setAttribute('height', '28');
   chatIcon.setAttribute('viewBox', '0 0 24 24');
   chatIcon.setAttribute('fill', 'none');
-  chatIcon.setAttribute('stroke', foregroundColor);
+  chatIcon.setAttribute('stroke', 'currentColor');
   chatIcon.setAttribute('stroke-width', '2.2');
   chatIcon.setAttribute('stroke-linecap', 'round');
   chatIcon.setAttribute('stroke-linejoin', 'round');
@@ -304,7 +304,7 @@
   closeIcon.setAttribute('height', '28');
   closeIcon.setAttribute('viewBox', '0 0 24 24');
   closeIcon.setAttribute('fill', 'none');
-  closeIcon.setAttribute('stroke', foregroundColor);
+  closeIcon.setAttribute('stroke', 'currentColor');
   closeIcon.setAttribute('stroke-width', '3');
   closeIcon.setAttribute('stroke-linecap', 'round');
   closeIcon.setAttribute('stroke-linejoin', 'round');
@@ -325,8 +325,9 @@
   container.appendChild(frameWrap);
   container.appendChild(launcher);
   
-  // Set initial primary color variable on container to avoids flash
+  // Set initial primary color variable on container to avoid a flash
   container.style.setProperty('--blawby-widget-primary-color', activePrimaryColor);
+  launcher.style.color = foregroundColor;
 
   d.body.appendChild(container);
 
@@ -338,8 +339,7 @@
     activePrimaryColor = normalized;
     foregroundColor = getForegroundColor(normalized);
     container.style.setProperty('--blawby-widget-primary-color', normalized);
-    chatIcon.setAttribute('stroke', foregroundColor);
-    closeIcon.setAttribute('stroke', foregroundColor);
+    launcher.style.color = foregroundColor;
     emitEvent('theme_applied', {
       primaryColor: normalized,
       source: source || 'unknown',
@@ -355,7 +355,7 @@
 
     applyPrimaryColor(DEFAULT_PRIMARY_COLOR, 'default');
 
-    var detailsUrl = cfg.baseUrl + '/api/practice/details/' + encodeURIComponent(cfg.practiceSlug);
+    var detailsUrl = cfg.baseUrl + '/api/widget/practice-details/' + encodeURIComponent(cfg.practiceSlug);
     fetch(detailsUrl)
       .then(function (response) {
         if (!response.ok) {
@@ -364,9 +364,12 @@
         return response.json();
       })
       .then(function (practiceDetails) {
-        var accentColor = practiceDetails && typeof practiceDetails.accent_color === 'string'
-          ? practiceDetails.accent_color
-          : null;
+        var accentColor = null;
+        if (practiceDetails && typeof practiceDetails.accentColor === 'string') {
+          accentColor = practiceDetails.accentColor;
+        } else if (practiceDetails && typeof practiceDetails.accent_color === 'string') {
+          accentColor = practiceDetails.accent_color;
+        }
         if (!accentColor) return;
         applyPrimaryColor(accentColor, 'practice_accent');
       })
