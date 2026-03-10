@@ -142,7 +142,8 @@ export function MainApp({
       ? clientPracticeSlug
       : (currentPractice?.slug ?? practiceConfig.slug ?? null);
 
-  const allowPublicPracticeDetails = workspace === 'public' || workspace === 'client';
+  const shouldFetchPracticeDetails = !isWidget;
+  const allowPublicPracticeDetails = shouldFetchPracticeDetails && (workspace === 'public' || workspace === 'client');
   const {
     details: practiceDetails,
     fetchDetails: fetchPracticeDetails,
@@ -150,9 +151,10 @@ export function MainApp({
   } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug, allowPublicPracticeDetails);
 
   useEffect(() => {
+    if (!shouldFetchPracticeDetails) return;
     if (!practiceDetailsId || hasPracticeDetails) return;
     void fetchPracticeDetails();
-  }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
+  }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId, shouldFetchPracticeDetails]);
 
   const {
     isPublicWorkspace,
