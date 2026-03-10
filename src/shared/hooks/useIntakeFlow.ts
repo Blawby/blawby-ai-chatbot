@@ -64,8 +64,40 @@ const emitWidgetLeadSubmitted = (payload: {
     ...(attribution ? { attribution } : {})
   };
 
+  const allowedOrigins = (() => {
+    const origins = new Set<string>();
+
+    const referrer = typeof document !== 'undefined' ? document.referrer : '';
+    if (referrer) {
+      try {
+        origins.add(new URL(referrer).origin);
+      } catch {
+        // ignore malformed referrer
+      }
+    }
+
+    const ancestorOrigins = window.location.ancestorOrigins;
+    if (ancestorOrigins && ancestorOrigins.length > 0) {
+      for (let i = 0; i < ancestorOrigins.length; i += 1) {
+        const origin = ancestorOrigins.item(i);
+        if (origin) origins.add(origin);
+      }
+    }
+
+    return Array.from(origins);
+  })();
+
+  // If we cannot determine a trusted parent origin, do not emit the event.
+  // This avoids broadcasting intake identifiers to an unknown embedding context.
+  if (allowedOrigins.length === 0) {
+    console.warn('[Intake] Skipping parent lead-submitted event; no trusted parent origin detected');
+    return;
+  }
+
   try {
-    window.parent.postMessage(message, '*');
+    for (const origin of allowedOrigins) {
+      window.parent.postMessage(message, origin);
+    }
   } catch (error) {
     console.warn('[Intake] Failed to notify parent frame about lead submission', error);
   }
