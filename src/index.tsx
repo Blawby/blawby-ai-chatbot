@@ -634,7 +634,8 @@ function PublicPracticeRoute({
   } = usePracticeConfig({
     onError: handlePracticeError,
     practiceId: slug,
-    allowUnauthenticated: true
+    allowUnauthenticated: true,
+    enabled: !isWidget,
   });
   const resolvedPracticeId = useMemo(
     () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : ''),

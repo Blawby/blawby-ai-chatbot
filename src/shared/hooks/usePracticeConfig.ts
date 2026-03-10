@@ -58,20 +58,22 @@ interface UsePracticeConfigOptions {
   practiceId?: string; // Optional explicit override
   allowUnauthenticated?: boolean;
   refreshKey?: string | number | null;
+  enabled?: boolean;
 }
 
 export const usePracticeConfig = ({
   onError,
   practiceId: explicitPracticeId,
   allowUnauthenticated = false,
-  refreshKey
+  refreshKey,
+  enabled = true,
 }: UsePracticeConfigOptions = {}) => {
   const { session } = useSessionContext();
   const isAuthenticated = Boolean(session?.user);
   const authCacheMode: 'public' | 'auth' | 'unauth' = allowUnauthenticated
     ? 'public'
     : (isAuthenticated ? 'auth' : 'unauth');
-  const canFetch = allowUnauthenticated || isAuthenticated;
+  const canFetch = enabled && (allowUnauthenticated || isAuthenticated);
   const practiceId = typeof explicitPracticeId === 'string' ? explicitPracticeId.trim() : '';
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -281,6 +283,14 @@ export const usePracticeConfig = ({
 
   // Fetch practice config when explicit practiceId changes
   useEffect(() => {
+    if (!enabled) {
+      setPracticeNotFound(false);
+      setLoadError(null);
+      setIsLoading(false);
+      setPracticeConfig(buildDefaultPracticeConfig());
+      return;
+    }
+
     if (canFetch && practiceId) {
       fetchPracticeConfig(practiceId);
     } else if (!practiceId) {
@@ -296,9 +306,10 @@ export const usePracticeConfig = ({
         currentRequestRef.current.abortController.abort();
       }
     };
-  }, [practiceId, canFetch, fetchPracticeConfig]);
+  }, [practiceId, canFetch, fetchPracticeConfig, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!practiceId) return;
     if (refreshKey === undefined) return;
     if (refreshKeyRef.current === refreshKey) return;
@@ -306,7 +317,7 @@ export const usePracticeConfig = ({
     const cacheKey = getCacheKey(practiceId, authCacheMode);
     fetchedPracticeIds.current.delete(cacheKey);
     fetchPracticeConfig(practiceId);
-  }, [fetchPracticeConfig, practiceId, refreshKey, authCacheMode, getCacheKey]);
+  }, [fetchPracticeConfig, practiceId, refreshKey, authCacheMode, getCacheKey, enabled]);
 
   return {
     practiceId,
