@@ -52,9 +52,10 @@ interface MatterTasksPanelProps {
   loading?: boolean;
   error?: string | null;
   assignees?: MatterOption[];
-  onCreateTask: (values: MatterTaskFormValues) => Promise<void>;
-  onUpdateTask: (task: MatterTask, patch: MatterTaskPatch) => Promise<void>;
-  onDeleteTask: (task: MatterTask) => Promise<void>;
+  readOnly?: boolean;
+  onCreateTask?: (values: MatterTaskFormValues) => Promise<void>;
+  onUpdateTask?: (task: MatterTask, patch: MatterTaskPatch) => Promise<void>;
+  onDeleteTask?: (task: MatterTask) => Promise<void>;
 }
 
 const formatDate = (date: string | null) => (date ? formatDateOnlyUtc(date) : 'No due date');
@@ -64,6 +65,7 @@ export const MatterTasksPanel = ({
   loading = false,
   error = null,
   assignees = [],
+  readOnly = false,
   onCreateTask,
   onUpdateTask,
   onDeleteTask
@@ -73,10 +75,14 @@ export const MatterTasksPanel = ({
   const [deleteTarget, setDeleteTarget] = useState<MatterTask | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const canCreateTask = !readOnly && typeof onCreateTask === 'function';
+  const canUpdateTask = !readOnly && typeof onUpdateTask === 'function';
+  const canDeleteTask = !readOnly && typeof onDeleteTask === 'function';
 
   const stageOptions = useMemo(() => toTaskStageOptions(tasks), [tasks]);
 
   const handleInlinePatch = async (task: MatterTask, patch: MatterTaskPatch) => {
+    if (readOnly || !onUpdateTask) return;
     setRequestError(null);
     try {
       await onUpdateTask(task, patch);
@@ -86,12 +92,14 @@ export const MatterTasksPanel = ({
   };
 
   const openCreate = () => {
+    if (!canCreateTask) return;
     setEditingTask(null);
     setRequestError(null);
     setIsFormOpen(true);
   };
 
   const openEdit = (task: MatterTask) => {
+    if (!canUpdateTask) return;
     setEditingTask(task);
     setRequestError(null);
     setIsFormOpen(true);
@@ -120,8 +128,14 @@ export const MatterTasksPanel = ({
           closeForm();
           return;
         }
+        if (!onUpdateTask) {
+          throw new Error('Task editing is unavailable.');
+        }
         await onUpdateTask(editingTask, patch);
       } else {
+        if (!onCreateTask) {
+          throw new Error('Task creation is unavailable.');
+        }
         await onCreateTask(values);
       }
       closeForm();
@@ -134,6 +148,7 @@ export const MatterTasksPanel = ({
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (!onDeleteTask || readOnly) return;
     setRequestError(null);
     setIsSaving(true);
     try {
@@ -155,14 +170,16 @@ export const MatterTasksPanel = ({
         <div>
           <h3 className="text-sm font-semibold text-input-text">Tasks</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Plan and track matter work items.
+            {readOnly ? 'Review matter work items.' : 'Plan and track matter work items.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openCreate}>
-            Add task
-          </Button>
-        </div>
+        {canCreateTask ? (
+          <div className="flex items-center gap-2">
+            <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openCreate}>
+              Add task
+            </Button>
+          </div>
+        ) : null}
       </header>
 
       {error ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{error}</div> : null}
@@ -187,9 +204,13 @@ export const MatterTasksPanel = ({
               <li key={task.id} className="px-6 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <button type="button" onClick={() => openEdit(task)} className="text-left">
+                    {!canUpdateTask ? (
                       <p className="text-sm font-semibold text-input-text">{task.name}</p>
-                    </button>
+                    ) : (
+                      <button type="button" onClick={() => openEdit(task)} className="text-left">
+                        <p className="text-sm font-semibold text-input-text">{task.name}</p>
+                      </button>
+                    )}
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                       <span className={[STATUS_STYLES[task.status], 'rounded-md px-2 py-0.5 font-medium ring-1 ring-inset'].join(' ')}>{task.status}</span>
                       <span>Priority: {task.priority}</span>
@@ -199,88 +220,96 @@ export const MatterTasksPanel = ({
                     </div>
                     {task.description ? <p className="mt-2 text-sm text-input-placeholder">{task.description}</p> : null}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" aria-label="Open quick edit">
-                          Quick edit
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-64 space-y-3 p-3">
-                        <div>
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Status</span>
-                          <Combobox
-                            value={task.status}
-                            options={STATUS_OPTIONS}
-                            onChange={(value) => void handleInlinePatch(task, { status: value as MatterTask['status'] })}
-                            searchable={false}
+                  {!readOnly && (canUpdateTask || canDeleteTask) ? (
+                    <div className="flex items-center gap-2">
+                      {canUpdateTask ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" aria-label="Open quick edit">
+                              Quick edit
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-64 space-y-3 p-3">
+                            <div>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Status</span>
+                              <Combobox
+                                value={task.status}
+                                options={STATUS_OPTIONS}
+                                onChange={(value) => void handleInlinePatch(task, { status: value as MatterTask['status'] })}
+                                searchable={false}
+                              />
+                            </div>
+                            <div>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Priority</span>
+                              <Combobox
+                                value={task.priority}
+                                options={PRIORITY_OPTIONS}
+                                onChange={(value) => void handleInlinePatch(task, { priority: value as MatterTask['priority'] })}
+                                searchable={false}
+                              />
+                            </div>
+                            <div>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Assignee</span>
+                              <Combobox
+                                value={task.assigneeId ?? ''}
+                                options={[{ value: '', label: 'Unassigned' }, ...assignees.map((a) => ({ value: a.id, label: a.name }))]}
+                                onChange={(value) => void handleInlinePatch(task, { assignee_id: value || null })}
+                                searchable
+                              />
+                            </div>
+                            <div>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Due date</span>
+                              <Input
+                                type="date"
+                                value={task.dueDate ?? ''}
+                                onChange={(value) => void handleInlinePatch(task, { due_date: value || null })}
+                              />
+                            </div>
+                            <div>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Stage</span>
+                              <Combobox
+                                value={task.stage}
+                                options={stageRowOptions}
+                                onChange={(value) => void handleInlinePatch(task, { stage: value.trim() })}
+                                allowCustomValues
+                                searchable
+                              />
+                            </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Open task actions"
+                            icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
                           />
-                        </div>
-                        <div>
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Priority</span>
-                          <Combobox
-                            value={task.priority}
-                            options={PRIORITY_OPTIONS}
-                            onChange={(value) => void handleInlinePatch(task, { priority: value as MatterTask['priority'] })}
-                            searchable={false}
-                          />
-                        </div>
-                        <div>
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Assignee</span>
-                          <Combobox
-                            value={task.assigneeId ?? ''}
-                            options={[{ value: '', label: 'Unassigned' }, ...assignees.map((a) => ({ value: a.id, label: a.name }))]}
-                            onChange={(value) => void handleInlinePatch(task, { assignee_id: value || null })}
-                            searchable
-                          />
-                        </div>
-                        <div>
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Due date</span>
-                          <Input
-                            type="date"
-                            value={task.dueDate ?? ''}
-                            onChange={(value) => void handleInlinePatch(task, { due_date: value || null })}
-                          />
-                        </div>
-                        <div>
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Stage</span>
-                          <Combobox
-                            value={task.stage}
-                            options={stageRowOptions}
-                            onChange={(value) => void handleInlinePatch(task, { stage: value.trim() })}
-                            allowCustomValues
-                            searchable
-                          />
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Open task actions"
-                          icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
-                        />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-32">
-                        <div className="py-1">
-                          <DropdownMenuItem onSelect={() => openEdit(task)}>
-                            <span className="flex items-center gap-2">
-                              <Icon icon={PencilIcon} className="h-4 w-4"  />
-                              Edit
-                            </span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setDeleteTarget(task)}>
-                            <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                              <Icon icon={TrashIcon} className="h-4 w-4"  />
-                              Delete
-                            </span>
-                          </DropdownMenuItem>
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-32">
+                          <div className="py-1">
+                            {canUpdateTask ? (
+                              <DropdownMenuItem onSelect={() => openEdit(task)}>
+                                <span className="flex items-center gap-2">
+                                  <Icon icon={PencilIcon} className="h-4 w-4"  />
+                                  Edit
+                                </span>
+                              </DropdownMenuItem>
+                            ) : null}
+                            {canDeleteTask ? (
+                              <DropdownMenuItem onSelect={() => setDeleteTarget(task)}>
+                                <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                  <Icon icon={TrashIcon} className="h-4 w-4"  />
+                                  Delete
+                                </span>
+                              </DropdownMenuItem>
+                            ) : null}
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ) : null}
                 </div>
               </li>
             );
@@ -288,7 +317,7 @@ export const MatterTasksPanel = ({
         </ul>
       )}
 
-      {isFormOpen ? (
+      {!readOnly && isFormOpen ? (
         <Modal
           isOpen={isFormOpen}
           onClose={closeForm}
@@ -304,7 +333,7 @@ export const MatterTasksPanel = ({
             error={requestError}
             onSubmit={submitForm}
             onCancel={closeForm}
-            onDelete={editingTask ? async () => {
+            onDelete={editingTask && canDeleteTask ? async () => {
               setDeleteTarget(editingTask);
               setIsFormOpen(false);
             } : undefined}
@@ -312,7 +341,7 @@ export const MatterTasksPanel = ({
         </Modal>
       ) : null}
 
-      {deleteTarget ? (
+      {canDeleteTask && deleteTarget ? (
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}

@@ -16,6 +16,7 @@ import { AppShell } from '@/shared/ui/layout/AppShell';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { SegmentedToggle } from '@/shared/ui/input';
+import type { ComboboxOption } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -258,22 +259,23 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationsPath = useMemo(() => {
     return `${normalizedBase}/conversations`;
   }, [normalizedBase]);
+  const isWorkspaceWithMattersRouting = isPracticeWorkspace || isClientWorkspace;
   const selectedMatterIdFromPath = useMemo(() => {
-    if (view !== 'matters' || !isPracticeWorkspace) return null;
+    if (view !== 'matters' || !isWorkspaceWithMattersRouting) return null;
     const marker = `${normalizedBase}/matters/`;
     if (!location.path.startsWith(marker)) return null;
     const raw = location.path.slice(marker.length).split('/')[0] ?? '';
     const candidate = decodeURIComponent(raw).trim();
     if (!candidate || candidate === 'new' || candidate === 'activity') return null;
     return candidate;
-  }, [isPracticeWorkspace, location.path, normalizedBase, view]);
+  }, [isWorkspaceWithMattersRouting, location.path, normalizedBase, view]);
   const isMatterNonListRoute = useMemo(() => {
-    if (view !== 'matters' || !isPracticeWorkspace) return false;
+    if (view !== 'matters' || !isWorkspaceWithMattersRouting) return false;
     const prefix = `${normalizedBase}/matters/`;
     if (!location.path.startsWith(prefix)) return false;
     const segment = location.path.slice(prefix.length).split('/')[0] ?? '';
     return segment === 'new' || segment === 'activity';
-  }, [isPracticeWorkspace, location.path, normalizedBase, view]);
+  }, [isWorkspaceWithMattersRouting, location.path, normalizedBase, view]);
   const selectedClientIdFromPath = useMemo(() => {
     if (view !== 'clients' || !isPracticeWorkspace) return null;
     const peopleMarker = `${normalizedBase}/people/`;
@@ -594,7 +596,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId,
     [], // no status filter — fetch all, filter at display time
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace }
+    { enabled: isPracticeWorkspace || isClientWorkspace }
   );
   // Filtered view for the matters list page (status filter applied after fetch)
   const filteredMattersItems = useMemo(() => {
@@ -610,11 +612,25 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     practiceId,
     clientsStatusFilter,
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && view === 'clients' }
+    { enabled: isPracticeWorkspace && (view === 'clients' || view === 'matters') }
   );
   const selectedMatter = useMemo(
     () => mattersData?.items?.find((matter) => matter.id === selectedMatterIdFromPath) ?? null,
     [mattersData?.items, selectedMatterIdFromPath]
+  );
+  const matterClientOptions = useMemo<ComboboxOption[]>(
+    () => (clientsData?.items ?? [])
+      .map((client): ComboboxOption | null => {
+        const userId = client.user?.id;
+        if (!userId) return null;
+        return {
+          value: userId,
+          label: client.user?.name ?? client.user?.email ?? 'Unknown person',
+          meta: client.user?.email ?? undefined,
+        };
+      })
+      .filter((option): option is ComboboxOption => option !== null),
+    [clientsData?.items]
   );
   const selectedMatterInspectorData = useMemo(() => {
     if (!selectedMatter) return null;
@@ -657,6 +673,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       matterUpdatedLabel: selectedMatter.updated_at
         ? `Updated ${formatRelativeTime(selectedMatter.updated_at)}`
         : null,
+      matterClientId: selectedMatter.client_id ?? null,
+      matterUrgency: typeof selectedMatter.urgency === 'string' ? selectedMatter.urgency : null,
+      matterResponsibleAttorneyId: selectedMatter.responsible_attorney_id ?? null,
+      matterOriginatingAttorneyId: selectedMatter.originating_attorney_id ?? null,
+      matterCaseNumber: selectedMatter.case_number ?? null,
+      matterType: selectedMatter.matter_type ?? null,
+      matterCourt: selectedMatter.court ?? null,
+      matterJudge: selectedMatter.judge ?? null,
+      matterOpposingParty: selectedMatter.opposing_party ?? null,
+      matterOpposingCounsel: selectedMatter.opposing_counsel ?? null,
     };
   }, [clientsData?.items, selectedMatter]);
   const showConversationListTitle = workspace === 'public';
@@ -1109,6 +1135,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }))
       .filter((member) => member.userId.trim().length > 0 && member.name.length > 0),
     [practiceMembers]
+  );
+  const matterAssigneeOptions = useMemo<ComboboxOption[]>(
+    () => conversationMemberOptions.map((member) => ({
+      value: member.userId,
+      label: member.name,
+      meta: member.email,
+    })),
+    [conversationMemberOptions]
   );
 
   useEffect(() => {
@@ -1745,7 +1779,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     mattersData: mattersDataForView, // filtered for the list view
     clientsData,
   };
-  const matterListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters'
+  const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters'
     ? (typeof mattersListContent === 'function' ? mattersListContent(mattersStatusFilter, listViewControls) : mattersListContent)
     : undefined;
   const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients'
@@ -1782,7 +1816,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
-  const desktopMattersShell = layoutMode === 'desktop' && isPracticeWorkspace && view === 'matters';
+  const desktopMattersShell = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters';
   const desktopClientsShell = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients';
   const desktopReportsShell = layoutMode === 'desktop' && isPracticeWorkspace && view === 'reports';
   const desktopInvoicesShell = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail');
@@ -1791,6 +1825,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && (isPracticeWorkspace || isClientWorkspace)
     && (view === 'list' || view === 'conversation');
   const shouldAllowMainScroll = view !== 'conversation' && view !== 'list';
+  const isMatterDetailRoute = Boolean(selectedMatterIdFromPath);
   const baseMainContent = isDesktopConversationShell
     ? (
       <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
@@ -1800,7 +1835,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : desktopMattersShell
       ? (selectedMatterIdFromPath || isMatterNonListRoute)
         ? (
-          <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
+          <div className={cn(
+            'min-h-0 h-full flex flex-1 flex-col',
+            isMatterDetailRoute ? 'overflow-hidden' : 'overflow-y-auto'
+          )}>
             {renderContent()}
           </div>
         )
@@ -1940,12 +1978,36 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           })
         );
       }}
+      onMatterPatchChange={(patch) => {
+        if (typeof window === 'undefined' || !selectedMatterIdFromPath) {
+          return Promise.resolve();
+        }
+        return new Promise<void>((resolve, reject) => {
+          window.dispatchEvent(
+            new CustomEvent('workspace:matter-patch-change', {
+              detail: { matterId: selectedMatterIdFromPath, patch, resolve, reject },
+            })
+          );
+        });
+      }}
+      matterClientOptions={matterClientOptions}
+      matterAssigneeOptions={matterAssigneeOptions}
       {...(inspectorTarget.entityType === 'matter' && selectedMatterInspectorData ? {
         matterClientName: selectedMatterInspectorData.matterClientName,
         matterAssigneeNames: selectedMatterInspectorData.matterAssigneeNames,
         matterBillingLabel: selectedMatterInspectorData.matterBillingLabel,
         matterCreatedLabel: selectedMatterInspectorData.matterCreatedLabel,
         matterUpdatedLabel: selectedMatterInspectorData.matterUpdatedLabel,
+        matterClientId: selectedMatterInspectorData.matterClientId,
+        matterUrgency: selectedMatterInspectorData.matterUrgency,
+        matterResponsibleAttorneyId: selectedMatterInspectorData.matterResponsibleAttorneyId,
+        matterOriginatingAttorneyId: selectedMatterInspectorData.matterOriginatingAttorneyId,
+        matterCaseNumber: selectedMatterInspectorData.matterCaseNumber,
+        matterType: selectedMatterInspectorData.matterType,
+        matterCourt: selectedMatterInspectorData.matterCourt,
+        matterJudge: selectedMatterInspectorData.matterJudge,
+        matterOpposingParty: selectedMatterInspectorData.matterOpposingParty,
+        matterOpposingCounsel: selectedMatterInspectorData.matterOpposingCounsel,
       } : {})}
     />
   ) : null;

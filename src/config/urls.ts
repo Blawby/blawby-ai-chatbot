@@ -219,7 +219,7 @@ export const urls = {
 	clientInvoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/${encodeURIComponent(invoiceId)}/refund-requests`,
 	clientRefundRequests: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/refund-requests`,
 	cancelClientRefundRequest: (practiceId: string, refundRequestId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/refund-requests/${encodeURIComponent(refundRequestId)}/cancel`,
-	unbilledTimeEntries: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries/unbilled`,
-	unbilledExpenses: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/expenses/unbilled`,
-	unbilledSummary: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/unbilled-summary`
+	unbilledTimeEntries: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/unbilled`,
+	unbilledExpenses: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/unbilled`,
+	unbilledSummary: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/unbilled-summary`
 };

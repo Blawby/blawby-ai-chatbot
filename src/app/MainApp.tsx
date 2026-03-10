@@ -190,6 +190,12 @@ export function MainApp({
     session,
     routing: routingClaims,
   });
+  const clientMattersPath = useMemo(() => {
+    if (!isClientWorkspace) return null;
+    const slug = clientPracticeSlug ?? resolvedClientPracticeSlug;
+    if (!slug) return null;
+    return `/client/${encodeURIComponent(slug)}/matters`;
+  }, [clientPracticeSlug, isClientWorkspace, resolvedClientPracticeSlug]);
 
   useEffect(() => {
     initializeAccentColor(fullAccentColor);
@@ -833,11 +839,25 @@ export function MainApp({
             )
             : null)
           : isClientWorkspace
-            ? (() => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
-                <ClientMattersPage />
-              </Suspense>
-            ))
+            ? (clientMattersPath
+              ? (statusFilter, controls) => (
+                <Suspense fallback={<WorkspaceSubviewFallback />}>
+                  <ClientMattersPage
+                    basePath={clientMattersPath}
+                    practiceId={effectivePracticeId ?? practiceId}
+                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    statusFilter={statusFilter}
+                    prefetchedItems={controls?.mattersData?.items}
+                    prefetchedLoading={controls?.mattersData?.isLoading}
+                    prefetchedError={controls?.mattersData?.error}
+                    onRefetchList={controls?.mattersData?.refetch}
+                    listHeaderLeftControl={controls?.listHeaderLeftControl}
+                    detailHeaderRightControl={controls?.detailHeaderRightControl}
+                    showDetailBackButton={layoutMode !== 'desktop'}
+                  />
+                </Suspense>
+              )
+              : null)
             : undefined
       }
       mattersListContent={
@@ -859,6 +879,24 @@ export function MainApp({
               />
             </Suspense>
           )
+          : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
+            ? (statusFilter, controls) => (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <ClientMattersPage
+                  basePath={clientMattersPath}
+                  practiceId={effectivePracticeId ?? practiceId}
+                  renderMode="listOnly"
+                  statusFilter={statusFilter}
+                  prefetchedItems={controls?.mattersData?.items}
+                  prefetchedLoading={controls?.mattersData?.isLoading}
+                  prefetchedError={controls?.mattersData?.error}
+                  onRefetchList={controls?.mattersData?.refetch}
+                  listHeaderLeftControl={controls?.listHeaderLeftControl}
+                  detailHeaderRightControl={controls?.detailHeaderRightControl}
+                  showDetailBackButton={layoutMode !== 'desktop'}
+                />
+              </Suspense>
+            )
           : undefined
       }
       clientsView={isPracticeWorkspace && practiceClientsPath != null

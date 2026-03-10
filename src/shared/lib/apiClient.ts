@@ -419,7 +419,7 @@ export async function listMatterConversations(
   }
 
   const response = await apiClient.get(
-    `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/conversations`,
+    `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/conversations`,
     { signal: config?.signal }
   );
 
