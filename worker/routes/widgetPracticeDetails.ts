@@ -1,6 +1,48 @@
-import { Env } from '../types.js';
-import { HttpErrors } from '../errorHandler.js';
+import { Env, HttpError } from '../types.js';
+import { HttpErrors, createRateLimitResponse } from '../errorHandler.js';
+import { getClientId, rateLimit } from '../middleware/rateLimit.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+
+const CACHE_TTL_SECONDS = 300;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
+const RATE_LIMIT_MAX_REQUESTS = 60;
+
+const buildWidgetDetailsResponse = (accentColor: string | null): Response =>
+  new Response(JSON.stringify({ accentColor, accent_color: accentColor }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': `public, max-age=${CACHE_TTL_SECONDS}`,
+    }
+  });
+
+const buildNoStoreErrorResponse = (
+  status: number,
+  statusText: string,
+  bodyText: string,
+  contentType: string | null
+): Response => {
+  const headers = new Headers({
+    'Cache-Control': 'no-store',
+    'Content-Type': contentType || 'application/json',
+  });
+
+  const fallbackBody = JSON.stringify({
+    error: statusText || 'Upstream request failed'
+  });
+
+  return new Response(bodyText || fallbackBody, {
+    status,
+    statusText,
+    headers,
+  });
+};
+
+const getUpstreamResponseFromError = (error: unknown): Response | null => {
+  if (!error || typeof error !== 'object') return null;
+  const candidate = (error as { response?: unknown }).response;
+  return candidate instanceof Response ? candidate : null;
+};
 
 export async function handleWidgetPracticeDetails(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
@@ -25,28 +67,63 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
     throw HttpErrors.badRequest('Invalid slug encoding');
   }
 
-  const remoteResponse = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
-  if (!remoteResponse.ok) {
-    const errorBody = await remoteResponse.text().catch(() => '');
-    const headers = new Headers({
-      'Cache-Control': 'no-store',
-    });
-
-    const contentType = remoteResponse.headers.get('Content-Type') || '';
-    if (contentType) {
-      headers.set('Content-Type', contentType);
-    } else {
-      headers.set('Content-Type', 'application/json');
-    }
-
-    return new Response(errorBody || JSON.stringify({ error: remoteResponse.statusText || 'Upstream request failed' }), {
-      status: remoteResponse.status,
-      statusText: remoteResponse.statusText,
-      headers,
+  const clientId = getClientId(request);
+  if (!(await rateLimit(env, `widget_practice_details:${clientId}`, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS))) {
+    return createRateLimitResponse(RATE_LIMIT_WINDOW_SECONDS, {
+      limit: RATE_LIMIT_MAX_REQUESTS,
+      remaining: 0,
+      reset: Math.floor(Date.now() / 1000) + RATE_LIMIT_WINDOW_SECONDS,
+      errorMessage: 'Rate limit exceeded. Please try again later.'
     });
   }
 
-  const payload = await remoteResponse.json().catch(() => null) as Record<string, unknown> | null;
+  const normalizedSlug = decodedSlug.trim().toLowerCase();
+  const cacheKey = `widget_practice_details:${normalizedSlug}`;
+  const cachedPayload = await env.CHAT_SESSIONS.get(cacheKey, 'json').catch(() => null) as
+    | { accentColor?: string | null }
+    | null;
+  if (cachedPayload && ('accentColor' in cachedPayload)) {
+    return buildWidgetDetailsResponse(cachedPayload.accentColor ?? null);
+  }
+
+  let payload: Record<string, unknown> | null = null;
+  try {
+    // Fetch public practice details anonymously; do not forward caller cookies upstream.
+    const remoteResponse = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug);
+    payload = await remoteResponse.json().catch(() => null) as Record<string, unknown> | null;
+  } catch (error) {
+    const upstreamResponse = getUpstreamResponseFromError(error);
+    if (upstreamResponse) {
+      const upstreamBody = await upstreamResponse.text().catch(() => '');
+      return buildNoStoreErrorResponse(
+        upstreamResponse.status,
+        upstreamResponse.statusText,
+        upstreamBody,
+        upstreamResponse.headers.get('Content-Type')
+      );
+    }
+
+    if (error instanceof HttpError) {
+      const detailsRecord = error.details && typeof error.details === 'object'
+        ? error.details as Record<string, unknown>
+        : null;
+      const upstream = detailsRecord?.upstream;
+      const errorBody =
+        typeof upstream === 'string'
+          ? upstream
+          : upstream !== undefined
+            ? JSON.stringify(upstream)
+            : JSON.stringify({ error: error.message || 'Upstream request failed' });
+      return buildNoStoreErrorResponse(
+        error.status,
+        'Upstream Error',
+        errorBody,
+        'application/json'
+      );
+    }
+
+    throw error;
+  }
 
   const dataRecord =
     payload && typeof payload.data === 'object' && payload.data !== null
@@ -72,11 +149,9 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
     (nestedDetailsRecord && typeof nestedDetailsRecord.accent_color === 'string' && nestedDetailsRecord.accent_color.trim()) ||
     null;
 
-  return new Response(JSON.stringify({ accentColor, accent_color: accentColor }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300',
-    }
+  await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ accentColor }), {
+    expirationTtl: CACHE_TTL_SECONDS
   });
+
+  return buildWidgetDetailsResponse(accentColor);
 }
