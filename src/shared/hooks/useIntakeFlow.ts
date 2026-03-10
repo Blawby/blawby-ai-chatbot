@@ -47,6 +47,20 @@ const parseWidgetAttributionFromQuery = (): Record<string, string> | null => {
   }
 };
 
+const parseTrustedParentOriginFromQuery = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('trusted_parent_origin');
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    if (!isHttp) return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
 const emitWidgetLeadSubmitted = (payload: {
   intakeUuid: string;
   status: string;
@@ -81,6 +95,13 @@ const emitWidgetLeadSubmitted = (payload: {
       for (let i = 0; i < ancestorOrigins.length; i += 1) {
         const origin = ancestorOrigins.item(i);
         if (origin) origins.add(origin);
+      }
+    }
+
+    if (origins.size === 0) {
+      const trustedParentOrigin = parseTrustedParentOriginFromQuery();
+      if (trustedParentOrigin) {
+        origins.add(trustedParentOrigin);
       }
     }
 

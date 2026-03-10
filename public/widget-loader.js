@@ -91,6 +91,11 @@
   if (hasAttributionParams) {
     widgetUrlObj.searchParams.set('bw_attribution', JSON.stringify(attributionParams));
   }
+  // Firefox does not support window.location.ancestorOrigins.
+  // Pass parent origin explicitly so iframe can target postMessage safely.
+  if (w.location && typeof w.location.origin === 'string' && w.location.origin) {
+    widgetUrlObj.searchParams.set('trusted_parent_origin', w.location.origin);
+  }
   var WIDGET_URL = widgetUrlObj.toString();
   var isRight = cfg.position !== 'bottom-left';
   var SIZE = cfg.launcherSize;
