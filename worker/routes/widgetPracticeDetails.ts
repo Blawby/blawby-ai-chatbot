@@ -66,6 +66,9 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
   } catch {
     throw HttpErrors.badRequest('Invalid slug encoding');
   }
+  if (decodedSlug.includes('/') || decodedSlug.includes('\\')) {
+    throw HttpErrors.badRequest('practice slug must be a single path segment');
+  }
 
   const clientId = getClientId(request);
   if (!(await rateLimit(env, `widget_practice_details:${clientId}`, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS))) {
@@ -78,10 +81,15 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
   }
 
   const normalizedSlug = decodedSlug.trim().toLowerCase();
+  if (!normalizedSlug) {
+    throw HttpErrors.badRequest('practice slug is required');
+  }
   const cacheKey = `widget_practice_details:${normalizedSlug}`;
-  const cachedPayload = await env.CHAT_SESSIONS.get(cacheKey, 'json').catch(() => null) as
-    | { accentColor?: string | null }
-    | null;
+  const cachedPayload = env.CHAT_SESSIONS
+    ? await env.CHAT_SESSIONS.get(cacheKey, 'json').catch(() => null) as
+      | { accentColor?: string | null }
+      | null
+    : null;
   if (cachedPayload && ('accentColor' in cachedPayload)) {
     return buildWidgetDetailsResponse(cachedPayload.accentColor ?? null);
   }
@@ -90,7 +98,7 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
   try {
     // Fetch public practice details anonymously; do not forward caller cookies upstream.
     const remoteResponse = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug);
-    payload = await remoteResponse.json().catch(() => null) as Record<string, unknown> | null;
+    payload = await remoteResponse.json() as Record<string, unknown> | null;
   } catch (error) {
     const upstreamResponse = getUpstreamResponseFromError(error);
     if (upstreamResponse) {
@@ -149,9 +157,11 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
     (nestedDetailsRecord && typeof nestedDetailsRecord.accent_color === 'string' && nestedDetailsRecord.accent_color.trim()) ||
     null;
 
-  await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ accentColor }), {
-    expirationTtl: CACHE_TTL_SECONDS
-  });
+  if (env.CHAT_SESSIONS) {
+    await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ accentColor }), {
+      expirationTtl: CACHE_TTL_SECONDS
+    }).catch(() => undefined);
+  }
 
   return buildWidgetDetailsResponse(accentColor);
 }
