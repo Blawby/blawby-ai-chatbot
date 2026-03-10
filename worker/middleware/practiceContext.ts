@@ -115,20 +115,24 @@ export async function extractPracticeContext(
         ? authContext.activeOrganizationId.trim()
         : null;
 
-    if (urlPracticeId) {
-      return {
-        practiceId: urlPracticeId,
-        source: 'url',
-        isAuthenticated: !isAnonymous,
-        userId: authContext.user.id
-      };
-    }
-
     if (!isAnonymous && authPracticeId) {
       return {
         practiceId: authPracticeId,
         source: 'auth',
         isAuthenticated: true,
+        userId: authContext.user.id
+      };
+    }
+
+    if (urlPracticeId) {
+      if (!isAnonymous) {
+        throw HttpErrors.forbidden('Authenticated users cannot override practice context via URL');
+      }
+
+      return {
+        practiceId: urlPracticeId,
+        source: 'url',
+        isAuthenticated: false,
         userId: authContext.user.id
       };
     }

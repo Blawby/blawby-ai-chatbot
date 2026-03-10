@@ -704,6 +704,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
             userId,
             error: participantError instanceof Error ? participantError.message : String(participantError)
           });
+          throw participantError;
         }
         const refreshedConversation = await conversationService.getConversation(conversationId, practiceId);
         return createJsonResponse(refreshedConversation);
