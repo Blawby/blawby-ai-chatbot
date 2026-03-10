@@ -27,6 +27,103 @@ const sanitizeName = (name: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
+const parseWidgetAttributionFromQuery = (): Record<string, string> | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('bw_attribution');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== 'string') continue;
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      result[key] = trimmed;
+    }
+    return Object.keys(result).length > 0 ? result : null;
+  } catch {
+    return null;
+  }
+};
+
+const parseTrustedParentOriginFromQuery = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('trusted_parent_origin');
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    if (!isHttp) return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
+const emitWidgetLeadSubmitted = (payload: {
+  intakeUuid: string;
+  status: string;
+  requiresPayment: boolean;
+}) => {
+  if (typeof window === 'undefined') return;
+  if (window.parent === window) return;
+
+  const attribution = parseWidgetAttributionFromQuery();
+  const message = {
+    type: 'blawby:lead-submitted',
+    intakeUuid: payload.intakeUuid,
+    status: payload.status,
+    requiresPayment: payload.requiresPayment,
+    ...(attribution ? { attribution } : {})
+  };
+
+  const allowedOrigins = (() => {
+    const origins = new Set<string>();
+
+    const referrer = typeof document !== 'undefined' ? document.referrer : '';
+    if (referrer) {
+      try {
+        origins.add(new URL(referrer).origin);
+      } catch {
+        // ignore malformed referrer
+      }
+    }
+
+    const ancestorOrigins = window.location.ancestorOrigins;
+    if (ancestorOrigins && ancestorOrigins.length > 0) {
+      for (let i = 0; i < ancestorOrigins.length; i += 1) {
+        const origin = ancestorOrigins.item(i);
+        if (origin) origins.add(origin);
+      }
+    }
+
+    if (origins.size === 0) {
+      const trustedParentOrigin = parseTrustedParentOriginFromQuery();
+      if (trustedParentOrigin) {
+        origins.add(trustedParentOrigin);
+      }
+    }
+
+    return Array.from(origins);
+  })();
+
+  // If we cannot determine a trusted parent origin, do not emit the event.
+  // This avoids broadcasting intake identifiers to an unknown embedding context.
+  if (allowedOrigins.length === 0) {
+    console.warn('[Intake] Skipping parent lead-submitted event; no trusted parent origin detected');
+    return;
+  }
+
+  try {
+    for (const origin of allowedOrigins) {
+      window.parent.postMessage(message, origin);
+    }
+  } catch (error) {
+    console.warn('[Intake] Failed to notify parent frame about lead submission', error);
+  }
+};
+
 interface UseIntakeFlowOptions {
   conversationId: string | undefined;
   practiceId: string | undefined;
@@ -329,6 +426,11 @@ export function useIntakeFlow({
         throw new Error('Intake submission returned an unexpected response');
       }
       const { intake_uuid: intakeUuid, payment_link_url: paymentLinkUrl } = result.data;
+      emitWidgetLeadSubmitted({
+        intakeUuid,
+        status: result.data.status ?? 'submitted',
+        requiresPayment: Boolean(paymentLinkUrl)
+      });
       if (paymentLinkUrl) {
         keepLockedForRedirect = true;
         if (typeof window !== 'undefined') {

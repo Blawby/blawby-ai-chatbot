@@ -22,6 +22,8 @@
  *   onChatStart   – Optional callback for first open ('chat_start')
  *   pushDataLayerOnChatStart – Push dataLayer event on chat_start (default: false)
  *   dataLayerEventName – chat start event name            (default: 'blawby_chat_start')
+ *   pushDataLayerOnLeadSubmit – Push dataLayer event on lead submit (default: false)
+ *   leadSubmitEventName – lead submit event name           (default: 'blawby_lead_submitted')
  */
 
 (function (w, d) {
@@ -37,6 +39,8 @@
     label: 'Chat with us',
     pushDataLayerOnChatStart: false,
     dataLayerEventName: 'blawby_chat_start',
+    pushDataLayerOnLeadSubmit: false,
+    leadSubmitEventName: 'blawby_lead_submitted',
   }, w.BlawbyWidget || {});
 
   if (!cfg.practiceSlug) {
@@ -45,8 +49,54 @@
   }
 
   /* ── Derived values ──────────────────────────────────────────────────── */
-  var WIDGET_URL = cfg.baseUrl +
-    '/public/' + encodeURIComponent(cfg.practiceSlug) + '?v=widget';
+  var ATTRIBUTION_PARAM_NAMES = {
+    gclid: true,
+    fbclid: true,
+    msclkid: true,
+    ttclid: true,
+    twclid: true,
+    li_fat_id: true,
+    gbraid: true,
+    wbraid: true
+  };
+
+  function isAttributionParam(name) {
+    if (!name) return false;
+    var lowered = String(name).toLowerCase();
+    return lowered.indexOf('utm_') === 0 || ATTRIBUTION_PARAM_NAMES[lowered] === true;
+  }
+
+  function collectAttributionParams() {
+    var out = {};
+    try {
+      var params = new URLSearchParams(w.location.search || '');
+      params.forEach(function (value, key) {
+        if (!isAttributionParam(key)) return;
+        if (typeof value !== 'string') return;
+        var trimmed = value.trim();
+        if (!trimmed) return;
+        out[key] = trimmed;
+      });
+    } catch (_) { /* ignore malformed query params */ }
+    return out;
+  }
+
+  var attributionParams = collectAttributionParams();
+  var hasAttributionParams = Object.keys(attributionParams).length > 0;
+  var widgetUrlObj = new URL(
+    '/public/' + encodeURIComponent(cfg.practiceSlug),
+    cfg.baseUrl
+  );
+  widgetUrlObj.searchParams.set('v', 'widget');
+  if (hasAttributionParams) {
+    widgetUrlObj.searchParams.set('bw_attribution', JSON.stringify(attributionParams));
+  }
+  // Firefox does not support window.location.ancestorOrigins.
+  // Pass parent origin explicitly so iframe can target postMessage safely.
+  if (w.location && typeof w.location.origin === 'string' && w.location.origin) {
+    widgetUrlObj.searchParams.set('trusted_parent_origin', w.location.origin);
+  }
+  var WIDGET_URL = widgetUrlObj.toString();
   var isRight = cfg.position !== 'bottom-left';
   var SIZE = cfg.launcherSize;
   var Z = cfg.zIndex;
@@ -322,7 +372,6 @@
       })
       .catch(function (error) {
         console.warn('[BlawbyWidget] Failed to resolve practice accent color', error);
-        throw error;
       });
   }
 
@@ -401,12 +450,26 @@
   }
 
   function maybePushDataLayer(payload) {
-    if (payload.type !== 'chat_start') return;
-    if (!cfg.pushDataLayerOnChatStart) return;
+    if (payload.type === 'chat_start') {
+      if (!cfg.pushDataLayerOnChatStart) return;
+      if (!w.dataLayer || typeof w.dataLayer.push !== 'function') return;
+      try {
+        w.dataLayer.push({
+          event: cfg.dataLayerEventName || 'blawby_chat_start',
+          blawby: payload,
+        });
+      } catch (err) {
+        console.warn('[BlawbyWidget] dataLayer push failed', err);
+      }
+      return;
+    }
+
+    if (payload.type !== 'lead_submitted') return;
+    if (!cfg.pushDataLayerOnLeadSubmit) return;
     if (!w.dataLayer || typeof w.dataLayer.push !== 'function') return;
     try {
       w.dataLayer.push({
-        event: cfg.dataLayerEventName || 'blawby_chat_start',
+        event: cfg.leadSubmitEventName || 'blawby_lead_submitted',
         blawby: payload,
       });
     } catch (err) {
@@ -422,6 +485,9 @@
       unreadCount: unreadCount,
       timestamp: new Date().toISOString(),
     }, detail || {});
+    if (hasAttributionParams && !payload.attribution) {
+      payload.attribution = attributionParams;
+    }
 
     if (typeof cfg.onEvent === 'function') {
       try { cfg.onEvent(payload); } catch (err) {
@@ -469,6 +535,15 @@
         // Iframe signals it has mounted; send current visibility state
         postToIframe({ type: isOpen ? 'blawby:open' : 'blawby:close' });
         emitEvent('iframe_ready', {});
+        break;
+      case 'blawby:lead-submitted':
+        emitEvent('lead_submitted', {
+          intakeUuid: typeof data.intakeUuid === 'string' ? data.intakeUuid : null,
+          status: typeof data.status === 'string' ? data.status : null,
+          requiresPayment: data.requiresPayment === true,
+          // Keep attribution deterministic from host page URL where the widget script runs.
+          attribution: hasAttributionParams ? attributionParams : undefined,
+        });
         break;
     }
   });

@@ -76,6 +76,7 @@ import NavRail from '@/shared/ui/nav/NavRail';
 import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
+import { mockApps } from '@/features/settings/pages/appsData';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
@@ -1654,6 +1655,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             practiceSlug={practiceSlug}
             view={settingsView}
             appId={settingsAppId}
+            apps={mockApps}
             className="h-full"
           />
         );
