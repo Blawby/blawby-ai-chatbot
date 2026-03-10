@@ -134,7 +134,9 @@
   var isOpen = false;
   var unreadCount = 0;
   var hasStartedChat = false;
+  var iframeReady = false;
   var listeners = {};
+  var expectedIframeOrigin = new URL(cfg.baseUrl).origin;
 
   /* ── Build DOM ───────────────────────────────────────────────────────── */
 
@@ -395,8 +397,10 @@
     if (next) {
       // Clear badge when opening
       setUnread(0);
-      // Post open event so the iframe app knows it is visible
-      postToIframe({ type: 'blawby:open' });
+      // Post open only after iframe signals ready; ready handler will sync state.
+      if (iframeReady) {
+        postToIframe({ type: 'blawby:open' });
+      }
       emitEvent('widget_opened', { wasOpen: previousOpenState });
       if (!hasStartedChat) {
         hasStartedChat = true;
@@ -404,7 +408,9 @@
       }
       topClose.style.display = 'flex';
     } else {
-      postToIframe({ type: 'blawby:close' });
+      if (iframeReady) {
+        postToIframe({ type: 'blawby:close' });
+      }
       emitEvent('widget_closed', { wasOpen: previousOpenState });
       topClose.style.display = 'none';
     }
@@ -423,8 +429,8 @@
 
   function postToIframe(msg) {
     try {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(JSON.stringify(msg), cfg.baseUrl);
+      if (iframe.contentWindow && iframe.src) {
+        iframe.contentWindow.postMessage(JSON.stringify(msg), expectedIframeOrigin);
       }
     } catch (_) { /* cross-origin post may fail; safe to ignore */ }
   }
@@ -515,8 +521,7 @@
   /* ── postMessage bridge ──────────────────────────────────────────────── */
   w.addEventListener('message', function (event) {
     // Only accept messages from the Blawby origin
-    var expectedOrigin = new URL(cfg.baseUrl).origin;
-    if (event.origin !== expectedOrigin) return;
+    if (event.origin !== expectedIframeOrigin) return;
 
     var data;
     try {
@@ -535,6 +540,7 @@
         emitEvent('iframe_close_request', {});
         break;
       case 'blawby:ready':
+        iframeReady = true;
         // Iframe signals it has mounted; send current visibility state
         postToIframe({ type: isOpen ? 'blawby:open' : 'blawby:close' });
         emitEvent('iframe_ready', {});
