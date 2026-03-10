@@ -10,6 +10,7 @@ import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js'
 import { Logger } from '../utils/logger.js';
 
 const DEFAULT_AI_MODEL = 'gpt-4o-mini';
+const DEFAULT_GATEWAY_WORKERS_MODEL = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
 const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the necessary details for the firm.";
@@ -896,6 +897,178 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let quickReplies: string[] | null = null;
     let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
+    const gatewayWorkersModel = env.AI_GATEWAY_WORKERS_MODEL?.trim() || DEFAULT_GATEWAY_WORKERS_MODEL;
+
+    const consumeAiStream = async (
+      response: Response,
+      emitTokens = true
+    ): Promise<{
+      reply: string;
+      toolCallName: string;
+      toolCallArgBuffer: string;
+      streamStalled: boolean;
+      emittedToken: boolean;
+    }> => {
+      if (!response.body) {
+        return {
+          reply: '',
+          toolCallName: '',
+          toolCallArgBuffer: '',
+          streamStalled: false,
+          emittedToken: false
+        };
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamStalled = false;
+      let localReply = '';
+      let localToolCallName = '';
+      let localToolCallArgBuffer = '';
+      let localEmittedToken = false;
+
+      while (true) {
+        let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+        const result = await Promise.race([
+          reader.read().then((res) => {
+            if (timeoutTimer) clearTimeout(timeoutTimer);
+            return res;
+          }),
+          new Promise<never>((_, reject) => {
+            timeoutTimer = setTimeout(() => reject(new Error('AI_STREAM_STALL')), AI_STREAM_READ_TIMEOUT_MS);
+          })
+        ]).catch(async (error: unknown) => {
+          if (timeoutTimer) clearTimeout(timeoutTimer);
+          Logger.warn('AI stream read stalled or failed', {
+            conversationId: body.conversationId,
+            reason: error instanceof Error ? error.message : String(error)
+          });
+          await reader.cancel().catch(() => {});
+          streamStalled = true;
+          return { done: true, value: undefined };
+        });
+
+        const { done, value } = result as { done: boolean; value?: Uint8Array };
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (!trimmed.startsWith('data: ')) continue;
+
+          let chunk: {
+            choices?: Array<{
+              delta?: {
+                content?: string | null;
+                tool_calls?: Array<{
+                  index?: number;
+                  function?: { name?: string; arguments?: string };
+                }>;
+              };
+            }>;
+          };
+
+          try {
+            chunk = JSON.parse(trimmed.slice(6));
+          } catch {
+            continue;
+          }
+
+          const delta = chunk.choices?.[0]?.delta;
+          if (!delta) continue;
+
+          if (typeof delta.content === 'string' && delta.content.length > 0) {
+            localReply += delta.content;
+            if (emitTokens) {
+              write({ token: delta.content });
+              localEmittedToken = true;
+            }
+          }
+
+          if (delta.tool_calls?.[0]) {
+            const tc = delta.tool_calls[0];
+            if (tc.function?.name) {
+              localToolCallName = tc.function.name;
+            }
+            if (typeof tc.function?.arguments === 'string') {
+              localToolCallArgBuffer += tc.function.arguments;
+            }
+          }
+        }
+      }
+
+      if (buffer.trim() && buffer.trim() !== 'data: [DONE]') {
+        try {
+          const trimmed = buffer.trim();
+          if (trimmed.startsWith('data: ')) {
+            const chunk = JSON.parse(trimmed.slice(6)) as {
+              choices?: Array<{
+                delta?: {
+                  content?: string | null;
+                  tool_calls?: Array<{ function?: { name?: string; arguments?: string } }>;
+                };
+              }>;
+            };
+            const token = chunk.choices?.[0]?.delta?.content;
+            if (typeof token === 'string' && token.length > 0) {
+              localReply += token;
+              if (emitTokens) {
+                write({ token });
+                localEmittedToken = true;
+              }
+            }
+            const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
+            if (Array.isArray(toolCalls)) {
+              for (const tc of toolCalls) {
+                if (typeof tc.function?.name === 'string') {
+                  localToolCallName = tc.function.name;
+                }
+                if (typeof tc.function?.arguments === 'string') {
+                  localToolCallArgBuffer += tc.function.arguments;
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore malformed final chunk
+        }
+      }
+
+      return {
+        reply: localReply,
+        toolCallName: localToolCallName,
+        toolCallArgBuffer: localToolCallArgBuffer,
+        streamStalled,
+        emittedToken: localEmittedToken
+      };
+    };
+
+    const parseToolCallFromReply = (
+      rawReply: string
+    ): { name?: string; parameters?: Record<string, unknown> } | null => {
+      const trimmed = rawReply.trim();
+      if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
+      try {
+        const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+        const name = typeof parsed.name === 'string' ? parsed.name : undefined;
+        const parameters = (
+          parsed.parameters &&
+          typeof parsed.parameters === 'object' &&
+          !Array.isArray(parsed.parameters)
+        )
+          ? parsed.parameters as Record<string, unknown>
+          : undefined;
+        if (!name && !parameters) return null;
+        return { name, parameters };
+      } catch {
+        return null;
+      }
+    };
 
     try {
       const aiResponse = await Promise.race([
@@ -912,183 +1085,100 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
-        // Emit a fallback reply as a single token so the client still gets something
-        const fallback = isIntakeMode
-          ? buildIntakeFallbackReply(null)
-          : isOnboardingMode
-            ? buildOnboardingEditAwareFallbackReply(onboardingPromptProfile, null, lastUserMessage?.content ?? null)
-            : EMPTY_REPLY_FALLBACK;
-        accumulatedReply = fallback;
-        write({ token: fallback });
-        emittedAnyToken = true;
-      } else {
-        // Read the SSE stream from OpenAI and re-emit each token to our client.
-        // OpenAI streams newline-delimited `data: {...}` events.
-        const reader = aiResponse.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let streamStalled = false;
+        throw new Error(`AI upstream request failed (${aiResponse?.status ?? 'no_response'})`);
+      }
 
-        // Accumulate tool call argument chunks separately
-        let toolCallName = '';
-        let toolCallArgBuffer = '';
+      let streamResult = await consumeAiStream(aiResponse);
+      accumulatedReply = streamResult.reply;
+      emittedAnyToken = streamResult.emittedToken;
+      let toolCallName = streamResult.toolCallName;
+      let toolCallArgBuffer = streamResult.toolCallArgBuffer;
 
-        while (true) {
-	          let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-          const result = await Promise.race([
-            reader.read().then((res) => {
-              if (timeoutTimer) clearTimeout(timeoutTimer);
-              return res;
-            }),
-            new Promise<never>((_, reject) => {
-              timeoutTimer = setTimeout(() => reject(new Error('AI_STREAM_STALL')), AI_STREAM_READ_TIMEOUT_MS);
-            })
-          ]).catch(async (error: unknown) => {
-            if (timeoutTimer) clearTimeout(timeoutTimer);
-            Logger.warn('AI stream read stalled or failed', {
-              conversationId: body.conversationId,
-              reason: error instanceof Error ? error.message : String(error)
-            });
-            await reader.cancel().catch(() => {});
-            streamStalled = true;
-            return { done: true, value: undefined };
+      const canRetryWithWorkersModel =
+        aiClient.provider === 'cloudflare_gateway' &&
+        typeof model === 'string' &&
+        model.startsWith('dynamic/');
+
+      if ((!accumulatedReply.trim() || streamResult.streamStalled) && canRetryWithWorkersModel) {
+        Logger.warn('AI dynamic route returned empty/stalled stream; retrying with workers-ai model', {
+          conversationId: body.conversationId,
+          primaryModel: model,
+          fallbackModel: gatewayWorkersModel
+        });
+        const retryPayload: Record<string, unknown> = {
+          ...requestPayload,
+          model: gatewayWorkersModel
+        };
+        delete retryPayload.tools;
+        delete retryPayload.tool_choice;
+        const retryResponse = await aiClient.requestChatCompletions(retryPayload);
+        if (!retryResponse.ok || !retryResponse.body) {
+          throw new Error(`AI workers fallback failed (${retryResponse.status})`);
+        }
+        const shouldSilenceRetryTokens = isIntakeMode || isOnboardingMode;
+        streamResult = await consumeAiStream(retryResponse, !shouldSilenceRetryTokens);
+        accumulatedReply = streamResult.reply;
+        emittedAnyToken = streamResult.emittedToken;
+        toolCallName = streamResult.toolCallName;
+        toolCallArgBuffer = streamResult.toolCallArgBuffer;
+        model = gatewayWorkersModel;
+
+        if (shouldSilenceRetryTokens) {
+          const parsedToolCall = parseToolCallFromReply(accumulatedReply);
+          if (parsedToolCall?.name === 'update_intake_fields' && parsedToolCall.parameters) {
+            intakeFields = parsedToolCall.parameters;
+            accumulatedReply = buildIntakeFallbackReply(intakeFields);
+          } else if (parsedToolCall?.name === 'update_practice_fields' && parsedToolCall.parameters) {
+            onboardingFields = parsedToolCall.parameters;
+            const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
+            accumulatedReply = buildOnboardingEditAwareFallbackReply(
+              currentOnboardingProfile,
+              onboardingFields,
+              lastUserMessage?.content ?? null
+            );
+          }
+
+          if (accumulatedReply.trim()) {
+            write({ token: accumulatedReply });
+            emittedAnyToken = true;
+          }
+        }
+      }
+
+      // Parse accumulated tool call if present
+      if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
+        try {
+          intakeFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
+        } catch (error) {
+          Logger.warn('Failed to parse streamed intake tool arguments', {
+            conversationId: body.conversationId,
+            error: error instanceof Error ? error.message : String(error)
           });
-
-          const { done, value } = result as { done: boolean; value?: Uint8Array };
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          // Keep the last (potentially incomplete) line in the buffer
-          buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed === 'data: [DONE]') continue;
-            if (!trimmed.startsWith('data: ')) continue;
-
-            let chunk: {
-              choices?: Array<{
-                delta?: {
-                  content?: string | null;
-                  tool_calls?: Array<{
-                    index?: number;
-                    function?: { name?: string; arguments?: string };
-                  }>;
-                };
-                finish_reason?: string | null;
-              }>;
-            };
-
-            try {
-              chunk = JSON.parse(trimmed.slice(6));
-            } catch {
-              continue;
-            }
-
-            const delta = chunk.choices?.[0]?.delta;
-            if (!delta) continue;
-
-            // Text token
-            if (typeof delta.content === 'string' && delta.content.length > 0) {
-              accumulatedReply += delta.content;
-              write({ token: delta.content });
-              emittedAnyToken = true;
-            }
-
-            // Tool call argument chunk (intake mode)
-            if (delta.tool_calls?.[0]) {
-              const tc = delta.tool_calls[0];
-              if (tc.function?.name) {
-                toolCallName = tc.function.name;
-              }
-              if (typeof tc.function?.arguments === 'string') {
-                toolCallArgBuffer += tc.function.arguments;
-              }
-            }
-          }
         }
-
-        if (streamStalled && !accumulatedReply.trim()) {
-          const currentOnboardingProfile = isOnboardingMode
-            ? buildOnboardingProfileMetadata(details, onboardingFields)
-            : null;
-          accumulatedReply = isIntakeMode
-            ? buildIntakeFallbackReply(intakeFields)
-            : isOnboardingMode
-              ? buildOnboardingEditAwareFallbackReply(currentOnboardingProfile, onboardingFields, lastUserMessage?.content ?? null)
-              : EMPTY_REPLY_FALLBACK;
-          write({ token: accumulatedReply });
-          emittedAnyToken = true;
-        }
-
-        // Flush any remaining buffer content
-        if (buffer.trim() && buffer.trim() !== 'data: [DONE]') {
-          try {
-            const trimmed = buffer.trim();
-            if (trimmed.startsWith('data: ')) {
-              const chunk = JSON.parse(trimmed.slice(6)) as { choices?: Array<{ delta?: { content?: string | null; tool_calls?: Array<{ index?: number; function?: { name?: string; arguments?: string } }> } }> };
-              const token = chunk.choices?.[0]?.delta?.content;
-              if (typeof token === 'string' && token.length > 0) {
-                accumulatedReply += token;
-                write({ token });
-                emittedAnyToken = true;
-              }
-              // Handle tool calls in final buffer
-              const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
-              if (Array.isArray(toolCalls)) {
-                for (const tc of toolCalls) {
-                  if (typeof tc.function?.name === 'string') {
-                    toolCallName = tc.function.name;
-                  }
-                  if (typeof tc.function?.arguments === 'string') {
-                    toolCallArgBuffer += tc.function.arguments;
-                  }
-                }
-              }
-            }
-          } catch {
-            // ignore malformed final chunk
-          }
-        }
-
-        // Parse accumulated tool call if present
-        if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
-          try {
-            intakeFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
-          } catch (error) {
-            Logger.warn('Failed to parse streamed intake tool arguments', {
-              conversationId: body.conversationId,
-              error: error instanceof Error ? error.message : String(error)
-            });
-          }
-        } else if (toolCallName === 'update_practice_fields' && toolCallArgBuffer.length > 0) {
-          try {
-            onboardingFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
-          } catch (error) {
-            Logger.warn('Failed to parse streamed onboarding tool arguments', {
-              conversationId: body.conversationId,
-              error: error instanceof Error ? error.message : String(error)
-            });
-          }
+      } else if (toolCallName === 'update_practice_fields' && toolCallArgBuffer.length > 0) {
+        try {
+          onboardingFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
+        } catch (error) {
+          Logger.warn('Failed to parse streamed onboarding tool arguments', {
+            conversationId: body.conversationId,
+            error: error instanceof Error ? error.message : String(error)
+          });
         }
       }
 
       // Post-process reply — same validation logic as the non-streaming path
       if (!accumulatedReply.trim()) {
-        const currentOnboardingProfile = isOnboardingMode
-          ? buildOnboardingProfileMetadata(details, onboardingFields)
-          : null;
         if (isIntakeMode && intakeFields) {
           accumulatedReply = buildIntakeFallbackReply(intakeFields);
-        } else if (isOnboardingMode) {
+        } else if (isOnboardingMode && onboardingFields) {
+          const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
           accumulatedReply = buildOnboardingEditAwareFallbackReply(
             currentOnboardingProfile,
             onboardingFields,
             lastUserMessage?.content ?? null
           );
         } else {
-          accumulatedReply = EMPTY_REPLY_FALLBACK;
+          throw new Error('AI returned an empty reply');
         }
       }
       if (!emittedAnyToken && accumulatedReply.trim()) {
@@ -1288,7 +1378,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         conversationId: body.conversationId,
         error: error instanceof Error ? error.message : String(error)
       });
-      write({ error: true, message: EMPTY_REPLY_FALLBACK });
+      write({ error: true, message: error instanceof Error ? error.message : 'AI request failed' });
     } finally {
       close();
     }

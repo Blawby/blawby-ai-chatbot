@@ -7,6 +7,14 @@
 # Required for local Worker development; must match VITE_BACKEND_API_URL when set
 BACKEND_API_URL=your_backend_api_url_here
 
+# AI routing
+# Use AI Gateway dynamic routes for provider failover, e.g. OpenAI -> Workers AI
+AI_PROVIDER=cloudflare_gateway
+AI_MODEL=dynamic/blawby-chat-failover
+
+# Optional: if your code-level fallback path is enabled, override fallback model
+# WORKERS_AI_FALLBACK_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
+
 # API Keys and Tokens (SENSITIVE)
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 CF_AIG_TOKEN=your_cloudflare_ai_gateway_token_here

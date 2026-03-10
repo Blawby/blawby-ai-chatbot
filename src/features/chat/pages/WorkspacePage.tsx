@@ -260,6 +260,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationsPath = useMemo(() => {
     return `${normalizedBase}/conversations`;
   }, [normalizedBase]);
+  const withWidgetQuery = useCallback((path: string): string => {
+    if (workspace !== 'public' || layoutMode !== 'widget') {
+      return path;
+    }
+    return path.includes('?') ? `${path}&v=widget` : `${path}?v=widget`;
+  }, [layoutMode, workspace]);
   const isWorkspaceWithMattersRouting = isPracticeWorkspace || isClientWorkspace;
   const selectedMatterIdFromPath = useMemo(() => {
     if (view !== 'matters' || !isWorkspaceWithMattersRouting) return null;
@@ -843,8 +849,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onCloseConversationListOverride();
       return;
     }
-    navigate(workspaceBasePath);
-  }, [navigate, onCloseConversationListOverride, workspaceBasePath]);
+    navigate(withWidgetQuery(workspaceBasePath));
+  }, [navigate, onCloseConversationListOverride, withWidgetQuery, workspaceBasePath]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
@@ -852,8 +858,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onSelectConversationOverride(conversationId);
       return;
     }
-    navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
-  }, [conversationsPath, navigate, onSelectConversationOverride]);
+    navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
+  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
 
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') {
@@ -1398,7 +1404,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         preferredConversationId,
         forceCreate ? { forceCreate: true } : undefined
       );
-      navigate(`${conversationsPath}/${encodeURIComponent(conversationId)}`);
+      navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
     } catch (error) {
       // "Session not ready" — the toast was already shown by MainApp, so finish gracefully.
       if (error instanceof SessionNotReadyError) return;
@@ -1409,10 +1415,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const handleOpenRecentMessage = () => {
     if (recentMessage?.conversationId) {
-      navigate(`${conversationsPath}/${encodeURIComponent(recentMessage.conversationId)}`);
+      navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(recentMessage.conversationId)}`));
       return;
     }
-    navigate(conversationsPath);
+    navigate(withWidgetQuery(conversationsPath));
   };
 
   const renderContent = () => {

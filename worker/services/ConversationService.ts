@@ -803,7 +803,11 @@ export class ConversationService {
         ? options.previousParticipantId.trim()
         : null;
 
-    if (conversation.user_id && conversation.user_id !== userId) {
+    if (
+      conversation.user_id &&
+      conversation.user_id !== userId &&
+      conversation.user_id !== previousParticipantId
+    ) {
       throw HttpErrors.conflict('Conversation already linked to a different user');
     }
 

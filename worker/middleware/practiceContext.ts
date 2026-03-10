@@ -124,12 +124,15 @@ export async function extractPracticeContext(
       };
     }
 
-    // Authenticated but no active org (e.g., client workspace) falls through to URL/default logic
     if (urlPracticeId) {
+      if (!isAnonymous) {
+        throw HttpErrors.forbidden('Authenticated users cannot override practice context via URL');
+      }
+
       return {
         practiceId: urlPracticeId,
         source: 'url',
-        isAuthenticated: !isAnonymous,
+        isAuthenticated: false,
         userId: authContext.user.id
       };
     }
