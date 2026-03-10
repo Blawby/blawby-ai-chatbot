@@ -23,6 +23,7 @@ export type NavRailItem = {
   label: string;
   icon: ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
   href: string;
+  matchHrefs?: string[];
   badge?: number | null;
   variant?: 'default' | 'danger';
   isAction?: boolean;
@@ -97,20 +98,80 @@ const buildPracticeBase = (slug: string) => `/practice/${encodeURIComponent(slug
 const buildClientBase = (slug: string) => `/client/${encodeURIComponent(slug)}`;
 
 const buildPracticeRail = (basePath: string): NavRailItem[] => [
-  { id: 'home', label: 'Home', icon: HomeIcon, href: basePath },
-  { id: 'conversations', label: 'Conversations', icon: ChatBubbleOvalLeftEllipsisIcon, href: `${basePath}/conversations` },
-  { id: 'matters', label: 'Matters', icon: ClipboardDocumentListIcon, href: `${basePath}/matters` },
-  { id: 'invoices', label: 'Invoices', icon: DocumentTextIcon, href: `${basePath}/invoices` },
-  { id: 'reports', label: 'Reports', icon: ChartBarIcon, href: `${basePath}/reports` },
-  { id: 'settings', label: 'Settings', icon: Cog6ToothIcon, href: `${basePath}/settings/general` },
+  {
+    id: 'home',
+    label: 'Home',
+    icon: HomeIcon,
+    href: basePath,
+    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/people`, `${basePath}/clients`],
+  },
+  {
+    id: 'conversations',
+    label: 'Conversations',
+    icon: ChatBubbleOvalLeftEllipsisIcon,
+    href: `${basePath}/conversations`,
+    matchHrefs: [`${basePath}/conversations`],
+  },
+  {
+    id: 'matters',
+    label: 'Matters',
+    icon: ClipboardDocumentListIcon,
+    href: `${basePath}/matters`,
+    matchHrefs: [`${basePath}/matters`],
+  },
+  {
+    id: 'invoices',
+    label: 'Invoices',
+    icon: DocumentTextIcon,
+    href: `${basePath}/invoices`,
+    matchHrefs: [`${basePath}/invoices`],
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: ChartBarIcon,
+    href: `${basePath}/reports`,
+    matchHrefs: [`${basePath}/reports`],
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: Cog6ToothIcon,
+    href: `${basePath}/settings/general`,
+    matchHrefs: [`${basePath}/settings`],
+  },
 ];
 
 const buildClientRail = (basePath: string): NavRailItem[] => [
-  { id: 'home', label: 'Home', icon: HomeIcon, href: basePath },
-  { id: 'conversations', label: 'Conversations', icon: ChatBubbleOvalLeftEllipsisIcon, href: `${basePath}/conversations` },
-  { id: 'matters', label: 'Matters', icon: ClipboardDocumentListIcon, href: `${basePath}/matters` },
-  { id: 'invoices', label: 'Invoices', icon: DocumentTextIcon, href: `${basePath}/invoices` },
-  { id: 'settings', label: 'Settings', icon: Cog6ToothIcon, href: `${basePath}/settings/general` },
+  { id: 'home', label: 'Home', icon: HomeIcon, href: basePath, matchHrefs: [basePath] },
+  {
+    id: 'conversations',
+    label: 'Conversations',
+    icon: ChatBubbleOvalLeftEllipsisIcon,
+    href: `${basePath}/conversations`,
+    matchHrefs: [`${basePath}/conversations`],
+  },
+  {
+    id: 'matters',
+    label: 'Matters',
+    icon: ClipboardDocumentListIcon,
+    href: `${basePath}/matters`,
+    matchHrefs: [`${basePath}/matters`],
+  },
+  {
+    id: 'invoices',
+    label: 'Invoices',
+    icon: DocumentTextIcon,
+    href: `${basePath}/invoices`,
+    matchHrefs: [`${basePath}/invoices`],
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: Cog6ToothIcon,
+    href: `${basePath}/settings/general`,
+    matchHrefs: [`${basePath}/settings`],
+  },
 ];
 
 const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {

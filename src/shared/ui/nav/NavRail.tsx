@@ -9,6 +9,7 @@ export interface NavRailItem {
   label: string;
   icon: IconComponent;
   href: string;
+  matchHrefs?: string[];
   badge?: number | null;
   variant?: 'default' | 'danger';
   isAction?: boolean;
@@ -36,6 +37,16 @@ const isHrefActive = (currentPath: string, itemHref: string): boolean => {
   return current === target || current.startsWith(`${target}/`);
 };
 
+const getBestMatchScore = (currentPath: string, item: NavRailItem): number => {
+  const targets = (item.matchHrefs?.length ? item.matchHrefs : [item.href]).map(normalizePath);
+  let bestScore = -1;
+  for (const target of targets) {
+    if (!isHrefActive(currentPath, target)) continue;
+    bestScore = Math.max(bestScore, target.length);
+  }
+  return bestScore;
+};
+
 export const NavRail: FunctionComponent<NavRailProps> = ({
   items,
   activeHref,
@@ -49,8 +60,8 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   const resolvedPath = normalizePath(activeHref || location.path);
   const activeItemId = items.reduce<{ id: string | null; score: number }>((best, item) => {
     if (item.isAction) return best;
-    if (!isHrefActive(resolvedPath, item.href)) return best;
-    const score = normalizePath(item.href).length;
+    const score = getBestMatchScore(resolvedPath, item);
+    if (score < 0) return best;
     if (score > best.score) {
       return { id: item.id, score };
     }
