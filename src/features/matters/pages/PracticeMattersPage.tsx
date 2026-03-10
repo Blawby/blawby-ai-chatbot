@@ -897,7 +897,7 @@ export const PracticeMattersPage = ({
         const maybeStatus = (error as { status?: number; response?: { status?: number } });
         const status = maybeStatus.status ?? maybeStatus.response?.status;
         const message = error instanceof Error ? error.message : 'Failed to load tasks';
-        if (status === 404 || message.includes('404') || message.includes('Not Found')) {
+        if (status === 404 || status === 501 || message.includes('404') || message.includes('501') || message.includes('Not Found')) {
           setTasksNotImplemented(true);
           setTasksError(null);
           setTasks([]);

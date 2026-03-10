@@ -499,7 +499,13 @@ export const getMatter = async (
     'Failed to load matter'
   );
 
-  // Backend returns list payload; narrow to requested item.
+  // Prefer single-record shape when available.
+  const singleMatter = extractMatter(payload);
+  if (singleMatter && singleMatter.id === matterId) {
+    return normalizeMatter(singleMatter);
+  }
+
+  // Fallback: list payload, narrow to requested item.
   const matters = extractMatterArray(payload);
 
   const matter = matters.find((m) => m.id === matterId) ?? null;

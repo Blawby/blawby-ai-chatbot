@@ -367,7 +367,6 @@
       })
       .catch(function (error) {
         console.warn('[BlawbyWidget] Failed to resolve practice accent color', error);
-        throw error;
       });
   }
 
