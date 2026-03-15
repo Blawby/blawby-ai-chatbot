@@ -744,8 +744,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         userId,
         requestedPreviousParticipantId: requestedPreviousParticipantId ?? null,
         serverPreviousAnonUserId,
-        requestedAnonymousSessionId: requestedAnonymousSessionId ?? null,
-        authSessionId: authContext.session.id,
+        hasRequestedAnonymousSession: Boolean(requestedAnonymousSessionId),
+        hasAuthSession: Boolean(authContext?.session?.id),
       });
       throw HttpErrors.conflict('Unable to verify previous anonymous identity for link');
     }
