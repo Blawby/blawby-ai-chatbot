@@ -174,8 +174,12 @@ export async function handleSubmitIntake(
   }
   const userId = authContext.user.id;
 
-  // Practice context
-  const requestWithContext = await withPracticeContext(request, env, { requirePractice: true });
+  // Practice context: preserve the public-widget practiceId during anon -> auth handoff.
+  const requestWithContext = await withPracticeContext(request, env, {
+    requirePractice: true,
+    authContext,
+    allowAuthenticatedUrlPracticeId: true,
+  });
   const practiceId = getPracticeId(requestWithContext);
   const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
   if (membership.isMember) {

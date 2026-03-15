@@ -127,7 +127,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
     });
     const conversationId = segments[2];
     const conversationPracticeId = getPracticeId(requestWithContext);
@@ -640,12 +640,35 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     segments[3] === 'link' &&
     request.method === 'PATCH'
   ) {
+    const conversationId = segments[2];
+    const linkTraceId = `link-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+    Logger.info('[Conversations][link] request received', {
+      traceId: linkTraceId,
+      conversationId,
+      userId,
+      isAnonymous: authContext.isAnonymous,
+      activeOrganizationId: authContext.activeOrganizationId ?? null,
+      previousAnonUserId: authContext.previousAnonUserId ?? null,
+      urlPracticeId: url.searchParams.get('practiceId'),
+    });
+
+    // Allow the practiceId from the URL query param even for authenticated users so
+    // that the public widget's anon→auth handoff can reference the original practice.
+    // This is safe because the conversation itself is gated by practiceId match in D1.
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
-    const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
+
+    Logger.info('[Conversations][link] practice context resolved', {
+      traceId: linkTraceId,
+      practiceId,
+      contextSource: (requestWithContext as { practiceContext?: { source?: string } }).practiceContext?.source ?? 'unknown',
+    });
+
     const contentLength = request.headers.get('content-length');
     const linkBody = (contentLength && Number(contentLength) > 0)
       ? await parseJsonBody(request) as { previousParticipantId?: string; anonymousSessionId?: string }
@@ -653,12 +676,36 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const requestedPreviousParticipantId = typeof linkBody?.previousParticipantId === 'string'
       ? linkBody.previousParticipantId.trim()
       : null;
+
     if (authContext.isAnonymous) {
+      Logger.warn('[Conversations][link] rejected: caller is still anonymous', {
+        traceId: linkTraceId,
+        reason: 'caller_is_anonymous',
+        userId,
+      });
       throw HttpErrors.unauthorized('Sign in is required to link a conversation');
     }
 
-    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    let conversation;
+    try {
+      conversation = await conversationService.getConversation(conversationId, practiceId);
+    } catch (lookupError) {
+      Logger.warn('[Conversations][link] conversation lookup failed', {
+        traceId: linkTraceId,
+        reason: 'conversation_not_found',
+        conversationId,
+        practiceId,
+        error: lookupError instanceof Error ? lookupError.message : String(lookupError),
+      });
+      throw lookupError;
+    }
+
     if (conversation.user_id === userId) {
+      Logger.info('[Conversations][link] already owned by caller, returning early', {
+        traceId: linkTraceId,
+        conversationId,
+        userId,
+      });
       return createJsonResponse(conversation);
     }
 
@@ -683,6 +730,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requestedPreviousParticipantId ??
       metadataAnonParticipantId ??
       inferredAnonOwnerId;
+
+    Logger.info('[Conversations][link] attempting linkConversationToUser', {
+      traceId: linkTraceId,
+      conversationId,
+      practiceId,
+      userId,
+      previousAnonUserId: previousAnonUserId ?? null,
+      conversationOwnerId: conversation.user_id ?? null,
+      isConversationAnonymous: conversation.is_anonymous ?? null,
+    });
+
     try {
       const linkedConversation = await conversationService.linkConversationToUser(
         conversationId,
@@ -692,13 +750,26 @@ export async function handleConversations(request: Request, env: Env): Promise<R
           previousParticipantId: previousAnonUserId
         }
       );
+      Logger.info('[Conversations][link] link succeeded', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+      });
       return createJsonResponse(linkedConversation);
     } catch (error) {
       if (error instanceof HttpError && error.status === 409) {
+        Logger.info('[Conversations][link] link conflict (409), adding participant', {
+          traceId: linkTraceId,
+          conversationId,
+          practiceId,
+          userId,
+        });
         try {
           await conversationService.addParticipant(conversationId, practiceId, userId);
         } catch (participantError) {
-          Logger.warn('[Conversations] Failed to add participant after link conflict', {
+          Logger.warn('[Conversations][link] addParticipant after 409 failed', {
+            traceId: linkTraceId,
             conversationId,
             practiceId,
             userId,
@@ -709,6 +780,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         const refreshedConversation = await conversationService.getConversation(conversationId, practiceId);
         return createJsonResponse(refreshedConversation);
       }
+      Logger.warn('[Conversations][link] linkConversationToUser threw non-409 error', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+        errorStatus: error instanceof HttpError ? error.status : null,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }

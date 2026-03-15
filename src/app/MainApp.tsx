@@ -39,7 +39,12 @@ import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndi
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
-import { peekAnonymousSessionId, peekAnonymousUserId, peekConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
+import {
+  peekAnonymousSessionId,
+  peekAnonymousUserId,
+  peekConversationAnonymousParticipant,
+  consumePostAuthConversationContext,
+} from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
@@ -214,6 +219,7 @@ export function MainApp({
   // ── conversation setup ─────────────────────────────────────────────────────
   const {
     conversationId: setupConversationId,
+    setConversationId,
     isCreatingConversation,
     createConversation,
     applyConversationMode,
@@ -230,6 +236,35 @@ export function MainApp({
   });
 
   const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
+
+  useEffect(() => {
+    if (sessionIsPending) return;
+    if (!session?.user || isAnonymous) return;
+    const pending = consumePostAuthConversationContext();
+    if (!pending) return;
+    if (pending.practiceId) {
+      const matchesPractice =
+        pending.practiceId === practiceId ||
+        pending.practiceId === effectivePracticeId;
+      if (!matchesPractice) return;
+    }
+
+    if (pending.workspace === 'public' && pending.practiceSlug) {
+      const slug = pending.practiceSlug;
+      navigate(`/public/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(pending.conversationId)}`, true);
+      return;
+    }
+
+    setConversationId(pending.conversationId);
+  }, [
+    effectivePracticeId,
+    isAnonymous,
+    navigate,
+    practiceId,
+    session?.user,
+    sessionIsPending,
+    setConversationId,
+  ]);
 
   // ── message handling ───────────────────────────────────────────────────────
   const handleMessageError = useCallback((error: string | Error) => {
@@ -331,7 +366,8 @@ export function MainApp({
 
   const handleAuthPromptSuccess = useCallback(async () => {
     const hadPreAuthIdentity = Boolean(preAuthUserIdRef.current);
-    if (activeConversationId && practiceId && hadPreAuthIdentity) {
+    const linkPracticeId = effectivePracticeId ?? practiceId;
+    if (activeConversationId && linkPracticeId && hadPreAuthIdentity) {
       try {
         const previousParticipantId =
           peekConversationAnonymousParticipant(activeConversationId) ??
@@ -339,7 +375,7 @@ export function MainApp({
         const anonymousSessionId = peekAnonymousSessionId();
         await linkConversationToUser(
           activeConversationId,
-          practiceId,
+          linkPracticeId,
           undefined,
           {
             previousParticipantId: previousParticipantId ?? undefined,
@@ -357,7 +393,7 @@ export function MainApp({
       return;
     }
     await handleIntakeAuthSuccess();
-  }, [activeConversationId, handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget, practiceId]);
+  }, [activeConversationId, effectivePracticeId, handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget, practiceId]);
 
   useEffect(() => {
     if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
@@ -759,6 +795,7 @@ export function MainApp({
               introMessage: practiceConfig.introMessage,
             }}
             practiceId={practiceId}
+            conversationId={activeConversationId ?? null}
             previewFiles={previewFiles}
             uploadingFiles={uploadingFiles}
             removePreviewFile={removePreviewFile}

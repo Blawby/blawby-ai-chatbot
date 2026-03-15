@@ -79,12 +79,14 @@ export async function extractPracticeContext(
     requirePractice?: boolean;
     defaultPracticeId?: string;
     authContext?: AuthContext | null;
+    allowAuthenticatedUrlPracticeId?: boolean;
   } = {}
 ): Promise<PracticeContext | OptionalPracticeContext> {
   const {
     requirePractice = true,
     defaultPracticeId,
-    authContext: providedAuthContext
+    authContext: providedAuthContext,
+    allowAuthenticatedUrlPracticeId = false
   } = options;
 
   const url = new URL(request.url);
@@ -115,7 +117,7 @@ export async function extractPracticeContext(
         ? authContext.activeOrganizationId.trim()
         : null;
 
-    if (!isAnonymous && authPracticeId) {
+    if (!isAnonymous && authPracticeId && !(allowAuthenticatedUrlPracticeId && urlPracticeId)) {
       return {
         practiceId: authPracticeId,
         source: 'auth',
@@ -125,14 +127,14 @@ export async function extractPracticeContext(
     }
 
     if (urlPracticeId) {
-      if (!isAnonymous) {
+      if (!isAnonymous && !allowAuthenticatedUrlPracticeId) {
         throw HttpErrors.forbidden('Authenticated users cannot override practice context via URL');
       }
 
       return {
         practiceId: urlPracticeId,
         source: 'url',
-        isAuthenticated: false,
+        isAuthenticated: !isAnonymous,
         userId: authContext.user.id
       };
     }
@@ -210,6 +212,7 @@ export async function withPracticeContext(
     requirePractice?: boolean;
     defaultPracticeId?: string;
     authContext?: AuthContext | null;
+    allowAuthenticatedUrlPracticeId?: boolean;
   } = {}
 ): Promise<RequestWithPracticeContext> {
   // SECURITY: Extract practice context without modifying the original request
@@ -217,7 +220,8 @@ export async function withPracticeContext(
   const context = await extractPracticeContext(request, env, {
     requirePractice: options.requirePractice,
     defaultPracticeId: options.defaultPracticeId,
-    authContext: options.authContext
+    authContext: options.authContext,
+    allowAuthenticatedUrlPracticeId: options.allowAuthenticatedUrlPracticeId
   });
   
   // SECURITY: Cast the original request (preserving all headers/cookies/auth)
