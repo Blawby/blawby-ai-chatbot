@@ -76,20 +76,30 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   let responseCookies: string[] = [];
   let sessionData: unknown = null;
   const requestedWidgetToken = extractWidgetTokenFromRequest(request);
+  let validatedWidgetTokenSource: 'authorization' | 'query' | null = null;
 
   if (requestedWidgetToken) {
-    const validatedToken = await validateWidgetAuthToken(requestedWidgetToken.token, env);
-    sessionData = {
-      user: {
-        id: validatedToken.userId,
-        isAnonymous: true,
-        is_anonymous: true,
-      },
-      session: {
+    try {
+      const validatedToken = await validateWidgetAuthToken(requestedWidgetToken.token, env);
+      validatedWidgetTokenSource = requestedWidgetToken.tokenSource;
+      sessionData = {
         id: validatedToken.sessionId,
-      },
-    };
-  } else {
+        user: {
+          id: validatedToken.userId,
+          isAnonymous: true,
+          is_anonymous: true,
+        },
+        session: {
+          id: validatedToken.sessionId,
+        },
+      };
+    } catch {
+      // Invalid/expired widget token should not fail bootstrap; fall back to
+      // cookie/anonymous session bootstrap flow.
+    }
+  }
+
+  if (!sessionData) {
     try {
       const sessionController = new AbortController();
       const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
@@ -184,9 +194,17 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       ? await issueWidgetAuthToken(
           env,
           { userId: sessionUserId, sessionId },
-          requestedWidgetToken
-            ? { ttlSeconds: getWidgetTokenTtlForSource(requestedWidgetToken.tokenSource) }
+          validatedWidgetTokenSource
+            ? { ttlSeconds: getWidgetTokenTtlForSource(validatedWidgetTokenSource) }
             : undefined
+        )
+      : null;
+  const widgetQueryAuth =
+    isAnonymous && sessionUserId && sessionId
+      ? await issueWidgetAuthToken(
+          env,
+          { userId: sessionUserId, sessionId },
+          { ttlSeconds: getWidgetTokenTtlForSource('query') }
         )
       : null;
 
@@ -227,7 +245,9 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     conversationId: conversationId,
     conversations: recentConversations,
     widgetAuthToken: widgetAuth?.token ?? null,
-    widgetAuthTokenExpiresAt: widgetAuth?.expiresAt ?? null
+    widgetAuthTokenExpiresAt: widgetAuth?.expiresAt ?? null,
+    widgetQueryAuthToken: widgetQueryAuth?.token ?? null,
+    widgetQueryAuthTokenExpiresAt: widgetQueryAuth?.expiresAt ?? null
   };
 
   const responseHeaders = new Headers({

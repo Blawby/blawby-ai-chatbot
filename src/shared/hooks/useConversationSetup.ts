@@ -121,7 +121,7 @@ export function useConversationSetup({
 
       const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
         method: 'POST',
-        headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           participantUserIds: [session.user.id],

@@ -1,6 +1,8 @@
 const WIDGET_RUNTIME_CONTEXT_KEY = 'blawby_widget_runtime_context';
 const WIDGET_AUTH_TOKEN_KEY = 'blawby_widget_auth_token';
 const WIDGET_AUTH_TOKEN_EXP_KEY = 'blawby_widget_auth_token_exp';
+const WIDGET_QUERY_AUTH_TOKEN_KEY = 'blawby_widget_query_auth_token';
+const WIDGET_QUERY_AUTH_TOKEN_EXP_KEY = 'blawby_widget_query_auth_token_exp';
 
 const safeSessionStorageGet = (key: string): string | null => {
   if (typeof window === 'undefined') return null;
@@ -43,7 +45,11 @@ export const setWidgetRuntimeContext = (enabled: boolean): void => {
   safeSessionStorageRemove(WIDGET_RUNTIME_CONTEXT_KEY);
 };
 
-export const persistWidgetAuthToken = (token: string, expiresAt?: string | null): void => {
+export const persistWidgetAuthToken = (
+  token: string,
+  expiresAt?: string | null,
+  options?: { queryToken?: string | null; queryTokenExpiresAt?: string | null }
+): void => {
   if (!token || token.trim().length === 0) return;
   safeSessionStorageSet(WIDGET_AUTH_TOKEN_KEY, token.trim());
   if (typeof expiresAt === 'string' && expiresAt.trim().length > 0) {
@@ -51,26 +57,45 @@ export const persistWidgetAuthToken = (token: string, expiresAt?: string | null)
   } else {
     safeSessionStorageRemove(WIDGET_AUTH_TOKEN_EXP_KEY);
   }
+  const queryToken = options?.queryToken?.trim();
+  if (queryToken) {
+    safeSessionStorageSet(WIDGET_QUERY_AUTH_TOKEN_KEY, queryToken);
+    const queryTokenExpiresAt = options?.queryTokenExpiresAt?.trim();
+    if (queryTokenExpiresAt) {
+      safeSessionStorageSet(WIDGET_QUERY_AUTH_TOKEN_EXP_KEY, queryTokenExpiresAt);
+    } else {
+      safeSessionStorageRemove(WIDGET_QUERY_AUTH_TOKEN_EXP_KEY);
+    }
+  } else {
+    safeSessionStorageRemove(WIDGET_QUERY_AUTH_TOKEN_KEY);
+    safeSessionStorageRemove(WIDGET_QUERY_AUTH_TOKEN_EXP_KEY);
+  }
 };
 
 export const clearWidgetAuthToken = (): void => {
   safeSessionStorageRemove(WIDGET_AUTH_TOKEN_KEY);
   safeSessionStorageRemove(WIDGET_AUTH_TOKEN_EXP_KEY);
+  safeSessionStorageRemove(WIDGET_QUERY_AUTH_TOKEN_KEY);
+  safeSessionStorageRemove(WIDGET_QUERY_AUTH_TOKEN_EXP_KEY);
 };
 
-const isTokenExpired = (): boolean => {
-  const expiresAt = safeSessionStorageGet(WIDGET_AUTH_TOKEN_EXP_KEY);
+const isTokenExpired = (expiresAtKey: string): boolean => {
+  const expiresAt = safeSessionStorageGet(expiresAtKey);
   if (!expiresAt) return false;
   const expMs = Date.parse(expiresAt);
   if (!Number.isFinite(expMs)) return true;
   return Date.now() >= expMs;
 };
 
-export const getWidgetAuthToken = (): string | null => {
-  const token = safeSessionStorageGet(WIDGET_AUTH_TOKEN_KEY);
+export const getWidgetAuthToken = (options?: { source?: 'authorization' | 'query' }): string | null => {
+  const source = options?.source ?? 'authorization';
+  const tokenKey = source === 'query' ? WIDGET_QUERY_AUTH_TOKEN_KEY : WIDGET_AUTH_TOKEN_KEY;
+  const expiresAtKey = source === 'query' ? WIDGET_QUERY_AUTH_TOKEN_EXP_KEY : WIDGET_AUTH_TOKEN_EXP_KEY;
+  const token = safeSessionStorageGet(tokenKey);
   if (!token || token.trim().length === 0) return null;
-  if (isTokenExpired()) {
-    clearWidgetAuthToken();
+  if (isTokenExpired(expiresAtKey)) {
+    safeSessionStorageRemove(tokenKey);
+    safeSessionStorageRemove(expiresAtKey);
     return null;
   }
   return token.trim();
@@ -86,7 +111,7 @@ export const withWidgetAuthHeaders = (headers?: HeadersInit): Headers => {
 };
 
 export const appendWidgetTokenToUrl = (url: string): string => {
-  const token = getWidgetAuthToken();
+  const token = getWidgetAuthToken({ source: 'query' });
   if (!token) return url;
   try {
     const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');

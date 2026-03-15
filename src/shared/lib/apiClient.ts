@@ -7,7 +7,7 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Address } from '@/shared/types/address';
-import { getWorkerApiUrl } from '@/config/urls';
+import { getWorkerApiUrl, isWidgetTokenEligibleRequestUrl } from '@/config/urls';
 import {
   toMajorUnits,
   toMinorUnitsValue,
@@ -99,12 +99,7 @@ apiClient.interceptors.request.use(
     const widgetToken = getWidgetAuthToken();
     if (widgetToken) {
       const requestUrl = typeof config.url === 'string' ? config.url : '';
-      const tokenEligible =
-        requestUrl.includes('/api/conversations') ||
-        requestUrl.includes('/api/ai/') ||
-        requestUrl.includes('/api/widget/bootstrap') ||
-        requestUrl.includes('/api/widget/practice-details/');
-      if (tokenEligible) {
+      if (isWidgetTokenEligibleRequestUrl(requestUrl)) {
         if (!config.headers) {
           config.headers = new AxiosHeaders();
         }

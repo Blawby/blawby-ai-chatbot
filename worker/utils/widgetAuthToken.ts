@@ -168,6 +168,11 @@ export const extractWidgetTokenFromRequest = (request: Request): ExtractedWidget
 
   // Query-param tokens are accepted only for WebSocket auth handshakes where
   // browsers cannot set custom Authorization headers on `new WebSocket(...)`.
+  const upgrade = request.headers.get('upgrade');
+  const isWebSocketUpgrade = typeof upgrade === 'string' && upgrade.toLowerCase() === 'websocket';
+  if (!isWebSocketUpgrade) {
+    return null;
+  }
   const url = new URL(request.url);
   const queryToken = url.searchParams.get('bw_token');
   if (queryToken && queryToken.trim().length > 0) {
@@ -192,7 +197,12 @@ export const validateWidgetAuthToken = async (
   if (!payloadPart || !signaturePart) throw HttpErrors.unauthorized('Invalid widget auth token');
 
   const expectedSignature = await sign(payloadPart, env);
-  const actualSignature = fromBase64Url(signaturePart);
+  let actualSignature: Uint8Array;
+  try {
+    actualSignature = fromBase64Url(signaturePart);
+  } catch {
+    throw HttpErrors.unauthorized('Invalid widget auth token');
+  }
   if (!timingSafeEqual(expectedSignature, actualSignature)) {
     throw HttpErrors.unauthorized('Invalid widget auth token');
   }

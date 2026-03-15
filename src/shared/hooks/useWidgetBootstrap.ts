@@ -13,6 +13,8 @@ export interface WidgetBootstrapData {
   conversations: Array<Record<string, unknown>>;
   widgetAuthToken?: string | null;
   widgetAuthTokenExpiresAt?: string | null;
+  widgetQueryAuthToken?: string | null;
+  widgetQueryAuthTokenExpiresAt?: string | null;
 }
 
 export function useWidgetBootstrap(slug: string, isWidget: boolean) {
@@ -58,7 +60,14 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
 
         const freshData = (await res.json()) as WidgetBootstrapData;
         if (typeof freshData.widgetAuthToken === 'string' && freshData.widgetAuthToken.trim().length > 0) {
-          persistWidgetAuthToken(freshData.widgetAuthToken, freshData.widgetAuthTokenExpiresAt ?? null);
+          persistWidgetAuthToken(
+            freshData.widgetAuthToken,
+            freshData.widgetAuthTokenExpiresAt ?? null,
+            {
+              queryToken: freshData.widgetQueryAuthToken ?? null,
+              queryTokenExpiresAt: freshData.widgetQueryAuthTokenExpiresAt ?? null,
+            }
+          );
         } else {
           clearWidgetAuthToken();
         }
