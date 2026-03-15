@@ -93,6 +93,16 @@ export class ConversationService {
   private static readonly MAX_METADATA_BYTES = 8 * 1024;
   private static readonly MAX_REACTION_EMOJI_LENGTH = 64;
 
+  private normalizeParticipantIds(userIds: string[]): string[] {
+    return Array.from(
+      new Set(
+        userIds
+          .map((id) => (typeof id === 'string' ? id.trim() : ''))
+          .filter((id) => id.length > 0)
+      )
+    );
+  }
+
   /**
    * Create a new conversation
    * 
@@ -118,7 +128,10 @@ export class ConversationService {
     const now = new Date().toISOString();
     
     // Always include the creator in participants.
-    const participants = Array.from(new Set([options.userId, ...options.participantUserIds]));
+    const participants = this.normalizeParticipantIds([options.userId, ...options.participantUserIds]);
+    if (participants.length === 0) {
+      throw HttpErrors.badRequest('At least one valid participant is required');
+    }
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
@@ -306,7 +319,12 @@ export class ConversationService {
       FROM conversations
       WHERE practice_id = ?
         AND json_extract(user_info, '$.system_conversation') = 1
-        AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_participants cp
+          WHERE cp.conversation_id = conversations.id
+            AND cp.user_id = ?
+        )
       ORDER BY created_at ASC
       LIMIT 1
     `).bind(practiceId, userId).first<{ id: string } | null>();
@@ -357,7 +375,12 @@ export class ConversationService {
       SELECT c.*
       FROM conversations c
       WHERE c.practice_id = ? 
-        AND EXISTS (SELECT 1 FROM json_each(c.participants) WHERE json_each.value = ?)
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_participants cp
+          WHERE cp.conversation_id = c.id
+            AND cp.user_id = ?
+        )
         ${anonymousCondition}
       ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
@@ -424,8 +447,15 @@ export class ConversationService {
     }
 
     if (options.userId && !options.bypassParticipantFilter) {
-      // User must be in participants array
-      query += ' AND EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)';
+      // User must be a participant.
+      query += `
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_participants cp
+          WHERE cp.conversation_id = conversations.id
+            AND cp.user_id = ?
+        )
+      `;
       bindings.push(options.userId);
     }
 
@@ -469,7 +499,12 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
-      WHERE EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)
+      WHERE EXISTS (
+        SELECT 1
+        FROM conversation_participants cp
+        WHERE cp.conversation_id = conversations.id
+          AND cp.user_id = ?
+      )
     `;
     const bindings: unknown[] = [options.userId, options.userId];
 
@@ -729,9 +764,10 @@ export class ConversationService {
     const conversation = await this.getConversation(conversationId, practiceId);
 
     // Merge and de-duplicate participants
-    const mergedParticipants = Array.from(
-      new Set([...conversation.participants, ...userIds.filter(Boolean)])
-    );
+    const mergedParticipants = this.normalizeParticipantIds([
+      ...conversation.participants,
+      ...userIds
+    ]);
 
     // If no changes, return existing conversation
     if (mergedParticipants.length === conversation.participants.length) {
@@ -822,7 +858,7 @@ export class ConversationService {
       participantSet.delete(previousParticipantId);
     }
     participantSet.add(userId);
-    const updatedParticipants = Array.from(participantSet);
+    const updatedParticipants = this.normalizeParticipantIds(Array.from(participantSet));
     const now = new Date().toISOString();
 
     const updateResult = await this.env.DB.prepare(`
