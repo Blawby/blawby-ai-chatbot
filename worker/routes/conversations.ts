@@ -120,6 +120,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
   }
   const userId = authContext.user.id;
+  const prevAnonId = authContext.previousAnonUserId ?? null;
 
   const conversationService = new ConversationService(env);
 
@@ -133,11 +134,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const conversationPracticeId = getPracticeId(requestWithContext);
 
     if (authContext.isAnonymous) {
-      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
     } else {
       const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
       if (!isStaffMemberRole(membership.memberRole)) {
-        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 
@@ -214,11 +215,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const conversationPracticeId = getPracticeId(requestWithContext);
 
     if (authContext.isAnonymous) {
-      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
     } else {
       const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
       if (!isStaffMemberRole(membership.memberRole)) {
-        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 
@@ -284,14 +285,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     let isMember = false;
     if (authContext.isAnonymous) {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
     } else {
       const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
       isMember = membership.isMember;
       if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
-        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 
@@ -516,13 +517,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     // Validate user has access
     if (authContext.isAnonymous) {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
     } else {
       const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
       if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
-        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 
@@ -873,11 +874,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         delete body.metadata.mentionedUserIds;
       }
       if (authContext.isAnonymous) {
-        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       } else {
         const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
         if (!isStaffMemberRole(membership.memberRole)) {
-          await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+          await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
         }
       }
     }
@@ -922,7 +923,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('eventType is required');
     }
 
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
 
     const auditService = new SessionAuditService(env);
     await auditService.createEvent({
@@ -949,7 +950,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     // Allow if caller is either a participant OR a staff practice member.
     let hasAccess = false;
     try {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       hasAccess = true;
     } catch (error) {
       if (!(error instanceof HttpError) || error.status !== 403) {
@@ -1026,7 +1027,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     // Allow if caller is either a participant OR a staff practice member.
     let hasAccess = false;
     try {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       hasAccess = true;
     } catch (error) {
       if (!(error instanceof HttpError) || error.status !== 403) {

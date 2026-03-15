@@ -223,3 +223,36 @@ export const urls = {
 	unbilledExpenses: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/unbilled`,
 	unbilledSummary: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/unbilled-summary`
 };
+
+const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [
+	/^\/api\/conversations(?:\/|$)/,
+	/^\/api\/ai(?:\/|$)/,
+	/^\/api\/widget\/bootstrap(?:\/|$)/,
+	/^\/api\/widget\/practice-details(?:\/|$)/
+];
+
+const WIDGET_TOKEN_DENYLIST_PATTERNS: RegExp[] = [
+	/^\/api\/conversations\/[^/]+\/link(?:\/|$)/
+];
+
+const extractPathname = (requestUrl: string): string | null => {
+	const trimmed = requestUrl.trim();
+	if (!trimmed) return null;
+	try {
+		if (trimmed.startsWith('/')) {
+			return new URL(trimmed, 'http://localhost').pathname;
+		}
+		return new URL(trimmed).pathname;
+	} catch {
+		return null;
+	}
+};
+
+export const isWidgetTokenEligibleRequestUrl = (requestUrl: string): boolean => {
+	const pathname = extractPathname(requestUrl);
+	if (!pathname) return false;
+	if (WIDGET_TOKEN_DENYLIST_PATTERNS.some((pattern) => pattern.test(pathname))) {
+		return false;
+	}
+	return WIDGET_TOKEN_ALLOWLIST_PATTERNS.some((pattern) => pattern.test(pathname));
+};

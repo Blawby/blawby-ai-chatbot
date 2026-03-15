@@ -412,7 +412,7 @@ test.describe('Lead intake workflow', () => {
         response.url().includes('/link?practiceId=') &&
         response.status() < 400,
       { timeout: 20000 }
-    ).catch(() => null);
+    );
 
     const signUpNameInput = anonPage.getByTestId('signup-name-input');
     const signUpEmailInput = anonPage.getByTestId('signup-email-input');
@@ -435,12 +435,10 @@ test.describe('Lead intake workflow', () => {
     await waitForSession(anonPage, { timeoutMs: 30000 });
 
     const conversationLinkResponse = await conversationLinkResponsePromise;
-    if (conversationLinkResponse) {
-      expect(
-        conversationLinkResponse.status(),
-        `Conversation link after auth failed (expected non-403/200).\nURL: ${conversationLinkResponse.url()}`
-      ).toBeLessThan(400);
-    }
+    expect(
+      conversationLinkResponse.status(),
+      `Conversation link after auth failed (expected <400).\nURL: ${conversationLinkResponse.url()}`
+    ).toBeLessThan(400);
 
     const submitIntakeResponse = await submitIntakeResponsePromise;
     const submitIntakeText = await submitIntakeResponse.text().catch(() => '');
@@ -781,5 +779,96 @@ test.describe('Lead intake workflow', () => {
         ).toBe(true);
       }
     }
+  });
+
+  test('widget auth token persists widget flow after clearing cookies', async ({ anonPage }) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
+    const widgetUrl = `/public/${encodeURIComponent(practiceSlug)}?v=widget`;
+
+    const initialBootstrapResponsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/api/widget/bootstrap') &&
+        response.status() === 200,
+      { timeout: 30_000 }
+    );
+
+    await anonPage.goto(widgetUrl, { waitUntil: 'domcontentloaded' });
+    const initialBootstrapResponse = await initialBootstrapResponsePromise;
+    const initialBootstrapBody = await initialBootstrapResponse.json().catch(() => null) as {
+      widgetAuthToken?: string | null;
+      session?: { user?: { id?: string } | null } | null;
+    } | null;
+
+    expect(initialBootstrapBody?.session?.user?.id, 'bootstrap should include session user').toBeTruthy();
+    expect(
+      typeof initialBootstrapBody?.widgetAuthToken === 'string' && initialBootstrapBody.widgetAuthToken.length > 20,
+      'bootstrap should issue widgetAuthToken for widget runtime'
+    ).toBe(true);
+
+    const pageToken = await anonPage.evaluate(() => {
+      try {
+        return window.sessionStorage.getItem('blawby_widget_auth_token');
+      } catch {
+        return null;
+      }
+    });
+    expect(
+      typeof pageToken === 'string' && pageToken.length > 20,
+      'widget token should be persisted in sessionStorage'
+    ).toBe(true);
+
+    await anonPage.context().clearCookies();
+
+    let reloadedBootstrapAuthHeader: string | undefined;
+    const reloadedBootstrapRequestPromise = anonPage.waitForRequest(
+      (request) => {
+        if (request.method() !== 'GET') return false;
+        if (!request.url().includes('/api/widget/bootstrap')) return false;
+        reloadedBootstrapAuthHeader = request.headers()['authorization'];
+        return true;
+      },
+      { timeout: 30_000 }
+    );
+    const reloadedBootstrapResponsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/api/widget/bootstrap') &&
+        response.status() === 200,
+      { timeout: 30_000 }
+    );
+
+    const observedWsUrls: string[] = [];
+    anonPage.on('websocket', (ws) => {
+      observedWsUrls.push(ws.url());
+    });
+
+    await anonPage.goto(widgetUrl, { waitUntil: 'domcontentloaded' });
+    await reloadedBootstrapRequestPromise;
+    const reloadedBootstrapResponse = await reloadedBootstrapResponsePromise;
+    const reloadedBootstrapBody = await reloadedBootstrapResponse.json().catch(() => null) as {
+      session?: { user?: { id?: string } | null } | null;
+      widgetAuthToken?: string | null;
+    } | null;
+
+    expect(
+      typeof reloadedBootstrapAuthHeader === 'string' && reloadedBootstrapAuthHeader.startsWith('Bearer '),
+      'reloaded bootstrap must send Authorization Bearer token'
+    ).toBe(true);
+    expect(reloadedBootstrapBody?.session?.user?.id, 'reloaded bootstrap should resolve session user without cookies').toBeTruthy();
+    expect(
+      typeof reloadedBootstrapBody?.widgetAuthToken === 'string' && reloadedBootstrapBody.widgetAuthToken.length > 20,
+      'reloaded bootstrap should re-issue widget token'
+    ).toBe(true);
+
+    await expect
+      .poll(
+        () => observedWsUrls.find((url) => url.includes('/api/conversations/') && url.includes('bw_token=')) ?? null,
+        {
+          timeout: 20_000,
+          message: 'Expected conversation WebSocket URL to include bw_token query auth after cookie clear.',
+        }
+      )
+      .not.toBeNull();
   });
 });

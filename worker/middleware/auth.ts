@@ -1,6 +1,7 @@
 import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
 import { Logger } from "../utils/logger";
+import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -353,7 +354,13 @@ export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<AuthContext> {
+  const extractedWidgetToken = extractWidgetTokenFromRequest(request);
+  const widgetToken = extractedWidgetToken?.token ?? null;
+  const widgetTokenSource = extractedWidgetToken?.tokenSource ?? null;
+  const requestPath = new URL(request.url).pathname;
+
   const cookieHeader = request.headers.get('Cookie');
+  const normalizedCookie = cookieHeader?.trim() ?? '';
 
   let authResult: {
     user: AuthenticatedUser;
@@ -361,13 +368,50 @@ export async function requireAuth(
     activeOrganizationId?: string | null;
     previousAnonUserId?: string | null;
   };
-  if (!cookieHeader || !cookieHeader.trim()) {
-    throw HttpErrors.unauthorized('Authentication required - session cookie missing');
+
+  const buildWidgetTokenContext = async (): Promise<AuthContext> => {
+    if (!widgetToken) {
+      throw HttpErrors.unauthorized('Authentication required - session cookie missing');
+    }
+    // Query tokens are only accepted for WS handshakes where custom headers
+    // are unavailable in browser WebSocket APIs.
+    if (widgetTokenSource === 'query' && !requestPath.endsWith('/ws')) {
+      throw HttpErrors.unauthorized('Widget query token is only allowed for WebSocket authentication');
+    }
+    const validated = await validateWidgetAuthToken(widgetToken, env);
+    return {
+      user: {
+        id: validated.userId,
+        name: 'Anonymous User',
+        emailVerified: false,
+        isAnonymous: true,
+      },
+      session: {
+        id: validated.sessionId,
+        expiresAt: new Date(validated.expiresAt * 1000),
+      },
+      cookie: '',
+      isAnonymous: true,
+      activeOrganizationId: null,
+      previousAnonUserId: null
+    };
+  };
+
+  if (!normalizedCookie) {
+    return buildWidgetTokenContext();
   }
 
-  authResult = await validateSessionWithRemoteServer(cookieHeader, env, {
-    allowStaleOnTimeout: isHotChatPath(request)
-  });
+  try {
+    authResult = await validateSessionWithRemoteServer(normalizedCookie, env, {
+      allowStaleOnTimeout: isHotChatPath(request)
+    });
+  } catch (error) {
+    // Only fallback to widget token when cookie auth is truly unauthenticated.
+    if (error instanceof HttpError && error.status === 401 && widgetToken) {
+      return buildWidgetTokenContext();
+    }
+    throw error;
+  }
 
   // Detect anonymous users (Better Auth anonymous plugin)
   // Anonymous users typically have:
@@ -382,11 +426,25 @@ export async function requireAuth(
       authResult.user.name?.toLowerCase().includes('anonymous') ||
       authResult.user.name === 'Anonymous User';
 
+  let previousAnonUserId = authResult.previousAnonUserId ?? null;
+  // If Better Auth session omitted previous_anon_user_id, recover it from a
+  // valid widget token that was minted for the same browser session.
+  if (!isAnonymous && !previousAnonUserId && widgetToken && !(widgetTokenSource === 'query' && !requestPath.endsWith('/ws'))) {
+    try {
+      const widgetAuth = await validateWidgetAuthToken(widgetToken, env);
+      if (widgetAuth.userId !== authResult.user.id) {
+        previousAnonUserId = widgetAuth.userId;
+      }
+    } catch {
+      // Ignore malformed/expired widget token when cookie auth already succeeded.
+    }
+  }
+
   return {
     ...authResult,
-    cookie: cookieHeader,
+    cookie: normalizedCookie,
     isAnonymous,
-    previousAnonUserId: authResult.previousAnonUserId ?? null
+    previousAnonUserId
   };
 }
 

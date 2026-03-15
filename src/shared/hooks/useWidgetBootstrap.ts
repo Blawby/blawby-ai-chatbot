@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { getClient } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
+import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
@@ -10,6 +11,10 @@ export interface WidgetBootstrapData {
   } | null;
   conversationId: string | null;
   conversations: Array<Record<string, unknown>>;
+  widgetAuthToken?: string | null;
+  widgetAuthTokenExpiresAt?: string | null;
+  widgetQueryAuthToken?: string | null;
+  widgetQueryAuthTokenExpiresAt?: string | null;
 }
 
 export function useWidgetBootstrap(slug: string, isWidget: boolean) {
@@ -46,6 +51,7 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         const cacheKey = `blawby_widget_bootstrap_${slug}`;
 
         const res = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`, {
+          headers: withWidgetAuthHeaders(),
           credentials: 'include',
         });
         if (!res.ok) {
@@ -53,6 +59,18 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         }
 
         const freshData = (await res.json()) as WidgetBootstrapData;
+        if (typeof freshData.widgetAuthToken === 'string' && freshData.widgetAuthToken.trim().length > 0) {
+          persistWidgetAuthToken(
+            freshData.widgetAuthToken,
+            freshData.widgetAuthTokenExpiresAt ?? null,
+            {
+              queryToken: freshData.widgetQueryAuthToken ?? null,
+              queryTokenExpiresAt: freshData.widgetQueryAuthTokenExpiresAt ?? null,
+            }
+          );
+        } else {
+          clearWidgetAuthToken();
+        }
 
         // Write to cache for next page load (read back is just for reference, not fast-path).
         try {

@@ -48,6 +48,7 @@ import {
   rememberConversationAnonymousParticipant,
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
+import { appendWidgetTokenToUrl, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -280,7 +281,7 @@ export const useConversation = ({
     if (!activeConversationId || !practiceKey) return;
     const response = await fetch(
       `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
-      { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include', signal }
+      { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal }
     );
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({})) as { error?: string };
@@ -584,7 +585,7 @@ export const useConversation = ({
       if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
       try {
         const params = new URLSearchParams({ practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) });
-        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' });
         if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
         const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
         if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch message gap');
@@ -649,7 +650,7 @@ export const useConversation = ({
     socketConversationIdRef.current = targetConversationId;
     initSocketReadyPromise();
 
-    const ws = new WebSocket(getConversationWsEndpoint(targetConversationId));
+    const ws = new WebSocket(appendWidgetTokenToUrl(getConversationWsEndpoint(targetConversationId)));
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
@@ -744,7 +745,7 @@ export const useConversation = ({
       params.set('source', isLoadMore ? 'chat_load_more' : 'chat_initial');
       if (cursor) params.set('cursor', cursor);
       if (isLoadMore) setIsLoadingMoreMessages(true);
-      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include', signal });
+      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal });
       if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
       const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
       if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch messages');

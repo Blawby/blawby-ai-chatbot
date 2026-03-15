@@ -870,24 +870,45 @@ export class ConversationService {
   }
 
   /**
-   * Validate that a user has access to a conversation
+   * Validate that a user has access to a conversation.
+   *
+   * Accepts an optional `previousAnonUserId` to handle the anon→auth race window:
+   * after Better Auth upgrades an anonymous session the session carries
+   * `previousAnonUserId`, but the `/link` PATCH may not have run yet.
+   * We treat the previous anon identity as valid for read access so concurrent
+   * GET /messages and PATCH /link requests don't race to produce a 403.
    */
   async validateParticipantAccess(
     conversationId: string,
     practiceId: string,
-    userId: string
+    userId: string,
+    options?: { previousAnonUserId?: string | null }
   ): Promise<void> {
     await this.getConversation(conversationId, practiceId);
 
+    const previousAnonUserId = options?.previousAnonUserId ?? null;
+
+    // Check current user first (most common case).
     const record = await this.env.DB.prepare(`
       SELECT 1
       FROM conversation_participants
       WHERE conversation_id = ? AND user_id = ?
     `).bind(conversationId, userId).first();
 
-    if (!record) {
-      throw HttpErrors.forbidden('User is not a participant in this conversation');
+    if (record) return;
+
+    // Grace window: accept the previous anonymous identity so GET requests that
+    // race against PATCH /link don't 403 during the handoff.
+    if (previousAnonUserId && previousAnonUserId !== userId) {
+      const anonRecord = await this.env.DB.prepare(`
+        SELECT 1
+        FROM conversation_participants
+        WHERE conversation_id = ? AND user_id = ?
+      `).bind(conversationId, previousAnonUserId).first();
+      if (anonRecord) return;
     }
+
+    throw HttpErrors.forbidden('User is not a participant in this conversation');
   }
 
   /**
