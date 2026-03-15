@@ -50,17 +50,38 @@ const getCloudflareGatewayBaseUrl = (env: AiClientEnv): string => {
   return `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.CF_AIG_GATEWAY_NAME}/compat`;
 };
 
-const getOpenAiHeaders = (env: AiClientEnv, includeGatewayAuth: boolean): Headers => {
+const shouldUseGatewayTokenOnly = (provider: AiProvider, model?: unknown): boolean =>
+  provider === 'cloudflare_gateway' &&
+  typeof model === 'string' &&
+  (model.startsWith('workers-ai/') || model.startsWith('dynamic/'));
+
+const getOpenAiHeaders = (
+  env: AiClientEnv,
+  provider: AiProvider,
+  model?: unknown
+): Headers => {
+  const headers = new Headers({
+    'Content-Type': 'application/json'
+  });
+
+  if (provider === 'cloudflare_gateway') {
+    if (!env.CF_AIG_TOKEN) {
+      throw new Error('Missing required environment variable: CF_AIG_TOKEN');
+    }
+    headers.set('cf-aig-authorization', `Bearer ${env.CF_AIG_TOKEN}`);
+    if (!shouldUseGatewayTokenOnly(provider, model)) {
+      if (!env.OPENAI_TOKEN) {
+        throw new Error('Missing required environment variable: OPENAI_TOKEN');
+      }
+      headers.set('Authorization', `Bearer ${env.OPENAI_TOKEN}`);
+    }
+    return headers;
+  }
+
   if (!env.OPENAI_TOKEN) {
     throw new Error('Missing required environment variable: OPENAI_TOKEN');
   }
-  const headers = new Headers({
-    Authorization: `Bearer ${env.OPENAI_TOKEN}`,
-    'Content-Type': 'application/json'
-  });
-  if (includeGatewayAuth && env.CF_AIG_TOKEN) {
-    headers.set('cf-aig-authorization', `Bearer ${env.CF_AIG_TOKEN}`);
-  }
+  headers.set('Authorization', `Bearer ${env.OPENAI_TOKEN}`);
   return headers;
 };
 
@@ -74,8 +95,7 @@ export const createAiClient = (env: AiClientEnv, options: AiClientOptions = {}):
 
   if (provider === 'cloudflare_gateway') {
     const missing = getMissingEnvVars([
-      ['CF_AIG_TOKEN', env.CF_AIG_TOKEN],
-      ['OPENAI_TOKEN', env.OPENAI_TOKEN]
+      ['CF_AIG_TOKEN', env.CF_AIG_TOKEN]
     ]);
     if (missing.length > 0) {
       throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
@@ -89,7 +109,7 @@ export const createAiClient = (env: AiClientEnv, options: AiClientOptions = {}):
     baseUrl,
     chatCompletionsUrl,
     requestChatCompletions: async (payload: Record<string, unknown>) => {
-      const headers = getOpenAiHeaders(env, provider === 'cloudflare_gateway');
+      const headers = getOpenAiHeaders(env, provider, payload.model);
       return fetcher(chatCompletionsUrl, {
         method: 'POST',
         headers,

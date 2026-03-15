@@ -28,6 +28,7 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 
 const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
 const DebugChatPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugChatPage')) : null;
@@ -108,6 +109,23 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
+    if (session?.user && !session.user.isAnonymous) {
+      const pendingConversation = consumePostAuthConversationContext();
+      if (
+        pendingConversation?.workspace === 'public' &&
+        pendingConversation.practiceSlug &&
+        pendingConversation.conversationId
+      ) {
+        const targetPath = `/public/${encodeURIComponent(pendingConversation.practiceSlug)}/conversations/${encodeURIComponent(pendingConversation.conversationId)}`;
+        const currentUrl = location.url.startsWith('/')
+          ? location.url
+          : `/${location.url.replace(/^\/+/, '')}`;
+        if (currentUrl !== targetPath) {
+          navigate(targetPath, true);
+          return;
+        }
+      }
+    }
     const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
     const isPublicIntakeRoute =
       location.path.startsWith('/public/') ||
@@ -827,8 +845,7 @@ function WidgetRoute({
 
     const practiceId = resolveString(pd.practiceId)
       ?? resolveString(pd.id)
-      ?? resolveString(pd.organization_id)
-      ?? resolveString(pd.organizationId);
+      ?? resolveString(dataRecord?.id);
     const accentColor = resolveString(pd.accentColor)
       ?? resolveString(pd.accent_color)
       ?? resolveString(dataRecord?.accentColor)

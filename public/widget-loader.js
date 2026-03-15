@@ -83,20 +83,19 @@
 
   var attributionParams = collectAttributionParams();
   var hasAttributionParams = Object.keys(attributionParams).length > 0;
+  var ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
   var widgetUrlObj = new URL(
     '/public/' + encodeURIComponent(cfg.practiceSlug),
     cfg.baseUrl
   );
   widgetUrlObj.searchParams.set('v', 'widget');
-  if (hasAttributionParams) {
-    widgetUrlObj.searchParams.set('bw_attribution', JSON.stringify(attributionParams));
-  }
   // Firefox does not support window.location.ancestorOrigins.
   // Pass parent origin explicitly so iframe can target postMessage safely.
   if (w.location && typeof w.location.origin === 'string' && w.location.origin) {
     widgetUrlObj.searchParams.set('trusted_parent_origin', w.location.origin);
   }
   var WIDGET_URL = widgetUrlObj.toString();
+  var BASE_ORIGIN = new URL(cfg.baseUrl).origin;
   var isRight = cfg.position !== 'bottom-left';
   var SIZE = cfg.launcherSize;
   var Z = cfg.zIndex;
@@ -134,6 +133,7 @@
   var isOpen = false;
   var unreadCount = 0;
   var hasStartedChat = false;
+  var iframeReady = false;
   var listeners = {};
 
   /* ── Build DOM ───────────────────────────────────────────────────────── */
@@ -194,7 +194,7 @@
     // Iframe popup
     '#' + ID + '-frame-wrap {',
     '  width: min(380px, calc(100vw - ' + (GAP * 2) + 'px));',
-    '  height: min(780px, calc(100vh - 156px));',
+    '  height: var(--blawby-widget-frame-height, 640px);',
     '  border-radius: 16px;',
     '  border: none;',
     '  outline: none;',
@@ -218,32 +218,6 @@
     '  border-radius: 16px;',
     '  display: block;',
     '}',
-
-    // Top-right close button (visible when widget is open)
-    '#' + ID + '-top-close {',
-    '  position: absolute;',
-    '  top: 26px;',
-    '  right: 22px;',
-    '  width: 24px;',
-    '  height: 24px;',
-    '  border: none;',
-    '  border-radius: 0;',
-    '  background: transparent;',
-    '  color: #fff;',
-    '  display: none;',
-    '  align-items: center;',
-    '  justify-content: center;',
-    '  cursor: pointer;',
-    '  z-index: 4;',
-    '  font-size: 0;',
-    '  font-weight: 400;',
-    '  line-height: 1;',
-    '}',
-    '#' + ID + '-top-close:hover { opacity: 0.9; }',
-    '#' + ID + '-top-close:focus-visible {',
-    '  outline: 2px solid #fff;',
-    '  outline-offset: 2px;',
-    '}',
   ].join('\n');
   d.head.appendChild(styleEl);
 
@@ -263,16 +237,7 @@
   iframe.allow = 'microphone; camera';
   // Allow same-origin cookies when the practice uses a link domain
   iframe.setAttribute('allow', 'microphone; camera');
-  // Lazy-load; src set on first open to avoid network hit before user asks
-  iframe.setAttribute('loading', 'lazy');
-
-  var topClose = d.createElement('button');
-  topClose.id = ID + '-top-close';
-  topClose.setAttribute('type', 'button');
-  topClose.setAttribute('aria-label', 'Close chat');
-  topClose.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></line><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></line></svg>';
-
-  frameWrap.appendChild(topClose);
+  iframe.setAttribute('loading', 'eager');
   frameWrap.appendChild(iframe);
 
   // Launcher button
@@ -333,6 +298,51 @@
 
   /* ── Helpers ─────────────────────────────────────────────────────────── */
 
+  function persistAttribution() {
+    if (!hasAttributionParams) return;
+    try {
+      w.sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(attributionParams));
+    } catch (_) { /* storage may be unavailable in privacy contexts */ }
+  }
+
+  function getAttributionPayload() {
+    if (hasAttributionParams) return attributionParams;
+    try {
+      var raw = w.sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function sendAttributionToIframe() {
+    var payload = getAttributionPayload();
+    if (!payload) return;
+    postToIframe({
+      type: 'blawby:attribution',
+      attribution: payload,
+    });
+  }
+
+  function ensureIframeLoaded() {
+    if (iframe.src) return;
+    iframe.src = WIDGET_URL;
+  }
+
+  function updateFrameSize() {
+    var viewportHeight = w.innerHeight || 0;
+    if (w.visualViewport && typeof w.visualViewport.height === 'number') {
+      viewportHeight = Math.min(viewportHeight || w.visualViewport.height, w.visualViewport.height);
+    }
+    if (!viewportHeight) viewportHeight = 640;
+    var maxHeight = viewportHeight - 92;
+    var clamped = Math.max(360, Math.min(780, maxHeight));
+    frameWrap.style.setProperty('--blawby-widget-frame-height', clamped + 'px');
+  }
+
   function applyPrimaryColor(primaryColor, source) {
     var normalized = normalizeHexColor(primaryColor);
     if (!normalized) return false;
@@ -381,11 +391,7 @@
   function setOpen(next) {
     var previousOpenState = isOpen;
     isOpen = next;
-
-    if (next && !iframe.src) {
-      // Inject src on first open so we don't incur a network hit eagerly
-      iframe.src = WIDGET_URL;
-    }
+    ensureIframeLoaded();
 
     frameWrap.setAttribute('data-state', next ? 'open' : 'closed');
     chatIcon.style.display = next ? 'none' : 'block';
@@ -396,17 +402,20 @@
       // Clear badge when opening
       setUnread(0);
       // Post open event so the iframe app knows it is visible
-      postToIframe({ type: 'blawby:open' });
+      if (iframeReady) {
+        postToIframe({ type: 'blawby:open' });
+        sendAttributionToIframe();
+      }
       emitEvent('widget_opened', { wasOpen: previousOpenState });
       if (!hasStartedChat) {
         hasStartedChat = true;
         emitEvent('chat_start', { conversationStarted: true });
       }
-      topClose.style.display = 'flex';
     } else {
-      postToIframe({ type: 'blawby:close' });
+      if (iframeReady) {
+        postToIframe({ type: 'blawby:close' });
+      }
       emitEvent('widget_closed', { wasOpen: previousOpenState });
-      topClose.style.display = 'none';
     }
   }
 
@@ -424,7 +433,7 @@
   function postToIframe(msg) {
     try {
       if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(JSON.stringify(msg), cfg.baseUrl);
+        iframe.contentWindow.postMessage(JSON.stringify(msg), BASE_ORIGIN);
       }
     } catch (_) { /* cross-origin post may fail; safe to ignore */ }
   }
@@ -481,6 +490,7 @@
   }
 
   function emitEvent(eventName, detail) {
+    var persistedAttribution = getAttributionPayload();
     var payload = Object.assign({
       type: eventName,
       practiceSlug: cfg.practiceSlug,
@@ -488,8 +498,8 @@
       unreadCount: unreadCount,
       timestamp: new Date().toISOString(),
     }, detail || {});
-    if (hasAttributionParams && !payload.attribution) {
-      payload.attribution = attributionParams;
+    if (!payload.attribution && persistedAttribution) {
+      payload.attribution = persistedAttribution;
     }
 
     if (typeof cfg.onEvent === 'function') {
@@ -515,8 +525,7 @@
   /* ── postMessage bridge ──────────────────────────────────────────────── */
   w.addEventListener('message', function (event) {
     // Only accept messages from the Blawby origin
-    var expectedOrigin = new URL(cfg.baseUrl).origin;
-    if (event.origin !== expectedOrigin) return;
+    if (event.origin !== BASE_ORIGIN) return;
 
     var data;
     try {
@@ -536,7 +545,9 @@
         break;
       case 'blawby:ready':
         // Iframe signals it has mounted; send current visibility state
+        iframeReady = true;
         postToIframe({ type: isOpen ? 'blawby:open' : 'blawby:close' });
+        sendAttributionToIframe();
         emitEvent('iframe_ready', {});
         break;
       case 'blawby:lead-submitted':
@@ -544,8 +555,7 @@
           intakeUuid: typeof data.intakeUuid === 'string' ? data.intakeUuid : null,
           status: typeof data.status === 'string' ? data.status : null,
           requiresPayment: data.requiresPayment === true,
-          // Keep attribution deterministic from host page URL where the widget script runs.
-          attribution: hasAttributionParams ? attributionParams : undefined,
+          attribution: getAttributionPayload() || undefined,
         });
         break;
     }
@@ -554,10 +564,6 @@
   /* ── Launcher click ──────────────────────────────────────────────────── */
   launcher.addEventListener('click', function () {
     setOpen(!isOpen);
-  });
-
-  topClose.addEventListener('click', function () {
-    setOpen(false);
   });
 
   /* ── Public API ──────────────────────────────────────────────────────── */
@@ -571,6 +577,17 @@
     off: function (eventName, callback) { removeListener(eventName, callback); },
   };
   w.BlawbyWidget = Object.assign(w.BlawbyWidget || {}, api);
+  persistAttribution();
+  updateFrameSize();
+  w.addEventListener('resize', updateFrameSize);
+  if (w.visualViewport && typeof w.visualViewport.addEventListener === 'function') {
+    w.visualViewport.addEventListener('resize', updateFrameSize);
+  }
+  if (typeof w.requestIdleCallback === 'function') {
+    w.requestIdleCallback(function () { ensureIframeLoaded(); }, { timeout: 2000 });
+  } else {
+    setTimeout(function () { ensureIframeLoaded(); }, 2000);
+  }
   loadPracticeAccentColor();
 
 })(window, document);

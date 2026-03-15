@@ -27,11 +27,13 @@ const sanitizeName = (name: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
-const parseWidgetAttributionFromQuery = (): Record<string, string> | null => {
+const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
+
+const readWidgetAttributionFromStorage = (): Record<string, string> | null => {
   if (typeof window === 'undefined') return null;
-  const raw = new URLSearchParams(window.location.search).get('bw_attribution');
-  if (!raw) return null;
   try {
+    const raw = window.sessionStorage.getItem(WIDGET_ATTRIBUTION_STORAGE_KEY);
+    if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     const result: Record<string, string> = {};
@@ -61,6 +63,34 @@ const parseTrustedParentOriginFromQuery = (): string | null => {
   }
 };
 
+const resolveAllowedParentOrigins = (): string[] => {
+  if (typeof window === 'undefined') return [];
+  const origins = new Set<string>();
+  const trustedParentOrigin = parseTrustedParentOriginFromQuery();
+  if (trustedParentOrigin) {
+    origins.add(trustedParentOrigin);
+  }
+
+  const referrer = typeof document !== 'undefined' ? document.referrer : '';
+  if (referrer) {
+    try {
+      origins.add(new URL(referrer).origin);
+    } catch {
+      // ignore malformed referrer
+    }
+  }
+
+  const ancestorOrigins = window.location.ancestorOrigins;
+  if (ancestorOrigins && ancestorOrigins.length > 0) {
+    for (let i = 0; i < ancestorOrigins.length; i += 1) {
+      const origin = ancestorOrigins.item(i);
+      if (origin) origins.add(origin);
+    }
+  }
+
+  return Array.from(origins);
+};
+
 const emitWidgetLeadSubmitted = (payload: {
   intakeUuid: string;
   status: string;
@@ -69,7 +99,7 @@ const emitWidgetLeadSubmitted = (payload: {
   if (typeof window === 'undefined') return;
   if (window.parent === window) return;
 
-  const attribution = parseWidgetAttributionFromQuery();
+  const attribution = readWidgetAttributionFromStorage();
   const message = {
     type: 'blawby:lead-submitted',
     intakeUuid: payload.intakeUuid,
@@ -78,35 +108,7 @@ const emitWidgetLeadSubmitted = (payload: {
     ...(attribution ? { attribution } : {})
   };
 
-  const allowedOrigins = (() => {
-    const origins = new Set<string>();
-
-    const referrer = typeof document !== 'undefined' ? document.referrer : '';
-    if (referrer) {
-      try {
-        origins.add(new URL(referrer).origin);
-      } catch {
-        // ignore malformed referrer
-      }
-    }
-
-    const ancestorOrigins = window.location.ancestorOrigins;
-    if (ancestorOrigins && ancestorOrigins.length > 0) {
-      for (let i = 0; i < ancestorOrigins.length; i += 1) {
-        const origin = ancestorOrigins.item(i);
-        if (origin) origins.add(origin);
-      }
-    }
-
-    if (origins.size === 0) {
-      const trustedParentOrigin = parseTrustedParentOriginFromQuery();
-      if (trustedParentOrigin) {
-        origins.add(trustedParentOrigin);
-      }
-    }
-
-    return Array.from(origins);
-  })();
+  const allowedOrigins = resolveAllowedParentOrigins();
 
   // If we cannot determine a trusted parent origin, do not emit the event.
   // This avoids broadcasting intake identifiers to an unknown embedding context.

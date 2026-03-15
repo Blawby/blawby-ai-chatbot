@@ -13,6 +13,61 @@ import type { ConversationMetadata, ConversationMode } from '@/shared/types/conv
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
+import { consumePostAuthConversationContext, peekPostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
+
+const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
+
+const parseTrustedParentOriginFromQuery = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('trusted_parent_origin');
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
+const resolveAllowedParentOrigins = (): string[] => {
+  if (typeof window === 'undefined') return [];
+  const origins = new Set<string>();
+  const trustedParentOrigin = parseTrustedParentOriginFromQuery();
+  if (trustedParentOrigin) origins.add(trustedParentOrigin);
+
+  const referrer = typeof document !== 'undefined' ? document.referrer : '';
+  if (referrer) {
+    try {
+      origins.add(new URL(referrer).origin);
+    } catch {
+      // ignore malformed referrer
+    }
+  }
+
+  const ancestorOrigins = window.location.ancestorOrigins;
+  if (ancestorOrigins && ancestorOrigins.length > 0) {
+    for (let i = 0; i < ancestorOrigins.length; i += 1) {
+      const origin = ancestorOrigins.item(i);
+      if (origin) origins.add(origin);
+    }
+  }
+
+  return Array.from(origins);
+};
+
+const postToParentFrame = (payload: Record<string, unknown>): void => {
+  if (typeof window === 'undefined') return;
+  if (window.parent === window) return;
+  const allowedOrigins = resolveAllowedParentOrigins();
+  if (allowedOrigins.length === 0) {
+    console.warn('[Widget] Unable to postMessage to parent: no trusted origin');
+    return;
+  }
+  for (const origin of allowedOrigins) {
+    window.parent.postMessage(payload, origin);
+  }
+};
 
 export function WidgetApp({
   practiceId,
@@ -29,6 +84,9 @@ export function WidgetApp({
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const autoConversationAttemptedRef = useRef(false);
+  const widgetVisibleRef = useRef(false);
+  const assistantMessageIdsRef = useRef(new Set<string>());
+  const initializedAssistantSnapshotRef = useRef(false);
 
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
@@ -61,6 +119,7 @@ export function WidgetApp({
   // Handle widget-specific mode setup
   const {
     conversationId: setupConversationId,
+    setConversationId,
     createConversation,
     applyConversationMode,
   } = useConversationSetup({
@@ -79,6 +138,20 @@ export function WidgetApp({
   const autoConversationRetryCountRef = useRef(0);
   const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const MAX_AUTO_CONVERSATION_RETRIES = 3;
+
+  useEffect(() => {
+    if (sessionIsPending) return;
+    if (effectiveIsAnonymous) return;
+    const pending = peekPostAuthConversationContext();
+    if (!pending) return;
+    if (pending.practiceId && pending.practiceId !== practiceId) return;
+    const consumedPending = consumePostAuthConversationContext();
+    if (!consumedPending) return;
+    if (consumedPending.practiceId && consumedPending.practiceId !== practiceId) return;
+    if (consumedPending.conversationId) {
+      setConversationId(consumedPending.conversationId);
+    }
+  }, [effectiveIsAnonymous, practiceId, sessionIsPending, setConversationId]);
 
   useEffect(() => {
     // Cleanup function that always runs on effect cleanup or re-run
@@ -232,6 +305,102 @@ export function WidgetApp({
     });
   }, []);
 
+  const requestWidgetClose = useCallback(() => {
+    postToParentFrame({ type: 'blawby:close-request' });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.parent === window) return;
+
+    postToParentFrame({ type: 'blawby:ready' });
+
+    const handleParentMessage = (event: MessageEvent) => {
+      const allowedOrigins = resolveAllowedParentOrigins();
+      if (allowedOrigins.length === 0) {
+        console.warn('[Widget] Rejecting parent message: no trusted parent origin');
+        return;
+      }
+      if (!allowedOrigins.includes(event.origin)) return;
+
+      let data: unknown = event.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          return;
+        }
+      }
+      if (!data || typeof data !== 'object') return;
+      const type = (data as { type?: unknown }).type;
+      if (typeof type !== 'string') return;
+
+      if (type === 'blawby:open') {
+        widgetVisibleRef.current = true;
+      } else if (type === 'blawby:close') {
+        widgetVisibleRef.current = false;
+      } else if (type === 'blawby:attribution') {
+        const attribution = (data as { attribution?: unknown }).attribution;
+        if (!attribution || typeof attribution !== 'object' || Array.isArray(attribution)) return;
+        try {
+          window.sessionStorage.setItem(WIDGET_ATTRIBUTION_STORAGE_KEY, JSON.stringify(attribution));
+        } catch {
+          // ignore storage failures
+        }
+      }
+    };
+
+    window.addEventListener('message', handleParentMessage);
+    return () => {
+      window.removeEventListener('message', handleParentMessage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!messagesReady) return;
+    let hasNewAssistantMessage = false;
+    for (const message of messages) {
+      if (message.role !== 'assistant') continue;
+      if (assistantMessageIdsRef.current.has(message.id)) continue;
+      assistantMessageIdsRef.current.add(message.id);
+      if (initializedAssistantSnapshotRef.current) {
+        hasNewAssistantMessage = true;
+      }
+    }
+    if (!initializedAssistantSnapshotRef.current) {
+      initializedAssistantSnapshotRef.current = true;
+      return;
+    }
+    if (hasNewAssistantMessage && !widgetVisibleRef.current) {
+      postToParentFrame({ type: 'blawby:new-message' });
+    }
+  }, [messages, messagesReady]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      requestWidgetClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [requestWidgetClose]);
+
+  const closeButton = (
+    <button
+      type="button"
+      aria-label="Close chat"
+      onClick={requestWidgetClose}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[rgb(var(--accent-foreground))] opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/80 transition-opacity"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  );
+
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
@@ -248,6 +417,7 @@ export function WidgetApp({
           messagesReady={messagesReady}
           headerContent={<WorkspaceConversationHeader
               practiceName={practiceConfig.name}
+              rightSlot={window.parent !== window ? closeButton : undefined}
             />}
           heightClassName="h-full"
           useFrame={false}
@@ -255,6 +425,7 @@ export function WidgetApp({
           practiceConfig={{...practiceConfig, name: practiceConfig.name ?? '', profileImage: practiceConfig.profileImage ?? '', practiceId}}
           onOpenSidebar={undefined}
           practiceId={practiceId}
+          conversationId={activeConversationId ?? null}
           previewFiles={previewFiles}
           uploadingFiles={uploadingFiles}
           removePreviewFile={removePreviewFile}

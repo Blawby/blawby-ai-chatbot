@@ -127,7 +127,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
     });
     const conversationId = segments[2];
     const conversationPracticeId = getPracticeId(requestWithContext);
@@ -640,44 +640,200 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     segments[3] === 'link' &&
     request.method === 'PATCH'
   ) {
+    const conversationId = segments[2];
+    const linkTraceId = `link-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+    Logger.info('[Conversations][link] request received', {
+      traceId: linkTraceId,
+      conversationId,
+      userId,
+      isAnonymous: authContext.isAnonymous,
+      activeOrganizationId: authContext.activeOrganizationId ?? null,
+      previousAnonUserId: authContext.previousAnonUserId ?? null,
+      urlPracticeId: url.searchParams.get('practiceId'),
+    });
+
+    // Allow the practiceId from the URL query param even for authenticated users so
+    // that the public widget's anon→auth handoff can reference the original practice.
+    // This is safe because the conversation itself is gated by practiceId match in D1.
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
-    const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
+
+    Logger.info('[Conversations][link] practice context resolved', {
+      traceId: linkTraceId,
+      practiceId,
+      contextSource: (requestWithContext as { practiceContext?: { source?: string } }).practiceContext?.source ?? 'unknown',
+    });
+
+    const contentLength = request.headers.get('content-length');
+    const linkBody = (contentLength && Number(contentLength) > 0)
+      ? await parseJsonBody(request) as { previousParticipantId?: string; anonymousSessionId?: string }
+      : null;
+    const requestedPreviousParticipantId = typeof linkBody?.previousParticipantId === 'string'
+      ? linkBody.previousParticipantId.trim()
+      : null;
+    const requestedAnonymousSessionId = typeof linkBody?.anonymousSessionId === 'string'
+      ? linkBody.anonymousSessionId.trim()
+      : null;
+
     if (authContext.isAnonymous) {
+      Logger.warn('[Conversations][link] rejected: caller is still anonymous', {
+        traceId: linkTraceId,
+        reason: 'caller_is_anonymous',
+        userId,
+      });
       throw HttpErrors.unauthorized('Sign in is required to link a conversation');
     }
 
-    const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
-    if (membership.isMember) {
-      throw HttpErrors.forbidden('Practice members cannot link visitor conversations');
+    let conversation;
+    try {
+      conversation = await conversationService.getConversation(conversationId, practiceId);
+    } catch (lookupError) {
+      Logger.warn('[Conversations][link] conversation lookup failed', {
+        traceId: linkTraceId,
+        reason: 'conversation_not_found',
+        conversationId,
+        practiceId,
+        error: lookupError instanceof Error ? lookupError.message : String(lookupError),
+      });
+      throw lookupError;
     }
 
-    const conversation = await conversationService.getConversation(conversationId, practiceId);
     if (conversation.user_id === userId) {
+      Logger.info('[Conversations][link] already owned by caller, returning early', {
+        traceId: linkTraceId,
+        conversationId,
+        userId,
+      });
       return createJsonResponse(conversation);
     }
 
-    const previousAnonUserId = authContext.previousAnonUserId;
-    if (!previousAnonUserId) {
-      throw HttpErrors.forbidden('Anonymous upgrade proof missing');
-    }
-    if (conversation.user_id !== previousAnonUserId) {
-      throw HttpErrors.forbidden('Conversation ownership does not match upgraded anonymous identity');
+    const conversationMetadata =
+      conversation.user_info && typeof conversation.user_info === 'object'
+        ? conversation.user_info as Record<string, unknown>
+        : null;
+    const metadataAnonParticipantId =
+      typeof conversationMetadata?.anonParticipantId === 'string'
+        ? conversationMetadata.anonParticipantId
+        : typeof conversationMetadata?.anon_participant_id === 'string'
+          ? conversationMetadata.anon_participant_id
+          : null;
+    const inferredAnonOwnerId =
+      conversation.is_anonymous &&
+      typeof conversation.user_id === 'string' &&
+      conversation.user_id.trim().length > 0
+        ? conversation.user_id
+        : null;
+    const serverPreviousAnonUserId = authContext.previousAnonUserId ?? null;
+    const previousParticipantMatchesAuthContext =
+      !requestedPreviousParticipantId ||
+      (serverPreviousAnonUserId !== null && requestedPreviousParticipantId === serverPreviousAnonUserId);
+    const anonymousSessionMatchesAuthContext =
+      !requestedAnonymousSessionId ||
+      requestedAnonymousSessionId === authContext.session.id;
+
+    if (!previousParticipantMatchesAuthContext || !anonymousSessionMatchesAuthContext) {
+      Logger.warn('[Conversations][link] rejected: client-provided prior anon identity did not match authenticated context', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+        requestedPreviousParticipantId: requestedPreviousParticipantId ?? null,
+        serverPreviousAnonUserId,
+        hasRequestedAnonymousSession: Boolean(requestedAnonymousSessionId),
+        hasAuthSession: Boolean(authContext?.session?.id),
+      });
+      throw HttpErrors.conflict('Unable to verify previous anonymous identity for link');
     }
 
-    const linkedConversation = await conversationService.linkConversationToUser(
+    const hasValidatedPriorAnonIdentity = Boolean(serverPreviousAnonUserId);
+
+    if (!hasValidatedPriorAnonIdentity) {
+      Logger.warn('[Conversations][link] rejected: prior anonymous ownership was not server-validated', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+        hasMetadataAnonParticipantId: Boolean(metadataAnonParticipantId),
+        hasInferredAnonOwnerId: Boolean(inferredAnonOwnerId),
+      });
+      throw HttpErrors.conflict('Unable to verify previous anonymous identity for link');
+    }
+
+    Logger.info('[Conversations][link] attempting linkConversationToUser', {
+      traceId: linkTraceId,
       conversationId,
       practiceId,
       userId,
-      {
-        previousParticipantId: previousAnonUserId
-      }
-    );
+      previousAnonUserId: serverPreviousAnonUserId,
+      conversationOwnerId: conversation.user_id ?? null,
+      isConversationAnonymous: conversation.is_anonymous ?? null,
+    });
 
-    return createJsonResponse(linkedConversation);
+    try {
+      const linkedConversation = await conversationService.linkConversationToUser(
+        conversationId,
+        practiceId,
+        userId,
+        {
+          previousParticipantId: serverPreviousAnonUserId
+        }
+      );
+      Logger.info('[Conversations][link] link succeeded', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+      });
+      return createJsonResponse(linkedConversation);
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 409) {
+        if (!hasValidatedPriorAnonIdentity) {
+          Logger.warn('[Conversations][link] conflict (409) but prior anon ownership was not validated; refusing participant add', {
+            traceId: linkTraceId,
+            conversationId,
+            practiceId,
+            userId,
+            serverPreviousAnonUserId,
+          });
+          throw HttpErrors.conflict('Conversation already linked and prior anonymous ownership could not be validated');
+        }
+        Logger.info('[Conversations][link] link conflict (409), adding participant after validated prior anon ownership', {
+          traceId: linkTraceId,
+          conversationId,
+          practiceId,
+          userId,
+          serverPreviousAnonUserId,
+        });
+        try {
+          await conversationService.addParticipant(conversationId, practiceId, userId);
+        } catch (participantError) {
+          Logger.warn('[Conversations][link] addParticipant after 409 failed', {
+            traceId: linkTraceId,
+            conversationId,
+            practiceId,
+            userId,
+            error: participantError instanceof Error ? participantError.message : String(participantError)
+          });
+          throw participantError;
+        }
+        const refreshedConversation = await conversationService.getConversation(conversationId, practiceId);
+        return createJsonResponse(refreshedConversation);
+      }
+      Logger.warn('[Conversations][link] linkConversationToUser threw non-409 error', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+        errorStatus: error instanceof HttpError ? error.status : null,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   // PATCH /api/conversations/:id - Update conversation

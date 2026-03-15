@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
@@ -22,6 +22,7 @@ import { getChatPatterns } from '../config/chatPatterns';
 import { cn } from '@/shared/utils/cn';
 import type { OnboardingActions } from './VirtualMessageList';
 import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
+import { rememberPostAuthConversationContext, type PostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -53,6 +54,7 @@ export interface ChatContainerProps {
   layoutMode?: LayoutMode;
   onOpenSidebar?: () => void;
   practiceId?: string;
+  conversationId?: string | null;
 
   // File handling props
   previewFiles: FileAttachment[];
@@ -132,6 +134,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   layoutMode,
   onOpenSidebar,
   practiceId,
+  conversationId,
   onToggleReaction,
   onRequestReactions,
   previewFiles,
@@ -330,10 +333,43 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     onSubmitNowRef.current = onSubmitNow;
   }, [onSubmitNow]);
 
+  const effectiveLayout: LayoutMode = layoutMode ?? 'widget';
+  const resolvedWorkspaceType: PostAuthConversationContext['workspace'] = isPublicWorkspace
+    ? 'public'
+    : effectiveLayout === 'mobile'
+      ? 'client'
+      : effectiveLayout === 'widget'
+        ? 'widget'
+        : 'practice';
+
+  const rememberPostAuthContext = useCallback(() => {
+    if (!isAnonymousUser) return;
+    if (!conversationId) return;
+    const resolvedPracticeId = practiceConfig?.practiceId || practiceId;
+    const resolvedPracticeSlug = practiceConfig?.slug || null;
+    if (!resolvedPracticeId && !resolvedPracticeSlug) return;
+    rememberPostAuthConversationContext({
+      conversationId,
+      practiceId: resolvedPracticeId ?? null,
+      practiceSlug: resolvedPracticeSlug,
+      workspace: resolvedWorkspaceType,
+    });
+  }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
+
+  const emitAuthPromptRequest = () => {
+    rememberPostAuthContext();
+    onAuthPromptRequest?.();
+  };
+
+  useEffect(() => {
+    if (!showAuthPrompt) return;
+    rememberPostAuthContext();
+  }, [rememberPostAuthContext, showAuthPrompt]);
+
   const handleSubmitNowAction = async () => {
     if (isAnonymousUser) {
       setPendingSubmitAfterAuth(true);
-      onAuthPromptRequest?.();
+      emitAuthPromptRequest();
       return;
     }
     if (onSubmitNow) {
@@ -438,7 +474,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const handleOpenPayment = (request: IntakePaymentRequest) => {
     if (isAnonymousUser) {
       setPendingPaymentRequest(request);
-      onAuthPromptRequest?.();
+      emitAuthPromptRequest();
       return;
     }
     openPayment(request);
@@ -589,7 +625,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                       onReply={handleReply}
                       onToggleReaction={onToggleReaction}
                       onRequestReactions={onRequestReactions}
-                      onAuthPromptRequest={onAuthPromptRequest}
+                      onAuthPromptRequest={emitAuthPromptRequest}
                       intakeStatus={intakeStatus}
                       intakeConversationState={intakeConversationState}
                       hasSlimContactDraft={Boolean(slimContactDraft)}

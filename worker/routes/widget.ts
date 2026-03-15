@@ -3,6 +3,29 @@ import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { ConversationService } from '../services/ConversationService.js';
 
+const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
+  const protocol = new URL(request.url).protocol;
+  // Secure cookies are ignored on http://localhost in dev; keep upstream cookie
+  // as-is unless this request is served over HTTPS.
+  if (protocol !== 'https:') {
+    return cookie;
+  }
+
+  let normalized = cookie;
+  if (/;\s*SameSite=/i.test(normalized)) {
+    normalized = normalized.replace(/;\s*SameSite=[^;]*/i, '; SameSite=None');
+  } else {
+    normalized = `${normalized}; SameSite=None`;
+  }
+  if (!/;\s*Secure\b/i.test(normalized)) {
+    normalized = `${normalized}; Secure`;
+  }
+  if (!/;\s*Partitioned\b/i.test(normalized)) {
+    normalized = `${normalized}; Partitioned`;
+  }
+  return normalized;
+};
+
 export async function handleWidgetBootstrap(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
     throw HttpErrors.methodNotAllowed('Method not allowed');
@@ -107,8 +130,6 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     data?: { id?: string };
     id?: string;
     practiceId?: string;
-    organization_id?: string;
-    organizationId?: string;
   };
   const practiceId = 'practiceId' in practiceDetails && typeof practiceDetails.practiceId === 'string'
       ? practiceDetails.practiceId 
@@ -116,11 +137,10 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
         ? practiceDetails.data.id
         : 'id' in practiceDetails && typeof practiceDetails.id === 'string'
           ? practiceDetails.id
-          : 'organization_id' in practiceDetails && typeof practiceDetails.organization_id === 'string'
-            ? practiceDetails.organization_id
-            : 'organizationId' in practiceDetails && typeof practiceDetails.organizationId === 'string'
-              ? practiceDetails.organizationId
           : null;
+  if (!practiceId) {
+    throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
+  }
 
   // 4. Bootstrap an anon-safe active conversation so the widget can skip the extra
   // client-side get-or-create round-trip after bootstrap.
@@ -180,7 +200,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // Forward Set-Cookie headers properly, handling multiple values
   // Since Headers class overwrites on set(), we use append() which handles multiple Set-Cookie properly in Cloudflare Workers
   for (const cookie of responseCookies) {
-    responseHeaders.append('Set-Cookie', cookie);
+    responseHeaders.append('Set-Cookie', normalizeCrossSiteWidgetCookie(cookie, request));
   }
 
   return new Response(JSON.stringify(bootstrapResponse), {

@@ -55,6 +55,7 @@ export class RemoteApiService {
     options?: {
       method?: string;
       body?: string;
+      forwardAuthCookie?: boolean;
     }
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
@@ -64,10 +65,12 @@ export class RemoteApiService {
       'Content-Type': 'application/json',
     });
 
-    // Forward session cookies when available
-    const cookie = this.getAuthCookie(request);
-    if (cookie) {
-      headers.set('Cookie', cookie);
+    // Forward session cookies when available unless explicitly disabled.
+    if (options?.forwardAuthCookie !== false) {
+      const cookie = this.getAuthCookie(request);
+      if (cookie) {
+        headers.set('Cookie', cookie);
+      }
     }
     const method = options?.method || 'GET';
     const body = options?.body;
@@ -649,7 +652,10 @@ export class RemoteApiService {
       request,
       {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        // Intakes are public/visitor scoped by slug and should not depend on
+        // the caller's org cookie context.
+        forwardAuthCookie: false,
       }
     );
   }

@@ -181,6 +181,10 @@ export const useWorkspaceRouting = ({
    */
   const effectivePracticeId = useMemo(() => {
     if (isPublicWorkspace) {
+      // For public routes, the route-level practiceId is authoritative.
+      // Falling back to config.id can pick up the signed-in user's org context
+      // and break anon->auth conversation linking across practices.
+      if (practiceId) return practiceId;
       if (
         practiceConfig.id &&
         resolvedPublicPracticeSlug &&
@@ -188,7 +192,7 @@ export const useWorkspaceRouting = ({
       ) {
         return practiceConfig.id;
       }
-      return practiceId || undefined;
+      return undefined;
     }
     return practiceId || undefined;
   }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, resolvedPublicPracticeSlug]);
