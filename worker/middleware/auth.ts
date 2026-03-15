@@ -355,7 +355,21 @@ export async function requireAuth(
   env: Env
 ): Promise<AuthContext> {
   const widgetToken = extractWidgetTokenFromRequest(request);
-  if (widgetToken) {
+
+  const cookieHeader = request.headers.get('Cookie');
+  const normalizedCookie = cookieHeader?.trim() ?? '';
+
+  let authResult: {
+    user: AuthenticatedUser;
+    session: { id: string; expiresAt: Date };
+    activeOrganizationId?: string | null;
+    previousAnonUserId?: string | null;
+  };
+
+  const buildWidgetTokenContext = async (): Promise<AuthContext> => {
+    if (!widgetToken) {
+      throw HttpErrors.unauthorized('Authentication required - session cookie missing');
+    }
     const validated = await validateWidgetAuthToken(widgetToken, env);
     return {
       user: {
@@ -373,23 +387,23 @@ export async function requireAuth(
       activeOrganizationId: null,
       previousAnonUserId: null
     };
-  }
-
-  const cookieHeader = request.headers.get('Cookie');
-
-  let authResult: {
-    user: AuthenticatedUser;
-    session: { id: string; expiresAt: Date };
-    activeOrganizationId?: string | null;
-    previousAnonUserId?: string | null;
   };
-  if (!cookieHeader || !cookieHeader.trim()) {
-    throw HttpErrors.unauthorized('Authentication required - session cookie missing');
+
+  if (!normalizedCookie) {
+    return buildWidgetTokenContext();
   }
 
-  authResult = await validateSessionWithRemoteServer(cookieHeader, env, {
-    allowStaleOnTimeout: isHotChatPath(request)
-  });
+  try {
+    authResult = await validateSessionWithRemoteServer(normalizedCookie, env, {
+      allowStaleOnTimeout: isHotChatPath(request)
+    });
+  } catch (error) {
+    // Only fallback to widget token when cookie auth is truly unauthenticated.
+    if (error instanceof HttpError && error.status === 401 && widgetToken) {
+      return buildWidgetTokenContext();
+    }
+    throw error;
+  }
 
   // Detect anonymous users (Better Auth anonymous plugin)
   // Anonymous users typically have:
@@ -404,11 +418,25 @@ export async function requireAuth(
       authResult.user.name?.toLowerCase().includes('anonymous') ||
       authResult.user.name === 'Anonymous User';
 
+  let previousAnonUserId = authResult.previousAnonUserId ?? null;
+  // If Better Auth session omitted previous_anon_user_id, recover it from a
+  // valid widget token that was minted for the same browser session.
+  if (!isAnonymous && !previousAnonUserId && widgetToken) {
+    try {
+      const widgetAuth = await validateWidgetAuthToken(widgetToken, env);
+      if (widgetAuth.userId !== authResult.user.id) {
+        previousAnonUserId = widgetAuth.userId;
+      }
+    } catch {
+      // Ignore malformed/expired widget token when cookie auth already succeeded.
+    }
+  }
+
   return {
     ...authResult,
-    cookie: cookieHeader,
+    cookie: normalizedCookie,
     isAnonymous,
-    previousAnonUserId: authResult.previousAnonUserId ?? null
+    previousAnonUserId
   };
 }
 

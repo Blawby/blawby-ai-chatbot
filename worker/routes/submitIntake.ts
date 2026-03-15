@@ -188,8 +188,10 @@ export async function handleSubmitIntake(
 
   const conversationService = new ConversationService(env);
 
-  // Validate participant access
-  await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+  // Validate participant access — include previousAnonUserId grace window so that
+  // submit-intake calls that race against PATCH /link don't 403.
+  const prevAnonId = authContext.previousAnonUserId ?? null;
+  await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
 
   // Load conversation with row lock to prevent concurrent duplicate submissions
   const conversation = await conversationService.getConversation(conversationId, practiceId);

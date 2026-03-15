@@ -67,7 +67,6 @@ const isTokenExpired = (): boolean => {
 };
 
 export const getWidgetAuthToken = (): string | null => {
-  if (!isWidgetRuntimeContext()) return null;
   const token = safeSessionStorageGet(WIDGET_AUTH_TOKEN_KEY);
   if (!token || token.trim().length === 0) return null;
   if (isTokenExpired()) {

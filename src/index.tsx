@@ -29,7 +29,7 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
-import { isWidgetRuntimeContext, setWidgetRuntimeContext, clearWidgetAuthToken } from '@/shared/utils/widgetAuth';
+import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 
 const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
 const DebugChatPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugChatPage')) : null;
@@ -813,7 +813,6 @@ function WidgetRoute({
     setWidgetRuntimeContext(true);
     return () => {
       setWidgetRuntimeContext(false);
-      clearWidgetAuthToken();
     };
   }, []);
 

@@ -132,12 +132,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const conversationId = segments[2];
     const conversationPracticeId = getPracticeId(requestWithContext);
 
+    const prevAnonId = authContext.previousAnonUserId ?? null;
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
     } else {
       const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
       if (!isStaffMemberRole(membership.memberRole)) {
-        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 
@@ -282,6 +283,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
 
+    const prevAnonId = authContext.previousAnonUserId ?? null;
     let isMember = false;
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
@@ -291,7 +293,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
-        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 
@@ -515,6 +517,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const practiceId = getPracticeId(requestWithContext);
 
     // Validate user has access
+    const prevAnonId = authContext.previousAnonUserId ?? null;
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
     } else {
@@ -522,7 +525,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (isStaffMemberRole(membership.memberRole)) {
         await requirePracticeMember(request, env, practiceId, 'paralegal');
       } else {
-        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
       }
     }
 

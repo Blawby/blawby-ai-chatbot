@@ -100,10 +100,10 @@ apiClient.interceptors.request.use(
     if (widgetToken) {
       const requestUrl = typeof config.url === 'string' ? config.url : '';
       const tokenEligible =
-        requestUrl.startsWith('/api/conversations') ||
-        requestUrl.startsWith('/api/ai/') ||
-        requestUrl.startsWith('/api/widget/bootstrap') ||
-        requestUrl.startsWith('/api/widget/practice-details/');
+        requestUrl.includes('/api/conversations') ||
+        requestUrl.includes('/api/ai/') ||
+        requestUrl.includes('/api/widget/bootstrap') ||
+        requestUrl.includes('/api/widget/practice-details/');
       if (tokenEligible) {
         if (!config.headers) {
           config.headers = new AxiosHeaders();
