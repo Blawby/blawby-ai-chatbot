@@ -2,7 +2,12 @@ import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { extractWidgetTokenFromRequest, issueWidgetAuthToken, validateWidgetAuthToken } from '../utils/widgetAuthToken.js';
+import {
+  extractWidgetTokenFromRequest,
+  getWidgetTokenTtlForSource,
+  issueWidgetAuthToken,
+  validateWidgetAuthToken
+} from '../utils/widgetAuthToken.js';
 
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
@@ -73,7 +78,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   const requestedWidgetToken = extractWidgetTokenFromRequest(request);
 
   if (requestedWidgetToken) {
-    const validatedToken = await validateWidgetAuthToken(requestedWidgetToken, env);
+    const validatedToken = await validateWidgetAuthToken(requestedWidgetToken.token, env);
     sessionData = {
       user: {
         id: validatedToken.userId,
@@ -176,7 +181,13 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     typedSessionDataResolved?.user?.is_anonymous === true;
   const widgetAuth =
     isAnonymous && sessionUserId && sessionId
-      ? await issueWidgetAuthToken(env, { userId: sessionUserId, sessionId })
+      ? await issueWidgetAuthToken(
+          env,
+          { userId: sessionUserId, sessionId },
+          requestedWidgetToken
+            ? { ttlSeconds: getWidgetTokenTtlForSource(requestedWidgetToken.tokenSource) }
+            : undefined
+        )
       : null;
 
   if (practiceId && sessionUserId) {

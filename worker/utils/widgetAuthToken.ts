@@ -3,6 +3,8 @@ import { HttpErrors } from '../errorHandler.js';
 
 const WIDGET_TOKEN_VERSION = 1;
 const WIDGET_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
+const WIDGET_TOKEN_QUERY_SOURCE_TTL_SECONDS = 5 * 60; // 5 minutes
+const BASE64_CHUNK_SIZE = 0x8000;
 
 export interface WidgetAuthClaims {
   v: number;
@@ -20,14 +22,27 @@ export interface ValidatedWidgetAuthToken {
   expiresAt: number;
 }
 
+export type WidgetTokenSource = 'authorization' | 'query';
+
+export interface ExtractedWidgetToken {
+  token: string;
+  tokenSource: WidgetTokenSource;
+}
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-const toBase64Url = (input: Uint8Array): string =>
-  btoa(String.fromCharCode(...input))
+const toBase64Url = (input: Uint8Array): string => {
+  let binary = '';
+  for (let offset = 0; offset < input.length; offset += BASE64_CHUNK_SIZE) {
+    const chunk = input.subarray(offset, offset + BASE64_CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/g, '');
+};
 
 const fromBase64Url = (input: string): Uint8Array => {
   const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
@@ -106,7 +121,8 @@ const parseClaims = (raw: unknown): WidgetAuthClaims => {
 
 export const issueWidgetAuthToken = async (
   env: Env,
-  params: { userId: string; sessionId: string }
+  params: { userId: string; sessionId: string },
+  options?: { ttlSeconds?: number }
 ): Promise<{ token: string; expiresAt: string }> => {
   const userId = params.userId.trim();
   const sessionId = params.sessionId.trim();
@@ -115,13 +131,19 @@ export const issueWidgetAuthToken = async (
   }
 
   const now = Math.floor(Date.now() / 1000);
+  const requestedTtlSeconds = typeof options?.ttlSeconds === 'number'
+    ? options.ttlSeconds
+    : NaN;
+  const ttlSeconds = Number.isFinite(requestedTtlSeconds)
+    ? Math.max(60, Math.floor(requestedTtlSeconds))
+    : WIDGET_TOKEN_TTL_SECONDS;
   const claims: WidgetAuthClaims = {
     v: WIDGET_TOKEN_VERSION,
     sub: userId,
     sid: sessionId,
     anon: 1,
     iat: now,
-    exp: now + WIDGET_TOKEN_TTL_SECONDS,
+    exp: now + ttlSeconds,
   };
 
   const payloadPart = toBase64Url(textEncoder.encode(JSON.stringify(claims)));
@@ -132,24 +154,31 @@ export const issueWidgetAuthToken = async (
   return { token, expiresAt };
 };
 
-export const extractWidgetTokenFromRequest = (request: Request): string | null => {
+export const extractWidgetTokenFromRequest = (request: Request): ExtractedWidgetToken | null => {
   const authHeader = request.headers.get('Authorization');
   if (authHeader) {
     const match = authHeader.match(/^Bearer\s+(.+)$/i);
     if (match && match[1]) {
       const token = match[1].trim();
-      if (token.length > 0) return token;
+      if (token.length > 0) {
+        return { token, tokenSource: 'authorization' };
+      }
     }
   }
 
+  // Query-param tokens are accepted only for WebSocket auth handshakes where
+  // browsers cannot set custom Authorization headers on `new WebSocket(...)`.
   const url = new URL(request.url);
   const queryToken = url.searchParams.get('bw_token');
   if (queryToken && queryToken.trim().length > 0) {
-    return queryToken.trim();
+    return { token: queryToken.trim(), tokenSource: 'query' };
   }
 
   return null;
 };
+
+export const getWidgetTokenTtlForSource = (source: WidgetTokenSource): number =>
+  source === 'query' ? WIDGET_TOKEN_QUERY_SOURCE_TTL_SECONDS : WIDGET_TOKEN_TTL_SECONDS;
 
 export const validateWidgetAuthToken = async (
   token: string,
