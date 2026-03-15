@@ -314,7 +314,11 @@ export function WidgetApp({
 
     const handleParentMessage = (event: MessageEvent) => {
       const allowedOrigins = resolveAllowedParentOrigins();
-      if (allowedOrigins.length > 0 && !allowedOrigins.includes(event.origin)) return;
+      if (allowedOrigins.length === 0) {
+        console.warn('[Widget] Rejecting parent message: no trusted parent origin');
+        return;
+      }
+      if (!allowedOrigins.includes(event.origin)) return;
 
       let data: unknown = event.data;
       if (typeof data === 'string') {

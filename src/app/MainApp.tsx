@@ -44,6 +44,7 @@ import {
   peekAnonymousUserId,
   peekConversationAnonymousParticipant,
   consumePostAuthConversationContext,
+  peekPostAuthConversationContext,
 } from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
@@ -240,7 +241,7 @@ export function MainApp({
   useEffect(() => {
     if (sessionIsPending) return;
     if (!session?.user || isAnonymous) return;
-    const pending = consumePostAuthConversationContext();
+    const pending = peekPostAuthConversationContext();
     if (!pending) return;
     if (pending.practiceId) {
       const matchesPractice =
@@ -249,13 +250,16 @@ export function MainApp({
       if (!matchesPractice) return;
     }
 
-    if (pending.workspace === 'public' && pending.practiceSlug) {
-      const slug = pending.practiceSlug;
-      navigate(`/public/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(pending.conversationId)}`, true);
+    const consumedPending = consumePostAuthConversationContext();
+    if (!consumedPending) return;
+
+    if (consumedPending.workspace === 'public' && consumedPending.practiceSlug) {
+      const slug = consumedPending.practiceSlug;
+      navigate(`/public/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(consumedPending.conversationId)}`, true);
       return;
     }
 
-    setConversationId(pending.conversationId);
+    setConversationId(consumedPending.conversationId);
   }, [
     effectivePracticeId,
     isAnonymous,
