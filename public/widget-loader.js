@@ -431,6 +431,10 @@
   }
 
   function postToIframe(msg) {
+    // iframe.src must be set before posting. Without it, contentWindow has the
+    // parent page's origin (about:blank inherits it), so specifying BASE_ORIGIN
+    // as target throws a SecurityError: "target origin does not match recipient".
+    if (!iframe.src) return;
     try {
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage(JSON.stringify(msg), BASE_ORIGIN);

@@ -4,6 +4,7 @@ import { getConversationsEndpoint, getConversationParticipantsEndpoint, getPract
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
 import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
 import { clearConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 interface UseConversationsOptions {
   practiceId?: string;
@@ -160,7 +161,7 @@ export function useConversations({
         : getConversationsEndpoint();
       const response = await fetch(`${endpoint}${queryString ? `?${queryString}` : ''}`, {
         method: 'GET',
-        headers,
+        headers: withWidgetAuthHeaders(headers),
         credentials: 'include',
         signal,
       });
@@ -261,7 +262,7 @@ export function useConversations({
 
       const response = await fetch(getConversationParticipantsEndpoint(conversationId), {
         method: 'POST',
-        headers,
+        headers: withWidgetAuthHeaders(headers),
         credentials: 'include',
         body: JSON.stringify({ participantUserIds }),
       });

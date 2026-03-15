@@ -2,6 +2,7 @@ import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { ConversationService } from '../services/ConversationService.js';
+import { extractWidgetTokenFromRequest, issueWidgetAuthToken, validateWidgetAuthToken } from '../utils/widgetAuthToken.js';
 
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
@@ -69,60 +70,75 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // 2. Manage Session (Check session, if none, do anon sign-in)
   let responseCookies: string[] = [];
   let sessionData: unknown = null;
+  const requestedWidgetToken = extractWidgetTokenFromRequest(request);
 
-  try {
-    const sessionController = new AbortController();
-    const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
-
+  if (requestedWidgetToken) {
+    const validatedToken = await validateWidgetAuthToken(requestedWidgetToken, env);
+    sessionData = {
+      user: {
+        id: validatedToken.userId,
+        isAnonymous: true,
+        is_anonymous: true,
+      },
+      session: {
+        id: validatedToken.sessionId,
+      },
+    };
+  } else {
     try {
-      const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-        headers: upstreamHeaders,
-        signal: sessionController.signal
-      });
-      sessionData = await sessionRes.json().catch(() => null);
-    } finally {
-      clearTimeout(sessionTimer);
-    }
-
-    // Typing session data
-    const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
-
-    if (!typedSessionData?.user) {
-      // Need anonymous signin
-      const anonHeaders = new Headers(upstreamHeaders);
-      if (!anonHeaders.has('Content-Type')) {
-        anonHeaders.set('Content-Type', 'application/json');
-      }
-      
-      const anonController = new AbortController();
-      const anonTimer = setTimeout(() => anonController.abort(), 5000);
+      const sessionController = new AbortController();
+      const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
 
       try {
-        const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
-          method: 'POST',
-          headers: anonHeaders,
-          body: '{}',
-          signal: anonController.signal
+        const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+          headers: upstreamHeaders,
+          signal: sessionController.signal
         });
-        if (!anonRes.ok) {
-          throw new Error(`[Bootstrap] Anonymous sign-in failed: ${anonRes.status}`);
+        sessionData = await sessionRes.json().catch(() => null);
+      } finally {
+        clearTimeout(sessionTimer);
+      }
+
+      // Typing session data
+      const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+
+      if (!typedSessionData?.user) {
+        // Need anonymous signin
+        const anonHeaders = new Headers(upstreamHeaders);
+        if (!anonHeaders.has('Content-Type')) {
+          anonHeaders.set('Content-Type', 'application/json');
         }
         
-        const setCookieHeaders = anonRes.headers.getSetCookie 
-          ? anonRes.headers.getSetCookie() 
-          : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
-        
-        responseCookies = responseCookies.concat(setCookieHeaders);
-        sessionData = await anonRes.json().catch(() => null);
-      } finally {
-        clearTimeout(anonTimer);
+        const anonController = new AbortController();
+        const anonTimer = setTimeout(() => anonController.abort(), 5000);
+
+        try {
+          const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
+            method: 'POST',
+            headers: anonHeaders,
+            body: '{}',
+            signal: anonController.signal
+          });
+          if (!anonRes.ok) {
+            throw new Error(`[Bootstrap] Anonymous sign-in failed: ${anonRes.status}`);
+          }
+          
+          const setCookieHeaders = anonRes.headers.getSetCookie 
+            ? anonRes.headers.getSetCookie() 
+            : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
+          
+          responseCookies = responseCookies.concat(setCookieHeaders);
+          sessionData = await anonRes.json().catch(() => null);
+        } finally {
+          clearTimeout(anonTimer);
+        }
       }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error('[Bootstrap] Session operation timed out');
+      }
+      throw err;
     }
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('[Bootstrap] Session operation timed out');
-    }
-    throw err;
   }
 
   // 3. Wait for practice details
@@ -148,11 +164,20 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   let recentConversations: Array<{ id: string, created_at: string, last_message_at: string | null }> = [];
   const typedSessionDataResolved = sessionData as {
     user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean };
+    session?: { id?: string };
   } | null;
   const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
+  const sessionId =
+    typeof typedSessionDataResolved?.session?.id === 'string' && typedSessionDataResolved.session.id.trim().length > 0
+      ? typedSessionDataResolved.session.id.trim()
+      : sessionUserId;
   const isAnonymous =
     typedSessionDataResolved?.user?.isAnonymous === true ||
     typedSessionDataResolved?.user?.is_anonymous === true;
+  const widgetAuth =
+    isAnonymous && sessionUserId && sessionId
+      ? await issueWidgetAuthToken(env, { userId: sessionUserId, sessionId })
+      : null;
 
   if (practiceId && sessionUserId) {
     try {
@@ -189,7 +214,9 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     practiceDetails,
     session: sessionData,
     conversationId: conversationId,
-    conversations: recentConversations
+    conversations: recentConversations,
+    widgetAuthToken: widgetAuth?.token ?? null,
+    widgetAuthTokenExpiresAt: widgetAuth?.expiresAt ?? null
   };
 
   const responseHeaders = new Headers({

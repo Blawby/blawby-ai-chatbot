@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -15,6 +15,7 @@ import {
   assertMinorUnits,
   type MajorAmount
 } from '@/shared/utils/money';
+import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -95,6 +96,25 @@ apiClient.interceptors.request.use(
 
     // Use session cookies for auth; include credentials for cross-origin requests when allowed.
     config.withCredentials = true;
+    const widgetToken = getWidgetAuthToken();
+    if (widgetToken) {
+      const requestUrl = typeof config.url === 'string' ? config.url : '';
+      const tokenEligible =
+        requestUrl.startsWith('/api/conversations') ||
+        requestUrl.startsWith('/api/ai/') ||
+        requestUrl.startsWith('/api/widget/bootstrap') ||
+        requestUrl.startsWith('/api/widget/practice-details/');
+      if (tokenEligible) {
+        if (!config.headers) {
+          config.headers = new AxiosHeaders();
+        }
+        if (config.headers instanceof AxiosHeaders) {
+          config.headers.set('Authorization', `Bearer ${widgetToken}`);
+        } else {
+          (config.headers as Record<string, string>).Authorization = `Bearer ${widgetToken}`;
+        }
+      }
+    }
 
     return config;
   },

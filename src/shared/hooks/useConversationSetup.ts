@@ -4,6 +4,7 @@ import type { ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
 import { rememberConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 export interface UseConversationSetupOptions {
   practiceId?: string;
@@ -97,6 +98,7 @@ export function useConversationSetup({
       if (isPublicWorkspace) {
         const response = await fetch(`${getCurrentConversationEndpoint()}?${params}`, {
           method: 'GET',
+          headers: withWidgetAuthHeaders(),
           credentials: 'include',
         });
 
@@ -119,7 +121,7 @@ export function useConversationSetup({
 
       const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           participantUserIds: [session.user.id],
@@ -156,6 +158,7 @@ export function useConversationSetup({
     const params = new URLSearchParams({ practiceId });
     const response = await fetch(`${getConversationEndpoint(cached)}?${params}`, {
       method: 'GET',
+      headers: withWidgetAuthHeaders(),
       credentials: 'include',
     });
     if (!response.ok) {

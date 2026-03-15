@@ -17,6 +17,7 @@ import { linkConversationToUser } from '@/shared/lib/apiClient';
 import {
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -414,7 +415,7 @@ export function useIntakeFlow({
 
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' },
+        { method: 'POST', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' },
       );
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({})) as { error?: string };

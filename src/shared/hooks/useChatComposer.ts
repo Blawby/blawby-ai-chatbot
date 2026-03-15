@@ -22,6 +22,7 @@ import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import { initialIntakeState, type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -433,7 +434,7 @@ export const useChatComposer = ({
         try {
           const intentResponse = await fetch('/api/ai/intent', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
             credentials: 'include',
             signal: intentController.signal,
             body: JSON.stringify({ conversationId, practiceId: resolvedPracticeId, message: trimmedMessage }),
@@ -476,7 +477,7 @@ export const useChatComposer = ({
       try {
         const aiResponse = await fetch('/api/ai/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'text/event-stream' }),
           credentials: 'include',
           signal: abortController.signal,
           body: JSON.stringify({

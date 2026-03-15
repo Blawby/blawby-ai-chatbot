@@ -1,6 +1,7 @@
 import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
 import { Logger } from "../utils/logger";
+import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -353,6 +354,27 @@ export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<AuthContext> {
+  const widgetToken = extractWidgetTokenFromRequest(request);
+  if (widgetToken) {
+    const validated = await validateWidgetAuthToken(widgetToken, env);
+    return {
+      user: {
+        id: validated.userId,
+        name: 'Anonymous User',
+        emailVerified: false,
+        isAnonymous: true,
+      },
+      session: {
+        id: validated.sessionId,
+        expiresAt: new Date(validated.expiresAt * 1000),
+      },
+      cookie: '',
+      isAnonymous: true,
+      activeOrganizationId: null,
+      previousAnonUserId: null
+    };
+  }
+
   const cookieHeader = request.headers.get('Cookie');
 
   let authResult: {

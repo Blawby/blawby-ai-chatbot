@@ -161,6 +161,7 @@ export interface Env {
   AI_GATEWAY_WORKERS_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
+  WIDGET_AUTH_TOKEN_SECRET?: string;
 
   // Environment flags
   NODE_ENV?: string;

@@ -29,6 +29,7 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
+import { isWidgetRuntimeContext, setWidgetRuntimeContext, clearWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
 const DebugChatPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugChatPage')) : null;
@@ -667,7 +668,7 @@ function PublicPracticeRoute({
   // is disabled while the widget bootstrap route still works.
   useEffect(() => {
     if (typeof window === 'undefined' || sessionIsPending) return;
-    if (isWidget || hasWidgetRuntimeContext()) return;
+    if (isWidget || isWidgetRuntimeContext()) return;
 
     // Only attempt if no session exists
     if (!session?.user) {
@@ -809,18 +810,10 @@ function WidgetRoute({
   const location = useLocation();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.sessionStorage.setItem(WIDGET_RUNTIME_CONTEXT_KEY, '1');
-    } catch {
-      // ignore storage failures in privacy modes
-    }
+    setWidgetRuntimeContext(true);
     return () => {
-      try {
-        window.sessionStorage.removeItem(WIDGET_RUNTIME_CONTEXT_KEY);
-      } catch {
-        // ignore
-      }
+      setWidgetRuntimeContext(false);
+      clearWidgetAuthToken();
     };
   }, []);
 
@@ -970,14 +963,3 @@ export async function prerender() {
   await initI18n();
   return await ssr(<AppWithProviders />);
 }
-const WIDGET_RUNTIME_CONTEXT_KEY = 'blawby_widget_runtime_context';
-
-const hasWidgetRuntimeContext = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  if (new URLSearchParams(window.location.search).get('v') === 'widget') return true;
-  try {
-    return window.sessionStorage.getItem(WIDGET_RUNTIME_CONTEXT_KEY) === '1';
-  } catch {
-    return false;
-  }
-};

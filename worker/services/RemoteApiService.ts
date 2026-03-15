@@ -270,7 +270,10 @@ export class RemoteApiService {
     return this.fetchFromRemoteApi(
       env,
       `/api/practice/details/${encodeURIComponent(slug)}`,
-      request
+      request,
+      // This is a public, unauthenticated endpoint. Never forward session cookies —
+      // the backend may 500 if it sees an org-scoped cookie on a public slug lookup.
+      { forwardAuthCookie: false }
     );
   }
 
