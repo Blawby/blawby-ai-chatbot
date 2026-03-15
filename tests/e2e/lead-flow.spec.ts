@@ -32,6 +32,12 @@ const normalizePracticeSlug = (value: string): string => {
 test.describe('Lead intake workflow', () => {
   test.describe.configure({ timeout: 120000 });
 
+  const isActiveConversationFetch = (response: { request: () => { method: () => string }; url: () => string }): boolean => (
+    response.request().method() === 'GET'
+    && response.url().includes('/api/conversations/active')
+    && response.url().includes('practiceId=')
+  );
+
   test('public intake reaches submit CTA and submit button advances flow', async ({
     anonPage,
   }, testInfo) => {
@@ -39,6 +45,7 @@ test.describe('Lead intake workflow', () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const submitIntakeStatuses: number[] = [];
+    const activeConversationStatuses: number[] = [];
 
     anonPage.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -47,6 +54,9 @@ test.describe('Lead intake workflow', () => {
       pageErrors.push(error.message);
     });
     anonPage.on('response', (response) => {
+      if (isActiveConversationFetch(response)) {
+        activeConversationStatuses.push(response.status());
+      }
       if (
         response.request().method() === 'POST' &&
         response.url().includes('/api/conversations/') &&
@@ -74,6 +84,11 @@ test.describe('Lead intake workflow', () => {
       .not.toEqual({ ctaVisible: false, composerVisible: false });
     if (await consultationCta.isVisible().catch(() => false)) {
       await consultationCta.click();
+      await anonPage.waitForTimeout(1200);
+      expect(
+        activeConversationStatuses.every((status) => status < 500),
+        `Request consultation triggered /api/conversations/active 5xx responses: ${JSON.stringify(activeConversationStatuses)}`
+      ).toBe(true);
     }
 
     const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
@@ -527,8 +542,12 @@ test.describe('Lead intake workflow', () => {
 
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const conversationLinkRequests: Array<{ url: string; status: number }> = [];
+    const activeConversationStatuses: number[] = [];
 
     anonPage.on('response', (response) => {
+      if (isActiveConversationFetch(response)) {
+        activeConversationStatuses.push(response.status());
+      }
       const url = response.url();
       if (
         response.request().method() === 'PATCH' &&
@@ -564,6 +583,11 @@ test.describe('Lead intake workflow', () => {
 
     if (await consultationCta.isVisible().catch(() => false)) {
       await consultationCta.click();
+      await anonPage.waitForTimeout(1200);
+      expect(
+        activeConversationStatuses.every((status) => status < 500),
+        `Request consultation triggered /api/conversations/active 5xx responses: ${JSON.stringify(activeConversationStatuses)}`
+      ).toBe(true);
     }
 
     const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
