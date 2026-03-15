@@ -750,18 +750,26 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.conflict('Unable to verify previous anonymous identity for link');
     }
 
-    const previousAnonUserId =
-      serverPreviousAnonUserId ??
-      metadataAnonParticipantId ??
-      inferredAnonOwnerId;
     const hasValidatedPriorAnonIdentity = Boolean(serverPreviousAnonUserId);
+
+    if (!hasValidatedPriorAnonIdentity) {
+      Logger.warn('[Conversations][link] rejected: prior anonymous ownership was not server-validated', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+        hasMetadataAnonParticipantId: Boolean(metadataAnonParticipantId),
+        hasInferredAnonOwnerId: Boolean(inferredAnonOwnerId),
+      });
+      throw HttpErrors.conflict('Unable to verify previous anonymous identity for link');
+    }
 
     Logger.info('[Conversations][link] attempting linkConversationToUser', {
       traceId: linkTraceId,
       conversationId,
       practiceId,
       userId,
-      previousAnonUserId: previousAnonUserId ?? null,
+      previousAnonUserId: serverPreviousAnonUserId,
       conversationOwnerId: conversation.user_id ?? null,
       isConversationAnonymous: conversation.is_anonymous ?? null,
     });
@@ -772,7 +780,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         practiceId,
         userId,
         {
-          previousParticipantId: previousAnonUserId
+          previousParticipantId: serverPreviousAnonUserId
         }
       );
       Logger.info('[Conversations][link] link succeeded', {
