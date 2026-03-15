@@ -676,6 +676,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const requestedPreviousParticipantId = typeof linkBody?.previousParticipantId === 'string'
       ? linkBody.previousParticipantId.trim()
       : null;
+    const requestedAnonymousSessionId = typeof linkBody?.anonymousSessionId === 'string'
+      ? linkBody.anonymousSessionId.trim()
+      : null;
 
     if (authContext.isAnonymous) {
       Logger.warn('[Conversations][link] rejected: caller is still anonymous', {
@@ -725,11 +728,33 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       conversation.user_id.trim().length > 0
         ? conversation.user_id
         : null;
+    const serverPreviousAnonUserId = authContext.previousAnonUserId ?? null;
+    const previousParticipantMatchesAuthContext =
+      !requestedPreviousParticipantId ||
+      (serverPreviousAnonUserId !== null && requestedPreviousParticipantId === serverPreviousAnonUserId);
+    const anonymousSessionMatchesAuthContext =
+      !requestedAnonymousSessionId ||
+      requestedAnonymousSessionId === authContext.session.id;
+
+    if (!previousParticipantMatchesAuthContext || !anonymousSessionMatchesAuthContext) {
+      Logger.warn('[Conversations][link] rejected: client-provided prior anon identity did not match authenticated context', {
+        traceId: linkTraceId,
+        conversationId,
+        practiceId,
+        userId,
+        requestedPreviousParticipantId: requestedPreviousParticipantId ?? null,
+        serverPreviousAnonUserId,
+        requestedAnonymousSessionId: requestedAnonymousSessionId ?? null,
+        authSessionId: authContext.session.id,
+      });
+      throw HttpErrors.conflict('Unable to verify previous anonymous identity for link');
+    }
+
     const previousAnonUserId =
-      authContext.previousAnonUserId ??
-      requestedPreviousParticipantId ??
+      serverPreviousAnonUserId ??
       metadataAnonParticipantId ??
       inferredAnonOwnerId;
+    const hasValidatedPriorAnonIdentity = Boolean(serverPreviousAnonUserId);
 
     Logger.info('[Conversations][link] attempting linkConversationToUser', {
       traceId: linkTraceId,
@@ -759,11 +784,22 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       return createJsonResponse(linkedConversation);
     } catch (error) {
       if (error instanceof HttpError && error.status === 409) {
-        Logger.info('[Conversations][link] link conflict (409), adding participant', {
+        if (!hasValidatedPriorAnonIdentity) {
+          Logger.warn('[Conversations][link] conflict (409) but prior anon ownership was not validated; refusing participant add', {
+            traceId: linkTraceId,
+            conversationId,
+            practiceId,
+            userId,
+            serverPreviousAnonUserId,
+          });
+          throw HttpErrors.conflict('Conversation already linked and prior anonymous ownership could not be validated');
+        }
+        Logger.info('[Conversations][link] link conflict (409), adding participant after validated prior anon ownership', {
           traceId: linkTraceId,
           conversationId,
           practiceId,
           userId,
+          serverPreviousAnonUserId,
         });
         try {
           await conversationService.addParticipant(conversationId, practiceId, userId);

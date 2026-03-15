@@ -612,12 +612,18 @@ test.describe('Lead intake workflow', () => {
 
     await messageInput.fill('Hello, I need help and I will sign in after this.');
     await anonPage.getByRole('button', { name: /send message/i }).click();
-    await aiResponsePromise;
+    const aiResponse = await aiResponsePromise;
+    if (!aiResponse) {
+      throw new Error('Expected AI chat response for anon sign-in flow, but /api/ai/chat response was not observed.');
+    }
 
     const capturedConversationId = await anonPage.evaluate((): string | null => {
       const match = window.location.href.match(/\/conversations\/([a-zA-Z0-9_-]+)/);
       return match?.[1] ?? null;
     });
+    if (!capturedConversationId) {
+      throw new Error('Expected conversationId in URL after AI response, but none was found.');
+    }
 
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
     const signInCta = anonPage

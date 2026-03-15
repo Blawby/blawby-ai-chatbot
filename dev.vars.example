@@ -13,7 +13,7 @@ AI_PROVIDER=cloudflare_gateway
 AI_MODEL=dynamic/blawby-chat-failover
 
 # Optional: if your code-level fallback path is enabled, override fallback model
-# WORKERS_AI_FALLBACK_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
+# AI_GATEWAY_WORKERS_MODEL=workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
 
 # API Keys and Tokens (SENSITIVE)
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here

@@ -13,7 +13,7 @@ import type { ConversationMetadata, ConversationMode } from '@/shared/types/conv
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
-import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
+import { consumePostAuthConversationContext, peekPostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -142,11 +142,14 @@ export function WidgetApp({
   useEffect(() => {
     if (sessionIsPending) return;
     if (effectiveIsAnonymous) return;
-    const pending = consumePostAuthConversationContext();
+    const pending = peekPostAuthConversationContext();
     if (!pending) return;
     if (pending.practiceId && pending.practiceId !== practiceId) return;
-    if (pending.conversationId) {
-      setConversationId(pending.conversationId);
+    const consumedPending = consumePostAuthConversationContext();
+    if (!consumedPending) return;
+    if (consumedPending.practiceId && consumedPending.practiceId !== practiceId) return;
+    if (consumedPending.conversationId) {
+      setConversationId(consumedPending.conversationId);
     }
   }, [effectiveIsAnonymous, practiceId, sessionIsPending, setConversationId]);
 

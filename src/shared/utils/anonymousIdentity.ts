@@ -2,7 +2,7 @@ const USER_STORAGE_KEY = 'blawby:lastAnonUserId';
 const SESSION_STORAGE_KEY = 'blawby:lastAnonSessionId';
 const CONVERSATION_PREFIX = 'blawby:anonParticipant:';
 const POST_AUTH_CONVERSATION_KEY = 'blawby:postAuthConversation';
-const POST_AUTH_CONVERSATION_TTL_MS = 30_000;
+const POST_AUTH_CONVERSATION_TTL_MS = 300_000;
 
 export type PostAuthConversationContext = {
   conversationId: string;
@@ -165,11 +165,15 @@ const parsePostAuthConversationContext = (raw: string | null): PostAuthConversat
 export const consumePostAuthConversationContext = (): PostAuthConversationContext | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(POST_AUTH_CONVERSATION_KEY);
-    const fallbackRaw = raw ?? window.localStorage.getItem(POST_AUTH_CONVERSATION_KEY);
+    const sessionRaw = window.sessionStorage.getItem(POST_AUTH_CONVERSATION_KEY);
+    let parsed = parsePostAuthConversationContext(sessionRaw);
+    if (!parsed) {
+      const localRaw = window.localStorage.getItem(POST_AUTH_CONVERSATION_KEY);
+      parsed = parsePostAuthConversationContext(localRaw);
+    }
     window.sessionStorage.removeItem(POST_AUTH_CONVERSATION_KEY);
     window.localStorage.removeItem(POST_AUTH_CONVERSATION_KEY);
-    return parsePostAuthConversationContext(fallbackRaw);
+    return parsed;
   } catch {
     return null;
   }
@@ -178,9 +182,12 @@ export const consumePostAuthConversationContext = (): PostAuthConversationContex
 export const peekPostAuthConversationContext = (): PostAuthConversationContext | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(POST_AUTH_CONVERSATION_KEY)
-      ?? window.localStorage.getItem(POST_AUTH_CONVERSATION_KEY);
-    const parsed = parsePostAuthConversationContext(raw);
+    const sessionRaw = window.sessionStorage.getItem(POST_AUTH_CONVERSATION_KEY);
+    let parsed = parsePostAuthConversationContext(sessionRaw);
+    if (!parsed) {
+      const localRaw = window.localStorage.getItem(POST_AUTH_CONVERSATION_KEY);
+      parsed = parsePostAuthConversationContext(localRaw);
+    }
     if (!parsed) {
       window.sessionStorage.removeItem(POST_AUTH_CONVERSATION_KEY);
       window.localStorage.removeItem(POST_AUTH_CONVERSATION_KEY);

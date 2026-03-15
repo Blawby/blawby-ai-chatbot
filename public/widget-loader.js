@@ -337,7 +337,7 @@
     if (w.visualViewport && typeof w.visualViewport.height === 'number') {
       viewportHeight = Math.min(viewportHeight || w.visualViewport.height, w.visualViewport.height);
     }
-    if (!viewportHeight || viewportHeight < 300) viewportHeight = 640;
+    if (!viewportHeight) viewportHeight = 640;
     var maxHeight = viewportHeight - 92;
     var clamped = Math.max(360, Math.min(780, maxHeight));
     frameWrap.style.setProperty('--blawby-widget-frame-height', clamped + 'px');
@@ -490,6 +490,7 @@
   }
 
   function emitEvent(eventName, detail) {
+    var persistedAttribution = getAttributionPayload();
     var payload = Object.assign({
       type: eventName,
       practiceSlug: cfg.practiceSlug,
@@ -497,8 +498,8 @@
       unreadCount: unreadCount,
       timestamp: new Date().toISOString(),
     }, detail || {});
-    if (hasAttributionParams && !payload.attribution) {
-      payload.attribution = attributionParams;
+    if (!payload.attribution && persistedAttribution) {
+      payload.attribution = persistedAttribution;
     }
 
     if (typeof cfg.onEvent === 'function') {
@@ -554,8 +555,7 @@
           intakeUuid: typeof data.intakeUuid === 'string' ? data.intakeUuid : null,
           status: typeof data.status === 'string' ? data.status : null,
           requiresPayment: data.requiresPayment === true,
-          // Keep attribution deterministic from host page URL where the widget script runs.
-          attribution: hasAttributionParams ? attributionParams : undefined,
+          attribution: getAttributionPayload() || undefined,
         });
         break;
     }

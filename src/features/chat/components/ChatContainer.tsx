@@ -333,24 +333,28 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     onSubmitNowRef.current = onSubmitNow;
   }, [onSubmitNow]);
 
+  const effectiveLayout: LayoutMode = layoutMode ?? 'widget';
   const resolvedWorkspaceType: PostAuthConversationContext['workspace'] = isPublicWorkspace
     ? 'public'
-    : layoutMode === 'mobile'
+    : effectiveLayout === 'mobile'
       ? 'client'
-      : layoutMode === 'widget'
+      : effectiveLayout === 'widget'
         ? 'widget'
         : 'practice';
 
   const rememberPostAuthContext = useCallback(() => {
     if (!isAnonymousUser) return;
-    if (!practiceId || !conversationId) return;
+    if (!conversationId) return;
+    const resolvedPracticeId = practiceConfig?.practiceId || practiceId;
+    const resolvedPracticeSlug = practiceConfig?.slug || null;
+    if (!resolvedPracticeId && !resolvedPracticeSlug) return;
     rememberPostAuthConversationContext({
       conversationId,
-      practiceId,
-      practiceSlug: practiceConfig?.slug ?? null,
+      practiceId: resolvedPracticeId ?? null,
+      practiceSlug: resolvedPracticeSlug,
       workspace: resolvedWorkspaceType,
     });
-  }, [conversationId, isAnonymousUser, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
+  }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
 
   const emitAuthPromptRequest = () => {
     rememberPostAuthContext();
