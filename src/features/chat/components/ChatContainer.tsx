@@ -599,52 +599,40 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 </div>
               ) : null}
               <div className="flex flex-1 min-h-0 flex-col">
-                {isPublicWorkspace && filteredMessages.length === 0 ? (
-                  <div className={cn(
-                    'flex flex-col items-center justify-start px-6 text-center text-sm text-input-placeholder',
-                    shouldShowSlimForm ? 'pt-2 pb-0' : 'flex-1 pt-8'
-                  )}>
-                    <p className="max-w-[300px]">
-                      {t('chat.publicIntro')}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <VirtualMessageList
-                      messages={messagesReady ? filteredMessages : []}
-                      conversationTitle={conversationTitle}
-                      practiceConfig={practiceConfig}
-                      isPublicWorkspace={isPublicWorkspace}
-                      onOpenSidebar={onOpenSidebar}
-                      onOpenPayment={handleOpenPayment}
-                      practiceId={practiceId}
-                      onReply={handleReply}
-                      onToggleReaction={onToggleReaction}
-                      onRequestReactions={onRequestReactions}
-                      onAuthPromptRequest={emitAuthPromptRequest}
-                      intakeStatus={intakeStatus}
-                      intakeConversationState={intakeConversationState}
-                      hasSlimContactDraft={Boolean(slimContactDraft)}
-                      onQuickReply={handleQuickReply}
-                      onIntakeCtaResponse={onIntakeCtaResponse}
-                      onSubmitNow={handleSubmitNowAction}
-                      onBuildBrief={onBuildBrief}
-                      modeSelectorActions={onSelectMode ? {
-                        onAskQuestion: handleAskQuestion,
-                        onRequestConsultation: handleRequestConsultation
-                      } : undefined}
-                      leadReviewActions={leadReviewActions}
-                      hasMoreMessages={hasMoreMessages}
-                      isLoadingMoreMessages={isLoadingMoreMessages}
-                      onLoadMoreMessages={onLoadMoreMessages}
-                      showSkeleton={!messagesReady}
-                      compactLayout={false}
-                      onboardingActions={onboardingActions}
-                      bottomInsetPx={composerInsetPx}
-                    />
-                  </>
-                )}
+                <VirtualMessageList
+                  messages={messagesReady ? filteredMessages : []}
+                  conversationTitle={conversationTitle}
+                  practiceConfig={practiceConfig}
+                  isPublicWorkspace={isPublicWorkspace}
+                  onOpenSidebar={onOpenSidebar}
+                  onOpenPayment={handleOpenPayment}
+                  practiceId={practiceId}
+                  onReply={handleReply}
+                  onToggleReaction={onToggleReaction}
+                  onRequestReactions={onRequestReactions}
+                  onAuthPromptRequest={emitAuthPromptRequest}
+                  intakeStatus={intakeStatus}
+                  intakeConversationState={intakeConversationState}
+                  hasSlimContactDraft={Boolean(slimContactDraft)}
+                  onQuickReply={handleQuickReply}
+                  onIntakeCtaResponse={onIntakeCtaResponse}
+                  onSubmitNow={handleSubmitNowAction}
+                  onBuildBrief={onBuildBrief}
+                  modeSelectorActions={onSelectMode ? {
+                    onAskQuestion: handleAskQuestion,
+                    onRequestConsultation: handleRequestConsultation
+                  } : undefined}
+                  leadReviewActions={leadReviewActions}
+                  hasMoreMessages={hasMoreMessages}
+                  isLoadingMoreMessages={isLoadingMoreMessages}
+                  onLoadMoreMessages={onLoadMoreMessages}
+                  showSkeleton={!messagesReady}
+                  compactLayout={false}
+                  onboardingActions={onboardingActions}
+                  bottomInsetPx={composerInsetPx}
+                />
               </div>
+
             </div>
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">

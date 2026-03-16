@@ -339,44 +339,12 @@ export const PracticeSetup = ({
   }), [details?.description, practice, practiceId]);
 
   const chatMessagesReady = waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true);
-  const openingFallbackMessage = useMemo<ChatMessageUI>(() => {
-    const topMissing = missingFields[0] ?? null;
-    const topMissingPrompt: Record<string, string> = {
-      name: "What's the correct practice name?",
-      description: 'What short business description should clients see?',
-      services: 'What services should clients be able to request?',
-      website: "What's your website URL?",
-      contactPhone: "What's the best phone number for clients?",
-      businessEmail: "What's the best client-facing email?",
-      address: 'What office address should we show?',
-      accentColor: 'What accent color should we use for your public page?',
-      logo: 'Would you like to upload or change your logo?',
-      payouts: 'Do you want to enable payments with Blawby now?',
-    };
 
-    let content = "Let's get your practice set up. To start, what's the name of your practice?";
-    if (completionScore >= 80) {
-      content = 'Welcome back! Your profile looks great. Anything you want to update?';
-    } else if (topMissing && topMissingPrompt[topMissing]) {
-      content = `Welcome back. ${topMissingPrompt[topMissing]}`;
-    }
 
-    return {
-      id: 'opening',
-      role: 'assistant',
-      timestamp: Date.now(),
-      seq: 1,
-      isUser: false,
-      content,
-    };
-  }, [completionScore, missingFields]);
-
-  const fallbackUiMessages = useMemo<ChatMessageUI[]>(() => [openingFallbackMessage], [openingFallbackMessage]);
   const resolvedChatMessages = useMemo(() => {
     if (waitingForRealChat || !chatMessagesReady) return [];
-    const serverMessages = chatAdapter?.messages ?? [];
-    return serverMessages.length > 0 ? serverMessages : fallbackUiMessages;
-  }, [chatAdapter?.messages, chatMessagesReady, fallbackUiMessages, waitingForRealChat]);
+    return chatAdapter?.messages ?? [];
+  }, [chatAdapter?.messages, chatMessagesReady, waitingForRealChat]);
 
   useEffect(() => {
     if (!chatAdapter?.messages || chatAdapter.messages.length === 0) return;
