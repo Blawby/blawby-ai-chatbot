@@ -26,7 +26,6 @@ export interface OnboardingState {
   basicsDraft: {
     name: string;
     slug: string;
-    introMessage: string;
     accentColor: string;
   };
   contactDraft: {
@@ -79,7 +78,6 @@ const initialState: OnboardingState = {
   basicsDraft: {
     name: '',
     slug: '',
-    introMessage: '',
     accentColor: '#D4AF37',
   },
   contactDraft: {

@@ -29,7 +29,6 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 export interface BasicsFormValues {
   name: string;
   slug: string;
-  introMessage: string;
   accentColor: string;
 }
 
@@ -46,7 +45,6 @@ interface ExtractedFields {
   name?: string;
   slug?: string;
   description?: string;
-  introMessage?: string;
   accentColor?: string;
   website?: string;
   contactPhone?: string;
@@ -169,11 +167,10 @@ export const PracticeSetup = ({
 
   // Notify parent of draft changes (for preview reload trigger)
   useEffect(() => {
-    if (!extracted.name && !extracted.introMessage) return;
+    if (!extracted.name) return;
     onBasicsDraftChange?.({
       name:         extracted.name ?? practice?.name ?? '',
       slug:         practice?.slug ?? '',
-      introMessage: extracted.introMessage ?? '',
       accentColor:  normalizeAccentColor(extracted.accentColor) ?? '#D4AF37',
     });
   }, [extracted, onBasicsDraftChange, practice?.name, practice?.slug]);
@@ -218,13 +215,11 @@ export const PracticeSetup = ({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const currentIntro = details?.introMessage ?? practice?.introMessage ?? '';
       const currentAccent = normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37';
       const accentColor = normalizeAccentColor(pendingSave.accentColor ?? currentAccent) ?? currentAccent;
       await onSaveBasics({
         name:         pendingSave.name ?? practice.name ?? '',
         slug:         practice.slug ?? '',
-        introMessage: pendingSave.introMessage ?? currentIntro,
         accentColor,
       }, { suppressSuccessToast: true });
       const mergedAddress = {
@@ -261,7 +256,6 @@ export const PracticeSetup = ({
   const derivedProgress = useMemo(() => {
     const name = (extracted.name ?? practice?.name ?? '').trim();
     const description = (extracted.description ?? details?.description ?? practice?.description ?? '').trim();
-    const introMessage = (extracted.introMessage ?? details?.introMessage ?? practice?.introMessage ?? '').trim();
     const website = (extracted.website ?? details?.website ?? practice?.website ?? '').trim();
     const contactPhone = (extracted.contactPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '').trim();
     const businessEmail = (extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '').trim();
@@ -301,7 +295,6 @@ export const PracticeSetup = ({
       website,
       contactPhone,
       businessEmail,
-      introMessage,
       accentColor,
       hasServices,
       hasAddress,
@@ -356,7 +349,6 @@ export const PracticeSetup = ({
       contactPhone: "What's the best phone number for clients?",
       businessEmail: "What's the best client-facing email?",
       address: 'What office address should we show?',
-      introMessage: 'What intro message should clients see first?',
       accentColor: 'What accent color should we use for your public page?',
       logo: 'Would you like to upload or change your logo?',
       payouts: 'Do you want to enable payments with Blawby now?',

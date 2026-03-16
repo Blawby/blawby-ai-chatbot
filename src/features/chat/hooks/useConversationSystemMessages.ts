@@ -5,13 +5,8 @@ import type { ConversationMessage, ConversationMode } from '@/shared/types/conve
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 
 const buildIntroMessage = (
-  introMessage: string | null | undefined,
   practiceName: string | null | undefined
 ): string => {
-  const trimmedIntro = typeof introMessage === 'string' ? introMessage.trim() : '';
-  if (trimmedIntro) {
-    return trimmedIntro;
-  }
   const trimmedName = typeof practiceName === 'string' ? practiceName.trim() : '';
   if (trimmedName) {
     return `Hi! Welcome to ${trimmedName}. How can we help?`;
@@ -104,7 +99,7 @@ export const useConversationSystemMessages = ({
     };
     void persistSystemMessage(
       'system-intro',
-      buildIntroMessage(practiceConfig.introMessage, practiceConfig.name),
+      buildIntroMessage(practiceConfig.name),
       metadata
     );
   }, [
@@ -113,7 +108,6 @@ export const useConversationSystemMessages = ({
     isConsultFlowActive,
     messages,
     messagesReady,
-    practiceConfig.introMessage,
     practiceConfig.name,
     practiceId,
     persistSystemMessage,

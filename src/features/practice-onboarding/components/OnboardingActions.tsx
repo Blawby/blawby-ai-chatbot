@@ -15,7 +15,6 @@ export interface OnboardingActionsProps {
   onSaveBasics?: (values: {
     name: string;
     slug: string;
-    introMessage: string;
     accentColor: string;
   }) => Promise<void>;
   onSaveContact?: (values: {
@@ -61,7 +60,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
 }) => {
   const completionScore = status.basicsComplete && status.contactComplete && status.servicesComplete && status.payoutsComplete ? 100 : 0;
   const missingFields: string[] = [];
-  if (!status.basicsComplete) missingFields.push('practice name', 'slug', 'intro message');
+  if (!status.basicsComplete) missingFields.push('practice name', 'slug');
   if (!status.contactComplete) missingFields.push('contact information');
   if (!status.servicesComplete) missingFields.push('services');
   if (!status.payoutsComplete) missingFields.push('payment setup');

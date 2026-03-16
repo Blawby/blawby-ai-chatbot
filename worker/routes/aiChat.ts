@@ -207,7 +207,6 @@ const buildOnboardingFallbackReplyFromProfile = (profile: Record<string, unknown
     contactPhone: "What's your main phone number?",
     businessEmail: "What's your business email?",
     address: "What's your office address?",
-    introMessage: 'What intro message would you like clients to see?',
     accentColor: 'What accent color would you like to use?',
   };
   if (nextField && prompts[nextField]) return prompts[nextField];
@@ -380,7 +379,6 @@ const ONBOARDING_TOOL = {
           },
           maxItems: 20,
         },
-        introMessage: { type: 'string' },
         accentColor: { type: 'string' },
         completionScore: { type: 'number', minimum: 0, maximum: 100 },
         missingFields: { type: 'array', items: { type: 'string' } },
@@ -524,7 +522,6 @@ const buildOnboardingProfileMetadata = (
   const onboardingDescription = readAnyString(onboardingFields, ['description']);
   const persistedDescription = readAnyString(details, ['description', 'overview']);
   const description = onboardingDescription ?? persistedDescription;
-  const introMessage = readAnyString(onboardingFields, ['introMessage']) ?? readAnyString(details, ['introMessage', 'intro_message']);
   const website = readAnyString(onboardingFields, ['website']) ?? readAnyString(details, ['website']);
   const contactPhone = readAnyString(onboardingFields, ['contactPhone']) ?? readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
   const businessEmail = readAnyString(onboardingFields, ['businessEmail']) ?? readAnyString(details, ['businessEmail', 'business_email', 'email']);
@@ -554,7 +551,6 @@ const buildOnboardingProfileMetadata = (
     ['contactPhone', Boolean(contactPhone), 10],
     ['businessEmail', Boolean(businessEmail), 10],
     ['address', hasAddress, 15],
-    ['introMessage', Boolean(introMessage), 15],
     ['accentColor', Boolean(accentColor), 10],
   ];
   const totalWeight = weightedChecks.reduce((sum, [, , weight]) => sum + weight, 0);

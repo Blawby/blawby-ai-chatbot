@@ -1003,7 +1003,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     const trimmedName = values.name.trim();
     const trimmedSlug = values.slug.trim();
-    const trimmedIntro = values.introMessage.trim();
     const normalizedAccentColor = normalizeAccentColor(values.accentColor);
     if (!normalizedAccentColor) {
       const error = new Error('Accent color must be a valid hex value (for example #3B82F6).');
@@ -1018,8 +1017,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (trimmedSlug && trimmedSlug !== (currentPractice.slug ?? '')) {
       practiceUpdates.slug = trimmedSlug;
     }
-    const introSource = setupDetails?.introMessage ?? currentPractice?.introMessage ?? '';
-    const introChanged = trimmedIntro !== introSource;
     const accentSource = normalizeAccentColor(setupDetails?.accentColor ?? currentPractice?.accentColor);
     const accentChanged = normalizedAccentColor !== accentSource;
 
@@ -1027,13 +1024,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       if (Object.keys(practiceUpdates).length > 0) {
         await updatePractice(currentPractice.id, practiceUpdates);
       }
-      if (introChanged || accentChanged) {
+      if (accentChanged) {
         await updateSetupDetails({
-          ...(introChanged ? { introMessage: trimmedIntro.length > 0 ? trimmedIntro : null } : {}),
           ...(accentChanged ? { accentColor: normalizedAccentColor } : {})
         });
       }
-      if (Object.keys(practiceUpdates).length > 0 || introChanged || accentChanged) {
+      if (Object.keys(practiceUpdates).length > 0 || accentChanged) {
         if (!options?.suppressSuccessToast) {
           showSuccess('Basics updated', 'Your public profile reflects the newest info.');
         }
@@ -1047,7 +1043,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       showError('Basics update failed', error instanceof Error ? error.message : 'Unable to save basics.');
       throw error;
     }
-  }, [currentPractice, forcePreviewReload, setupDetails?.accentColor, setupDetails?.introMessage, showError, showSuccess, updatePractice, updateSetupDetails]);
+  }, [currentPractice, forcePreviewReload, setupDetails?.accentColor, showError, showSuccess, updatePractice, updateSetupDetails]);
 
   const handleSaveContact = useCallback(async (
     values: ContactFormValues,
@@ -1307,7 +1303,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const websiteValue = (progressFields.website ?? setupDetails?.website ?? currentPractice?.website ?? '').trim();
   const phoneValue = (progressFields.contactPhone ?? setupDetails?.businessPhone ?? currentPractice?.businessPhone ?? '').trim();
   const emailValue = (progressFields.businessEmail ?? setupDetails?.businessEmail ?? currentPractice?.businessEmail ?? '').trim();
-  const introMessageValue = (progressFields.introMessage ?? setupDetails?.introMessage ?? currentPractice?.introMessage ?? '').trim();
   const accentColorValue = (progressFields.accentColor ?? setupDetails?.accentColor ?? currentPractice?.accentColor ?? '').trim();
   const addressCandidate = (progressFields.address ?? setupDetails?.address ?? currentPractice?.address ?? null) as Record<string, unknown> | null;
   const addressLine1 = typeof addressCandidate?.address === 'string'
@@ -1345,7 +1340,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     { key: 'contactPhone', label: 'Phone', done: Boolean(phoneValue), value: phoneValue || 'Not provided' },
     { key: 'businessEmail', label: 'Email', done: Boolean(emailValue), value: emailValue || 'Not provided' },
     { key: 'address', label: 'Address', done: Boolean(addressLine1 && addressCity && addressState), value: addressValue || 'Not provided' },
-    { key: 'introMessage', label: 'Intro message', done: Boolean(introMessageValue), value: introMessageValue || 'Not provided' },
     { key: 'accentColor', label: 'Accent color', done: Boolean(accentColorValue), value: accentColorValue || 'Not provided' },
     { key: 'logo', label: 'Logo', done: strongLogoReady, value: strongLogoReady ? 'Uploaded' : 'Not uploaded' },
     { key: 'payouts', label: 'Payments', done: paymentQuestionAnswered, value: paymentStatusValue },

@@ -262,7 +262,6 @@ export interface ConversationConfig {
   description: string;
   brandColor: string;
   accentColor: string;
-  introMessage: string;
   profileImage?: string;
   voice: {
     enabled: boolean;

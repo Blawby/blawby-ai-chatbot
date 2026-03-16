@@ -25,6 +25,7 @@ export interface Conversation {
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // Timestamp of last message
+  last_message_content?: string | null; // Content of last message for preview
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // Timestamp of first practice member response
@@ -257,6 +258,7 @@ export class ConversationService {
       tags,
       internal_notes: getNullableString(record.internal_notes),
       last_message_at: getNullableString(record.last_message_at),
+      last_message_content: getNullableString(record.last_message_content),
       first_response_at: getNullableString(record.first_response_at),
       closed_at: getNullableString(record.closed_at),
       unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
@@ -273,7 +275,7 @@ export class ConversationService {
    */
   async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT c.*
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
       WHERE c.id = ? AND c.practice_id = ?
     `).bind(conversationId, practiceId).first<Record<string, unknown>>();
@@ -291,7 +293,7 @@ export class ConversationService {
    */
   async getConversationById(conversationId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT c.*
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
       WHERE c.id = ?
     `).bind(conversationId).first<Record<string, unknown>>();
@@ -372,7 +374,7 @@ export class ConversationService {
       ? "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 1"
       : "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 0";
     const query = `
-      SELECT c.*
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
       WHERE c.practice_id = ? 
         AND EXISTS (
@@ -421,6 +423,7 @@ export class ConversationService {
       ? `
       SELECT 
         conversations.*,
+        (SELECT content FROM chat_messages m WHERE m.conversation_id = conversations.id ORDER BY seq DESC LIMIT 1) as last_message_content,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -433,7 +436,7 @@ export class ConversationService {
       WHERE conversations.practice_id = ?
     `
       : `
-      SELECT conversations.*
+      SELECT conversations.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = conversations.id ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations
       WHERE conversations.practice_id = ?
     `;
@@ -490,6 +493,7 @@ export class ConversationService {
     let query = `
       SELECT 
         conversations.*,
+        (SELECT content FROM chat_messages m WHERE m.conversation_id = conversations.id ORDER BY seq DESC LIMIT 1) as last_message_content,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)

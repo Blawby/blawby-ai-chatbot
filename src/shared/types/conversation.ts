@@ -79,6 +79,7 @@ export interface Conversation {
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // ISO timestamp of last message
+  last_message_content?: string | null; // Content of last message for preview
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // ISO timestamp of first practice member response

@@ -243,6 +243,7 @@
   }
 
   [data-widget="true"] .workspace-header {
+    @apply bg-accent-500 rounded-t-[inherit];
     color: rgb(var(--accent-foreground));
   }
 
@@ -555,15 +556,28 @@
 
   /* stylelint-enable declaration-empty-line-before */
 
-  /* Shared nav item active/inactive state */
+  /* Shared nav item active/inactive state (Subtle/Sidebar) */
   .nav-item-active {
     color: rgb(var(--accent-400));
     background-color: rgb(var(--accent-500) / 0.18);
     box-shadow: none;
   }
 
+  /* Bottom bar style (Bold - Widget specialized) */
+  .nav-rail--bottom .nav-item-active {
+    color: rgb(var(--accent-foreground));
+    background-color: rgb(var(--accent-500));
+    box-shadow: 0 4px 12px rgb(var(--accent-500) / 0.25);
+  }
+
   .dark .nav-item-active {
     background-color: rgb(var(--accent-400) / 0.18);
+    color: rgb(var(--accent-400));
+  }
+
+  .dark .nav-rail--bottom .nav-item-active {
+    background-color: rgb(var(--accent-500));
+    color: rgb(var(--accent-foreground));
   }
 
   .nav-item-inactive {

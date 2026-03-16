@@ -456,7 +456,6 @@ export class RemoteApiService {
       description: typeof config.description === 'string' ? config.description : '',
       brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
       accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
-      introMessage: typeof config.introMessage === 'string' ? config.introMessage : '',
       profileImage: typeof config.profileImage === 'string' ? config.profileImage : undefined,
       voice,
       blawbyApi: (() => {

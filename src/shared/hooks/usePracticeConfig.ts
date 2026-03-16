@@ -35,7 +35,6 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   slug: '',
   name: '',
   profileImage: null,
-  introMessage: '',
   description: '',
   availableServices: [],
   serviceQuestions: {},
@@ -159,7 +158,6 @@ export const usePracticeConfig = ({
             slug: publicDetails.slug ?? currentPracticeId,
             name: publicDetails.name ?? '',
             profileImage: publicDetails.logo ?? null,
-            introMessage: details?.introMessage ?? '',
             description: details?.description ?? '',
             accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
@@ -214,7 +212,6 @@ export const usePracticeConfig = ({
           slug: practice.slug,
           name: practice.name || '',
           profileImage: cfg.profileImage ?? null,
-          introMessage: cfg.introMessage ?? '',
           description: cfg.description ?? '',
           availableServices: cfg.availableServices ?? [],
           serviceQuestions: cfg.serviceQuestions ?? {},

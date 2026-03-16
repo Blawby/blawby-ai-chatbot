@@ -22,7 +22,6 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { StackedAvatars } from '@/shared/ui/profile';
-import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
@@ -49,7 +48,6 @@ interface OnboardingDetails {
   businessEmail?: string;
   website?: string;
   address?: Address;
-  introMessage?: string;
   description?: string;
   accentColor?: string;
   isPublic?: boolean;
@@ -92,7 +90,6 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
     };
     setIfDefined('website', details.website ?? undefined);
     setIfDefined('address', buildAddress(details));
-    setIfDefined('introMessage', details.introMessage ?? undefined);
     setIfDefined('description', details.description ?? undefined);
     setIfDefined('accentColor', details.accentColor ?? undefined);
     setIfDefined('isPublic', details.isPublic ?? undefined);
@@ -103,7 +100,6 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
     address: buildAddress(practice),
-    introMessage: practice.introMessage ?? undefined,
     description: practice.description ?? undefined,
     accentColor: practice.accentColor ?? undefined,
     isPublic: practice.isPublic ?? undefined,
@@ -255,11 +251,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const phoneValue = (typeof onboardingData.contactPhone === 'string'
     ? onboardingData.contactPhone
     : (practice?.businessPhone || '')).trim();
-  const introMessageValue = typeof onboardingData.introMessage === 'string'
-    ? onboardingData.introMessage.trim()
-    : '';
   const accentColorValue = normalizeAccentColor(onboardingData.accentColor) ?? '#D4AF37';
-  const introPreview = introMessageValue ? truncateText(introMessageValue, 140) : 'Not set';
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
     : false;
@@ -304,7 +296,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     phone: '',
     address: undefined,
   });
-  const [introDraft, setIntroDraft] = useState('');
   const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
   const modalContentClassName = 'glass-panel';
   const modalHeaderClassName = 'glass-panel';
@@ -381,7 +372,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       slug: practice.slug || '',
       logo: practice.logo || ''
     });
-    setIntroDraft(introMessageValue);
     setAccentColorDraft(accentColorValue);
     setIsEditPracticeModalOpen(true);
   };
@@ -423,7 +413,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
     setIsSettingsSaving(true);
     try {
-      const trimmedIntro = introDraft.trim();
       const normalizedAccentColor = normalizeAccentColor(accentColorDraft);
       if (!normalizedAccentColor) {
         throw new Error('Accent color must be a valid hex value (for example #3B82F6).');
@@ -432,13 +421,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         name: practice.name,
         slug: practice.slug ?? null,
         logo: practice.logo ?? null,
-        introMessage: practiceDetails?.introMessage ?? practice.introMessage ?? null,
         accentColor: normalizeAccentColor(practiceDetails?.accentColor ?? practice.accentColor)
       };
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
         name: editPracticeForm.name,
         logo: trimmedLogo ? trimmedLogo : undefined,
-        introMessage: trimmedIntro ? trimmedIntro : undefined,
         accentColor: normalizedAccentColor
       }, { compareTo: comparison });
 
@@ -483,7 +470,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         state: updates.address?.state || null,
         postalCode: updates.address?.postalCode || null,
         country: updates.address?.country || null,
-        introMessage: updates.introMessage,
         description: updates.description,
         isPublic: updates.isPublic,
         services: updates.services
@@ -628,10 +614,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                       {practice.name || 'Practice'}
                     </h3>
                     <div className="mt-2 space-y-2">
-                      <div className="flex items-start gap-3">
-                        <SettingsSubheader className="w-20 text-[10px]">Intro</SettingsSubheader>
-                        <SettingsHelperText>{introPreview}</SettingsHelperText>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -968,16 +950,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             />
           </div>
 
-          <div>
-            <PracticeProfileTextFields
-              introMessage={introDraft}
-              onIntroChange={setIntroDraft}
-              introRows={4}
-              introLabel="Intro Message"
-              introPlaceholder="Welcome to our firm. How can we help?"
-              disabled={isSettingsSaving}
-            />
-          </div>
 
           <div className="space-y-2">
             <FormLabel htmlFor="practice-accent-color">Accent Color</FormLabel>
