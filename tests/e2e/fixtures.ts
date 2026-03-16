@@ -34,12 +34,20 @@ const test = base.extend<E2EFixtures>({
     await context.close();
   },
   anonContext: async ({ browser, baseURL }, use, testInfo) => {
-    // Anonymous users should start with clean state to allow fresh sign-in
-    const context = await browser.newContext({
-      baseURL,
-      storageState: { cookies: [], origins: [] },
-      extraHTTPHeaders: { Cookie: '' }
-    });
+    const publicOnlyRun = process.env.E2E_PUBLIC_ONLY === 'true' || process.env.E2E_PUBLIC_ONLY === '1';
+    const context = await browser.newContext(
+      publicOnlyRun
+        ? {
+            baseURL,
+            storageState: AUTH_STATE_PATHS.anonymous
+          }
+        : {
+            // Non-public suites still start from a clean anonymous state.
+            baseURL,
+            storageState: { cookies: [], origins: [] },
+            extraHTTPHeaders: { Cookie: '' }
+          }
+    );
     const networkLogger = attachNetworkLogger({ context, testInfo, label: 'anonymous', baseURL });
     await use(context);
     await networkLogger?.flush();

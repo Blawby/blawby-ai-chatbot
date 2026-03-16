@@ -10,7 +10,7 @@
  *   CLOUDFLARE_TUNNEL_TOKEN=your-token
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
@@ -86,6 +86,19 @@ if (!token) {
     console.error('   1. Go to: https://one.dash.cloudflare.com/');
     console.error('   2. Or run: cloudflared tunnel token <tunnel-name>');
     process.exit(1);
+}
+
+try {
+    // Kill any orphaned cloudflared processes from previous runs that might
+    // hold the tunnel open to a dead port and cause 502 Bad Gateway errors.
+    if (process.platform === 'win32') {
+        // Windows fallback for environments where pkill is unavailable.
+        execSync('taskkill /IM cloudflared.exe /F', { stdio: 'ignore' });
+    } else {
+        execSync('pkill -f "cloudflared tunnel run"', { stdio: 'ignore' });
+    }
+} catch {
+    // Non-zero exit is expected when no prior cloudflared process is running.
 }
 
 // Spawn cloudflared process

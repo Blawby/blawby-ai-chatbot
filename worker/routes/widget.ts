@@ -109,7 +109,16 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
           headers: upstreamHeaders,
           signal: sessionController.signal
         });
-        sessionData = await sessionRes.json().catch(() => null);
+        if (sessionRes.ok) {
+          sessionData = await sessionRes.json().catch(() => null);
+        } else if (sessionRes.status === 401 || sessionRes.status === 404) {
+          sessionData = null;
+        } else {
+          const errorText = await sessionRes.text().catch(() => '');
+          throw HttpErrors.badGateway(
+            `[Bootstrap] Session check failed: ${sessionRes.status}${errorText ? ` - ${errorText}` : ''}`
+          );
+        }
       } finally {
         clearTimeout(sessionTimer);
       }
@@ -135,7 +144,15 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
             signal: anonController.signal
           });
           if (!anonRes.ok) {
-            throw new Error(`[Bootstrap] Anonymous sign-in failed: ${anonRes.status}`);
+            const errorText = await anonRes.text().catch(() => '');
+            if (anonRes.status === 429) {
+              throw HttpErrors.tooManyRequests(
+                `[Bootstrap] Anonymous sign-in failed: 429${errorText ? ` - ${errorText}` : ''}`
+              );
+            }
+            throw HttpErrors.badGateway(
+              `[Bootstrap] Anonymous sign-in failed: ${anonRes.status}${errorText ? ` - ${errorText}` : ''}`
+            );
           }
           
           const setCookieHeaders = anonRes.headers.getSetCookie 

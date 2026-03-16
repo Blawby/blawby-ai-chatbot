@@ -122,6 +122,7 @@ export const useChatComposer = ({
   const abortControllerRef = useRef<AbortController | null>(null);
   const intentAbortRef = useRef<AbortController | null>(null);
   const hasLoggedIntentRef = useRef(false);
+  const defaultModePersistedConversationRef = useRef<string | null>(null);
   const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
   const isMountedRef = useRef(true);
 
@@ -379,13 +380,24 @@ export const useChatComposer = ({
       lastKnownModeRef.current = mode;
     }
     const activeMode = metadataMode ?? mode ?? lastKnownModeRef.current ?? null;
+    const effectiveMode: ConversationMode = activeMode ?? 'ASK_QUESTION';
+
+    // In public/widget flows the user can type before metadata mode finishes
+    // syncing. Treat that first send as ASK_QUESTION and persist once.
+    if (!activeMode && conversationId && defaultModePersistedConversationRef.current !== conversationId) {
+      defaultModePersistedConversationRef.current = conversationId;
+      void updateConversationMetadata({ mode: 'ASK_QUESTION' }, conversationId).catch(() => {
+        defaultModePersistedConversationRef.current = null;
+      });
+    }
+
     const shouldUseAi =
       !options?.suppressAi && (
-        activeMode === 'ASK_QUESTION' ||
-        activeMode === 'REQUEST_CONSULTATION' ||
-        activeMode === 'PRACTICE_ONBOARDING'
+        effectiveMode === 'ASK_QUESTION' ||
+        effectiveMode === 'REQUEST_CONSULTATION' ||
+        effectiveMode === 'PRACTICE_ONBOARDING'
       );
-    const shouldClassifyIntent = activeMode === 'ASK_QUESTION';
+    const shouldClassifyIntent = effectiveMode === 'ASK_QUESTION';
     const preSendMessages = [...messagesRef.current];
     const hasUserMessages = preSendMessages.some(msg => msg.isUser);
     const trimmedMessage = message.trim();
@@ -404,7 +416,7 @@ export const useChatComposer = ({
       : undefined;
 
     // Ensure intake state is initialized before first consultation message
-    if (activeMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
+    if (effectiveMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
       if (pendingIntakeInitRef.current) {
         try { await pendingIntakeInitRef.current; }
         catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
@@ -483,7 +495,7 @@ export const useChatComposer = ({
           body: JSON.stringify({
             conversationId, practiceId: resolvedPracticeId,
             ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
-            mode: activeMode, intakeSubmitted, messages: aiMessages,
+            mode: effectiveMode, intakeSubmitted, messages: aiMessages,
             additionalContext: options?.additionalContext,
           }),
         });
