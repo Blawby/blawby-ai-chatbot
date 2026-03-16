@@ -200,12 +200,12 @@
         return;
       }
       // Relay to the widget loader if present.
-      if (window.BlawbyWidgetAPI) {
-        if (action === 'open') window.BlawbyWidgetAPI.open();
-        if (action === 'close') window.BlawbyWidgetAPI.close();
-        if (action === 'new-conversation') window.BlawbyWidgetAPI.newConversation && window.BlawbyWidgetAPI.newConversation();
+      if (window.BlawbyWidget) {
+        if (action === 'open' && typeof window.BlawbyWidget.open === 'function') window.BlawbyWidget.open();
+        if (action === 'close' && typeof window.BlawbyWidget.close === 'function') window.BlawbyWidget.close();
+        if (action === 'new-conversation' && typeof window.BlawbyWidget.newConversation === 'function') window.BlawbyWidget.newConversation();
       } else {
-        log('[harness] BlawbyWidgetAPI not yet available');
+        log('[harness] BlawbyWidget not yet available');
       }
     });
 
