@@ -107,7 +107,15 @@
     // BASE_URL: where widget-loader.js and the iframe src point.
     // In local dev this is the same origin (e.g. http://localhost:5137).
     // In a real production embed it would be https://ai.blawby.com.
-    var BASE_URL = params.get('baseUrl') || location.origin;
+    // Always normalize to origin so postMessage origin checks are reliable.
+    var rawBaseUrl = params.get('baseUrl') || location.origin;
+    var BASE_URL = (function(input) {
+      try {
+        return new URL(input, location.origin).origin;
+      } catch (e) {
+        return location.origin;
+      }
+    })(rawBaseUrl);
     var SLUG = params.get('slug') || 'paul-yahoo';
 
     document.getElementById('slug-display').textContent = SLUG;
