@@ -12,6 +12,7 @@ import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getClient } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
+import { WidgetApp } from '@/app/WidgetApp';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -901,15 +902,11 @@ function WidgetRoute({
         practiceConfig={practiceConfig}
         currentUrl={currentUrl}
       />
-      <MainApp
+      <WidgetApp
         practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
-        isPracticeView={true}
-        workspace="public"
-        publicPracticeSlug={practiceSlug || undefined}
         routeConversationId={data.conversationId || conversationId}
-        workspaceView={workspaceView}
-        isWidget={true}
+        bootstrapSession={data.session}
       />
     </>
   );

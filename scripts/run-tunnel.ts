@@ -88,6 +88,16 @@ if (!token) {
     process.exit(1);
 }
 
+import { execSync } from 'child_process';
+
+try {
+    // Kill any orphaned cloudflared processes from previous runs that might 
+    // hold the tunnel open to a dead port and cause 502 Bad Gateway errors.
+    execSync('pkill -f "cloudflared tunnel run"', { stdio: 'ignore' });
+} catch (e) {
+    // pkill returns non-zero if no process found, which is fine
+}
+
 // Spawn cloudflared process
 const cloudflared: ChildProcess = spawn('cloudflared', ['tunnel', 'run', '--token', token], {
     stdio: 'inherit',

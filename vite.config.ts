@@ -206,29 +206,32 @@ const serveStaticHtmlPlugin = (): Plugin => {
 		enforce: 'pre',
 		configureServer(server) {
 			server.middlewares.use(async (req, res, next) => {
-				if (req.url && (req.url.endsWith('.html') || req.url.endsWith('.js')) && req.url !== '/index.html') {
-					// Clean URL of query params
-					const urlPath = req.url.split('?')[0];
-					const publicDir = resolve(process.cwd(), 'public');
-					// Path traversal protection: resolve full path and ensure it's within publicDir
-					const requestedPath = resolve(publicDir, urlPath.replace(/^\/+/, ''));
+					if (req.url) {
+						// Strip query string FIRST so .html/.js detection works even when
+						// query params are present (e.g. /mock-embed.html?slug=paul-yahoo).
+						const urlPath = req.url.split('?')[0];
+						if ((urlPath.endsWith('.html') || urlPath.endsWith('.js')) && urlPath !== '/index.html') {
+							const publicDir = resolve(process.cwd(), 'public');
+							// Path traversal protection: resolve full path and ensure it's within publicDir
+							const requestedPath = resolve(publicDir, urlPath.replace(/^\/+/, ''));
 
-					if (!requestedPath.startsWith(publicDir)) {
-						next();
-						return;
-					}
+							if (!requestedPath.startsWith(publicDir)) {
+								next();
+								return;
+							}
 
-					try {
-						const content = await fs.readFile(requestedPath, 'utf-8');
-						res.setHeader('Content-Type', req.url.endsWith('.js') ? 'application/javascript' : 'text/html');
-						res.end(content);
-						return;
-					} catch (e) {
-						// File not found in public/, let Vite handle it (SPA fallback or 404)
+							try {
+								const content = await fs.readFile(requestedPath, 'utf-8');
+								res.setHeader('Content-Type', urlPath.endsWith('.js') ? 'application/javascript' : 'text/html');
+								res.end(content);
+								return;
+							} catch (e) {
+								// File not found in public/, let Vite handle it (SPA fallback or 404)
+							}
+						}
 					}
-				}
-				next();
-			});
+					next();
+				});
 		}
 	};
 };
@@ -296,6 +299,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					globIgnores: [
 						'widget-loader.js',
 						'widget-test.html',
+						'mock-embed.html',
 						'stats.html',
 					],
 					navigateFallbackDenylist: [

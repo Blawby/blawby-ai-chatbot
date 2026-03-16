@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blawby Widget — Local Embed Test Harness</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+    .harness-header {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 32px;
+      margin-bottom: 32px;
+      max-width: 800px;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 8px; }
+    p { margin: 0; color: #4a5568; font-size: 0.9rem; }
+    .status-panel {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 32px;
+      max-width: 800px;
+      margin-bottom: 32px;
+    }
+    .status-panel h2 { font-size: 1rem; margin: 0 0 16px; }
+    .event-log {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      background: #1a202c;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 120px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    button {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e0;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+    button:hover { background: #edf2f7; }
+    button[data-primary] { background: #3182ce; color: #fff; border-color: #2b6cb0; }
+    button[data-primary]:hover { background: #2b6cb0; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-ok { background: #c6f6d5; color: #276749; }
+    .badge-err { background: #fed7d7; color: #9b2c2c; }
+    .badge-wait { background: #fef3c7; color: #92400e; }
+    #widget-status { margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div class="harness-header">
+    <h1>Blawby Widget — Local Embed Test Harness</h1>
+    <p>
+      This page simulates a third-party customer website embedding the Blawby widget via
+      <code>widget-loader.js</code>. It exercises the <strong>real cross-origin iframe flow</strong>:
+      postMessage bridge, bootstrap, cookies/tokens, and the launcher button — exactly as
+      <code>northcarolinalegalservices.org</code> does in production.
+    </p>
+    <p style="margin-top:8px;">
+      Practice slug: <strong id="slug-display">…</strong>
+      &nbsp;|&nbsp;
+      Widget status: <span id="widget-status" class="badge badge-wait">waiting</span>
+    </p>
+  </div>
+
+  <div class="status-panel">
+    <h2>Widget event log</h2>
+    <div class="event-log" id="event-log">Waiting for widget events…&#10;</div>
+    <div class="controls">
+      <button data-primary data-action="open">Open widget</button>
+      <button data-action="close">Close widget</button>
+      <button data-action="new-conversation">New conversation</button>
+      <button data-action="clear-log">Clear log</button>
+    </div>
+  </div>
+
+  <script>
+    /* ── resolve config from query string so Playwright can parameterise ── */
+    var params = new URLSearchParams(location.search);
+
+    // BASE_URL: where widget-loader.js and the iframe src point.
+    // In local dev this is the same origin (e.g. http://localhost:5137).
+    // In a real production embed it would be https://ai.blawby.com.
+    var BASE_URL = params.get('baseUrl') || location.origin;
+    var SLUG = params.get('slug') || 'paul-yahoo';
+
+    document.getElementById('slug-display').textContent = SLUG;
+
+    /* ── log helper ── */
+    var logEl = document.getElementById('event-log');
+    function log(msg) {
+      var ts = new Date().toISOString().slice(11, 23);
+      logEl.textContent += '[' + ts + '] ' + msg + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(text, type) {
+      var el = document.getElementById('widget-status');
+      el.textContent = text;
+      el.className = 'badge badge-' + (type || 'wait');
+    }
+
+    /* ── also capture loader-side CustomEvents (iframe_ready, widget_opened, etc.) ── */
+    window.addEventListener('blawby:widget-event', function(event) {
+      var detail = event.detail;
+      if (!detail || !detail.type) return;
+      log('[CustomEvent] ' + JSON.stringify(detail));
+      window.__blawbyLastEvent = { type: detail.type, detail: detail };
+      window.__blawbyEvents = (window.__blawbyEvents || []).concat({ type: detail.type, detail: detail });
+
+      switch (detail.type) {
+        case 'iframe_ready':
+          setStatus('ready', 'ok');
+          log('[harness] iframe is ready (loader confirmed)');
+          break;
+        case 'widget_opened':
+          setStatus('open', 'ok');
+          break;
+        case 'widget_closed':
+          setStatus('closed', 'wait');
+          break;
+        case 'lead_submitted':
+          log('[harness] lead submitted: ' + JSON.stringify(detail));
+          break;
+      }
+    });
+
+    /* ── listen to postMessage events from the widget iframe ── */
+    window.addEventListener('message', function(event) {
+      // Accept messages only from our trusted widget origin.
+      if (event.origin !== BASE_URL) return;
+      var raw = event.data;
+      var msg;
+      try {
+        msg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (e) {
+        return;
+      }
+      if (!msg || !msg.type) return;
+      log('[postMessage] ' + JSON.stringify(msg));
+
+      switch (msg.type) {
+        case 'blawby:ready':
+          setStatus('ready', 'ok');
+          log('[harness] widget iframe is ready');
+          break;
+        case 'blawby:open':
+          setStatus('open', 'ok');
+          break;
+        case 'blawby:close':
+          setStatus('closed', 'wait');
+          break;
+        case 'blawby:new-message':
+          log('[harness] new message, unread=' + (msg.unreadCount || 0));
+          break;
+        case 'blawby:error':
+          setStatus('error', 'err');
+          log('[harness] ERROR: ' + JSON.stringify(msg));
+          break;
+      }
+
+      // Expose on window for Playwright to inspect.
+      window.__blawbyLastEvent = msg;
+      window.__blawbyEvents = (window.__blawbyEvents || []).concat(msg);
+    });
+
+    /* ── control buttons ── */
+    document.querySelector('.controls').addEventListener('click', function(e) {
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      var action = btn.dataset.action;
+      if (action === 'clear-log') {
+        logEl.textContent = '';
+        return;
+      }
+      // Relay to the widget loader if present.
+      if (window.BlawbyWidgetAPI) {
+        if (action === 'open') window.BlawbyWidgetAPI.open();
+        if (action === 'close') window.BlawbyWidgetAPI.close();
+        if (action === 'new-conversation') window.BlawbyWidgetAPI.newConversation && window.BlawbyWidgetAPI.newConversation();
+      } else {
+        log('[harness] BlawbyWidgetAPI not yet available');
+      }
+    });
+
+    /* ── load widget-loader.js from the configured BASE_URL ── */
+    window.BlawbyWidget = {
+      practiceSlug: SLUG,
+      baseUrl: BASE_URL,
+      onEvent: function(eventName, data) {
+        log('[onEvent] ' + eventName + ' ' + JSON.stringify(data || {}));
+        // Expose on window for Playwright assertions.
+        window.__blawbyOnEvents = (window.__blawbyOnEvents || []).concat({ eventName: eventName, data: data });
+      },
+    };
+
+    log('[harness] loading widget-loader.js from ' + BASE_URL);
+
+    /* Expose the harness config so Playwright can read it. */
+    window.__blawbyHarnessConfig = {
+      baseUrl: BASE_URL,
+      slug: SLUG,
+    };
+
+    var script = document.createElement('script');
+    script.src = BASE_URL + '/widget-loader.js';
+    script.defer = true;
+    script.onerror = function() {
+      setStatus('load-error', 'err');
+      log('[harness] ERROR: failed to load widget-loader.js from ' + BASE_URL);
+    };
+    // Pre-warm the iframe immediately after the loader script executes.
+    // Without this, widget-loader relies on requestIdleCallback (2s timeout)
+    // and tests would need to wait before blawby:ready / iframe_ready fires.
+    script.onload = function() {
+      // Give the loader JS one tick to finish setup, then open to force iframe load.
+      setTimeout(function() {
+        if (window.BlawbyWidget && typeof window.BlawbyWidget.open === 'function') {
+          log('[harness] pre-warming iframe via BlawbyWidget.open()');
+          window.BlawbyWidget.open();
+          // Auto-close after 100ms so the UI starts in closed state,
+          // but the iframe is already loaded and ready.
+          setTimeout(function() {
+            if (window.BlawbyWidget && typeof window.BlawbyWidget.close === 'function') {
+              window.BlawbyWidget.close();
+            }
+          }, 100);
+        }
+      }, 50);
+    };
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>
