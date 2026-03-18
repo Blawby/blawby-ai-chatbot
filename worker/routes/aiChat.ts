@@ -1115,8 +1115,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const canRetryWithWorkersModel =
         aiClient.provider === 'cloudflare_gateway' &&
-        typeof model === 'string' &&
-        model.startsWith('dynamic/');
+        typeof model === 'string';
 
       let streamResult = {
         reply: '',
