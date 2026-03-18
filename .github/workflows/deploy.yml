@@ -177,11 +177,51 @@ jobs:
           ls -la
           ls -la dist || true
 
+      - name: Debug - Pages project API probe
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}"
+          echo "Probing Pages project endpoint for ${PAGES_PROJECT}"
+          HTTP_CODE="$(curl -sS -o /tmp/pages_project.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "${URL}")"
+          echo "Pages project lookup HTTP status: ${HTTP_CODE}"
+          echo "Pages project lookup response (redacted by GH if needed):"
+          cat /tmp/pages_project.json || true
+
       - name: Deploy to Cloudflare Pages
+        id: pages_deploy
+        continue-on-error: true
         uses: cloudflare/wrangler-action@v3
         env:
           WRANGLER_LOG: debug
+          WRANGLER_LOG_SANITIZE: false
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }}
+
+      - name: Debug - Pages wrangler logs
+        if: steps.pages_deploy.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          echo "📋 Wrangler logs after Pages deploy failure:"
+          ls -la ~/.config/.wrangler/logs 2>/dev/null || true
+          ls -la ~/.wrangler/logs 2>/dev/null || true
+          LATEST_LOG="$(ls -t ~/.config/.wrangler/logs/wrangler-*.log ~/.wrangler/logs/wrangler-*.log 2>/dev/null | head -1)"
+          if [[ -n "${LATEST_LOG}" ]]; then
+            echo "Showing latest log: ${LATEST_LOG}"
+            tail -400 "${LATEST_LOG}"
+          else
+            echo "No wrangler log file found."
+          fi
+
+      - name: Fail if Pages deploy failed
+        if: steps.pages_deploy.outcome == 'failure'
+        run: |
+          echo "❌ Cloudflare Pages deployment failed"
+          exit 1
