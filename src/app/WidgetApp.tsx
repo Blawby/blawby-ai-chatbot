@@ -98,10 +98,6 @@ export function WidgetApp({
   const widgetVisibleRef = useRef(false);
   const assistantMessageIdsRef = useRef(new Set<string>());
   const initializedAssistantSnapshotRef = useRef(false);
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    hasMountedRef.current = true;
-  }, []);
 
   const { isDark } = useTheme();
   const { showError } = useToastContext();
@@ -148,16 +144,6 @@ export function WidgetApp({
     isPracticeWorkspace: false,
     isPublicWorkspace: true,
     onModeChange: setConversationMode,
-    onConversationIdReady: (id) => {
-      // Switches to chat when a conversation is deep-linked OR restored
-      // on initial mount. We avoid switching automatically on background
-      // updates after the first mount to prevent unexpected navigation.
-      // We also gate by autoConversationAttemptedRef to avoid switching during
-      // background auto-creation.
-      if (id && (!hasMountedRef.current || (!autoConversationAttemptedRef.current && view === 'home'))) {
-        setView('chat');
-      }
-    },
     onError: (msg) => showErrorRef.current?.(msg),
   });
 
