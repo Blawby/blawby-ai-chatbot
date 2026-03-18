@@ -76,17 +76,14 @@ export const fetchPracticeDetailsWithCache = async (
 
         return { details, isPublic };
       }
-      if (response.status === 404) {
-        return { details: null, isPublic: false };
-      }
-      // fall through
+      // Always fall through to slug lookup when ID lookup is unavailable.
     } catch (error) {
-      if (error instanceof HttpError && error.status === 404) {
-        return { details: null, isPublic: false };
+      // fall through to slug lookup when ID lookup fails with auth/not-found errors
+      if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 401 && error.status !== 403)) {
+        throw error;
       }
-      // fall through
     }
-    // fall through to slug lookup when ID lookup fails with auth errors
+    // fall through to slug lookup
   }
 
   const isUuid = (value: string): boolean =>
