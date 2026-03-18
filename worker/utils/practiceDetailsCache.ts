@@ -126,7 +126,17 @@ export const fetchPracticeDetailsWithCache = async (
   }
 
   if (!response.ok) {
-    return { details: null, isPublic: false };
+    const errorText = await response.text().catch(() => '');
+    throw new HttpError(
+      response.status,
+      `Public practice details lookup failed (${response.status}) for "${resolvedSlug || practiceId}"`,
+      {
+        practiceId,
+        practiceSlug: resolvedSlug || null,
+        endpoint: `/api/practice/details/${encodeURIComponent(resolvedSlug || practiceId)}`,
+        upstream: errorText || null,
+      }
+    );
   }
 
   const payload = await response.json().catch(() => null);

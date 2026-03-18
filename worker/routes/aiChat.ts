@@ -1,5 +1,6 @@
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
+import { HttpError } from '../types.js';
 import type { Env } from '../types.js';
 import type { ExecutionContext } from '@cloudflare/workers-types';
 import { ConversationService } from '../services/ConversationService.js';
@@ -705,17 +706,40 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
   const effectiveMode = body.mode ?? storedMode;
 
-  const practiceSlug = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
-  const { details, isPublic } = await fetchPracticeDetailsWithCache(
-    env,
-    request,
-    practiceId,
-    practiceSlug || undefined,
-    {
-      bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-      preferPracticeIdLookup: authContext.isAnonymous !== true,
-    }
-  );
+  const practiceSlugFromBody = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
+  const practiceSlugFromConversation =
+    conversation.practice && typeof conversation.practice.slug === 'string'
+      ? conversation.practice.slug.trim()
+      : '';
+  const practiceSlugFromMetadata =
+    typeof conversationMetadata?.practiceSlug === 'string'
+      ? conversationMetadata.practiceSlug.trim()
+      : '';
+  const practiceSlug = practiceSlugFromBody || practiceSlugFromConversation || practiceSlugFromMetadata;
+
+  let details: Record<string, unknown> | null = null;
+  let isPublic = false;
+  try {
+    ({ details, isPublic } = await fetchPracticeDetailsWithCache(
+      env,
+      request,
+      practiceId,
+      practiceSlug || undefined,
+      {
+        bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+        preferPracticeIdLookup: authContext.isAnonymous !== true,
+      }
+    ));
+  } catch (error) {
+    Logger.error('AI chat failed to load practice details', {
+      practiceId,
+      practiceSlug,
+      conversationId: body.conversationId,
+      status: error instanceof HttpError ? error.status : undefined,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 
   const isOnboardingMode = effectiveMode === 'PRACTICE_ONBOARDING';
   const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
@@ -741,8 +765,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   if (!details) {
-    throw HttpErrors.serviceUnavailable(
-      'Practice details are currently unavailable. Please try again shortly or contact support.'
+    throw HttpErrors.badGateway(
+      `Practice details lookup returned no payload for practice ${practiceId}${practiceSlug ? ` (${practiceSlug})` : ''}.`
     );
   }
   if (!isPublic && !isOnboardingMode) {
