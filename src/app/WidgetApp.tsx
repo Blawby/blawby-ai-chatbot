@@ -217,7 +217,7 @@ export function WidgetApp({
       map[c.id] = {
         content: c.last_message_content || c.user_info?.title || 'No messages yet',
         role: 'assistant',
-        createdAt: c.last_message_at || c.updated_at
+        createdAt: c.last_message_at || c.updated_at || ''
       };
     });
     return map;
