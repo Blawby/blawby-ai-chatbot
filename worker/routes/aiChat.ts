@@ -424,13 +424,11 @@ caseStrength rules:
 - developing: practice area known + description has substance, but city/state OR opposing party are still unknown
 - strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known
 
-When caseStrength is "developing" or "strong", end your message with a brief summary of what you've collected and ask if they're ready to submit.
+When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking intake questions. Your only task is to respectfully show a brief summary of the case you've collected and ask if they are ready to submit it to the firm.
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing.
-
-Hard limit: after 8 user messages, set caseStrength to at minimum "developing" and show the summary regardless.`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing.`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -1079,7 +1077,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
     const parseToolCallFromReply = (
       rawReply: string
-    ): { name?: string; parameters?: Record<string, unknown> } | null => {
+    ): { name?: string; parameters?: Record<string, unknown>; contentBuffer?: string } | null => {
+      const regex = /(update_intake_fields|update_practice_fields)\s*\(\s*(\{[\s\S]*?\})\s*\)/;
+      const match = rawReply.match(regex);
+      if (match) {
+        try {
+          const name = match[1];
+          const parameters = JSON.parse(match[2]) as Record<string, unknown>;
+          const cleanText = rawReply.replace(match[0], '').trim();
+          return { name, parameters, contentBuffer: cleanText };
+        } catch {
+          // ignore and fall through
+        }
+      }
+
       const trimmed = rawReply.trim();
       if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
       try {
@@ -1093,7 +1104,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           ? parsed.parameters as Record<string, unknown>
           : undefined;
         if (!name && !parameters) return null;
-        return { name, parameters };
+        return { name, parameters, contentBuffer: '' };
       } catch {
         return null;
       }
@@ -1172,11 +1183,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           const parsedToolCall = parseToolCallFromReply(accumulatedReply);
           if (parsedToolCall?.name === 'update_intake_fields' && parsedToolCall.parameters) {
             intakeFields = parsedToolCall.parameters;
-            accumulatedReply = buildIntakeFallbackReply(intakeFields);
+            accumulatedReply = parsedToolCall.contentBuffer || buildIntakeFallbackReply(intakeFields);
           } else if (parsedToolCall?.name === 'update_practice_fields' && parsedToolCall.parameters) {
             onboardingFields = parsedToolCall.parameters;
             const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
-            accumulatedReply = buildOnboardingEditAwareFallbackReply(
+            accumulatedReply = parsedToolCall.contentBuffer || buildOnboardingEditAwareFallbackReply(
               currentOnboardingProfile,
               onboardingFields,
               lastUserMessage?.content ?? null
@@ -1301,6 +1312,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         isIntakeMode &&
         deterministicReady &&
         !replyHasIntakePrompt &&
+        countQuestions(accumulatedReply) === 0 &&
         mergedIntakeState?.ctaShown !== true;
 
       if (shouldForceIntakeSummary) {
