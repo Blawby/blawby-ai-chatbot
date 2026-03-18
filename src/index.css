@@ -53,9 +53,15 @@
     @apply min-h-screen m-0;
     background-color: rgb(var(--surface-base));
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500) / 8%), transparent 50%),
-      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600) / 5%), transparent 50%);
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500, 212 175 55) / 8%), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600, 202 138 4) / 5%), transparent 50%);
     background-attachment: fixed;
+  }
+
+  .widget-shell-gradient {
+    background-color: rgb(var(--surface-base));
+    background-image:
+      radial-gradient(ellipse 125% 95% at 18% 0%, rgb(var(--accent-500, 212 175 55) / 42%), transparent 68%);
   }
 
   /* Hide scrollbars globally */

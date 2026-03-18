@@ -740,6 +740,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
+  if (!details) {
+    throw HttpErrors.serviceUnavailable(
+      'Practice details are currently unavailable. Please try again shortly or contact support.'
+    );
+  }
+  if (!isPublic && !isOnboardingMode) {
+    throw HttpErrors.forbidden(
+      'This practice is not publicly available for chat. Please request consultation to continue.'
+    );
+  }
+
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
   const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
@@ -755,9 +766,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let shortCircuitIntakeReadyCta = false;
   let shortCircuitOnboardingProfile: Record<string, unknown> | null = null;
 
-  if (!details || (!isPublic && !isOnboardingMode)) {
-    shortCircuitReply = 'I don\'t have access to this practice\'s details right now. Please click "Request consultation" to connect with the practice.';
-  } else if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
+  if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
     const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
     const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
     const website = readStringField(details, 'website');

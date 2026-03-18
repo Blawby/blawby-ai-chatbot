@@ -168,6 +168,7 @@ export const useConversation = ({
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectChatRoomRef = useRef<(id: string) => void>(() => {});
+  const resumeSeqResetAttemptedForRef = useRef<string | null>(null);
 
   // Message tracking refs — exposed so useChatComposer can share them
   /** Tracks all message IDs that have been applied to avoid duplicates */
@@ -397,6 +398,7 @@ export const useConversation = ({
     reactionLoadedRef.current.clear();
     reactionFetchRef.current.clear();
     pendingStreamMessageIdRef.current = null;
+    resumeSeqResetAttemptedForRef.current = null;
   }, [flushPendingAcks]);
 
   // ── send frame (used by WS handlers and exposed for useChatComposer) ───────
@@ -644,7 +646,10 @@ export const useConversation = ({
     if (!sessionReady || !targetConversationId) return;
     clearReconnectTimer();
     if (typeof WebSocket === 'undefined') { onError?.('WebSocket is not available in this environment.'); return; }
-    if (wsRef.current && socketConversationIdRef.current === targetConversationId && wsRef.current.readyState === WebSocket.OPEN && isSocketReadyRef.current) return;
+    if (wsRef.current && socketConversationIdRef.current === targetConversationId) {
+      if (wsRef.current.readyState === WebSocket.CONNECTING) return;
+      if (wsRef.current.readyState === WebSocket.OPEN && isSocketReadyRef.current) return;
+    }
 
     isClosingSocketRef.current = false;
     socketSessionRef.current += 1;
@@ -695,6 +700,7 @@ export const useConversation = ({
         case 'message.ack': handleMessageAck(frame.data); return;
         case 'reaction.update': handleReactionUpdate(frame.data); return;
         case 'error': {
+          const code = typeof frame.data.code === 'string' ? frame.data.code : null;
           const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
           const reqId = typeof frame.request_id === 'string' ? frame.request_id : null;
           if (reqId) {
@@ -708,6 +714,29 @@ export const useConversation = ({
               return;
             }
           }
+
+          if (
+            code === 'invalid_payload' &&
+            msg === 'last_seq ahead of latest' &&
+            conversationIdRef.current === targetConversationId
+          ) {
+            // Server no longer has the seq we attempted to resume from
+            // (for example after data reconciliation). Reset local seq once
+            // and reconnect without showing a user-facing toast.
+            if (resumeSeqResetAttemptedForRef.current !== targetConversationId) {
+              resumeSeqResetAttemptedForRef.current = targetConversationId;
+              lastSeqRef.current = 0;
+              lastReadSeqRef.current = 0;
+              if (import.meta.env.DEV) {
+                console.warn('[useConversation] Resetting resume sequence after server drift', {
+                  conversationId: targetConversationId,
+                });
+              }
+              ws.close(4000, 'resume_seq_reset');
+              return;
+            }
+          }
+
           onError?.(msg); return;
         }
         default: return;

@@ -19,8 +19,6 @@ import { useConversationSystemMessages } from '@/features/chat/hooks/useConversa
 import { consumePostAuthConversationContext, peekPostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
-import { useStore } from '@nanostores/preact';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import NavRail, { type NavRailItem } from '@/shared/ui/nav/NavRail';
 import { HomeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
@@ -116,16 +114,41 @@ export function WidgetApp({
   } = usePracticeDetails(practiceId, practiceConfig.slug, true);
 
   useEffect(() => {
-    if (practiceId && !hasPracticeDetails) {
-       void fetchPracticeDetails();
-    }
-  }, [fetchPracticeDetails, hasPracticeDetails, practiceId]);
+    if (!practiceId || hasPracticeDetails) return;
+    void (async () => {
+      if (import.meta.env.DEV) {
+        console.log('[WidgetAccent] practice details missing in store, fetching...', {
+          practiceId,
+          practiceSlug: practiceConfig.slug,
+        });
+      }
+      try {
+        const fetched = await fetchPracticeDetails();
+        if (import.meta.env.DEV) {
+          console.log('[WidgetAccent] fetched practice details result', {
+            practiceId,
+            accentColor: fetched?.accentColor ?? null,
+            hasDetails: Boolean(fetched),
+            fetched,
+          });
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('[WidgetAccent] practice details fetch failed', {
+            practiceId,
+            error,
+          });
+        }
+      }
+    })();
+  }, [fetchPracticeDetails, hasPracticeDetails, practiceConfig.slug, practiceId]);
 
   const resolvedAccentColor = practiceDetails?.accentColor ?? practiceConfig.accentColor ?? 'gold';
 
   useEffect(() => {
     initializeAccentColor(resolvedAccentColor);
   }, [resolvedAccentColor]);
+
 
   // Handle widget-specific mode setup
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
@@ -514,7 +537,7 @@ export function WidgetApp({
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
-      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] bg-[rgb(var(--surface-base))] sm:bg-transparent justify-end sm:p-[10px] md:p-4 perspective-[1000px] ${isDark ? 'dark' : ''}`}>
+      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end sm:p-[10px] md:p-4 perspective-[1000px] ${isDark ? 'dark' : ''}`}>
         {view === 'home' ? (
           <div className="flex h-full flex-col sm:rounded-3xl sm:border sm:border-line-glass/30 sm:shadow-2xl overflow-hidden relative">
              <div className="flex-1 overflow-y-auto">
@@ -576,6 +599,7 @@ export function WidgetApp({
             messagesReady={messagesReady}
             headerContent={<WorkspaceConversationHeader
                 practiceName={practiceConfig.name}
+                activeLabel={t('workspace.header.activeNow')}
                 onBack={hasRealConversations ? () => setView('list') : undefined}
                 rightSlot={isEmbedded ? closeButton : undefined}
               />}
