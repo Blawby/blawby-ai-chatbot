@@ -423,7 +423,6 @@ export class ConversationService {
       ? `
       SELECT 
         conversations.*,
-        (SELECT content FROM chat_messages m WHERE m.conversation_id = conversations.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -436,7 +435,7 @@ export class ConversationService {
       WHERE conversations.practice_id = ?
     `
       : `
-      SELECT conversations.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = conversations.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
+      SELECT conversations.*
       FROM conversations
       WHERE conversations.practice_id = ?
     `;
@@ -491,9 +490,9 @@ export class ConversationService {
     const limit = Math.min(options.limit || 50, 100);
     const offset = Math.max(options.offset || 0, 0);
     let query = `
-      SELECT 
+      SELECT
         conversations.*,
-        (SELECT content FROM chat_messages m WHERE m.conversation_id = conversations.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content,
+        conversations.last_message_content,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)

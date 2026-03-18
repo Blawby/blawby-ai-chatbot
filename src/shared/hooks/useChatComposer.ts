@@ -108,7 +108,7 @@ export const useChatComposer = ({
   const { session, isPending: sessionIsPending } = useSessionContext();
   const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
   const sessionReady = !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
-  const currentUserId = externalUserId ?? session?.user?.id ?? null;
+  const currentUserId = (externalUserId && typeof externalUserId === 'string' && externalUserId.trim().length > 0) ? externalUserId : (session?.user?.id ?? null);
 
   const lastKnownModeRef = useRef<ConversationMode | null>(mode ?? null);
   if (mode && lastKnownModeRef.current !== mode) {

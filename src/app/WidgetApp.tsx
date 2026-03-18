@@ -98,6 +98,10 @@ export function WidgetApp({
   const widgetVisibleRef = useRef(false);
   const assistantMessageIdsRef = useRef(new Set<string>());
   const initializedAssistantSnapshotRef = useRef(false);
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    hasMountedRef.current = true;
+  }, []);
 
   const { isDark } = useTheme();
   const { showError } = useToastContext();
@@ -143,17 +147,18 @@ export function WidgetApp({
     isPracticeWorkspace: false,
     isPublicWorkspace: true,
     onModeChange: setConversationMode,
+    onConversationIdReady: (id) => {
+      // Switches to chat when a conversation is deep-linked OR restored
+      // on initial mount. We avoid switching automatically on background
+      // updates after the first mount to prevent unexpected navigation.
+      if (id && (!hasMountedRef.current || view === 'home')) {
+        setView('chat');
+      }
+    },
     onError: (msg) => showErrorRef.current?.(msg),
   });
 
   const activeConversationId = setupConversationId ?? routeConversationId;
-
-  // Sync view when deep-linked or resumed conversation becomes available
-  useEffect(() => {
-    if (routeConversationId || setupConversationId) {
-      setView('chat');
-    }
-  }, [routeConversationId, setupConversationId]);
 
   const autoConversationRetryCountRef = useRef(0);
   const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);

@@ -16,6 +16,7 @@ export interface UseConversationSetupOptions {
   isPracticeWorkspace: boolean;
   isPublicWorkspace: boolean;
   onModeChange: (mode: ConversationMode | null) => void;
+  onConversationIdReady?: (id: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -47,6 +48,7 @@ export function useConversationSetup({
   isPracticeWorkspace,
   isPublicWorkspace,
   onModeChange,
+  onConversationIdReady,
   onError,
 }: UseConversationSetupOptions): UseConversationSetupResult {
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -72,10 +74,11 @@ export function useConversationSetup({
 
   // Sync route ID to state when it changes
   useEffect(() => {
+    setConversationId(normalizedRouteConversationId);
     if (normalizedRouteConversationId) {
-      setConversationId(normalizedRouteConversationId);
+      onConversationIdReady?.(normalizedRouteConversationId);
     }
-  }, [normalizedRouteConversationId]);
+  }, [normalizedRouteConversationId, onConversationIdReady]);
 
   // Cache key for localStorage restore — only used in practice/client workspaces
   const conversationCacheKey = isPublicWorkspace
@@ -121,6 +124,7 @@ export function useConversationSetup({
         const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
         if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
         setConversationId(resolvedId);
+        onConversationIdReady?.(resolvedId);
         if (isPublicWorkspace && currentUserId) {
           rememberConversationAnonymousParticipant(resolvedId, currentUserId);
         }
@@ -147,6 +151,7 @@ export function useConversationSetup({
       if (!data.success || !data.data?.id) throw new Error(data.error || 'Failed to start conversation');
 
       setConversationId(data.data.id);
+      onConversationIdReady?.(data.data.id);
       return data.data.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
@@ -173,6 +178,7 @@ export function useConversationSetup({
       throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
     }
     setConversationId(cached);
+    onConversationIdReady?.(cached);
     return cached;
   }, [conversationCacheKey, activeConversationId, practiceId, session?.user]);
 

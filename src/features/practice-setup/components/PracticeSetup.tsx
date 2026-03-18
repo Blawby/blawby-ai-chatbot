@@ -170,9 +170,9 @@ export const PracticeSetup = ({
     onBasicsDraftChange?.({
       name:         fields.name ?? practice?.name ?? '',
       slug:         practice?.slug ?? '',
-      accentColor:  normalizeAccentColor(fields.accentColor) ?? '#D4AF37',
+      accentColor:  normalizeAccentColor(fields.accentColor ?? practice?.accentColor ?? '#D4AF37'),
     });
-  }, [onBasicsDraftChange, practice?.name, practice?.slug]);
+  }, [onBasicsDraftChange, practice?.name, practice?.slug, practice?.accentColor]);
 
   // Live accent color preview
   useEffect(() => {

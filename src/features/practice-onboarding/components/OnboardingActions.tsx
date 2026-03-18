@@ -58,7 +58,11 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
   onEditContact,
   onSaveAll,
 }) => {
-  const completionScore = status.basicsComplete && status.contactComplete && status.servicesComplete && status.payoutsComplete ? 100 : 0;
+  const completionScore = (() => {
+    const checks = [status.basicsComplete, status.contactComplete, status.servicesComplete, status.payoutsComplete];
+    const completedCount = checks.filter(Boolean).length;
+    return Math.round((completedCount / checks.length) * 100);
+  })();
   const missingFields: string[] = [];
   if (!status.basicsComplete) missingFields.push('practice name', 'slug');
   if (!status.contactComplete) missingFields.push('contact information');

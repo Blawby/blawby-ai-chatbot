@@ -34,7 +34,7 @@ export const useTheme = () => {
     savedThemeRef.current = savedTheme;
     
     // Compute initial shouldBeDark
-    // Priority: URL override > system preference
+    // Priority: URL override > saved theme > system preference
     let shouldBeDark = false;
     const isSystemDark = mediaQuery.matches;
 
