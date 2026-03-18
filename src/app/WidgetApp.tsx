@@ -90,7 +90,7 @@ export function WidgetApp({
   routeConversationId?: string;
   bootstrapSession?: { user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean } } | null;
 }) {
-  const [view, setView] = useState<'home' | 'list' | 'chat'>('home');
+  const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [isRecording, setIsRecording] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -105,8 +105,8 @@ export function WidgetApp({
   showErrorRef.current = showError;
 
   const { session, isPending: sessionIsPending } = useSessionContext();
-  const currentUserId = bootstrapSession?.user?.id ?? session?.user?.id ?? null;
-  const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? session?.user?.isAnonymous ?? true;
+  const currentUserId = session?.user?.id ?? bootstrapSession?.user?.id ?? null;
+  const isAnonymous = (session?.user?.isAnonymous ?? (session?.user as Record<string, unknown> | undefined)?.is_anonymous ?? bootstrapSession?.user?.isAnonymous ?? (bootstrapSession?.user as Record<string, unknown> | undefined)?.is_anonymous ?? true) as boolean;
 
   // ── practice details (accent color, organization info) ────────────────────
   const {
@@ -147,6 +147,14 @@ export function WidgetApp({
   });
 
   const activeConversationId = setupConversationId ?? routeConversationId;
+
+  // Sync view when deep-linked or resumed conversation becomes available
+  useEffect(() => {
+    if (routeConversationId || setupConversationId) {
+      setView('chat');
+    }
+  }, [routeConversationId, setupConversationId]);
+
   const autoConversationRetryCountRef = useRef(0);
   const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const MAX_AUTO_CONVERSATION_RETRIES = 3;
@@ -193,7 +201,7 @@ export function WidgetApp({
 
   // Previews for ConversationListView
   const previews = useMemo(() => {
-    const map: Record<string, any> = {};
+    const map: Record<string, { content: string; role: string; createdAt: string }> = {};
     conversations.forEach(c => {
       map[c.id] = {
         content: c.last_message_content || c.user_info?.title || 'No messages yet',
@@ -496,7 +504,9 @@ export function WidgetApp({
            setView('list');
          } else {
            setView('chat');
-           if (!activeConversationId && !autoConversationAttemptedRef.current) {
+           // Explicit click always attempts creation if not present
+           if (!activeConversationId) {
+             autoConversationAttemptedRef.current = false;
              void createConversation();
            }
          }
@@ -516,7 +526,12 @@ export function WidgetApp({
                  practiceLogo={practiceConfig.profileImage}
                  onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
                  onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION', 'intro_gate')}
-                 onOpenRecentMessage={() => setView('chat')}
+                  onOpenRecentMessage={() => {
+                    if (recentMessage?.conversationId) {
+                      setConversationId(recentMessage.conversationId);
+                    }
+                    setView('chat');
+                  }}
                  recentMessage={recentMessage}
                  showConsultationCard={true}
                />

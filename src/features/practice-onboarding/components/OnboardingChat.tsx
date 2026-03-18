@@ -76,8 +76,9 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
   }), [details?.description, practice, practiceId]);
 
   const resolvedChatMessages = useMemo(() => {
-    return chatAdapter?.messages ?? [];
-  }, [chatAdapter?.messages]);
+    if (!chatAdapter?.messagesReady) return [];
+    return chatAdapter.messages ?? [];
+  }, [chatAdapter?.messages, chatAdapter?.messagesReady]);
 
   // Handle conversational corrections
   const handleCorrectionResponse = useCallback((field: keyof ExtractedFields, response: string) => {
@@ -160,7 +161,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             isRecording={false}
             setIsRecording={() => {}}
             isReadyToUpload={true}
-            isSessionReady={!waitingForRealChat}
+            isSessionReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
             isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
             messagesReady={waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true)}
             onToggleReaction={chatAdapter?.onToggleReaction}

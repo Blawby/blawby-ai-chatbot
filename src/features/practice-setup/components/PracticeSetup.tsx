@@ -165,15 +165,14 @@ export const PracticeSetup = ({
     return rest;
   }, []);
 
-  // Notify parent of draft changes (for preview reload trigger)
-  useEffect(() => {
-    if (!extracted.name) return;
+  // Mirror derived state to parent (now manually triggered from mutators)
+  const notifyBasicsDraftChange = useCallback((fields: Partial<ExtractedFields>) => {
     onBasicsDraftChange?.({
-      name:         extracted.name ?? practice?.name ?? '',
+      name:         fields.name ?? practice?.name ?? '',
       slug:         practice?.slug ?? '',
-      accentColor:  normalizeAccentColor(extracted.accentColor) ?? '#D4AF37',
+      accentColor:  normalizeAccentColor(fields.accentColor) ?? '#D4AF37',
     });
-  }, [extracted, onBasicsDraftChange, practice?.name, practice?.slug]);
+  }, [onBasicsDraftChange, practice?.name, practice?.slug]);
 
   // Live accent color preview
   useEffect(() => {
@@ -341,10 +340,24 @@ export const PracticeSetup = ({
   const chatMessagesReady = waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true);
 
 
+  const firstRunPromptMessages = useMemo<ChatMessageUI[]>(() => [
+    {
+      id: 'onboarding-prompt',
+      role: 'assistant',
+      content: "Hi! I'm here to help you get your practice set up. What is the name of your law firm?",
+      timestamp: Date.now(),
+      seq: 0,
+      metadata: {},
+      isUser: false
+    }
+  ], []);
+
   const resolvedChatMessages = useMemo(() => {
     if (waitingForRealChat || !chatMessagesReady) return [];
-    return chatAdapter?.messages ?? [];
-  }, [chatAdapter?.messages, chatMessagesReady, waitingForRealChat]);
+    const messages = chatAdapter?.messages ?? [];
+    if (messages.length === 0) return firstRunPromptMessages;
+    return messages;
+  }, [chatAdapter?.messages, chatMessagesReady, waitingForRealChat, firstRunPromptMessages]);
 
   useEffect(() => {
     if (!chatAdapter?.messages || chatAdapter.messages.length === 0) return;
@@ -356,9 +369,13 @@ export const PracticeSetup = ({
       .filter((payload): payload is Partial<ExtractedFields> => Boolean(payload));
     if (onboardingFieldPayloads.length === 0) return;
     const merged = onboardingFieldPayloads.reduce<Partial<ExtractedFields>>((acc, payload) => ({ ...acc, ...payload }), {});
-    setExtracted((prev) => ({ ...prev, ...merged }));
+    setExtracted((prev) => {
+      const next = { ...prev, ...merged };
+      if (merged.name || merged.accentColor) notifyBasicsDraftChange(next);
+      return next;
+    });
     setPendingSave((prev) => ({ ...(prev ?? {}), ...(toSavableFields(merged as ExtractedFields) ?? {}) }));
-  }, [chatAdapter?.messages, toSavableFields]);
+  }, [chatAdapter?.messages, toSavableFields, notifyBasicsDraftChange]);
 
   // Resolved display values (extracted takes priority over saved)
   const emptyPreviewFiles = useMemo<FileAttachment[]>(() => [], []);
@@ -428,7 +445,11 @@ export const PracticeSetup = ({
                       const normalized = raw.startsWith('http') ? raw : `https://${raw}`;
                       const websiteFields = await extractWebsite(normalized);
                       if (Object.keys(websiteFields).length > 0) {
-                        setExtracted(prev => ({ ...prev, ...websiteFields }));
+                        setExtracted(prev => {
+                          const next = { ...prev, ...websiteFields };
+                          if (websiteFields.name || websiteFields.accentColor) notifyBasicsDraftChange(next);
+                          return next;
+                        });
                         setPendingSave(prev => ({ ...(prev ?? {}), ...(toSavableFields(websiteFields) ?? {}) }));
                       }
                     }

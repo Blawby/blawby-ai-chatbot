@@ -255,5 +255,3 @@ DROP TABLE IF EXISTS matter_questions;
 DROP TABLE IF EXISTS matters;
 
 PRAGMA foreign_keys = ON;
-
-PRAGMA foreign_keys = ON;

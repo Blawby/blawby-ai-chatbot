@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 export const useTheme = () => {
   const [isDark, setIsDark] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  const themeOverrideRef = useRef<string | null>(null);
+   const themeOverrideRef = useRef<string | null>(null);
+   const savedThemeRef = useRef<string | null>(null);
   
   useEffect(() => {
     // Guard against non-browser environments
@@ -30,6 +31,7 @@ export const useTheme = () => {
     const themeParam = params.get('theme');
     const themeOverride = (themeParam === 'dark' || themeParam === 'light') ? themeParam : null;
     themeOverrideRef.current = themeOverride;
+    savedThemeRef.current = savedTheme;
     
     // Compute initial shouldBeDark
     // Priority: URL override > system preference
@@ -54,7 +56,7 @@ export const useTheme = () => {
     // If no saved theme and no explicit 'light'/'dark' URL override, attach a 'change' listener
     const handleMediaChange = (e: MediaQueryListEvent) => {
       // Only react if no manual override is saved
-      if (!savedTheme && !themeOverride) {
+      if (!savedThemeRef.current && !themeOverrideRef.current) {
         setIsDark(e.matches);
         document.documentElement.classList.toggle('dark', e.matches);
       }
@@ -76,9 +78,11 @@ export const useTheme = () => {
     setIsDark(prev => {
       const next = !prev;
       document.documentElement.classList.toggle('dark', next);
+      const themeStr = next ? 'dark' : 'light';
+      savedThemeRef.current = themeStr;
       try {
-        localStorage.setItem('theme', next ? 'dark' : 'light');
-      } catch (e) { /* ignore */ }
+        localStorage.setItem('theme', themeStr);
+      } catch (_e) { /* ignore */ }
       return next;
     });
   };
