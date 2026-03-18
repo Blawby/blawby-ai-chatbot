@@ -1,12 +1,16 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
-import { Suspense, lazy } from 'preact/compat';
+import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
+import DebugStylesPage from '@/pages/DebugStylesPage';
+import DebugChatPage from '@/pages/DebugChatPage';
+import DebugConversationsPage from '@/pages/DebugConversationsPage';
+import DebugMatterPage from '@/pages/DebugMatterPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -33,28 +37,23 @@ import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIden
 import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
 
-const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
-const DebugChatPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugChatPage')) : null;
-const DebugConversationsPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugConversationsPage')) : null;
-const DebugMatterPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugMatterPage')) : null;
-
 const DevDebugStylesRoute = () => {
-  if (!import.meta.env.DEV || !DebugStylesPage) return <App404 />;
+  if (!import.meta.env.DEV) return <App404 />;
   return <DebugStylesPage />;
 };
 
 const DevDebugChatRoute = () => {
-  if (!import.meta.env.DEV || !DebugChatPage) return <App404 />;
+  if (!import.meta.env.DEV) return <App404 />;
   return <DebugChatPage />;
 };
 
 const DevDebugConversationsRoute = () => {
-  if (!import.meta.env.DEV || !DebugConversationsPage) return <App404 />;
+  if (!import.meta.env.DEV) return <App404 />;
   return <DebugConversationsPage />;
 };
 
 const DevDebugMatterRoute = () => {
-  if (!import.meta.env.DEV || !DebugMatterPage) return <App404 />;
+  if (!import.meta.env.DEV) return <App404 />;
   return <DebugMatterPage />;
 };
 
