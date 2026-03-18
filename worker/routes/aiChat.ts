@@ -1113,23 +1113,40 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         return null;
       });
 
-      if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
-        throw new Error(`AI upstream request failed (${aiResponse?.status ?? 'no_response'})`);
-      }
-
-      let streamResult = await consumeAiStream(aiResponse);
-      accumulatedReply = streamResult.reply;
-      emittedAnyToken = streamResult.emittedToken;
-      let toolCallName = streamResult.toolCallName;
-      let toolCallArgBuffer = streamResult.toolCallArgBuffer;
-
       const canRetryWithWorkersModel =
         aiClient.provider === 'cloudflare_gateway' &&
         typeof model === 'string' &&
         model.startsWith('dynamic/');
 
-      if ((!accumulatedReply.trim() || streamResult.streamStalled) && canRetryWithWorkersModel) {
-        Logger.warn('AI dynamic route returned empty/stalled stream; retrying with workers-ai model', {
+      let streamResult = {
+        reply: '',
+        toolCallName: '',
+        toolCallArgBuffer: '',
+        streamStalled: false,
+        emittedToken: false
+      };
+
+      let aiRequestFailedStatus: string | number | null = null;
+      if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
+        aiRequestFailedStatus = aiResponse?.status ?? 'no_response';
+        if (!canRetryWithWorkersModel) {
+          throw new Error(`AI upstream request failed (${aiRequestFailedStatus})`);
+        }
+      } else {
+        streamResult = await consumeAiStream(aiResponse);
+      }
+
+      accumulatedReply = streamResult.reply;
+      emittedAnyToken = streamResult.emittedToken;
+      let toolCallName = streamResult.toolCallName;
+      let toolCallArgBuffer = streamResult.toolCallArgBuffer;
+
+      if ((aiRequestFailedStatus !== null || !accumulatedReply.trim() || streamResult.streamStalled) && canRetryWithWorkersModel) {
+        Logger.warn(
+          aiRequestFailedStatus !== null
+            ? `AI dynamic route failed (${aiRequestFailedStatus}); retrying with workers-ai model`
+            : 'AI dynamic route returned empty/stalled stream; retrying with workers-ai model',
+          {
           conversationId: body.conversationId,
           primaryModel: model,
           fallbackModel: gatewayWorkersModel
