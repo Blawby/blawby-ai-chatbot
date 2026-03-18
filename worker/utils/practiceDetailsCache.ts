@@ -47,8 +47,12 @@ export const fetchPracticeDetailsWithCache = async (
     const cached = await env.CHAT_SESSIONS.get(cacheKey, 'json') as { payload?: unknown } | null;
     if (cached?.payload) {
       const details = extractDetailsContainer(cached.payload);
-      const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-      return { details, isPublic };
+      if (details) {
+        const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+        return { details, isPublic };
+      }
+      // Cached shape is stale/corrupt for current parser; evict and fetch fresh.
+      await env.CHAT_SESSIONS.delete(cacheKey);
     }
   }
 
