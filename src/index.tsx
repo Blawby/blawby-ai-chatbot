@@ -902,7 +902,7 @@ function WidgetRoute({
       <WidgetApp
         practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
-        routeConversationId={data.conversationId || conversationId}
+        routeConversationId={conversationId}
         bootstrapSession={data.session}
       />
     </>

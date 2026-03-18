@@ -153,7 +153,7 @@ export function useConversationSetup({
       isCreatingRef.current = false;
       setIsCreatingConversation(false);
     }
-  }, [conversationCacheKey, isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
+  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !currentUserId) return null;

@@ -713,49 +713,66 @@ export class ChatRoom {
     const messageId = crypto.randomUUID();
     const metadataJson = metadata ? JSON.stringify(metadata) : null;
 
-    try {
-        const shouldUpdateContent = role !== 'system' && content.trim().length > 0;
-        const convSql = shouldUpdateContent
-          ? 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ?, last_message_content = ? WHERE id = ?'
-          : 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ? WHERE id = ?';
-        const convBindings = shouldUpdateContent
-          ? [pending.allocated_seq, serverTs, serverTs, content, conversationId]
-          : [pending.allocated_seq, serverTs, serverTs, conversationId];
+    const shouldUpdateContent = role !== 'system' && content.trim().length > 0;
+    const persistBatch = async (includeLastMessageContent: boolean) => {
+      const convSql = shouldUpdateContent && includeLastMessageContent
+        ? 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ?, last_message_content = ? WHERE id = ?'
+        : 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ? WHERE id = ?';
+      const convBindings = shouldUpdateContent && includeLastMessageContent
+        ? [pending.allocated_seq, serverTs, serverTs, content, conversationId]
+        : [pending.allocated_seq, serverTs, serverTs, conversationId];
 
-        await this.env.DB.batch([
-          this.env.DB.prepare(`
-            INSERT INTO chat_messages (
-              id,
-              conversation_id,
-              practice_id,
-              user_id,
-              role,
-              content,
-              reply_to_message_id,
-              metadata,
-              token_count,
-              created_at,
-              seq,
-              client_id,
-              server_ts
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            messageId,
-            conversationId,
-            practiceId,
-            userId,
+      await this.env.DB.batch([
+        this.env.DB.prepare(`
+          INSERT INTO chat_messages (
+            id,
+            conversation_id,
+            practice_id,
+            user_id,
             role,
             content,
-            replyToMessageId ?? null,
-            metadataJson,
-            null,
-            serverTs,
-            pending.allocated_seq,
-            clientId,
-            serverTs
-          ),
-          this.env.DB.prepare(convSql).bind(...convBindings)
-        ]);
+            reply_to_message_id,
+            metadata,
+            token_count,
+            created_at,
+            seq,
+            client_id,
+            server_ts
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          messageId,
+          conversationId,
+          practiceId,
+          userId,
+          role,
+          content,
+          replyToMessageId ?? null,
+          metadataJson,
+          null,
+          serverTs,
+          pending.allocated_seq,
+          clientId,
+          serverTs
+        ),
+        this.env.DB.prepare(convSql).bind(...convBindings)
+      ]);
+    };
+
+    const isMissingLastMessageContentColumn = (error: unknown): boolean => {
+      const message = error instanceof Error ? error.message : String(error);
+      return /no such column:\s*last_message_content/i.test(message);
+    };
+
+    try {
+      try {
+        await persistBatch(true);
+      } catch (error) {
+        if (shouldUpdateContent && isMissingLastMessageContentColumn(error)) {
+          await persistBatch(false);
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         const existing = await this.fetchExistingMessage(conversationId, clientId);

@@ -703,6 +703,9 @@ export const useConversation = ({
               clearTimeout(p.timer);
               p.reject(new Error(msg));
               pendingAckRef.current.delete(reqId);
+              // Request-scoped errors are surfaced by the sender's catch block.
+              // Emitting onError here would duplicate the same toast.
+              return;
             }
           }
           onError?.(msg); return;
