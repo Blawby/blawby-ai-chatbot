@@ -231,6 +231,17 @@ export class RemoteApiService {
   }
 
   /**
+   * Get practice details by ID from remote API
+   */
+  static async getPracticeDetailsById(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(env, `/api/practice/${encodeURIComponent(practiceId)}/details`, request);
+  }
+
+  /**
    * Get conversation config from remote API
    * Extracts conversation config from practice.metadata.conversationConfig
    */

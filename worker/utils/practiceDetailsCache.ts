@@ -58,29 +58,18 @@ export const fetchPracticeDetailsWithCache = async (
 
   if (options?.preferPracticeIdLookup) {
     try {
-      const baseUrl = new URL(request.url);
-      baseUrl.pathname = `/api/practice/${encodeURIComponent(practiceId)}/details`;
-      baseUrl.search = '';
-      const response = await fetch(baseUrl.toString(), {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json'
-        }
-      });
-      if (response.ok) {
-        const payload = await response.json().catch(() => null);
-        const details = extractDetailsContainer(payload);
-        const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+      const response = await RemoteApiService.getPracticeDetailsById(env, practiceId, request);
+      const payload = await response.json().catch(() => null);
+      const details = extractDetailsContainer(payload);
+      const isPublic = Boolean(details?.is_public ?? details?.isPublic);
 
-        if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
-          await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
-            expirationTtl: CACHE_TTL_SECONDS
-          });
-        }
-
-        return { details, isPublic };
+      if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
+        await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
+          expirationTtl: CACHE_TTL_SECONDS
+        });
       }
-      // Always fall through to slug lookup when ID lookup is unavailable.
+
+      return { details, isPublic };
     } catch (error) {
       // fall through to slug lookup when ID lookup fails with auth/not-found errors
       if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 401 && error.status !== 403)) {
@@ -105,39 +94,15 @@ export const fetchPracticeDetailsWithCache = async (
     }
   }
 
-  const baseUrl = new URL(request.url);
-  baseUrl.pathname = `/api/practice/details/${encodeURIComponent(resolvedSlug)}`;
-  baseUrl.search = '';
-
-  let response = await fetch(baseUrl.toString(), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json'
+  let response: Response;
+  try {
+    response = await RemoteApiService.getPublicPracticeDetails(env, resolvedSlug, request);
+  } catch (error) {
+    if (error instanceof HttpError && resolvedSlug !== practiceId) {
+      response = await RemoteApiService.getPublicPracticeDetails(env, practiceId, request);
+    } else {
+      throw error;
     }
-  });
-
-  if (!response.ok && resolvedSlug !== practiceId) {
-    baseUrl.pathname = `/api/practice/details/${encodeURIComponent(practiceId)}`;
-    response = await fetch(baseUrl.toString(), {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json'
-      }
-    });
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
-    throw new HttpError(
-      response.status,
-      `Public practice details lookup failed (${response.status}) for "${resolvedSlug || practiceId}"`,
-      {
-        practiceId,
-        practiceSlug: resolvedSlug || null,
-        endpoint: `/api/practice/details/${encodeURIComponent(resolvedSlug || practiceId)}`,
-        upstream: errorText || null,
-      }
-    );
   }
 
   const payload = await response.json().catch(() => null);
