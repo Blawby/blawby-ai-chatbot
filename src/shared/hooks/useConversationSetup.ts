@@ -180,7 +180,7 @@ export function useConversationSetup({
     setConversationId(cached);
     onConversationIdReady?.(cached);
     return cached;
-  }, [conversationCacheKey, activeConversationId, practiceId, session?.user]);
+  }, [conversationCacheKey, activeConversationId, practiceId, session?.user, onConversationIdReady, currentUserId]);
 
   // Attempt to restore a previously cached conversation on mount (non-public workspaces)
   useEffect(() => {
