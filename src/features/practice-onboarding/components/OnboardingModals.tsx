@@ -13,7 +13,6 @@ import { FormActions } from '@/shared/ui/form';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Input, URLInput, EmailInput, PhoneInput } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import type { Address } from '@/shared/types/address';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
@@ -25,7 +24,6 @@ export interface OnboardingModalsProps {
   onSaveBasics?: (values: {
     name: string;
     slug: string;
-    introMessage: string;
     accentColor: string;
   }) => Promise<void>;
   onSaveContact?: (values: {
@@ -41,7 +39,6 @@ export interface OnboardingModalsProps {
 interface BasicsFormValues {
   name: string;
   slug: string;
-  introMessage: string;
   accentColor: string;
 }
 
@@ -66,7 +63,6 @@ const OnboardingModals: FunctionComponent<OnboardingModalsProps> = ({
   const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
     name: practice?.name ?? '',
     slug: practice?.slug ?? '',
-    introMessage: details?.introMessage ?? practice?.introMessage ?? '',
     accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37',
   });
 
@@ -137,14 +133,6 @@ const OnboardingModals: FunctionComponent<OnboardingModalsProps> = ({
             </div>
           </FormGrid>
 
-          <PracticeProfileTextFields
-            introMessage={basicsDraft.introMessage}
-            onIntroChange={v => setBasicsDraft(p => ({ ...p, introMessage: v }))}
-            introRows={3}
-            introLabel="Intro Message"
-            introPlaceholder="Welcome to our firm. How can we help?"
-            disabled={isModalSaving}
-          />
 
           <div className="space-y-1.5">
             <FormLabel htmlFor="edit-accent">Accent Color</FormLabel>

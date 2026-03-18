@@ -796,7 +796,6 @@ export function MainApp({
               practiceId,
               description: fullDescription,
               slug: resolvedPracticeSlug,
-              introMessage: practiceConfig.introMessage,
             }}
             practiceId={practiceId}
             conversationId={activeConversationId ?? null}

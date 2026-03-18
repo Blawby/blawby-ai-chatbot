@@ -7,8 +7,6 @@
 
 PRAGMA foreign_keys = OFF;
 
-BEGIN TRANSACTION;
-
 DROP TABLE IF EXISTS conversations_is_anonymous_backup;
 CREATE TABLE conversations_is_anonymous_backup (
   id TEXT PRIMARY KEY,
@@ -255,7 +253,5 @@ CREATE INDEX IF NOT EXISTS idx_matter_events_matter ON matter_events(matter_id, 
 
 DROP TABLE IF EXISTS matter_questions;
 DROP TABLE IF EXISTS matters;
-
-COMMIT;
 
 PRAGMA foreign_keys = ON;

@@ -31,6 +31,7 @@ import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
+import { useTheme } from '@/shared/hooks/useTheme';
 
 const DebugStylesPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugStylesPage')) : null;
 const DebugChatPage = import.meta.env.DEV ? lazy(() => import('@/pages/DebugChatPage')) : null;
@@ -97,6 +98,7 @@ export function App() {
 }
 
 function AppShell() {
+  const { isDark } = useTheme();
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
@@ -847,10 +849,6 @@ function WidgetRoute({
       ?? resolveString(detailsRecord?.accent_color)
       ?? resolveString(nestedDetailsRecord?.accentColor)
       ?? resolveString(nestedDetailsRecord?.accent_color);
-    const introMessage = resolveString(pd.introMessage)
-      ?? resolveString(pd.intro_message)
-      ?? resolveString(detailsRecord?.introMessage)
-      ?? resolveString(detailsRecord?.intro_message);
     const description = resolveString(pd.description)
       ?? resolveString(pd.overview)
       ?? resolveString(detailsRecord?.description)
@@ -861,7 +859,6 @@ function WidgetRoute({
       slug: resolveString(pd.slug) ?? practiceSlug,
       name: resolveString(pd.name) ?? '',
       profileImage: resolveString(pd.logo) ?? null,
-      introMessage: introMessage ?? '',
       description: description ?? '',
       availableServices: [],
       serviceQuestions: {},

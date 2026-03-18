@@ -4,25 +4,6 @@ import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { ConversationMessage, ConversationMode } from '@/shared/types/conversation';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 
-const buildIntroMessage = (
-  introMessage: string | null | undefined,
-  practiceName: string | null | undefined
-): string => {
-  const trimmedIntro = typeof introMessage === 'string' ? introMessage.trim() : '';
-  if (trimmedIntro) {
-    return trimmedIntro;
-  }
-  const trimmedName = typeof practiceName === 'string' ? practiceName.trim() : '';
-  if (trimmedName) {
-    return `Hi! Welcome to ${trimmedName}. How can we help?`;
-  }
-  return 'Hi! How can we help?';
-};
-
-const hasSystemMessage = (messages: ChatMessageUI[], key: string): boolean => (
-  messages.some((message) => message.metadata?.systemMessageKey === key)
-);
-
 interface ConversationSystemMessagesOptions {
   conversationId?: string | null;
   practiceId?: string;
@@ -36,6 +17,7 @@ interface ConversationSystemMessagesOptions {
 }
 
 export const useConversationSystemMessages = ({
+
   conversationId,
   practiceId,
   practiceConfig,
@@ -86,38 +68,6 @@ export const useConversationSystemMessages = ({
     }
   }, [conversationId, ingestServerMessages, practiceId]);
 
-  useEffect(() => {
-    if (!messagesReady || !conversationId || !practiceId) {
-      return;
-    }
-    if (!shouldRequireModeSelection) {
-      return;
-    }
-    if (hasSystemMessage(messages, 'intro')) {
-      return;
-    }
-    const shouldShowModeSelector =
-      shouldRequireModeSelection && !conversationMode && !isConsultFlowActive;
-    const metadata = {
-      systemMessageKey: 'intro',
-      ...(shouldShowModeSelector ? { modeSelector: true } : {})
-    };
-    void persistSystemMessage(
-      'system-intro',
-      buildIntroMessage(practiceConfig.introMessage, practiceConfig.name),
-      metadata
-    );
-  }, [
-    conversationId,
-    conversationMode,
-    isConsultFlowActive,
-    messages,
-    messagesReady,
-    practiceConfig.introMessage,
-    practiceConfig.name,
-    practiceId,
-    persistSystemMessage,
-    shouldRequireModeSelection
-  ]);
-
+  // All intro message logic removed as per user request
 };
+

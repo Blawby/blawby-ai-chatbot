@@ -12,9 +12,11 @@ export interface UseConversationSetupOptions {
   routeConversationId?: string | null;
   session: SessionContextValue['session'];
   sessionIsPending: boolean;
+  userId?: string | null;
   isPracticeWorkspace: boolean;
   isPublicWorkspace: boolean;
   onModeChange: (mode: ConversationMode | null) => void;
+  onConversationIdReady?: (id: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -25,7 +27,7 @@ export interface UseConversationSetupResult {
   conversationMode: ConversationMode | null;
   setConversationMode: (mode: ConversationMode | null) => void;
   isCreatingConversation: boolean;
-  createConversation: () => Promise<string | null>;
+  createConversation: (options?: { forceNew?: boolean }) => Promise<string | null>;
   handleModeSelection: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer', startConsultFlow: (id: string) => void) => Promise<void>;
   handleStartNewConversation: (mode: ConversationMode, startConsultFlow: (id: string) => void) => Promise<string>;
   applyConversationMode: (
@@ -42,9 +44,11 @@ export function useConversationSetup({
   routeConversationId,
   session,
   sessionIsPending,
+  userId: externalUserId,
   isPracticeWorkspace,
   isPublicWorkspace,
   onModeChange,
+  onConversationIdReady,
   onError,
 }: UseConversationSetupOptions): UseConversationSetupResult {
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -65,13 +69,22 @@ export function useConversationSetup({
       })()
     : null;
 
-  const activeConversationId = normalizedRouteConversationId ?? conversationId;
+  const currentUserId = externalUserId ?? session?.user?.id ?? null;
+  const activeConversationId = conversationId ?? normalizedRouteConversationId;
+
+  // Sync route ID to state when it changes
+  useEffect(() => {
+    setConversationId(normalizedRouteConversationId);
+    if (normalizedRouteConversationId) {
+      onConversationIdReady?.(normalizedRouteConversationId);
+    }
+  }, [normalizedRouteConversationId, onConversationIdReady]);
 
   // Cache key for localStorage restore — only used in practice/client workspaces
   const conversationCacheKey = isPublicWorkspace
     ? null
-    : practiceId && session?.user?.id
-      ? `chat:lastConversation:${workspace}:${practiceId}:${session.user.id}`
+    : practiceId && currentUserId
+      ? `chat:lastConversation:${workspace}:${practiceId}:${currentUserId}`
       : null;
 
   // Persist active conversation to localStorage
@@ -84,7 +97,7 @@ export function useConversationSetup({
     }
   }, [conversationCacheKey, activeConversationId]);
 
-  const createConversation = useCallback(async (): Promise<string | null> => {
+  const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string | null> => {
     if (isPracticeWorkspace) return null;
     if (!practiceId || isCreatingRef.current) return null;
 
@@ -95,7 +108,7 @@ export function useConversationSetup({
 
       // Public/widget flow should not depend on session.user being hydrated in
       // client state; the backend can resolve anonymous identity from cookie.
-      if (isPublicWorkspace) {
+      if (isPublicWorkspace && !options?.forceNew) {
         const response = await fetch(`${getCurrentConversationEndpoint()}?${params}`, {
           method: 'GET',
           headers: withWidgetAuthHeaders(),
@@ -111,20 +124,19 @@ export function useConversationSetup({
         const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
         if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
         setConversationId(resolvedId);
-        if (isPublicWorkspace && session?.user?.isAnonymous && session.user.id) {
-          rememberConversationAnonymousParticipant(resolvedId, session.user.id);
+        onConversationIdReady?.(resolvedId);
+        if (isPublicWorkspace && currentUserId) {
+          rememberConversationAnonymousParticipant(resolvedId, currentUserId);
         }
         return resolvedId;
       }
 
-      if (!session?.user?.id) return null;
-
       const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
-          participantUserIds: [session.user.id],
+          participantUserIds: currentUserId ? [currentUserId] : [],
           metadata: { source: 'chat' },
           practiceId,
         }),
@@ -139,6 +151,7 @@ export function useConversationSetup({
       if (!data.success || !data.data?.id) throw new Error(data.error || 'Failed to start conversation');
 
       setConversationId(data.data.id);
+      onConversationIdReady?.(data.data.id);
       return data.data.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
@@ -147,10 +160,10 @@ export function useConversationSetup({
       isCreatingRef.current = false;
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, session?.user?.id, session?.user?.isAnonymous]);
+  }, [conversationCacheKey, isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
-    if (!conversationCacheKey || !practiceId || !session?.user) return null;
+    if (!conversationCacheKey || !practiceId || !currentUserId) return null;
     const cached = window.localStorage.getItem(conversationCacheKey);
     if (!cached) return null;
     if (activeConversationId === cached) return cached;
@@ -165,8 +178,9 @@ export function useConversationSetup({
       throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
     }
     setConversationId(cached);
+    onConversationIdReady?.(cached);
     return cached;
-  }, [conversationCacheKey, activeConversationId, practiceId, session?.user]);
+  }, [conversationCacheKey, activeConversationId, practiceId, session?.user, onConversationIdReady, currentUserId]);
 
   // Attempt to restore a previously cached conversation on mount (non-public workspaces)
   useEffect(() => {

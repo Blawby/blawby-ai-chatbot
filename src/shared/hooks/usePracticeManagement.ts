@@ -119,7 +119,6 @@ export interface Practice {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 }
@@ -450,7 +449,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     country: getDetailString('country', 'country'),
     primaryColor: getDetailString('primaryColor', 'primary_color'),
     accentColor: getDetailString('accentColor', 'accent_color'),
-    introMessage: getDetailString('introMessage', 'intro_message'),
     isPublic: getDetailBoolean('isPublic', 'is_public'),
     services
   };
@@ -502,7 +500,6 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfNonNull('country', details.country as Practice['country'] | undefined | null);
   setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
   setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
-  setIfNonNull('introMessage', details.introMessage as Practice['introMessage'] | undefined | null);
   setIfNonNull('description', details.description as Practice['description'] | undefined | null);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);

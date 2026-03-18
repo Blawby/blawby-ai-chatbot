@@ -27,7 +27,6 @@ export interface PracticeOnboardingPageProps {
   onSaveBasics?: (values: {
     name: string;
     slug: string;
-    introMessage: string;
     accentColor: string;
   }) => Promise<void>;
   onSaveContact?: (values: {
@@ -118,7 +117,6 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   const handleSaveBasics = useCallback(async (values: {
     name: string;
     slug: string;
-    introMessage: string;
     accentColor: string;
   }) => {
     if (!onSaveBasics) return;
@@ -162,7 +160,6 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
           await onSaveBasics({
             name: practice?.name ?? '',
             slug: practice?.slug ?? '',
-            introMessage: details?.introMessage ?? practice?.introMessage ?? '',
             accentColor
           });
           setBasicsSaved(true);

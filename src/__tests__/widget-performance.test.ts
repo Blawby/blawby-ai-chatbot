@@ -233,7 +233,7 @@ const MOCK_RESPONSES: Record<string, { status: number; body: unknown; delayMs?: 
       slug: 'paul-yahoo',
       name: 'Paul Yahoo Law',
       logo: null,
-      details: { introMessage: 'Hello', description: '', accentColor: 'gold', isPublic: true }
+      details: { description: '', accentColor: 'gold', isPublic: true }
     }
   },
   '\\/auth\\/get-session': {

@@ -67,17 +67,6 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
   const practiceId = practice?.id ?? '';
   const waitingForRealChat = chatAdapter === null;
 
-  const openingFallbackMessage = useMemo<ChatMessageUI>(() => ({
-    id: 'opening',
-    role: 'assistant',
-    timestamp: Date.now(),
-    seq: 1,
-    isUser: false,
-    content: status.needsSetup
-      ? "Let's get your practice set up. To start, what's the name of your practice?"
-      : `Welcome back! Your profile looks good. Want to update anything, or shall I walk you through what's still missing?`,
-  }), [status.needsSetup]); // react to setup status changes
-
   const onboardingPracticeConfig = useMemo(() => ({
     name: practice?.name ?? 'Practice',
     profileImage: practice?.logo ?? null,
@@ -86,11 +75,10 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
     slug: practice?.slug ?? undefined,
   }), [details?.description, practice, practiceId]);
 
-  const fallbackUiMessages = useMemo<ChatMessageUI[]>(() => [openingFallbackMessage], [openingFallbackMessage]);
   const resolvedChatMessages = useMemo(() => {
-    if (!chatAdapter?.messages) return fallbackUiMessages;
-    return chatAdapter.messages.length > 0 ? chatAdapter.messages : fallbackUiMessages;
-  }, [chatAdapter?.messages, fallbackUiMessages]);
+    if (!chatAdapter?.messagesReady) return [];
+    return chatAdapter.messages ?? [];
+  }, [chatAdapter?.messages, chatAdapter?.messagesReady]);
 
   // Handle conversational corrections
   const handleCorrectionResponse = useCallback((field: keyof ExtractedFields, response: string) => {
@@ -173,7 +161,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             isRecording={false}
             setIsRecording={() => {}}
             isReadyToUpload={true}
-            isSessionReady={!waitingForRealChat}
+            isSessionReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
             isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
             messagesReady={waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true)}
             onToggleReaction={chatAdapter?.onToggleReaction}

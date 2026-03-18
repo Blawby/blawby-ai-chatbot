@@ -141,7 +141,6 @@ export interface Practice {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 
@@ -196,7 +195,6 @@ export interface PracticeDetailsUpdate {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
@@ -225,7 +223,6 @@ export interface PracticeDetails {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
@@ -537,7 +534,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     country: toNullableString(record.country),
     primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
     accentColor: toNullableString(record.accentColor ?? record.accent_color),
-    introMessage: toNullableString(record.introMessage ?? record.intro_message),
     description: toNullableString(record.description ?? record.overview),
     isPublic: 'isPublic' in record || 'is_public' in record
       ? Boolean(record.isPublic ?? record.is_public)
@@ -1525,8 +1521,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  const introMessage = normalizeTextOrUndefined(payload.introMessage);
-  if (introMessage !== undefined) normalized.intro_message = introMessage;
   const description = normalizeTextOrUndefined(payload.description);
   if (description !== undefined) normalized.overview = description;
   if ('isPublic' in payload && payload.isPublic !== undefined) {
@@ -1586,8 +1580,6 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
   const hasMappedDetailKey = (value: Record<string, unknown>): boolean => ([
     'overview',
     'description',
-    'intro_message',
-    'introMessage',
     'business_phone',
     'businessPhone',
     'business_email',
@@ -1723,7 +1715,6 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
     billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes', 'billingIncrementMinutes']),
     website: getOptionalNullableString(container, ['website']),
-    introMessage: getOptionalNullableString(container, ['intro_message', 'introMessage']),
     description: getOptionalNullableString(container, ['overview', 'description']),
     isPublic: 'is_public' in container || 'isPublic' in container
       ? Boolean(container.is_public ?? container.isPublic)

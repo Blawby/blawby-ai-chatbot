@@ -112,6 +112,7 @@ const getMessageCacheKey = (practiceId: string, conversationId: string) =>
 export interface UseConversationOptions {
   practiceId?: string;
   conversationId?: string;
+  userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
@@ -122,14 +123,15 @@ export interface UseConversationOptions {
 export const useConversation = ({
   practiceId,
   conversationId,
+  userId: externalUserId,
   linkAnonymousConversationOnLoad = false,
   onConversationMetadataUpdated,
   onError,
 }: UseConversationOptions) => {
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
-  const sessionReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousWidgetContext);
-  const currentUserId = session?.user?.id ?? null;
+  const sessionReady = !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
+  const currentUserId = externalUserId ?? session?.user?.id ?? null;
 
   // ── state ──────────────────────────────────────────────────────────────────
   const [isConversationLinkReady, setIsConversationLinkReady] = useState(!linkAnonymousConversationOnLoad);
@@ -391,6 +393,7 @@ export const useConversation = ({
     pendingClientMessageRef.current.clear();
     lastSeqRef.current = 0;
     lastReadSeqRef.current = 0;
+    messagesRef.current = [];
     reactionLoadedRef.current.clear();
     reactionFetchRef.current.clear();
     pendingStreamMessageIdRef.current = null;
@@ -888,6 +891,7 @@ export const useConversation = ({
     resetRealtimeState();
     reactionFetchRef.current.clear();
     reactionLoadedRef.current.clear();
+    messagesRef.current = [];
     setMessages([]); setHasMoreMessages(false); setNextCursor(null);
     setIsLoadingMoreMessages(false); setMessagesReady(false);
   }, [resetRealtimeState]);

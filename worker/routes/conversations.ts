@@ -347,15 +347,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       metadata?: Record<string, unknown>;
     };
 
-    if (!Array.isArray(body.participantUserIds) || body.participantUserIds.length === 0) {
-      throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
-    }
+    const participantUserIds = Array.isArray(body.participantUserIds) ? body.participantUserIds : [];
 
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
     
     // Ensure creator is included in participants
-    const participants = Array.from(new Set([userId, ...body.participantUserIds]));
+    const participants = Array.from(new Set([userId, ...participantUserIds]));
 
     const conversation = await conversationService.createConversation({
       practiceId,

@@ -36,6 +36,7 @@ export interface UseChatComposerOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
+  userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
 
@@ -82,6 +83,7 @@ export const useChatComposer = ({
   practiceId,
   practiceSlug,
   conversationId,
+  userId: externalUserId,
   linkAnonymousConversationOnLoad = false,
   mode,
   messagesRef,
@@ -105,8 +107,10 @@ export const useChatComposer = ({
 }: UseChatComposerOptions) => {
   const { session, isPending: sessionIsPending } = useSessionContext();
   const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
-  const sessionReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousWidgetContext);
-  const currentUserId = session?.user?.id ?? null;
+  const normalizedExternalUserId = typeof externalUserId === 'string' ? externalUserId.trim() : '';
+  const externalUserIdValid = normalizedExternalUserId.length > 0;
+  const sessionReady = !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserIdValid && hasAnonymousWidgetContext));
+  const currentUserId = externalUserIdValid ? normalizedExternalUserId : (session?.user?.id ?? null);
 
   const lastKnownModeRef = useRef<ConversationMode | null>(mode ?? null);
   if (mode && lastKnownModeRef.current !== mode) {

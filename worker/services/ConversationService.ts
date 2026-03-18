@@ -25,6 +25,7 @@ export interface Conversation {
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // Timestamp of last message
+  last_message_content?: string | null; // Content of last message for preview
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // Timestamp of first practice member response
@@ -257,6 +258,7 @@ export class ConversationService {
       tags,
       internal_notes: getNullableString(record.internal_notes),
       last_message_at: getNullableString(record.last_message_at),
+      last_message_content: getNullableString(record.last_message_content),
       first_response_at: getNullableString(record.first_response_at),
       closed_at: getNullableString(record.closed_at),
       unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
@@ -273,7 +275,7 @@ export class ConversationService {
    */
   async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT c.*
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
       WHERE c.id = ? AND c.practice_id = ?
     `).bind(conversationId, practiceId).first<Record<string, unknown>>();
@@ -291,7 +293,7 @@ export class ConversationService {
    */
   async getConversationById(conversationId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT c.*
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
       WHERE c.id = ?
     `).bind(conversationId).first<Record<string, unknown>>();
@@ -372,7 +374,7 @@ export class ConversationService {
       ? "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 1"
       : "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 0";
     const query = `
-      SELECT c.*
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
       WHERE c.practice_id = ? 
         AND EXISTS (
@@ -488,8 +490,9 @@ export class ConversationService {
     const limit = Math.min(options.limit || 50, 100);
     const offset = Math.max(options.offset || 0, 0);
     let query = `
-      SELECT 
+      SELECT
         conversations.*,
+        conversations.last_message_content,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -1132,6 +1135,44 @@ export class ConversationService {
           LIMIT -1 OFFSET ?
         )
     `).bind(options.conversationId, options.conversationId, options.maxMessages).run();
+
+    await this.repairConversationPreview(options.conversationId);
+  }
+
+  /**
+   * Repair the conversation preview content and timestamps after messages are deleted or pruned.
+   * This recomputes the latest sequence and last message content/at from the remaining visible messages.
+   */
+  async repairConversationPreview(conversationId: string): Promise<void> {
+    const latest = await this.env.DB.prepare(`
+      SELECT content, seq, created_at
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND role != 'system'
+        AND TRIM(COALESCE(content, '')) <> ''
+      ORDER BY seq DESC
+      LIMIT 1
+    `).bind(conversationId).first<{ content: string; seq: number; created_at: string } | null>();
+
+    const updated_at = new Date().toISOString();
+    if (latest) {
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET last_message_content = ?, latest_seq = ?, last_message_at = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(latest.content, latest.seq, latest.created_at, updated_at, conversationId).run();
+    } else {
+      // If no qualifying message remains, clear the preview but recompute latest_seq 
+      // from any remaining messages (e.g. system messages) to avoid stale sequence
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET last_message_content = NULL, 
+            last_message_at = created_at, 
+            latest_seq = (SELECT COALESCE(MAX(seq), 0) FROM chat_messages WHERE conversation_id = ?),
+            updated_at = ?
+        WHERE id = ?
+      `).bind(conversationId, updated_at, conversationId).run();
+    }
   }
 
   private async postChatRoomMessage(options: {

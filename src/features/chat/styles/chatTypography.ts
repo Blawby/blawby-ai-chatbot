@@ -1,7 +1,7 @@
 export const chatTypography = {
-  headerName: 'text-sm font-semibold text-gray-100',
-  headerTime: 'text-xs font-normal text-gray-500',
-  messageBody: 'text-sm leading-5 text-gray-300',
-  previewBody: 'text-sm leading-5 text-gray-300',
-  previewName: 'text-sm font-semibold text-gray-100',
+  headerName: 'text-sm font-semibold text-input-text',
+  headerTime: 'text-xs font-normal text-input-placeholder',
+  messageBody: 'text-sm leading-5 text-input-text',
+  previewBody: 'text-sm leading-5 text-input-text',
+  previewName: 'text-sm font-semibold text-input-text',
 };

@@ -61,7 +61,6 @@ export default function DebugChatPage() {
       name: 'Blawby AI',
       profileImage: null,
       practiceId: 'debug-practice',
-      introMessage: 'This is the real chat container with mocked streaming behavior for style tuning.',
     }),
     []
   );

@@ -32,7 +32,7 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 		variantClasses[variant],
 		messageLayoutClasses,
 		mediaOnlyClasses,
-		isUser ? 'text-light-text dark:text-dark-text' : '', // Restore text color for user messages
+		'text-input-text',
 		className
 	].filter(Boolean).join(' ');
 
