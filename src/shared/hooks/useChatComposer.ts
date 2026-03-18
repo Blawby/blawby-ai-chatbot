@@ -506,7 +506,23 @@ export const useChatComposer = ({
 
         if (!aiResponse.ok) {
           removeStreamingBubble(bubbleId);
-          const errorData = await aiResponse.json().catch(() => ({})) as { error?: string };
+          const errorData = await aiResponse.json().catch(() => ({})) as {
+            error?: string;
+            errorCode?: string;
+            details?: unknown;
+          };
+          console.error('[useChatComposer] /api/ai/chat failed', {
+            status: aiResponse.status,
+            statusText: aiResponse.statusText,
+            payload: errorData,
+            request: {
+              conversationId,
+              practiceId: resolvedPracticeId,
+              practiceSlug: resolvedPracticeSlug || null,
+              mode: effectiveMode,
+              intakeSubmitted,
+            },
+          });
           throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
         }
 
