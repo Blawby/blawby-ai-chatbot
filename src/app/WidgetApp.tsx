@@ -192,9 +192,12 @@ export function WidgetApp({
   });
 
   const latestConversation = useMemo(() => {
-    if (!conversations || conversations.length === 0) return null;
-    return conversations[0];
+    if (!conversations) return null;
+    // Pick the first conversation that actually has a message (not an empty prewarmed draft)
+    return conversations.find(c => Boolean(c.last_message_at || c.last_message_content)) || null;
   }, [conversations]);
+
+  const hasRealConversations = Boolean(latestConversation);
 
   const recentMessage = useMemo(() => {
     if (!latestConversation) return null;
@@ -508,7 +511,7 @@ export function WidgetApp({
       href: '/chat',
       matchHrefs: ['/chat', '/list'],
       onClick: () => {
-         if (conversations.length > 0) {
+         if (hasRealConversations) {
            setView('list');
          } else {
            setView('chat');
@@ -520,7 +523,7 @@ export function WidgetApp({
          }
       }
     }
-  ], [activeConversationId, conversations.length, createConversation]);
+  ], [activeConversationId, hasRealConversations, createConversation]);
 
   return (
     <>
@@ -587,7 +590,7 @@ export function WidgetApp({
             messagesReady={messagesReady}
             headerContent={<WorkspaceConversationHeader
                 practiceName={practiceConfig.name}
-                onBack={conversations.length > 0 ? () => setView('list') : undefined}
+                onBack={hasRealConversations ? () => setView('list') : undefined}
                 rightSlot={isEmbedded ? closeButton : undefined}
               />}
             heightClassName="h-full"

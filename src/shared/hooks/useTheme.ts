@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 
 export const useTheme = () => {
   const [isDark, setIsDark] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
+
    const themeOverrideRef = useRef<string | null>(null);
    const savedThemeRef = useRef<string | null>(null);
   
@@ -12,8 +12,7 @@ export const useTheme = () => {
       return;
     }
     
-    // Mark as hydrated after first render
-    setIsHydrated(true);
+
     
     // Safely read localStorage to determine if a saved theme exists
     let savedTheme: string | null = null;
@@ -81,11 +80,10 @@ export const useTheme = () => {
   
   // Sync DOM with state changes (but don't auto-persist to localStorage)
   useEffect(() => {
-    if (!isHydrated) return;
     if (typeof document === 'undefined') return;
     
     document.documentElement.classList.toggle('dark', isDark);
-  }, [isDark, isHydrated]);
+  }, [isDark]);
   
   const toggleTheme = () => {
     setIsDark(prev => {

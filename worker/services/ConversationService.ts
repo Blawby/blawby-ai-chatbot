@@ -1162,12 +1162,16 @@ export class ConversationService {
         WHERE id = ?
       `).bind(latest.content, latest.seq, latest.created_at, updated_at, conversationId).run();
     } else {
-      // If no qualifying message remains, clear the preview
+      // If no qualifying message remains, clear the preview but recompute latest_seq 
+      // from any remaining messages (e.g. system messages) to avoid stale sequence
       await this.env.DB.prepare(`
         UPDATE conversations
-        SET last_message_content = NULL, last_message_at = created_at, updated_at = ?
+        SET last_message_content = NULL, 
+            last_message_at = created_at, 
+            latest_seq = (SELECT COALESCE(MAX(seq), 0) FROM chat_messages WHERE conversation_id = ?),
+            updated_at = ?
         WHERE id = ?
-      `).bind(updated_at, conversationId).run();
+      `).bind(conversationId, updated_at, conversationId).run();
     }
   }
 
