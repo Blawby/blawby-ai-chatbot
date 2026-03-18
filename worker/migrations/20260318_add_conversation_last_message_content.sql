@@ -7,8 +7,10 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_prev_lookup ON chat_messages(conver
 
 -- Backfill existing conversations with the latest non-system message
 -- Batched to avoid long locks (repeated chunks)
+-- Backfill existing conversations with the latest non-system message
+-- Batched to avoid long locks (deterministic chunks)
 UPDATE conversations
-SET last_message_content = (
+SET last_message_content = COALESCE((
   SELECT content 
   FROM chat_messages 
   WHERE conversation_id = conversations.id 
@@ -16,13 +18,16 @@ SET last_message_content = (
     AND TRIM(COALESCE(content, '')) <> '' 
   ORDER BY seq DESC 
   LIMIT 1
-)
+), '')
 WHERE id IN (
-  SELECT id FROM conversations WHERE last_message_content IS NULL LIMIT 1000
+  SELECT id FROM conversations 
+  WHERE last_message_content IS NULL 
+  ORDER BY id 
+  LIMIT 1000
 );
 
 UPDATE conversations
-SET last_message_content = (
+SET last_message_content = COALESCE((
   SELECT content 
   FROM chat_messages 
   WHERE conversation_id = conversations.id 
@@ -30,13 +35,16 @@ SET last_message_content = (
     AND TRIM(COALESCE(content, '')) <> '' 
   ORDER BY seq DESC 
   LIMIT 1
-)
+), '')
 WHERE id IN (
-  SELECT id FROM conversations WHERE last_message_content IS NULL LIMIT 1000
+  SELECT id FROM conversations 
+  WHERE last_message_content IS NULL 
+  ORDER BY id 
+  LIMIT 1000
 );
 
 UPDATE conversations
-SET last_message_content = (
+SET last_message_content = COALESCE((
   SELECT content 
   FROM chat_messages 
   WHERE conversation_id = conversations.id 
@@ -44,13 +52,16 @@ SET last_message_content = (
     AND TRIM(COALESCE(content, '')) <> '' 
   ORDER BY seq DESC 
   LIMIT 1
-)
+), '')
 WHERE id IN (
-  SELECT id FROM conversations WHERE last_message_content IS NULL LIMIT 1000
+  SELECT id FROM conversations 
+  WHERE last_message_content IS NULL 
+  ORDER BY id 
+  LIMIT 1000
 );
 
 UPDATE conversations
-SET last_message_content = (
+SET last_message_content = COALESCE((
   SELECT content 
   FROM chat_messages 
   WHERE conversation_id = conversations.id 
@@ -58,13 +69,16 @@ SET last_message_content = (
     AND TRIM(COALESCE(content, '')) <> '' 
   ORDER BY seq DESC 
   LIMIT 1
-)
+), '')
 WHERE id IN (
-  SELECT id FROM conversations WHERE last_message_content IS NULL LIMIT 1000
+  SELECT id FROM conversations 
+  WHERE last_message_content IS NULL 
+  ORDER BY id 
+  LIMIT 1000
 );
 
 UPDATE conversations
-SET last_message_content = (
+SET last_message_content = COALESCE((
   SELECT content 
   FROM chat_messages 
   WHERE conversation_id = conversations.id 
@@ -72,7 +86,10 @@ SET last_message_content = (
     AND TRIM(COALESCE(content, '')) <> '' 
   ORDER BY seq DESC 
   LIMIT 1
-)
+), '')
 WHERE id IN (
-  SELECT id FROM conversations WHERE last_message_content IS NULL LIMIT 1000
+  SELECT id FROM conversations 
+  WHERE last_message_content IS NULL 
+  ORDER BY id 
+  LIMIT 1000
 );

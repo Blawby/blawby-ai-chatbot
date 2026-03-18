@@ -1135,6 +1135,40 @@ export class ConversationService {
           LIMIT -1 OFFSET ?
         )
     `).bind(options.conversationId, options.conversationId, options.maxMessages).run();
+
+    await this.repairConversationPreview(options.conversationId);
+  }
+
+  /**
+   * Repair the conversation preview content and timestamps after messages are deleted or pruned.
+   * This recomputes the latest sequence and last message content/at from the remaining visible messages.
+   */
+  async repairConversationPreview(conversationId: string): Promise<void> {
+    const latest = await this.env.DB.prepare(`
+      SELECT content, seq, created_at
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND role != 'system'
+        AND TRIM(COALESCE(content, '')) <> ''
+      ORDER BY seq DESC
+      LIMIT 1
+    `).bind(conversationId).first<{ content: string; seq: number; created_at: string } | null>();
+
+    const updated_at = new Date().toISOString();
+    if (latest) {
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET last_message_content = ?, latest_seq = ?, last_message_at = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(latest.content, latest.seq, latest.created_at, updated_at, conversationId).run();
+    } else {
+      // If no qualifying message remains, clear the preview
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET last_message_content = NULL, last_message_at = created_at, updated_at = ?
+        WHERE id = ?
+      `).bind(updated_at, conversationId).run();
+    }
   }
 
   private async postChatRoomMessage(options: {

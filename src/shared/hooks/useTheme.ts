@@ -53,10 +53,23 @@ export const useTheme = () => {
     setIsDark(shouldBeDark);
     document.documentElement.classList.toggle('dark', shouldBeDark);
     
+    // Helper to get the most up-to-date saved theme
+    const getSavedTheme = () => {
+      try {
+        return localStorage.getItem('theme');
+      } catch {
+        return null;
+      }
+    };
+
     // If no saved theme and no explicit 'light'/'dark' URL override, attach a 'change' listener
     const handleMediaChange = (e: MediaQueryListEvent) => {
+      const currentSavedTheme = getSavedTheme();
+      // Keep ref in sync
+      savedThemeRef.current = currentSavedTheme;
+      
       // Only react if no manual override is saved
-      if (!savedThemeRef.current && !themeOverrideRef.current) {
+      if (!currentSavedTheme && !themeOverrideRef.current) {
         setIsDark(e.matches);
         document.documentElement.classList.toggle('dark', e.matches);
       }

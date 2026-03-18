@@ -132,6 +132,7 @@ export function WidgetApp({
   }, [resolvedAccentColor]);
 
   // Handle widget-specific mode setup
+  const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
   const {
     conversationId: setupConversationId,
     setConversationId,
@@ -151,7 +152,9 @@ export function WidgetApp({
       // Switches to chat when a conversation is deep-linked OR restored
       // on initial mount. We avoid switching automatically on background
       // updates after the first mount to prevent unexpected navigation.
-      if (id && (!hasMountedRef.current || view === 'home')) {
+      // We also gate by autoConversationAttemptedRef to avoid switching during
+      // background auto-creation.
+      if (id && (!hasMountedRef.current || (!autoConversationAttemptedRef.current && view === 'home'))) {
         setView('chat');
       }
     },
@@ -166,7 +169,7 @@ export function WidgetApp({
 
   useEffect(() => {
     if (sessionIsPending) return;
-    if (!isAnonymous) return;
+    if (isAnonymous) return;
     const pending = peekPostAuthConversationContext();
     if (!pending) return;
     if (pending.practiceId && pending.practiceId !== practiceId) return;
@@ -542,7 +545,7 @@ export function WidgetApp({
                />
              </div>
              {/* Dynamic close button floating at top-right for non-standalone mode */}
-             {window.parent !== window && (
+             {isEmbedded && (
                 <div className="absolute right-4 top-4 z-[60]">
                   {closeButton}
                 </div>
@@ -565,7 +568,7 @@ export function WidgetApp({
                showTitle={true}
              />
              {/* Floating close button */}
-             {window.parent !== window && (
+             {isEmbedded && (
                 <div className="absolute right-4 top-4 z-[60]">
                   {closeButton}
                 </div>
@@ -585,7 +588,7 @@ export function WidgetApp({
             headerContent={<WorkspaceConversationHeader
                 practiceName={practiceConfig.name}
                 onBack={conversations.length > 0 ? () => setView('list') : undefined}
-                rightSlot={window.parent !== window ? closeButton : undefined}
+                rightSlot={isEmbedded ? closeButton : undefined}
               />}
             heightClassName="h-full"
             useFrame={false}
