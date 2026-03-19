@@ -423,13 +423,13 @@ After every user message, call the update_intake_fields function with a SINGLE J
 caseStrength rules:
 - needs_more_info: practice area unknown OR description is fewer than 10 words
 - developing: practice area known + description has substance, but city/state OR opposing party are still unknown
-- strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known
+- strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known. WHEN STRONG, DO NOT SAY YOU NEED MORE INFO.
 
 When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking intake questions. Your only task is to respectfully show a brief summary of the case you've collected and ask if they are ready to submit it to the firm.
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing using camelCase key missingSummary.`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing using camelCase key missingSummary. Set to null if caseStrength is "strong".`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -1114,8 +1114,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const parseToolCallFromReply = (
       rawReply: string
     ): { name?: string; parameters?: Record<string, unknown>; contentBuffer?: string } | null => {
-      // Find the first occurrence of the function call, matching everything until the closing parenthesis
-      const regex = /(update_intake_fields|update_practice_fields)\s*\([\s\S]*?\)/;
+      // Find the first occurrence of the function call.
+      // We allow the closing parenthesis to be missing if the response was cut off ($).
+      const regex = /(update_intake_fields|update_practice_fields)\s*\([\s\S]*?(?:\)|$)/;
       const match = rawReply.match(regex);
       if (match) {
         const name = match[1];
@@ -1145,8 +1146,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             
             // If the AI somehow passed multiple arguments like ({...}, "developing", "some text")
             if (name === 'update_intake_fields' && !parameters.caseStrength) {
-              const argsRegex = /(update_intake_fields)\s*\(\s*\{[\s\S]*?\}\s*,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)/;
-              const argsMatch = rawReply.match(argsRegex);
+              const argsRegex = /(update_intake_fields)\s*\(\s*\{[\s\S]*?\}\s*,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*/;
+              const argsMatch = match[0].match(argsRegex);
               if (argsMatch) {
                 parameters.caseStrength = argsMatch[2];
                 if (argsMatch[3]) {

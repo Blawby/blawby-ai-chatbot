@@ -1083,7 +1083,7 @@ export function MainApp({
   return (
     <>
       {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
-      <div className={rootClassName} {...(isWidget ? { 'data-widget': 'true' } : {})}>
+      <div className={rootClassName}>
         <RoutePracticeProvider value={routePracticeContextValue}>
           {workspacePage}
         </RoutePracticeProvider>

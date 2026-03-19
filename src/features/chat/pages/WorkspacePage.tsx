@@ -1897,8 +1897,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const unifiedMainShell = (
     <div
       className={cn(
-        'flex h-full min-h-0 w-full flex-1 flex-col',
-        layoutMode === 'widget' ? 'bg-transparent' : undefined
+        'flex h-full min-h-0 w-full flex-1 flex-col'
       )}
     >
       {wrappedMainContent}

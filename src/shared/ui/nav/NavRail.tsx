@@ -74,8 +74,8 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
     : 'min-w-0 flex-1 flex-col gap-1 rounded-2xl px-2 py-2 text-xs';
 
   const containerClass = variant === 'rail'
-    ? 'flex h-full flex-col items-center gap-2 border-r border-line-glass/30 bg-surface-nav-rail/95 px-3 py-4'
-    : 'grid grid-cols-[repeat(auto-fit,minmax(56px,1fr))] gap-2 rounded-3xl border border-line-glass/25 bg-surface-nav-rail px-4 py-3 shadow-glass nav-rail--bottom';
+    ? 'flex h-full flex-col items-center gap-2 border-r border-line-glass/30 bg-[rgb(var(--nav-surface))] px-3 py-4'
+    : 'flex w-full items-center justify-around border-t border-line-glass/30 bg-[rgb(var(--nav-surface))] px-4 py-2 pb-safe nav-rail--bottom';
 
   return (
     <div className={cn(containerClass, className)}>

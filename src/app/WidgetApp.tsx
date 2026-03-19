@@ -21,7 +21,7 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import NavRail, { type NavRailItem } from '@/shared/ui/nav/NavRail';
-import { HomeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -516,7 +516,7 @@ export function WidgetApp({
     {
       id: 'chat',
       label: 'Messages',
-      icon: ChatBubbleLeftRightIcon,
+      icon: ChatBubbleOvalLeftEllipsisIcon,
       href: '/chat',
       matchHrefs: ['/chat', '/list'],
       onClick: () => {
@@ -534,12 +534,20 @@ export function WidgetApp({
     }
   ], [activeConversationId, hasRealConversations, createConversation]);
 
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
+
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
-      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end sm:p-[10px] md:p-4 perspective-[1000px] ${isDark ? 'dark' : ''}`}>
+      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
         {view === 'home' ? (
-          <div className="flex h-full flex-col sm:rounded-3xl sm:border sm:border-line-glass/30 sm:shadow-2xl overflow-hidden relative">
+          <div className="flex h-full flex-col overflow-hidden relative">
              <div className="flex-1 overflow-y-auto">
                <WorkspaceHomeView
                  practiceName={practiceConfig.name}
@@ -564,7 +572,7 @@ export function WidgetApp({
              )}
           </div>
         ) : view === 'list' ? (
-           <div className="flex h-full flex-col sm:rounded-3xl sm:border sm:border-line-glass/30 sm:shadow-2xl overflow-hidden relative">
+           <div className="flex h-full flex-col overflow-hidden relative">
              <ConversationListView
                conversations={conversations}
                previews={previews}
@@ -649,12 +657,11 @@ export function WidgetApp({
           />
         )}
         
-        <div className="mt-3">
+        <div className="mt-auto">
           <NavRail
             items={navItems}
             activeHref={view === 'home' ? '/home' : view === 'list' ? '/list' : '/chat'}
             variant="bottom"
-            showLabels={true}
           />
         </div>
       </div>
