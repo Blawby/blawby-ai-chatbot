@@ -171,6 +171,7 @@ export const InspectorPanel = ({
     postalCode: '',
     country: 'US',
   });
+  const skipBlurRef = useRef(false);
   const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
@@ -223,10 +224,21 @@ export const InspectorPanel = ({
   );
   const intakeServiceOptions = useMemo<ComboboxOption[]>(() => {
     if (!practiceDetail?.services) return [];
-    return (practiceDetail.services as Array<{ key?: string; name?: string; title?: string }>).map((s) => ({
-      value: s.key || s.name || '',
-      label: s.name || s.title || (s.key ? s.key.replace(/_/g, ' ') : 'Unnamed service'),
+    
+    const rawOptions = (practiceDetail.services as Array<{ key?: string; name?: string; title?: string }>).map((s, idx) => ({
+      value: s.key || s.name || s.title || `service-${idx}`,
+      label: s.name || s.title || (s.key ? s.key.replace(/_/g, ' ') : `Service ${idx + 1}`),
     }));
+
+    // Deduplicate by value
+    const seenValues = new Set<string>();
+    return rawOptions.filter(opt => {
+      if (opt.value && !seenValues.has(opt.value)) {
+        seenValues.add(opt.value);
+        return true;
+      }
+      return false;
+    });
   }, [practiceDetail?.services]);
   const assignedMemberLabel = useMemo(() => {
     const assignedTo = conversation?.assigned_to;
@@ -657,14 +669,14 @@ export const InspectorPanel = ({
     }
   };
   
-  const handleIntakeFieldChange = async (key: keyof IntakeConversationState, value: string, shouldClose = true) => {
+  const handleIntakeFieldChange = async (patch: Partial<IntakeConversationState>, shouldClose = true) => {
     if (!onIntakeFieldsChange || !intakeConversationState) return;
     setError(null);
     try {
-      await onIntakeFieldsChange({ [key]: value }, { sendSystemAck: true });
+      await onIntakeFieldsChange(patch, { sendSystemAck: true });
       if (shouldClose) setActiveConversationEditor(null);
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : `Failed to update ${key}`);
+      setError(nextError instanceof Error ? nextError.message : `Failed to update fields`);
     }
   };
   const handlePersonStatusChange = async (
@@ -762,7 +774,7 @@ export const InspectorPanel = ({
                         const tier = resolveStrengthTier(intakeConversationState);
                         const label = resolveStrengthLabel(tier);
                         const description = resolveStrengthDescription(tier, intakeConversationState);
-                        const { ringClass } = resolveStrengthStyle(tier);
+                        const { bgClass } = resolveStrengthStyle(tier);
                         const canEditIntake = !intakeStatus?.intakeUuid;
 
                         return (
@@ -770,8 +782,8 @@ export const InspectorPanel = ({
                             <div className="px-5 pt-6 pb-2">
                               <h4 className="text-[10px] font-bold uppercase tracking-wider text-input-placeholder">Consultation Details</h4>
                             </div>
-                            <div className="px-5 py-4 flex items-center gap-3">
-                              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ringClass.replace('text-', 'bg-')} ring-2 ring-white/10`} />
+                            <div className="px-5 py-4 flex items-center gap-3 group/strength" title={description}>
+                              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${bgClass} ring-2 ring-white/10`} />
                               <h3 className="text-[14px] font-semibold text-input-text">{label.replace(' Brief', '').replace(' Status', '')}</h3>
                             </div>
 
@@ -790,10 +802,11 @@ export const InspectorPanel = ({
                                   value={intakeConversationState.practiceArea ?? ''}
                                   onChange={(v) => {
                                     const option = intakeServiceOptions.find(o => o.value === v);
-                                    void handleIntakeFieldChange('practiceArea', v, true);
+                                    const patch: Partial<IntakeConversationState> = { practiceArea: v };
                                     if (option) {
-                                      void handleIntakeFieldChange('practiceAreaName', option.label, false);
+                                      patch.practiceAreaName = option.label;
                                     }
+                                    void handleIntakeFieldChange(patch, true);
                                   }}
                                   options={intakeServiceOptions}
                                   placeholder="Select Practice Area"
@@ -820,13 +833,18 @@ export const InspectorPanel = ({
                                   autoFocus
                                   className="w-full"
                                   onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
                                     if (localIntakeDraft !== null) {
-                                      void handleIntakeFieldChange('city', localIntakeDraft, false);
+                                      void handleIntakeFieldChange({ city: localIntakeDraft }, false);
                                     }
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
-                                      void handleIntakeFieldChange('city', localIntakeDraft ?? intakeConversationState.city ?? '', true);
+                                      skipBlurRef.current = true;
+                                      void handleIntakeFieldChange({ city: localIntakeDraft ?? intakeConversationState.city ?? '' }, true);
                                     }
                                     if (e.key === 'Escape') setActiveConversationEditor(null);
                                   }}
@@ -847,7 +865,7 @@ export const InspectorPanel = ({
                               >
                                 <Combobox
                                   value={intakeConversationState.state ?? ''}
-                                  onChange={(v) => void handleIntakeFieldChange('state', v)}
+                                  onChange={(v) => void handleIntakeFieldChange({ state: v })}
                                   options={STATE_OPTIONS}
                                   placeholder="Select State"
                                   searchable
@@ -874,13 +892,18 @@ export const InspectorPanel = ({
                                   autoFocus
                                   className="w-full"
                                   onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
                                     if (localIntakeDraft !== null) {
-                                      void handleIntakeFieldChange('opposingParty', localIntakeDraft, false);
+                                      void handleIntakeFieldChange({ opposingParty: localIntakeDraft }, false);
                                     }
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
-                                      void handleIntakeFieldChange('opposingParty', localIntakeDraft ?? intakeConversationState.opposingParty ?? '', true);
+                                      skipBlurRef.current = true;
+                                      void handleIntakeFieldChange({ opposingParty: localIntakeDraft ?? intakeConversationState.opposingParty ?? '' }, true);
                                     }
                                     if (e.key === 'Escape') setActiveConversationEditor(null);
                                   }}
@@ -908,7 +931,7 @@ export const InspectorPanel = ({
                                   rows={4}
                                   onBlur={() => {
                                     if (localIntakeDraft !== null) {
-                                      void handleIntakeFieldChange('description', localIntakeDraft, false);
+                                      void handleIntakeFieldChange({ description: localIntakeDraft }, false);
                                     }
                                   }}
                                   onKeyDown={(e) => {

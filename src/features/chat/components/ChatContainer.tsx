@@ -651,13 +651,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-bold text-input-text">{t('chat.requestConsultation')}</h3>
-                      <p className="text-sm text-input-placeholder">Please provide your contact details to begin.</p>
+                      <p className="text-sm text-input-placeholder">{t('chat.provideContactDetails')}</p>
                     </div>
                     {onSlimFormDismiss && (
                       <Button
                         variant="icon"
                         size="icon-sm"
                         onClick={() => dismissSlimForm('manual')}
+                        aria-label="Dismiss"
                         className="text-input-placeholder hover:text-input-text"
                       >
                         <Icon icon={XMarkIcon} className="h-5 w-5" />

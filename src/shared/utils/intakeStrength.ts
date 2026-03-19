@@ -5,8 +5,9 @@ export type StrengthTier = 'none' | 'weak' | 'basic' | 'good' | 'strong';
 export const resolveStrengthTier = (state: IntakeConversationState | null): StrengthTier => {
   if (!state) return 'none';
 
-  const hasDescription = Boolean(state.description?.trim());
-  const descriptionWords = state.description?.trim().split(/\s+/).length ?? 0;
+  const trimmed = state.description?.trim() ?? '';
+  const hasDescription = Boolean(trimmed);
+  const descriptionWords = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
   const hasPracticeArea = Boolean(state.practiceArea || state.practiceAreaName);
   const hasLocation = Boolean(state.city?.trim() || state.state?.trim());
   const hasOpposingParty = Boolean(state.opposingParty?.trim());
@@ -63,19 +64,19 @@ export const resolveStrengthLabel = (tier: StrengthTier): string => {
   }
 };
 
-export const resolveStrengthStyle = (tier: StrengthTier): { percent: number; ringClass: string } => {
+export const resolveStrengthStyle = (tier: StrengthTier): { percent: number; ringClass: string; bgClass: string } => {
   switch (tier) {
     case 'weak':
-      return { percent: 25, ringClass: 'text-red-500' };
+      return { percent: 25, ringClass: 'text-red-500', bgClass: 'bg-red-500' };
     case 'basic':
-      return { percent: 50, ringClass: 'text-orange-500' };
+      return { percent: 50, ringClass: 'text-orange-500', bgClass: 'bg-orange-500' };
     case 'good':
-      return { percent: 75, ringClass: 'text-emerald-500' };
+      return { percent: 75, ringClass: 'text-emerald-500', bgClass: 'bg-emerald-500' };
     case 'strong':
-      return { percent: 100, ringClass: 'text-emerald-400' };
+      return { percent: 100, ringClass: 'text-emerald-400', bgClass: 'bg-emerald-400' };
     case 'none':
     default:
-      return { percent: 0, ringClass: 'text-white/20' };
+      return { percent: 0, ringClass: 'text-white/20', bgClass: 'bg-white/20' };
   }
 };
 

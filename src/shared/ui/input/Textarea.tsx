@@ -36,7 +36,7 @@ export interface TextareaProps {
   namespace?: string;
   id?: string;
   autoFocus?: boolean;
-  onKeyDown?: (event: KeyboardEvent) => void;
+  onKeyDown?: (event: import('preact').JSX.TargetedKeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({

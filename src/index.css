@@ -229,7 +229,7 @@
   }
 
   .workspace-header__title {
-    @apply truncate text-sm font-semibold text-input-text;
+    @apply truncate text-sm font-bold text-input-text;
   }
 
   .workspace-header__subtitle {
@@ -253,17 +253,7 @@
     animation: workspace-header-progress 1.15s linear infinite;
   }
 
-  .workspace-header__title {
-    @apply font-bold;
-  }
 
-  .workspace-header__subtitle {
-    @apply text-input-placeholder;
-  }
-
-  .workspace-header__avatar-ring {
-    box-shadow: 0 0 0 2px rgb(var(--line-glass) / 0.24);
-  }
 
   /* Semantic surface helpers */
   .surface-subtle {

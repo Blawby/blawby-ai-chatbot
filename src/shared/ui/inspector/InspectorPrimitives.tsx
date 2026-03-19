@@ -19,7 +19,7 @@ type InfoRowProps = {
   value?: string;
   valueNode?: ComponentChildren;
   muted?: boolean;
-  icon?: ComponentType<any>;
+  icon?: ComponentType<{ className?: string }>;
 };
 
 export const InfoRow = ({
@@ -206,8 +206,20 @@ export const InspectorHeaderHero = ({
     ? words.slice(0, 2).map((word) => word[0]).join('')
     : '??').toUpperCase();
 
+  const isValidWebsiteUrl = (url: string) => {
+    try {
+      if (url.startsWith('tel:') || url.startsWith('mailto:')) return true;
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
+
   const handleAction = (url: string) => {
-    window.open(url, '_blank');
+    if (!isValidWebsiteUrl(url)) return;
+    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    if (w) w.opener = null;
   };
 
   return (
@@ -236,6 +248,8 @@ export const InspectorHeaderHero = ({
         <div className="mt-6 flex items-center justify-center gap-3">
           {phone && (
             <button
+              type="button"
+              aria-label="Call phone number"
               onClick={() => handleAction(`tel:${phone}`)}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white"
             >
@@ -246,6 +260,8 @@ export const InspectorHeaderHero = ({
           )}
           {email && (
             <button
+              type="button"
+              aria-label="Send email"
               onClick={() => handleAction(`mailto:${email}`)}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white"
             >
@@ -257,6 +273,8 @@ export const InspectorHeaderHero = ({
           )}
           {website && (
             <button
+              type="button"
+              aria-label="Open website"
               onClick={() => handleAction(website)}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white"
             >

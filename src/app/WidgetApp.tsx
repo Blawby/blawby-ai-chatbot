@@ -495,7 +495,7 @@ export function WidgetApp({
     };
   }, [requestWidgetClose]);
 
-  const closeButton = (
+  const closeButton = useMemo(() => (
     <button
       type="button"
       aria-label="Close chat"
@@ -507,7 +507,7 @@ export function WidgetApp({
         <line x1="6" y1="6" x2="18" y2="18" />
       </svg>
     </button>
-  );
+  ), [requestWidgetClose]);
 
   const headerRightSlot = useMemo(() => {
     let inspectorButtonContent = <Icon icon={InformationCircleIcon} className="h-5 w-5" />;
