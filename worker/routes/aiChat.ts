@@ -1299,7 +1299,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // Parse accumulated tool call if present
       if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
         try {
-          intakeFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
+          const rawParams = JSON.parse(toolCallArgBuffer);
+          intakeFields = normalizeKeys(rawParams) as Record<string, unknown>;
         } catch (error) {
           Logger.warn('Failed to parse streamed intake tool arguments', {
             conversationId: body.conversationId,
@@ -1308,7 +1309,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       } else if (toolCallName === 'update_practice_fields' && toolCallArgBuffer.length > 0) {
         try {
-          onboardingFields = JSON.parse(toolCallArgBuffer) as Record<string, unknown>;
+          const rawParams = JSON.parse(toolCallArgBuffer);
+          onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
         } catch (error) {
           Logger.warn('Failed to parse streamed onboarding tool arguments', {
             conversationId: body.conversationId,
