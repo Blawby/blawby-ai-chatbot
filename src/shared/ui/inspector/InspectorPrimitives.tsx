@@ -206,10 +206,17 @@ export const InspectorHeaderHero = ({
     ? words.slice(0, 2).map((word) => word[0]).join('')
     : '??').toUpperCase();
 
+  const normalizeUrl = (url: string) => {
+    if (url.startsWith('tel:') || url.startsWith('mailto:')) return url;
+    if (!/^https?:\/\//i.test(url)) return `https://${url}`;
+    return url;
+  };
+
   const isValidWebsiteUrl = (url: string) => {
     try {
       if (url.startsWith('tel:') || url.startsWith('mailto:')) return true;
-      const parsed = new URL(url);
+      const normalized = normalizeUrl(url);
+      const parsed = new URL(normalized);
       return ['http:', 'https:'].includes(parsed.protocol);
     } catch {
       return false;
@@ -217,8 +224,9 @@ export const InspectorHeaderHero = ({
   };
 
   const handleAction = (url: string) => {
-    if (!isValidWebsiteUrl(url)) return;
-    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    const normalized = normalizeUrl(url);
+    if (!isValidWebsiteUrl(normalized)) return;
+    const w = window.open(normalized, '_blank', 'noopener,noreferrer');
     if (w) w.opener = null;
   };
 

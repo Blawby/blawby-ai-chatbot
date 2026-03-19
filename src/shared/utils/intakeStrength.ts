@@ -51,16 +51,16 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
 export const resolveStrengthLabel = (tier: StrengthTier): string => {
   switch (tier) {
     case 'weak':
-      return 'Weak Status';
+      return 'intake.strength.weak';
     case 'basic':
-      return 'Developing Status';
+      return 'intake.strength.basic';
     case 'good':
-      return 'Good Status';
+      return 'intake.strength.good';
     case 'strong':
-      return 'High Confidence';
+      return 'intake.strength.strong';
     case 'none':
     default:
-      return 'Collecting Details';
+      return 'intake.strength.none';
   }
 };
 

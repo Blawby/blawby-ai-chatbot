@@ -199,10 +199,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
   
-  const hasContactInfoSubmitted = messages.some((message) => {
-    const meta = message.metadata;
-    return meta?.isContactFormSubmission === true || meta?.intakeComplete === true;
-  });
+  const hasContactInfoSubmitted = Boolean(
+    intakeStatus?.intakeUuid || 
+    intakeStatus?.step === 'completed' || 
+    intakeStatus?.step === 'pending_review'
+  );
 
   const shouldShowSlimForm = isPublicWorkspace && 
     intakeStatus?.step === 'contact_form_slim' && 

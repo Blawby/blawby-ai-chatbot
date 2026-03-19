@@ -270,12 +270,11 @@ export function useIntakeFlow({
           ? `Updated ${changedFields[0]}`
           : `Updated ${changedFields.join(', ')}`;
         
-        const msg = await postSystemMessage(conversationId, practiceId, {
+        await postSystemMessage(conversationId, practiceId, {
           clientId: `system-intake-update-${Date.now()}`,
           content: `Manual update: ${content}`,
           metadata: { intakeUpdate: true, fields: changedFields }
         });
-        if (msg) applyServerMessages([msg]);
       } catch (err) {
         console.warn('[Intake] Failed to post manual update ack', err);
       }

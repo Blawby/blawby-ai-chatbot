@@ -336,7 +336,7 @@ const INTAKE_TOOL = {
         },
         caseStrength: { type: 'string', enum: ['needs_more_info', 'developing', 'strong'] },
         missingSummary: {
-          type: 'string',
+          type: ['string', 'null'],
           description: 'Plain English — what would most improve case strength. Null if strong.'
         }
       },
@@ -893,15 +893,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         'If you don\'t have practice details: say you don\'t have access and recommend consultation.',
       ].join('\n');
 
+  const fullSystemPrompt = [
+    systemPrompt,
+    `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
+    (isIntakeMode && storedIntakeState) ? `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` : null,
+    body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null
+  ].filter(Boolean).join('\n\n');
+
   const requestPayload: Record<string, unknown> = {
     model,
     temperature: 0.2,
     stream: true,
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'system', content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}` },
-      ...(isIntakeMode && storedIntakeState ? [{ role: 'system', content: `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` } as const] : []),
-      ...(body.additionalContext ? [{ role: 'system', content: `SEARCH_CONTEXT: ${body.additionalContext}` }] : []),
+      { role: 'system', content: fullSystemPrompt },
       ...body.messages.map((message) => ({ role: message.role, content: message.content }))
     ]
   };
@@ -1117,29 +1121,41 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const parseToolCallFromReply = (
       rawReply: string
     ): { name?: string; parameters?: Record<string, unknown>; contentBuffer?: string } | null => {
-      // Find the first occurrence of the function call.
-      // We allow the closing parenthesis to be missing if the response was cut off ($).
-      const regex = /(update_intake_fields|update_practice_fields)\s*\([\s\S]*?(?:\)|$)/;
-      const match = rawReply.match(regex);
-      if (match) {
-        const name = match[1];
+      const startMatch = rawReply.match(/(update_intake_fields|update_practice_fields)\s*\(/);
+      if (startMatch) {
+        const startIndex = startMatch.index!;
+        const name = startMatch[1];
+        
+        let parenCount = 0;
+        let endIndex = -1;
+        for (let i = startIndex + name.length; i < rawReply.length; i++) {
+          if (rawReply[i] === '(') parenCount++;
+          else if (rawReply[i] === ')') {
+            parenCount--;
+            if (parenCount === 0) {
+              endIndex = i;
+              break;
+            }
+          }
+        }
+
+        const matchedText = endIndex !== -1 ? rawReply.substring(startIndex, endIndex + 1) : rawReply.substring(startIndex);
         let parameters: Record<string, unknown> = {};
         let parseSuccess = false;
 
         try {
-          // Attempt to extract the first JSON object using balanced braces
           let jsonPayload = '';
-          const openingBraceIndex = match[0].indexOf('{');
+          const openingBraceIndex = matchedText.indexOf('{');
           if (openingBraceIndex !== -1) {
             let braceCount = 0;
-            let i = openingBraceIndex;
-            for (; i < match[0].length; i++) {
-              if (match[0][i] === '{') braceCount++;
-              else if (match[0][i] === '}') braceCount--;
+            let j = openingBraceIndex;
+            for (; j < matchedText.length; j++) {
+              if (matchedText[j] === '{') braceCount++;
+              else if (matchedText[j] === '}') braceCount--;
               if (braceCount === 0) break;
             }
             if (braceCount === 0) {
-              jsonPayload = match[0].substring(openingBraceIndex, i + 1);
+              jsonPayload = matchedText.substring(openingBraceIndex, j + 1);
             }
           }
 
@@ -1147,23 +1163,22 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             parameters = normalizeKeys(JSON.parse(jsonPayload)) as Record<string, unknown>;
             parseSuccess = true;
             
-            // If the AI somehow passed multiple arguments like ({...}, "developing", "some text")
             if (name === 'update_intake_fields' && !parameters.caseStrength) {
-              const argsRegex = /(update_intake_fields)\s*\(\s*\{[\s\S]*?\}\s*,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*/;
-              const argsMatch = match[0].match(argsRegex);
-              if (argsMatch) {
-                parameters.caseStrength = argsMatch[2];
-                if (argsMatch[3]) {
-                  parameters.missingSummary = argsMatch[3];
+              const rest = matchedText.substring(matchedText.indexOf(jsonPayload) + jsonPayload.length);
+              const positionalMatch = rest.match(/,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?/);
+              if (positionalMatch) {
+                parameters.caseStrength = positionalMatch[1];
+                if (positionalMatch[2]) {
+                  parameters.missingSummary = positionalMatch[2];
                 }
               }
             }
           }
         } catch {
-          // continue, we still want to strip the function call from the reply
+          // ignore
         }
 
-        const cleanText = rawReply.replace(match[0], '').trim();
+        const cleanText = rawReply.replace(matchedText, '').trim();
         return { name, parameters: parseSuccess ? parameters : undefined, contentBuffer: cleanText };
       }
 

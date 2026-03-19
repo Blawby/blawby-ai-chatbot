@@ -541,6 +541,7 @@ export function WidgetApp({
         size="icon-sm"
         onClick={() => setIsInspectorOpen(true)}
         aria-label="Open inspector"
+        className="lg:hidden"
       >
         {inspectorButtonContent}
       </Button>

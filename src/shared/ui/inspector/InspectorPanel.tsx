@@ -846,7 +846,10 @@ export const InspectorPanel = ({
                                       skipBlurRef.current = true;
                                       void handleIntakeFieldChange({ city: localIntakeDraft ?? intakeConversationState.city ?? '' }, true);
                                     }
-                                    if (e.key === 'Escape') setActiveConversationEditor(null);
+                                    if (e.key === 'Escape') {
+                                      skipBlurRef.current = true;
+                                      setActiveConversationEditor(null);
+                                    }
                                   }}
                                 />
                               </InspectorEditableRow>
@@ -905,7 +908,10 @@ export const InspectorPanel = ({
                                       skipBlurRef.current = true;
                                       void handleIntakeFieldChange({ opposingParty: localIntakeDraft ?? intakeConversationState.opposingParty ?? '' }, true);
                                     }
-                                    if (e.key === 'Escape') setActiveConversationEditor(null);
+                                    if (e.key === 'Escape') {
+                                      skipBlurRef.current = true;
+                                      setActiveConversationEditor(null);
+                                    }
                                   }}
                                 />
                               </InspectorEditableRow>
@@ -935,7 +941,10 @@ export const InspectorPanel = ({
                                     }
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Escape') setActiveConversationEditor(null);
+                                    if (e.key === 'Escape') {
+                                      skipBlurRef.current = true;
+                                      setActiveConversationEditor(null);
+                                    }
                                   }}
                                 />
                               </InspectorEditableRow>
