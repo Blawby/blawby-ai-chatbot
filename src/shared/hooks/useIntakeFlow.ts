@@ -410,7 +410,12 @@ export function useIntakeFlow({
       if (import.meta.env.DEV) {
         console.warn('[handleSubmitNow] Missing slimContactDraft, cannot submit intake.');
       }
-      onError?.('We need your contact information before submitting. Please fill out the contact form.');
+      const errMessage = 'We need your contact information before submitting. Please fill out the contact form.';
+      if (onError) {
+        onError(errMessage);
+      } else {
+        window.alert(errMessage);
+      }
       return;
     }
     if (submitInFlightRef.current) {
