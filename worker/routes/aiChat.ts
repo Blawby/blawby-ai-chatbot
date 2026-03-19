@@ -1126,15 +1126,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const startIndex = startMatch.index!;
         const name = startMatch[1];
         
-        let parenCount = 0;
+        const parenIndex = rawReply.indexOf('(', startIndex + name.length);
         let endIndex = -1;
-        for (let i = startIndex + name.length; i < rawReply.length; i++) {
-          if (rawReply[i] === '(') parenCount++;
-          else if (rawReply[i] === ')') {
-            parenCount--;
-            if (parenCount === 0) {
-              endIndex = i;
-              break;
+        if (parenIndex !== -1) {
+          let parenCount = 1;
+          for (let i = parenIndex + 1; i < rawReply.length; i++) {
+            if (rawReply[i] === '(') parenCount++;
+            else if (rawReply[i] === ')') {
+              parenCount--;
+              if (parenCount === 0) {
+                endIndex = i;
+                break;
+              }
             }
           }
         }

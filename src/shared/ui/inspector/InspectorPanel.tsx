@@ -936,6 +936,10 @@ export const InspectorPanel = ({
                                   className="w-full"
                                   rows={4}
                                   onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
                                     if (localIntakeDraft !== null) {
                                       void handleIntakeFieldChange({ description: localIntakeDraft }, false);
                                     }

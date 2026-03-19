@@ -647,36 +647,38 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             </div>
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
-              {shouldShowSlimForm && onSlimFormContinue ? (
-                <div className="mx-2 mb-4 overflow-hidden rounded-2xl border border-white/10 bg-surface-glass p-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-4 duration-300">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-input-text">{t('chat.requestConsultation')}</h3>
-                      <p className="text-sm text-input-placeholder">{t('chat.provideContactDetails')}</p>
+              {shouldShowSlimForm ? (
+                onSlimFormContinue ? (
+                  <div className="mx-2 mb-4 overflow-hidden rounded-2xl border border-white/10 bg-surface-glass p-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-input-text">{t('chat.requestConsultation')}</h3>
+                        <p className="text-sm text-input-placeholder">{t('chat.provideContactDetails')}</p>
+                      </div>
+                      {onSlimFormDismiss && (
+                        <Button
+                          variant="icon"
+                          size="icon-sm"
+                          onClick={() => dismissSlimForm('manual')}
+                          aria-label={t('common.dismiss', 'Dismiss')}
+                          className="text-input-placeholder hover:text-input-text"
+                        >
+                          <Icon icon={XMarkIcon} className="h-5 w-5" />
+                        </Button>
+                      )}
                     </div>
-                    {onSlimFormDismiss && (
-                      <Button
-                        variant="icon"
-                        size="icon-sm"
-                        onClick={() => dismissSlimForm('manual')}
-                        aria-label="Dismiss"
-                        className="text-input-placeholder hover:text-input-text"
-                      >
-                        <Icon icon={XMarkIcon} className="h-5 w-5" />
-                      </Button>
-                    )}
+                    <ContactForm
+                      onSubmit={onSlimFormContinue}
+                      fields={['name', 'email', 'phone']}
+                      required={['name', 'email', 'phone']}
+                      initialValues={slimContactDraft ?? undefined}
+                      variant="plain"
+                      showSubmitButton={true}
+                      submitFullWidth={true}
+                      submitLabel={t('chat.continue')}
+                    />
                   </div>
-                  <ContactForm
-                    onSubmit={onSlimFormContinue}
-                    fields={['name', 'email', 'phone']}
-                    required={['name', 'email', 'phone']}
-                    initialValues={slimContactDraft ?? undefined}
-                    variant="plain"
-                    showSubmitButton={true}
-                    submitFullWidth={true}
-                    submitLabel={t('chat.continue')}
-                  />
-                </div>
+                ) : null
               ) : (
                 <MessageComposer
                   inputValue={inputValue}
