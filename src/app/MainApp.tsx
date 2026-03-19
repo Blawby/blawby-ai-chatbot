@@ -35,7 +35,8 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
-import BriefStrengthIndicator from '@/features/chat/components/BriefStrengthIndicator';
+import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
+import { Icon } from '@/shared/ui/Icon';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
@@ -306,7 +307,7 @@ export function MainApp({
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
-    loadMoreMessages, isSocketReady,
+    loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
 
 
@@ -689,7 +690,31 @@ export function MainApp({
   }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
   const headerRightSlot = useMemo(() => {
-    const inspectorButton = (
+    let buttonContent = <Icon icon={InformationCircleIcon} className="h-5 w-5" />;
+
+    if (!isPracticeWorkspace && conversationMode === 'REQUEST_CONSULTATION' && intakeConversationState) {
+      const tier = resolveStrengthTier(intakeConversationState);
+      const { percent, ringClass } = resolveStrengthStyle(tier);
+      const radius = 9;
+      const circumference = 2 * Math.PI * radius;
+      const dashOffset = circumference - (percent / 100) * circumference;
+
+      buttonContent = (
+        <span className="relative flex h-6 w-6 items-center justify-center">
+          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
+            <circle
+              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
+              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
+              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+            />
+          </svg>
+          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      );
+    }
+
+    return (
       <Button
         type="button"
         variant="icon"
@@ -699,21 +724,10 @@ export function MainApp({
           window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
         }}
         aria-label="Open inspector"
-        icon={InformationCircleIcon} iconClassName="h-5 w-5"
-      />
+      >
+        {buttonContent}
+      </Button>
     );
-    if (isPracticeWorkspace) {
-      return inspectorButton;
-    }
-    if (conversationMode === 'REQUEST_CONSULTATION') {
-      return (
-        <div className="flex items-center gap-2">
-          <BriefStrengthIndicator intakeConversationState={intakeConversationState} />
-          {inspectorButton}
-        </div>
-      );
-    }
-    return inspectorButton;
   }, [isPracticeWorkspace, conversationMode, intakeConversationState]);
 
   const conversationHeaderContent = useMemo(() => {
@@ -869,6 +883,10 @@ export function MainApp({
       settingsAppId={routeSettingsAppId}
       onStartNewConversation={handleStartNewConversation}
       activeConversationId={activeConversationId}
+      intakeConversationState={intakeConversationState}
+      intakeStatus={intakeStatus}
+      onIntakeFieldsChange={applyIntakeFields}
+      practiceDetails={practiceDetails}
       chatView={chatPanel}
       mattersView={
         isPracticeWorkspace

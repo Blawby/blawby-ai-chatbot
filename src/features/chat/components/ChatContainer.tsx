@@ -13,6 +13,9 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import Modal from '@/shared/components/Modal';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -195,7 +198,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = hasUserMessages
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
-  const shouldShowSlimForm = isPublicWorkspace && intakeStatus?.step === 'contact_form_slim' && conversationMode === 'REQUEST_CONSULTATION';
+  
+  const hasContactInfoSubmitted = messages.some((message) => {
+    const meta = message.metadata;
+    return meta?.isContactFormSubmission === true || meta?.intakeComplete === true;
+  });
+
+  const shouldShowSlimForm = isPublicWorkspace && 
+    intakeStatus?.step === 'contact_form_slim' && 
+    conversationMode === 'REQUEST_CONSULTATION' && 
+    !hasContactInfoSubmitted;
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
   // Simple resize handler for window size changes
   useEffect(() => {
@@ -590,8 +602,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           <div className={frameClassName}>
             <div 
               className="flex flex-1 min-h-0 flex-col"
-              inert={shouldShowSlimForm ? true : undefined}
-              aria-hidden={shouldShowSlimForm ? true : undefined}
             >
               {headerContent ? (
                 <div className="shrink-0">
@@ -636,7 +646,36 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             </div>
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
-              {!shouldShowSlimForm || !onSlimFormContinue ? (
+              {shouldShowSlimForm && onSlimFormContinue ? (
+                <div className="mx-2 mb-4 overflow-hidden rounded-2xl border border-white/10 bg-surface-glass p-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-input-text">{t('chat.requestConsultation')}</h3>
+                      <p className="text-sm text-input-placeholder">Please provide your contact details to begin.</p>
+                    </div>
+                    {onSlimFormDismiss && (
+                      <Button
+                        variant="icon"
+                        size="icon-sm"
+                        onClick={() => dismissSlimForm('manual')}
+                        className="text-input-placeholder hover:text-input-text"
+                      >
+                        <Icon icon={XMarkIcon} className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                  <ContactForm
+                    onSubmit={onSlimFormContinue}
+                    fields={['name', 'email', 'phone']}
+                    required={['name', 'email', 'phone']}
+                    initialValues={slimContactDraft ?? undefined}
+                    variant="plain"
+                    showSubmitButton={true}
+                    submitFullWidth={true}
+                    submitLabel={t('chat.continue')}
+                  />
+                </div>
+              ) : (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}
@@ -661,34 +700,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
                 />
-              ) : null}
+              )}
             </div>
           </div>
         ) : null}
       </main>
 
-      <Modal
-        isOpen={Boolean(shouldShowSlimForm && onSlimFormContinue)}
-        onClose={() => { void dismissSlimForm('manual'); }}
-        title={t('chat.requestConsultation')}
-        type="modal"
-        mobileBehavior="modal"
-        showCloseButton
-        contentClassName="max-w-xl w-full"
-      >
-        {shouldShowSlimForm && onSlimFormContinue ? (
-          <ContactForm
-            onSubmit={onSlimFormContinue}
-            fields={['name', 'email', 'phone']}
-            required={['name', 'email', 'phone']}
-            initialValues={slimContactDraft ?? undefined}
-            variant="plain"
-            showSubmitButton={true}
-            submitFullWidth={true}
-            submitLabel={t('chat.continue')}
-          />
-        ) : null}
-      </Modal>
+
 
       <AuthPromptModal
         isOpen={showAuthPrompt}

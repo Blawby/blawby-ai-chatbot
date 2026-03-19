@@ -160,6 +160,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     resetIntakeCta: intake.resetIntakeCta,
     handleSubmitNow: intake.handleSubmitNow,
     handleContactFormSubmit: intake.handleContactFormSubmit,
+    applyIntakeFields: intake.applyIntakeFields,
 
     // App state
     isConsultFlowActive,
@@ -191,6 +192,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     intake.resetIntakeCta,
     intake.handleSubmitNow,
     intake.handleContactFormSubmit,
+    intake.applyIntakeFields,
     isConsultFlowActive,
   ]);
 };

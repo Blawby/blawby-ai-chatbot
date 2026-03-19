@@ -409,12 +409,14 @@ Conversation style:
 - Only identify practice areas from the list above
 
 Your goal through the conversation is to naturally learn:
-1. What is happening (in their words) — ask this first, openly
-2. Which practice area applies
-3. Their city and state — weave this in naturally ("Just so we can match you with someone local — what city and state are you in?")
-4. Whether there's an opposing party — ask naturally if relevant ("Is there another party involved, like a person, company, or employer?")
+1. What is happening (in their words) — ask this first, openly. CHECK INTAKE_CONTEXT first.
+2. Which practice area applies — CHECK INTAKE_CONTEXT first.
+3. Their city and state — CHECK INTAKE_CONTEXT first. If present, do NOT ask.
+4. Whether there's an opposing party — CHECK INTAKE_CONTEXT first.
 5. Any time pressure or deadlines
 6. What outcome they're hoping for
+
+CRITICAL: The INTAKE_CONTEXT provided in system messages is your GROUND TRUTH. If a field (city, state, practiceArea, opposingParty, description) has a value in the context, treat it as known. NEVER ask for a known field. Instead, focus on the remaining missing pieces.
 
 Do NOT ask for all of this at once. Follow the natural thread of the conversation. Once you know what's happening, ask for one missing piece at a time.
 
@@ -422,14 +424,14 @@ After every user message, call the update_intake_fields function with a SINGLE J
 
 caseStrength rules:
 - needs_more_info: practice area unknown OR description is fewer than 10 words
-- developing: practice area known + description has substance, but city/state OR opposing party are still unknown
+- developing: practice area known + description has substance, but city/state OR opposing party are still unknown (check context for these!)
 - strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known. WHEN STRONG, DO NOT SAY YOU NEED MORE INFO.
 
 When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking intake questions. Your only task is to respectfully show a brief summary of the case you've collected and ask if they are ready to submit it to the firm.
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing using camelCase key missingSummary. Set to null if caseStrength is "strong".`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -898,6 +900,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'system', content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}` },
+      ...(isIntakeMode && storedIntakeState ? [{ role: 'system', content: `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` } as const] : []),
       ...(body.additionalContext ? [{ role: 'system', content: `SEARCH_CONTEXT: ${body.additionalContext}` }] : []),
       ...body.messages.map((message) => ({ role: message.role, content: message.content }))
     ]

@@ -11,6 +11,7 @@ import {
   type IntakeFieldsPayload,
   type IntakeStep,
   type DerivedIntakeStatus,
+  type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
@@ -27,6 +28,22 @@ const sanitizeName = (name: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+
+const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = {
+  practiceAreaName: 'Practice area',
+  description: 'Case summary',
+  urgency: 'Urgency',
+  opposingParty: 'Opposing party',
+  city: 'City',
+  state: 'State',
+  postalCode: 'Postal code',
+  addressLine1: 'Address line 1',
+  desiredOutcome: 'Desired outcome',
+  courtDate: 'Court date',
+  income: 'Income',
+  householdSize: 'Household size',
+  hasDocuments: 'Supporting documents',
+};
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -173,8 +190,8 @@ interface UseIntakeFlowResult {
   resetIntakeCta: () => Promise<void>;
   /** Final intake submission via worker bridge */
   handleSubmitNow: () => Promise<void>;
-  /** Apply fields extracted by AI */
-  applyIntakeFields: (payload: IntakeFieldsPayload) => Promise<void>;
+  /** Apply fields extracted by AI or manual edits */
+  applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
   /** Legacy alias or specialized form submit if needed */
   handleContactFormSubmit: (data: ContactData) => Promise<void>;
 }
@@ -229,19 +246,41 @@ export function useIntakeFlow({
   // Actions
   // ---------------------------------------------------------------------------
 
-  const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload) => {
+  const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
     const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
     const next: IntakeConversationState = { ...current };
 
+    const changedFields: string[] = [];
     (Object.keys(payload) as Array<keyof IntakeFieldsPayload>).forEach(key => {
       const val = payload[key];
       if (val !== undefined) {
+        if (current[key as keyof IntakeConversationState] !== val) {
+          const label = INTAKE_FIELD_LABELS[key];
+          if (label) changedFields.push(label);
+        }
         (next as unknown as Record<string, unknown>)[key] = val;
       }
     });
 
     await updateConversationMetadata({ intakeConversationState: next });
-  }, [conversationMetadataRef, updateConversationMetadata]);
+
+    if (options?.sendSystemAck && changedFields.length > 0 && conversationId && practiceId) {
+      try {
+        const content = changedFields.length === 1
+          ? `Updated ${changedFields[0]}`
+          : `Updated ${changedFields.join(', ')}`;
+        
+        const msg = await postSystemMessage(conversationId, practiceId, {
+          clientId: `system-intake-update-${Date.now()}`,
+          content: `Manual update: ${content}`,
+          metadata: { intakeUpdate: true, fields: changedFields }
+        });
+        if (msg) applyServerMessages([msg]);
+      } catch (err) {
+        console.warn('[Intake] Failed to post manual update ack', err);
+      }
+    }
+  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, applyServerMessages]);
 
   const resetIntakeCta = useCallback(async () => {
     const current = conversationMetadata?.intakeConversationState ?? initialIntakeState;

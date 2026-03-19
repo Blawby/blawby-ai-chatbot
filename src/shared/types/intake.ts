@@ -91,6 +91,10 @@ export type IntakeFieldsPayload = {
   ctaShown?: boolean;
 };
 
+export type IntakeFieldChangeOptions = {
+  sendSystemAck?: boolean;
+};
+
 export interface DerivedIntakeStatus {
   step: IntakeStep;
   decision?: string;

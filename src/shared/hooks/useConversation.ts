@@ -903,10 +903,13 @@ export const useConversation = ({
     consultFlowAbortRef.current?.abort();
     const controller = new AbortController();
     consultFlowAbortRef.current = controller;
+    const isSameThread = targetConversationId === conversationIdRef.current;
     conversationIdRef.current = targetConversationId;
-    setHasMoreMessages(false);
-    setNextCursor(null);
-    fetchMessages({ signal: controller.signal, targetConversationId });
+    if (!isSameThread) {
+      setHasMoreMessages(false);
+      setNextCursor(null);
+      fetchMessages({ signal: controller.signal, targetConversationId });
+    }
     fetchConversationMetadata(controller.signal, targetConversationId).catch(err => {
       console.warn('[useConversation] Failed to fetch conversation metadata on consult start', err);
     });

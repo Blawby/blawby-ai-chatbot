@@ -6,9 +6,10 @@ import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type Ma
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
-import { Combobox, type ComboboxOption } from '@/shared/ui/input';
+import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
 import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
+import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import Modal from '@/shared/components/Modal';
 import {
   InfoRow,
@@ -16,12 +17,15 @@ import {
   InspectorGroup,
   InspectorHeaderEntity,
   InspectorHeaderPerson,
+  InspectorHeaderHero,
   SkeletonRow,
 } from './InspectorPrimitives';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PhoneIcon, EnvelopeIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { PERSON_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/people';
 import type { Address } from '@/shared/types/address';
+import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
+import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolveStrengthDescription } from '@/shared/utils/intakeStrength';
 
 type InspectorConfig =
   | { type: 'conversation' }
@@ -75,6 +79,11 @@ type InspectorPanelProps = {
   matters?: BackendMatter[];
   isClientView?: boolean;
   practiceName?: string;
+  practiceLogo?: string;
+  intakeConversationState?: IntakeConversationState | null;
+  intakeStatus?: DerivedIntakeStatus | null;
+  onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: import('@/shared/types/intake').IntakeFieldChangeOptions) => Promise<void> | void;
+  practiceDetails?: PracticeDetails | null;
 };
 
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
@@ -122,6 +131,11 @@ export const InspectorPanel = ({
   matters = [],
   isClientView,
   practiceName,
+  practiceLogo,
+  intakeConversationState,
+  intakeStatus,
+  onIntakeFieldsChange,
+  practiceDetails: propPracticeDetails,
 }: InspectorPanelProps) => {
   const resolveString = (value: unknown): string | null =>
     typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
@@ -130,7 +144,7 @@ export const InspectorPanel = ({
   const practiceCacheRef = useRef<Map<string, PracticeDetails | null>>(new Map());
   const matterCacheRef = useRef<Map<string, BackendMatter | null>>(new Map());
   const [userDetail, setUserDetail] = useState<UserDetailRecord | null>(null);
-  const [practiceDetail, setPracticeDetail] = useState<PracticeDetails | null>(null);
+  const [practiceDetail, setPracticeDetail] = useState<PracticeDetails | null>(propPracticeDetails ?? null);
   const [matterDetail, setMatterDetail] = useState<BackendMatter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -138,7 +152,7 @@ export const InspectorPanel = ({
   const [isSavingPriority, setIsSavingPriority] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [isSavingMatter, setIsSavingMatter] = useState(false);
-  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | null>(null);
+  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDescription' | null>(null);
   const [activeMatterEditor, setActiveMatterEditor] = useState<
     'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | null
   >(null);
@@ -148,6 +162,7 @@ export const InspectorPanel = ({
   const [isSavingPersonField, setIsSavingPersonField] = useState(false);
   const [isArchivingPerson, setIsArchivingPerson] = useState(false);
   const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
+  const [localIntakeDraft, setLocalIntakeDraft] = useState<string | null>(null);
   const [personAddressDraft, setPersonAddressDraft] = useState<Address>({
     address: '',
     apartment: '',
@@ -206,6 +221,13 @@ export const InspectorPanel = ({
     ],
     [matters]
   );
+  const intakeServiceOptions = useMemo<ComboboxOption[]>(() => {
+    if (!practiceDetail?.services) return [];
+    return (practiceDetail.services as Array<{ key?: string; name?: string; title?: string }>).map((s) => ({
+      value: s.key || s.name || '',
+      label: s.name || s.title || (s.key ? s.key.replace(/_/g, ' ') : 'Unnamed service'),
+    }));
+  }, [practiceDetail?.services]);
   const assignedMemberLabel = useMemo(() => {
     const assignedTo = conversation?.assigned_to;
     if (!assignedTo) return null;
@@ -257,11 +279,16 @@ export const InspectorPanel = ({
     setActiveConversationEditor(null);
     setActiveMatterEditor(null);
     setActivePersonEditor(null);
+    setLocalIntakeDraft(null);
   }, [conversation?.id, entityId, entityType]);
 
   useEffect(() => {
+    setLocalIntakeDraft(null);
+  }, [activeConversationEditor]);
+
+  useEffect(() => {
     setUserDetail(null);
-    setPracticeDetail(null);
+    setPracticeDetail(propPracticeDetails ?? null);
     setMatterDetail(null);
     if (!practiceId || !entityId) return;
     const controller = new AbortController();
@@ -278,16 +305,18 @@ export const InspectorPanel = ({
           const userId = conversationUserId;
           const matterId = conversationMatterId;
 
-          if (userId) {
+          if (userId || isClientView) {
             if (isClientView) {
-              if (practiceCacheRef.current.has(practiceId)) {
+              if (propPracticeDetails) {
+                setPracticeDetail(propPracticeDetails);
+              } else if (practiceCacheRef.current.has(practiceId)) {
                 setPracticeDetail(practiceCacheRef.current.get(practiceId) ?? null);
               } else {
                 const detail = await getPracticeDetails(practiceId, { signal: controller.signal });
                 practiceCacheRef.current.set(practiceId, detail);
                 setPracticeDetail(detail);
               }
-            } else {
+            } else if (userId) {
               const cacheKey = makeCacheKey(practiceId, userId);
               if (userCacheRef.current.has(cacheKey)) {
                 setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
@@ -627,6 +656,17 @@ export const InspectorPanel = ({
       setIsSavingPersonField(false);
     }
   };
+  
+  const handleIntakeFieldChange = async (key: keyof IntakeConversationState, value: string, shouldClose = true) => {
+    if (!onIntakeFieldsChange || !intakeConversationState) return;
+    setError(null);
+    try {
+      await onIntakeFieldsChange({ [key]: value }, { sendSystemAck: true });
+      if (shouldClose) setActiveConversationEditor(null);
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : `Failed to update ${key}`);
+    }
+  };
   const handlePersonStatusChange = async (
     status: 'archived' | 'active',
     eventName: 'Archive Person' | 'Restore Person'
@@ -707,16 +747,181 @@ export const InspectorPanel = ({
           <div className="pb-4">
             {isClientView ? (
               <>
-                <InspectorHeaderPerson
+                <InspectorHeaderHero
                   name={practiceName ?? 'Practice'}
-                  secondaryLine={practiceDetail?.businessEmail ?? undefined}
+                  avatarUrl={practiceLogo || undefined}
+                  subtitle={practiceDetail?.description}
+                  email={practiceDetail?.businessEmail}
+                  phone={practiceDetail?.businessPhone}
+                  website={practiceDetail?.website}
                 />
-                <div className="">
-                  <InspectorGroup label="Practice Details">
-                    <InfoRow label="Phone" value={practiceDetail?.businessPhone ?? undefined} muted={!practiceDetail?.businessPhone} />
-                    <InfoRow label="Email" value={practiceDetail?.businessEmail ?? undefined} muted={!practiceDetail?.businessEmail} />
-                    <InfoRow label="Website" value={practiceDetail?.website ?? undefined} muted={!practiceDetail?.website} />
-                  </InspectorGroup>
+                <div className="mt-2">
+                  {intakeConversationState ? (
+                    <div className="mt-4">
+                      {(() => {
+                        const tier = resolveStrengthTier(intakeConversationState);
+                        const label = resolveStrengthLabel(tier);
+                        const description = resolveStrengthDescription(tier, intakeConversationState);
+                        const { ringClass } = resolveStrengthStyle(tier);
+                        const canEditIntake = !intakeStatus?.intakeUuid;
+
+                        return (
+                          <>
+                            <div className="px-5 pt-6 pb-2">
+                              <h4 className="text-[10px] font-bold uppercase tracking-wider text-input-placeholder">Consultation Details</h4>
+                            </div>
+                            <div className="px-5 py-4 flex items-center gap-3">
+                              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ringClass.replace('text-', 'bg-')} ring-2 ring-white/10`} />
+                              <h3 className="text-[14px] font-semibold text-input-text">{label.replace(' Brief', '').replace(' Status', '')}</h3>
+                            </div>
+
+                            <InspectorGroup 
+                              label="Practice Area" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakePracticeArea' ? null : 'intakePracticeArea') : undefined}
+                              isOpen={activeConversationEditor === 'intakePracticeArea'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeConversationState.practiceAreaName || intakeConversationState.practiceArea || 'Not set'}
+                                summaryMuted={!intakeConversationState.practiceArea && !intakeConversationState.practiceAreaName}
+                                isOpen={activeConversationEditor === 'intakePracticeArea'}
+                              >
+                                <Combobox
+                                  value={intakeConversationState.practiceArea ?? ''}
+                                  onChange={(v) => {
+                                    const option = intakeServiceOptions.find(o => o.value === v);
+                                    void handleIntakeFieldChange('practiceArea', v, true);
+                                    if (option) {
+                                      void handleIntakeFieldChange('practiceAreaName', option.label, false);
+                                    }
+                                  }}
+                                  options={intakeServiceOptions}
+                                  placeholder="Select Practice Area"
+                                  searchable
+                                  autoFocus
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+                            <InspectorGroup 
+                              label="City" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeCity' ? null : 'intakeCity') : undefined}
+                              isOpen={activeConversationEditor === 'intakeCity'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeConversationState.city || 'Not set'}
+                                summaryMuted={!intakeConversationState.city}
+                                isOpen={activeConversationEditor === 'intakeCity'}
+                              >
+                                <Input
+                                  value={localIntakeDraft ?? intakeConversationState.city ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="City"
+                                  autoFocus
+                                  className="w-full"
+                                  onBlur={() => {
+                                    if (localIntakeDraft !== null) {
+                                      void handleIntakeFieldChange('city', localIntakeDraft, false);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      void handleIntakeFieldChange('city', localIntakeDraft ?? intakeConversationState.city ?? '', true);
+                                    }
+                                    if (e.key === 'Escape') setActiveConversationEditor(null);
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+
+                            <InspectorGroup 
+                              label="State" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeState' ? null : 'intakeState') : undefined}
+                              isOpen={activeConversationEditor === 'intakeState'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeConversationState.state || 'Not set'}
+                                summaryMuted={!intakeConversationState.state}
+                                isOpen={activeConversationEditor === 'intakeState'}
+                              >
+                                <Combobox
+                                  value={intakeConversationState.state ?? ''}
+                                  onChange={(v) => void handleIntakeFieldChange('state', v)}
+                                  options={STATE_OPTIONS}
+                                  placeholder="Select State"
+                                  searchable
+                                  autoFocus
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+
+                            <InspectorGroup 
+                              label="Opposing Party/Counsel" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeOpposingParty' ? null : 'intakeOpposingParty') : undefined}
+                              isOpen={activeConversationEditor === 'intakeOpposingParty'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeConversationState.opposingParty || 'Not set'}
+                                summaryMuted={!intakeConversationState.opposingParty}
+                                isOpen={activeConversationEditor === 'intakeOpposingParty'}
+                              >
+                                <Input
+                                  value={localIntakeDraft ?? intakeConversationState.opposingParty ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="Opposing party"
+                                  autoFocus
+                                  className="w-full"
+                                  onBlur={() => {
+                                    if (localIntakeDraft !== null) {
+                                      void handleIntakeFieldChange('opposingParty', localIntakeDraft, false);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      void handleIntakeFieldChange('opposingParty', localIntakeDraft ?? intakeConversationState.opposingParty ?? '', true);
+                                    }
+                                    if (e.key === 'Escape') setActiveConversationEditor(null);
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+
+                            <InspectorGroup 
+                              label="Case Summary" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeDescription' ? null : 'intakeDescription') : undefined}
+                              isOpen={activeConversationEditor === 'intakeDescription'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeConversationState.description || 'Not set'}
+                                summaryMuted={!intakeConversationState.description}
+                                isOpen={activeConversationEditor === 'intakeDescription'}
+                              >
+                                <Textarea
+                                  value={localIntakeDraft ?? intakeConversationState.description ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="Summary of the situation"
+                                  autoFocus
+                                  className="w-full"
+                                  rows={4}
+                                  onBlur={() => {
+                                    if (localIntakeDraft !== null) {
+                                      void handleIntakeFieldChange('description', localIntakeDraft, false);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setActiveConversationEditor(null);
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
                 </div>
               </>
             ) : (

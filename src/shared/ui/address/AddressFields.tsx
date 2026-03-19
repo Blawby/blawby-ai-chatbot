@@ -63,7 +63,7 @@ export const DEFAULT_COUNTRY_OPTIONS: ComboboxOption[] = [
   { value: 'MX', label: 'MEX' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
-const STATE_OPTIONS: ComboboxOption[] = [
+export const STATE_OPTIONS: ComboboxOption[] = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },
   { value: 'AZ', label: 'Arizona' },

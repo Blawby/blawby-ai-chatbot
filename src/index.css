@@ -148,7 +148,7 @@
 
   /* Cards — most prominent surface, heaviest rim */
   .glass-card {
-    @apply rounded-3xl backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300;
+    @apply rounded-3xl bg-white/5 backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300;
 
     border: none;
     box-shadow: var(--glass-rim-strong), var(--shadow-glass);
@@ -159,7 +159,7 @@
   }
 
   .glass-card-hover:hover {
-    @apply -translate-y-0.5;
+    @apply bg-white/10 -translate-y-0.5;
 
     box-shadow: var(--glass-rim-strong), 0 24px 48px rgb(15 23 42 / 18%), 0 0 1px rgb(15 23 42 / 12%);
   }
@@ -169,12 +169,12 @@
     @apply rounded-2xl backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300;
 
     border: none;
-    background: transparent;
+    background: rgb(var(--surface-overlay) / 0.6);
     box-shadow: var(--glass-rim-medium);
   }
 
   .dark .glass-panel {
-    background: transparent;
+    background: rgb(255 255 255 / 0.08);
     box-shadow: var(--glass-rim-medium);
   }
 

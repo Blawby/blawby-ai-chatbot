@@ -22,6 +22,11 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import NavRail, { type NavRailItem } from '@/shared/ui/nav/NavRail';
 import { HomeIcon, ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
+import { Button } from '@/shared/ui/Button';
+import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
+import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -90,6 +95,7 @@ export function WidgetApp({
 }) {
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [isRecording, setIsRecording] = useState(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const autoConversationAttemptedRef = useRef(false);
@@ -301,7 +307,7 @@ export function WidgetApp({
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
-    loadMoreMessages, isSocketReady,
+    loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
@@ -494,7 +500,7 @@ export function WidgetApp({
       type="button"
       aria-label="Close chat"
       onClick={requestWidgetClose}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[rgb(var(--accent-foreground))] opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/80 transition-opacity"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-input-placeholder hover:text-input-text focus:outline-none focus:ring-2 focus:ring-input-placeholder/50 transition-colors"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
         <line x1="18" y1="6" x2="6" y2="18" />
@@ -502,6 +508,51 @@ export function WidgetApp({
       </svg>
     </button>
   );
+
+  const headerRightSlot = useMemo(() => {
+    let inspectorButtonContent = <Icon icon={InformationCircleIcon} className="h-5 w-5" />;
+
+    if (conversationMode === 'REQUEST_CONSULTATION' && intakeConversationState) {
+      const tier = resolveStrengthTier(intakeConversationState);
+      const { percent, ringClass } = resolveStrengthStyle(tier);
+      const radius = 9;
+      const circumference = 2 * Math.PI * radius;
+      const dashOffset = circumference - (percent / 100) * circumference;
+
+      inspectorButtonContent = (
+        <span className="relative flex h-6 w-6 items-center justify-center">
+          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
+            <circle
+              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
+              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
+              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+            />
+          </svg>
+          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      );
+    }
+
+    const inspectorButton = (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={() => setIsInspectorOpen(true)}
+        aria-label="Open inspector"
+      >
+        {inspectorButtonContent}
+      </Button>
+    );
+
+    return (
+      <div className="flex items-center gap-1">
+        {inspectorButton}
+        {isEmbedded ? closeButton : null}
+      </div>
+    );
+  }, [conversationMode, intakeConversationState, isEmbedded, closeButton]);
 
   const navItems = useMemo<NavRailItem[]>(() => [
     {
@@ -595,8 +646,9 @@ export function WidgetApp({
              )}
            </div>
         ) : (
-          <ChatContainer
-            messages={messages}
+          <>
+            <ChatContainer
+              messages={messages}
             onSendMessage={sendMessage}
             conversationMode={conversationMode}
             onSelectMode={handleModeSelection}
@@ -609,7 +661,7 @@ export function WidgetApp({
                 practiceName={practiceConfig.name}
                 activeLabel={t('workspace.header.activeNow')}
                 onBack={hasRealConversations ? () => setView('list') : undefined}
-                rightSlot={isEmbedded ? closeButton : undefined}
+                rightSlot={headerRightSlot}
               />}
             heightClassName="h-full"
             useFrame={false}
@@ -621,7 +673,7 @@ export function WidgetApp({
               description: practiceDetails?.description ?? practiceConfig.description ?? '',
               practiceId
             }}
-            onOpenSidebar={undefined}
+            onOpenSidebar={() => setIsInspectorOpen(true)}
             practiceId={practiceId}
             conversationId={activeConversationId ?? null}
             previewFiles={previewFiles}
@@ -655,6 +707,32 @@ export function WidgetApp({
             onLoadMoreMessages={loadMoreMessages}
             showAuthPrompt={shouldShowAuthPrompt}
           />
+          {isInspectorOpen && activeConversationId && (
+            <div className="absolute inset-0 z-[2000] lg:hidden">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+                onClick={() => setIsInspectorOpen(false)}
+                aria-label="Close inspector"
+              />
+              <aside className="absolute right-0 top-0 h-dvh w-full max-w-[85vw] sm:max-w-2xl overflow-y-auto border-l border-line-glass/15 bg-surface-base shadow-2xl">
+                <InspectorPanel
+                  entityType="conversation"
+                  entityId={activeConversationId}
+                  practiceId={practiceId}
+                  isClientView={true}
+                  practiceName={practiceConfig.name ?? undefined}
+                  practiceLogo={practiceConfig.profileImage || undefined}
+                  onClose={() => setIsInspectorOpen(false)}
+                  intakeConversationState={intakeConversationState}
+                  intakeStatus={intakeStatus}
+                  onIntakeFieldsChange={applyIntakeFields}
+                  practiceDetails={practiceDetails}
+                />
+              </aside>
+            </div>
+          )}
+          </>
         )}
         
         <div className="mt-auto">
