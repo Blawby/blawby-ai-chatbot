@@ -14,7 +14,8 @@ const DEFAULT_AI_MODEL = 'gpt-4o-mini';
 const DEFAULT_GATEWAY_WORKERS_MODEL = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
-const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the necessary details for the firm.";
+const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the details for the firm.";
+const INTRO_ONBOARDING_FALLBACK = "I'm here to help you set up your practice profile. What would you like to update next?";
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
@@ -417,7 +418,7 @@ Your goal through the conversation is to naturally learn:
 
 Do NOT ask for all of this at once. Follow the natural thread of the conversation. Once you know what's happening, ask for one missing piece at a time.
 
-After every user message, call update_intake_fields with everything you've learned so far, your caseStrength assessment, and missingSummary.
+After every user message, call the update_intake_fields function with a SINGLE JSON object using camelCase keys (e.g., practiceArea, opposingParty) containing everything you've learned so far, including your caseStrength assessment and missingSummary.
 
 caseStrength rules:
 - needs_more_info: practice area unknown OR description is fewer than 10 words
@@ -428,7 +429,7 @@ When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing.`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing using camelCase key missingSummary.`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -1075,20 +1076,91 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       };
     };
 
+    const normalizeKeys = (obj: unknown): unknown => {
+      if (typeof obj !== 'object' || obj === null) return obj;
+      if (Array.isArray(obj)) return obj.map((item) => normalizeKeys(item));
+      const record = obj as Record<string, unknown>;
+      const next: Record<string, unknown> = {};
+      const mapping: Record<string, string> = {
+        'practice_area': 'practiceArea',
+        'opposing_party': 'opposingParty',
+        'desired_outcome': 'desiredOutcome',
+        'case_strength': 'caseStrength',
+        'missing_summary': 'missingSummary',
+        'postal_code': 'postalCode',
+        'address_line1': 'addressLine1',
+        'address_line_1': 'addressLine1',
+        'address_line2': 'addressLine2',
+        'address_line_2': 'addressLine2',
+        'court_date': 'courtDate',
+        'household_size': 'householdSize',
+        'has_documents': 'hasDocuments',
+        'eligibility_signals': 'eligibilitySignals',
+        'contact_phone': 'contactPhone',
+        'business_email': 'businessEmail',
+        'accent_color': 'accentColor',
+        'completion_score': 'completionScore',
+        'missing_fields': 'missingFields',
+        'quick_replies': 'quickReplies',
+        'trigger_edit_modal': 'triggerEditModal'
+      };
+      for (const key of Object.keys(record)) {
+        const mapped = mapping[key] || key;
+        next[mapped] = normalizeKeys(record[key]);
+      }
+      return next;
+    };
+
     const parseToolCallFromReply = (
       rawReply: string
     ): { name?: string; parameters?: Record<string, unknown>; contentBuffer?: string } | null => {
-      const regex = /(update_intake_fields|update_practice_fields)\s*\(\s*(\{[\s\S]*?\})\s*\)/;
+      // Find the first occurrence of the function call, matching everything until the closing parenthesis
+      const regex = /(update_intake_fields|update_practice_fields)\s*\([\s\S]*?\)/;
       const match = rawReply.match(regex);
       if (match) {
+        const name = match[1];
+        let parameters: Record<string, unknown> = {};
+        let parseSuccess = false;
+
         try {
-          const name = match[1];
-          const parameters = JSON.parse(match[2]) as Record<string, unknown>;
-          const cleanText = rawReply.replace(match[0], '').trim();
-          return { name, parameters, contentBuffer: cleanText };
+          // Attempt to extract the first JSON object using balanced braces
+          let jsonPayload = '';
+          const openingBraceIndex = match[0].indexOf('{');
+          if (openingBraceIndex !== -1) {
+            let braceCount = 0;
+            let i = openingBraceIndex;
+            for (; i < match[0].length; i++) {
+              if (match[0][i] === '{') braceCount++;
+              else if (match[0][i] === '}') braceCount--;
+              if (braceCount === 0) break;
+            }
+            if (braceCount === 0) {
+              jsonPayload = match[0].substring(openingBraceIndex, i + 1);
+            }
+          }
+
+          if (jsonPayload) {
+            parameters = normalizeKeys(JSON.parse(jsonPayload)) as Record<string, unknown>;
+            parseSuccess = true;
+            
+            // If the AI somehow passed multiple arguments like ({...}, "developing", "some text")
+            if (name === 'update_intake_fields' && !parameters.caseStrength) {
+              const argsRegex = /(update_intake_fields)\s*\(\s*\{[\s\S]*?\}\s*,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)/;
+              const argsMatch = rawReply.match(argsRegex);
+              if (argsMatch) {
+                parameters.caseStrength = argsMatch[2];
+                if (argsMatch[3]) {
+                  parameters.missingSummary = argsMatch[3];
+                }
+              }
+            }
+          }
         } catch {
-          // ignore and fall through
+          // continue, we still want to strip the function call from the reply
         }
+
+        const cleanText = rawReply.replace(match[0], '').trim();
+        return { name, parameters: parseSuccess ? parameters : undefined, contentBuffer: cleanText };
       }
 
       const trimmed = rawReply.trim();
@@ -1096,15 +1168,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       try {
         const parsed = JSON.parse(trimmed) as Record<string, unknown>;
         const name = typeof parsed.name === 'string' ? parsed.name : undefined;
-        const parameters = (
+        let p = (
           parsed.parameters &&
           typeof parsed.parameters === 'object' &&
           !Array.isArray(parsed.parameters)
         )
           ? parsed.parameters as Record<string, unknown>
           : undefined;
-        if (!name && !parameters) return null;
-        return { name, parameters, contentBuffer: '' };
+        if (!name && !p) return null;
+        
+        return { name, parameters: p ? normalizeKeys(p) as Record<string, unknown> : undefined, contentBuffer: '' };
       } catch {
         return null;
       }
@@ -1240,6 +1313,30 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (!emittedAnyToken && accumulatedReply.trim()) {
         write({ token: accumulatedReply });
         emittedAnyToken = true;
+      }
+
+      // Final cleanup of accumulatedReply to strip any leaked tool calls
+      // that might have arrived in the text stream but weren't caught by the delta-parsing logic.
+      if (accumulatedReply.includes('update_intake_fields') || accumulatedReply.includes('update_practice_fields')) {
+        const finalParsing = parseToolCallFromReply(accumulatedReply);
+        if (finalParsing) {
+          if (finalParsing.parameters) {
+            if (finalParsing.name === 'update_intake_fields') {
+              intakeFields = { ...(intakeFields ?? {}), ...finalParsing.parameters };
+            } else if (finalParsing.name === 'update_practice_fields') {
+              onboardingFields = { ...(onboardingFields ?? {}), ...finalParsing.parameters };
+            }
+          }
+          if (finalParsing.contentBuffer && finalParsing.contentBuffer.trim().length > 0) {
+            accumulatedReply = finalParsing.contentBuffer;
+          } else {
+            accumulatedReply = isIntakeMode 
+              ? INTRO_INTAKE_DISCLAIMER_FALLBACK 
+              : isOnboardingMode 
+                ? INTRO_ONBOARDING_FALLBACK 
+                : EMPTY_REPLY_FALLBACK;
+          }
+        }
       }
 
       if (accumulatedReply !== EMPTY_REPLY_FALLBACK) {
