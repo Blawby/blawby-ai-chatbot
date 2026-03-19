@@ -405,8 +405,14 @@ export function useIntakeFlow({
   }, [conversationMetadataRef, sendMessage, updateConversationMetadata]);
 
   const handleSubmitNow = useCallback(async () => {
-    if (!slimContactDraft) return;
     if (!conversationId || !practiceId) return;
+    if (!slimContactDraft) {
+      if (import.meta.env.DEV) {
+        console.warn('[handleSubmitNow] Missing slimContactDraft, cannot submit intake.');
+      }
+      onError?.('We need your contact information before submitting. Please fill out the contact form.');
+      return;
+    }
     if (submitInFlightRef.current) {
       if (import.meta.env.DEV) {
         console.info('[handleSubmitNow] Skipping duplicate submit while request is in-flight', {
