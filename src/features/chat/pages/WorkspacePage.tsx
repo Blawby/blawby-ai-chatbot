@@ -83,7 +83,7 @@ import type { LayoutMode } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { MatterStatus } from '@/shared/types/matterStatus';
-import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
+import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 
 type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
@@ -140,7 +140,7 @@ interface WorkspacePageProps {
   onCloseConversationListOverride?: () => void;
   intakeConversationState?: IntakeConversationState | null;
   intakeStatus?: DerivedIntakeStatus | null;
-  onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>) => Promise<void> | void;
+  onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: IntakeFieldChangeOptions) => Promise<void> | void;
   practiceDetails?: PracticeDetails | null;
 }
 
