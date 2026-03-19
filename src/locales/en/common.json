@@ -265,6 +265,7 @@
     "buildStrongerBrief": "Build stronger brief",
     "askQuestion": "Ask a question",
     "requestConsultation": "Request Consultation",
+    "provideContactDetails": "Please provide your contact details to begin.",
     "retry": "Retry",
     "retrying": "Retrying...",
     "replyingTo": "Replying to <name>{{name}}</name>",

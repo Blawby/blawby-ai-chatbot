@@ -336,7 +336,7 @@ const INTAKE_TOOL = {
         },
         caseStrength: { type: 'string', enum: ['needs_more_info', 'developing', 'strong'] },
         missingSummary: {
-          type: 'string',
+          type: ['string', 'null'],
           description: 'Plain English — what would most improve case strength. Null if strong.'
         }
       },
@@ -409,12 +409,14 @@ Conversation style:
 - Only identify practice areas from the list above
 
 Your goal through the conversation is to naturally learn:
-1. What is happening (in their words) — ask this first, openly
-2. Which practice area applies
-3. Their city and state — weave this in naturally ("Just so we can match you with someone local — what city and state are you in?")
-4. Whether there's an opposing party — ask naturally if relevant ("Is there another party involved, like a person, company, or employer?")
+1. What is happening (in their words) — ask this first, openly. CHECK INTAKE_CONTEXT first.
+2. Which practice area applies — CHECK INTAKE_CONTEXT first.
+3. Their city and state — CHECK INTAKE_CONTEXT first. If present, do NOT ask.
+4. Whether there's an opposing party — CHECK INTAKE_CONTEXT first.
 5. Any time pressure or deadlines
 6. What outcome they're hoping for
+
+CRITICAL: The INTAKE_CONTEXT provided in system messages is your GROUND TRUTH. If a field (city, state, practiceArea, opposingParty, description) has a value in the context, treat it as known. NEVER ask for a known field. Instead, focus on the remaining missing pieces.
 
 Do NOT ask for all of this at once. Follow the natural thread of the conversation. Once you know what's happening, ask for one missing piece at a time.
 
@@ -422,14 +424,14 @@ After every user message, call the update_intake_fields function with a SINGLE J
 
 caseStrength rules:
 - needs_more_info: practice area unknown OR description is fewer than 10 words
-- developing: practice area known + description has substance, but city/state OR opposing party are still unknown
-- strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known
+- developing: practice area known + description has substance, but city/state OR opposing party are still unknown (check context for these!)
+- strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known. WHEN STRONG, DO NOT SAY YOU NEED MORE INFO.
 
 When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking intake questions. Your only task is to respectfully show a brief summary of the case you've collected and ask if they are ready to submit it to the firm.
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing using camelCase key missingSummary.`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -891,14 +893,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         'If you don\'t have practice details: say you don\'t have access and recommend consultation.',
       ].join('\n');
 
+  const fullSystemPrompt = [
+    systemPrompt,
+    `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
+    (isIntakeMode && storedIntakeState) ? `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` : null,
+    body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null
+  ].filter(Boolean).join('\n\n');
+
   const requestPayload: Record<string, unknown> = {
     model,
     temperature: 0.2,
     stream: true,
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'system', content: `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}` },
-      ...(body.additionalContext ? [{ role: 'system', content: `SEARCH_CONTEXT: ${body.additionalContext}` }] : []),
+      { role: 'system', content: fullSystemPrompt },
       ...body.messages.map((message) => ({ role: message.role, content: message.content }))
     ]
   };
@@ -1114,28 +1121,44 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const parseToolCallFromReply = (
       rawReply: string
     ): { name?: string; parameters?: Record<string, unknown>; contentBuffer?: string } | null => {
-      // Find the first occurrence of the function call, matching everything until the closing parenthesis
-      const regex = /(update_intake_fields|update_practice_fields)\s*\([\s\S]*?\)/;
-      const match = rawReply.match(regex);
-      if (match) {
-        const name = match[1];
+      const startMatch = rawReply.match(/(update_intake_fields|update_practice_fields)\s*\(/);
+      if (startMatch) {
+        const startIndex = startMatch.index!;
+        const name = startMatch[1];
+        
+        const parenIndex = rawReply.indexOf('(', startIndex + name.length);
+        let endIndex = -1;
+        if (parenIndex !== -1) {
+          let parenCount = 1;
+          for (let i = parenIndex + 1; i < rawReply.length; i++) {
+            if (rawReply[i] === '(') parenCount++;
+            else if (rawReply[i] === ')') {
+              parenCount--;
+              if (parenCount === 0) {
+                endIndex = i;
+                break;
+              }
+            }
+          }
+        }
+
+        const matchedText = endIndex !== -1 ? rawReply.substring(startIndex, endIndex + 1) : rawReply.substring(startIndex);
         let parameters: Record<string, unknown> = {};
         let parseSuccess = false;
 
         try {
-          // Attempt to extract the first JSON object using balanced braces
           let jsonPayload = '';
-          const openingBraceIndex = match[0].indexOf('{');
+          const openingBraceIndex = matchedText.indexOf('{');
           if (openingBraceIndex !== -1) {
             let braceCount = 0;
-            let i = openingBraceIndex;
-            for (; i < match[0].length; i++) {
-              if (match[0][i] === '{') braceCount++;
-              else if (match[0][i] === '}') braceCount--;
+            let j = openingBraceIndex;
+            for (; j < matchedText.length; j++) {
+              if (matchedText[j] === '{') braceCount++;
+              else if (matchedText[j] === '}') braceCount--;
               if (braceCount === 0) break;
             }
             if (braceCount === 0) {
-              jsonPayload = match[0].substring(openingBraceIndex, i + 1);
+              jsonPayload = matchedText.substring(openingBraceIndex, j + 1);
             }
           }
 
@@ -1143,23 +1166,22 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             parameters = normalizeKeys(JSON.parse(jsonPayload)) as Record<string, unknown>;
             parseSuccess = true;
             
-            // If the AI somehow passed multiple arguments like ({...}, "developing", "some text")
             if (name === 'update_intake_fields' && !parameters.caseStrength) {
-              const argsRegex = /(update_intake_fields)\s*\(\s*\{[\s\S]*?\}\s*,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)/;
-              const argsMatch = rawReply.match(argsRegex);
-              if (argsMatch) {
-                parameters.caseStrength = argsMatch[2];
-                if (argsMatch[3]) {
-                  parameters.missingSummary = argsMatch[3];
+              const rest = matchedText.substring(matchedText.indexOf(jsonPayload) + jsonPayload.length);
+              const positionalMatch = rest.match(/,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?/);
+              if (positionalMatch) {
+                parameters.caseStrength = positionalMatch[1];
+                if (positionalMatch[2]) {
+                  parameters.missingSummary = positionalMatch[2];
                 }
               }
             }
           }
         } catch {
-          // continue, we still want to strip the function call from the reply
+          // ignore
         }
 
-        const cleanText = rawReply.replace(match[0], '').trim();
+        const cleanText = rawReply.replace(matchedText, '').trim();
         return { name, parameters: parseSuccess ? parameters : undefined, contentBuffer: cleanText };
       }
 

@@ -80,9 +80,10 @@ import { mockApps } from '@/features/settings/pages/appsData';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
-import type { UserDetailRecord, UserDetailStatus } from '@/shared/lib/apiClient';
+import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { MatterStatus } from '@/shared/types/matterStatus';
+import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 
 type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
@@ -137,6 +138,10 @@ interface WorkspacePageProps {
   }> | null;
   onSelectConversationOverride?: (conversationId: string) => void;
   onCloseConversationListOverride?: () => void;
+  intakeConversationState?: IntakeConversationState | null;
+  intakeStatus?: DerivedIntakeStatus | null;
+  onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: IntakeFieldChangeOptions) => Promise<void> | void;
+  practiceDetails?: PracticeDetails | null;
 }
 
 const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
@@ -198,6 +203,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   mockConversationPreviews = null,
   onSelectConversationOverride,
   onCloseConversationListOverride,
+  intakeConversationState,
+  intakeStatus,
+  onIntakeFieldsChange,
+  practiceDetails,
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
@@ -1897,8 +1906,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const unifiedMainShell = (
     <div
       className={cn(
-        'flex h-full min-h-0 w-full flex-1 flex-col',
-        layoutMode === 'widget' ? 'bg-transparent' : undefined
+        'flex h-full min-h-0 w-full flex-1 flex-col'
       )}
     >
       {wrappedMainContent}
@@ -1919,6 +1927,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
       isClientView={!isPracticeWorkspace}
       practiceName={practiceName ?? undefined}
+      practiceLogo={practiceLogo ?? undefined}
+      intakeConversationState={intakeConversationState}
+      intakeStatus={intakeStatus}
+      onIntakeFieldsChange={onIntakeFieldsChange}
+      practiceDetails={practiceDetails}
       onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
         if (!selectedConversation?.id) return;
         try {
