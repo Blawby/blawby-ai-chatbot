@@ -751,12 +751,6 @@ export function MainApp({
   useConversationSystemMessages({
     conversationId: activeConversationId,
     practiceId: effectivePracticeId,
-    practiceConfig,
-    messagesReady,
-    messages,
-    conversationMode,
-    isConsultFlowActive,
-    shouldRequireModeSelection: isPublicWorkspace,
     ingestServerMessages,
   });
 

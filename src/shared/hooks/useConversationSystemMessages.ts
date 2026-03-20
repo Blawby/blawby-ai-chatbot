@@ -1,33 +1,18 @@
-import { useCallback, useEffect, useRef } from 'preact/hooks';
-import type { ChatMessageUI } from '../../../worker/types';
-import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
-import type { ConversationMessage, ConversationMode } from '@/shared/types/conversation';
+import { useCallback, useRef } from 'preact/hooks';
+import type { ConversationMessage } from '@/shared/types/conversation';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 
 interface ConversationSystemMessagesOptions {
   conversationId?: string | null;
   practiceId?: string;
-  practiceConfig: UIPracticeConfig;
-  messagesReady: boolean;
-  messages: ChatMessageUI[];
-  conversationMode?: ConversationMode | null;
-  isConsultFlowActive: boolean;
-  shouldRequireModeSelection: boolean;
   ingestServerMessages: (messages: ConversationMessage[]) => void;
 }
 
 export const useConversationSystemMessages = ({
-
   conversationId,
   practiceId,
-  practiceConfig,
-  messagesReady,
-  messages,
-  conversationMode,
-  isConsultFlowActive,
-  shouldRequireModeSelection,
   ingestServerMessages
-}: ConversationSystemMessagesOptions): void => {
+}: ConversationSystemMessagesOptions) => {
   const inFlightRef = useRef(new Set<string>());
   const completedRef = useRef(new Set<string>());
 
@@ -51,7 +36,7 @@ export const useConversationSystemMessages = ({
         practiceId,
         {
           clientId,
-          content: shouldAllowEmpty ? '' : trimmedContent,
+          content: trimmedContent,
           metadata
         }
       );
@@ -69,5 +54,6 @@ export const useConversationSystemMessages = ({
   }, [conversationId, ingestServerMessages, practiceId]);
 
   // All intro message logic removed as per user request
+  return { persistSystemMessage };
 };
 
