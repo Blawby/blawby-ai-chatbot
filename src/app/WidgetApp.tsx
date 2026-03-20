@@ -3,11 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
-import { InformationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { 
+  InformationCircleIcon, 
+  XMarkIcon, 
+  HomeIcon, 
+  ChatBubbleLeftRightIcon, 
+  ChatBubbleOvalLeftEllipsisIcon 
+} from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
-import { WorkspaceHomeView } from '@/features/chat/views/WorkspaceHomeView';
+import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -20,9 +26,8 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { NavRail, NavRailItem } from '@/shared/ui/nav/NavRail';
-import type { ConversationMode } from '@/shared/types/conversation';
+import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
-import type { ConversationMetadata } from '@/shared/lib/conversationApi';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 
 const MAX_AUTO_CONVERSATION_RETRIES = 3;
@@ -32,12 +37,12 @@ interface WidgetAppProps {
   practiceConfig: UIPracticeConfig;
   routeConversationId?: string;
   bootstrapSession?: {
-    user: {
+    user?: {
       id: string;
       isAnonymous?: boolean;
       is_anonymous?: boolean;
-    };
-  };
+    } | null;
+  } | null;
 }
 
 export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
@@ -114,7 +119,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [practiceId, setConversationMode]);
 
-  const { practiceDetails } = usePracticeDetails({ practiceId });
+  const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
 
   // Fetch conversations to show "Recent Message" on home page and for the list view
   const { conversations, isLoading: isConversationsLoading } = useConversations({
@@ -439,14 +444,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const navItems = useMemo<NavRailItem[]>(() => [
     {
       id: 'home',
-      label: t('nav.home'),
-      icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
-      onClick: () => setView('home')
+      label: t('nav.home') ?? 'Home',
+      icon: HomeIcon,
+      href: '#home',
     },
     {
       id: 'list',
-      label: t('nav.messages'),
-      icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
+      label: t('nav.messages') ?? 'Messages',
+      icon: ChatBubbleLeftRightIcon,
+      href: '#list',
       onClick: async () => {
         if (isCreatingConversation) return;
         try {
@@ -462,8 +468,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     },
     {
       id: 'chat',
-      label: t('nav.chat'),
-      icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
+      label: t('nav.chat') ?? 'Chat',
+      icon: ChatBubbleOvalLeftEllipsisIcon,
+      href: '#chat',
       onClick: async () => {
         if (isCreatingConversation) return;
         try {

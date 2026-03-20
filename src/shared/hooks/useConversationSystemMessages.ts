@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'preact/hooks';
-import type { ChatMessageUI } from '../../../../worker/types';
+import type { ChatMessageUI } from '../../../worker/types';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { ConversationMessage, ConversationMode } from '@/shared/types/conversation';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
