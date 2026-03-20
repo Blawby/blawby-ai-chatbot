@@ -796,21 +796,10 @@ export const InspectorPanel = ({
                                 isOpen={activeConversationEditor === 'intakeName'}
                               >
                                 <Input
-                                  value={localIntakeDraft ?? intakeSlimContactDraft?.name ?? ''}
-                                  onChange={setLocalIntakeDraft}
+                                  value={intakeSlimContactDraft?.name ?? ''}
                                   placeholder="Full name"
-                                  autoFocus
+                                  readOnly
                                   className="w-full"
-                                  onBlur={() => {
-                                    if (skipBlurRef.current) {
-                                      skipBlurRef.current = false;
-                                      return;
-                                    }
-                                    if (localIntakeDraft !== null) {
-                                      // Note: Contact info updates need different handling - this is read-only for now
-                                      console.warn('Contact info updates not implemented in Inspector');
-                                    }
-                                  }}
                                 />
                               </InspectorEditableRow>
                             </InspectorGroup>
@@ -827,22 +816,11 @@ export const InspectorPanel = ({
                                 isOpen={activeConversationEditor === 'intakeEmail'}
                               >
                                 <Input
-                                  value={localIntakeDraft ?? intakeSlimContactDraft?.email ?? ''}
-                                  onChange={setLocalIntakeDraft}
+                                  value={intakeSlimContactDraft?.email ?? ''}
                                   placeholder="Email address"
-                                  autoFocus
+                                  readOnly
                                   className="w-full"
                                   type="email"
-                                  onBlur={() => {
-                                    if (skipBlurRef.current) {
-                                      skipBlurRef.current = false;
-                                      return;
-                                    }
-                                    if (localIntakeDraft !== null) {
-                                      // Note: Contact info updates need different handling - this is read-only for now
-                                      console.warn('Contact info updates not implemented in Inspector');
-                                    }
-                                  }}
                                 />
                               </InspectorEditableRow>
                             </InspectorGroup>
@@ -859,22 +837,11 @@ export const InspectorPanel = ({
                                 isOpen={activeConversationEditor === 'intakePhone'}
                               >
                                 <Input
-                                  value={localIntakeDraft ?? intakeSlimContactDraft?.phone ?? ''}
-                                  onChange={setLocalIntakeDraft}
+                                  value={intakeSlimContactDraft?.phone ?? ''}
                                   placeholder="Phone number"
-                                  autoFocus
+                                  readOnly
                                   className="w-full"
                                   type="tel"
-                                  onBlur={() => {
-                                    if (skipBlurRef.current) {
-                                      skipBlurRef.current = false;
-                                      return;
-                                    }
-                                    if (localIntakeDraft !== null) {
-                                      // Note: Contact info updates need different handling - this is read-only for now
-                                      console.warn('Contact info updates not implemented in Inspector');
-                                    }
-                                  }}
                                 />
                               </InspectorEditableRow>
                             </InspectorGroup>

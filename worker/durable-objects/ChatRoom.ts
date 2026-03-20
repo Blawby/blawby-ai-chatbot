@@ -1569,10 +1569,7 @@ export class ChatRoom {
       return null;
     }
 
-    let model = this.env.AI_MODEL || DEFAULT_TITLE_MODEL;
-    if (!this.env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
-      model = 'openai/gpt-4o-mini';
-    }
+    let model = DEFAULT_TITLE_MODEL;
 
     const response = await aiClient.requestChatCompletions({
       model,

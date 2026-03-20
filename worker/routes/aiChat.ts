@@ -934,16 +934,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       emitTokens = true
     ): Promise<{
       reply: string;
-      toolCallName: string;
-      toolCallArgBuffer: string;
+      toolCalls: Array<{name: string, arguments: string}>;
       streamStalled: boolean;
       emittedToken: boolean;
     }> => {
       if (!response.body) {
         return {
           reply: '',
-          toolCallName: '',
-          toolCallArgBuffer: '',
+          toolCalls: [],
           streamStalled: false,
           emittedToken: false
         };
@@ -954,8 +952,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let buffer = '';
       let streamStalled = false;
       let localReply = '';
-      let localToolCallName = '';
-      let localToolCallArgBuffer = '';
+      let localToolCalls: Array<{name: string, arguments: string}> = [];
       let localEmittedToken = false;
 
       while (true) {
@@ -1030,11 +1027,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           // Handle all tool calls, not just the first one
           if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
             for (const tc of delta.tool_calls) {
-              if (tc.function?.name && !localToolCallName) {
-                localToolCallName = tc.function.name;
-              }
-              if (typeof tc.function?.arguments === 'string') {
-                localToolCallArgBuffer += tc.function.arguments;
+              if (tc.function?.name && typeof tc.function?.arguments === 'string') {
+                // Find existing tool call with this name or create new one
+                let existingCall = localToolCalls.find(call => call.name === tc.function.name);
+                if (existingCall) {
+                  existingCall.arguments += tc.function.arguments;
+                } else {
+                  localToolCalls.push({
+                    name: tc.function.name,
+                    arguments: tc.function.arguments
+                  });
+                }
               }
             }
           }
@@ -1071,11 +1074,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
             if (Array.isArray(toolCalls)) {
               for (const tc of toolCalls) {
-                if (typeof tc.function?.name === 'string') {
-                  localToolCallName = tc.function.name;
-                }
-                if (typeof tc.function?.arguments === 'string') {
-                  localToolCallArgBuffer += tc.function.arguments;
+                if (tc.function?.name && typeof tc.function?.arguments === 'string') {
+                  // Find existing tool call with this name or create new one
+                  let existingCall = localToolCalls.find(call => call.name === tc.function.name);
+                  if (existingCall) {
+                    existingCall.arguments += tc.function.arguments;
+                  } else {
+                    localToolCalls.push({
+                      name: tc.function.name,
+                      arguments: tc.function.arguments
+                    });
+                  }
                 }
               }
             }
@@ -1087,8 +1096,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       return {
         reply: localReply,
-        toolCallName: localToolCallName,
-        toolCallArgBuffer: localToolCallArgBuffer,
+        toolCalls: localToolCalls,
         streamStalled,
         emittedToken: localEmittedToken
       };
@@ -1249,11 +1257,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           body: errorText,
           model,
         });
-        throw new Error(`AI upstream request failed (${aiResponse.status}) ${errorText}`);
+        throw new Error('AI upstream request failed');
       }
 
       if (!aiResponse.body) {
-        throw new Error(`AI upstream request failed (${aiResponse.status}) missing body`);
+        throw new Error('AI upstream request failed: missing body');
       }
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
@@ -1268,40 +1276,44 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         latencyMs,
         emittedToken: streamResult.emittedToken,
         streamStalled: streamResult.streamStalled,
-        hasToolCallName: !!streamResult.toolCallName,
-        toolCallName: streamResult.toolCallName,
+        hasToolCalls: streamResult.toolCalls.length > 0,
+        toolCallCount: streamResult.toolCalls.length,
         replyLength: streamResult.reply.length
       });
 
       accumulatedReply = streamResult.reply;
-      Logger.info('AI raw reply preview', {
-        conversationId: body.conversationId,
-        replyPreview: accumulatedReply.slice(0, 800),
-      });
+      
+      // Only log AI preview in verbose mode to avoid PII leakage
+      if (process.env.VERBOSE_AI_PREVIEW === 'true') {
+        Logger.info('AI raw reply preview', {
+          conversationId: body.conversationId,
+          replyPreview: accumulatedReply.slice(0, 100),
+        });
+      }
       emittedAnyToken = streamResult.emittedToken;
-      let toolCallName = streamResult.toolCallName;
-      let toolCallArgBuffer = streamResult.toolCallArgBuffer;
 
-      // Parse accumulated tool call if present
-      if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
-        try {
-          const rawParams = JSON.parse(toolCallArgBuffer);
-          intakeFields = normalizeKeys(rawParams) as Record<string, unknown>;
-        } catch (error) {
-          Logger.warn('Failed to parse streamed intake tool arguments', {
-            conversationId: body.conversationId,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      } else if (toolCallName === 'update_practice_fields' && toolCallArgBuffer.length > 0) {
-        try {
-          const rawParams = JSON.parse(toolCallArgBuffer);
-          onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
-        } catch (error) {
-          Logger.warn('Failed to parse streamed onboarding tool arguments', {
-            conversationId: body.conversationId,
-            error: error instanceof Error ? error.message : String(error)
-          });
+      // Parse accumulated tool calls if present
+      for (const toolCall of streamResult.toolCalls) {
+        if (toolCall.name === 'update_intake_fields' && toolCall.arguments.length > 0) {
+          try {
+            const rawParams = JSON.parse(toolCall.arguments);
+            intakeFields = normalizeKeys(rawParams) as Record<string, unknown>;
+          } catch (error) {
+            Logger.warn('Failed to parse streamed intake tool arguments', {
+              conversationId: body.conversationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        } else if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
+          try {
+            const rawParams = JSON.parse(toolCall.arguments);
+            onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
+          } catch (error) {
+            Logger.warn('Failed to parse streamed onboarding tool arguments', {
+              conversationId: body.conversationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
         }
       }
 

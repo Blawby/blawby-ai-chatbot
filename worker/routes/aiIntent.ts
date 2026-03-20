@@ -77,9 +77,7 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
   }
 
   const aiClient = createAiClient(env);
-  const model = env.AI_MODEL || (aiClient.provider === 'cloudflare_gateway'
-    ? 'openai/gpt-4o-mini'
-    : DEFAULT_AI_MODEL);
+  const model = DEFAULT_AI_MODEL;
   const response = await aiClient.requestChatCompletions({
     model,
     temperature: 0,
