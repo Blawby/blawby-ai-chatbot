@@ -8,6 +8,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { WorkspaceHomeView } from '@/features/chat/views/WorkspaceHomeView';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
@@ -54,12 +55,46 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const widgetVisibleRef = useRef(false);
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+
+  const { showError: showToastError } = useToastContext();
+
+  useEffect(() => {
+    showErrorRef.current = (msg: string) => showToastError('Error', msg);
+  }, [showToastError]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   const isAnonymous = bootstrapSession?.user?.isAnonymous ?? true;
   const sessionIsPending = false; // Bootstrap session is immediate
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
+
+  const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string> => {
+    setIsCreatingConversation(true);
+    try {
+      const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
+      const conversationId = await apiCreateConversation(practiceId, {
+        userId: currentUserId ?? undefined,
+        forceNew: options?.forceNew
+      });
+      setConversationId(conversationId);
+      return conversationId;
+    } finally {
+      setIsCreatingConversation(false);
+    }
+  }, [practiceId, currentUserId, setConversationId]);
+
+  const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean) => {
+    const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
+    await updateConversationMetadata(targetId, practiceId, {
+      mode,
+      metadata: {
+        modeSource: source,
+        startIntake: startIntake ? 'true' : 'false'
+      }
+    });
+    setConversationMode(mode);
+  }, [practiceId, setConversationMode]);
 
   const { practiceDetails } = usePracticeDetails({ practiceId });
 
@@ -176,28 +211,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   } = messageHandling;
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
-
-  async function createConversation(options?: { forceNew?: boolean }): Promise<string> {
-    const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
-    const conversationId = await apiCreateConversation(practiceId, {
-      userId: currentUserId ?? undefined,
-      forceNew: options?.forceNew
-    });
-    setConversationId(conversationId);
-    return conversationId;
-  }
-
-  async function applyConversationMode(mode: ConversationMode, targetId: string, source: string, startIntake: boolean) {
-    const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
-    await updateConversationMetadata(targetId, practiceId, {
-      mode,
-      metadata: {
-        modeSource: source,
-        startIntake: startIntake ? 'true' : 'false'
-      }
-    });
-    setConversationMode(mode);
-  }
 
   // Intake Auth (simplistic for widget, just redirecting or showing prompt if needed)
   const intakeUuid = intakeStatus?.intakeUuid ?? null;
@@ -409,6 +422,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       label: t('nav.messages'),
       icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
       onClick: async () => {
+        if (isCreatingConversation) return;
         if (!activeConversationId) {
           await createConversation();
         }
@@ -420,13 +434,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       label: t('nav.chat'),
       icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
       onClick: async () => {
+        if (isCreatingConversation) return;
         if (!activeConversationId) {
           await createConversation();
         }
         setView('chat');
       }
     }
-  ], [activeConversationId, t]);
+  ], [activeConversationId, t, isCreatingConversation, createConversation]);
 
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
