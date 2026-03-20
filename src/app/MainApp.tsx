@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
-import DragDropOverlay from '@/features/media/components/DragDropOverlay';
+import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
@@ -33,7 +33,7 @@ const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/Practi
 const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
-import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
+import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
 import { Icon } from '@/shared/ui/Icon';

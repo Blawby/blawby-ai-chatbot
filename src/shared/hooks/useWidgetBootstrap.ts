@@ -7,7 +7,12 @@ export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
   session: {
     id?: string | null;
-    user?: Record<string, unknown> | null;
+    user?: {
+      id: string;
+      isAnonymous?: boolean;
+      is_anonymous?: boolean;
+      [key: string]: unknown;
+    } | null;
   } | null;
   conversationId: string | null;
   conversations: Array<Record<string, unknown>>;
