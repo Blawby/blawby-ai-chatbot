@@ -84,6 +84,7 @@ type InspectorPanelProps = {
   intakeStatus?: DerivedIntakeStatus | null;
   onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: import('@/shared/types/intake').IntakeFieldChangeOptions) => Promise<void> | void;
   practiceDetails?: PracticeDetails | null;
+  intakeSlimContactDraft?: import('@/shared/types/intake').SlimContactDraft | null;
 };
 
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
@@ -136,6 +137,7 @@ export const InspectorPanel = ({
   intakeStatus,
   onIntakeFieldsChange,
   practiceDetails: propPracticeDetails,
+  intakeSlimContactDraft,
 }: InspectorPanelProps) => {
   const resolveString = (value: unknown): string | null =>
     typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
@@ -152,7 +154,7 @@ export const InspectorPanel = ({
   const [isSavingPriority, setIsSavingPriority] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [isSavingMatter, setIsSavingMatter] = useState(false);
-  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDescription' | null>(null);
+  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDescription' | 'intakeName' | 'intakeEmail' | 'intakePhone' | null>(null);
   const [activeMatterEditor, setActiveMatterEditor] = useState<
     'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | null
   >(null);
@@ -786,6 +788,102 @@ export const InspectorPanel = ({
                               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${bgClass} ring-2 ring-white/10`} />
                               <h3 className="text-[14px] font-semibold text-input-text">{label.replace(' Brief', '').replace(' Status', '')}</h3>
                             </div>
+
+                            {/* Contact Information */}
+                            <InspectorGroup 
+                              label="Name" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeName' ? null : 'intakeName') : undefined}
+                              isOpen={activeConversationEditor === 'intakeName'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeSlimContactDraft?.name || 'Not set'}
+                                summaryMuted={!intakeSlimContactDraft?.name}
+                                isOpen={activeConversationEditor === 'intakeName'}
+                              >
+                                <Input
+                                  value={localIntakeDraft ?? intakeSlimContactDraft?.name ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="Full name"
+                                  autoFocus
+                                  className="w-full"
+                                  onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
+                                    if (localIntakeDraft !== null) {
+                                      // Note: Contact info updates need different handling - this is read-only for now
+                                      console.warn('Contact info updates not implemented in Inspector');
+                                    }
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+
+                            <InspectorGroup 
+                              label="Email" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeEmail' ? null : 'intakeEmail') : undefined}
+                              isOpen={activeConversationEditor === 'intakeEmail'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeSlimContactDraft?.email || 'Not set'}
+                                summaryMuted={!intakeSlimContactDraft?.email}
+                                isOpen={activeConversationEditor === 'intakeEmail'}
+                              >
+                                <Input
+                                  value={localIntakeDraft ?? intakeSlimContactDraft?.email ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="Email address"
+                                  autoFocus
+                                  className="w-full"
+                                  type="email"
+                                  onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
+                                    if (localIntakeDraft !== null) {
+                                      // Note: Contact info updates need different handling - this is read-only for now
+                                      console.warn('Contact info updates not implemented in Inspector');
+                                    }
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+
+                            <InspectorGroup 
+                              label="Phone" 
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakePhone' ? null : 'intakePhone') : undefined}
+                              isOpen={activeConversationEditor === 'intakePhone'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeSlimContactDraft?.phone || 'Not set'}
+                                summaryMuted={!intakeSlimContactDraft?.phone}
+                                isOpen={activeConversationEditor === 'intakePhone'}
+                              >
+                                <Input
+                                  value={localIntakeDraft ?? intakeSlimContactDraft?.phone ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="Phone number"
+                                  autoFocus
+                                  className="w-full"
+                                  type="tel"
+                                  onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
+                                    if (localIntakeDraft !== null) {
+                                      // Note: Contact info updates need different handling - this is read-only for now
+                                      console.warn('Contact info updates not implemented in Inspector');
+                                    }
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
 
                             <InspectorGroup 
                               label="Practice Area" 

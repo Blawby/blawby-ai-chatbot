@@ -10,8 +10,7 @@ import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
 
-const DEFAULT_AI_MODEL = 'gpt-4o-mini';
-const DEFAULT_GATEWAY_WORKERS_MODEL = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const DEFAULT_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
 const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the details for the firm.";
@@ -833,7 +832,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       content: shortCircuitReply,
       metadata: {
         source: 'ai',
-        model: env.AI_MODEL || DEFAULT_AI_MODEL,
+        model: DEFAULT_AI_MODEL,
         ...(shortCircuitOnboardingProfile ? { onboardingProfile: shortCircuitOnboardingProfile } : {}),
         ...(shortCircuitShouldShowIntakeCta ? { intakeReadyCta: true } : {}),
         ...(shouldPromptConsultation
@@ -866,16 +865,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   // ------------------------------------------------------------------
-  // Streaming path — calls OpenAI with stream:true, pipes tokens to the
+  // Streaming path — calls Workers AI with stream:true, pipes tokens to the
   // client via SSE, then persists the completed message via waitUntil.
   // ------------------------------------------------------------------
 
   const aiDetails = normalizePracticeDetailsForAi(details);
   const aiClient = createAiClient(env);
-  let model = env.AI_MODEL || DEFAULT_AI_MODEL;
-  if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
-    model = 'openai/gpt-4o-mini';
-  }
+  const model = DEFAULT_AI_MODEL;
 
   const servicesForPrompt = normalizeServicesForPrompt(details);
   const onboardingPromptProfile = isOnboardingMode
@@ -901,7 +897,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   ].filter(Boolean).join('\n\n');
 
   const requestPayload: Record<string, unknown> = {
-    model,
+    model: model,
     temperature: 0.2,
     stream: true,
     messages: [
@@ -910,15 +906,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     ]
   };
 
-  // Intake mode uses tool_choice — OpenAI supports streaming with tools,
+  // Intake mode uses tools — Workers AI supports streaming with tools,
   // but the tool call arguments arrive in chunks too. We accumulate them
   // separately and only emit the done event once the full tool call is parsed.
   if (isIntakeMode) {
     requestPayload.tools = [INTAKE_TOOL];
-    requestPayload.tool_choice = 'auto';
   } else if (isOnboardingMode) {
     requestPayload.tools = [ONBOARDING_TOOL];
-    requestPayload.tool_choice = 'auto';
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
@@ -932,7 +926,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let quickReplies: string[] | null = null;
     let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
-    const gatewayWorkersModel = env.AI_GATEWAY_WORKERS_MODEL?.trim() || DEFAULT_GATEWAY_WORKERS_MODEL;
 
     const consumeAiStream = async (
       response: Response,
@@ -1025,13 +1018,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             }
           }
 
-          if (delta.tool_calls?.[0]) {
-            const tc = delta.tool_calls[0];
-            if (tc.function?.name) {
-              localToolCallName = tc.function.name;
-            }
-            if (typeof tc.function?.arguments === 'string') {
-              localToolCallArgBuffer += tc.function.arguments;
+          // Handle all tool calls, not just the first one
+          if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
+            for (const tc of delta.tool_calls) {
+              if (tc.function?.name && !localToolCallName) {
+                localToolCallName = tc.function.name;
+              }
+              if (typeof tc.function?.arguments === 'string') {
+                localToolCallArgBuffer += tc.function.arguments;
+              }
             }
           }
         }
@@ -1206,95 +1201,50 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     };
 
     try {
+      const startedAt = Date.now();
+
       const aiResponse = await Promise.race([
         aiClient.requestChatCompletions(requestPayload),
         new Promise<Response>((_, reject) =>
           setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT_MS)
         )
-      ]).catch((error: unknown) => {
-        Logger.warn('AI request timed out or failed', {
+      ]);
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text().catch(() => '');
+        Logger.warn('AI upstream request failed', {
           conversationId: body.conversationId,
-          reason: error instanceof Error ? error.message : String(error)
+          status: aiResponse.status,
+          body: errorText,
+          model,
         });
-        return null;
-      });
-
-      const canRetryWithWorkersModel =
-        aiClient.provider === 'cloudflare_gateway' &&
-        typeof model === 'string';
-
-      let streamResult = {
-        reply: '',
-        toolCallName: '',
-        toolCallArgBuffer: '',
-        streamStalled: false,
-        emittedToken: false
-      };
-
-      let aiRequestFailedStatus: string | number | null = null;
-      if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
-        aiRequestFailedStatus = aiResponse?.status ?? 'no_response';
-        if (!canRetryWithWorkersModel) {
-          throw new Error(`AI upstream request failed (${aiRequestFailedStatus})`);
-        }
-      } else {
-        streamResult = await consumeAiStream(aiResponse);
+        throw new Error(`AI upstream request failed (${aiResponse.status}) ${errorText}`);
       }
+
+      if (!aiResponse.body) {
+        throw new Error(`AI upstream request failed (${aiResponse.status}) missing body`);
+      }
+
+      const aigStep = aiResponse.headers.get('cf-aig-step');
+      const streamResult = await consumeAiStream(aiResponse);
+      const latencyMs = Date.now() - startedAt;
+
+      Logger.info('AI response complete', {
+        conversationId: body.conversationId,
+        model: model,
+        aigStep,
+        latencyMs,
+        emittedToken: streamResult.emittedToken,
+        streamStalled: streamResult.streamStalled,
+        hasToolCallName: !!streamResult.toolCallName,
+        toolCallName: streamResult.toolCallName,
+        replyLength: streamResult.reply.length
+      });
 
       accumulatedReply = streamResult.reply;
       emittedAnyToken = streamResult.emittedToken;
       let toolCallName = streamResult.toolCallName;
       let toolCallArgBuffer = streamResult.toolCallArgBuffer;
-
-      if ((aiRequestFailedStatus !== null || !accumulatedReply.trim() || streamResult.streamStalled) && canRetryWithWorkersModel) {
-        Logger.warn(
-          aiRequestFailedStatus !== null
-            ? `AI dynamic route failed (${aiRequestFailedStatus}); retrying with workers-ai model`
-            : 'AI dynamic route returned empty/stalled stream; retrying with workers-ai model',
-          {
-          conversationId: body.conversationId,
-          primaryModel: model,
-          fallbackModel: gatewayWorkersModel
-        });
-        const retryPayload: Record<string, unknown> = {
-          ...requestPayload,
-          model: gatewayWorkersModel
-        };
-        delete retryPayload.tools;
-        delete retryPayload.tool_choice;
-        const retryResponse = await aiClient.requestChatCompletions(retryPayload);
-        if (!retryResponse.ok || !retryResponse.body) {
-          throw new Error(`AI workers fallback failed (${retryResponse.status})`);
-        }
-        const shouldSilenceRetryTokens = isIntakeMode || isOnboardingMode;
-        streamResult = await consumeAiStream(retryResponse, !shouldSilenceRetryTokens);
-        accumulatedReply = streamResult.reply;
-        emittedAnyToken = streamResult.emittedToken;
-        toolCallName = streamResult.toolCallName;
-        toolCallArgBuffer = streamResult.toolCallArgBuffer;
-        model = gatewayWorkersModel;
-
-        if (shouldSilenceRetryTokens) {
-          const parsedToolCall = parseToolCallFromReply(accumulatedReply);
-          if (parsedToolCall?.name === 'update_intake_fields' && parsedToolCall.parameters) {
-            intakeFields = parsedToolCall.parameters;
-            accumulatedReply = parsedToolCall.contentBuffer || buildIntakeFallbackReply(intakeFields);
-          } else if (parsedToolCall?.name === 'update_practice_fields' && parsedToolCall.parameters) {
-            onboardingFields = parsedToolCall.parameters;
-            const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
-            accumulatedReply = parsedToolCall.contentBuffer || buildOnboardingEditAwareFallbackReply(
-              currentOnboardingProfile,
-              onboardingFields,
-              lastUserMessage?.content ?? null
-            );
-          }
-
-          if (accumulatedReply.trim()) {
-            write({ token: accumulatedReply });
-            emittedAnyToken = true;
-          }
-        }
-      }
 
       // Parse accumulated tool call if present
       if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
@@ -1468,7 +1418,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         content: accumulatedReply,
         metadata: {
           source: 'ai',
-          model,
+          model: model,
+          ...(aigStep ? { aigStep } : {}),
           ...(intakeFields ? { intakeFields } : {}),
           ...(onboardingFields ? { onboardingFields } : {}),
           ...(onboardingProfile ? { onboardingProfile } : {}),
