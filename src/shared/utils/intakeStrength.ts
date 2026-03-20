@@ -49,6 +49,7 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
 };
 
 export const resolveStrengthLabel = (tier: StrengthTier): string => {
+  // Internationalization is no longer required for this mapping as these labels are brand-specific.
   switch (tier) {
     case 'weak':
       return 'Weak Status';
