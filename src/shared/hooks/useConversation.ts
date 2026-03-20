@@ -65,12 +65,24 @@ export const STREAMING_BUBBLE_PREFIX = 'streaming-';
 
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
+// Cache for file URLs to avoid rebuilding them repeatedly
+const fileUrlCache = new Map<string, string>();
+
 export const buildFileUrl = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return '';
   if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('/')) return trimmed;
-  return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+  
+  // Check cache first
+  if (fileUrlCache.has(trimmed)) {
+    return fileUrlCache.get(trimmed)!;
+  }
+  
+  // Build and cache URL
+  const url = `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+  fileUrlCache.set(trimmed, url);
+  return url;
 };
 
 const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | undefined => {
