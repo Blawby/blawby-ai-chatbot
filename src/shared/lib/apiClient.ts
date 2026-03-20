@@ -1573,7 +1573,7 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   return normalized;
 }
 
-function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
+export function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
   if (!isRecord(payload)) {
     return null;
   }

@@ -1052,7 +1052,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // Submission bridge: maps D1 conversation metadata -> backend client-intakes/create
   if (segments.length === 4 && segments[3] === 'submit-intake' && request.method === 'POST') {
     const conversationId = segments[2];
-    return handleSubmitIntake(request, env, conversationId);
+    // Pass the already-resolved authContext to avoid a second remote auth round-trip.
+    return handleSubmitIntake(request, env, conversationId, authContext);
   }
 
   throw HttpErrors.methodNotAllowed('Unsupported method for conversations endpoint');

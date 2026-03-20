@@ -36,7 +36,8 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-
+import { normalizePracticeDetailsResponse } from '@/shared/lib/apiClient';
+import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugStylesPage />;
@@ -879,6 +880,15 @@ function WidgetRoute({
   }, [data, practiceSlug]);
 
   const resolvedPracticeId = practiceConfig?.id || '';
+
+  useEffect(() => {
+    if (data?.practiceDetails && resolvedPracticeId) {
+      const details = normalizePracticeDetailsResponse(data.practiceDetails);
+      if (details) {
+        setPracticeDetailsEntry(resolvedPracticeId, details);
+      }
+    }
+  }, [data, resolvedPracticeId]);
 
   if (isLoading || !data) {
     return <LoadingScreen />;
