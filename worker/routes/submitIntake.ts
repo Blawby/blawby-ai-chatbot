@@ -13,6 +13,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
@@ -165,10 +166,12 @@ const buildIntakePayload = (
 export async function handleSubmitIntake(
   request: Request,
   env: Env,
-  conversationId: string
+  conversationId: string,
+  /** Pre-resolved auth context from the outer conversations handler; avoids a redundant remote auth round-trip. */
+  callerAuthContext?: AuthContext
 ): Promise<Response> {
-  // Auth — authentication is required to submit intakes
-  const authContext = await optionalAuth(request, env);
+  // Auth — accept a pre-resolved context from the caller, or resolve it now.
+  const authContext = callerAuthContext ?? await optionalAuth(request, env);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required');
   }

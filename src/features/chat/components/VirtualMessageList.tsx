@@ -751,7 +751,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
         
         requestVisibleReactions();
-    }, [onRequestReactions, visibleMessages]);
+    }, [onRequestReactions, visibleMessages.map(m => m.id).join(',')]); // Only re-run when message IDs change, not on every render
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">

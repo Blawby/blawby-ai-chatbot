@@ -25,6 +25,8 @@ import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
+import { useStore } from '@nanostores/preact';
 import { NavRail, NavRailItem } from '@/shared/ui/nav/NavRail';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -120,6 +122,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceId, setConversationMode]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
+  
+  // Use reactive practice details from store to ensure re-renders on updates
+  const practiceDetailsMap = useStore(practiceDetailsStore);
+  const cachedPracticeDetails = practiceDetailsMap[practiceId] || practiceDetails;
 
   // Fetch conversations to show "Recent Message" on home page and for the list view
   const { conversations, isLoading: isConversationsLoading } = useConversations({
@@ -618,7 +624,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                     intakeConversationState={intakeConversationState}
                     intakeStatus={intakeStatus}
                     onIntakeFieldsChange={applyIntakeFields}
-                    practiceDetails={practiceDetails}
+                    practiceDetails={cachedPracticeDetails}
+                    intakeSlimContactDraft={slimContactDraft}
                   />
                 </aside>
             )}
@@ -644,7 +651,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                     intakeConversationState={intakeConversationState}
                     intakeStatus={intakeStatus}
                     onIntakeFieldsChange={applyIntakeFields}
-                    practiceDetails={practiceDetails}
+                    practiceDetails={cachedPracticeDetails}
+                    intakeSlimContactDraft={slimContactDraft}
                   />
                 </aside>
               </div>

@@ -46,15 +46,11 @@ export const updateConversationMetadata = async (
   practiceId: string,
   metadata: ConversationMetadata
 ): Promise<Conversation | null> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
     {
       method: 'PATCH',
-      headers,
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ metadata })
     }
@@ -168,15 +164,11 @@ export const logConversationEvent = async (
   eventType: string,
   payload?: Record<string, unknown>
 ): Promise<void> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/audit?practiceId=${encodeURIComponent(practiceId)}`,
     {
       method: 'POST',
-      headers,
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ eventType, payload })
     }
@@ -197,15 +189,12 @@ export const postSystemMessage = async (
     metadata?: Record<string, unknown>;
   }
 ): Promise<ConversationMessage | null> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
   const params = buildPracticeParams(practiceId);
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/system-messages?${params.toString()}`,
     {
       method: 'POST',
-      headers,
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(payload)
     }

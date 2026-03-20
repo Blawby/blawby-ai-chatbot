@@ -483,7 +483,8 @@ export const useChatComposer = ({
       const intakeSubmitted = preSendMessages.some(msg => msg.isUser && msg.metadata?.isContactFormSubmission);
 
       // ── streaming bubble ────────────────────────────────────────────────
-      const bubbleId = `${STREAMING_BUBBLE_PREFIX}${conversationId}`;
+      const streamRequestId = createClientId();
+      const bubbleId = `${STREAMING_BUBBLE_PREFIX}${conversationId}-${streamRequestId}`;
       addStreamingBubble(bubbleId);
 
       abortControllerRef.current?.abort();

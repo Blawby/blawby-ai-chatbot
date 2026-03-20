@@ -6,6 +6,8 @@ import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
 import { createAiClient } from '../utils/aiClient.js';
 
+const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
+
 const PROTOCOL_VERSION = 1;
 const NEGOTIATION_TIMEOUT_MS = 5000;
 const MAX_CONTENT_LENGTH = 4000;
@@ -14,7 +16,6 @@ const MAX_METADATA_BYTES = 8 * 1024;
 const MAX_FRAME_BYTES = 64 * 1024;
 const TITLE_MAX_LENGTH = 80;
 const TITLE_MAX_TOKENS = 24;
-const DEFAULT_TITLE_MODEL = 'gpt-4o-mini';
 const PENDING_TTL_MS = 2 * 60 * 1000;
 const PENDING_SWEEP_LIMIT = 20;
 const MEMBERSHIP_TTL_MS = 5 * 60 * 1000;
@@ -1569,10 +1570,7 @@ export class ChatRoom {
       return null;
     }
 
-    let model = this.env.AI_MODEL || DEFAULT_TITLE_MODEL;
-    if (!this.env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
-      model = 'openai/gpt-4o-mini';
-    }
+    let model = DEFAULT_AI_MODEL;
 
     const response = await aiClient.requestChatCompletions({
       model,
