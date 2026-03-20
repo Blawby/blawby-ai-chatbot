@@ -319,13 +319,24 @@ export const InspectorPanel = ({
           const userId = conversationUserId;
           const matterId = conversationMatterId;
 
-          // Fail fast: if we have practice details, don't make redundant calls
+          // Handle practice details independently from user details
           if (propPracticeDetails) {
             setPracticeDetail(propPracticeDetails);
-          } else if (isClientView) {
-            // Client view should always have practice details via props
+          } else if (!isClientView) {
+            // Only attempt to load practice details in non-client view
+            try {
+              const practiceDetail = await getPracticeDetails(practiceId, { signal: controller.signal });
+              setPracticeDetail(practiceDetail);
+            } catch (error) {
+              setPracticeDetail(null);
+            }
+          } else {
+            // Client view - set null if no prop details provided
             setPracticeDetail(null);
-          } else if (userId) {
+          }
+
+          // Handle user details separately, regardless of practice details
+          if (userId) {
             const cacheKey = makeCacheKey(practiceId, userId);
             if (userCacheRef.current.has(cacheKey)) {
               setUserDetail(userCacheRef.current.get(cacheKey) ?? null);

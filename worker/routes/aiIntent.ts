@@ -6,8 +6,6 @@ import { optionalAuth } from '../middleware/auth.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { createAiClient } from '../utils/aiClient.js';
 
-const DEFAULT_AI_MODEL = 'gpt-4o-mini';
-
 type IntentResult = {
   intent: 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'UNCLEAR';
   confidence: number;
@@ -77,7 +75,7 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
   }
 
   const aiClient = createAiClient(env);
-  const model = DEFAULT_AI_MODEL;
+  const model = '@cf/zai-org/glm-4.7-flash';
   const response = await aiClient.requestChatCompletions({
     model,
     temperature: 0,

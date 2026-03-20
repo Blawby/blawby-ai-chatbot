@@ -921,7 +921,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   // Kick off the async work and register it with ctx.waitUntil so Cloudflare
   // does not terminate the worker before persistence completes.
-  const streamAndPersist = async () => {
+  const streamAndPersist = async (env: Env) => {
     let accumulatedReply = '';
     let intakeFields: Record<string, unknown> | null = null;
     let onboardingFields: Record<string, unknown> | null = null;
@@ -1027,16 +1027,30 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           // Handle all tool calls, not just the first one
           if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
             for (const tc of delta.tool_calls) {
-              if (tc.function?.name && typeof tc.function?.arguments === 'string') {
-                // Find existing tool call with this name or create new one
-                let existingCall = localToolCalls.find(call => call.name === tc.function.name);
-                if (existingCall) {
-                  existingCall.arguments += tc.function.arguments;
+              if (typeof tc.function?.arguments === 'string') {
+                let targetCall: {name: string, arguments: string} | undefined;
+                
+                if (tc.function?.name) {
+                  // Find existing tool call with this name or create new one
+                  targetCall = localToolCalls.find(call => call.name === tc.function.name);
+                  if (!targetCall) {
+                    targetCall = {
+                      name: tc.function.name,
+                      arguments: tc.function.arguments
+                    };
+                    localToolCalls.push(targetCall);
+                  } else {
+                    // Append to existing call
+                    targetCall.arguments += tc.function.arguments;
+                  }
                 } else {
-                  localToolCalls.push({
-                    name: tc.function.name,
-                    arguments: tc.function.arguments
-                  });
+                  // Argument-only fragment: use most recent call if available
+                  if (localToolCalls.length > 0) {
+                    targetCall = localToolCalls[localToolCalls.length - 1];
+                    targetCall.arguments += tc.function.arguments;
+                  }
+                  // If no existing call, we can't handle argument-only fragments
+                  // (this would be malformed SSE)
                 }
               }
             }
@@ -1074,16 +1088,30 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
             if (Array.isArray(toolCalls)) {
               for (const tc of toolCalls) {
-                if (tc.function?.name && typeof tc.function?.arguments === 'string') {
-                  // Find existing tool call with this name or create new one
-                  let existingCall = localToolCalls.find(call => call.name === tc.function.name);
-                  if (existingCall) {
-                    existingCall.arguments += tc.function.arguments;
+                if (typeof tc.function?.arguments === 'string') {
+                  let targetCall: {name: string, arguments: string} | undefined;
+                  
+                  if (tc.function?.name) {
+                    // Find existing tool call with this name or create new one
+                    targetCall = localToolCalls.find(call => call.name === tc.function.name);
+                    if (!targetCall) {
+                      targetCall = {
+                        name: tc.function.name,
+                        arguments: tc.function.arguments
+                      };
+                      localToolCalls.push(targetCall);
+                    } else {
+                      // Append to existing call
+                      targetCall.arguments += tc.function.arguments;
+                    }
                   } else {
-                    localToolCalls.push({
-                      name: tc.function.name,
-                      arguments: tc.function.arguments
-                    });
+                    // Argument-only fragment: use most recent call if available
+                    if (localToolCalls.length > 0) {
+                      targetCall = localToolCalls[localToolCalls.length - 1];
+                      targetCall.arguments += tc.function.arguments;
+                    }
+                    // If no existing call, we can't handle argument-only fragments
+                    // (this would be malformed SSE)
                   }
                 }
               }
@@ -1244,10 +1272,22 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
     };
 
-    try {
-      const startedAt = Date.now();
+    const startedAt = Date.now();
 
-      const aiResponse = await aiClient.requestChatCompletions(requestPayload);
+      // Add timeout for the initial AI request
+      const controller = new AbortController();
+      let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+        controller.abort();
+      }, AI_TIMEOUT_MS);
+
+    try {
+      const aiResponse = await aiClient.requestChatCompletions(requestPayload, controller.signal);
+      
+      // Clear timeout once headers are received
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text().catch(() => '');
@@ -1283,8 +1323,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       accumulatedReply = streamResult.reply;
       
-      // Only log AI preview in verbose mode to avoid PII leakage
-      if (process.env.VERBOSE_AI_PREVIEW === 'true') {
+      // Only log AI preview in debug mode to avoid PII leakage
+      if (env.DEBUG) {
         Logger.info('AI raw reply preview', {
           conversationId: body.conversationId,
           replyPreview: accumulatedReply.slice(0, 100),
@@ -1575,21 +1615,35 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
     } catch (error) {
-      Logger.warn('Streaming AI handler error', {
-        conversationId: body.conversationId,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      write({ error: true, message: error instanceof Error ? error.message : 'AI request failed' });
+      // Clear timeout if still active
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      // Handle abort errors specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        Logger.warn('AI request timed out', {
+          conversationId: body.conversationId,
+          timeout: AI_TIMEOUT_MS
+        });
+        write({ error: true, message: 'AI request timed out' });
+      } else {
+        Logger.warn('Streaming AI handler error', {
+          conversationId: body.conversationId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        write({ error: true, message: error instanceof Error ? error.message : 'AI request failed' });
+      }
     } finally {
       close();
     }
   };
 
   if (ctx) {
-    ctx.waitUntil(streamAndPersist());
+    ctx.waitUntil(streamAndPersist(env));
   } else {
     // Fallback for environments without ExecutionContext (tests, local dev without miniflare)
-    streamAndPersist().catch((error) => {
+    streamAndPersist(env).catch((error) => {
       Logger.warn('streamAndPersist uncaught error', {
         error: error instanceof Error ? error.message : String(error)
       });

@@ -14,7 +14,7 @@ interface AiClientOptions {
 interface AiClient {
   baseUrl: string;
   chatCompletionsUrl: string;
-  requestChatCompletions: (payload: Record<string, unknown>) => Promise<Response>;
+  requestChatCompletions: (payload: Record<string, unknown>, signal?: AbortSignal) => Promise<Response>;
 }
 
 const getMissingEnvVars = (entries: Array<[string, string | undefined]>): string[] =>
@@ -45,7 +45,7 @@ export const createAiClient = (env: AiClientEnv, options: AiClientOptions = {}):
   return {
     baseUrl,
     chatCompletionsUrl,
-    requestChatCompletions: async (payload: Record<string, unknown>) => {
+    requestChatCompletions: async (payload: Record<string, unknown>, signal?: AbortSignal) => {
       return fetcher(chatCompletionsUrl, {
         method: 'POST',
         headers: {
@@ -53,6 +53,7 @@ export const createAiClient = (env: AiClientEnv, options: AiClientOptions = {}):
           'Authorization': `Bearer ${env.CF_AIG_TOKEN}`,
         },
         body: JSON.stringify(payload),
+        signal,
       });
     },
   };
