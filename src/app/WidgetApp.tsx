@@ -34,7 +34,8 @@ interface WidgetAppProps {
   bootstrapSession?: {
     user: {
       id: string;
-      isAnonymous: boolean;
+      isAnonymous?: boolean;
+      is_anonymous?: boolean;
     };
   };
 }
@@ -64,7 +65,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [showToastError]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
-  const isAnonymous = bootstrapSession?.user?.isAnonymous ?? true;
+  const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
   const sessionIsPending = false; // Bootstrap session is immediate
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
@@ -84,16 +85,24 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [practiceId, currentUserId, setConversationId]);
 
-  const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean) => {
-    const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
-    await updateConversationMetadata(targetId, practiceId, {
-      mode,
-      metadata: {
-        modeSource: source,
-        startIntake: startIntake ? 'true' : 'false'
-      }
-    });
-    setConversationMode(mode);
+  const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
+    try {
+      const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
+      await updateConversationMetadata(targetId, practiceId, {
+        mode,
+        metadata: {
+          modeSource: source,
+          startIntake: startIntake ? 'true' : 'false'
+        }
+      });
+      setConversationMode(mode);
+      return true;
+    } catch (error) {
+      console.error('[WidgetApp] Failed to apply conversation mode:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update conversation mode';
+      showErrorRef.current?.(message);
+      return false;
+    }
   }, [practiceId, setConversationMode]);
 
   const { practiceDetails } = usePracticeDetails({ practiceId });
@@ -278,8 +287,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
     
     if (!targetId) return;
-    await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
-    setView('chat');
+    const success = await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
+    if (success) {
+      setView('chat');
+    }
   }, [practiceId, activeConversationId, applyConversationMode, createConversation]);
 
   // File Uploads
@@ -423,10 +434,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
       onClick: async () => {
         if (isCreatingConversation) return;
-        if (!activeConversationId) {
-          await createConversation();
+        try {
+          if (!activeConversationId) {
+            await createConversation();
+          }
+          setView('list');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to start conversation';
+          showErrorRef.current?.(message);
         }
-        setView('list');
       }
     },
     {
@@ -435,10 +451,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       icon: <Icon icon={InformationCircleIcon} className="h-5 w-5" />, // placeholder
       onClick: async () => {
         if (isCreatingConversation) return;
-        if (!activeConversationId) {
-          await createConversation();
+        try {
+          if (!activeConversationId) {
+            await createConversation();
+          }
+          setView('chat');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to start conversation';
+          showErrorRef.current?.(message);
         }
-        setView('chat');
       }
     }
   ], [activeConversationId, t, isCreatingConversation, createConversation]);
