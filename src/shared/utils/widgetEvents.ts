@@ -31,19 +31,23 @@ export const resolveAllowedParentOrigins = (): string[] => {
   const referrer = typeof document !== 'undefined' ? document.referrer : '';
   if (referrer) {
     try {
-      origins.add(new URL(referrer).origin);
+      const origin = new URL(referrer).origin;
+      if (ALLOWED_PARENT_ORIGINS.has(origin)) {
+        origins.add(origin);
+      }
     } catch {
       // ignore malformed referrer
     }
   }
 
-  // Use (any as type) because location.ancestorOrigins is non-standard but available in some browsers
   // Use cast because location.ancestorOrigins is non-standard but available in some browsers
   const ancestorOrigins = (window.location as Location & { ancestorOrigins?: DOMStringList }).ancestorOrigins;
   if (ancestorOrigins && ancestorOrigins.length > 0) {
     for (let i = 0; i < ancestorOrigins.length; i += 1) {
       const origin = ancestorOrigins.item(i);
-      if (origin) origins.add(origin);
+      if (origin && ALLOWED_PARENT_ORIGINS.has(origin)) {
+        origins.add(origin);
+      }
     }
   }
 
