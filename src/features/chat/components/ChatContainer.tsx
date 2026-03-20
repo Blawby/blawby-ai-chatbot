@@ -378,11 +378,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   }, [rememberPostAuthContext, showAuthPrompt]);
 
   const handleSubmitNowAction = async () => {
-    if (isAnonymousUser) {
-      setPendingSubmitAfterAuth(true);
-      emitAuthPromptRequest();
-      return;
-    }
     if (onSubmitNow) {
       await onSubmitNow();
       return;
