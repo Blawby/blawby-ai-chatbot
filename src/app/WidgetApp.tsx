@@ -53,9 +53,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const autoConversationAttemptedRef = useRef(false);
   const autoConversationRetryCountRef = useRef(0);
-  const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoConversationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const widgetVisibleRef = useRef(false);
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
+  const inFlightCreateRef = useRef<Promise<string> | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
   const { showError: showToastError } = useToastContext();
@@ -71,18 +72,26 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 
   const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string> => {
-    setIsCreatingConversation(true);
-    try {
-      const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
-      const conversationId = await apiCreateConversation(practiceId, {
-        userId: currentUserId ?? undefined,
-        forceNew: options?.forceNew
-      });
-      setConversationId(conversationId);
-      return conversationId;
-    } finally {
-      setIsCreatingConversation(false);
-    }
+    if (inFlightCreateRef.current) return inFlightCreateRef.current;
+
+    const createPromise = (async () => {
+      setIsCreatingConversation(true);
+      try {
+        const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
+        const conversationId = await apiCreateConversation(practiceId, {
+          userId: currentUserId ?? undefined,
+          forceNew: options?.forceNew
+        });
+        setConversationId(conversationId);
+        return conversationId;
+      } finally {
+        setIsCreatingConversation(false);
+        inFlightCreateRef.current = null;
+      }
+    })();
+
+    inFlightCreateRef.current = createPromise;
+    return createPromise;
   }, [practiceId, currentUserId, setConversationId]);
 
   const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
@@ -276,20 +285,26 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const handleModeSelection = useCallback(async (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer') => {
     if (!practiceId) return;
     
-    let targetId: string | null = null;
-    if (source === 'intro_gate' || mode === 'REQUEST_CONSULTATION') {
-      targetId = await createConversation({ forceNew: true });
-    } else {
-      targetId = activeConversationId ?? null;
-      if (!targetId) {
-        targetId = await createConversation();
+    try {
+      let targetId: string | null = null;
+      if (source === 'intro_gate' || mode === 'REQUEST_CONSULTATION') {
+        targetId = await createConversation({ forceNew: true });
+      } else {
+        targetId = activeConversationId ?? null;
+        if (!targetId) {
+          targetId = await createConversation();
+        }
       }
-    }
-    
-    if (!targetId) return;
-    const success = await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
-    if (success) {
-      setView('chat');
+      
+      if (!targetId) return;
+      const success = await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
+      if (success) {
+        setView('chat');
+      }
+    } catch (error) {
+      console.error('[WidgetApp] Failed to handle mode selection:', error);
+      const message = error instanceof Error ? error.message : 'Failed to start conversation';
+      showErrorRef.current?.(message);
     }
   }, [practiceId, activeConversationId, applyConversationMode, createConversation]);
 
