@@ -1,3 +1,10 @@
+const ALLOWED_PARENT_ORIGINS = new Set([
+  'https://staging.blawby.com',
+  'https://app.blawby.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+]);
+
 const parseTrustedParentOriginFromQuery = (): string | null => {
   if (typeof window === 'undefined') return null;
   const raw = new URLSearchParams(window.location.search).get('trusted_parent_origin');
@@ -6,6 +13,7 @@ const parseTrustedParentOriginFromQuery = (): string | null => {
     const parsed = new URL(raw);
     const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
     if (!isHttp) return null;
+    if (!ALLOWED_PARENT_ORIGINS.has(parsed.origin)) return null;
     return parsed.origin;
   } catch {
     return null;
@@ -23,19 +31,23 @@ export const resolveAllowedParentOrigins = (): string[] => {
   const referrer = typeof document !== 'undefined' ? document.referrer : '';
   if (referrer) {
     try {
-      origins.add(new URL(referrer).origin);
+      const origin = new URL(referrer).origin;
+      if (ALLOWED_PARENT_ORIGINS.has(origin)) {
+        origins.add(origin);
+      }
     } catch {
       // ignore malformed referrer
     }
   }
 
-  // Use (any as type) because location.ancestorOrigins is non-standard but available in some browsers
   // Use cast because location.ancestorOrigins is non-standard but available in some browsers
   const ancestorOrigins = (window.location as Location & { ancestorOrigins?: DOMStringList }).ancestorOrigins;
   if (ancestorOrigins && ancestorOrigins.length > 0) {
     for (let i = 0; i < ancestorOrigins.length; i += 1) {
       const origin = ancestorOrigins.item(i);
-      if (origin) origins.add(origin);
+      if (origin && ALLOWED_PARENT_ORIGINS.has(origin)) {
+        origins.add(origin);
+      }
     }
   }
 
@@ -52,11 +64,11 @@ export const postToParentFrame = (message: unknown) => {
     return;
   }
 
-  try {
-    for (const origin of allowedOrigins) {
+  for (const origin of allowedOrigins) {
+    try {
       window.parent.postMessage(message, origin);
+    } catch (error) {
+      console.warn('[WidgetEvents] Failed to notify parent frame', origin, error);
     }
-  } catch (error) {
-    console.warn('[WidgetEvents] Failed to notify parent frame', error);
   }
 };

@@ -228,7 +228,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
-    startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
+    startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
@@ -275,17 +275,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
     practiceId,
-    practiceConfig: { ...practiceConfig, name: practiceConfig.name ?? '', profileImage: practiceConfig.profileImage ?? '' },
-    messagesReady,
-    messages,
-    conversationMode,
-    isConsultFlowActive,
-    shouldRequireModeSelection: true,
     ingestServerMessages,
   });
 
   const canChat = activeConversationId != null;
-  const isComposerDisabled = false; // Add recording check if needed
+  const _isComposerDisabled = false; // Add recording check if needed
 
   const handleModeSelection = useCallback(async (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer') => {
     if (!practiceId) return;
@@ -382,7 +376,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, []);
 
 
-  const closeButton = (
+  const closeButton = useMemo(() => (
     <Button
       type="button"
       variant="icon"
@@ -393,7 +387,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     >
       <Icon icon={XMarkIcon} className="h-5 w-5" />
     </Button>
-  );
+  ), [requestWidgetClose]);
 
   const headerRightSlot = useMemo(() => {
     const hasConversation = Boolean(activeConversationId);
@@ -447,6 +441,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       label: t('nav.home') ?? 'Home',
       icon: HomeIcon,
       href: '#home',
+      onClick: () => setView('home'),
     },
     {
       id: 'list',
