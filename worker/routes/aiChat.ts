@@ -10,7 +10,7 @@ import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
 
-const DEFAULT_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
 const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the details for the firm.";
@@ -430,7 +430,9 @@ When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".
+
+IMPORTANT: Never print function names, JSON, or structured data to the user. Never write update_intake_fields in chat content. If you need to save fields, use the tool silently and then continue with normal user-facing text.`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -1012,7 +1014,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
           if (typeof delta.content === 'string' && delta.content.length > 0) {
             localReply += delta.content;
-            if (emitTokens) {
+
+            const looksLikeToolLeak =
+              delta.content.includes('update_intake_fields') ||
+              delta.content.includes('update_practice_fields') ||
+              delta.content.includes('"caseStrength"') ||
+              delta.content.includes('"practiceArea"');
+
+            if (emitTokens && !looksLikeToolLeak) {
               write({ token: delta.content });
               localEmittedToken = true;
             }
@@ -1047,7 +1056,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             const token = chunk.choices?.[0]?.delta?.content;
             if (typeof token === 'string' && token.length > 0) {
               localReply += token;
-              if (emitTokens) {
+
+              const looksLikeToolLeak =
+                token.includes('update_intake_fields') ||
+                token.includes('update_practice_fields') ||
+                token.includes('"caseStrength"') ||
+                token.includes('"practiceArea"');
+
+              if (emitTokens && !looksLikeToolLeak) {
                 write({ token });
                 localEmittedToken = true;
               }
@@ -1081,35 +1097,38 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const normalizeKeys = (obj: unknown): unknown => {
       if (typeof obj !== 'object' || obj === null) return obj;
       if (Array.isArray(obj)) return obj.map((item) => normalizeKeys(item));
+
       const record = obj as Record<string, unknown>;
       const next: Record<string, unknown> = {};
       const mapping: Record<string, string> = {
-        'practice_area': 'practiceArea',
-        'opposing_party': 'opposingParty',
-        'desired_outcome': 'desiredOutcome',
-        'case_strength': 'caseStrength',
-        'missing_summary': 'missingSummary',
-        'postal_code': 'postalCode',
-        'address_line1': 'addressLine1',
-        'address_line_1': 'addressLine1',
-        'address_line2': 'addressLine2',
-        'address_line_2': 'addressLine2',
-        'court_date': 'courtDate',
-        'household_size': 'householdSize',
-        'has_documents': 'hasDocuments',
-        'eligibility_signals': 'eligibilitySignals',
-        'contact_phone': 'contactPhone',
-        'business_email': 'businessEmail',
-        'accent_color': 'accentColor',
-        'completion_score': 'completionScore',
-        'missing_fields': 'missingFields',
-        'quick_replies': 'quickReplies',
-        'trigger_edit_modal': 'triggerEditModal'
+        practice_area: 'practiceArea',
+        opposing_party: 'opposingParty',
+        desired_outcome: 'desiredOutcome',
+        case_strength: 'caseStrength',
+        missing_summary: 'missingSummary',
+        postal_code: 'postalCode',
+        address_line1: 'addressLine1',
+        address_line_1: 'addressLine1',
+        address_line2: 'addressLine2',
+        address_line_2: 'addressLine2',
+        court_date: 'courtDate',
+        household_size: 'householdSize',
+        has_documents: 'hasDocuments',
+        eligibility_signals: 'eligibilitySignals',
+        contact_phone: 'contactPhone',
+        business_email: 'businessEmail',
+        accent_color: 'accentColor',
+        completion_score: 'completionScore',
+        missing_fields: 'missingFields',
+        quick_replies: 'quickReplies',
+        trigger_edit_modal: 'triggerEditModal',
       };
+
       for (const key of Object.keys(record)) {
         const mapped = mapping[key] || key;
         next[mapped] = normalizeKeys(record[key]);
       }
+
       return next;
     };
 
@@ -1120,15 +1139,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (startMatch) {
         const startIndex = startMatch.index!;
         const name = startMatch[1];
-        
+
         const parenIndex = rawReply.indexOf('(', startIndex + name.length);
         let endIndex = -1;
+
         if (parenIndex !== -1) {
           let parenCount = 1;
-          for (let i = parenIndex + 1; i < rawReply.length; i++) {
-            if (rawReply[i] === '(') parenCount++;
+          for (let i = parenIndex + 1; i < rawReply.length; i += 1) {
+            if (rawReply[i] === '(') parenCount += 1;
             else if (rawReply[i] === ')') {
-              parenCount--;
+              parenCount -= 1;
               if (parenCount === 0) {
                 endIndex = i;
                 break;
@@ -1137,21 +1157,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           }
         }
 
-        const matchedText = endIndex !== -1 ? rawReply.substring(startIndex, endIndex + 1) : rawReply.substring(startIndex);
+        const matchedText =
+          endIndex !== -1
+            ? rawReply.substring(startIndex, endIndex + 1)
+            : rawReply.substring(startIndex);
+
         let parameters: Record<string, unknown> = {};
         let parseSuccess = false;
 
         try {
           let jsonPayload = '';
           const openingBraceIndex = matchedText.indexOf('{');
+
           if (openingBraceIndex !== -1) {
             let braceCount = 0;
             let j = openingBraceIndex;
-            for (; j < matchedText.length; j++) {
-              if (matchedText[j] === '{') braceCount++;
-              else if (matchedText[j] === '}') braceCount--;
+
+            for (; j < matchedText.length; j += 1) {
+              if (matchedText[j] === '{') braceCount += 1;
+              else if (matchedText[j] === '}') braceCount -= 1;
               if (braceCount === 0) break;
             }
+
             if (braceCount === 0) {
               jsonPayload = matchedText.substring(openingBraceIndex, j + 1);
             }
@@ -1160,7 +1187,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           if (jsonPayload) {
             parameters = normalizeKeys(JSON.parse(jsonPayload)) as Record<string, unknown>;
             parseSuccess = true;
-            
+
             if (name === 'update_intake_fields' && !parameters.caseStrength) {
               const rest = matchedText.substring(matchedText.indexOf(jsonPayload) + jsonPayload.length);
               const positionalMatch = rest.match(/,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?/);
@@ -1177,24 +1204,33 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
 
         const cleanText = rawReply.replace(matchedText, '').trim();
-        return { name, parameters: parseSuccess ? parameters : undefined, contentBuffer: cleanText };
+        return {
+          name,
+          parameters: parseSuccess ? parameters : undefined,
+          contentBuffer: cleanText,
+        };
       }
 
       const trimmed = rawReply.trim();
       if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
+
       try {
         const parsed = JSON.parse(trimmed) as Record<string, unknown>;
         const name = typeof parsed.name === 'string' ? parsed.name : undefined;
-        let p = (
+        const p =
           parsed.parameters &&
           typeof parsed.parameters === 'object' &&
           !Array.isArray(parsed.parameters)
-        )
-          ? parsed.parameters as Record<string, unknown>
-          : undefined;
+            ? (parsed.parameters as Record<string, unknown>)
+            : undefined;
+
         if (!name && !p) return null;
-        
-        return { name, parameters: p ? normalizeKeys(p) as Record<string, unknown> : undefined, contentBuffer: '' };
+
+        return {
+          name,
+          parameters: p ? (normalizeKeys(p) as Record<string, unknown>) : undefined,
+          contentBuffer: '',
+        };
       } catch {
         return null;
       }
@@ -1203,12 +1239,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     try {
       const startedAt = Date.now();
 
-      const aiResponse = await Promise.race([
-        aiClient.requestChatCompletions(requestPayload),
-        new Promise<Response>((_, reject) =>
-          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT_MS)
-        )
-      ]);
+      const aiResponse = await aiClient.requestChatCompletions(requestPayload);
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text().catch(() => '');
@@ -1226,7 +1257,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
-      const streamResult = await consumeAiStream(aiResponse);
+      const shouldStreamTokensToUser = !isIntakeMode && !isOnboardingMode;
+      const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser);
       const latencyMs = Date.now() - startedAt;
 
       Logger.info('AI response complete', {
@@ -1242,6 +1274,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       accumulatedReply = streamResult.reply;
+      Logger.info('AI raw reply preview', {
+        conversationId: body.conversationId,
+        replyPreview: accumulatedReply.slice(0, 800),
+      });
       emittedAnyToken = streamResult.emittedToken;
       let toolCallName = streamResult.toolCallName;
       let toolCallArgBuffer = streamResult.toolCallArgBuffer;
@@ -1284,14 +1320,24 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           throw new Error('AI returned an empty reply');
         }
       }
-      if (!emittedAnyToken && accumulatedReply.trim()) {
-        write({ token: accumulatedReply });
-        emittedAnyToken = true;
-      }
 
       // Final cleanup of accumulatedReply to strip any leaked tool calls
       // that might have arrived in the text stream but weren't caught by the delta-parsing logic.
-      if (accumulatedReply.includes('update_intake_fields') || accumulatedReply.includes('update_practice_fields')) {
+      const looksLikeLeakedToolContent =
+        accumulatedReply.includes('update_intake_fields') ||
+        accumulatedReply.includes('update_practice_fields') ||
+        accumulatedReply.includes('"caseStrength"') ||
+        accumulatedReply.includes('"practiceArea"') ||
+        accumulatedReply.includes('"opposingParty"') ||
+        accumulatedReply.includes('"desiredOutcome"') ||
+        accumulatedReply.includes('"completionScore"') ||
+        accumulatedReply.includes('"missingFields"') ||
+        accumulatedReply.includes('```json') ||
+        accumulatedReply.includes('"practice_area"') ||
+        accumulatedReply.includes('"case_strength"') ||
+        accumulatedReply.includes('"missing_summary"');
+
+      if (looksLikeLeakedToolContent) {
         const finalParsing = parseToolCallFromReply(accumulatedReply);
         if (finalParsing) {
           if (finalParsing.parameters) {
@@ -1303,11 +1349,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           }
           if (finalParsing.contentBuffer && finalParsing.contentBuffer.trim().length > 0) {
             accumulatedReply = finalParsing.contentBuffer;
+          } else if (isIntakeMode && intakeFields) {
+            accumulatedReply = buildIntakeFallbackReply(intakeFields);
+          } else if (isOnboardingMode && onboardingFields) {
+            const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
+            accumulatedReply = buildOnboardingEditAwareFallbackReply(
+              currentOnboardingProfile,
+              onboardingFields,
+              lastUserMessage?.content ?? null
+            );
           } else {
-            accumulatedReply = isIntakeMode 
-              ? INTRO_INTAKE_DISCLAIMER_FALLBACK 
-              : isOnboardingMode 
-                ? INTRO_ONBOARDING_FALLBACK 
+            accumulatedReply = isIntakeMode
+              ? INTRO_INTAKE_DISCLAIMER_FALLBACK
+              : isOnboardingMode
+                ? INTRO_ONBOARDING_FALLBACK
                 : EMPTY_REPLY_FALLBACK;
           }
         }
@@ -1335,6 +1390,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             accumulatedReply = EMPTY_REPLY_FALLBACK;
           }
         }
+      }
+
+      if (!emittedAnyToken && accumulatedReply.trim()) {
+        write({ token: accumulatedReply });
+        emittedAnyToken = true;
       }
 
       const fieldsForQuickReplies = isIntakeMode ? intakeFields : (isOnboardingMode ? onboardingFields : null);

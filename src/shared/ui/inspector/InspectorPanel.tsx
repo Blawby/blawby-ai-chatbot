@@ -319,26 +319,20 @@ export const InspectorPanel = ({
           const userId = conversationUserId;
           const matterId = conversationMatterId;
 
-          if (userId || isClientView) {
-            if (isClientView) {
-              if (propPracticeDetails) {
-                setPracticeDetail(propPracticeDetails);
-              } else if (practiceCacheRef.current.has(practiceId)) {
-                setPracticeDetail(practiceCacheRef.current.get(practiceId) ?? null);
-              } else {
-                const detail = await getPracticeDetails(practiceId, { signal: controller.signal });
-                practiceCacheRef.current.set(practiceId, detail);
-                setPracticeDetail(detail);
-              }
-            } else if (userId) {
-              const cacheKey = makeCacheKey(practiceId, userId);
-              if (userCacheRef.current.has(cacheKey)) {
-                setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
-              } else {
-                const detail = await getUserDetail(practiceId, userId, { signal: controller.signal });
-                userCacheRef.current.set(cacheKey, detail);
-                setUserDetail(detail);
-              }
+          // Fail fast: if we have practice details, don't make redundant calls
+          if (propPracticeDetails) {
+            setPracticeDetail(propPracticeDetails);
+          } else if (isClientView) {
+            // Client view should always have practice details via props
+            setPracticeDetail(null);
+          } else if (userId) {
+            const cacheKey = makeCacheKey(practiceId, userId);
+            if (userCacheRef.current.has(cacheKey)) {
+              setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
+            } else {
+              const detail = await getUserDetail(practiceId, userId, { signal: controller.signal });
+              userCacheRef.current.set(cacheKey, detail);
+              setUserDetail(detail);
             }
           }
 
@@ -386,7 +380,7 @@ export const InspectorPanel = ({
 
     void load();
     return () => controller.abort();
-  }, [conversationMatterId, conversationUserId, entityId, entityType, practiceId, isClientView]);
+  }, [conversationMatterId, conversationUserId, entityId, entityType, practiceId, isClientView, propPracticeDetails]);
 
   const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
