@@ -1,19 +1,6 @@
 import type { ComponentChildren, ComponentChild, ComponentType } from 'preact';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 
-type SkeletonRowProps = {
-  wide?: boolean;
-};
-
-export const SkeletonRow = ({ wide = false }: SkeletonRowProps) => {
-  return (
-    <div className="flex items-center justify-between px-4 py-2.5">
-      <div className="h-3 w-16 animate-pulse rounded bg-white/[0.07]" />
-      <div className={`h-3 ${wide ? 'w-28' : 'w-20'} animate-pulse rounded bg-white/[0.07]`} />
-    </div>
-  );
-};
-
 type InfoRowProps = {
   label: string;
   value?: string;

@@ -12,6 +12,7 @@ import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 import AuthForm from '@/shared/components/AuthForm';
 import { cn } from '@/shared/utils/cn';
+import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 
 type InvitationDetails = {
   id: string;
@@ -61,11 +62,6 @@ type PayloadParseResult = {
   error: string | null;
 };
 
-const LoadingScreen = ({ message = 'Loading…' }: { message?: string }) => (
-  <div className="flex h-screen items-center justify-center text-sm text-input-placeholder">
-    {message}
-  </div>
-);
 
 const resolveQueryValue = (value: string | string[] | undefined) => {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -529,7 +525,7 @@ export const AcceptInvitationPage = () => {
   }
 
   if (inviteState.status === 'loading' || inviteState.status === 'idle') {
-    return <LoadingScreen message="Loading invitation…" />;
+    return <LoadingScreen label={'Loading invitation\u2026'} showLabel={false} />;
   }
 
   if (inviteState.status === 'error') {
@@ -631,3 +627,4 @@ export const AcceptInvitationPage = () => {
 };
 
 export default AcceptInvitationPage;
+

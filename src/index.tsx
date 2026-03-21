@@ -30,6 +30,7 @@ import { PaySuccessPage } from '@/pages/PaySuccessPage';
 import { AppGuard } from '@/app/AppGuard';
 import { App404 } from '@/features/practice/components/404';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
@@ -57,11 +58,6 @@ const DevDebugMatterRoute = () => {
   return <DebugMatterPage />;
 };
 
-const LoadingScreen = () => (
-  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-    Loading…
-  </div>
-);
 
 // PWA Cache Trap Breaker (Development Only)
 // Since we disabled the PWA in dev, old workers from previous sessions aggressively intercept 
@@ -909,16 +905,11 @@ function WidgetRoute({
 }
 
 
-const FallbackLoader = () => (
-  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-    Loading…
-  </div>
-);
 
 function AppWithProviders() {
   return (
     <I18nextProvider i18n={i18n}>
-      <Suspense fallback={<FallbackLoader />}>
+      <Suspense fallback={<LoadingScreen />}>
         <App />
       </Suspense>
     </I18nextProvider>
@@ -955,3 +946,4 @@ export async function prerender() {
   await initI18n();
   return await ssr(<AppWithProviders />);
 }
+

@@ -4,6 +4,7 @@ import PricingView from '@/features/pricing/components/PricingView';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
+import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { Button } from '@/shared/ui/Button';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
@@ -48,9 +49,7 @@ const PricingPage = () => {
   if (isPending || !isAuthenticated) {
     return (
       <SetupShell>
-        <div className="flex h-screen items-center justify-center text-sm text-input-placeholder">
-          Loading…
-        </div>
+        <LoadingScreen />
       </SetupShell>
     );
   }
@@ -65,7 +64,8 @@ const PricingPage = () => {
               size="sm"
               onClick={handleClose}
               className="text-sm text-input-placeholder hover:text-input-text"
-              icon={ArrowLeftIcon} iconClassName="h-4 w-4"
+              icon={ArrowLeftIcon}
+              iconClassName="h-4 w-4"
               iconPosition="left"
             >
               Back
