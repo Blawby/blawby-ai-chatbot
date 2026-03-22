@@ -4,6 +4,8 @@ import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
+import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
+import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
 import { MessageContent } from '@/features/chat/components/MessageContent';
@@ -150,33 +152,119 @@ describe('Loading primitives', () => {
     expect(screenContainer.querySelector('.text-sm.text-input-placeholder')).toBeNull();
     expect(screenContainer.querySelector('.sr-only')).toHaveTextContent(loadingLabel);
 
-    const { container: blockContainer } = render(<LoadingBlock showLabel label="Loading records" />);
-    const blockWrapper = blockContainer.firstElementChild as HTMLElement;
-    const blockStatuses = Array.from(blockContainer.querySelectorAll('[role="status"]')) as HTMLDivElement[];
+    const { container: blockDefaultContainer } = render(<LoadingBlock />);
+    const blockDefaultWrapper = blockDefaultContainer.firstElementChild as HTMLElement;
+    const blockDefaultStatuses = Array.from(blockDefaultContainer.querySelectorAll('[role="status"]')) as HTMLDivElement[];
 
-    expect(blockWrapper).toHaveClass('flex', 'h-full', 'min-h-0', 'items-center', 'justify-center');
-    expect(blockWrapper).toHaveAttribute('role', 'status');
-    expect(blockWrapper).toHaveAttribute('aria-live', 'polite');
-    expect(blockStatuses).toHaveLength(1);
-    expect(blockContainer.querySelector('.sr-only')).toBeNull();
-    expect(blockContainer.querySelector('.text-sm.text-input-placeholder')).toHaveTextContent('Loading records');
+    expect(blockDefaultWrapper).toHaveClass('flex', 'h-full', 'min-h-0', 'items-center', 'justify-center');
+    expect(blockDefaultWrapper).toHaveAttribute('role', 'status');
+    expect(blockDefaultWrapper).toHaveAttribute('aria-live', 'polite');
+    expect(blockDefaultStatuses).toHaveLength(1);
+    expect(blockDefaultContainer.querySelector('.text-sm.text-input-placeholder')).toBeNull();
+    expect(blockDefaultContainer.querySelector('.sr-only')).toHaveTextContent(loadingLabel);
+
+    const { container: blockLabelContainer } = render(<LoadingBlock showLabel label="Loading records" />);
+    const blockLabelWrapper = blockLabelContainer.firstElementChild as HTMLElement;
+    const blockLabelStatuses = Array.from(blockLabelContainer.querySelectorAll('[role="status"]')) as HTMLDivElement[];
+
+    expect(blockLabelWrapper).toHaveClass('flex', 'h-full', 'min-h-0', 'items-center', 'justify-center');
+    expect(blockLabelWrapper).toHaveAttribute('role', 'status');
+    expect(blockLabelWrapper).toHaveAttribute('aria-live', 'polite');
+    expect(blockLabelStatuses).toHaveLength(1);
+    expect(blockLabelContainer.querySelector('.sr-only')).toBeNull();
+    expect(blockLabelContainer.querySelector('.text-sm.text-input-placeholder')).toHaveTextContent('Loading records');
   });
 
-  it('renders SkeletonLoader variant defaults and wide text rows', () => {
-    const { container } = render(
+  it('renders SkeletonLoader defaults, multi-line variants, and wide text rows', () => {
+    render(
       <div>
-        <SkeletonLoader variant="text" />
-        <SkeletonLoader variant="text" wide />
-        <SkeletonLoader variant="title" />
+        <div data-testid="skeleton-text-default">
+          <SkeletonLoader variant="text" />
+        </div>
+        <div data-testid="skeleton-text-wide">
+          <SkeletonLoader variant="text" wide />
+        </div>
+        <div data-testid="skeleton-title-default">
+          <SkeletonLoader variant="title" />
+        </div>
+        <div data-testid="skeleton-text-lines">
+          <SkeletonLoader variant="text" lines={3} />
+        </div>
+        <div data-testid="skeleton-text-wide-lines">
+          <SkeletonLoader variant="text" wide lines={3} />
+        </div>
+        <div data-testid="skeleton-title-lines">
+          <SkeletonLoader variant="title" lines={2} />
+        </div>
       </div>
     );
 
+    const getBlocks = (testId: string) =>
+      Array.from(screen.getByTestId(testId).querySelectorAll('.animate-pulse')) as HTMLDivElement[];
+
+    const textDefault = getBlocks('skeleton-text-default');
+    const textWide = getBlocks('skeleton-text-wide');
+    const titleDefault = getBlocks('skeleton-title-default');
+    const textLines = getBlocks('skeleton-text-lines');
+    const textWideLines = getBlocks('skeleton-text-wide-lines');
+    const titleLines = getBlocks('skeleton-title-lines');
+
+    expect(textDefault).toHaveLength(1);
+    expect(textDefault[0]).toHaveClass('h-3', 'w-20', 'rounded');
+    expect(textDefault[0].className).toContain('bg-[rgb(var(--accent-foreground)/0.1)]');
+
+    expect(textWide).toHaveLength(1);
+    expect(textWide[0]).toHaveClass('h-3', 'w-28', 'rounded');
+
+    expect(titleDefault).toHaveLength(1);
+    expect(titleDefault[0]).toHaveClass('h-4', 'w-32', 'rounded');
+
+    expect(textLines).toHaveLength(3);
+    expect(screen.getByTestId('skeleton-text-lines').firstElementChild).toHaveClass('space-y-2');
+    textLines.forEach((block) => expect(block).toHaveClass('h-3', 'w-20', 'rounded'));
+
+    expect(textWideLines).toHaveLength(3);
+    expect(screen.getByTestId('skeleton-text-wide-lines').firstElementChild).toHaveClass('space-y-2');
+    textWideLines.forEach((block) => expect(block).toHaveClass('h-3', 'w-28', 'rounded'));
+
+    expect(titleLines).toHaveLength(2);
+    expect(screen.getByTestId('skeleton-title-lines').firstElementChild).toHaveClass('space-y-2');
+    titleLines.forEach((block) => expect(block).toHaveClass('h-4', 'w-32', 'rounded'));
+  });
+
+  it('renders the message row skeleton preset with an avatar and matching text rows', () => {
+    const { container } = render(<MessageRowSkeleton lineWidths={['w-36', 'w-60', 'w-44']} />);
+
     const blocks = Array.from(container.querySelectorAll('.animate-pulse')) as HTMLDivElement[];
 
-    expect(blocks[0]).toHaveClass('h-3', 'w-20', 'rounded');
-    expect(blocks[1]).toHaveClass('h-3', 'w-28', 'rounded');
-    expect(blocks[2]).toHaveClass('h-4', 'w-32', 'rounded');
-    expect(blocks[0].className).toContain('bg-[rgb(var(--accent-foreground)/0.1)]');
+    expect(blocks).toHaveLength(4);
+    expect(blocks[0]).toHaveClass('h-9', 'w-9', 'rounded-full');
+    expect(blocks[1]).toHaveClass('h-3', 'w-36', 'rounded');
+    expect(blocks[2]).toHaveClass('h-3', 'w-60', 'rounded');
+    expect(blocks[3]).toHaveClass('h-3', 'w-44', 'rounded');
+  });
+
+  it('renders the inspector section skeleton with fixed label rows and wide detail rows', () => {
+    render(
+      <div data-testid="inspector-section-skeleton">
+        <InspectorSectionSkeleton wideRows={[true, false, true]} />
+      </div>
+    );
+
+    const rows = Array.from(screen.getByTestId('inspector-section-skeleton').children) as HTMLDivElement[];
+
+    expect(rows).toHaveLength(3);
+    rows.forEach((row) => {
+      expect(row).toHaveClass('flex', 'items-center', 'justify-between', 'px-4', 'py-2.5');
+      const blocks = Array.from(row.querySelectorAll('.animate-pulse')) as HTMLDivElement[];
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0]).toHaveClass('h-3', 'w-16', 'rounded');
+    });
+
+    const rowBlocks = rows.map((row) => Array.from(row.querySelectorAll('.animate-pulse')) as HTMLDivElement[]);
+    expect(rowBlocks[0][1]).toHaveClass('w-28');
+    expect(rowBlocks[1][1]).toHaveClass('w-20');
+    expect(rowBlocks[2][1]).toHaveClass('w-28');
   });
 
   it('keeps the LinkMatterModal load-more label visible while prepending a spinner', async () => {
@@ -258,7 +346,7 @@ describe('Loading primitives', () => {
   });
 
   it('renders a hidden spacer row in VirtualMessageList when older messages are already paged out', () => {
-    const { container } = render(
+    render(
       <VirtualMessageList
         messages={createMessages(41)}
         hasMoreMessages
@@ -269,7 +357,7 @@ describe('Loading primitives', () => {
     expect(screen.queryByRole('button', { name: /load older messages/i })).toBeNull();
     expect(screen.queryByText(/loading more messages/i)).toBeNull();
 
-    const spacerRow = container.querySelector('[aria-hidden="true"]') as HTMLDivElement | null;
+    const spacerRow = screen.getByTestId('pagination-spacer') as HTMLDivElement;
     const spacerButton = spacerRow?.querySelector('button') as HTMLButtonElement | null;
 
     expect(spacerRow).not.toBeNull();

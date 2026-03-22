@@ -766,6 +766,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             {hasMoreMessages && (
                 <div
                     className="flex justify-center items-center py-4"
+                    data-testid={derivedStart > 0 ? 'pagination-spacer' : undefined}
                     aria-hidden={derivedStart > 0 ? 'true' : undefined}
                 >
                     {derivedStart === 0 ? (
