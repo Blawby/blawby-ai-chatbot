@@ -291,15 +291,15 @@
     "noPermission": "Bu adayı inceleme izniniz yok"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "Yeni Başvuru",
+    "urgency": "Aciliyet",
+    "payment": "Ödeme",
+    "triage": "Önceliklendirme",
+    "fee": "Ücret",
+    "opposingParty": "Karşı Taraf",
+    "reason": "Sebep"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Geri dönüş yolunuz kaydedilemedi."
   }
 }

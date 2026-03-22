@@ -290,15 +290,15 @@
     "noPermission": "您没有权限审查此线索"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "新接案",
+    "urgency": "紧急程度",
+    "payment": "付款",
+    "triage": "分诊",
+    "fee": "费用",
+    "opposingParty": "对方当事人",
+    "reason": "原因"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "无法保存您的返回路径。"
   }
 }

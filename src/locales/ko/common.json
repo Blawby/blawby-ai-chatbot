@@ -290,15 +290,15 @@
     "noPermission": "이 리드를 검토할 권한이 없습니다"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "새 접수",
+    "urgency": "긴급도",
+    "payment": "결제",
+    "triage": "분류(트리아지)",
+    "fee": "수수료",
+    "opposingParty": "상대방",
+    "reason": "사유"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "복귀 경로를 저장할 수 없습니다."
   }
 }

@@ -290,15 +290,15 @@
     "noPermission": "คุณไม่มีสิทธิ์ในการตรวจสอบลีดนี้"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "รับเรื่องใหม่",
+    "urgency": "ความเร่งด่วน",
+    "payment": "การชำระเงิน",
+    "triage": "การคัดกรอง",
+    "fee": "ค่าธรรมเนียม",
+    "opposingParty": "คู่กรณี",
+    "reason": "เหตุผล"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "ไม่สามารถบันทึกเส้นทางกลับของคุณได้"
   }
 }

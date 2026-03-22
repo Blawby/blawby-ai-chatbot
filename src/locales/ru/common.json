@@ -290,15 +290,15 @@
     "noPermission": "У вас нет разрешения на просмотр этого потенциального клиента"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "Новая регистрация",
+    "urgency": "Срочность",
+    "payment": "Платеж",
+    "triage": "Сортировка",
+    "fee": "Сбор",
+    "opposingParty": "Противоположная сторона",
+    "reason": "Причина"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Не удалось сохранить ваш обратный путь."
   }
 }

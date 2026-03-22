@@ -290,15 +290,15 @@
     "noPermission": "Você não tem permissão para revisar este lead"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "Novo registro",
+    "urgency": "Urgência",
+    "payment": "Pagamento",
+    "triage": "Triagem",
+    "fee": "Taxa",
+    "opposingParty": "Parte adversa",
+    "reason": "Motivo"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Não foi possível salvar o caminho de retorno."
   }
 }

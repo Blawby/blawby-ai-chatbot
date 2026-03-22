@@ -290,15 +290,15 @@
     "noPermission": "U hebt geen toestemming om deze lead te beoordelen"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
+    "newIntake": "Nieuwe intake",
+    "urgency": "Urgentie",
+    "payment": "Betaling",
     "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "fee": "Kosten",
+    "opposingParty": "Wederpartij",
+    "reason": "Reden"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Kan uw terugkeerpad niet opslaan."
   }
 }

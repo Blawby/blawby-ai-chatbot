@@ -226,7 +226,7 @@ export async function getIntakeStatus(intakeUuid: string) {
   return json.data;
 }
 
-export async function claimIntakePayment(sessionId: string) {
+export async function claimIntakePayment(sessionId: string): Promise<ClaimIntakePaymentResponse | null> {
   if (!sessionId) {
     throw new Error('sessionId is required');
   }
@@ -251,7 +251,7 @@ export async function claimIntakePayment(sessionId: string) {
   const isConflict = response.status === 409 || /already\s+(?:claimed|attached)|duplicate|conflict/i.test(errorText);
 
   if (isConflict) {
-    return json?.data ?? { intake_uuid: '', organization_id: '' };
+    return json?.data ?? null;
   }
 
   if (!response.ok || json?.success === false || !json?.data) {

@@ -290,15 +290,15 @@
     "noPermission": "У вас немає дозволу на перегляд цього потенційного клієнта"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "Нова реєстрація",
+    "urgency": "Терміновість",
+    "payment": "Платіж",
+    "triage": "Сортування",
+    "fee": "Збір",
+    "opposingParty": "Протилежна сторона",
+    "reason": "Причина"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Не вдалося зберегти ваш зворотній шлях."
   }
 }

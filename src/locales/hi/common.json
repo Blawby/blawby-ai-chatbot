@@ -291,15 +291,15 @@
     "noPermission": "आपके पास इस लीड की समीक्षा करने की अनुमति नहीं है"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "नया इनटेक",
+    "urgency": "तात्कालिकता",
+    "payment": "भुगतान",
+    "triage": "त्रिएज",
+    "fee": "शुल्क",
+    "opposingParty": "विरोधी पक्ष",
+    "reason": "कारण"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "आपका रिटर्न पथ सहेजा नहीं जा सका। कृपया बाद में पुनः प्रयास करें।"
   }
 }

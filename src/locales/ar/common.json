@@ -290,15 +290,15 @@
     "noPermission": "ليس لديك إذن لمراجعة هذا العميل المحتمل"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "إدخال جديد",
+    "urgency": "الأولوية",
+    "payment": "الدفع",
+    "triage": "تقييم الحالة",
+    "fee": "الرسوم",
+    "opposingParty": "الطرف الآخر",
+    "reason": "السبب"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "تعذّر حفظ مسار العودة."
   }
 }

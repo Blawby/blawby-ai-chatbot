@@ -290,15 +290,15 @@
     "noPermission": "Nie masz uprawnień do przeglądania tego potencjalnego klienta"
   },
   "leadIntake": {
-    "newIntake": "New intake",
-    "urgency": "Urgency",
-    "payment": "Payment",
-    "triage": "Triage",
-    "fee": "Fee",
-    "opposingParty": "Opposing party",
-    "reason": "Reason"
+    "newIntake": "Nowe zgłoszenie",
+    "urgency": "Pilność",
+    "payment": "Płatność",
+    "triage": "Segregacja",
+    "fee": "Opłata",
+    "opposingParty": "Strona przeciwna",
+    "reason": "Powód"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Nie udało się zapisać ścieżki powrotu."
   }
 }
