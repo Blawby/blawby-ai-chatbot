@@ -288,5 +288,17 @@
     "decline": "Rifiuta",
     "convert": "Converti in fascicolo",
     "noPermission": "Non hai il permesso di rivedere questo lead"
+  },
+  "leadIntake": {
+    "newIntake": "Nuova richiesta",
+    "urgency": "Urgenza",
+    "payment": "Pagamento",
+    "triage": "Triage",
+    "fee": "Tariffa",
+    "opposingParty": "Parte avversa",
+    "reason": "Motivo"
+  },
+  "widget": {
+    "persistIntakePathError": "Impossibile salvare il percorso di ritorno."
   }
 }

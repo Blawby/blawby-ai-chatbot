@@ -288,5 +288,17 @@
     "decline": "ปฏิเสธ",
     "convert": "แปลงเป็นเรื่อง",
     "noPermission": "คุณไม่มีสิทธิ์ในการตรวจสอบลีดนี้"
+  },
+  "leadIntake": {
+    "newIntake": "รับเรื่องใหม่",
+    "urgency": "ความเร่งด่วน",
+    "payment": "การชำระเงิน",
+    "triage": "การคัดกรอง",
+    "fee": "ค่าธรรมเนียม",
+    "opposingParty": "คู่กรณี",
+    "reason": "เหตุผล"
+  },
+  "widget": {
+    "persistIntakePathError": "ไม่สามารถบันทึกเส้นทางกลับของคุณได้"
   }
 }

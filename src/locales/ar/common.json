@@ -288,5 +288,17 @@
     "decline": "رفض",
     "convert": "تحويل إلى ملف",
     "noPermission": "ليس لديك إذن لمراجعة هذا العميل المحتمل"
+  },
+  "leadIntake": {
+    "newIntake": "إدخال جديد",
+    "urgency": "الأولوية",
+    "payment": "الدفع",
+    "triage": "تقييم الحالة",
+    "fee": "الرسوم",
+    "opposingParty": "الطرف الآخر",
+    "reason": "السبب"
+  },
+  "widget": {
+    "persistIntakePathError": "تعذّر حفظ مسار العودة."
   }
 }

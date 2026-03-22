@@ -288,5 +288,17 @@
     "decline": "Recusar",
     "convert": "Converter para caso",
     "noPermission": "Você não tem permissão para revisar este lead"
+  },
+  "leadIntake": {
+    "newIntake": "Novo registro",
+    "urgency": "Urgência",
+    "payment": "Pagamento",
+    "triage": "Triagem",
+    "fee": "Taxa",
+    "opposingParty": "Parte adversa",
+    "reason": "Motivo"
+  },
+  "widget": {
+    "persistIntakePathError": "Não foi possível salvar o caminho de retorno."
   }
 }

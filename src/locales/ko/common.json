@@ -288,5 +288,17 @@
     "decline": "거부",
     "convert": "건으로 전환",
     "noPermission": "이 리드를 검토할 권한이 없습니다"
+  },
+  "leadIntake": {
+    "newIntake": "새 접수",
+    "urgency": "긴급도",
+    "payment": "결제",
+    "triage": "분류(트리아지)",
+    "fee": "수수료",
+    "opposingParty": "상대방",
+    "reason": "사유"
+  },
+  "widget": {
+    "persistIntakePathError": "복귀 경로를 저장할 수 없습니다."
   }
 }

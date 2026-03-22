@@ -13,6 +13,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
+import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 
 export interface OnboardingActions {
     onSaveAll?: () => void | Promise<void>;
@@ -189,6 +190,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
     const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
     const [leadTriageStatus, setLeadTriageStatus] = useState<Record<string, string>>({});
+    const [leadIntakeDetails, setLeadIntakeDetails] = useState<Record<string, PracticeIntakeDetail>>({});
     const triageStatusRequestedRef = useRef(new Set<string>());
     const isMountedRef = useRef(true);
 
@@ -242,30 +244,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             const controller = new AbortController();
             controllers.set(intakeUuid, controller);
 
-            void fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
-                credentials: 'include',
-                signal: controller.signal,
-            })
-                .then(async (response) => {
+            void getPracticeIntake(leadReviewActions.practiceId, intakeUuid, { signal: controller.signal })
+                .then((intake) => {
                     if (!isMountedRef.current) return;
-                    if (!response.ok) {
-                        const errData = await response.json().catch(() => ({})) as { error?: string; message?: string };
-                        throw new Error(errData.message ?? errData.error ?? `HTTP ${response.status}`);
-                    }
-                    const payload = await response.json() as {
-                        success?: boolean;
-                        data?: { triage_status?: string };
-                    };
-                    const triageStatus = payload.data?.triage_status;
+                    setLeadIntakeDetails((prev) => ({ ...prev, [intakeUuid]: intake }));
+                    const triageStatus = intake.triage_status;
                     if (typeof triageStatus === 'string' && triageStatus.length > 0) {
-                        if (isMountedRef.current) {
-                            setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
-                        }
+                        setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
                     }
                 })
                 .catch((error) => {
                     if (error instanceof Error && error.name === 'AbortError') return;
-                    console.warn('[VirtualMessageList] Failed to hydrate intake triage status', { intakeUuid, error });
+                    console.warn('[VirtualMessageList] Failed to hydrate intake details', { intakeUuid, error });
                     if (isMountedRef.current) {
                         triageStatusRequestedRef.current.delete(intakeUuid);
                     }
@@ -347,6 +337,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!intakeUuid || !leadReviewActions.practiceId || !leadReviewActions.conversationId) {
             return undefined;
         }
+        const intakeDetail = leadIntakeDetails[intakeUuid];
+        const intakeMetadata = intakeDetail?.metadata;
         const triageStatus = typeof meta.triageStatus === 'string'
             ? meta.triageStatus
             : (typeof meta.triage_status === 'string' ? meta.triage_status : null);
@@ -362,37 +354,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             submittingRef.current[intakeUuid] = true;
             setLeadActionState((prev) => ({ ...prev, [intakeUuid]: action }));
             try {
-                // Call backend intake status endpoint directly
-                const response = await fetch(
-                    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+                const triagePayload = await updateIntakeTriageStatus(
+                    intakeUuid,
                     {
-                        method: 'PATCH',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            status: action === 'accept' ? 'accepted' : 'declined',
-                            ...(action === 'reject' ? { reason: 'Declined by practice.' } : {}),
-                        }),
+                        status: action === 'accept' ? 'accepted' : 'declined',
+                        ...(action === 'reject' ? { reason: 'Declined by practice.' } : {}),
                     }
                 );
-
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({})) as { error?: string; message?: string };
-                    throw new Error(errData.message ?? errData.error ?? `HTTP ${response.status}`);
-                }
-                const triagePayload = await response.json().catch(() => null) as
-                    | {
-                        data?: {
-                            conversation_id?: string | null;
-                            conversationId?: string | null;
-                        } | null;
-                      }
-                    | null;
                 let participantAdded = true;
                 if (action === 'accept' && session?.user?.id) {
                     const responseConversationId =
-                        triagePayload?.data?.conversation_id
-                        ?? triagePayload?.data?.conversationId
+                        triagePayload?.conversation_id
+                        ?? triagePayload?.conversationId
                         ?? leadReviewActions.conversationId;
                     if (responseConversationId) {
                         try {
@@ -426,6 +399,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     ...prev,
                     [intakeUuid]: action === 'accept' ? 'accepted' : 'declined',
                 }));
+                setLeadIntakeDetails((prev) => {
+                    const current = prev[intakeUuid];
+                    if (!current) return prev;
+                    return {
+                        ...prev,
+                        [intakeUuid]: {
+                            ...current,
+                            triage_status: action === 'accept' ? 'accepted' : 'declined',
+                            triage_reason: action === 'reject' ? 'Declined by practice.' : current.triage_reason ?? null,
+                        }
+                    };
+                });
 
                 const practiceName = leadReviewActions.practiceName || 'The practice';
                 const content = action === 'accept'
@@ -479,6 +464,20 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         return {
             canReview: leadReviewActions.canReviewLeads,
             isSubmitting: isSubmittingState,
+            intake: intakeDetail ? {
+                name: typeof intakeMetadata?.name === 'string' ? intakeMetadata.name : undefined,
+                email: typeof intakeMetadata?.email === 'string' ? intakeMetadata.email : undefined,
+                phone: typeof intakeMetadata?.phone === 'string' ? intakeMetadata.phone : undefined,
+                description: typeof intakeMetadata?.description === 'string' ? intakeMetadata.description : undefined,
+                opposingParty: typeof intakeMetadata?.opposing_party === 'string' ? intakeMetadata.opposing_party : undefined,
+                urgency: typeof intakeDetail.urgency === 'string' ? intakeDetail.urgency : undefined,
+                paymentStatus: typeof intakeDetail.status === 'string' ? intakeDetail.status : undefined,
+                triageStatus: resolvedTriageStatus ?? undefined,
+                triageReason: typeof intakeDetail.triage_reason === 'string' ? intakeDetail.triage_reason : undefined,
+                amount: typeof intakeDetail.amount === 'number' ? intakeDetail.amount : undefined,
+                currency: typeof intakeDetail.currency === 'string' ? intakeDetail.currency : undefined,
+                submittedAt: typeof intakeDetail.created_at === 'string' ? intakeDetail.created_at : undefined,
+            } : undefined,
             onAccept: () => void runLeadAction('accept'),
             onReject: () => void runLeadAction('reject'),
             onConvert: isAccepted ? () => {

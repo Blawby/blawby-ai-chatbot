@@ -81,6 +81,7 @@ import {
 import { getInvoice, sendInvoice, syncInvoice, voidInvoice as voidInvoiceRequest } from '@/features/matters/services/invoicesApi';
 import { useBillingData } from '@/features/matters/hooks/useBillingData';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
+import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
 import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
@@ -108,8 +109,6 @@ import {
 // ---------------------------------------------------------------------------
 
 type DetailSectionId = 'overview' | 'tasks' | 'billing' | 'messages';
-type IntakeTriageStatus = 'pending_review' | 'accepted' | 'declined' | string;
-
 const DETAIL_TABS: Array<{ id: DetailSectionId; label: string; icon: typeof CheckCircleIcon }> = [
   { id: 'overview', label: 'Overview', icon: HomeIcon },
   { id: 'tasks', label: 'Tasks', icon: CheckCircleIcon },
@@ -631,40 +630,23 @@ export const PracticeMattersPage = ({
     setConvertLoading(true);
     setConvertError(null);
 
-    fetch(`/api/practice/${encodeURIComponent(activePracticeId)}/client-intakes/${encodeURIComponent(convertIntakeUuid)}/status`, {
-      credentials: 'include',
-      signal: controller.signal
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          let errData: { message?: string; error?: string } = {};
-          try {
-            const jsonBody = await response.json();
-            errData = jsonBody as { message?: string; error?: string };
-          } catch {
-            const textBody = await response.text();
-            const message = textBody || `Failed to load intake (HTTP ${response.status})`;
-            throw new Error(message);
-          }
-          throw new Error(errData.message ?? errData.error ?? `Failed to load intake (HTTP ${response.status})`);
-        }
-        const payload = await response.json() as {
-          success?: boolean;
-          data?: {
-            description?: string;
-            opposing_party?: string;
-            urgency?: MatterFormState['urgency'];
-            triage_status?: IntakeTriageStatus;
-          };
-        };
-        const intake = payload.data ?? {};
+    getPracticeIntake(activePracticeId, convertIntakeUuid, { signal: controller.signal })
+      .then((intake) => {
+        const metadata = (intake.metadata ?? {}) as NonNullable<typeof intake.metadata>;
+        const contactName = typeof metadata.name === 'string' ? metadata.name.trim() : '';
+        const representedParty = typeof metadata.on_behalf_of === 'string' ? metadata.on_behalf_of.trim() : '';
+        const description = typeof metadata.description === 'string' ? metadata.description : '';
+        const opposingParty = typeof metadata.opposing_party === 'string' ? metadata.opposing_party : '';
+        const titleSource = representedParty || contactName;
         setConvertInitialValues({
-          description: typeof intake.description === 'string' ? intake.description : '',
-          opposingParty: typeof intake.opposing_party === 'string' ? intake.opposing_party : '',
+          title: titleSource ? `Intake: ${titleSource}` : '',
+          description,
+          opposingParty,
           urgency: intake.urgency === 'routine' || intake.urgency === 'time_sensitive' || intake.urgency === 'emergency'
             ? intake.urgency
             : '',
           status: 'engagement_pending',
+          openDate: typeof intake.created_at === 'string' ? intake.created_at.slice(0, 10) : '',
         });
       })
       .catch((error: unknown) => {
@@ -953,7 +935,7 @@ export const PracticeMattersPage = ({
     }
 
     const response = await fetch(
-      `/api/practice/${encodeURIComponent(activePracticeId)}/client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
+      `/api/practice/client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
       {
         method: 'PATCH',
         credentials: 'include',
@@ -1785,6 +1767,7 @@ export const PracticeMattersPage = ({
               practiceAreasLoading={servicesLoading}
               assignees={assigneeOptions}
               initialValues={convertInitialValues}
+              requireClientSelection={!convertIntakeUuid}
             />
           ) : null}
         </div>

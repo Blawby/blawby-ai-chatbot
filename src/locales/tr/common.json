@@ -289,5 +289,17 @@
     "decline": "Reddet",
     "convert": "Dosyaya Dönüştür",
     "noPermission": "Bu adayı inceleme izniniz yok"
+  },
+  "leadIntake": {
+    "newIntake": "Yeni Başvuru",
+    "urgency": "Aciliyet",
+    "payment": "Ödeme",
+    "triage": "Önceliklendirme",
+    "fee": "Ücret",
+    "opposingParty": "Karşı Taraf",
+    "reason": "Sebep"
+  },
+  "widget": {
+    "persistIntakePathError": "Geri dönüş yolunuz kaydedilemedi."
   }
 }

@@ -58,6 +58,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [hasPersistError, setHasPersistError] = useState(false);
   const autoConversationAttemptedRef = useRef(false);
   const autoConversationRetryCountRef = useRef(0);
   const autoConversationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,6 +242,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
+  const activeConversationId = setupConversationId ?? routeConversationId;
+
   // Intake Auth (simplistic for widget, just redirecting or showing prompt if needed)
   const intakeUuid = intakeStatus?.intakeUuid ?? null;
   const intakeAuthTarget = useMemo(() => {
@@ -251,33 +254,29 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const shouldShowAuthPrompt = Boolean(isAnonymous && intakeAuthTarget);
 
-  const awaitingInvitePath = useMemo(() => {
+  const intakePostAuthPath = useMemo(() => {
     if (!intakeUuid) return null;
-    const slug = practiceConfig.slug ?? '';
-    const params = new URLSearchParams();
-    params.set('intakeUuid', intakeUuid);
-    if (slug) params.set('practiceSlug', slug);
-    if (practiceConfig.name) params.set('practiceName', practiceConfig.name);
-    return `/awaiting-invite?${params.toString()}`;
-  }, [intakeUuid, practiceConfig.slug, practiceConfig.name]);
+    if (!practiceConfig.slug || !activeConversationId) return null;
+    return `/public/${encodeURIComponent(practiceConfig.slug)}/conversations/${encodeURIComponent(activeConversationId)}`;
+  }, [activeConversationId, intakeUuid, practiceConfig.slug]);
 
   useEffect(() => {
-    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
-    if (!isAnonymous || !intakeUuid || !awaitingInvitePath) return;
+    if (!isAnonymous || !intakeUuid || !intakePostAuthPath) return;
 
     try {
       const currentPendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
-      if (currentPendingPath !== awaitingInvitePath) {
-        window.sessionStorage.setItem('intakeAwaitingInvitePath', awaitingInvitePath);
+      if (currentPendingPath !== intakePostAuthPath) {
+        window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath);
       }
     } catch (error) {
-       console.warn('[Widget] Failed to persist intake returning path', error);
-       throw error;
+      console.warn('[Widget] Failed to persist intake returning path', error);
+      setHasPersistError(true);
     }
-  }, [isAnonymous, intakeUuid, awaitingInvitePath, shouldShowAuthPrompt]);
+
+    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
+  }, [activeConversationId, intakePostAuthPath, isAnonymous, intakeUuid, shouldShowAuthPrompt]);
 
   // System Messages
-  const activeConversationId = setupConversationId ?? routeConversationId;
   useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
     practiceId,
@@ -500,6 +499,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     <>
       <DragDropOverlay isVisible={isDragging} />
       <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
+        {hasPersistError ? (
+          <div
+            className="absolute left-4 right-4 top-4 z-[70] rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-3 text-sm text-[rgb(var(--accent-foreground))] shadow-lg backdrop-blur-md"
+            role="alert"
+            aria-live="polite"
+          >
+            {t('widget.persistIntakePathError')}
+          </div>
+        ) : null}
         {view === 'home' ? (
           <div className="flex h-full flex-col overflow-hidden relative">
              <div className="flex-1 overflow-y-auto">

@@ -4,7 +4,6 @@ import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
-import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import DebugStylesPage from '@/pages/DebugStylesPage';
@@ -216,7 +215,6 @@ function AppShell() {
         <Router>
           <Route path="/auth" component={AuthPage} />
           <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
-          <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
