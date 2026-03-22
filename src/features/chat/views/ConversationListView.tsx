@@ -1,7 +1,6 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeftIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
+import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
 import { WorkspaceListHeader } from '@/shared/ui/layout';

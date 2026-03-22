@@ -306,7 +306,7 @@ export function MainApp({
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
-    startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
+    startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
@@ -1045,7 +1045,7 @@ export function MainApp({
       }
       invoicesListContent={
         (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop'
-          ? (statusFilter, controls) => (
+          ? (statusFilter) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {isPracticeWorkspace ? (
                 <PracticeInvoicesPage
