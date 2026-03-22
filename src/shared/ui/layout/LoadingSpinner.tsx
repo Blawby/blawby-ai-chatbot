@@ -34,7 +34,7 @@ export const LoadingSpinner = ({
       className={cn('inline-flex items-center justify-center', className)}
       {...liveRegionProps}
     >
-      <span className="sr-only">{resolvedAriaLabel}</span>
+      {announce ? <span className="sr-only">{resolvedAriaLabel}</span> : null}
       <div
         aria-hidden="true"
         className={cn(

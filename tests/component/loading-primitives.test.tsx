@@ -135,7 +135,7 @@ describe('Loading primitives', () => {
 
     expect(spinner).not.toHaveAttribute('role');
     expect(spinner).not.toHaveAttribute('aria-live');
-    expect(container.querySelector('.sr-only')).toHaveTextContent('Loading records');
+    expect(container.querySelector('.sr-only')).toBeNull();
   });
 
   it('hides LoadingScreen and LoadingBlock labels by default and shows them when requested', () => {
@@ -158,6 +158,7 @@ describe('Loading primitives', () => {
     expect(blockWrapper).toHaveAttribute('role', 'status');
     expect(blockWrapper).toHaveAttribute('aria-live', 'polite');
     expect(blockStatuses).toHaveLength(1);
+    expect(blockContainer.querySelector('.sr-only')).toBeNull();
     expect(blockContainer.querySelector('.text-sm.text-input-placeholder')).toHaveTextContent('Loading records');
   });
 
