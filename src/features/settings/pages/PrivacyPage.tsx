@@ -7,7 +7,7 @@ import { SectionDivider } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import Modal from '@/shared/components/Modal';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
@@ -125,7 +125,7 @@ export default function PrivacyPage() {
   }, []);
 
   return (
-    <SettingsPageLayout title="Privacy">
+    <ContentPageLayout title="Privacy">
       <SettingSection
         title="Consent & data use"
         description="Control how Blawby processes and retains your personal data."
@@ -230,6 +230,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </Modal>
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 }

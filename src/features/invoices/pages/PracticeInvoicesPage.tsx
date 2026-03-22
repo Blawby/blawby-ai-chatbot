@@ -1,4 +1,3 @@
-import type { ComponentChildren } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -20,13 +19,11 @@ export function PracticeInvoicesPage({
   practiceSlug,
   statusFilter = STABLE_EMPTY_ARRAY,
   renderMode = 'full',
-  listHeaderLeftControl,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   statusFilter?: string[];
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
-  listHeaderLeftControl?: ComponentChildren;
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
@@ -69,9 +66,6 @@ export function PracticeInvoicesPage({
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-2', isListOnly ? '' : 'p-4 sm:p-6')}>
-      {listHeaderLeftControl ? (
-        <div className="px-1 py-1">{listHeaderLeftControl}</div>
-      ) : null}
       {renderMode === 'full' ? (
         <p className="mt-1 text-sm text-input-placeholder">Practice-wide invoices across matters and people.</p>
       ) : null}

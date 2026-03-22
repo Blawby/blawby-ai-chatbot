@@ -6,7 +6,6 @@ import {
   mattersLoaded,
   mattersInFlight,
   markMattersCacheKey,
-  resetMattersStore,
   setMattersForPractice
 } from '@/shared/stores/mattersStore';
 
@@ -17,7 +16,6 @@ type UseMattersDataOptions = {
 export const useMattersData = (
   practiceId: string,
   statusFilter: string[],
-  userId: string | null,
   options: UseMattersDataOptions = {}
 ) => {
   const { enabled = true } = options;
@@ -25,20 +23,12 @@ export const useMattersData = (
   const loadedStore = useStore(mattersLoaded);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const lastUserIdRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
-
-  useEffect(() => {
-    if (lastUserIdRef.current !== userId) {
-      resetMattersStore();
-      lastUserIdRef.current = userId;
-    }
-  }, [userId]);
 
   // Serialize before memoising — stable even when caller passes a new [] literal each render
   const filterKey = statusFilter.map((v) => v.trim().toLowerCase()).filter(Boolean).sort().join(',');

@@ -50,6 +50,7 @@ import {
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
+import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -719,12 +720,13 @@ export function MainApp({
 
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
+    const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
     return (
       <WorkspaceConversationHeader
         practiceName={resolvedPracticeName}
         activeLabel={headerActiveTimeLabel}
         presenceStatus={headerPresenceStatus}
-        onBack={layoutMode !== 'desktop' ? () => navigate(conversationBackPath) : undefined}
+        onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
         rightSlot={headerRightSlot}
       />
     );
@@ -733,6 +735,18 @@ export function MainApp({
     headerActiveTimeLabel, headerPresenceStatus, headerRightSlot,
     layoutMode, navigate, resolvedPracticeName,
   ]);
+  const showWorkspaceDetailBack = useMemo(
+    () => shouldShowWorkspaceDetailBack(layoutMode),
+    [layoutMode]
+  );
+  const showPracticeInvoiceDetailBack = useMemo(
+    () => shouldShowWorkspaceDetailBack(layoutMode, Boolean(effectivePracticeSlug)),
+    [effectivePracticeSlug, layoutMode]
+  );
+  const showClientInvoiceDetailBack = useMemo(
+    () => shouldShowWorkspaceDetailBack(layoutMode, Boolean((clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null)),
+    [clientPracticeSlug, layoutMode, resolvedClientPracticeSlug]
+  );
 
   // ── system messages ────────────────────────────────────────────────────────
   useConversationSystemMessages({
@@ -872,40 +886,38 @@ export function MainApp({
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
-            ? (statusFilter, controls) => (
+            ? (statusFilter, prefetchData, detailHeaderRightControl) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
                   practiceId={effectivePracticeId ?? practiceId}
                   renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                   statusFilter={statusFilter}
-                  prefetchedItems={controls?.mattersData?.items}
-                  prefetchedLoading={controls?.mattersData?.isLoading}
-                  prefetchedError={controls?.mattersData?.error}
-                  onRefetchList={controls?.mattersData?.refetch}
-                  listHeaderLeftControl={controls?.listHeaderLeftControl}
-                  detailHeaderRightControl={controls?.detailHeaderRightControl}
-                  showDetailBackButton={layoutMode !== 'desktop'}
+                  prefetchedItems={prefetchData?.mattersData?.items}
+                  prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                  prefetchedError={prefetchData?.mattersData?.error}
+                  onRefetchList={prefetchData?.mattersData?.refetch}
+                  detailHeaderRightControl={detailHeaderRightControl}
+                  showDetailBackButton={showWorkspaceDetailBack}
                 />
               </Suspense>
             )
             : null)
           : isClientWorkspace
             ? (clientMattersPath
-              ? (statusFilter, controls) => (
+              ? (statusFilter, prefetchData, detailHeaderRightControl) => (
                 <Suspense fallback={<WorkspaceSubviewFallback />}>
                   <ClientMattersPage
                     basePath={clientMattersPath}
                     practiceId={effectivePracticeId ?? practiceId}
                     renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                     statusFilter={statusFilter}
-                    prefetchedItems={controls?.mattersData?.items}
-                    prefetchedLoading={controls?.mattersData?.isLoading}
-                    prefetchedError={controls?.mattersData?.error}
-                    onRefetchList={controls?.mattersData?.refetch}
-                    listHeaderLeftControl={controls?.listHeaderLeftControl}
-                    detailHeaderRightControl={controls?.detailHeaderRightControl}
-                    showDetailBackButton={layoutMode !== 'desktop'}
+                    prefetchedItems={prefetchData?.mattersData?.items}
+                    prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                    prefetchedError={prefetchData?.mattersData?.error}
+                    onRefetchList={prefetchData?.mattersData?.refetch}
+                    detailHeaderRightControl={detailHeaderRightControl}
+                    showDetailBackButton={showWorkspaceDetailBack}
                   />
                 </Suspense>
               )
@@ -914,92 +926,88 @@ export function MainApp({
       }
       mattersListContent={
         isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
-          ? (statusFilter, controls) => (
+          ? (statusFilter, prefetchData, detailHeaderRightControl) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               <PracticeMattersPage
                 basePath={practiceMattersPath}
                 practiceId={effectivePracticeId ?? practiceId}
                 renderMode="listOnly"
                 statusFilter={statusFilter}
-                prefetchedItems={controls?.mattersData?.items}
-                prefetchedLoading={controls?.mattersData?.isLoading}
-                prefetchedError={controls?.mattersData?.error}
-                onRefetchList={controls?.mattersData?.refetch}
-                listHeaderLeftControl={controls?.listHeaderLeftControl}
-                detailHeaderRightControl={controls?.detailHeaderRightControl}
-                showDetailBackButton={layoutMode !== 'desktop'}
+                prefetchedItems={prefetchData?.mattersData?.items}
+                prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                prefetchedError={prefetchData?.mattersData?.error}
+                onRefetchList={prefetchData?.mattersData?.refetch}
+                detailHeaderRightControl={detailHeaderRightControl}
+                showDetailBackButton={showWorkspaceDetailBack}
               />
             </Suspense>
           )
           : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
-            ? (statusFilter, controls) => (
+            ? (statusFilter, prefetchData, detailHeaderRightControl) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <ClientMattersPage
                   basePath={clientMattersPath}
                   practiceId={effectivePracticeId ?? practiceId}
                   renderMode="listOnly"
                   statusFilter={statusFilter}
-                  prefetchedItems={controls?.mattersData?.items}
-                  prefetchedLoading={controls?.mattersData?.isLoading}
-                  prefetchedError={controls?.mattersData?.error}
-                  onRefetchList={controls?.mattersData?.refetch}
-                  listHeaderLeftControl={controls?.listHeaderLeftControl}
-                  detailHeaderRightControl={controls?.detailHeaderRightControl}
-                  showDetailBackButton={layoutMode !== 'desktop'}
+                  prefetchedItems={prefetchData?.mattersData?.items}
+                  prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                  prefetchedError={prefetchData?.mattersData?.error}
+                  onRefetchList={prefetchData?.mattersData?.refetch}
+                  detailHeaderRightControl={detailHeaderRightControl}
+                  showDetailBackButton={showWorkspaceDetailBack}
                 />
               </Suspense>
             )
           : undefined
       }
       clientsView={isPracticeWorkspace && practiceClientsPath != null
-        ? (statusFilter, controls) => (
+        ? (statusFilter, prefetchData, detailHeaderRightControl) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
               practiceId={effectivePracticeId ?? practiceId}
               basePath={practiceClientsPath}
               renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
-              prefetchedItems={controls?.clientsData?.items}
-              prefetchedLoading={controls?.clientsData?.isLoading}
-              prefetchedError={controls?.clientsData?.error}
-              onRefetchList={controls?.clientsData?.refetch}
-              listHeaderLeftControl={controls?.listHeaderLeftControl}
-              detailHeaderRightControl={controls?.detailHeaderRightControl}
-              showDetailBackButton={layoutMode !== 'desktop'}
+              prefetchedItems={prefetchData?.clientsData?.items}
+              prefetchedLoading={prefetchData?.clientsData?.isLoading}
+              prefetchedError={prefetchData?.clientsData?.error}
+              onRefetchList={prefetchData?.clientsData?.refetch}
+              detailHeaderRightControl={detailHeaderRightControl}
+              showDetailBackButton={showWorkspaceDetailBack}
             />
           </Suspense>
         )
         : undefined}
       clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
-        ? (statusFilter, controls) => (
+        ? (statusFilter, prefetchData, detailHeaderRightControl) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
               practiceId={effectivePracticeId ?? practiceId}
               basePath={practiceClientsPath}
               renderMode="listOnly"
               statusFilter={statusFilter}
-              prefetchedItems={controls?.clientsData?.items}
-              prefetchedLoading={controls?.clientsData?.isLoading}
-              prefetchedError={controls?.clientsData?.error}
-              onRefetchList={controls?.clientsData?.refetch}
-              listHeaderLeftControl={controls?.listHeaderLeftControl}
-              detailHeaderRightControl={controls?.detailHeaderRightControl}
-              showDetailBackButton={layoutMode !== 'desktop'}
+              prefetchedItems={prefetchData?.clientsData?.items}
+              prefetchedLoading={prefetchData?.clientsData?.isLoading}
+              prefetchedError={prefetchData?.clientsData?.error}
+              onRefetchList={prefetchData?.clientsData?.refetch}
+              detailHeaderRightControl={detailHeaderRightControl}
+              showDetailBackButton={showWorkspaceDetailBack}
             />
           </Suspense>
         )
         : undefined}
       invoicesView={
         isPracticeWorkspace
-          ? (statusFilter, controls) => (
+          ? (statusFilter, detailHeaderRightControl) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
                   practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={effectivePracticeSlug ?? null}
                   invoiceId={routeInvoiceId ?? null}
-                  headerActions={controls?.detailHeaderRightControl}
-                  showBack={layoutMode !== 'desktop'}
+                  headerActions={detailHeaderRightControl}
+                  showBack={showPracticeInvoiceDetailBack}
                 />
               ) : (
                   <PracticeInvoicesPage
@@ -1007,21 +1015,20 @@ export function MainApp({
                     practiceSlug={effectivePracticeSlug ?? null}
                     statusFilter={statusFilter}
                     renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
-                    listHeaderLeftControl={controls?.listHeaderLeftControl}
                   />
               )}
             </Suspense>
           )
           : isClientWorkspace
-            ? (statusFilter, controls) => (
+            ? (statusFilter, detailHeaderRightControl) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <ClientInvoiceDetailPage
                     practiceId={effectivePracticeId ?? practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     invoiceId={routeInvoiceId ?? null}
-                    headerActions={controls?.detailHeaderRightControl}
-                    showBack={layoutMode !== 'desktop'}
+                    headerActions={detailHeaderRightControl}
+                    showBack={showClientInvoiceDetailBack}
                   />
                 ) : (
                   <ClientInvoicesPage
@@ -1030,7 +1037,6 @@ export function MainApp({
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     statusFilter={statusFilter}
                     renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
-                    listHeaderLeftControl={controls?.listHeaderLeftControl}
                   />
                 )}
               </Suspense>
@@ -1047,7 +1053,6 @@ export function MainApp({
                   practiceSlug={effectivePracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
-                  listHeaderLeftControl={controls?.listHeaderLeftControl}
                 />
               ) : (
                 <ClientInvoicesPage
@@ -1056,7 +1061,6 @@ export function MainApp({
                   practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
-                  listHeaderLeftControl={controls?.listHeaderLeftControl}
                 />
               )}
             </Suspense>

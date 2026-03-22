@@ -15,7 +15,7 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -321,7 +321,7 @@ export const SecurityPage = ({
   }
 
   return (
-    <SettingsPageLayout title={t('settings:security.title')} className={className}>
+    <ContentPageLayout title={t('settings:security.title')} className={className}>
       {/* Password Section */}
       <SettingSection
         title={t('settings:security.password.sectionTitle')}
@@ -458,6 +458,6 @@ export const SecurityPage = ({
           </Modal>
         </>
       )}
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

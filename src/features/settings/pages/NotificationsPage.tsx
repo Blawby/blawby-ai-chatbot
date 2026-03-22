@@ -5,7 +5,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import {
   useNotificationSettings,
@@ -305,7 +305,7 @@ export const NotificationsPage = ({
   }
 
   return (
-    <SettingsPageLayout
+    <ContentPageLayout
       title={t('settings:notifications.title', { defaultValue: 'Notifications' })}
       className={className}
     >
@@ -440,6 +440,6 @@ export const NotificationsPage = ({
           />
         </div>
       </SettingRow>
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

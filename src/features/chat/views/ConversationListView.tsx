@@ -4,11 +4,12 @@ import { ChevronLeftIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline'
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
+import { WorkspaceListHeader } from '@/shared/ui/layout';
+import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import { ChatText } from '@/features/chat/components/ChatText';
-import { cn } from '@/shared/utils/cn';
 
 interface ConversationPreview {
   content: string;
@@ -90,37 +91,15 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   return (
     <div className="flex h-full flex-col bg-transparent">
       {showHeaderRow ? (
-        <div className="workspace-header">
-          {headerLeftControls ? (
-            <div className="workspace-header__icon">{headerLeftControls}</div>
-          ) : null}
-          {showBackButton && onClose ? (
-            <Button
-              type="button"
-              variant="icon"
-              size="icon-sm"
-              onClick={onClose}
-              className="workspace-header__icon"
-              aria-label={t('common.back')}
-            >
-              <Icon icon={ChevronLeftIcon} className="h-4 w-4" aria-hidden="true"  />
-            </Button>
-          ) : null}
-          {showTitle ? (
-            <div className="workspace-header__identity">
-              <div className="workspace-header__title">{t('workspace.conversationList.title')}</div>
-            </div>
-          ) : null}
-          {headerControls ? (
-            <div className={cn(
-              'workspace-header__right',
-              !showTitle && 'ml-0 flex w-full max-w-none justify-center'
-            )}>
-              {headerControls}
-            </div>
-          ) : null}
-          {isLoading ? <div className="workspace-header__loading" aria-hidden="true" /> : null}
-        </div>
+        <WorkspaceListHeader
+          leftControls={headerLeftControls}
+          onBack={onClose}
+          showBackButton={showBackButton}
+          title={showTitle ? <div className="workspace-header__title">{t('workspace.conversationList.title')}</div> : undefined}
+          controls={headerControls}
+          isLoading={isLoading}
+          backAriaLabel={t('common.back')}
+        />
       ) : null}
 
       <div className="flex-1 overflow-y-auto">

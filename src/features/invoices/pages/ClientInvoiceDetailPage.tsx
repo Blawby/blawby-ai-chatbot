@@ -152,15 +152,13 @@ export function ClientInvoiceDetailPage({
     return <div className="p-6 text-sm text-input-placeholder">Invoice not found.</div>;
   }
 
-  const effectiveShowBack = showBack && Boolean(practiceSlug);
-
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
       <DetailHeader
         title={detail.invoiceNumber}
         subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
-        showBack={effectiveShowBack}
-        onBack={effectiveShowBack ? handleBackToList : undefined}
+        showBack={showBack}
+        onBack={showBack ? handleBackToList : undefined}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}

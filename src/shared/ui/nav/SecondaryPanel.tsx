@@ -10,6 +10,7 @@ export interface SecondaryPanelProps {
   activeHref?: string;
   activeItemId?: string | null;
   onSelect?: (id: string) => void;
+  onActionItemClick?: (item: SecondaryNavItem) => void;
   onItemActivate?: () => void;
   className?: string;
 }
@@ -31,6 +32,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
   activeHref,
   activeItemId,
   onSelect,
+  onActionItemClick,
   onItemActivate,
   className,
 }) => {
@@ -64,6 +66,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
     const isExpanded = hasChildren && (isGroupLabel ? true : (expandedIds[item.id] ?? childActive));
     const isActive = resolvedActiveItemId === item.id;
     const indentClass = depth === 0 ? '' : 'pl-4';
+    const isDanger = item.variant === 'danger';
 
     return (
       <div key={item.id} className={cn('flex flex-col gap-1', indentClass)}>
@@ -84,11 +87,20 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
             type="button"
             className={cn(
               'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-              isActive ? 'nav-item-active' : 'nav-item-inactive'
+              isDanger
+                ? 'text-red-400 hover:bg-red-500/10'
+                : isActive
+                  ? 'nav-item-active'
+                  : 'nav-item-inactive'
             )}
-            aria-current={isActive ? 'page' : undefined}
+            aria-current={isActive && !item.isAction ? 'page' : undefined}
             aria-expanded={hasChildren ? isExpanded : undefined}
             onClick={() => {
+              if (item.isAction) {
+                onActionItemClick?.(item);
+                onItemActivate?.();
+                return;
+              }
               if (hasChildren) {
                 setExpandedIds((prev) => ({ ...prev, [item.id]: !isExpanded }));
                 if (item.href) {

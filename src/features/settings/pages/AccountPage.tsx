@@ -27,7 +27,7 @@ import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -702,7 +702,7 @@ export const AccountPage = ({
     : t('settings:account.plan.tiers.free');
 
   return (
-    <SettingsPageLayout title={t('settings:account.title')} className={className}>
+    <ContentPageLayout title={t('settings:account.title')} className={className}>
       <SettingRow label={t('settings:account.nameLabel')}>
         <span className="text-sm text-input-text">
           {displayName}
@@ -1055,6 +1055,6 @@ export const AccountPage = ({
           />
         </div>
       </Modal>
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

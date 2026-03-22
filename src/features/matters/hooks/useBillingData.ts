@@ -10,14 +10,18 @@ import { asMajor } from '@/shared/utils/money';
 type UseBillingDataProps = {
   practiceId: string | null;
   matterId: string | null;
-  matter?: MatterDetail | null;
+  matterBillingType?: MatterDetail['billingType'] | null;
+  attorneyHourlyRate?: MatterDetail['attorneyHourlyRate'] | null;
+  adminHourlyRate?: MatterDetail['adminHourlyRate'] | null;
   enabled?: boolean;
 };
 
 export const useBillingData = ({
   practiceId,
   matterId,
-  matter,
+  matterBillingType,
+  attorneyHourlyRate,
+  adminHourlyRate,
   enabled = true
 }: UseBillingDataProps) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -50,10 +54,10 @@ export const useBillingData = ({
         amount: asMajor(0)
       },
       totalUnbilled: asMajor(0),
-      matterBillingType: matter?.billingType ?? 'hourly',
+      matterBillingType: matterBillingType ?? 'hourly',
       rates: {
-        attorney: matter?.attorneyHourlyRate ?? null,
-        admin: matter?.adminHourlyRate ?? null
+        attorney: attorneyHourlyRate ?? null,
+        admin: adminHourlyRate ?? null
       }
     };
 
@@ -63,10 +67,10 @@ export const useBillingData = ({
         getMatterUnbilledData(practiceId, matterId, {
           signal,
           summaryDefaults: {
-            matterBillingType: matter?.billingType ?? 'hourly',
+            matterBillingType: matterBillingType ?? 'hourly',
             rates: {
-              attorney: matter?.attorneyHourlyRate ?? null,
-              admin: matter?.adminHourlyRate ?? null
+              attorney: attorneyHourlyRate ?? null,
+              admin: adminHourlyRate ?? null
             }
           }
         })
@@ -98,7 +102,7 @@ export const useBillingData = ({
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [enabled, matter?.adminHourlyRate, matter?.attorneyHourlyRate, matter?.billingType, practiceId, matterId]);
+  }, [adminHourlyRate, attorneyHourlyRate, enabled, matterBillingType, practiceId, matterId]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   

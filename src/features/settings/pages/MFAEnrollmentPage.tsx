@@ -3,7 +3,7 @@ import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
 import { SectionDivider } from '@/shared/ui/layout';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -191,7 +191,7 @@ export const MFAEnrollmentPage = ({
   };
 
   return (
-    <SettingsPageLayout
+    <ContentPageLayout
       title={t('settings:mfa.title')}
       className={className}
       wrapChildren={false}
@@ -351,6 +351,6 @@ export const MFAEnrollmentPage = ({
             </div>
           </div>
       </div>
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

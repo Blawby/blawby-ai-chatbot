@@ -6,7 +6,7 @@ import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui/layout';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Input } from '@/shared/ui/input';
 import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
@@ -175,7 +175,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   };
 
   return (
-    <SettingsPageLayout
+    <ContentPageLayout
       title={app.name}
       wrapChildren={false}
       contentClassName="pb-6"
@@ -404,7 +404,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         app={app}
         onConnect={handleConnect}
       />
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };
 

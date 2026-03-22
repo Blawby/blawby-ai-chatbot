@@ -7,7 +7,6 @@ export { DomainSelector } from './DomainSelector';
 export { EmailSettingsSection } from './EmailSettingsSection';
 export { NotificationChannelSelector } from './NotificationChannelSelector';
 export { PlanFeaturesList } from './PlanFeaturesList';
-export { SettingsPageLayout } from './SettingsPageLayout';
 export { SettingsNotice } from './SettingsNotice';
 export { SettingsSubheader } from './SettingsSubheader';
 export { SettingsBadge } from './SettingsBadge';

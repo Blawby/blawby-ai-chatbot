@@ -18,7 +18,7 @@ import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
@@ -185,7 +185,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   }
 
   return (
-    <SettingsPageLayout
+    <ContentPageLayout
       title="Team Members"
       className={className}
       wrapChildren={false}
@@ -396,6 +396,6 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             <SettingsHelperText>No pending invitations</SettingsHelperText>
           )}
         </div>
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };
