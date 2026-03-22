@@ -288,5 +288,17 @@
     "decline": "Refuser",
     "convert": "Convertir en dossier",
     "noPermission": "Vous n'avez pas la permission d'examiner cette piste"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

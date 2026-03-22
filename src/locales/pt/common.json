@@ -288,5 +288,17 @@
     "decline": "Recusar",
     "convert": "Converter para caso",
     "noPermission": "Você não tem permissão para revisar este lead"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

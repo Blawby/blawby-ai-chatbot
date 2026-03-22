@@ -288,5 +288,17 @@
     "decline": "Відхилити",
     "convert": "Перетворити на справу",
     "noPermission": "У вас немає дозволу на перегляд цього потенційного клієнта"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

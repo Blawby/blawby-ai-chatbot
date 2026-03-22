@@ -326,24 +326,11 @@ export function MainApp({
   const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
   const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
 
-  const awaitingInvitePath = useMemo(() => {
-    if (!isPublicWorkspace || !intakeUuid) return null;
-    const slug = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
-    const params = new URLSearchParams();
-    params.set('intakeUuid', intakeUuid);
-    if (slug) params.set('practiceSlug', slug);
-    if (resolvedPracticeName) params.set('practiceName', resolvedPracticeName);
-    if (activeConversationId) params.set('conversationId', activeConversationId);
-    return `/auth/awaiting-invite?${params.toString()}`;
-  }, [activeConversationId, intakeUuid, isPublicWorkspace, practiceConfig.slug, resolvedPracticeName, resolvedPublicPracticeSlug]);
-
   const intakePostAuthPath = useMemo(() => {
     if (!isPublicWorkspace) return null;
-    if (resolvedPublicPracticeSlug && activeConversationId) {
-      return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
-    }
-    return awaitingInvitePath;
-  }, [activeConversationId, awaitingInvitePath, isPublicWorkspace, resolvedPublicPracticeSlug]);
+    if (!resolvedPublicPracticeSlug || !activeConversationId) return null;
+    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
+  }, [activeConversationId, isPublicWorkspace, resolvedPublicPracticeSlug]);
 
   const handleIntakeAuthSuccess = useCallback(async () => {
     if (!intakePostAuthPath) return;
@@ -835,7 +822,7 @@ export function MainApp({
             isLoadingMoreMessages={isLoadingMoreMessages}
             onLoadMoreMessages={loadMoreMessages}
             showAuthPrompt={shouldShowAuthPrompt}
-            authPromptCallbackUrl={awaitingInvitePath ?? undefined}
+            authPromptCallbackUrl={intakePostAuthPath ?? undefined}
             onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
             onAuthPromptClose={handleAuthPromptClose}
             onAuthPromptSuccess={handleAuthPromptSuccess}

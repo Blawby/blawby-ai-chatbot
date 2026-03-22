@@ -289,5 +289,17 @@
     "decline": "अस्वीकार करें",
     "convert": "मामले में परिवर्तित करें",
     "noPermission": "आपके पास इस लीड की समीक्षा करने की अनुमति नहीं है"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

@@ -288,5 +288,17 @@
     "decline": "Weigeren",
     "convert": "Converteren naar zaak",
     "noPermission": "U hebt geen toestemming om deze lead te beoordelen"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }
