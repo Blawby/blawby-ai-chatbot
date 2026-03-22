@@ -76,7 +76,12 @@ export interface PracticeIntakeDetail {
   created_at: string;
 }
 
-type IntakeMetadata = NonNullable<PracticeIntakeDetail['metadata']>;
+export interface UpdateIntakeTriageStatusResponse {
+  conversation_id?: string | null;
+  conversationId?: string | null;
+  triage_status?: string | null;
+  triage_reason?: string | null;
+}
 
 export async function listIntakes(practiceId: string, params: IntakeListParams) {
   if (!practiceId) {
@@ -159,6 +164,39 @@ export async function getPracticeIntake(
   return intake as PracticeIntakeDetail;
 }
 
+export async function updateIntakeTriageStatus(
+  intakeUuid: string,
+  payload: { status: 'accepted' | 'declined'; reason?: string },
+  options: { signal?: AbortSignal } = {}
+) {
+  if (!intakeUuid) {
+    throw new Error('intakeUuid is required');
+  }
+
+  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+    method: 'PATCH',
+    credentials: 'include',
+    signal: options.signal,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const json = await response.json().catch(() => null) as {
+    success?: boolean;
+    data?: UpdateIntakeTriageStatusResponse;
+    error?: string;
+    message?: string;
+  } | null;
+
+  if (!response.ok || json?.success === false) {
+    throw new Error(json?.message ?? json?.error ?? `HTTP ${response.status}`);
+  }
+
+  return json?.data ?? null;
+}
+
 export interface IntakeStatusResponse {
   uuid: string;
   status: string;
@@ -174,6 +212,11 @@ export interface IntakeStatusResponse {
   metadata?: Record<string, unknown>;
 }
 
+export interface ClaimIntakePaymentResponse {
+  intake_uuid: string;
+  organization_id: string;
+}
+
 export async function getIntakeStatus(intakeUuid: string) {
   // This endpoint currently exists
   const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
@@ -186,13 +229,29 @@ export async function getIntakeStatus(intakeUuid: string) {
   return json.data;
 }
 
-export async function triggerIntakeInvite(intakeUuid: string) {
-  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`, {
-    method: 'POST',
-    credentials: 'include'
-  });
-  if (!response.ok) {
-    throw new Error('Failed to trigger invite');
+export async function claimIntakePayment(sessionId: string) {
+  if (!sessionId) {
+    throw new Error('sessionId is required');
   }
-  return await response.json();
+
+  const response = await fetch('/api/practice/client-intakes/claim', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ session_id: sessionId })
+  });
+
+  const json = await response.json().catch(() => null) as {
+    success?: boolean;
+    data?: ClaimIntakePaymentResponse;
+    error?: string;
+  } | null;
+
+  if (!response.ok || json?.success === false || !json?.data) {
+    throw new Error(json?.error || 'Failed to claim intake');
+  }
+
+  return json.data;
 }

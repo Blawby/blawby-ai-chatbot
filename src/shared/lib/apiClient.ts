@@ -23,7 +23,7 @@ let isHandling401: Promise<void> | null = null;
 const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
 // Persistent result cache: once a slug resolves, reuse the result for the entire session.
 // This is the primary fix for the "Too Many Requests" issue — previously every caller
-// (usePracticeConfig, usePracticeDetails, AwaitingInvitePage, forms.ts) would fire
+// (usePracticeConfig, usePracticeDetails, forms.ts) would fire
 // independent HTTP requests because the in-flight map was cleared after each request.
 const publicPracticeDetailsCache = new Map<string, PublicPracticeDetails | null>();
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
@@ -761,22 +761,6 @@ export async function createPracticeInvitation(
     inviteUrl: inviteUrl ?? undefined,
     invitationId: invitationId ?? undefined
   };
-}
-
-export async function triggerIntakeInvitation(intakeUuid: string): Promise<{ message?: string } | null> {
-  if (!intakeUuid) {
-    throw new Error('intakeUuid is required');
-  }
-  const response = await apiClient.post(
-    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`,
-    {}
-  );
-  const data = unwrapApiData(response.data);
-  if (!isRecord(data)) {
-    return null;
-  }
-  const message = toNullableString(data.message);
-  return message ? { message } : null;
 }
 
 export async function respondToPracticeInvitation(

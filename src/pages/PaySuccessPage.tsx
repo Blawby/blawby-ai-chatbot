@@ -5,6 +5,8 @@ import { apiClient } from '@/shared/lib/apiClient';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
+import { getSession } from '@/shared/lib/authClient';
+import { claimIntakePayment } from '@/features/intake/api/intakesApi';
 
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
@@ -83,6 +85,20 @@ export const PaySuccessPage: FunctionComponent = () => {
         if (isAnonymous) {
           setMessage('Payment confirmed. Please sign in to continue.');
           return;
+        }
+        if (sessionId) {
+          setMessage('Payment confirmed. Claiming your intake…');
+          try {
+            await claimIntakePayment(sessionId);
+            await getSession().catch(() => undefined);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:session-updated'));
+            }
+          } catch (error) {
+            setMessage("Your payment was confirmed, but we couldn't finish linking your intake yet.");
+            console.error('[PaySuccessPage] Error claiming intake:', error);
+            return;
+          }
         }
         if (cancelled) return;
         if (returnTo) {
