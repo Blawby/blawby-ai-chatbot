@@ -6,6 +6,7 @@ import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
+import { MessageContent } from '@/features/chat/components/MessageContent';
 
 const mockListMatters = vi.fn();
 const mockGetMatter = vi.fn();
@@ -50,6 +51,10 @@ vi.mock('@/shared/ui/input/Combobox', () => ({
       data-disabled={disabled ? 'true' : 'false'}
     />
   )
+}));
+
+vi.mock('@/features/chat/components/ChatMarkdown', () => ({
+  default: ({ text }: { text: string }) => <div data-testid="chat-markdown">{text}</div>
 }));
 
 vi.mock('@/features/matters/services/mattersApi', () => ({
@@ -124,6 +129,15 @@ describe('Loading primitives', () => {
     expect(circle.className).toContain('border-t-transparent');
   });
 
+  it('can disable live-region announcements when wrapped by another status container', () => {
+    const { container } = render(<LoadingSpinner announce={false} ariaLabel="Loading records" />);
+    const spinner = container.firstElementChild as HTMLDivElement;
+
+    expect(spinner).not.toHaveAttribute('role');
+    expect(spinner).not.toHaveAttribute('aria-live');
+    expect(container.querySelector('.sr-only')).toHaveTextContent('Loading records');
+  });
+
   it('hides LoadingScreen and LoadingBlock labels by default and shows them when requested', () => {
     const { container: screenContainer } = render(<LoadingScreen />);
     const screenWrapper = screenContainer.firstElementChild as HTMLElement;
@@ -132,8 +146,7 @@ describe('Loading primitives', () => {
     expect(screenWrapper).toHaveClass('flex', 'h-screen', 'items-center', 'justify-center');
     expect(screenWrapper).toHaveAttribute('role', 'status');
     expect(screenWrapper).toHaveAttribute('aria-live', 'polite');
-    expect(screenStatuses).toHaveLength(2);
-    expect(screenStatuses[1]?.className).not.toContain('text-input-text');
+    expect(screenStatuses).toHaveLength(1);
     expect(screenContainer.querySelector('.text-sm.text-input-placeholder')).toBeNull();
     expect(screenContainer.querySelector('.sr-only')).toHaveTextContent(loadingLabel);
 
@@ -144,8 +157,7 @@ describe('Loading primitives', () => {
     expect(blockWrapper).toHaveClass('flex', 'h-full', 'min-h-0', 'items-center', 'justify-center');
     expect(blockWrapper).toHaveAttribute('role', 'status');
     expect(blockWrapper).toHaveAttribute('aria-live', 'polite');
-    expect(blockStatuses).toHaveLength(2);
-    expect(blockStatuses[1]?.className).not.toContain('text-input-text');
+    expect(blockStatuses).toHaveLength(1);
     expect(blockContainer.querySelector('.text-sm.text-input-placeholder')).toHaveTextContent('Loading records');
   });
 
@@ -268,6 +280,41 @@ describe('Loading primitives', () => {
     expect(spacerButton?.className).toContain('text-brand-purple');
     expect(spacerButton?.className).toContain('invisible');
     expect(spacerButton?.className).toContain('pointer-events-none');
+  });
+
+  it('uses the visible analysis status text as the spinner announcement', () => {
+    render(<MessageContent content="📄 Analyzing document" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Analyzing document');
+    expect(screen.getByTestId('chat-markdown')).toHaveTextContent('📄 Analyzing document');
+  });
+
+  it('announces non-document analysis messages using their visible status text', () => {
+    render(<MessageContent content="🔍 Searching case law…" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Searching case law…');
+    expect(screen.getByTestId('chat-markdown')).toHaveTextContent('🔍 Searching case law…');
+  });
+
+  it('falls back to the shared loading label for bare analysis markers', () => {
+    render(<MessageContent content="🔍" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(loadingLabel);
+    expect(screen.getByTestId('chat-markdown')).toHaveTextContent('🔍');
+  });
+
+  it('falls back to the shared loading label when the analysis status uses emphasis markdown', () => {
+    render(<MessageContent content="**🔍 Searching case law…**" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(loadingLabel);
+    expect(screen.getByTestId('chat-markdown')).toHaveTextContent('**🔍 Searching case law…**');
+  });
+
+  it('falls back to the shared loading label when the analysis status uses link markdown', () => {
+    render(<MessageContent content="[🔍 Searching case law…](https://example.com/search)" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(loadingLabel);
+    expect(screen.getByTestId('chat-markdown')).toHaveTextContent('[🔍 Searching case law…](https://example.com/search)');
   });
 
   it('renders the shared message-row skeleton preset in VirtualMessageList', () => {
