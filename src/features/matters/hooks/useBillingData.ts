@@ -5,6 +5,7 @@ import {
 } from '@/features/matters/services/invoicesApi';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Invoice, UnbilledExpense, UnbilledSummary, UnbilledTimeEntry } from '@/features/matters/types/billing.types';
+import { asMajor } from '@/shared/utils/money';
 
 type UseBillingDataProps = {
   practiceId: string | null;
@@ -38,6 +39,23 @@ export const useBillingData = ({
     }
     setLoading(true);
     setError(null);
+    const fallbackUnbilledSummary: UnbilledSummary = {
+      unbilledTime: {
+        hours: 0,
+        amount: asMajor(0),
+        entries: 0
+      },
+      unbilledExpenses: {
+        count: 0,
+        amount: asMajor(0)
+      },
+      totalUnbilled: asMajor(0),
+      matterBillingType: matter?.billingType ?? 'hourly',
+      rates: {
+        attorney: matter?.attorneyHourlyRate ?? null,
+        admin: matter?.adminHourlyRate ?? null
+      }
+    };
 
     try {
       const [invoicesResult, unbilledResult] = await Promise.allSettled([
@@ -68,7 +86,7 @@ export const useBillingData = ({
         console.warn('[useBillingData] Failed to load unbilled billing data', unbilledResult.reason);
         setUnbilledTimeEntries([]);
         setUnbilledExpenses([]);
-        setUnbilledSummaryRemote(null);
+        setUnbilledSummaryRemote((current) => current ?? fallbackUnbilledSummary);
       }
 
       if (invoicesError && !signal?.aborted) {
