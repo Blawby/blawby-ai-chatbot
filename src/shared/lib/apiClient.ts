@@ -423,6 +423,7 @@ export async function listMatterConversations(
   matterId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<Conversation[]> {
+  // Legacy/undocumented: this endpoint is not part of the supplied matters contract.
   if (!practiceId) {
     throw new Error('Missing required parameter: practiceId');
   }
@@ -431,7 +432,7 @@ export async function listMatterConversations(
   }
 
   const response = await apiClient.get(
-    `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/conversations`,
+    `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/conversations`,
     { signal: config?.signal }
   );
 

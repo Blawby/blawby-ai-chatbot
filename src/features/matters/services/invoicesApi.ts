@@ -172,10 +172,15 @@ const toUnbilledTimeEntry = (value: unknown): UnbilledTimeEntry | null => {
   const record = value as Record<string, unknown>;
   const id = typeof record.id === 'string' ? record.id : '';
   if (!id) return null;
+  const minutes = typeof record.duration_minutes === 'number'
+    ? record.duration_minutes
+    : null;
   const seconds = typeof record.duration_seconds === 'number'
     ? record.duration_seconds
     : typeof record.duration === 'number'
       ? record.duration
+      : typeof minutes === 'number'
+        ? minutes * 60
       : 0;
   const hours = typeof record.duration_hours === 'number'
     ? record.duration_hours
@@ -185,7 +190,15 @@ const toUnbilledTimeEntry = (value: unknown): UnbilledTimeEntry | null => {
     description: typeof record.description === 'string' ? record.description : '',
     duration_seconds: seconds,
     duration_hours: hours,
-    amount: asMajor(toMajorUnits(typeof record.amount === 'number' ? record.amount : 0) ?? 0),
+    amount: asMajor(
+      toMajorUnits(
+        typeof record.total === 'number'
+          ? record.total
+          : typeof record.amount === 'number'
+            ? record.amount
+            : 0
+      ) ?? 0
+    ),
     start_time: typeof record.start_time === 'string' ? record.start_time : null,
     end_time: typeof record.end_time === 'string' ? record.end_time : null
   };
@@ -200,19 +213,115 @@ const toUnbilledExpense = (value: unknown): UnbilledExpense | null => {
     id,
     description: typeof record.description === 'string' ? record.description : 'Expense',
     amount: asMajor(toMajorUnits(typeof record.amount === 'number' ? record.amount : 0) ?? 0),
-    date: typeof record.date === 'string' ? record.date : null
+    date: typeof record.date === 'string'
+      ? record.date
+      : typeof record.created_at === 'string'
+        ? record.created_at
+        : null
   };
 };
 
-const extractArrayFromPayload = (payload: unknown, keys: string[]): unknown[] => {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  for (const key of keys) {
-    if (Array.isArray(record[key])) return record[key] as unknown[];
+const unwrapPayloadRecord = (payload: unknown): Record<string, unknown> => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return {};
   }
-  if (record.data) return extractArrayFromPayload(record.data, keys);
-  return [];
+  const record = payload as Record<string, unknown>;
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    return unwrapPayloadRecord(record.data);
+  }
+  return record;
+};
+
+const toUnbilledSummary = (
+  timeEntries: UnbilledTimeEntry[],
+  expenses: UnbilledExpense[],
+  record: Record<string, unknown>,
+  defaults?: Partial<Pick<UnbilledSummary, 'matterBillingType' | 'rates'>>
+): UnbilledSummary => {
+  const rates = (record.rates && typeof record.rates === 'object' ? record.rates : {}) as Record<string, unknown>;
+  const explicitTime = (record.unbilledTime && typeof record.unbilledTime === 'object' ? record.unbilledTime : {}) as Record<string, unknown>;
+  const explicitExpenses = (record.unbilledExpenses && typeof record.unbilledExpenses === 'object' ? record.unbilledExpenses : {}) as Record<string, unknown>;
+  const timeHours = timeEntries.reduce((sum, entry) => sum + (entry.duration_hours ?? 0), 0);
+  const timeAmount = timeEntries.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+  const expenseAmount = expenses.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+  const totalUnbilled = timeAmount + expenseAmount;
+
+  return {
+    unbilledTime: {
+      hours: typeof explicitTime.hours === 'number' ? explicitTime.hours : timeHours,
+      amount: typeof explicitTime.amount === 'number'
+        ? asMajor(toMajorUnits(explicitTime.amount) ?? 0)
+        : asMajor(timeAmount),
+      entries: typeof explicitTime.entries === 'number' ? explicitTime.entries : timeEntries.length
+    },
+    unbilledExpenses: {
+      count: typeof explicitExpenses.count === 'number' ? explicitExpenses.count : expenses.length,
+      amount: typeof explicitExpenses.amount === 'number'
+        ? asMajor(toMajorUnits(explicitExpenses.amount) ?? 0)
+        : asMajor(expenseAmount)
+    },
+    totalUnbilled: typeof record.totalUnbilled === 'number'
+      ? asMajor(toMajorUnits(record.totalUnbilled) ?? 0)
+      : asMajor(totalUnbilled),
+    matterBillingType: (
+      typeof record.matterBillingType === 'string'
+        ? record.matterBillingType
+        : defaults?.matterBillingType ?? 'hourly'
+    ) as UnbilledSummary['matterBillingType'],
+    rates: {
+      attorney: typeof rates.attorney === 'number'
+        ? asMajor(toMajorUnits(rates.attorney) ?? 0)
+        : defaults?.rates?.attorney ?? null,
+      admin: typeof rates.admin === 'number'
+        ? asMajor(toMajorUnits(rates.admin) ?? 0)
+        : defaults?.rates?.admin ?? null
+    }
+  };
+};
+
+export type MatterUnbilledData = {
+  timeEntries: UnbilledTimeEntry[];
+  expenses: UnbilledExpense[];
+  summary: UnbilledSummary;
+};
+
+export const getMatterUnbilledData = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions & {
+    summaryDefaults?: Partial<Pick<UnbilledSummary, 'matterBillingType' | 'rates'>>;
+  } = {}
+): Promise<MatterUnbilledData> => {
+  if (!practiceId || !matterId) {
+    throw new Error('Practice ID and Matter ID are required');
+  }
+
+  const payload = await requestData(
+    apiClient.get(
+      urls.matterUnbilled(practiceId, matterId),
+      { signal: options.signal }
+    ),
+    'Failed to load unbilled matter data'
+  );
+
+  const record = unwrapPayloadRecord(payload);
+  const timeEntriesRaw = Array.isArray(record.time_entries)
+    ? record.time_entries
+    : Array.isArray(record.timeEntries)
+      ? record.timeEntries
+      : [];
+  const parsedTimeEntries = timeEntriesRaw
+    .map(toUnbilledTimeEntry)
+    .filter((item): item is UnbilledTimeEntry => item !== null);
+  const expenses = Array.isArray(record.expenses)
+    ? record.expenses.map(toUnbilledExpense).filter((item): item is UnbilledExpense => item !== null)
+    : [];
+
+  return {
+    timeEntries: parsedTimeEntries,
+    expenses,
+    summary: toUnbilledSummary(parsedTimeEntries, expenses, record, options.summaryDefaults)
+  };
 };
 
 const toMinorAmount = (value: MajorAmount): number => {
@@ -404,16 +513,8 @@ export const getUnbilledTimeEntries = async (
   options: FetchOptions = {}
 ): Promise<UnbilledTimeEntry[]> => {
   if (!practiceId || !matterId) return [];
-  const payload = await requestData(
-    apiClient.get(
-      urls.unbilledTimeEntries(practiceId, matterId),
-      { signal: options.signal }
-    ),
-    'Failed to load unbilled time entries'
-  );
-  return extractArrayFromPayload(payload, ['timeEntries', 'entries', 'items'])
-    .map(toUnbilledTimeEntry)
-    .filter((item): item is UnbilledTimeEntry => item !== null);
+  const result = await getMatterUnbilledData(practiceId, matterId, { signal: options.signal });
+  return result.timeEntries;
 };
 
 export const getUnbilledExpenses = async (
@@ -422,16 +523,8 @@ export const getUnbilledExpenses = async (
   options: FetchOptions = {}
 ): Promise<UnbilledExpense[]> => {
   if (!practiceId || !matterId) return [];
-  const payload = await requestData(
-    apiClient.get(
-      urls.unbilledExpenses(practiceId, matterId),
-      { signal: options.signal }
-    ),
-    'Failed to load unbilled expenses'
-  );
-  return extractArrayFromPayload(payload, ['expenses', 'items'])
-    .map(toUnbilledExpense)
-    .filter((item): item is UnbilledExpense => item !== null);
+  const result = await getMatterUnbilledData(practiceId, matterId, { signal: options.signal });
+  return result.expenses;
 };
 
 export const getUnbilledSummary = async (
@@ -439,39 +532,6 @@ export const getUnbilledSummary = async (
   matterId: string,
   options: FetchOptions = {}
 ): Promise<UnbilledSummary> => {
-  if (!practiceId || !matterId) throw new Error('Practice ID and Matter ID are required');
-  const payload = await requestData(
-    apiClient.get(
-      urls.unbilledSummary(practiceId, matterId),
-      { signal: options.signal }
-    ),
-    'Failed to load unbilled summary'
-  );
-  const source = (payload && typeof payload === 'object' && 'data' in (payload as Record<string, unknown>))
-    ? (payload as Record<string, unknown>).data
-    : payload;
-  const record = (source && typeof source === 'object' ? source : {}) as Record<string, unknown>;
-  const time = (record.unbilledTime && typeof record.unbilledTime === 'object' ? record.unbilledTime : {}) as Record<string, unknown>;
-  const expenses = (record.unbilledExpenses && typeof record.unbilledExpenses === 'object' ? record.unbilledExpenses : {}) as Record<string, unknown>;
-  const rates = (record.rates && typeof record.rates === 'object' ? record.rates : {}) as Record<string, unknown>;
-
-  return {
-    unbilledTime: {
-      hours: typeof time.hours === 'number' ? time.hours : 0,
-      amount: asMajor(toMajorUnits(typeof time.amount === 'number' ? time.amount : 0) ?? 0),
-      entries: typeof time.entries === 'number' ? time.entries : 0
-    },
-    unbilledExpenses: {
-      count: typeof expenses.count === 'number' ? expenses.count : 0,
-      amount: asMajor(toMajorUnits(typeof expenses.amount === 'number' ? expenses.amount : 0) ?? 0)
-    },
-    totalUnbilled: asMajor(toMajorUnits(typeof record.totalUnbilled === 'number' ? record.totalUnbilled : 0) ?? 0),
-    matterBillingType: (
-      typeof record.matterBillingType === 'string' ? record.matterBillingType : 'hourly'
-    ) as UnbilledSummary['matterBillingType'],
-    rates: {
-      attorney: typeof rates.attorney === 'number' ? asMajor(toMajorUnits(rates.attorney) ?? 0) : null,
-      admin: typeof rates.admin === 'number' ? asMajor(toMajorUnits(rates.admin) ?? 0) : null
-    }
-  };
+  const result = await getMatterUnbilledData(practiceId, matterId, { signal: options.signal });
+  return result.summary;
 };
