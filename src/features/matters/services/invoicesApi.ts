@@ -244,7 +244,13 @@ const toUnbilledSummary = (
   const timeHours = timeEntries.reduce((sum, entry) => sum + (entry.duration_hours ?? 0), 0);
   const timeAmount = timeEntries.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
   const expenseAmount = expenses.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
-  const totalUnbilled = timeAmount + expenseAmount;
+  const resolvedTimeAmount = typeof explicitTime.amount === 'number'
+    ? toMajorUnits(explicitTime.amount) ?? 0
+    : timeAmount;
+  const resolvedExpenseAmount = typeof explicitExpenses.amount === 'number'
+    ? toMajorUnits(explicitExpenses.amount) ?? 0
+    : expenseAmount;
+  const totalUnbilled = resolvedTimeAmount + resolvedExpenseAmount;
 
   return {
     unbilledTime: {
@@ -260,9 +266,7 @@ const toUnbilledSummary = (
         ? asMajor(toMajorUnits(explicitExpenses.amount) ?? 0)
         : asMajor(expenseAmount)
     },
-    totalUnbilled: typeof record.totalUnbilled === 'number'
-      ? asMajor(toMajorUnits(record.totalUnbilled) ?? 0)
-      : asMajor(totalUnbilled),
+    totalUnbilled: asMajor(totalUnbilled),
     matterBillingType: (
       typeof record.matterBillingType === 'string'
         ? record.matterBillingType

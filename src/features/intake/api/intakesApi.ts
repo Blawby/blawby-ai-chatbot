@@ -1,3 +1,5 @@
+import { clientIntakeClaim, clientIntakeStatus, clientIntakes } from '@/config/urls';
+
 export interface IntakeListParams {
   page: number;
   status: 'all' | 'pending' | 'succeeded' | 'expired';
@@ -88,14 +90,11 @@ export async function listIntakes(practiceId: string, params: IntakeListParams) 
     throw new Error('practiceId is required');
   }
 
-  const searchParams = new URLSearchParams();
-  searchParams.set('page', String(params.page));
-  if (params.status !== 'all') {
-    searchParams.set('status', params.status);
-  }
-
   const response = await fetch(
-    `/api/practice/client-intakes/${encodeURIComponent(practiceId)}?${searchParams.toString()}`,
+    clientIntakes(practiceId, {
+      page: String(params.page),
+      status: params.status !== 'all' ? params.status : undefined
+    }),
     { credentials: 'include' }
   );
 
@@ -133,14 +132,12 @@ export async function getPracticeIntake(
     throw new Error('intakeId is required');
   }
 
-  const searchParams = new URLSearchParams({
-    intake_id: intakeId,
-    page: '1',
-    limit: '1',
-  });
-
   const response = await fetch(
-    `/api/practice/client-intakes/${encodeURIComponent(practiceId)}?${searchParams.toString()}`,
+    clientIntakes(practiceId, {
+      intake_id: intakeId,
+      page: '1',
+      limit: '1'
+    }),
     { credentials: 'include', signal: options.signal }
   );
 
@@ -173,7 +170,7 @@ export async function updateIntakeTriageStatus(
     throw new Error('intakeUuid is required');
   }
 
-  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+  const response = await fetch(clientIntakeStatus(intakeUuid), {
     method: 'PATCH',
     credentials: 'include',
     signal: options.signal,
@@ -219,7 +216,7 @@ export interface ClaimIntakePaymentResponse {
 
 export async function getIntakeStatus(intakeUuid: string) {
   // This endpoint currently exists
-  const response = await fetch(`/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`, {
+  const response = await fetch(clientIntakeStatus(intakeUuid), {
     credentials: 'include'
   });
   if (!response.ok) {
@@ -234,7 +231,7 @@ export async function claimIntakePayment(sessionId: string) {
     throw new Error('sessionId is required');
   }
 
-  const response = await fetch('/api/practice/client-intakes/claim', {
+  const response = await fetch(clientIntakeClaim(), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -247,7 +244,15 @@ export async function claimIntakePayment(sessionId: string) {
     success?: boolean;
     data?: ClaimIntakePaymentResponse;
     error?: string;
+    message?: string;
   } | null;
+
+  const errorText = [json?.error, json?.message].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ');
+  const isConflict = response.status === 409 || /already\s+(?:claimed|attached)|duplicate|conflict/i.test(errorText);
+
+  if (isConflict) {
+    return json?.data ?? { intake_uuid: '', organization_id: '' };
+  }
 
   if (!response.ok || json?.success === false || !json?.data) {
     throw new Error(json?.error || 'Failed to claim intake');

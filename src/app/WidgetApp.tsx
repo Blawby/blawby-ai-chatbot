@@ -261,7 +261,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [activeConversationId, intakeUuid, practiceConfig.slug]);
 
   useEffect(() => {
-    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
     if (!isAnonymous || !intakeUuid || !intakePostAuthPath) return;
 
     try {
@@ -273,6 +272,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       console.warn('[Widget] Failed to persist intake returning path', error);
       setHasPersistError(true);
     }
+
+    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
   }, [activeConversationId, intakePostAuthPath, isAnonymous, intakeUuid, shouldShowAuthPrompt]);
 
   // System Messages

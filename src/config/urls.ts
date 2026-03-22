@@ -39,6 +39,54 @@
 
 import { isDevelopment } from '@/shared/utils/environment';
 
+export const encodeSegment = (value: string): string => encodeURIComponent(value);
+
+const appendQuery = (path: string, query?: Record<string, string | undefined>): string => {
+	if (!query) return path;
+	const params = new URLSearchParams();
+	Object.entries(query).forEach(([key, value]) => {
+		if (value !== undefined) {
+			params.set(key, value);
+		}
+	});
+	const queryString = params.toString();
+	return queryString ? `${path}?${queryString}` : path;
+};
+
+export const clientIntakes = (
+	practiceId: string,
+	query?: Record<string, string | undefined>
+): string => appendQuery(`/api/practice/client-intakes/${encodeSegment(practiceId)}`, query);
+
+export const clientIntake = (
+	practiceId: string,
+	intakeId: string,
+	query?: Record<string, string | undefined>
+): string => appendQuery(
+	`/api/practice/client-intakes/${encodeSegment(practiceId)}/${encodeSegment(intakeId)}`,
+	query
+);
+
+export const clientIntakeStatus = (intakeId: string): string =>
+	`/api/practice/client-intakes/${encodeSegment(intakeId)}/status`;
+
+export const clientIntakeClaim = (): string => '/api/practice/client-intakes/claim';
+
+export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
+
+export const matterItemPath = (practiceId: string, matterId: string): string =>
+	`${matterCollectionPath(practiceId)}/${encodeSegment(matterId)}`;
+
+export const matterNestedPath = (practiceId: string, matterId: string, resource: string): string =>
+	`${matterItemPath(practiceId, matterId)}/${resource}`;
+
+export const matterNestedItemPath = (
+	practiceId: string,
+	matterId: string,
+	resource: string,
+	itemId: string
+): string => `${matterNestedPath(practiceId, matterId, resource)}/${encodeSegment(itemId)}`;
+
 /**
  * Get URL for Cloudflare Worker API
  * 
@@ -205,6 +253,10 @@ export function getTrustedHosts(): string[] {
  * Centralized API endpoint helpers
  */
 export const urls = {
+	clientIntakes,
+	clientIntake,
+	clientIntakeStatus,
+	clientIntakeClaim,
 	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/create`,
@@ -219,7 +271,11 @@ export const urls = {
 	clientInvoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/${encodeURIComponent(invoiceId)}/refund-requests`,
 	clientRefundRequests: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/refund-requests`,
 	cancelClientRefundRequest: (practiceId: string, refundRequestId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/refund-requests/${encodeURIComponent(refundRequestId)}/cancel`,
-	matterUnbilled: (practiceId: string, matterId: string) => `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/unbilled`
+	matterUnbilled: (practiceId: string, matterId: string) => `${matterItemPath(practiceId, matterId)}/unbilled`,
+	matterCollectionPath,
+	matterItemPath,
+	matterNestedPath,
+	matterNestedItemPath
 };
 
 const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [

@@ -1,4 +1,10 @@
 import axios from 'axios';
+import {
+  matterCollectionPath,
+  matterItemPath,
+  matterNestedItemPath,
+  matterNestedPath
+} from '@/config/urls';
 import { apiClient } from '@/shared/lib/apiClient';
 import {
   toMajorUnits,
@@ -160,23 +166,6 @@ export type GenerateMatterTasksPayload = {
 type FetchOptions = {
   signal?: AbortSignal;
 };
-
-const encodeSegment = (value: string): string => encodeURIComponent(value);
-
-const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
-
-const matterItemPath = (practiceId: string, matterId: string): string =>
-  `${matterCollectionPath(practiceId)}/${encodeSegment(matterId)}`;
-
-const matterNestedPath = (practiceId: string, matterId: string, resource: string): string =>
-  `${matterItemPath(practiceId, matterId)}/${resource}`;
-
-const matterNestedItemPath = (
-  practiceId: string,
-  matterId: string,
-  resource: string,
-  itemId: string
-): string => `${matterNestedPath(practiceId, matterId, resource)}/${encodeSegment(itemId)}`;
 
 const normalizeMatter = (matter: BackendMatter): BackendMatter => {
   try {

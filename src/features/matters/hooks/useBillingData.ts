@@ -40,7 +40,7 @@ export const useBillingData = ({
     setError(null);
 
     try {
-      const [invoicesData, unbilledData] = await Promise.all([
+      const [invoicesResult, unbilledResult] = await Promise.allSettled([
         listInvoices(practiceId, matterId, { signal }),
         getMatterUnbilledData(practiceId, matterId, {
           signal,
@@ -53,10 +53,27 @@ export const useBillingData = ({
           }
         })
       ]);
-      setInvoices(invoicesData);
-      setUnbilledTimeEntries(unbilledData.timeEntries);
-      setUnbilledExpenses(unbilledData.expenses);
-      setUnbilledSummaryRemote(unbilledData.summary);
+      let invoicesError: unknown = null;
+      if (invoicesResult.status === 'fulfilled') {
+        setInvoices(invoicesResult.value);
+      } else {
+        invoicesError = invoicesResult.reason;
+      }
+
+      if (unbilledResult.status === 'fulfilled') {
+        setUnbilledTimeEntries(unbilledResult.value.timeEntries);
+        setUnbilledExpenses(unbilledResult.value.expenses);
+        setUnbilledSummaryRemote(unbilledResult.value.summary);
+      } else if (!signal?.aborted) {
+        console.warn('[useBillingData] Failed to load unbilled billing data', unbilledResult.reason);
+        setUnbilledTimeEntries([]);
+        setUnbilledExpenses([]);
+        setUnbilledSummaryRemote(null);
+      }
+
+      if (invoicesError && !signal?.aborted) {
+        throw invoicesError;
+      }
     } catch (err) {
       if (signal?.aborted) return;
       setError(err instanceof Error ? err.message : 'Failed to load billing data');
