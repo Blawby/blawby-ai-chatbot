@@ -188,18 +188,26 @@ export function PracticeInvoiceCreatePage({
     if (!invoiceId) return;
     const milestone = draftContext?.milestoneToComplete;
     if (practiceId && draftContext?.matterId && milestone?.id) {
-      try {
-        await updateMatterMilestone(practiceId, draftContext.matterId, milestone.id, {
-          description: milestone.description,
-          amount: milestone.amount,
-          due_date: milestone.dueDate,
-          status: 'completed',
-        });
-      } catch (error) {
+      const safeDueDate = milestone.dueDate?.trim();
+      if (!safeDueDate) {
         showError(
           'Invoice created, but milestone status was not updated',
-          error instanceof Error ? error.message : 'Please refresh and update the milestone manually.'
+          'Milestone due date is missing. Please update the milestone manually.'
         );
+      } else {
+        try {
+          await updateMatterMilestone(practiceId, draftContext.matterId, milestone.id, {
+            description: milestone.description,
+            amount: milestone.amount,
+            due_date: safeDueDate,
+            status: 'completed',
+          });
+        } catch (error) {
+          showError(
+            'Invoice created, but milestone status was not updated',
+            error instanceof Error ? error.message : 'Please refresh and update the milestone manually.'
+          );
+        }
       }
     }
     if (draftId) {
@@ -232,7 +240,7 @@ export function PracticeInvoiceCreatePage({
           <Panel className="p-6">
             <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
           </Panel>
-        ) : missingDraftError ? null : (
+        ) : missingDraftError || !practiceId ? null : (
           <InvoiceBuilder
             practiceId={practiceId}
             connectedAccountId={connectedAccountId}
