@@ -31,6 +31,7 @@ interface UploadResponse {
 interface UseFileUploadOptions {
   practiceId?: string;
   conversationId?: string;
+  ensureConversation?: () => Promise<string | null>;
   onError?: (error: string) => void;
 }
 
@@ -38,9 +39,9 @@ interface UseFileUploadOptions {
  * Hook that uses blawby-ai practice for all file uploads
  * This is the preferred way to use file upload in components
  */
-export const useFileUploadWithContext = ({ conversationId, onError }: Omit<UseFileUploadOptions, 'practiceId'>) => {
+export const useFileUploadWithContext = ({ conversationId, ensureConversation, onError }: Omit<UseFileUploadOptions, 'practiceId'>) => {
   const { activePracticeId } = useSessionContext();
-  return useFileUpload({ practiceId: activePracticeId ?? undefined, conversationId, onError });
+  return useFileUpload({ practiceId: activePracticeId ?? undefined, conversationId, ensureConversation, onError });
 };
 
 // Utility function to upload a file to backend
@@ -77,7 +78,7 @@ async function _uploadFileToBackend(file: File, practiceId: string, conversation
  * Legacy hook that requires practiceId parameter
  * @deprecated Use useFileUploadWithContext() instead
  */
-export const useFileUpload = ({ practiceId, conversationId, onError }: UseFileUploadOptions) => {
+export const useFileUpload = ({ practiceId, conversationId, ensureConversation, onError }: UseFileUploadOptions) => {
   const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -88,13 +89,20 @@ export const useFileUpload = ({ practiceId, conversationId, onError }: UseFileUp
   const resolvedConversationId = (conversationId ?? '').trim();
 
   // Check if we're ready to upload files
-  const isReadyToUpload = resolvedPracticeId !== '' && resolvedConversationId !== '';
+  const isReadyToUpload = resolvedPracticeId !== '' && (resolvedConversationId !== '' || Boolean(ensureConversation));
+
+  const resolveConversationId = useCallback(async () => {
+    if (resolvedConversationId !== '') return resolvedConversationId;
+    if (!ensureConversation) return '';
+    return ((await ensureConversation()) ?? '').trim();
+  }, [ensureConversation, resolvedConversationId]);
 
 
   // Upload files with progress tracking
   const uploadFiles = useCallback(async (files: File[]) => {
-    if (!isReadyToUpload) {
-      const error = `Cannot upload files yet. Waiting for conversation to initialize. practiceId: "${resolvedPracticeId}", conversationId: "${resolvedConversationId}"`;
+    const targetConversationId = await resolveConversationId();
+    if (resolvedPracticeId === '' || targetConversationId === '') {
+      const error = `Cannot upload files yet. Waiting for conversation to initialize. practiceId: "${resolvedPracticeId}", conversationId: "${targetConversationId}"`;
       console.error(error);
       onError?.(error);
       return;
@@ -137,7 +145,7 @@ export const useFileUpload = ({ practiceId, conversationId, onError }: UseFileUp
       try {
         const result = await uploadWithProgress(upload.file, {
           practiceId: resolvedPracticeId,
-          conversationId: resolvedConversationId,
+          conversationId: targetConversationId,
           onProgress: (progress) => {
             setUploadingFiles(prev => prev.map(f => 
               f.id === upload.id 
@@ -208,7 +216,7 @@ export const useFileUpload = ({ practiceId, conversationId, onError }: UseFileUp
       // This catch block ensures the function doesn't throw unhandled promise rejections
       console.warn('Some uploads failed:', error);
     }
-  }, [resolvedPracticeId, resolvedConversationId, isReadyToUpload, onError]);
+  }, [onError, resolveConversationId, resolvedPracticeId]);
 
   // Handle camera capture
   const handleCameraCapture = useCallback(async (file: File) => {

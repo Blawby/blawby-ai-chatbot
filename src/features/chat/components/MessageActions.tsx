@@ -211,7 +211,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						</Button>
 					)}
 					{modeSelector.showRequestConsultation !== false && (
-						<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
+						<Button variant="primary" size="sm" onClick={modeSelector.onRequestConsultation}>
 							{t('chat.requestConsultation')}
 						</Button>
 					)}

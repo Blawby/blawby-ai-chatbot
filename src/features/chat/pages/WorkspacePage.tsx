@@ -34,6 +34,7 @@ import {
   updateConversationMatter 
 } from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
@@ -851,14 +852,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         const clipped = previewText
           ? (previewText.length > 90 ? `${previewText.slice(0, 90)}…` : previewText)
           : 'Open to view messages.';
-        const title = typeof top.user_info?.title === 'string' ? top.user_info?.title.trim() : '';
+        const title = resolveConversationDisplayTitle(top, fallbackPracticeName);
         const timestampLabel = preview?.createdAt
           ? formatRelativeTime(preview.createdAt)
           : (top.last_message_at ? formatRelativeTime(top.last_message_at) : '');
         return {
           preview: clipped,
           timestampLabel,
-          senderLabel: title || fallbackPracticeName,
+          senderLabel: title,
           avatarSrc: practiceLogo ?? null,
           conversationId: top.id
         };

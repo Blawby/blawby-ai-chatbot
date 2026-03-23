@@ -9,6 +9,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { Conversation } from '@/shared/types/conversation';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import { ChatText } from '@/features/chat/components/ChatText';
+import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 
 interface ConversationPreview {
   content: string;
@@ -28,20 +29,6 @@ interface WidgetConversationListViewProps {
   showSendMessageButton?: boolean;
   activeConversationId?: string | null;
 }
-
-const resolveConversationTitle = (conversation: Conversation, fallback: string, practiceSetupTitle: string) => {
-  if (conversation.user_info?.mode === 'PRACTICE_ONBOARDING') {
-    const onboardingTitle = typeof conversation.user_info?.title === 'string'
-      ? conversation.user_info.title.trim()
-      : '';
-    return onboardingTitle || practiceSetupTitle;
-  }
-  const title = typeof conversation.user_info?.title === 'string'
-    ? conversation.user_info?.title.trim()
-    : '';
-  if (title) return title;
-  return fallback;
-};
 
 const WidgetConversationListView: FunctionComponent<WidgetConversationListViewProps> = ({
   conversations,
@@ -91,7 +78,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
           <div className="pt-1 divide-y divide-line-glass/[0.04]">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
-              const title = resolveConversationTitle(conversation, fallbackName, practiceSetupTitle);
+              const title = resolveConversationDisplayTitle(conversation, fallbackName, practiceSetupTitle);
               const timeLabel = preview?.createdAt
                 ? formatRelativeTime(preview.createdAt)
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
@@ -168,7 +155,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
       </div>
 
       {showSendMessageButton ? (
-        <div className="border-t border-line-glass/30 bg-transparent px-4 py-4">
+        <div className="bg-transparent px-4 py-4">
           <Button
             variant="primary"
             size="lg"

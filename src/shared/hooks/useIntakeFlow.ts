@@ -129,7 +129,8 @@ interface UseIntakeFlowOptions {
     content: string,
     attachments: FileAttachment[],
     metadata?: Record<string, unknown> | null,
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    conversationId?: string | null
   ) => Promise<unknown>;
   onError?: (error: unknown) => void;
 }

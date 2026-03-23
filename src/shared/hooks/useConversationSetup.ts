@@ -27,6 +27,7 @@ export interface UseConversationSetupResult {
   setConversationMode: (mode: ConversationMode | null) => void;
   isCreatingConversation: boolean;
   createConversation: (options?: { forceNew?: boolean }) => Promise<string | null>;
+  ensureConversation: (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }) => Promise<string | null>;
   handleModeSelection: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer', startConsultFlow: (id: string) => void) => Promise<void>;
   handleStartNewConversation: (mode: ConversationMode, startConsultFlow: (id: string) => void) => Promise<string>;
   applyConversationMode: (
@@ -55,6 +56,8 @@ export function useConversationSetup({
   const isSelectingRef = useRef(false);
   const isCreatingRef = useRef(false);
   const conversationRestoreAttemptedRef = useRef(false);
+  const activeConversationIdRef = useRef<string | null>(null);
+  const creationPromiseRef = useRef<Promise<string | null> | null>(null);
 
   // Decode route conversation ID safely
   const normalizedRouteConversationId = routeConversationId
@@ -70,10 +73,19 @@ export function useConversationSetup({
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
   const activeConversationId = conversationId ?? normalizedRouteConversationId;
 
+  // Update ref synchronously during render to prevent staleness
+  activeConversationIdRef.current = activeConversationId;
+
+  // Wrapped setter that updates both state and ref
+  const setConversationIdWithRef = useCallback((id: string | null) => {
+    setConversationId(id);
+    activeConversationIdRef.current = id;
+  }, []);
+
   // Sync route ID to state when it changes
   useEffect(() => {
-    setConversationId(normalizedRouteConversationId);
-  }, [normalizedRouteConversationId]);
+    setConversationIdWithRef(normalizedRouteConversationId);
+  }, [normalizedRouteConversationId, setConversationIdWithRef]);
 
   // Cache key for localStorage restore — only used in practice/client workspaces
   const conversationCacheKey = isPublicWorkspace
@@ -99,15 +111,52 @@ export function useConversationSetup({
     try {
       isCreatingRef.current = true;
       setIsCreatingConversation(true);
-      const params = new URLSearchParams({ practiceId });
+      
+      // Create and track the creation promise
+      const creationPromise = (async () => {
+        const params = new URLSearchParams({ practiceId });
+        if (currentUserId) {
+          params.set('participantUserIds', JSON.stringify([currentUserId]));
+        }
+        params.set('metadata', JSON.stringify({ source: 'chat' }));
 
-      // Public/widget flow should not depend on session.user being hydrated in
-      // client state; the backend can resolve anonymous identity from cookie.
-      if (isPublicWorkspace && !options?.forceNew) {
-        const response = await fetch(`${getCurrentConversationEndpoint()}?${params}`, {
-          method: 'GET',
-          headers: withWidgetAuthHeaders(),
+        // Handle widget flow with external conversation ID
+        if (false && conversationId) {
+          const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
+            method: 'POST',
+            headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
+            credentials: 'include',
+            body: JSON.stringify({
+              participantUserIds: currentUserId ? [currentUserId] : [],
+              metadata: { source: 'chat' },
+              practiceId,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({})) as { error?: string };
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+          }
+
+          const data = await response.json() as { success?: boolean; error?: string; data?: { conversation?: { id?: string } }; conversation?: { id?: string } };
+          const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
+          if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
+          setConversationIdWithRef(resolvedId);
+          if (isPublicWorkspace && currentUserId) {
+            rememberConversationAnonymousParticipant(resolvedId, currentUserId);
+          }
+          return resolvedId;
+        }
+
+        const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
+          method: 'POST',
+          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
           credentials: 'include',
+          body: JSON.stringify({
+            participantUserIds: currentUserId ? [currentUserId] : [],
+            metadata: { source: 'chat' },
+            practiceId,
+          }),
         });
 
         if (!response.ok) {
@@ -115,51 +164,63 @@ export function useConversationSetup({
           throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
-        const data = await response.json() as { success?: boolean; error?: string; data?: { conversation?: { id?: string } }; conversation?: { id?: string } };
-        const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
-        if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
-        setConversationId(resolvedId);
-        if (isPublicWorkspace && currentUserId) {
-          rememberConversationAnonymousParticipant(resolvedId, currentUserId);
-        }
-        return resolvedId;
-      }
+        const data = await response.json() as { success: boolean; error?: string; data?: { id: string } };
+        if (!data.success || !data.data?.id) throw new Error(data.error || 'Failed to start conversation');
 
-      const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
-        method: 'POST',
-        headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-        credentials: 'include',
-        body: JSON.stringify({
-          participantUserIds: currentUserId ? [currentUserId] : [],
-          metadata: { source: 'chat' },
-          practiceId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json() as { success: boolean; error?: string; data?: { id: string } };
-      if (!data.success || !data.data?.id) throw new Error(data.error || 'Failed to start conversation');
-
-      setConversationId(data.data.id);
-      return data.data.id;
+        setConversationIdWithRef(data.data.id);
+        return data.data.id;
+      })();
+      
+      creationPromiseRef.current = creationPromise;
+      const result = await creationPromise;
+      return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       throw new Error(message);
     } finally {
       isCreatingRef.current = false;
       setIsCreatingConversation(false);
+      creationPromiseRef.current = null;
     }
-  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
+  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId, setConversationIdWithRef]);
+
+  const ensureConversation = useCallback(async (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }): Promise<string | null> => {
+    // Read from ref to get latest value and avoid stale closure
+    if (!options?.forceNew && activeConversationIdRef.current) return activeConversationIdRef.current;
+
+    let resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+    const waitForSessionReadyMs = Math.max(0, options?.waitForSessionReadyMs ?? 0);
+
+    if (!resolvedConversationId && waitForSessionReadyMs > 0) {
+      const deadline = Date.now() + waitForSessionReadyMs;
+      while (!resolvedConversationId && Date.now() < deadline) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        
+        // Check if conversation became available by reading from ref
+        if (activeConversationIdRef.current) {
+          return activeConversationIdRef.current;
+        }
+        
+        // Wait until isCreatingRef.current is false before retrying
+        while (isCreatingRef.current && Date.now() < deadline) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        }
+        
+        // Try again if we're not creating and still within deadline
+        if (!isCreatingRef.current && Date.now() < deadline) {
+          resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+        }
+      }
+    }
+
+    return resolvedConversationId;
+  }, [createConversation]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !currentUserId) return null;
     const cached = window.localStorage.getItem(conversationCacheKey);
     if (!cached) return null;
-    if (activeConversationId === cached) return cached;
+    if (activeConversationIdRef.current === cached) return cached;
 
     const params = new URLSearchParams({ practiceId });
     const response = await fetch(`${getConversationEndpoint(cached)}?${params}`, {
@@ -167,18 +228,19 @@ export function useConversationSetup({
       headers: withWidgetAuthHeaders(),
       credentials: 'include',
     });
+
     if (!response.ok) {
-      throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
+      throw new Error('Cached conversation not found');
     }
-    setConversationId(cached);
+    setConversationIdWithRef(cached);
     return cached;
-  }, [conversationCacheKey, activeConversationId, practiceId, currentUserId]);
+  }, [conversationCacheKey, practiceId, currentUserId, setConversationIdWithRef]);
 
   // Attempt to restore a previously cached conversation on mount (non-public workspaces)
   useEffect(() => {
     if (isPublicWorkspace) return;
     if (sessionIsPending || !session?.user?.id || !practiceId) return;
-    if (activeConversationId) return;
+    if (activeConversationIdRef.current) return;
     if (isCreatingRef.current) return;
     if (conversationRestoreAttemptedRef.current) return;
     conversationRestoreAttemptedRef.current = true;
@@ -189,7 +251,6 @@ export function useConversationSetup({
       onError?.(err instanceof Error ? err.message : 'Failed to restore conversation');
     });
   }, [
-    activeConversationId,
     isPublicWorkspace,
     practiceId,
     restoreConversationFromCache,
@@ -238,9 +299,21 @@ export function useConversationSetup({
     if (isSelectingRef.current) return;
     isSelectingRef.current = true;
     try {
-      let convId = activeConversationId;
-      if (!convId && !isCreatingRef.current) {
-        convId = await createConversation();
+      let convId = activeConversationIdRef.current;
+      if (!convId) {
+        // If there's an in-flight creation, wait for it
+        if (creationPromiseRef.current) {
+          convId = await creationPromiseRef.current;
+        } else if (!isCreatingRef.current) {
+          // Otherwise create a new conversation
+          convId = await ensureConversation();
+        } else {
+          // If creation is in progress but no promise is tracked, wait for it
+          while (isCreatingRef.current && !activeConversationIdRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          convId = activeConversationIdRef.current;
+        }
       }
       if (!convId || !practiceId) return;
       await applyConversationMode(nextMode, convId, source, startConsultFlow);
@@ -253,9 +326,8 @@ export function useConversationSetup({
       isSelectingRef.current = false;
     }
   }, [
-    activeConversationId,
     applyConversationMode,
-    createConversation,
+    ensureConversation,
     onModeChange,
     onError,
     practiceId,
@@ -267,7 +339,7 @@ export function useConversationSetup({
     isSelectingRef.current = true;
     try {
       if (!practiceId) throw new Error('Practice context is required');
-      const newId = await createConversation();
+      const newId = await ensureConversation({ waitForSessionReadyMs: 3000 });
       if (!newId) throw new Error('Unable to create conversation');
       await applyConversationMode(nextMode, newId, 'home_cta', startConsultFlow);
       return newId;
@@ -278,16 +350,17 @@ export function useConversationSetup({
     } finally {
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, createConversation, onModeChange, practiceId, setConversationMode]);
+  }, [applyConversationMode, ensureConversation, onModeChange, practiceId, setConversationMode]);
 
   return {
     conversationId,
-    setConversationId,
+    setConversationId: setConversationIdWithRef,
     activeConversationId,
     conversationMode,
     setConversationMode,
     isCreatingConversation,
     createConversation,
+    ensureConversation,
     handleModeSelection,
     handleStartNewConversation,
     applyConversationMode,

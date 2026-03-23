@@ -4,6 +4,7 @@ import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
+import { chatTypography } from '@/features/chat/styles/chatTypography';
 
 interface WorkspaceHomeViewProps {
   practiceName?: string | null;
@@ -95,15 +96,15 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
                 className="ring-2 ring-white/10"
               />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3 text-sm font-semibold text-input-text">
-                  <span className="truncate">{recentMessage.senderLabel}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`truncate ${chatTypography.previewName}`}>{recentMessage.senderLabel}</span>
                   {recentMessage.timestampLabel && (
-                    <span className="text-xs font-normal text-input-placeholder">
+                    <span className={chatTypography.headerTime}>
                       {recentMessage.timestampLabel}
                     </span>
                   )}
                 </div>
-                <div className="mt-1 truncate text-sm text-input-placeholder">
+                <div className="mt-1 truncate text-sm text-input-text">
                   {recentMessage.preview}
                 </div>
               </div>

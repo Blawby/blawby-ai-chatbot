@@ -306,6 +306,7 @@ const MessageComposer = ({
     (!inputValue.trim() && previewFiles.length === 0) ||
     isComposerDisabled
   );
+  const canShowAttachmentMenu = !hideAttachmentControls && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
 
   const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
 
@@ -372,12 +373,12 @@ const MessageComposer = ({
           )}
 
           <div className="message-composer-input-row">
-            {!hideAttachmentControls && !isRecording && (
+            {canShowAttachmentMenu && (
               <div className="col-start-1 flex-shrink-0 self-end">
                 <FileMenu
                   onFileSelect={handleFileSelect}
                   onCameraCapture={handleCameraCapture}
-                  isReadyToUpload={isComposerDisabled ? false : isReadyToUpload}
+                  isReadyToUpload
                 />
               </div>
             )}

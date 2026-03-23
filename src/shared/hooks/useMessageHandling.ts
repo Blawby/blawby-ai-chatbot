@@ -10,6 +10,7 @@ export interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
+  ensureConversation?: () => Promise<string | null>;
   userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
@@ -27,6 +28,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     practiceId,
     practiceSlug,
     conversationId,
+    ensureConversation,
     userId,
     mode,
     onConversationMetadataUpdated,
@@ -58,7 +60,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     applyServerMessages: conversation.applyServerMessages,
     // Proxy functions to chat composer via ref to avoid TDZ errors
     sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
-    sendMessageOverWs: (content, att, meta, reply) => composerRef.current?.sendMessageOverWs(content, att, meta, reply),
+    sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
     onError,
   });
 
@@ -67,6 +69,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     practiceId,
     practiceSlug,
     conversationId,
+    ensureConversation,
     userId,
     linkAnonymousConversationOnLoad,
     mode,
@@ -85,6 +88,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     pendingStreamMessageIdRef: conversation.pendingStreamMessageIdRef,
     orphanTimerRef: conversation.orphanTimerRef,
     conversationIdRef: conversation.conversationIdRef,
+    pendingEnsureConversationPromiseRef: conversation.pendingEnsureConversationPromiseRef,
+    pendingEnsureConversationPromisesRef: conversation.pendingEnsureConversationPromisesRef,
     connectChatRoom: conversation.connectChatRoom,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,

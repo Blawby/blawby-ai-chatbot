@@ -197,6 +197,8 @@ export const useConversation = ({
   // Streaming bubble refs
   const pendingStreamMessageIdRef = useRef<string | null>(null);
   const orphanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingEnsureConversationPromiseRef = useRef<Promise<string> | null>(null);
+  const pendingEnsureConversationPromisesRef = useRef(new Map<string, Promise<string>>());
 
   // Reaction refs
   const reactionFetchRef = useRef(new Map<string, Promise<MessageReaction[]>>());
@@ -1066,6 +1068,8 @@ export const useConversation = ({
     pendingAckRef,
     pendingStreamMessageIdRef,
     orphanTimerRef,
+    pendingEnsureConversationPromiseRef,
+    pendingEnsureConversationPromisesRef,
     conversationIdRef,
     practiceIdRef,
 
