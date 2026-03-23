@@ -75,9 +75,9 @@ export interface UseChatComposerOptions {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-const createClientId = (): string => {
+const createClientId = (prefix = 'client'): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -610,7 +610,7 @@ export const useChatComposer = ({
           });
           if (recoveryMessage) {
             setMessages(prev => [...prev, {
-              id: `system-error-${Date.now()}`,
+              id: createClientId('system-error'),
               role: 'assistant',
               content: recoveryMessage,
               isUser: false,

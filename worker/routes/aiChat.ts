@@ -24,6 +24,7 @@ const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consu
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
 const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
+const isDebugEnabled = (value: unknown): boolean => value === '1' || value === 'true' || value === true;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -1363,6 +1364,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }, AI_TIMEOUT_MS);
 
     try {
+      const debugEnabled = isDebugEnabled(env.DEBUG);
       if (isIntakeMode || isOnboardingMode) {
         Logger.info('AI tool request summary', {
           conversationId: body.conversationId,
@@ -1379,7 +1381,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           hasSlimContactDraft,
           intakeBriefActive,
           messageCount: body.messages.length,
-          lastUserMessagePreview: lastUserMessage?.content?.slice(0, 120) ?? null,
+          ...(debugEnabled ? { lastUserMessagePreview: lastUserMessage?.content?.slice(0, 120) ?? null } : {}),
         });
       }
 
@@ -1592,7 +1594,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           conversationId: body.conversationId,
           practiceId,
           mode: effectiveMode ?? null,
-          lastUserMessage: lastUserMessage?.content?.slice(0, 200) ?? null,
+          lastUserMessage: debugEnabled ? lastUserMessage?.content?.slice(0, 200) ?? null : '[redacted]',
           aiReplyPreview: accumulatedReply.slice(0, 200),
           streamDiagnostics: streamResult.diagnostics,
           practiceContactErrorReply: buildPracticeContactErrorReply(resolvedPracticeName, details),
