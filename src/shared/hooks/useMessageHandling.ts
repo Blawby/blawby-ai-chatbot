@@ -89,6 +89,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     orphanTimerRef: conversation.orphanTimerRef,
     conversationIdRef: conversation.conversationIdRef,
     pendingEnsureConversationPromiseRef: conversation.pendingEnsureConversationPromiseRef,
+    pendingEnsureConversationPromisesRef: conversation.pendingEnsureConversationPromisesRef,
     connectChatRoom: conversation.connectChatRoom,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,

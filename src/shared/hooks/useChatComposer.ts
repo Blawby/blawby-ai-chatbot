@@ -62,6 +62,7 @@ export interface UseChatComposerOptions {
   orphanTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   conversationIdRef: React.MutableRefObject<string | undefined>;
   pendingEnsureConversationPromiseRef: React.MutableRefObject<Promise<string> | null>;
+  pendingEnsureConversationPromisesRef: React.MutableRefObject<Map<string, Promise<string>>>;
   connectChatRoom: (id: string) => void;
   updateConversationMetadata: (patch: ConversationMetadata, targetId?: string) => Promise<unknown>;
   applyServerMessages: (msgs: ConversationMessage[]) => void;
@@ -104,6 +105,7 @@ export const useChatComposer = ({
   orphanTimerRef,
   conversationIdRef,
   pendingEnsureConversationPromiseRef,
+  pendingEnsureConversationPromisesRef,
   connectChatRoom,
   updateConversationMetadata,
   applyIntakeFields,
@@ -153,29 +155,37 @@ export const useChatComposer = ({
 
     if (!ensureConversation) return '';
 
-    // Check if there's already an in-flight promise
-    if (pendingEnsureConversationPromiseRef.current) {
-      return pendingEnsureConversationPromiseRef.current;
+    // Create context key based on practiceId and current user
+    const contextKey = `${practiceIdRef.current || ''}:${currentUserId || ''}`;
+    
+    // Check if there's already an in-flight promise for this context
+    const existingPromise = pendingEnsureConversationPromisesRef.current.get(contextKey);
+    if (existingPromise) {
+      return existingPromise;
     }
 
-    // Create and cache the promise
+    // Create and cache the promise for this context
     const promise = ensureConversation().then(id => {
-      const ensuredConversationId = (id)?.trim() ?? '';
-      if (ensuredConversationId) {
-        conversationIdRef.current = ensuredConversationId;
+      // Verify context still matches before assigning to conversationIdRef
+      const currentContextKey = `${practiceIdRef.current || ''}:${currentUserId || ''}`;
+      if (currentContextKey === contextKey) {
+        const ensuredConversationId = (id)?.trim() ?? '';
+        if (ensuredConversationId) {
+          conversationIdRef.current = ensuredConversationId;
+        }
       }
       // Clear the cached promise after resolution
-      pendingEnsureConversationPromiseRef.current = null;
-      return ensuredConversationId;
+      pendingEnsureConversationPromisesRef.current.delete(contextKey);
+      return id || '';
     }).catch(error => {
       // Clear the cached promise on error
-      pendingEnsureConversationPromiseRef.current = null;
+      pendingEnsureConversationPromisesRef.current.delete(contextKey);
       throw error;
     });
 
-    pendingEnsureConversationPromiseRef.current = promise;
+    pendingEnsureConversationPromisesRef.current.set(contextKey, promise);
     return promise;
-  }, [conversationIdRef, ensureConversation, pendingEnsureConversationPromiseRef]);
+  }, [conversationIdRef, ensureConversation, pendingEnsureConversationPromisesRef, currentUserId]);
 
   // ── streaming bubble helpers ──────────────────────────────────────────────
 
@@ -432,7 +442,19 @@ export const useChatComposer = ({
       // syncing. Treat that first send as ASK_QUESTION and persist once.
       if (!activeMode && defaultModePersistedConversationRef.current !== resolvedConversationId) {
         defaultModePersistedConversationRef.current = resolvedConversationId;
-        void updateConversationMetadata({ mode: 'ASK_QUESTION' }, resolvedConversationId).catch(() => {
+        
+        // Wait for session readiness before updating metadata
+        const updateMetadata = async () => {
+          await waitForSessionReady();
+          const result = await updateConversationMetadata({ mode: 'ASK_QUESTION' }, resolvedConversationId);
+          // If updateConversationMetadata returns null (session not ready), retry once
+          if (!result) {
+            await waitForSessionReady();
+            await updateConversationMetadata({ mode: 'ASK_QUESTION' }, resolvedConversationId);
+          }
+        };
+        
+        void updateMetadata().catch(() => {
           defaultModePersistedConversationRef.current = null;
         });
       }
@@ -467,7 +489,18 @@ export const useChatComposer = ({
           try { await pendingIntakeInitRef.current; }
           catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
         } else {
-          const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState }, resolvedConversationId);
+          // Wait for session readiness before initializing intake state
+          const initIntake = async () => {
+            await waitForSessionReady();
+            const result = await updateConversationMetadata({ intakeConversationState: initialIntakeState }, resolvedConversationId);
+            // If updateConversationMetadata returns null (session not ready), retry once
+            if (!result) {
+              await waitForSessionReady();
+              await updateConversationMetadata({ intakeConversationState: initialIntakeState }, resolvedConversationId);
+            }
+          };
+          
+          const initPromise = initIntake();
           pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
           try { await initPromise; } finally { pendingIntakeInitRef.current = null; }
         }
