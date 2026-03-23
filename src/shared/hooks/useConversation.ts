@@ -320,7 +320,7 @@ export const useConversation = ({
       applyConversationMetadata(metadata);
     }
     return metadata;
-  }, [applyConversationMetadata, conversationId, conversationIdRef, practiceId, sessionReady]);
+  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   // ── message mapping ────────────────────────────────────────────────────────
 
