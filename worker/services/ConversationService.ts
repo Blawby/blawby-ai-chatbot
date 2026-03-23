@@ -238,10 +238,8 @@ export class ConversationService {
           {
             contact: mergedSlimDraft ?? undefined,
             status: recoveredIntakeSubmitted ? 'submitted' : undefined,
-            submission: recoveredIntakeSubmitted || recoveredIntakeUuid
-              ? {
-                  intakeUuid: recoveredIntakeUuid,
-                }
+            submission: recoveredIntakeSubmitted
+              ? (recoveredIntakeUuid ? { intakeUuid: recoveredIntakeUuid } : {})
               : undefined,
           },
           { mirrorLegacyFields: true }

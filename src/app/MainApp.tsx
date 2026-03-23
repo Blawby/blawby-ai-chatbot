@@ -669,7 +669,21 @@ export function MainApp({
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
       || Boolean(resolveConsultationState(conversationMetadata))
-      || Boolean(intakeConversationState || intakeStatus || slimContactDraft),
+      || Boolean(
+        slimContactDraft?.name
+        || slimContactDraft?.email
+        || slimContactDraft?.phone
+        || intakeStatus?.intakeUuid
+        || intakeStatus?.step !== 'contact_form_slim'
+        || intakeConversationState?.turnCount
+        || intakeConversationState?.ctaShown
+        || intakeConversationState?.caseStrength
+        || intakeConversationState?.description
+        || intakeConversationState?.opposingParty
+        || intakeConversationState?.city
+        || intakeConversationState?.state
+        || intakeConversationState?.desiredOutcome
+      ),
     [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
   );
 

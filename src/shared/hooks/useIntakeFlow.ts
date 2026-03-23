@@ -229,7 +229,6 @@ export function useIntakeFlow({
         conversationMetadataRef.current,
         {
           case: next,
-          status: resolvedSlimContactDraft ? 'collecting_case' : 'collecting_contact',
         },
         { mirrorLegacyFields: true }
       )
@@ -250,20 +249,20 @@ export function useIntakeFlow({
         console.warn('[Intake] Failed to post manual update ack', err);
       }
     }
-  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState, resolvedSlimContactDraft]);
+  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
 
   const resetIntakeCta = useCallback(async () => {
     const current = consultation?.case ?? intakeConversationState;
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
-        conversationMetadata,
+        conversationMetadataRef.current,
         {
           case: { ...current, ctaShown: false, ctaResponse: null },
         },
         { mirrorLegacyFields: true }
       )
     );
-  }, [consultation, conversationMetadata, intakeConversationState, updateConversationMetadata]);
+  }, [consultation, conversationMetadataRef, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
     const nextDraft: SlimContactDraft = {

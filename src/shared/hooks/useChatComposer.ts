@@ -77,7 +77,9 @@ export interface UseChatComposerOptions {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const createClientId = (prefix = 'client'): string => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 

@@ -1432,13 +1432,26 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         toolCallCount: streamResult.toolCalls.length,
         replyLength: streamResult.reply.length,
         contentType: aiResponse.headers.get('content-type') ?? null,
-        diagnostics: streamResult.diagnostics,
+        diagnostics: debugEnabled
+          ? streamResult.diagnostics
+          : {
+              chunkCount: streamResult.diagnostics.chunkCount,
+              parsedChunkCount: streamResult.diagnostics.parsedChunkCount,
+              malformedChunkCount: streamResult.diagnostics.malformedChunkCount,
+              contentChunkCount: streamResult.diagnostics.contentChunkCount,
+              deltaToolCallChunkCount: streamResult.diagnostics.deltaToolCallChunkCount,
+              namedToolFragmentCount: streamResult.diagnostics.namedToolFragmentCount,
+              argumentOnlyToolFragmentCount: streamResult.diagnostics.argumentOnlyToolFragmentCount,
+              finishReasonCount: streamResult.diagnostics.finishReasons.length,
+              hasToolSamples: streamResult.diagnostics.sampleToolChunks.length > 0,
+              hasUnexpectedSamples: streamResult.diagnostics.sampleUnexpectedChunks.length > 0,
+            },
       });
 
       accumulatedReply = streamResult.reply;
       
       // Only log AI preview in debug mode to avoid PII leakage
-      if (env.DEBUG) {
+      if (isDebugEnabled(env.DEBUG)) {
         Logger.info('AI raw reply preview', {
           conversationId: body.conversationId,
           replyPreview: accumulatedReply.slice(0, 100),
@@ -1710,7 +1723,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                 conversation.practice_id,
                 {
                   case: mergedIntakeState,
-                  status: 'collecting_case',
+                  status: consultation?.status === 'ready_to_submit'
+                    || mergedIntakeState.ctaResponse === 'ready'
+                    ? 'ready_to_submit'
+                    : 'collecting_case',
                 },
                 { repair: true }
               );

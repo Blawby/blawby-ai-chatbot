@@ -44,6 +44,86 @@ const normalizeStringArrayOrNull = (value: unknown): string[] | null => {
   return next.length > 0 ? next : null;
 };
 
+const isEmptyContact = (value: SlimContactDraft | null | undefined): boolean => !value
+  || (!trimString(value.name) && !trimString(value.email) && !trimString(value.phone));
+
+const mergeContact = (
+  normalized: SlimContactDraft | null,
+  source: SlimContactDraft | null | undefined
+): SlimContactDraft | null => {
+  const sourceContact = normalizeSlimContactDraft(source);
+  if (isEmptyContact(normalized) && isEmptyContact(sourceContact)) return null;
+  return {
+    name: trimString(normalized?.name) || trimString(sourceContact?.name),
+    email: trimString(normalized?.email) || trimString(sourceContact?.email),
+    phone: trimString(normalized?.phone) || trimString(sourceContact?.phone),
+  };
+};
+
+const mergeIntakeState = (
+  normalized: IntakeConversationState,
+  source: IntakeConversationState | null | undefined
+): IntakeConversationState => {
+  const fallback = source ?? initialIntakeState;
+  return {
+    practiceArea: normalized.practiceArea ?? fallback.practiceArea,
+    practiceAreaName: normalized.practiceAreaName ?? fallback.practiceAreaName,
+    description: normalized.description ?? fallback.description,
+    urgency: normalized.urgency ?? fallback.urgency,
+    opposingParty: normalized.opposingParty ?? fallback.opposingParty,
+    city: normalized.city ?? fallback.city,
+    state: normalized.state ?? fallback.state,
+    postalCode: normalized.postalCode ?? fallback.postalCode,
+    country: normalized.country ?? fallback.country,
+    addressLine1: normalized.addressLine1 ?? fallback.addressLine1,
+    addressLine2: normalized.addressLine2 ?? fallback.addressLine2,
+    desiredOutcome: normalized.desiredOutcome ?? fallback.desiredOutcome,
+    courtDate: normalized.courtDate ?? fallback.courtDate,
+    income: normalized.income ?? fallback.income,
+    householdSize: normalized.householdSize ?? fallback.householdSize,
+    hasDocuments: normalized.hasDocuments ?? fallback.hasDocuments,
+    eligibilitySignals: normalized.eligibilitySignals?.length ? normalized.eligibilitySignals : fallback.eligibilitySignals,
+    caseStrength: normalized.caseStrength ?? fallback.caseStrength,
+    missingSummary: normalized.missingSummary ?? fallback.missingSummary,
+    turnCount: normalized.turnCount > 0 ? normalized.turnCount : fallback.turnCount,
+    ctaShown: normalized.ctaShown || fallback.ctaShown || false,
+    ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
+    notYetCount: normalized.notYetCount > 0 ? normalized.notYetCount : fallback.notYetCount,
+  };
+};
+
+const mergeSubmission = (
+  normalized: ConsultationState['submission'],
+  source: Record<string, unknown> | null | undefined
+): ConsultationState['submission'] => {
+  const fallbackUuid = typeof source?.intakeUuid === 'string' && source.intakeUuid.trim().length > 0
+    ? source.intakeUuid.trim()
+    : null;
+  const fallbackPaymentRequired = typeof source?.intakePaymentRequired === 'boolean'
+    ? source.intakePaymentRequired
+    : null;
+  const fallbackPaymentReceived = typeof source?.intakePaymentReceived === 'boolean'
+    ? source.intakePaymentReceived
+    : null;
+  return {
+    intakeUuid: normalized.intakeUuid ?? fallbackUuid,
+    submittedAt: normalized.submittedAt ?? (trimString(source?.submittedAt) || null),
+    paymentRequired: normalized.paymentRequired ?? fallbackPaymentRequired,
+    paymentReceived: normalized.paymentReceived ?? fallbackPaymentReceived,
+  };
+};
+
+const CONSULTATION_STATUS_ORDER: ConsultationStatus[] = [
+  'idle',
+  'collecting_contact',
+  'collecting_case',
+  'ready_to_submit',
+  'submitted',
+  'completed',
+];
+
+const statusRank = (value: ConsultationStatus): number => CONSULTATION_STATUS_ORDER.indexOf(value);
+
 export const normalizeSlimContactDraft = (value: unknown): SlimContactDraft | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
@@ -144,7 +224,7 @@ export const createConsultationState = (
   submission: overrides?.submission
     ? { ...initialConsultationSubmissionState, ...overrides.submission }
     : { ...initialConsultationSubmissionState },
-  mode: 'REQUEST_CONSULTATION',
+  mode: overrides?.mode ?? 'REQUEST_CONSULTATION',
   version: overrides?.version ?? CONSULTATION_STATE_VERSION,
 });
 
@@ -160,22 +240,30 @@ export const resolveConsultationState = (
       ? source.consultation as Record<string, unknown>
       : null;
 
-  const contact = normalizeSlimContactDraft(
-    existingConsultation?.contact ?? source.intakeSlimContactDraft
-  );
-  const caseState = normalizeIntakeConversationState(
-    existingConsultation?.case ?? source.intakeConversationState
-  );
-  const submission = normalizeConsultationSubmission(
-    existingConsultation?.submission ?? {
-      intakeUuid: source.intakeUuid,
-      paymentRequired: source.intakePaymentRequired,
-      paymentReceived: source.intakePaymentReceived,
-      submittedAt: null,
-    }
+  const sourceContact = normalizeSlimContactDraft(source.intakeSlimContactDraft);
+  const consultationContact = normalizeSlimContactDraft(existingConsultation?.contact);
+  const contact = mergeContact(consultationContact, sourceContact);
+
+  const sourceCase = normalizeIntakeConversationState(source.intakeConversationState);
+  const consultationCase = normalizeIntakeConversationState(existingConsultation?.case);
+  const caseState = mergeIntakeState(consultationCase, sourceCase);
+
+  const sourceSubmission = {
+    intakeUuid: typeof source.intakeUuid === 'string' ? source.intakeUuid : null,
+    submittedAt: typeof (source as Record<string, unknown>).submittedAt === 'string'
+      ? (source as Record<string, unknown>).submittedAt as string
+      : null,
+    paymentRequired: typeof source.intakePaymentRequired === 'boolean' ? source.intakePaymentRequired : null,
+    paymentReceived: typeof source.intakePaymentReceived === 'boolean' ? source.intakePaymentReceived : null,
+  };
+  const consultationSubmission = normalizeConsultationSubmission(existingConsultation?.submission);
+  const submission = mergeSubmission(
+    consultationSubmission,
+    sourceSubmission
   );
 
   const statusCandidate = trimString(existingConsultation?.status) as ConsultationStatus;
+  const derivedStatus = deriveConsultationStatus(source, contact, caseState, submission);
   const status = (
     statusCandidate === 'idle'
     || statusCandidate === 'collecting_contact'
@@ -183,9 +271,9 @@ export const resolveConsultationState = (
     || statusCandidate === 'ready_to_submit'
     || statusCandidate === 'submitted'
     || statusCandidate === 'completed'
-  )
+  ) && statusRank(statusCandidate) >= statusRank(derivedStatus)
     ? statusCandidate
-    : deriveConsultationStatus(source, contact, caseState, submission);
+    : derivedStatus;
 
   return {
     status,
@@ -207,6 +295,7 @@ export const mergeConsultationState = (
 ): ConsultationState => {
   const allowReset = options?.allowReset === true;
   const base = existing ? resolveConsultationState({ consultation: existing }) ?? createConsultationState() : createConsultationState();
+  const previousStatus = base.status;
 
   const nextContact = (() => {
     if (patch.contact === undefined) return base.contact;
@@ -247,12 +336,19 @@ export const mergeConsultationState = (
     };
   })();
 
-  const nextStatus = patch.status ?? deriveConsultationStatus(
+  const derivedNextStatus = deriveConsultationStatus(
     { mode: 'REQUEST_CONSULTATION', intakeUuid: nextSubmission.intakeUuid, intakeSubmitted: Boolean(nextSubmission.intakeUuid) },
     nextContact,
     nextCase,
     nextSubmission
   );
+  const nextStatus = (
+    previousStatus === 'submitted'
+    || previousStatus === 'completed'
+    || previousStatus === 'ready_to_submit'
+  ) && patch.status === undefined
+    ? previousStatus
+    : patch.status ?? derivedNextStatus;
 
   return {
     status: nextStatus,

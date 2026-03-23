@@ -262,7 +262,9 @@ export const useConversation = ({
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
     const runUpdate = async () => {
-      const previous = conversationMetadataRef.current ?? {};
+      const previous = targetConversationId && targetConversationId === conversationId
+        ? (conversationMetadataRef.current ?? {})
+        : {};
       const rawNextMetadata = { ...previous, ...patch };
       const nextMetadata = (
         patch.consultation !== undefined

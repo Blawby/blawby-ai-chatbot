@@ -113,9 +113,9 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const payments = usePaymentStatus({
     conversationId,
     practiceId,
-      latestIntakeSubmission: {
-      intakeUuid: consultation?.submission.intakeUuid ?? null,
-      paymentRequired: consultation?.submission.paymentRequired ?? false,
+    latestIntakeSubmission: {
+      intakeUuid: consultation?.submission?.intakeUuid ?? null,
+      paymentRequired: consultation?.submission?.paymentRequired ?? false,
     },
     onPaymentConfirmed: (uuid) => {
       setVerifiedPaidIntakeUuids(prev => {
