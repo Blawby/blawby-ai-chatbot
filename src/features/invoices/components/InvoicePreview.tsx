@@ -7,11 +7,19 @@ type InvoicePreviewProps = {
   title: string;
   referenceLabel?: string | null;
   lineItems: InvoiceLineItem[];
+  issueDate?: string | Date | null;
   dueDate?: string;
 };
 
-export const InvoicePreview = ({ title, referenceLabel, lineItems, dueDate }: InvoicePreviewProps) => {
+export const InvoicePreview = ({
+  title,
+  referenceLabel,
+  lineItems,
+  issueDate,
+  dueDate
+}: InvoicePreviewProps) => {
   const subtotal = lineItems.reduce((sum, item) => sum + getMajorAmountValue(item.line_total), 0);
+  const resolvedIssueDate = issueDate instanceof Date ? issueDate.toISOString() : issueDate;
 
   return (
     <div className="mx-auto min-h-[700px] w-full max-w-[794px] rounded-xl border border-line-glass/30 bg-white p-8 text-gray-900 shadow-sm">
@@ -22,7 +30,7 @@ export const InvoicePreview = ({ title, referenceLabel, lineItems, dueDate }: In
           {referenceLabel ? <p className="mt-1 text-sm text-gray-600">{referenceLabel}</p> : null}
         </div>
         <div className="text-right">
-          <p className="text-sm text-gray-600">Issue date: {formatLongDate(new Date().toISOString())}</p>
+          <p className="text-sm text-gray-600">Issue date: {resolvedIssueDate ? formatLongDate(resolvedIssueDate) : 'Not set'}</p>
           <p className="text-sm text-gray-600">Due date: {dueDate ? formatLongDate(dueDate) : 'Not set'}</p>
         </div>
       </header>
@@ -47,8 +55,8 @@ export const InvoicePreview = ({ title, referenceLabel, lineItems, dueDate }: In
                 <tr key={item.id} className="border-b border-gray-100 align-top">
                   <td className="py-3 pr-3">{item.description || `Line item ${index + 1}`}</td>
                   <td className="py-3 text-right">{item.quantity}</td>
-                  <td className="py-3 text-right">{formatCurrency(item.unit_price)}</td>
-                  <td className="py-3 text-right font-medium">{formatCurrency(item.line_total)}</td>
+                  <td className="py-3 text-right">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
+                  <td className="py-3 text-right font-medium">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
                 </tr>
               ))
             )}

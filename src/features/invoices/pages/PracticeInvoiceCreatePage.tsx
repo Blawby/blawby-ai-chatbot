@@ -97,7 +97,7 @@ export function PracticeInvoiceCreatePage({
     void Promise.all([
       loadAllClients(practiceId, controller.signal),
       loadAllMatters(practiceId, controller.signal),
-      getOnboardingStatus(practiceId),
+      getOnboardingStatus(practiceId, { signal: controller.signal }),
     ])
       .then(([loadedClients, loadedMatters, onboardingStatus]) => {
         setClients(loadedClients);

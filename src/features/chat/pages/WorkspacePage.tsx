@@ -84,6 +84,7 @@ import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import { mockApps } from '@/features/settings/pages/appsData';
+import { listClientInvoices, listInvoices } from '@/features/invoices/services/invoicesService';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode } from '@/app/MainApp';
@@ -603,6 +604,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [clientsData?.items, selectedMatter]);
   const isMobileLayout = layoutMode !== 'desktop';
+  const [hasDesktopInvoiceListItems, setHasDesktopInvoiceListItems] = useState<boolean | null>(null);
 
   useEffect(() => {
     onboardingConversationInitRef.current = false;
@@ -611,6 +613,48 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setOnboardingConversationId(null);
     setOnboardingConversationRetryTick(0);
   }, [practiceId]);
+
+  useEffect(() => {
+    if (layoutMode !== 'desktop' || view !== 'invoices') {
+      setHasDesktopInvoiceListItems(null);
+      return;
+    }
+    if (!practiceId || (!isPracticeWorkspace && !isClientWorkspace)) {
+      setHasDesktopInvoiceListItems(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const result = isPracticeWorkspace
+          ? await listInvoices(
+              practiceId,
+              { status: '', dateFrom: '', dateTo: '', search: '', page: 1, pageSize: 1 },
+              { signal: controller.signal, statusFilter: invoicesStatusFilter }
+            )
+          : await listClientInvoices(
+              practiceId,
+              { status: '', dateFrom: '', dateTo: '', search: '', page: 1, pageSize: 1 },
+              { signal: controller.signal, statusFilter: invoicesStatusFilter }
+            );
+
+        if (!controller.signal.aborted) {
+          setHasDesktopInvoiceListItems(result.total > 0);
+        }
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError' || axios.isCancel(error)) {
+          return;
+        }
+        if (!controller.signal.aborted) {
+          setHasDesktopInvoiceListItems(true);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [invoicesStatusFilter, isClientWorkspace, isPracticeWorkspace, layoutMode, practiceId, view]);
 
   const onboardingConversationFromList = useMemo(() => {
     if (!isPracticeWorkspace) return null;
@@ -1497,6 +1541,23 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     mattersData: mattersDataForView, // filtered for the list view
     clientsData,
   };
+  const shouldShowDesktopMattersListPanel = !(
+    layoutMode === 'desktop'
+    && view === 'matters'
+    && mattersDataForView.isLoaded
+    && !mattersDataForView.isLoading
+    && !mattersDataForView.error
+    && mattersDataForView.items.length === 0
+  );
+  const shouldShowDesktopClientsListPanel = !(
+    layoutMode === 'desktop'
+    && view === 'clients'
+    && clientsData.isLoaded
+    && !clientsData.isLoading
+    && !clientsData.error
+    && clientsData.items.length === 0
+  );
+  const shouldShowDesktopInvoicesListPanel = view === 'invoiceDetail' || hasDesktopInvoiceListItems !== false;
   const listContent = (
     <ConversationListView
       conversations={filteredConversations}
@@ -1578,17 +1639,17 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       {chatView}
     </div>
   );
-  const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters'
+  const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters' && shouldShowDesktopMattersListPanel
     ? (typeof mattersListContent === 'function'
       ? mattersListContent(mattersStatusFilter, workspacePrefetchData, inspectorToggleButton ?? undefined)
       : mattersListContent)
     : undefined;
-  const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients'
+  const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients' && shouldShowDesktopClientsListPanel
     ? (typeof clientsListContent === 'function'
       ? clientsListContent(clientsStatusFilter, workspacePrefetchData, inspectorToggleButton ?? undefined)
       : clientsListContent)
     : undefined;
-  const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail')
+  const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail') && shouldShowDesktopInvoicesListPanel
     ? (typeof invoicesListContent === 'function' ? invoicesListContent(invoicesStatusFilter) : invoicesListContent)
     : undefined;
 

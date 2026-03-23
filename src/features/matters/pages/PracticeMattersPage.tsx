@@ -1466,25 +1466,32 @@ export const PracticeMattersPage = ({
     options?: InvoiceLaunchOptions
   ) => {
     if (!selectedMatterDetail) return;
-    const draftId = createPendingInvoiceDraftContext({
-      matterId: selectedMatterDetail.id,
-      clientId: selectedMatterDetail.clientId,
-      lineItems: items ?? prefilledInvoiceLineItems,
-      invoiceType: options?.invoiceType,
-      invoiceContext: options?.context ?? 'default',
-      milestoneToComplete: options?.milestone
-        ? {
-            id: options.milestone.id,
-            description: options.milestone.description,
-            amount: options.milestone.amount,
-            dueDate: options.milestone.dueDate,
-          }
-        : null,
-      returnPath: location.path,
-      returnLabel: 'Back to matter',
-    });
-    navigate(`${invoicesBasePath}/new?draft=${encodeURIComponent(draftId)}`);
-  }, [invoicesBasePath, location.path, navigate, prefilledInvoiceLineItems, selectedMatterDetail]);
+    try {
+      const draftId = createPendingInvoiceDraftContext({
+        matterId: selectedMatterDetail.id,
+        clientId: selectedMatterDetail.clientId,
+        lineItems: items ?? prefilledInvoiceLineItems,
+        invoiceType: options?.invoiceType,
+        invoiceContext: options?.context ?? 'default',
+        milestoneToComplete: options?.milestone
+          ? {
+              id: options.milestone.id,
+              description: options.milestone.description,
+              amount: options.milestone.amount,
+              dueDate: options.milestone.dueDate,
+            }
+          : null,
+        returnPath: location.path,
+        returnLabel: 'Back to matter',
+      });
+      navigate(`${invoicesBasePath}/new?draft=${encodeURIComponent(draftId)}`);
+    } catch (error) {
+      showError(
+        'Could not create invoice',
+        error instanceof Error ? error.message : 'Failed to prepare the invoice draft.'
+      );
+    }
+  }, [invoicesBasePath, location.path, navigate, prefilledInvoiceLineItems, selectedMatterDetail, showError]);
 
   const handleCreateInvoiceFromSummary = useCallback(() => {
     if (!selectedMatterDetail) {
@@ -2229,6 +2236,10 @@ export const PracticeMattersPage = ({
   }
 
   if (renderMode === 'listOnly') {
+    if (!mattersLoading && !mattersError && sortedMatterSummaries.length === 0) {
+      return null;
+    }
+
     return (
       <div className="h-full min-h-0 flex flex-col gap-2">
         {isClientListTruncated && (

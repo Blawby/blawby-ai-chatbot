@@ -58,7 +58,7 @@ export function PracticeInvoicesPage({
     loadMoreRef,
   } = usePaginatedList<InvoiceSummary>({
     fetchPage: async (page, signal) => {
-      if (!practiceId) {
+      if (!practiceId || renderMode === 'detailOnly') {
         return { items: [], hasMore: false };
       }
       const result = await listInvoices(
@@ -69,7 +69,7 @@ export function PracticeInvoicesPage({
       const expectedCount = page * PAGE_SIZE;
       return { items: result.items, hasMore: result.total > expectedCount };
     },
-    deps: [practiceId, JSON.stringify(statusFilter)],
+    deps: [practiceId, renderMode, JSON.stringify(statusFilter)],
   });
 
   const handleRowClick = useCallback((invoice: InvoiceSummary) => {
@@ -81,6 +81,10 @@ export function PracticeInvoicesPage({
   }, [navigate, practiceSlug, showError]);
 
   if (renderMode === 'detailOnly') {
+    return null;
+  }
+
+  if (renderMode === 'listOnly' && !isLoading && !error && invoices.length === 0) {
     return null;
   }
 

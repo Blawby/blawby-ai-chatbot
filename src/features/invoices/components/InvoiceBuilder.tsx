@@ -31,6 +31,14 @@ type InvoiceBuilderProps = {
   onSuccess: (invoiceId?: string | null) => Promise<void> | void;
 };
 
+type InvoiceUpdatePayload = {
+  due_date?: string;
+  notes?: string;
+  memo?: string;
+  invoice_type: Invoice['invoice_type'];
+  line_items: InvoiceLineItem[];
+};
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const buildDefaultDueDate = () => {
@@ -66,6 +74,28 @@ const detectDefaultInvoiceType = (
   return 'flat_fee';
 };
 
+const buildInvoiceUpdatePayload = ({
+  dueDate,
+  notes,
+  memo,
+  invoiceType,
+  lineItems
+}: {
+  dueDate: string;
+  notes: string;
+  memo: string;
+  invoiceType: Invoice['invoice_type'];
+  lineItems: InvoiceLineItem[];
+}): InvoiceUpdatePayload => ({
+  due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
+  notes: notes.trim() || undefined,
+  memo: memo.trim() || undefined,
+  invoice_type: invoiceType,
+  line_items: lineItems
+});
+
+const serializeInvoiceUpdatePayload = (payload: InvoiceUpdatePayload) => JSON.stringify(payload);
+
 export const InvoiceBuilder = ({
   practiceId,
   matter = null,
@@ -86,6 +116,12 @@ export const InvoiceBuilder = ({
   onSuccess
 }: InvoiceBuilderProps) => {
   const { showError } = useToastContext();
+  const defaultInvoiceType = detectDefaultInvoiceType(
+    initialLineItems,
+    invoiceContext,
+    matter?.billingType ?? 'fixed',
+    initialInvoiceType
+  );
   const [clientId, setClientId] = useState(initialClientId ?? matter?.clientId ?? '');
   const [matterId, setMatterId] = useState(initialMatterId ?? matter?.id ?? '');
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(initialLineItems);
@@ -98,10 +134,21 @@ export const InvoiceBuilder = ({
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(
     editMode ? existingInvoiceId ?? null : null
   );
+  const [lastPersistedSnapshot, setLastPersistedSnapshot] = useState<string | null>(() => (
+    editMode && existingInvoiceId
+      ? serializeInvoiceUpdatePayload(
+          buildInvoiceUpdatePayload({
+            dueDate: initialDueDate ?? buildDefaultDueDate(),
+            notes: initialNotes ?? '',
+            memo: initialMemo ?? '',
+            invoiceType: defaultInvoiceType,
+            lineItems: initialLineItems
+          })
+        )
+      : null
+  ));
   const [sendError, setSendError] = useState<string | null>(null);
-  const [invoiceType, setInvoiceType] = useState<Invoice['invoice_type']>(
-    detectDefaultInvoiceType(initialLineItems, invoiceContext, matter?.billingType ?? 'fixed', initialInvoiceType)
-  );
+  const [invoiceType, setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
   const isMatterScoped = Boolean(matter);
   const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
   const resolvedClientId = isMatterScoped ? matter?.clientId ?? '' : clientId;
@@ -132,6 +179,20 @@ export const InvoiceBuilder = ({
       return safeAdd(acc, item.line_total);
     }, asMajor(0));
   }, [lineItems]);
+  const currentUpdatePayload = useMemo(
+    () => buildInvoiceUpdatePayload({ dueDate, notes, memo, invoiceType, lineItems }),
+    [dueDate, notes, memo, invoiceType, lineItems]
+  );
+  const currentUpdateSnapshot = useMemo(
+    () => serializeInvoiceUpdatePayload(currentUpdatePayload),
+    [currentUpdatePayload]
+  );
+  const previewIssueDate = useMemo(() => {
+    if (!currentUpdatePayload.due_date) return null;
+    const issueDate = new Date(currentUpdatePayload.due_date);
+    issueDate.setUTCDate(issueDate.getUTCDate() - 30);
+    return issueDate.toISOString();
+  }, [currentUpdatePayload.due_date]);
 
   const isValidConnectedAccount = useMemo(
     () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
@@ -156,14 +217,6 @@ export const InvoiceBuilder = ({
     line_items: lineItems
   });
 
-  const buildUpdatePayload = () => ({
-    due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
-    notes: notes.trim() || undefined,
-    memo: memo.trim() || undefined,
-    invoice_type: invoiceType,
-    line_items: lineItems
-  });
-
   const handleSaveDraft = async () => {
     if (!resolvedClientId) {
       showError('Could not save invoice', 'Choose a person before creating the invoice.');
@@ -175,14 +228,15 @@ export const InvoiceBuilder = ({
     try {
       let nextInvoiceId: string | null = existingInvoiceId ?? createdInvoiceId;
       if (editMode && existingInvoiceId) {
-        const payload = buildUpdatePayload();
+        const payload = currentUpdatePayload;
         logInvoiceAction('update-draft', {
           invoiceId: existingInvoiceId,
           invoiceType: payload.invoice_type
         });
-        await updateInvoice(practiceId, existingInvoiceId, payload);
-        setCreatedInvoiceId(existingInvoiceId);
-        nextInvoiceId = existingInvoiceId;
+        const updated = await updateInvoice(practiceId, existingInvoiceId, payload);
+        nextInvoiceId = updated?.id ?? existingInvoiceId;
+        setCreatedInvoiceId(nextInvoiceId);
+        setLastPersistedSnapshot(currentUpdateSnapshot);
       } else {
         const payload = buildCreatePayload(connectedAccountId);
         logInvoiceAction('create-draft', {
@@ -193,6 +247,7 @@ export const InvoiceBuilder = ({
         const created = await createInvoice(practiceId, payload);
         nextInvoiceId = created?.id ?? null;
         setCreatedInvoiceId(nextInvoiceId);
+        setLastPersistedSnapshot(currentUpdateSnapshot);
       }
       await onSuccess(nextInvoiceId);
       onClose();
@@ -214,14 +269,15 @@ export const InvoiceBuilder = ({
     let invoiceId = createdInvoiceId;
     try {
       if (editMode && existingInvoiceId) {
-        const payload = buildUpdatePayload();
+        const payload = currentUpdatePayload;
         logInvoiceAction('update-before-send', {
           invoiceId: existingInvoiceId,
           invoiceType: payload.invoice_type
         });
-        await updateInvoice(practiceId, existingInvoiceId, payload);
-        invoiceId = existingInvoiceId;
-        setCreatedInvoiceId(existingInvoiceId);
+        const updated = await updateInvoice(practiceId, existingInvoiceId, payload);
+        invoiceId = updated?.id ?? existingInvoiceId;
+        setCreatedInvoiceId(invoiceId);
+        setLastPersistedSnapshot(currentUpdateSnapshot);
       } else if (!invoiceId) {
         const payload = buildCreatePayload(connectedAccountId);
         logInvoiceAction('create-before-send', {
@@ -233,6 +289,17 @@ export const InvoiceBuilder = ({
         invoiceId = created?.id ?? null;
         if (!invoiceId) throw new Error('Invoice ID missing in create response.');
         setCreatedInvoiceId(invoiceId);
+        setLastPersistedSnapshot(currentUpdateSnapshot);
+      } else if (lastPersistedSnapshot !== currentUpdateSnapshot) {
+        const payload = currentUpdatePayload;
+        logInvoiceAction('update-retry-before-send', {
+          invoiceId,
+          invoiceType: payload.invoice_type
+        });
+        const updated = await updateInvoice(practiceId, invoiceId, payload);
+        invoiceId = updated?.id ?? invoiceId;
+        setCreatedInvoiceId(invoiceId);
+        setLastPersistedSnapshot(currentUpdateSnapshot);
       }
 
       if (!invoiceId) {
@@ -292,14 +359,14 @@ export const InvoiceBuilder = ({
                   />
                   <Combobox
                     label="Invoice type"
-                  value={invoiceType}
-                  onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
-                  options={INVOICE_TYPE_OPTIONS}
-                  searchable={false}
-                  clearable={false}
-                />
-              </div>
-            ) : (
+                    value={invoiceType}
+                    onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
+                    options={INVOICE_TYPE_OPTIONS}
+                    searchable={false}
+                    clearable={false}
+                  />
+                </div>
+              ) : (
                 <Combobox
                   label="Invoice type"
                   value={invoiceType}
@@ -339,6 +406,7 @@ export const InvoiceBuilder = ({
               title={previewTitle}
               referenceLabel={previewReferenceLabel}
               lineItems={lineItems}
+              issueDate={previewIssueDate}
               dueDate={dueDate}
             />
           </div>

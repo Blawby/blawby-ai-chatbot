@@ -74,6 +74,10 @@ export function ClientInvoicesPage({
     return null;
   }
 
+  if (renderMode === 'listOnly' && !isLoading && !error && invoices.length === 0) {
+    return null;
+  }
+
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-2', isListOnly ? '' : 'p-4 sm:p-6')}>
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">

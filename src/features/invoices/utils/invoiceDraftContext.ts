@@ -25,9 +25,19 @@ export type PendingInvoiceDraftContext = {
 const getStorageKey = (draftId: string) => `${STORAGE_PREFIX}${draftId}`;
 
 export const createPendingInvoiceDraftContext = (context: PendingInvoiceDraftContext): string => {
+  if (typeof window === 'undefined') {
+    throw new Error('Invoice draft context requires a browser environment.');
+  }
+
   const draftId = crypto.randomUUID();
-  if (typeof window !== 'undefined') {
+  try {
     window.sessionStorage.setItem(getStorageKey(draftId), JSON.stringify(context));
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `Failed to persist invoice draft context: ${error.message}`
+        : 'Failed to persist invoice draft context.'
+    );
   }
   return draftId;
 };
