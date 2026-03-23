@@ -197,7 +197,7 @@ export async function handleSubmitIntake(
   await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
 
   // Load conversation with row lock to prevent concurrent duplicate submissions
-  const conversation = await conversationService.getConversation(conversationId, practiceId);
+  const conversation = await conversationService.getConversation(conversationId, practiceId, { repair: true });
   const userInfo = (conversation.user_info ?? {}) as ConversationUserInfo;
 
   // Early exit if already submitted (best-effort check before lock)
@@ -291,9 +291,14 @@ export async function handleSubmitIntake(
   };
 
   try {
-    await conversationService.updateConversation(conversationId, practiceId, {
-      metadata: updatedUserInfo,
-    });
+    await conversationService.updateConversation(
+      conversationId,
+      practiceId,
+      {
+        metadata: updatedUserInfo,
+      },
+      { repair: true }
+    );
   } catch (error) {
     // If update fails (e.g., duplicate intakeUuid due to race), treat as conflict
     if (error instanceof Error && error.message?.includes('UNIQUE')) {

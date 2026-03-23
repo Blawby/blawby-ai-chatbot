@@ -77,6 +77,10 @@ export interface GetMessagesOptions {
   viewerId?: string | null;
 }
 
+export interface GetConversationOptions {
+  repair?: boolean;
+}
+
 export interface GetMessagesResult {
   messages: ConversationMessage[];
   cursor?: string;
@@ -163,7 +167,9 @@ export class ConversationService {
   private async repairConsultationMetadata(
     conversationId: string,
     practiceId: string,
-    currentUserInfo: Record<string, unknown> | null
+    currentUserInfo: Record<string, unknown> | null,
+    currentUpdatedAt: string | null,
+    attempt = 0
   ): Promise<Record<string, unknown> | null> {
     const rows = await this.env.DB.prepare(`
       SELECT client_id, content, metadata
@@ -259,11 +265,43 @@ export class ConversationService {
 
     if (!changed) return currentUserInfo;
 
-    await this.env.DB.prepare(`
+    if (!currentUpdatedAt) return currentUserInfo;
+
+    const updateResult = await this.env.DB.prepare(`
       UPDATE conversations
       SET user_info = ?
-      WHERE id = ? AND practice_id = ?
-    `).bind(JSON.stringify(existing), conversationId, practiceId).run();
+      WHERE id = ? AND practice_id = ? AND updated_at = ?
+    `).bind(JSON.stringify(existing), conversationId, practiceId, currentUpdatedAt).run();
+
+    const updatedRows = typeof updateResult.meta?.changes === 'number' ? updateResult.meta.changes : 0;
+    if (updatedRows === 0) {
+      if (attempt >= 1) {
+        return currentUserInfo;
+      }
+
+      Logger.warn('Consultation metadata repair hit a concurrent update; retrying once', {
+        conversationId,
+        practiceId,
+      });
+
+      const latestRecord = await this.env.DB.prepare(`
+        SELECT user_info, updated_at
+        FROM conversations
+        WHERE id = ? AND practice_id = ?
+      `).bind(conversationId, practiceId).first<Record<string, unknown>>();
+
+      if (!latestRecord) {
+        return currentUserInfo;
+      }
+
+      return this.repairConsultationMetadata(
+        conversationId,
+        practiceId,
+        this.parseJsonRecord(latestRecord.user_info),
+        typeof latestRecord.updated_at === 'string' ? latestRecord.updated_at : null,
+        attempt + 1
+      );
+    }
 
     Logger.info('Repaired consultation metadata from message history', {
       conversationId,
@@ -446,7 +484,11 @@ export class ConversationService {
   /**
    * Get a single conversation by ID
    */
-  async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
+  async getConversation(
+    conversationId: string,
+    practiceId: string,
+    options?: GetConversationOptions
+  ): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
@@ -457,11 +499,11 @@ export class ConversationService {
       throw HttpErrors.notFound('Conversation not found');
     }
 
-    record.user_info = await this.repairConsultationMetadata(
-      conversationId,
-      practiceId,
-      this.parseJsonRecord(record.user_info)
-    );
+    const parsedUserInfo = this.parseJsonRecord(record.user_info);
+    const currentUpdatedAt = typeof record.updated_at === 'string' ? record.updated_at : null;
+    record.user_info = options?.repair
+      ? await this.repairConsultationMetadata(conversationId, practiceId, parsedUserInfo, currentUpdatedAt)
+      : parsedUserInfo;
 
     return this.mapRecordToConversation(record);
   }
@@ -470,7 +512,10 @@ export class ConversationService {
    * Get a single conversation by ID without scoping to a practice.
    * Use with participant checks before returning sensitive data.
    */
-  async getConversationById(conversationId: string): Promise<Conversation> {
+  async getConversationById(
+    conversationId: string,
+    options?: GetConversationOptions
+  ): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
@@ -482,11 +527,11 @@ export class ConversationService {
     }
 
     const practiceId = typeof record.practice_id === 'string' ? record.practice_id : String(record.practice_id ?? '');
-    record.user_info = await this.repairConsultationMetadata(
-      conversationId,
-      practiceId,
-      this.parseJsonRecord(record.user_info)
-    );
+    const parsedUserInfo = this.parseJsonRecord(record.user_info);
+    const currentUpdatedAt = typeof record.updated_at === 'string' ? record.updated_at : null;
+    record.user_info = options?.repair
+      ? await this.repairConsultationMetadata(conversationId, practiceId, parsedUserInfo, currentUpdatedAt)
+      : parsedUserInfo;
 
     return this.mapRecordToConversation(record);
   }
@@ -724,10 +769,14 @@ export class ConversationService {
       priority?: 'low' | 'normal' | 'high' | 'urgent';
       internalNotes?: string | null;
     },
-    options?: { request?: Request }
+    options?: { request?: Request; repair?: boolean }
   ): Promise<Conversation> {
     // Verify conversation exists and belongs to practice
-    const currentConversation = await this.getConversation(conversationId, practiceId);
+    const currentConversation = await this.getConversation(
+      conversationId,
+      practiceId,
+      options?.repair ? { repair: true } : undefined
+    );
 
     const now = new Date().toISOString();
     const updatesList: string[] = [];

@@ -704,7 +704,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const conversationService = new ConversationService(env);
-  const conversation = await conversationService.getConversationById(body.conversationId);
+  const conversation = await conversationService.getConversationById(body.conversationId, { repair: true });
   if (!conversation) {
     throw HttpErrors.notFound('Conversation not found');
   }
@@ -1588,21 +1588,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const resolvedPracticeName = readAnyString(details, ['name', 'practiceName', 'practice_name']) ?? 'the practice';
 
       if (isIntakeMode && !intakeFields) {
-        Logger.error('Intake tool contract violated: reply completed without structured intake fields', {
+        Logger.warn('Intake tool contract violated: reply completed without structured intake fields', {
           conversationId: body.conversationId,
           practiceId,
           mode: effectiveMode ?? null,
           lastUserMessage: lastUserMessage?.content?.slice(0, 200) ?? null,
           aiReplyPreview: accumulatedReply.slice(0, 200),
           streamDiagnostics: streamResult.diagnostics,
+          practiceContactErrorReply: buildPracticeContactErrorReply(resolvedPracticeName, details),
         });
-        throw HttpErrors.internalServerError(
-          'Intake assistant failed to update structured intake state.',
-          {
-            failure: 'intake_tool_contract',
-            userMessage: buildPracticeContactErrorReply(resolvedPracticeName, details),
-          }
-        );
       }
 
       const shouldPromptConsultation =
@@ -1701,14 +1695,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (isIntakeMode && mergedIntakeState) {
           const updateMetadata = async (attempts = 0) => {
             try {
-              const latestConversation = await conversationService.getConversation(body.conversationId, conversation.practice_id);
+              const latestConversation = await conversationService.getConversation(
+                body.conversationId,
+                conversation.practice_id,
+                { repair: true }
+              );
               const latestMetadata = (latestConversation?.user_info as Record<string, unknown>) || {};
               await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
                 metadata: {
                   ...latestMetadata,
                   intakeConversationState: mergedIntakeState
                 }
-              });
+              }, { repair: true });
             } catch (metadataError) {
               if (attempts < 1) {
                 // One retry for concurrent modification or transient errors

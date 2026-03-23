@@ -1528,7 +1528,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={PlusIcon} iconClassName="h-5 w-5"
     />
   ) : null;
-  const openDetailInspector = inspectorTarget ? () => setIsInspectorOpen(true) : undefined;
+  const toggleDetailInspector = inspectorTarget ? () => setIsInspectorOpen((prev) => !prev) : undefined;
   const workspacePrefetchData: WorkspacePrefetchData = {
     mattersData: mattersDataForView, // filtered for the list view
     clientsData,
@@ -1575,7 +1575,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? mattersView(
       mattersStatusFilter,
       workspacePrefetchData,
-      openDetailInspector,
+      toggleDetailInspector,
       isInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
@@ -1595,7 +1595,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? clientsView(
       clientsStatusFilter,
       workspacePrefetchData,
-      openDetailInspector,
+      toggleDetailInspector,
       isInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
@@ -1611,7 +1611,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesContent = (typeof invoicesView === 'function'
     ? invoicesView(
       invoicesStatusFilter,
-      openDetailInspector,
+      toggleDetailInspector,
       isInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
