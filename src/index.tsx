@@ -4,7 +4,6 @@ import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
-import AwaitingInvitePage from '@/pages/AwaitingInvitePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import DebugStylesPage from '@/pages/DebugStylesPage';
@@ -37,7 +36,8 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-
+import { normalizePracticeDetailsResponse } from '@/shared/lib/apiClient';
+import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugStylesPage />;
@@ -211,7 +211,6 @@ function AppShell() {
         <Router>
           <Route path="/auth" component={AuthPage} />
           <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
-          <Route path="/auth/awaiting-invite" component={AwaitingInvitePage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
@@ -875,6 +874,15 @@ function WidgetRoute({
   }, [data, practiceSlug]);
 
   const resolvedPracticeId = practiceConfig?.id || '';
+
+  useEffect(() => {
+    if (data?.practiceDetails && resolvedPracticeId) {
+      const details = normalizePracticeDetailsResponse(data.practiceDetails);
+      if (details) {
+        setPracticeDetailsEntry(resolvedPracticeId, details);
+      }
+    }
+  }, [data, resolvedPracticeId]);
 
   if (isLoading || !data) {
     return <LoadingScreen />;

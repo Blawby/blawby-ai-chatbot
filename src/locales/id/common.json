@@ -288,5 +288,17 @@
     "decline": "Tolak",
     "convert": "Konversi ke perkara",
     "noPermission": "Anda tidak memiliki izin untuk meninjau prospek ini"
+  },
+  "leadIntake": {
+    "newIntake": "Intake baru",
+    "urgency": "Urgensi",
+    "payment": "Pembayaran",
+    "triage": "Triage",
+    "fee": "Biaya",
+    "opposingParty": "Pihak Lawan",
+    "reason": "Alasan"
+  },
+  "widget": {
+    "persistIntakePathError": "Tidak dapat menyimpan jalur kembalian Anda."
   }
 }

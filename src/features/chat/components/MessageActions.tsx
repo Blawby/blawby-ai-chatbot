@@ -66,6 +66,20 @@ interface MessageActionsProps {
 	leadReview?: {
 		canReview: boolean;
 		isSubmitting?: boolean;
+		intake?: {
+			name?: string;
+			email?: string;
+			phone?: string;
+			description?: string;
+			opposingParty?: string;
+			urgency?: string;
+			paymentStatus?: string;
+			triageStatus?: string;
+			triageReason?: string;
+			amount?: number;
+			currency?: string;
+			submittedAt?: string;
+		};
 		onAccept: () => void;
 		onReject: () => void;
 		onConvert?: () => void;
@@ -154,6 +168,19 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		: strengthTier === 'good'
 			? t('chat.cta.addMore')
 			: t('chat.cta.notYet');
+	const leadIntake = leadReview?.intake;
+	const formatLeadAmount = (amount?: number, currency?: string) => {
+		if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
+		try {
+			return new Intl.NumberFormat(undefined, {
+				style: 'currency',
+				currency: currency || 'USD'
+			}).format(amount / 100);
+		} catch {
+			return `${amount / 100} ${currency || 'USD'}`;
+		}
+	};
+	const paymentAmount = formatLeadAmount(leadIntake?.amount, leadIntake?.currency);
 
 	return (
 		<div className={className}>
@@ -192,6 +219,36 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			{leadReview && (
 				<div className="mt-3">
+					{leadIntake && (
+						<div className="mb-3 rounded-2xl border border-line-glass/40 bg-black/10 p-3 text-sm text-input-text">
+							<div className="flex flex-col gap-2">
+								<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+									<span className="font-medium text-input-text">{leadIntake.name || t('leadIntake.newIntake')}</span>
+									{leadIntake.email ? <span className="text-input-placeholder">{leadIntake.email}</span> : null}
+									{leadIntake.phone ? <span className="text-input-placeholder">{leadIntake.phone}</span> : null}
+								</div>
+								<div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-input-placeholder">
+									{leadIntake.urgency ? <span>{t('leadIntake.urgency')}: {leadIntake.urgency.replace(/_/g, ' ')}</span> : null}
+									{leadIntake.paymentStatus ? <span>{t('leadIntake.payment')}: {leadIntake.paymentStatus.replace(/_/g, ' ')}</span> : null}
+									{leadIntake.triageStatus ? <span>{t('leadIntake.triage')}: {leadIntake.triageStatus.replace(/_/g, ' ')}</span> : null}
+									{paymentAmount ? <span>{t('leadIntake.fee')}: {paymentAmount}</span> : null}
+								</div>
+								{leadIntake.opposingParty ? (
+									<div className="text-xs text-input-placeholder">
+										<span className="font-medium text-input-text">{t('leadIntake.opposingParty')}:</span> {leadIntake.opposingParty}
+									</div>
+								) : null}
+								{leadIntake.description ? (
+									<p className="text-sm text-input-text/90">{leadIntake.description}</p>
+								) : null}
+								{leadIntake.triageReason ? (
+									<div className="text-xs text-input-placeholder">
+										<span className="font-medium text-input-text">{t('leadIntake.reason')}:</span> {leadIntake.triageReason}
+									</div>
+								) : null}
+							</div>
+						</div>
+					)}
 					{leadReview.canReview ? (
 						<div className="flex flex-col gap-2 sm:flex-row">
 							{leadReview.onConvert ? (

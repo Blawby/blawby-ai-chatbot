@@ -19,6 +19,7 @@ import {
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -67,47 +68,7 @@ const readWidgetAttributionFromStorage = (): Record<string, string> | null => {
   }
 };
 
-const parseTrustedParentOriginFromQuery = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  const raw = new URLSearchParams(window.location.search).get('trusted_parent_origin');
-  if (!raw) return null;
-  try {
-    const parsed = new URL(raw);
-    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    if (!isHttp) return null;
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-};
 
-const resolveAllowedParentOrigins = (): string[] => {
-  if (typeof window === 'undefined') return [];
-  const origins = new Set<string>();
-  const trustedParentOrigin = parseTrustedParentOriginFromQuery();
-  if (trustedParentOrigin) {
-    origins.add(trustedParentOrigin);
-  }
-
-  const referrer = typeof document !== 'undefined' ? document.referrer : '';
-  if (referrer) {
-    try {
-      origins.add(new URL(referrer).origin);
-    } catch {
-      // ignore malformed referrer
-    }
-  }
-
-  const ancestorOrigins = window.location.ancestorOrigins;
-  if (ancestorOrigins && ancestorOrigins.length > 0) {
-    for (let i = 0; i < ancestorOrigins.length; i += 1) {
-      const origin = ancestorOrigins.item(i);
-      if (origin) origins.add(origin);
-    }
-  }
-
-  return Array.from(origins);
-};
 
 const emitWidgetLeadSubmitted = (payload: {
   intakeUuid: string;

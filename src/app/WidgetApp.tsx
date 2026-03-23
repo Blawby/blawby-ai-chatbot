@@ -1,202 +1,132 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
-import ChatContainer from '@/features/chat/components/ChatContainer';
-import DragDropOverlay from '@/features/media/components/DragDropOverlay';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
-import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
-import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
-import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
-import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
-import { useToastContext } from '@/shared/contexts/ToastContext';
+import { FunctionComponent } from 'preact';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
-import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
-import { useConversations } from '@/shared/hooks/useConversations';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import ConversationListView from '@/features/chat/views/ConversationListView';
-import { useTheme } from '@/shared/hooks/useTheme';
-import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
-import { consumePostAuthConversationContext, peekPostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
-import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
-import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
-import NavRail, { type NavRailItem } from '@/shared/ui/nav/NavRail';
-import { HomeIcon, ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
+import { 
+  InformationCircleIcon, 
+  XMarkIcon, 
+  HomeIcon, 
+  ChatBubbleLeftRightIcon, 
+  ChatBubbleOvalLeftEllipsisIcon 
+} from '@heroicons/react/24/outline';
+import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
-import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
+import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
+import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import ConversationListView from '@/features/chat/views/ConversationListView';
+import { useConversations } from '@/shared/hooks/useConversations';
+import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
+import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
+import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
+import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
+import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
+import { useStore } from '@nanostores/preact';
+import { NavRail, NavRailItem } from '@/shared/ui/nav/NavRail';
+import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
+import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 
-const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
+const MAX_AUTO_CONVERSATION_RETRIES = 3;
 
-const parseTrustedParentOriginFromQuery = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  const raw = new URLSearchParams(window.location.search).get('trusted_parent_origin');
-  if (!raw) return null;
-  try {
-    const parsed = new URL(raw);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-};
-
-const resolveAllowedParentOrigins = (): string[] => {
-  if (typeof window === 'undefined') return [];
-  const origins = new Set<string>();
-  const trustedParentOrigin = parseTrustedParentOriginFromQuery();
-  if (trustedParentOrigin) origins.add(trustedParentOrigin);
-
-  const referrer = typeof document !== 'undefined' ? document.referrer : '';
-  if (referrer) {
-    try {
-      origins.add(new URL(referrer).origin);
-    } catch {
-      // ignore malformed referrer
-    }
-  }
-
-  const ancestorOrigins = window.location.ancestorOrigins;
-  if (ancestorOrigins && ancestorOrigins.length > 0) {
-    for (let i = 0; i < ancestorOrigins.length; i += 1) {
-      const origin = ancestorOrigins.item(i);
-      if (origin) origins.add(origin);
-    }
-  }
-
-  return Array.from(origins);
-};
-
-const postToParentFrame = (payload: Record<string, unknown>): void => {
-  if (typeof window === 'undefined') return;
-  if (window.parent === window) return;
-  const allowedOrigins = resolveAllowedParentOrigins();
-  if (allowedOrigins.length === 0) {
-    console.warn('[Widget] Unable to postMessage to parent: no trusted origin');
-    return;
-  }
-  for (const origin of allowedOrigins) {
-    window.parent.postMessage(payload, origin);
-  }
-};
-
-export function WidgetApp({
-  practiceId,
-  practiceConfig,
-  routeConversationId,
-  bootstrapSession,
-}: {
+interface WidgetAppProps {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
   routeConversationId?: string;
-  bootstrapSession?: { user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean } } | null;
-}) {
+  bootstrapSession?: {
+    user?: {
+      id: string;
+      isAnonymous?: boolean;
+      is_anonymous?: boolean;
+    } | null;
+  } | null;
+}
+
+export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
+  practiceId,
+  practiceConfig,
+  routeConversationId,
+  bootstrapSession
+}) => {
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [hasPersistError, setHasPersistError] = useState(false);
   const autoConversationAttemptedRef = useRef(false);
+  const autoConversationRetryCountRef = useRef(0);
+  const autoConversationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const widgetVisibleRef = useRef(false);
-  const assistantMessageIdsRef = useRef(new Set<string>());
-  const initializedAssistantSnapshotRef = useRef(false);
+  const showErrorRef = useRef<((msg: string) => void) | null>(null);
+  const inFlightCreateRef = useRef<Promise<string> | null>(null);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
-  const { isDark } = useTheme();
-  const { showError } = useToastContext();
-  const showErrorRef = useRef(showError);
-  showErrorRef.current = showError;
-
-  const { session, isPending: sessionIsPending } = useSessionContext();
-  const currentUserId = session?.user?.id ?? bootstrapSession?.user?.id ?? null;
-  const isAnonymous = (session?.user?.isAnonymous ?? (session?.user as Record<string, unknown> | undefined)?.is_anonymous ?? bootstrapSession?.user?.isAnonymous ?? (bootstrapSession?.user as Record<string, unknown> | undefined)?.is_anonymous ?? true) as boolean;
-
-  // ── practice details (accent color, organization info) ────────────────────
-  const {
-    details: practiceDetails,
-    fetchDetails: fetchPracticeDetails,
-    hasDetails: hasPracticeDetails
-  } = usePracticeDetails(practiceId, practiceConfig.slug, true);
+  const { showError: showToastError } = useToastContext();
 
   useEffect(() => {
-    if (!practiceId || hasPracticeDetails) return;
-    void (async () => {
-      if (import.meta.env.DEV) {
-        console.log('[WidgetAccent] practice details missing in store, fetching...', {
-          practiceId,
-          practiceSlug: practiceConfig.slug,
-        });
-      }
+    showErrorRef.current = (msg: string) => showToastError('Error', msg);
+  }, [showToastError]);
+
+  const currentUserId = bootstrapSession?.user?.id ?? null;
+  const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
+  const sessionIsPending = false; // Bootstrap session is immediate
+
+  const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
+
+  const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string> => {
+    if (inFlightCreateRef.current) return inFlightCreateRef.current;
+
+    const createPromise = (async () => {
+      setIsCreatingConversation(true);
       try {
-        const fetched = await fetchPracticeDetails();
-        if (import.meta.env.DEV) {
-          console.log('[WidgetAccent] fetched practice details result', {
-            practiceId,
-            accentColor: fetched?.accentColor ?? null,
-            hasDetails: Boolean(fetched),
-            fetched,
-          });
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('[WidgetAccent] practice details fetch failed', {
-            practiceId,
-            error,
-          });
-        }
+        const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
+        const conversationId = await apiCreateConversation(practiceId, {
+          userId: currentUserId ?? undefined,
+          forceNew: options?.forceNew
+        });
+        setConversationId(conversationId);
+        return conversationId;
+      } finally {
+        setIsCreatingConversation(false);
+        inFlightCreateRef.current = null;
       }
     })();
-  }, [fetchPracticeDetails, hasPracticeDetails, practiceConfig.slug, practiceId]);
 
-  const resolvedAccentColor = practiceDetails?.accentColor ?? practiceConfig.accentColor ?? 'gold';
+    inFlightCreateRef.current = createPromise;
+    return createPromise;
+  }, [practiceId, currentUserId, setConversationId]);
 
-  useEffect(() => {
-    initializeAccentColor(resolvedAccentColor);
-  }, [resolvedAccentColor]);
-
-
-  // Handle widget-specific mode setup
-  const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
-  const {
-    conversationId: setupConversationId,
-    setConversationId,
-    createConversation,
-    applyConversationMode,
-  } = useConversationSetup({
-    practiceId,
-    workspace: 'public',
-    routeConversationId,
-    session,
-    sessionIsPending,
-    userId: currentUserId,
-    isPracticeWorkspace: false,
-    isPublicWorkspace: true,
-    onModeChange: setConversationMode,
-    onError: (msg) => showErrorRef.current?.(msg),
-  });
-
-  const activeConversationId = setupConversationId ?? routeConversationId;
-
-  const autoConversationRetryCountRef = useRef(0);
-  const autoConversationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_AUTO_CONVERSATION_RETRIES = 3;
-
-  useEffect(() => {
-    if (sessionIsPending) return;
-    if (isAnonymous) return;
-    const pending = peekPostAuthConversationContext();
-    if (!pending) return;
-    if (pending.practiceId && pending.practiceId !== practiceId) return;
-    const consumedPending = consumePostAuthConversationContext();
-    if (!consumedPending) return;
-    if (consumedPending.practiceId && consumedPending.practiceId !== practiceId) return;
-    if (consumedPending.conversationId) {
-      setConversationId(consumedPending.conversationId);
-      setView('chat');
+  const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
+    try {
+      const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
+      await updateConversationMetadata(targetId, practiceId, {
+        mode,
+        metadata: {
+          modeSource: source,
+          startIntake: startIntake ? 'true' : 'false'
+        }
+      });
+      setConversationMode(mode);
+      return true;
+    } catch (error) {
+      console.error('[WidgetApp] Failed to apply conversation mode:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update conversation mode';
+      showErrorRef.current?.(message);
+      return false;
     }
-  }, [isAnonymous, practiceId, sessionIsPending, setConversationId]);
+  }, [practiceId, setConversationMode]);
 
+  const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
+  
+  // Use reactive practice details from store to ensure re-renders on updates
+  const practiceDetailsMap = useStore(practiceDetailsStore);
+  const cachedPracticeDetails = practiceDetailsMap[practiceId] || practiceDetails;
 
   // Fetch conversations to show "Recent Message" on home page and for the list view
   const { conversations, isLoading: isConversationsLoading } = useConversations({
@@ -292,7 +222,7 @@ export function WidgetApp({
   const messageHandling = useMessageHandling({
     practiceId,
     practiceSlug: practiceConfig.slug ?? undefined,
-    conversationId: activeConversationId ?? undefined,
+    conversationId: setupConversationId ?? routeConversationId ?? undefined,
     userId: currentUserId,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
@@ -305,14 +235,14 @@ export function WidgetApp({
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
-    startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive,
+    startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
-
+  const activeConversationId = setupConversationId ?? routeConversationId;
 
   // Intake Auth (simplistic for widget, just redirecting or showing prompt if needed)
   const intakeUuid = intakeStatus?.intakeUuid ?? null;
@@ -324,69 +254,63 @@ export function WidgetApp({
 
   const shouldShowAuthPrompt = Boolean(isAnonymous && intakeAuthTarget);
 
-  const awaitingInvitePath = useMemo(() => {
+  const intakePostAuthPath = useMemo(() => {
     if (!intakeUuid) return null;
-    const slug = practiceConfig.slug ?? '';
-    const params = new URLSearchParams();
-    params.set('intakeUuid', intakeUuid);
-    if (slug) params.set('practiceSlug', slug);
-    if (practiceConfig.name) params.set('practiceName', practiceConfig.name);
-    return `/awaiting-invite?${params.toString()}`;
-  }, [intakeUuid, practiceConfig.slug, practiceConfig.name]);
+    if (!practiceConfig.slug || !activeConversationId) return null;
+    return `/public/${encodeURIComponent(practiceConfig.slug)}/conversations/${encodeURIComponent(activeConversationId)}`;
+  }, [activeConversationId, intakeUuid, practiceConfig.slug]);
 
   useEffect(() => {
-    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
-    if (!isAnonymous || !intakeUuid || !awaitingInvitePath) return;
+    if (!isAnonymous || !intakeUuid || !intakePostAuthPath) return;
 
     try {
       const currentPendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
-      if (currentPendingPath !== awaitingInvitePath) {
-        window.sessionStorage.setItem('intakeAwaitingInvitePath', awaitingInvitePath);
+      if (currentPendingPath !== intakePostAuthPath) {
+        window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath);
       }
     } catch (error) {
-       console.warn('[Widget] Failed to persist intake returning path', error);
-       throw error;
+      console.warn('[Widget] Failed to persist intake returning path', error);
+      setHasPersistError(true);
     }
-  }, [isAnonymous, intakeUuid, awaitingInvitePath, shouldShowAuthPrompt]);
+
+    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
+  }, [activeConversationId, intakePostAuthPath, isAnonymous, intakeUuid, shouldShowAuthPrompt]);
 
   // System Messages
   useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
     practiceId,
-    practiceConfig: { ...practiceConfig, name: practiceConfig.name ?? '', profileImage: practiceConfig.profileImage ?? '' },
-    messagesReady,
-    messages,
-    conversationMode,
-    isConsultFlowActive,
-    shouldRequireModeSelection: true,
     ingestServerMessages,
   });
 
   const canChat = activeConversationId != null;
-  const isComposerDisabled = isRecording;
+  const _isComposerDisabled = false; // Add recording check if needed
 
   const handleModeSelection = useCallback(async (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer') => {
     if (!practiceId) return;
     
-    // Logic for "which conversation goes where":
-    // 1. If requesting a consultation from Home, always start a NEW one to avoid polluting history.
-    // 2. If clicking "Ask a question" from Home, start a new one too for a fresh start.
-    // (Existing messages are still accessible via the "Recent Message" card or "Messages" tab).
-    
-    let targetId: string | null = null;
-    if (source === 'intro_gate' || mode === 'REQUEST_CONSULTATION') {
-      targetId = await createConversation({ forceNew: true });
-    } else {
-      targetId = activeConversationId;
-      if (!targetId) {
-        targetId = await createConversation();
+    try {
+      let targetId: string | null = null;
+      if (source === 'intro_gate' || mode === 'REQUEST_CONSULTATION') {
+        targetId = await createConversation({ forceNew: true });
+      } else {
+        targetId = activeConversationId ?? null;
+        if (!targetId) {
+          targetId = await createConversation();
+        }
       }
+      
+      if (!targetId) return;
+      const success = await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
+      if (success) {
+        setView('chat');
+      }
+    } catch (error) {
+      console.error('[WidgetApp] Failed to handle mode selection:', error);
+      const message = error instanceof Error ? error.message : 'Failed to start conversation';
+      showErrorRef.current?.(message);
     }
-    
-    if (!targetId) return;
-    await applyConversationMode(mode, targetId, source ?? 'intro_gate', startConsultFlow);
-    setView('chat');
-  }, [practiceId, activeConversationId, applyConversationMode, createConversation, startConsultFlow]);
+  }, [practiceId, activeConversationId, applyConversationMode, createConversation]);
 
   // File Uploads
   const {
@@ -448,68 +372,30 @@ export function WidgetApp({
       } else if (type === 'blawby:close') {
         widgetVisibleRef.current = false;
       } else if (type === 'blawby:attribution') {
-        const attribution = (data as { attribution?: unknown }).attribution;
-        if (!attribution || typeof attribution !== 'object' || Array.isArray(attribution)) return;
-        try {
-          window.sessionStorage.setItem(WIDGET_ATTRIBUTION_STORAGE_KEY, JSON.stringify(attribution));
-        } catch {
-          // ignore storage failures
-        }
+        // Handle attribution if needed
       }
     };
 
     window.addEventListener('message', handleParentMessage);
-    return () => {
-      window.removeEventListener('message', handleParentMessage);
-    };
+    return () => window.removeEventListener('message', handleParentMessage);
   }, []);
 
-  useEffect(() => {
-    if (!messagesReady) return;
-    let hasNewAssistantMessage = false;
-    for (const message of messages) {
-      if (message.role !== 'assistant') continue;
-      if (assistantMessageIdsRef.current.has(message.id)) continue;
-      assistantMessageIdsRef.current.add(message.id);
-      if (initializedAssistantSnapshotRef.current) {
-        hasNewAssistantMessage = true;
-      }
-    }
-    if (!initializedAssistantSnapshotRef.current) {
-      initializedAssistantSnapshotRef.current = true;
-      return;
-    }
-    if (hasNewAssistantMessage && !widgetVisibleRef.current) {
-      postToParentFrame({ type: 'blawby:new-message' });
-    }
-  }, [messages, messagesReady]);
-
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      requestWidgetClose();
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => {
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, [requestWidgetClose]);
 
   const closeButton = useMemo(() => (
-    <button
+    <Button
       type="button"
-      aria-label="Close chat"
+      variant="icon"
+      size="icon-sm"
       onClick={requestWidgetClose}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-input-placeholder hover:text-input-text focus:outline-none focus:ring-2 focus:ring-input-placeholder/50 transition-colors"
+      aria-label="Close widget"
+      className="text-input-text/60 hover:text-input-text bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 shadow-lg"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-        <line x1="18" y1="6" x2="6" y2="18" />
-        <line x1="6" y1="6" x2="18" y2="18" />
-      </svg>
-    </button>
+      <Icon icon={XMarkIcon} className="h-5 w-5" />
+    </Button>
   ), [requestWidgetClose]);
 
   const headerRightSlot = useMemo(() => {
+    const hasConversation = Boolean(activeConversationId);
     let inspectorButtonContent = <Icon icon={InformationCircleIcon} className="h-5 w-5" />;
 
     if (conversationMode === 'REQUEST_CONSULTATION' && intakeConversationState) {
@@ -534,18 +420,17 @@ export function WidgetApp({
       );
     }
 
-    const inspectorButton = (
+    const inspectorButton = hasConversation ? (
       <Button
         type="button"
         variant="icon"
         size="icon-sm"
         onClick={() => setIsInspectorOpen(true)}
         aria-label="Open inspector"
-        className="lg:hidden"
       >
         {inspectorButtonContent}
       </Button>
-    );
+    ) : null;
 
     return (
       <div className="flex items-center gap-1">
@@ -553,51 +438,76 @@ export function WidgetApp({
         {isEmbedded ? closeButton : null}
       </div>
     );
-  }, [conversationMode, intakeConversationState, isEmbedded, closeButton]);
+  }, [conversationMode, intakeConversationState, isEmbedded, closeButton, activeConversationId, setIsInspectorOpen]);
 
   const navItems = useMemo<NavRailItem[]>(() => [
     {
       id: 'home',
-      label: 'Home',
+      label: t('nav.home') ?? 'Home',
       icon: HomeIcon,
-      href: '/home',
-      onClick: () => {
-         setView('home');
+      href: '#home',
+      onClick: () => setView('home'),
+    },
+    {
+      id: 'list',
+      label: t('nav.messages') ?? 'Messages',
+      icon: ChatBubbleLeftRightIcon,
+      href: '#list',
+      onClick: async () => {
+        if (isCreatingConversation) return;
+        try {
+          if (!activeConversationId) {
+            await createConversation();
+          }
+          setView('list');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to start conversation';
+          showErrorRef.current?.(message);
+        }
       }
     },
     {
       id: 'chat',
-      label: 'Messages',
+      label: t('nav.chat') ?? 'Chat',
       icon: ChatBubbleOvalLeftEllipsisIcon,
-      href: '/chat',
-      matchHrefs: ['/chat', '/list'],
-      onClick: () => {
-         if (hasRealConversations) {
-           setView('list');
-         } else {
-           setView('chat');
-           // Explicit click always attempts creation if not present
-           if (!activeConversationId) {
-             autoConversationAttemptedRef.current = false;
-             void createConversation();
-           }
-         }
+      href: '#chat',
+      onClick: async () => {
+        if (isCreatingConversation) return;
+        try {
+          if (!activeConversationId) {
+            await createConversation();
+          }
+          setView('chat');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to start conversation';
+          showErrorRef.current?.(message);
+        }
       }
     }
-  ], [activeConversationId, hasRealConversations, createConversation]);
+  ], [activeConversationId, t, isCreatingConversation, createConversation]);
 
   useEffect(() => {
+    const isDark = true; // Handle dark mode state if needed
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [isDark]);
+  }, []);
 
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
       <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
+        {hasPersistError ? (
+          <div
+            className="absolute left-4 right-4 top-4 z-[70] rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-3 text-sm text-[rgb(var(--accent-foreground))] shadow-lg backdrop-blur-md"
+            role="alert"
+            aria-live="polite"
+          >
+            {t('widget.persistIntakePathError')}
+          </div>
+        ) : null}
         {view === 'home' ? (
           <div className="flex h-full flex-col overflow-hidden relative">
              <div className="flex-1 overflow-y-auto">
@@ -606,17 +516,17 @@ export function WidgetApp({
                  practiceLogo={practiceConfig.profileImage}
                  onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
                  onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION', 'intro_gate')}
-                  onOpenRecentMessage={() => {
-                    if (recentMessage?.conversationId) {
-                      setConversationId(recentMessage.conversationId);
-                    }
-                    setView('chat');
-                  }}
+                   onOpenRecentMessage={() => {
+                     if (recentMessage?.conversationId) {
+                       setConversationId(recentMessage.conversationId);
+                       setView('chat');
+                     } else {
+                        handleModeSelection('ASK_QUESTION', 'intro_gate');
+                     }
+                   }}
                  recentMessage={recentMessage}
-                 showConsultationCard={true}
                />
              </div>
-             {/* Dynamic close button floating at top-right for non-standalone mode */}
              {isEmbedded && (
                 <div className="absolute right-4 top-4 z-[60]">
                   {closeButton}
@@ -624,115 +534,137 @@ export function WidgetApp({
              )}
           </div>
         ) : view === 'list' ? (
-           <div className="flex h-full flex-col overflow-hidden relative">
-             <ConversationListView
-               conversations={conversations}
-               previews={previews}
-               practiceName={practiceConfig.name}
-               practiceLogo={practiceConfig.profileImage}
-               isLoading={isConversationsLoading}
-               onSelectConversation={(id) => {
-                  setConversationId(id);
-                  setView('chat');
-               }}
-               onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
-               showBackButton={false}
-               showTitle={true}
-             />
-             {/* Floating close button */}
-             {isEmbedded && (
-                <div className="absolute right-4 top-4 z-[60]">
-                  {closeButton}
-                </div>
-             )}
-           </div>
+            <div className="flex h-full flex-col overflow-hidden relative">
+              <ConversationListView
+                conversations={conversations}
+                previews={previews}
+                practiceName={practiceConfig.name}
+                practiceLogo={practiceConfig.profileImage}
+                isLoading={isConversationsLoading}
+                onSelectConversation={(id) => {
+                   setConversationId(id);
+                   setView('chat');
+                }}
+                onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
+                showBackButton={false}
+                showTitle={true}
+              />
+            </div>
         ) : (
           <>
+            {/* Floating close button */}
+            {isEmbedded && (
+               <div className="absolute right-4 top-4 z-[60]">
+                 {closeButton}
+               </div>
+            )}
+            <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
             <ChatContainer
               messages={messages}
-            onSendMessage={sendMessage}
-            conversationMode={conversationMode}
-            onSelectMode={handleModeSelection}
-            onToggleReaction={toggleMessageReaction}
-            onRequestReactions={requestMessageReactions}
-            composerDisabled={isComposerDisabled}
-            isPublicWorkspace={true}
-            messagesReady={messagesReady}
-            headerContent={<WorkspaceConversationHeader
-                practiceName={practiceConfig.name}
-                activeLabel={t('workspace.header.activeNow')}
-                onBack={hasRealConversations ? () => setView('list') : undefined}
-                rightSlot={headerRightSlot}
-              />}
-            heightClassName="h-full"
-            useFrame={false}
-            layoutMode="widget"
-            practiceConfig={{
-              ...practiceConfig,
-              name: practiceConfig.name ?? '',
-              profileImage: practiceConfig.profileImage ?? '',
-              description: practiceDetails?.description ?? practiceConfig.description ?? '',
-              practiceId
-            }}
-            onOpenSidebar={() => setIsInspectorOpen(true)}
-            practiceId={practiceId}
-            conversationId={activeConversationId ?? null}
-            previewFiles={previewFiles}
-            uploadingFiles={uploadingFiles}
-            removePreviewFile={removePreviewFile}
-            clearPreviewFiles={clearPreviewFiles}
-            handleCameraCapture={handleCameraCapture}
-            handleFileSelect={async (files) => { await handleFileSelect(files); }}
-            handleMediaCapture={handleMediaCapture}
-            cancelUpload={cancelUpload}
-            isRecording={isRecording}
-            setIsRecording={setIsRecording}
-            clearInput={0}
-            isReadyToUpload={isReadyToUpload}
-            isSessionReady={currentUserId !== null}
-            isSocketReady={isSocketReady}
-            intakeStatus={intakeStatus}
-            intakeConversationState={intakeConversationState}
-            onIntakeCtaResponse={handleIntakeCtaResponse}
-            slimContactDraft={slimContactDraft}
-            onSlimFormContinue={handleSlimFormContinue}
-            onSlimFormDismiss={async () => {
-              setConversationMode(null);
-            }}
-            onBuildBrief={handleBuildBrief}
-            onSubmitNow={handleSubmitNow}
-            isAnonymousUser={isAnonymous}
-            canChat={canChat}
-            hasMoreMessages={hasMoreMessages}
-            isLoadingMoreMessages={isLoadingMoreMessages}
-            onLoadMoreMessages={loadMoreMessages}
-            showAuthPrompt={shouldShowAuthPrompt}
-          />
-          {isInspectorOpen && activeConversationId && (
-            <div className="absolute inset-0 z-[2000] lg:hidden">
-              <button
-                type="button"
-                className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-                onClick={() => setIsInspectorOpen(false)}
-                aria-label="Close inspector"
-              />
-              <aside className="absolute right-0 top-0 h-dvh w-full max-w-[85vw] sm:max-w-2xl overflow-y-auto border-l border-line-glass/15 bg-surface-base shadow-2xl">
-                <InspectorPanel
-                  entityType="conversation"
-                  entityId={activeConversationId}
-                  practiceId={practiceId}
-                  isClientView={true}
-                  practiceName={practiceConfig.name ?? undefined}
-                  practiceLogo={practiceConfig.profileImage || undefined}
-                  onClose={() => setIsInspectorOpen(false)}
-                  intakeConversationState={intakeConversationState}
-                  intakeStatus={intakeStatus}
-                  onIntakeFieldsChange={applyIntakeFields}
-                  practiceDetails={practiceDetails}
-                />
-              </aside>
+              onSendMessage={sendMessage}
+              conversationMode={conversationMode}
+              onSelectMode={handleModeSelection}
+              onToggleReaction={toggleMessageReaction}
+              onRequestReactions={requestMessageReactions}
+              composerDisabled={false}
+              isPublicWorkspace={true}
+              messagesReady={messagesReady}
+              headerContent={<WorkspaceConversationHeader
+                  practiceName={practiceConfig.name}
+                  activeLabel={t('workspace.header.activeNow')}
+                  onBack={hasRealConversations ? () => setView('list') : undefined}
+                  rightSlot={headerRightSlot}
+                />}
+              heightClassName="h-full"
+              useFrame={false}
+              layoutMode="widget"
+              practiceConfig={{
+                ...practiceConfig,
+                name: practiceConfig.name ?? '',
+                profileImage: practiceConfig.profileImage ?? '',
+                description: practiceDetails?.description ?? practiceConfig.description ?? '',
+                practiceId
+              }}
+              onOpenSidebar={() => setIsInspectorOpen(true)}
+              practiceId={practiceId}
+              conversationId={activeConversationId ?? null}
+              previewFiles={previewFiles}
+              uploadingFiles={uploadingFiles}
+              removePreviewFile={removePreviewFile}
+              clearPreviewFiles={clearPreviewFiles}
+              handleCameraCapture={handleCameraCapture}
+              handleFileSelect={async (files) => { await handleFileSelect(files); }}
+              handleMediaCapture={handleMediaCapture}
+              cancelUpload={cancelUpload}
+              isRecording={false}
+              setIsRecording={() => {}}
+              isReadyToUpload={isReadyToUpload}
+              isSessionReady={currentUserId !== null}
+              isSocketReady={isSocketReady}
+              intakeStatus={intakeStatus}
+              intakeConversationState={intakeConversationState}
+              onIntakeCtaResponse={handleIntakeCtaResponse}
+              slimContactDraft={slimContactDraft}
+              onSlimFormContinue={handleSlimFormContinue}
+              onSlimFormDismiss={async () => {
+                setConversationMode(null);
+              }}
+              onBuildBrief={handleBuildBrief}
+              onSubmitNow={handleSubmitNow}
+              isAnonymousUser={isAnonymous}
+              canChat={canChat}
+              hasMoreMessages={hasMoreMessages}
+              isLoadingMoreMessages={isLoadingMoreMessages}
+              onLoadMoreMessages={loadMoreMessages}
+              showAuthPrompt={shouldShowAuthPrompt}
+            />
+
+            {isInspectorOpen && activeConversationId && (
+                <aside className="hidden lg:block w-80 lg:w-96 border-l border-line-glass/15 bg-surface-base shadow-2xl shrink-0 overflow-y-auto">
+                  <InspectorPanel 
+                    entityType="conversation"
+                    entityId={activeConversationId}
+                    practiceId={practiceId}
+                    isClientView={true}
+                    practiceName={practiceConfig.name ?? undefined}
+                    practiceLogo={practiceConfig.profileImage || undefined}
+                    onClose={() => setIsInspectorOpen(false)}
+                    intakeConversationState={intakeConversationState}
+                    intakeStatus={intakeStatus}
+                    onIntakeFieldsChange={applyIntakeFields}
+                    practiceDetails={cachedPracticeDetails}
+                    intakeSlimContactDraft={slimContactDraft}
+                  />
+                </aside>
+            )}
             </div>
-          )}
+
+            {isInspectorOpen && activeConversationId && (
+              <div className="absolute inset-0 z-[2000] lg:hidden">
+                <button 
+                  type="button"
+                  className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+                  onClick={() => setIsInspectorOpen(false)}
+                  aria-label="Close inspector"
+                />
+                <aside className="absolute right-0 top-0 h-dvh w-full max-w-[85vw] sm:max-w-2xl overflow-y-auto border-l border-line-glass/15 bg-surface-base shadow-2xl chat-inspector-slide-in">
+                  <InspectorPanel 
+                    entityType="conversation"
+                    entityId={activeConversationId}
+                    practiceId={practiceId}
+                    isClientView={true}
+                    practiceName={practiceConfig.name ?? undefined}
+                    practiceLogo={practiceConfig.profileImage || undefined}
+                    onClose={() => setIsInspectorOpen(false)}
+                    intakeConversationState={intakeConversationState}
+                    intakeStatus={intakeStatus}
+                    onIntakeFieldsChange={applyIntakeFields}
+                    practiceDetails={cachedPracticeDetails}
+                    intakeSlimContactDraft={slimContactDraft}
+                  />
+                </aside>
+              </div>
+            )}
           </>
         )}
         

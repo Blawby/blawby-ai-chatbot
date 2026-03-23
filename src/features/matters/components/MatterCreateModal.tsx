@@ -46,6 +46,7 @@ interface MatterFormModalProps {
   assignees: MatterOption[];
   mode?: MatterFormMode;
   initialValues?: Partial<MatterFormState>;
+  requireClientSelection?: boolean;
 }
 
 type MatterCreateModalProps = Omit<MatterFormModalProps, 'mode'>;
@@ -195,7 +196,8 @@ const MatterFormModalInner = ({
   practiceAreasLoading = false,
   assignees,
   mode = 'create',
-  initialValues
+  initialValues,
+  requireClientSelection = true
 }: MatterFormModalProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -246,7 +248,7 @@ const MatterFormModalInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
-  const canSubmit = Boolean(formState.title && formState.clientId);
+  const canSubmit = Boolean(formState.title && (!requireClientSelection || formState.clientId));
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
@@ -349,7 +351,7 @@ const MatterFormModalInner = ({
           />
 
           <Combobox
-            label="Person *"
+            label={`Person${requireClientSelection ? ' *' : ''}`}
             placeholder="Select person"
             value={formState.clientId}
             options={clientOptions}

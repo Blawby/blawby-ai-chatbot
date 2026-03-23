@@ -288,5 +288,17 @@
     "decline": "Rechazar",
     "convert": "Convertir en expediente",
     "noPermission": "No tienes permiso para revisar este lead"
+  },
+  "leadIntake": {
+    "newIntake": "Nuevo registro",
+    "urgency": "Urgencia",
+    "payment": "Pago",
+    "triage": "Triaje",
+    "fee": "Tarifa",
+    "opposingParty": "Parte contraria",
+    "reason": "Motivo"
+  },
+  "widget": {
+    "persistIntakePathError": "No se pudo guardar tu ruta de retorno."
   }
 }

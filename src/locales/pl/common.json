@@ -288,5 +288,17 @@
     "decline": "Odrzuć",
     "convert": "Konwertuj na sprawę",
     "noPermission": "Nie masz uprawnień do przeglądania tego potencjalnego klienta"
+  },
+  "leadIntake": {
+    "newIntake": "Nowe zgłoszenie",
+    "urgency": "Pilność",
+    "payment": "Płatność",
+    "triage": "Segregacja",
+    "fee": "Opłata",
+    "opposingParty": "Strona przeciwna",
+    "reason": "Powód"
+  },
+  "widget": {
+    "persistIntakePathError": "Nie udało się zapisać ścieżki powrotu."
   }
 }

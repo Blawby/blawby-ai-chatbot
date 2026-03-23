@@ -21,6 +21,7 @@ const FETCH_TIMEOUT_MS = 8_000;
 const AI_TIMEOUT_MS   = 10_000;
 const MAX_HTML_CHARS  = 80_000; // trim before sending to AI
 const MAX_TEXT_CHARS  = 12_000; // after strip
+const DEFAULT_WEBSITE_EXTRACT_MODEL = 'gpt-4o-mini';
 
 export interface ExtractedPracticeFields {
   name?:         string;
@@ -135,7 +136,7 @@ export async function handleWebsiteExtract(request: Request, env: Env): Promise<
 
   // ── 2. Extract fields via AI ───────────────────────────────────────────────
   const aiClient = createAiClient(env);
-  const model = env.AI_MODEL || 'gpt-4o-mini';
+  const model = DEFAULT_WEBSITE_EXTRACT_MODEL;
 
   const extractionTool = {
     type: 'function',

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
-import DragDropOverlay from '@/features/media/components/DragDropOverlay';
+import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
@@ -33,7 +33,7 @@ const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/Practi
 const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
-import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
+import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
 import { Icon } from '@/shared/ui/Icon';
@@ -323,24 +323,11 @@ export function MainApp({
   const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
   const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
 
-  const awaitingInvitePath = useMemo(() => {
-    if (!isPublicWorkspace || !intakeUuid) return null;
-    const slug = resolvedPublicPracticeSlug ?? practiceConfig.slug ?? '';
-    const params = new URLSearchParams();
-    params.set('intakeUuid', intakeUuid);
-    if (slug) params.set('practiceSlug', slug);
-    if (resolvedPracticeName) params.set('practiceName', resolvedPracticeName);
-    if (activeConversationId) params.set('conversationId', activeConversationId);
-    return `/auth/awaiting-invite?${params.toString()}`;
-  }, [activeConversationId, intakeUuid, isPublicWorkspace, practiceConfig.slug, resolvedPracticeName, resolvedPublicPracticeSlug]);
-
   const intakePostAuthPath = useMemo(() => {
     if (!isPublicWorkspace) return null;
-    if (resolvedPublicPracticeSlug && activeConversationId) {
-      return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
-    }
-    return awaitingInvitePath;
-  }, [activeConversationId, awaitingInvitePath, isPublicWorkspace, resolvedPublicPracticeSlug]);
+    if (!resolvedPublicPracticeSlug || !activeConversationId) return null;
+    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
+  }, [activeConversationId, isPublicWorkspace, resolvedPublicPracticeSlug]);
 
   const handleIntakeAuthSuccess = useCallback(async () => {
     if (!intakePostAuthPath) return;
@@ -748,12 +735,6 @@ export function MainApp({
   useConversationSystemMessages({
     conversationId: activeConversationId,
     practiceId: effectivePracticeId,
-    practiceConfig,
-    messagesReady,
-    messages,
-    conversationMode,
-    isConsultFlowActive,
-    shouldRequireModeSelection: isPublicWorkspace,
     ingestServerMessages,
   });
 
@@ -838,7 +819,7 @@ export function MainApp({
             isLoadingMoreMessages={isLoadingMoreMessages}
             onLoadMoreMessages={loadMoreMessages}
             showAuthPrompt={shouldShowAuthPrompt}
-            authPromptCallbackUrl={awaitingInvitePath ?? undefined}
+            authPromptCallbackUrl={intakePostAuthPath ?? undefined}
             onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
             onAuthPromptClose={handleAuthPromptClose}
             onAuthPromptSuccess={handleAuthPromptSuccess}

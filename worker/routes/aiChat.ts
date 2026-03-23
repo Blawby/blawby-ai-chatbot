@@ -10,8 +10,7 @@ import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
 
-const DEFAULT_AI_MODEL = 'gpt-4o-mini';
-const DEFAULT_GATEWAY_WORKERS_MODEL = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
 const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the details for the firm.";
@@ -431,7 +430,9 @@ When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
 
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".`;
+missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".
+
+IMPORTANT: Never print function names, JSON, or structured data to the user. Never write update_intake_fields in chat content. If you need to save fields, use the tool silently and then continue with normal user-facing text.`;
 };
 
 const buildOnboardingSystemPrompt = (
@@ -833,7 +834,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       content: shortCircuitReply,
       metadata: {
         source: 'ai',
-        model: env.AI_MODEL || DEFAULT_AI_MODEL,
+        model: DEFAULT_AI_MODEL,
         ...(shortCircuitOnboardingProfile ? { onboardingProfile: shortCircuitOnboardingProfile } : {}),
         ...(shortCircuitShouldShowIntakeCta ? { intakeReadyCta: true } : {}),
         ...(shouldPromptConsultation
@@ -866,16 +867,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   // ------------------------------------------------------------------
-  // Streaming path — calls OpenAI with stream:true, pipes tokens to the
+  // Streaming path — calls Workers AI with stream:true, pipes tokens to the
   // client via SSE, then persists the completed message via waitUntil.
   // ------------------------------------------------------------------
 
   const aiDetails = normalizePracticeDetailsForAi(details);
   const aiClient = createAiClient(env);
-  let model = env.AI_MODEL || DEFAULT_AI_MODEL;
-  if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
-    model = 'openai/gpt-4o-mini';
-  }
+  const model = DEFAULT_AI_MODEL;
 
   const servicesForPrompt = normalizeServicesForPrompt(details);
   const onboardingPromptProfile = isOnboardingMode
@@ -901,7 +899,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   ].filter(Boolean).join('\n\n');
 
   const requestPayload: Record<string, unknown> = {
-    model,
+    model: model,
     temperature: 0.2,
     stream: true,
     messages: [
@@ -910,45 +908,40 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     ]
   };
 
-  // Intake mode uses tool_choice — OpenAI supports streaming with tools,
+  // Intake mode uses tools — Workers AI supports streaming with tools,
   // but the tool call arguments arrive in chunks too. We accumulate them
   // separately and only emit the done event once the full tool call is parsed.
   if (isIntakeMode) {
     requestPayload.tools = [INTAKE_TOOL];
-    requestPayload.tool_choice = 'auto';
   } else if (isOnboardingMode) {
     requestPayload.tools = [ONBOARDING_TOOL];
-    requestPayload.tool_choice = 'auto';
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
 
   // Kick off the async work and register it with ctx.waitUntil so Cloudflare
   // does not terminate the worker before persistence completes.
-  const streamAndPersist = async () => {
+  const streamAndPersist = async (env: Env) => {
     let accumulatedReply = '';
     let intakeFields: Record<string, unknown> | null = null;
     let onboardingFields: Record<string, unknown> | null = null;
     let quickReplies: string[] | null = null;
     let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
-    const gatewayWorkersModel = env.AI_GATEWAY_WORKERS_MODEL?.trim() || DEFAULT_GATEWAY_WORKERS_MODEL;
 
     const consumeAiStream = async (
       response: Response,
       emitTokens = true
     ): Promise<{
       reply: string;
-      toolCallName: string;
-      toolCallArgBuffer: string;
+      toolCalls: Array<{name: string, arguments: string}>;
       streamStalled: boolean;
       emittedToken: boolean;
     }> => {
       if (!response.body) {
         return {
           reply: '',
-          toolCallName: '',
-          toolCallArgBuffer: '',
+          toolCalls: [],
           streamStalled: false,
           emittedToken: false
         };
@@ -959,8 +952,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let buffer = '';
       let streamStalled = false;
       let localReply = '';
-      let localToolCallName = '';
-      let localToolCallArgBuffer = '';
+      let localToolCalls: Array<{name: string, arguments: string}> = [];
       let localEmittedToken = false;
 
       while (true) {
@@ -1019,19 +1011,48 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
           if (typeof delta.content === 'string' && delta.content.length > 0) {
             localReply += delta.content;
-            if (emitTokens) {
+
+            const looksLikeToolLeak =
+              delta.content.includes('update_intake_fields') ||
+              delta.content.includes('update_practice_fields') ||
+              delta.content.includes('"caseStrength"') ||
+              delta.content.includes('"practiceArea"');
+
+            if (emitTokens && !looksLikeToolLeak) {
               write({ token: delta.content });
               localEmittedToken = true;
             }
           }
 
-          if (delta.tool_calls?.[0]) {
-            const tc = delta.tool_calls[0];
-            if (tc.function?.name) {
-              localToolCallName = tc.function.name;
-            }
-            if (typeof tc.function?.arguments === 'string') {
-              localToolCallArgBuffer += tc.function.arguments;
+          // Handle all tool calls, not just the first one
+          if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
+            for (const tc of delta.tool_calls) {
+              if (typeof tc.function?.arguments === 'string') {
+                let targetCall: {name: string, arguments: string} | undefined;
+                
+                if (tc.function?.name) {
+                  // Find existing tool call with this name or create new one
+                  targetCall = localToolCalls.find(call => call.name === tc.function.name);
+                  if (!targetCall) {
+                    targetCall = {
+                      name: tc.function.name,
+                      arguments: tc.function.arguments
+                    };
+                    localToolCalls.push(targetCall);
+                  } else {
+                    // Append to existing call
+                    targetCall.arguments += tc.function.arguments;
+                  }
+                } else {
+                  // Argument-only fragment: use most recent call if available
+                  if (localToolCalls.length > 0) {
+                    targetCall = localToolCalls[localToolCalls.length - 1];
+                    targetCall.arguments += tc.function.arguments;
+                  }
+                  // If no existing call, we can't handle argument-only fragments
+                  // (this would be malformed SSE)
+                }
+              }
             }
           }
         }
@@ -1052,7 +1073,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             const token = chunk.choices?.[0]?.delta?.content;
             if (typeof token === 'string' && token.length > 0) {
               localReply += token;
-              if (emitTokens) {
+
+              const looksLikeToolLeak =
+                token.includes('update_intake_fields') ||
+                token.includes('update_practice_fields') ||
+                token.includes('"caseStrength"') ||
+                token.includes('"practiceArea"');
+
+              if (emitTokens && !looksLikeToolLeak) {
                 write({ token });
                 localEmittedToken = true;
               }
@@ -1060,11 +1088,31 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             const toolCalls = chunk.choices?.[0]?.delta?.tool_calls;
             if (Array.isArray(toolCalls)) {
               for (const tc of toolCalls) {
-                if (typeof tc.function?.name === 'string') {
-                  localToolCallName = tc.function.name;
-                }
                 if (typeof tc.function?.arguments === 'string') {
-                  localToolCallArgBuffer += tc.function.arguments;
+                  let targetCall: {name: string, arguments: string} | undefined;
+                  
+                  if (tc.function?.name) {
+                    // Find existing tool call with this name or create new one
+                    targetCall = localToolCalls.find(call => call.name === tc.function.name);
+                    if (!targetCall) {
+                      targetCall = {
+                        name: tc.function.name,
+                        arguments: tc.function.arguments
+                      };
+                      localToolCalls.push(targetCall);
+                    } else {
+                      // Append to existing call
+                      targetCall.arguments += tc.function.arguments;
+                    }
+                  } else {
+                    // Argument-only fragment: use most recent call if available
+                    if (localToolCalls.length > 0) {
+                      targetCall = localToolCalls[localToolCalls.length - 1];
+                      targetCall.arguments += tc.function.arguments;
+                    }
+                    // If no existing call, we can't handle argument-only fragments
+                    // (this would be malformed SSE)
+                  }
                 }
               }
             }
@@ -1076,8 +1124,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       return {
         reply: localReply,
-        toolCallName: localToolCallName,
-        toolCallArgBuffer: localToolCallArgBuffer,
+        toolCalls: localToolCalls,
         streamStalled,
         emittedToken: localEmittedToken
       };
@@ -1086,35 +1133,38 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const normalizeKeys = (obj: unknown): unknown => {
       if (typeof obj !== 'object' || obj === null) return obj;
       if (Array.isArray(obj)) return obj.map((item) => normalizeKeys(item));
+
       const record = obj as Record<string, unknown>;
       const next: Record<string, unknown> = {};
       const mapping: Record<string, string> = {
-        'practice_area': 'practiceArea',
-        'opposing_party': 'opposingParty',
-        'desired_outcome': 'desiredOutcome',
-        'case_strength': 'caseStrength',
-        'missing_summary': 'missingSummary',
-        'postal_code': 'postalCode',
-        'address_line1': 'addressLine1',
-        'address_line_1': 'addressLine1',
-        'address_line2': 'addressLine2',
-        'address_line_2': 'addressLine2',
-        'court_date': 'courtDate',
-        'household_size': 'householdSize',
-        'has_documents': 'hasDocuments',
-        'eligibility_signals': 'eligibilitySignals',
-        'contact_phone': 'contactPhone',
-        'business_email': 'businessEmail',
-        'accent_color': 'accentColor',
-        'completion_score': 'completionScore',
-        'missing_fields': 'missingFields',
-        'quick_replies': 'quickReplies',
-        'trigger_edit_modal': 'triggerEditModal'
+        practice_area: 'practiceArea',
+        opposing_party: 'opposingParty',
+        desired_outcome: 'desiredOutcome',
+        case_strength: 'caseStrength',
+        missing_summary: 'missingSummary',
+        postal_code: 'postalCode',
+        address_line1: 'addressLine1',
+        address_line_1: 'addressLine1',
+        address_line2: 'addressLine2',
+        address_line_2: 'addressLine2',
+        court_date: 'courtDate',
+        household_size: 'householdSize',
+        has_documents: 'hasDocuments',
+        eligibility_signals: 'eligibilitySignals',
+        contact_phone: 'contactPhone',
+        business_email: 'businessEmail',
+        accent_color: 'accentColor',
+        completion_score: 'completionScore',
+        missing_fields: 'missingFields',
+        quick_replies: 'quickReplies',
+        trigger_edit_modal: 'triggerEditModal',
       };
+
       for (const key of Object.keys(record)) {
         const mapped = mapping[key] || key;
         next[mapped] = normalizeKeys(record[key]);
       }
+
       return next;
     };
 
@@ -1125,15 +1175,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (startMatch) {
         const startIndex = startMatch.index!;
         const name = startMatch[1];
-        
+
         const parenIndex = rawReply.indexOf('(', startIndex + name.length);
         let endIndex = -1;
+
         if (parenIndex !== -1) {
           let parenCount = 1;
-          for (let i = parenIndex + 1; i < rawReply.length; i++) {
-            if (rawReply[i] === '(') parenCount++;
+          for (let i = parenIndex + 1; i < rawReply.length; i += 1) {
+            if (rawReply[i] === '(') parenCount += 1;
             else if (rawReply[i] === ')') {
-              parenCount--;
+              parenCount -= 1;
               if (parenCount === 0) {
                 endIndex = i;
                 break;
@@ -1142,21 +1193,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           }
         }
 
-        const matchedText = endIndex !== -1 ? rawReply.substring(startIndex, endIndex + 1) : rawReply.substring(startIndex);
+        const matchedText =
+          endIndex !== -1
+            ? rawReply.substring(startIndex, endIndex + 1)
+            : rawReply.substring(startIndex);
+
         let parameters: Record<string, unknown> = {};
         let parseSuccess = false;
 
         try {
           let jsonPayload = '';
           const openingBraceIndex = matchedText.indexOf('{');
+
           if (openingBraceIndex !== -1) {
             let braceCount = 0;
             let j = openingBraceIndex;
-            for (; j < matchedText.length; j++) {
-              if (matchedText[j] === '{') braceCount++;
-              else if (matchedText[j] === '}') braceCount--;
+
+            for (; j < matchedText.length; j += 1) {
+              if (matchedText[j] === '{') braceCount += 1;
+              else if (matchedText[j] === '}') braceCount -= 1;
               if (braceCount === 0) break;
             }
+
             if (braceCount === 0) {
               jsonPayload = matchedText.substring(openingBraceIndex, j + 1);
             }
@@ -1165,7 +1223,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           if (jsonPayload) {
             parameters = normalizeKeys(JSON.parse(jsonPayload)) as Record<string, unknown>;
             parseSuccess = true;
-            
+
             if (name === 'update_intake_fields' && !parameters.caseStrength) {
               const rest = matchedText.substring(matchedText.indexOf(jsonPayload) + jsonPayload.length);
               const positionalMatch = rest.match(/,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?/);
@@ -1182,140 +1240,120 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
 
         const cleanText = rawReply.replace(matchedText, '').trim();
-        return { name, parameters: parseSuccess ? parameters : undefined, contentBuffer: cleanText };
+        return {
+          name,
+          parameters: parseSuccess ? parameters : undefined,
+          contentBuffer: cleanText,
+        };
       }
 
       const trimmed = rawReply.trim();
       if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
+
       try {
         const parsed = JSON.parse(trimmed) as Record<string, unknown>;
         const name = typeof parsed.name === 'string' ? parsed.name : undefined;
-        let p = (
+        const p =
           parsed.parameters &&
           typeof parsed.parameters === 'object' &&
           !Array.isArray(parsed.parameters)
-        )
-          ? parsed.parameters as Record<string, unknown>
-          : undefined;
+            ? (parsed.parameters as Record<string, unknown>)
+            : undefined;
+
         if (!name && !p) return null;
-        
-        return { name, parameters: p ? normalizeKeys(p) as Record<string, unknown> : undefined, contentBuffer: '' };
+
+        return {
+          name,
+          parameters: p ? (normalizeKeys(p) as Record<string, unknown>) : undefined,
+          contentBuffer: '',
+        };
       } catch {
         return null;
       }
     };
 
+    const startedAt = Date.now();
+
+      // Add timeout for the initial AI request
+      const controller = new AbortController();
+      let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+        controller.abort();
+      }, AI_TIMEOUT_MS);
+
     try {
-      const aiResponse = await Promise.race([
-        aiClient.requestChatCompletions(requestPayload),
-        new Promise<Response>((_, reject) =>
-          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT_MS)
-        )
-      ]).catch((error: unknown) => {
-        Logger.warn('AI request timed out or failed', {
+      const aiResponse = await aiClient.requestChatCompletions(requestPayload, controller.signal);
+      
+      // Clear timeout once headers are received
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text().catch(() => '');
+        Logger.warn('AI upstream request failed', {
           conversationId: body.conversationId,
-          reason: error instanceof Error ? error.message : String(error)
+          status: aiResponse.status,
+          body: errorText,
+          model,
         });
-        return null;
+        throw new Error('AI upstream request failed');
+      }
+
+      if (!aiResponse.body) {
+        throw new Error('AI upstream request failed: missing body');
+      }
+
+      const aigStep = aiResponse.headers.get('cf-aig-step');
+      const shouldStreamTokensToUser = !isIntakeMode && !isOnboardingMode;
+      const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser);
+      const latencyMs = Date.now() - startedAt;
+
+      Logger.info('AI response complete', {
+        conversationId: body.conversationId,
+        model: model,
+        aigStep,
+        latencyMs,
+        emittedToken: streamResult.emittedToken,
+        streamStalled: streamResult.streamStalled,
+        hasToolCalls: streamResult.toolCalls.length > 0,
+        toolCallCount: streamResult.toolCalls.length,
+        replyLength: streamResult.reply.length
       });
 
-      const canRetryWithWorkersModel =
-        aiClient.provider === 'cloudflare_gateway' &&
-        typeof model === 'string';
-
-      let streamResult = {
-        reply: '',
-        toolCallName: '',
-        toolCallArgBuffer: '',
-        streamStalled: false,
-        emittedToken: false
-      };
-
-      let aiRequestFailedStatus: string | number | null = null;
-      if (!aiResponse || !aiResponse.ok || !aiResponse.body) {
-        aiRequestFailedStatus = aiResponse?.status ?? 'no_response';
-        if (!canRetryWithWorkersModel) {
-          throw new Error(`AI upstream request failed (${aiRequestFailedStatus})`);
-        }
-      } else {
-        streamResult = await consumeAiStream(aiResponse);
-      }
-
       accumulatedReply = streamResult.reply;
-      emittedAnyToken = streamResult.emittedToken;
-      let toolCallName = streamResult.toolCallName;
-      let toolCallArgBuffer = streamResult.toolCallArgBuffer;
-
-      if ((aiRequestFailedStatus !== null || !accumulatedReply.trim() || streamResult.streamStalled) && canRetryWithWorkersModel) {
-        Logger.warn(
-          aiRequestFailedStatus !== null
-            ? `AI dynamic route failed (${aiRequestFailedStatus}); retrying with workers-ai model`
-            : 'AI dynamic route returned empty/stalled stream; retrying with workers-ai model',
-          {
+      
+      // Only log AI preview in debug mode to avoid PII leakage
+      if (env.DEBUG) {
+        Logger.info('AI raw reply preview', {
           conversationId: body.conversationId,
-          primaryModel: model,
-          fallbackModel: gatewayWorkersModel
+          replyPreview: accumulatedReply.slice(0, 100),
         });
-        const retryPayload: Record<string, unknown> = {
-          ...requestPayload,
-          model: gatewayWorkersModel
-        };
-        delete retryPayload.tools;
-        delete retryPayload.tool_choice;
-        const retryResponse = await aiClient.requestChatCompletions(retryPayload);
-        if (!retryResponse.ok || !retryResponse.body) {
-          throw new Error(`AI workers fallback failed (${retryResponse.status})`);
-        }
-        const shouldSilenceRetryTokens = isIntakeMode || isOnboardingMode;
-        streamResult = await consumeAiStream(retryResponse, !shouldSilenceRetryTokens);
-        accumulatedReply = streamResult.reply;
-        emittedAnyToken = streamResult.emittedToken;
-        toolCallName = streamResult.toolCallName;
-        toolCallArgBuffer = streamResult.toolCallArgBuffer;
-        model = gatewayWorkersModel;
-
-        if (shouldSilenceRetryTokens) {
-          const parsedToolCall = parseToolCallFromReply(accumulatedReply);
-          if (parsedToolCall?.name === 'update_intake_fields' && parsedToolCall.parameters) {
-            intakeFields = parsedToolCall.parameters;
-            accumulatedReply = parsedToolCall.contentBuffer || buildIntakeFallbackReply(intakeFields);
-          } else if (parsedToolCall?.name === 'update_practice_fields' && parsedToolCall.parameters) {
-            onboardingFields = parsedToolCall.parameters;
-            const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
-            accumulatedReply = parsedToolCall.contentBuffer || buildOnboardingEditAwareFallbackReply(
-              currentOnboardingProfile,
-              onboardingFields,
-              lastUserMessage?.content ?? null
-            );
-          }
-
-          if (accumulatedReply.trim()) {
-            write({ token: accumulatedReply });
-            emittedAnyToken = true;
-          }
-        }
       }
+      emittedAnyToken = streamResult.emittedToken;
 
-      // Parse accumulated tool call if present
-      if (toolCallName === 'update_intake_fields' && toolCallArgBuffer.length > 0) {
-        try {
-          const rawParams = JSON.parse(toolCallArgBuffer);
-          intakeFields = normalizeKeys(rawParams) as Record<string, unknown>;
-        } catch (error) {
-          Logger.warn('Failed to parse streamed intake tool arguments', {
-            conversationId: body.conversationId,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      } else if (toolCallName === 'update_practice_fields' && toolCallArgBuffer.length > 0) {
-        try {
-          const rawParams = JSON.parse(toolCallArgBuffer);
-          onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
-        } catch (error) {
-          Logger.warn('Failed to parse streamed onboarding tool arguments', {
-            conversationId: body.conversationId,
-            error: error instanceof Error ? error.message : String(error)
-          });
+      // Parse accumulated tool calls if present
+      for (const toolCall of streamResult.toolCalls) {
+        if (toolCall.name === 'update_intake_fields' && toolCall.arguments.length > 0) {
+          try {
+            const rawParams = JSON.parse(toolCall.arguments);
+            intakeFields = normalizeKeys(rawParams) as Record<string, unknown>;
+          } catch (error) {
+            Logger.warn('Failed to parse streamed intake tool arguments', {
+              conversationId: body.conversationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        } else if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
+          try {
+            const rawParams = JSON.parse(toolCall.arguments);
+            onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
+          } catch (error) {
+            Logger.warn('Failed to parse streamed onboarding tool arguments', {
+              conversationId: body.conversationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
         }
       }
 
@@ -1334,14 +1372,24 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           throw new Error('AI returned an empty reply');
         }
       }
-      if (!emittedAnyToken && accumulatedReply.trim()) {
-        write({ token: accumulatedReply });
-        emittedAnyToken = true;
-      }
 
       // Final cleanup of accumulatedReply to strip any leaked tool calls
       // that might have arrived in the text stream but weren't caught by the delta-parsing logic.
-      if (accumulatedReply.includes('update_intake_fields') || accumulatedReply.includes('update_practice_fields')) {
+      const looksLikeLeakedToolContent =
+        accumulatedReply.includes('update_intake_fields') ||
+        accumulatedReply.includes('update_practice_fields') ||
+        accumulatedReply.includes('"caseStrength"') ||
+        accumulatedReply.includes('"practiceArea"') ||
+        accumulatedReply.includes('"opposingParty"') ||
+        accumulatedReply.includes('"desiredOutcome"') ||
+        accumulatedReply.includes('"completionScore"') ||
+        accumulatedReply.includes('"missingFields"') ||
+        accumulatedReply.includes('```json') ||
+        accumulatedReply.includes('"practice_area"') ||
+        accumulatedReply.includes('"case_strength"') ||
+        accumulatedReply.includes('"missing_summary"');
+
+      if (looksLikeLeakedToolContent) {
         const finalParsing = parseToolCallFromReply(accumulatedReply);
         if (finalParsing) {
           if (finalParsing.parameters) {
@@ -1353,11 +1401,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           }
           if (finalParsing.contentBuffer && finalParsing.contentBuffer.trim().length > 0) {
             accumulatedReply = finalParsing.contentBuffer;
+          } else if (isIntakeMode && intakeFields) {
+            accumulatedReply = buildIntakeFallbackReply(intakeFields);
+          } else if (isOnboardingMode && onboardingFields) {
+            const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
+            accumulatedReply = buildOnboardingEditAwareFallbackReply(
+              currentOnboardingProfile,
+              onboardingFields,
+              lastUserMessage?.content ?? null
+            );
           } else {
-            accumulatedReply = isIntakeMode 
-              ? INTRO_INTAKE_DISCLAIMER_FALLBACK 
-              : isOnboardingMode 
-                ? INTRO_ONBOARDING_FALLBACK 
+            accumulatedReply = isIntakeMode
+              ? INTRO_INTAKE_DISCLAIMER_FALLBACK
+              : isOnboardingMode
+                ? INTRO_ONBOARDING_FALLBACK
                 : EMPTY_REPLY_FALLBACK;
           }
         }
@@ -1385,6 +1442,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             accumulatedReply = EMPTY_REPLY_FALLBACK;
           }
         }
+      }
+
+      if (!emittedAnyToken && accumulatedReply.trim()) {
+        write({ token: accumulatedReply });
+        emittedAnyToken = true;
       }
 
       const fieldsForQuickReplies = isIntakeMode ? intakeFields : (isOnboardingMode ? onboardingFields : null);
@@ -1468,7 +1530,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         content: accumulatedReply,
         metadata: {
           source: 'ai',
-          model,
+          model: model,
+          ...(aigStep ? { aigStep } : {}),
           ...(intakeFields ? { intakeFields } : {}),
           ...(onboardingFields ? { onboardingFields } : {}),
           ...(onboardingProfile ? { onboardingProfile } : {}),
@@ -1552,21 +1615,35 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
     } catch (error) {
-      Logger.warn('Streaming AI handler error', {
-        conversationId: body.conversationId,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      write({ error: true, message: error instanceof Error ? error.message : 'AI request failed' });
+      // Clear timeout if still active
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      // Handle abort errors specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        Logger.warn('AI request timed out', {
+          conversationId: body.conversationId,
+          timeout: AI_TIMEOUT_MS
+        });
+        write({ error: true, message: 'AI request timed out' });
+      } else {
+        Logger.warn('Streaming AI handler error', {
+          conversationId: body.conversationId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        write({ error: true, message: error instanceof Error ? error.message : 'AI request failed' });
+      }
     } finally {
       close();
     }
   };
 
   if (ctx) {
-    ctx.waitUntil(streamAndPersist());
+    ctx.waitUntil(streamAndPersist(env));
   } else {
     // Fallback for environments without ExecutionContext (tests, local dev without miniflare)
-    streamAndPersist().catch((error) => {
+    streamAndPersist(env).catch((error) => {
       Logger.warn('streamAndPersist uncaught error', {
         error: error instanceof Error ? error.message : String(error)
       });

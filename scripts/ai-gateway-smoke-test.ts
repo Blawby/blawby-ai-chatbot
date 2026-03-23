@@ -6,10 +6,7 @@ const truncate = (value: string, maxLength = 300): string =>
 
 const env: AiClientEnv = {
   CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
-  CF_AIG_GATEWAY_NAME: process.env.CF_AIG_GATEWAY_NAME,
   CF_AIG_TOKEN: process.env.CF_AIG_TOKEN,
-  OPENAI_TOKEN: process.env.OPENAI_TOKEN,
-  AI_PROVIDER: process.env.AI_PROVIDER
 };
 
 const model = process.env.AI_MODEL ?? 'gpt-4o-mini';
@@ -38,7 +35,7 @@ const run = async (): Promise<void> => {
       // Ignore JSON parse errors, just use raw body text.
     }
 
-    console.log(`[ai-gateway-smoke-test] provider=${client.provider} status=${summary}`);
+    console.log(`[ai-gateway-smoke-test] baseUrl=${client.baseUrl} status=${summary}`);
     console.log(`[ai-gateway-smoke-test] response=${truncate(bodyPreview)}`);
 
     if (!response.ok) {

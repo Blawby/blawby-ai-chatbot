@@ -65,12 +65,24 @@ export const STREAMING_BUBBLE_PREFIX = 'streaming-';
 
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
+// Cache for file URLs to avoid rebuilding them repeatedly
+const fileUrlCache = new Map<string, string>();
+
 export const buildFileUrl = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return '';
   if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('/')) return trimmed;
-  return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+  
+  // Check cache first
+  if (fileUrlCache.has(trimmed)) {
+    return fileUrlCache.get(trimmed)!;
+  }
+  
+  // Build and cache URL
+  const url = `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+  fileUrlCache.set(trimmed, url);
+  return url;
 };
 
 const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | undefined => {
@@ -481,7 +493,7 @@ export const useConversation = ({
         }
         next = [...next, ...additions];
       }
-      return next.sort((a, b) => a.timestamp - b.timestamp);
+      return dedupeMessagesById(next.sort((a, b) => a.timestamp - b.timestamp));
     });
 
     sendReadUpdate(nextLatestSeq);
@@ -812,7 +824,7 @@ export const useConversation = ({
             }, new Set<string>());
             
             const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
-            const merged = [...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp);
+            const merged = dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
             
             return merged;
           });
@@ -918,7 +930,21 @@ export const useConversation = ({
 
   // ── message CRUD helpers ───────────────────────────────────────────────────
 
-  const addMessage = useCallback((message: ChatMessageUI) => { setMessages(prev => [...prev, message]); }, []);
+  const dedupeMessagesById = (items: ChatMessageUI[]): ChatMessageUI[] => {
+    const map = new Map<string, ChatMessageUI>();
+    for (const item of items) map.set(item.id, item);
+    return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+  };
+
+  const addMessage = useCallback((message: ChatMessageUI) => {
+  setMessages(prev => {
+    const idx = prev.findIndex(m => m.id === message.id);
+    if (idx === -1) return [...prev, message];
+    const next = prev.slice();
+    next[idx] = message;
+    return next;
+  });
+}, []);
   const updateMessage = useCallback((messageId: string, updates: Partial<ChatMessageUI>) => {
     setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, ...updates } as ChatMessageUI : msg));
   }, []);

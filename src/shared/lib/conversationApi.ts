@@ -1,6 +1,7 @@
 import type { Conversation, ConversationMessage, ConversationMetadata, MessageReactionSummary } from '@/shared/types/conversation';
 import type { MessageReaction } from '../../../worker/types';
-import { getConversationMessageReactionsEndpoint } from '@/config/api';
+import { getConversationMessageReactionsEndpoint, getConversationsEndpoint } from '@/config/api';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 const buildPracticeParams = (practiceId: string) => {
   return new URLSearchParams({ practiceId });
@@ -12,20 +13,44 @@ const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction =>
   reactedByMe: reaction.reacted_by_me
 });
 
+export const createConversation = async (
+  practiceId: string,
+  options?: { userId?: string; forceNew?: boolean }
+): Promise<string> => {
+  const params = buildPracticeParams(practiceId);
+  const response = await fetch(`${getConversationsEndpoint()}?${params.toString()}`, {
+    method: 'POST',
+    headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify({
+      participantUserIds: options?.userId ? [options.userId] : [],
+      metadata: { source: 'widget' },
+      practiceId,
+      forceNew: options?.forceNew
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as { success: boolean; data?: { id: string }; conversation?: { id: string } };
+  const id = data.data?.id ?? data.conversation?.id;
+  if (!id) throw new Error('Failed to create conversation');
+  return id;
+};
+
 export const updateConversationMetadata = async (
   conversationId: string,
   practiceId: string,
   metadata: ConversationMetadata
 ): Promise<Conversation | null> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
     {
       method: 'PATCH',
-      headers,
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ metadata })
     }
@@ -139,15 +164,11 @@ export const logConversationEvent = async (
   eventType: string,
   payload?: Record<string, unknown>
 ): Promise<void> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/audit?practiceId=${encodeURIComponent(practiceId)}`,
     {
       method: 'POST',
-      headers,
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ eventType, payload })
     }
@@ -168,15 +189,12 @@ export const postSystemMessage = async (
     metadata?: Record<string, unknown>;
   }
 ): Promise<ConversationMessage | null> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
   const params = buildPracticeParams(practiceId);
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/system-messages?${params.toString()}`,
     {
       method: 'POST',
-      headers,
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(payload)
     }

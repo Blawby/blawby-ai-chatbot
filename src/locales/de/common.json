@@ -288,5 +288,17 @@
     "decline": "Ablehnen",
     "convert": "In Akte umwandeln",
     "noPermission": "Sie haben keine Berechtigung, diesen Lead zu überprüfen"
+  },
+  "leadIntake": {
+    "newIntake": "Neue Aufnahme",
+    "urgency": "Dringlichkeit",
+    "payment": "Zahlung",
+    "triage": "Triage",
+    "fee": "Gebühr",
+    "opposingParty": "Gegenpartei",
+    "reason": "Grund"
+  },
+  "widget": {
+    "persistIntakePathError": "Ihr Rückweg konnte nicht gespeichert werden."
   }
 }
