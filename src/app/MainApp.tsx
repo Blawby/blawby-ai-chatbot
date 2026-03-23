@@ -410,7 +410,7 @@ export function MainApp({
     if (isSelectingRef.current) return;
     try {
       isSelectingRef.current = true;
-      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation());
+      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation({ waitForSessionReadyMs: 3000 }));
       if (!currentConversationId || !practiceId) return;
       await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
     } catch (error) {

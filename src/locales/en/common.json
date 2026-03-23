@@ -269,11 +269,15 @@
     },
     "header": {
       "activeNow": "Active now",
+      "activeRelative": "Active {{time}}",
       "back": "Back",
       "inactive": "Inactive",
       "away": "Away",
       "unknown": "Status unknown"
     }
+  },
+  "conversation": {
+    "openInspector": "Open inspector"
   },
   "chat": {
     "publicIntro": "Ask us anything, or share your feedback.",

@@ -1,4 +1,4 @@
-const conversationName = 'text-xs font-semibold text-input-placeholder';
+const conversationName = 'text-xs font-semibold text-input-text';
 const conversationMetaTime = 'text-xs font-normal text-input-placeholder';
 
 export const chatTypography = {

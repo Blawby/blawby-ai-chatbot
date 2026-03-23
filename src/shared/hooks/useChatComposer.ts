@@ -444,7 +444,7 @@ export const useChatComposer = ({
           try { await pendingIntakeInitRef.current; }
           catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
         } else {
-          const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState });
+          const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState }, resolvedConversationId);
           pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
           try { await initPromise; } finally { pendingIntakeInitRef.current = null; }
         }

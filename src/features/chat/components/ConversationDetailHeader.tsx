@@ -43,7 +43,7 @@ const ConversationDetailHeader: FunctionComponent<ConversationDetailHeaderProps>
     const lastTimestamp = [...filteredMessagesForHeader].reverse().find((message) => typeof message.timestamp === 'number')?.timestamp;
     if (!lastTimestamp) return t('workspace.header.inactive');
     const relative = formatRelativeTime(new Date(lastTimestamp));
-    return relative ? `Active ${relative}` : t('workspace.header.inactive');
+    return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
 
   const rightSlot = useMemo(() => {
@@ -86,7 +86,7 @@ const ConversationDetailHeader: FunctionComponent<ConversationDetailHeaderProps>
         variant="icon"
         size="icon-sm"
         onClick={onOpenInspector}
-        aria-label="Open inspector"
+        aria-label={t('conversation.openInspector')}
       >
         {buttonContent}
       </Button>
