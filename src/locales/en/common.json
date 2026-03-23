@@ -244,6 +244,16 @@
       "previewPlaceholder": "Open to view messages.",
       "sendMessage": "Send us a message"
     },
+    "empty": {
+      "matter": {
+        "title": "Select a matter",
+        "description": "Choose a matter from the list to view its details."
+      },
+      "invoice": {
+        "title": "Select an invoice",
+        "description": "Choose an invoice from the list to view details."
+      }
+    },
     "error": {
       "title": "Practice details unavailable",
       "description": "We could not load the name and logo for practice \"{{slug}}\". Please refresh or contact the practice to confirm their public settings.",
@@ -281,7 +291,8 @@
   },
   "contact": {
     "city": "City",
-    "state": "State"
+    "state": "State",
+    "matterMessage": "Tell us about your case and we will follow up shortly."
   },
   "intake": {
     "authTitle": "You're almost done",
@@ -302,6 +313,12 @@
     "fee": "Fee",
     "opposingParty": "Opposing party",
     "reason": "Reason"
+  },
+  "preview": {
+    "publicPreview": "Public preview",
+    "setupProgress": "Setup progress",
+    "workspaceTitle": "Public workspace preview",
+    "tabsLabel": "Public preview tabs"
   },
   "widget": {
     "persistIntakePathError": "Unable to save your return path."

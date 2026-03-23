@@ -6,7 +6,7 @@ import { Panel } from '@/shared/ui/layout/Panel';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { EntityList } from '@/shared/ui/list/EntityList';
-import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
+import { ActivityTimeline, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { type MatterDetail, type MatterSummary, type MatterTask } from '@/features/matters/data/matterTypes';
@@ -21,7 +21,8 @@ import {
   listMatterTasks,
   listMatters,
   type BackendMatter,
-  type BackendMatterActivity
+  type BackendMatterActivity,
+  type BackendMatterNote
 } from '@/features/matters/services/mattersApi';
 import {
   buildActivityTimelineItem,
@@ -52,7 +53,6 @@ type ClientMattersPageProps = {
   prefetchedLoading?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  listHeaderLeftControl?: ComponentChildren;
   detailHeaderRightControl?: ComponentChildren;
   showDetailBackButton?: boolean;
 };
@@ -88,7 +88,6 @@ export const ClientMattersPage = ({
   prefetchedLoading,
   prefetchedError,
   onRefetchList: _onRefetchList,
-  listHeaderLeftControl,
   detailHeaderRightControl,
   showDetailBackButton = true
 }: ClientMattersPageProps) => {
@@ -123,8 +122,10 @@ export const ClientMattersPage = ({
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
+  const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
+  const [noteRecords, setNoteRecords] = useState<BackendMatterNote[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<MatterTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
@@ -187,7 +188,8 @@ export const ClientMattersPage = ({
       setTasks([]);
       setTasksLoading(false);
       setTasksError(null);
-      setActivityItems([]);
+      setActivityRecords([]);
+      setNoteRecords([]);
       setActivityLoading(false);
       return;
     }
@@ -197,7 +199,6 @@ export const ClientMattersPage = ({
     setTasks([]);
     setTasksError(null);
     setTasksLoading(false);
-    setActivityItems([]);
     setActivityLoading(false);
     setDetailLoading(true);
     setDetailError(null);
@@ -289,7 +290,8 @@ export const ClientMattersPage = ({
 
   useEffect(() => {
     if (detailTab !== 'overview' || !activePracticeId || !selectedMatterId) {
-      setActivityItems([]);
+      setActivityRecords([]);
+      setNoteRecords([]);
       setActivityLoading(false);
       return;
     }
@@ -301,32 +303,16 @@ export const ClientMattersPage = ({
       listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
     ])
       .then(([activities, notes]) => {
-        const context = {
-          matterContext: {
-            title: resolvedMatter?.title ?? null,
-            clientName: resolvedMatter?.clientName ?? null,
-            practiceArea: resolvedMatter?.practiceArea ?? null
-          },
-          clientNameById: new Map<string, string>(),
-          serviceNameById: new Map<string, string>(),
-          assigneeNameById: new Map<string, string>(),
-          resolvePerson
-        };
-        const filtered = (activities ?? []).filter((item) => !String(item.action ?? '').startsWith('note_'));
-        const activityTimeline = sortByTimestamp(filtered).map((item: BackendMatterActivity) =>
-          buildActivityTimelineItem(item, activities ?? [], context)
-        );
-        const noteTimeline = sortByTimestamp(notes ?? []).map((note) => buildNoteTimelineItem(note, resolvePerson));
-        const mergedTimeline = [...activityTimeline, ...noteTimeline].sort((a, b) => {
-          const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
-          const bt = b.dateTime ? new Date(b.dateTime).getTime() : 0;
-          return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
-        });
-        setActivityItems(mergedTimeline);
+        setFetchError(null);
+        setActivityRecords(activities ?? []);
+        setNoteRecords(notes ?? []);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        setActivityItems([]);
+        console.error('[ClientMattersPage] Failed to fetch activity and notes:', error);
+        setFetchError(error instanceof Error ? error.message : 'Failed to load data');
+        setActivityRecords([]);
+        setNoteRecords([]);
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -335,7 +321,31 @@ export const ClientMattersPage = ({
       });
 
     return () => controller.abort();
-  }, [activePracticeId, detailTab, resolvedMatter?.clientName, resolvedMatter?.practiceArea, resolvedMatter?.title, resolvePerson, selectedMatterId]);
+  }, [activePracticeId, detailTab, selectedMatterId]);
+
+  const activityItems = useMemo(() => {
+    const context = {
+      matterContext: {
+        title: resolvedMatter?.title ?? null,
+        clientName: resolvedMatter?.clientName ?? null,
+        practiceArea: resolvedMatter?.practiceArea ?? null
+      },
+      clientNameById: new Map<string, string>(),
+      serviceNameById: new Map<string, string>(),
+      assigneeNameById: new Map<string, string>(),
+      resolvePerson
+    };
+    const filtered = activityRecords.filter((item) => !String(item.action ?? '').startsWith('note_'));
+    const activityTimeline = sortByTimestamp(filtered).map((item) =>
+      buildActivityTimelineItem(item, activityRecords, context)
+    );
+    const noteTimeline = sortByTimestamp(noteRecords).map((note) => buildNoteTimelineItem(note, resolvePerson));
+    return [...activityTimeline, ...noteTimeline].sort((a, b) => {
+      const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+      const bt = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+      return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
+    });
+  }, [activityRecords, noteRecords, resolvePerson, resolvedMatter?.clientName, resolvedMatter?.practiceArea, resolvedMatter?.title]);
 
   if (renderMode === 'detailOnly' && !selectedMatterId) {
     return null;
@@ -451,7 +461,9 @@ export const ClientMattersPage = ({
                 <section>
                   <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
                   <Panel className="mt-4 p-4">
-                    {activityLoading && activityItems.length === 0 ? (
+                    {fetchError ? (
+                      <ErrorBanner>{fetchError}</ErrorBanner>
+                    ) : activityLoading && activityItems.length === 0 ? (
                       <LoadingState message="Loading activity..." />
                     ) : (
                       <ActivityTimeline items={activityItems} />
@@ -496,7 +508,6 @@ export const ClientMattersPage = ({
   const listContent = (
     <>
       {mattersError ? <ErrorBanner>{mattersError}</ErrorBanner> : null}
-      {listHeaderLeftControl ? <div className="px-1 py-1">{listHeaderLeftControl}</div> : null}
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
         <EntityList
           items={matterSummaries}

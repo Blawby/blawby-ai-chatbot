@@ -1,8 +1,8 @@
-import { ComponentChildren } from 'preact';
-import { SettingHeader } from './SettingHeader';
+import type { ComponentChildren } from 'preact';
+import { ContentHeader } from './ContentHeader';
 import { cn } from '@/shared/utils/cn';
 
-export interface SettingsPageLayoutProps {
+export interface ContentPageLayoutProps {
   title: string;
   children: ComponentChildren;
   className?: string;
@@ -14,7 +14,7 @@ export interface SettingsPageLayoutProps {
   headerTrailing?: ComponentChildren;
 }
 
-export const SettingsPageLayout = ({
+export const ContentPageLayout = ({
   title,
   children,
   className = '',
@@ -24,11 +24,11 @@ export const SettingsPageLayout = ({
   wrapChildren = true,
   headerLeading,
   headerTrailing
-}: SettingsPageLayoutProps) => {
+}: ContentPageLayoutProps) => {
   return (
     <div className={cn('h-full overflow-y-auto', className)}>
       <div className="flex flex-col">
-        <SettingHeader
+        <ContentHeader
           title={title}
           className={headerClassName}
           leading={headerLeading}

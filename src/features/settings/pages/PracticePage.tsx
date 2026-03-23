@@ -30,7 +30,7 @@ import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { getFrontendHost } from '@/config/urls';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -603,7 +603,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }
 
   return (
-    <SettingsPageLayout title="Practice" className={className}>
+    <ContentPageLayout title="Practice" className={className}>
       {hasPractice && (
         <>
               <SettingRow
@@ -1147,6 +1147,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         </div>
       </Modal>
 
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

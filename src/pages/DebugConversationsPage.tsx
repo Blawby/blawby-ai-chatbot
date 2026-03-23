@@ -463,11 +463,6 @@ export default function DebugConversationsPage() {
           mockConversations={conversations}
           mockConversationPreviews={previews}
           onSelectConversationOverride={setActiveConversation}
-          onCloseConversationListOverride={() => {
-            if (!isPractice) {
-              setClientView('list');
-            }
-          }}
         />
       </section>
 

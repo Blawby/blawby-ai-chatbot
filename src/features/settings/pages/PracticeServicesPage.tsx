@@ -11,7 +11,7 @@ import { resolveServiceDetails } from '@/features/services/utils/serviceNormaliz
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface PracticeServicesPageProps {
@@ -81,7 +81,7 @@ export const PracticeServicesPage = ({ onNavigate, className }: PracticeServices
   }
 
   return (
-    <SettingsPageLayout
+    <ContentPageLayout
       title="Services"
       className={className}
       wrapChildren={false}
@@ -113,6 +113,6 @@ export const PracticeServicesPage = ({ onNavigate, className }: PracticeServices
         onChange={(nextServices) => void saveServices(nextServices)}
         catalog={SERVICE_CATALOG}
       />
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

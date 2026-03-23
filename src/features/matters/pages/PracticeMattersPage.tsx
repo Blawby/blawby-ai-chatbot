@@ -56,6 +56,7 @@ import {
   updateMatter,
   type BackendMatter,
   type BackendMatterActivity,
+  type BackendMatterNote,
   type BackendMatterTimeStats,
   createMatterExpense,
   createMatterNote,
@@ -95,6 +96,8 @@ import {
   isEmailLike,
   isUuid,
   prunePayload,
+  resolveClientLabel,
+  resolvePracticeServiceLabel,
   sortByTimestamp,
   toExpense,
   toMatterDetail,
@@ -258,7 +261,6 @@ type PracticeMattersPageProps = {
   prefetchedLoading?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  listHeaderLeftControl?: ComponentChildren;
   detailHeaderRightControl?: ComponentChildren;
   showDetailBackButton?: boolean;
 };
@@ -272,7 +274,6 @@ export const PracticeMattersPage = ({
   prefetchedLoading = false,
   prefetchedError = null,
   onRefetchList,
-  listHeaderLeftControl,
   detailHeaderRightControl,
   showDetailBackButton = true,
 }: PracticeMattersPageProps) => {
@@ -321,17 +322,19 @@ export const PracticeMattersPage = ({
   } = usePracticeDetails(activePracticeId, null, false);
 
   // ── Detail state ──────────────────────────────────────────────────────────
-  const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
+  const [selectedMatterDetailState, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
-  const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
-  const [noteItems, setNoteItems] = useState<TimelineItem[]>([]);
+  const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
+  const [noteRecords, setNoteRecords] = useState<BackendMatterNote[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteRetryCount, setNoteRetryCount] = useState(0);
   const [activityRetryCount, setActivityRetryCount] = useState(0);
-  const rawActivityRef = useRef<BackendMatterActivity[]>([]);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -399,7 +402,9 @@ export const PracticeMattersPage = ({
   } = useBillingData({
     practiceId: activePracticeId,
     matterId: selectedMatterId,
-    matter: selectedMatterDetail,
+    matterBillingType: selectedMatterDetailState?.billingType ?? null,
+    attorneyHourlyRate: selectedMatterDetailState?.attorneyHourlyRate ?? null,
+    adminHourlyRate: selectedMatterDetailState?.adminHourlyRate ?? null,
     enabled: Boolean(activePracticeId && selectedMatterId)
   });
 
@@ -449,6 +454,23 @@ export const PracticeMattersPage = ({
     () => new Map(practiceAreaOptions.map((s) => [s.id, s.name])),
     [practiceAreaOptions]
   );
+
+  const selectedMatterDetail = useMemo(() => {
+    if (!selectedMatterDetailState) return null;
+    return {
+      ...selectedMatterDetailState,
+      clientName: resolveClientLabel(
+        selectedMatterDetailState.clientId,
+        clientNameById.get(selectedMatterDetailState.clientId)
+      ),
+      practiceArea: selectedMatterDetailState.practiceAreaId
+        ? resolvePracticeServiceLabel(
+          selectedMatterDetailState.practiceAreaId,
+          serviceNameById.get(selectedMatterDetailState.practiceAreaId)
+        )
+        : null
+    };
+  }, [clientNameById, selectedMatterDetailState, serviceNameById]);
 
   const membersById = useMemo(() => {
     if (!activePracticeId) return new Map<string, { name: string; email?: string | null; image?: string | null }>();
@@ -526,10 +548,6 @@ export const PracticeMattersPage = ({
       }),
     [matterContext, clientNameById, serviceNameById, assigneeNameById, resolvePerson]
   );
-  const remapActivities = useCallback((activities: BackendMatterActivity[]) => {
-    const filtered = activities.filter((item) => !String(item.action ?? '').startsWith('note_'));
-    setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, activities)));
-  }, [toActivityItem]);
 
   const toNoteItem = useCallback(
     (note: Parameters<typeof buildNoteTimelineItem>[0]): TimelineItem =>
@@ -687,7 +705,7 @@ export const PracticeMattersPage = ({
 
     getMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((matter) => {
-        setSelectedMatterDetail(matter ? toMatterDetail(matter, { clientNameById, serviceNameById }) : null);
+        setSelectedMatterDetail(matter ? toMatterDetail(matter) : null);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -696,13 +714,12 @@ export const PracticeMattersPage = ({
       .finally(() => setDetailLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, clientNameById, serviceNameById]);
+  }, [activePracticeId, selectedMatterId]);
 
   // ── Data fetching: activity ───────────────────────────────────────────────
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
-      rawActivityRef.current = [];
-      setActivityItems([]);
+      setActivityRecords([]);
       setActivityLoading(false);
       setActivityError(null);
       return;
@@ -713,42 +730,47 @@ export const PracticeMattersPage = ({
     setActivityError(null);
 
     getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
-      .then((items) => {
-        rawActivityRef.current = items;
-        remapActivities(items);
-      })
+      .then((items) => setActivityRecords(items))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
         console.warn('[PracticeMattersPage] Failed to load activity', error);
-        rawActivityRef.current = [];
-        setActivityItems([]);
+        setActivityRecords([]);
         setActivityError(error instanceof Error ? error.message : 'Failed to load activity');
       })
       .finally(() => setActivityLoading(false));
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, remapActivities, activityRetryCount]);
-
-  useEffect(() => {
-    if (rawActivityRef.current.length === 0) return;
-    remapActivities(rawActivityRef.current);
-  }, [remapActivities]);
+  }, [activePracticeId, selectedMatterId, activityRetryCount]);
 
   // ── Data fetching: notes ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!activePracticeId || !selectedMatterId) { setNoteItems([]); return; }
+    if (!activePracticeId || !selectedMatterId) {
+      setNoteRecords([]);
+      setNoteError(null);
+      return;
+    }
 
     const controller = new AbortController();
+    setNoteLoading(true);
     listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
-      .then((items) => setNoteItems(sortByTimestamp(items).map(toNoteItem)))
+      .then((items) => {
+        setNoteError(null);
+        setNoteRecords(items);
+      })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        console.warn('[PracticeMattersPage] Failed to load notes', error);
-        setNoteItems([]);
+        console.error('[PracticeMattersPage] Failed to load notes:', error);
+        setNoteError(error instanceof Error ? error.message : 'Failed to load notes');
+        setNoteRecords([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setNoteLoading(false);
+        }
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, toNoteItem]);
+  }, [activePracticeId, selectedMatterId, noteRetryCount]);
 
   // ── Data fetching: time stats (used by summary cards) ────────────────────
   useEffect(() => {
@@ -900,8 +922,7 @@ export const PracticeMattersPage = ({
     try {
       const activities = await getMatterActivity(activePracticeId, selectedMatterId);
       if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
-      const filtered = (activities ?? []).filter((item) => !String(item.action ?? '').startsWith('note_'));
-      setActivityItems(sortByTimestamp(filtered).map((item) => toActivityItem(item, activities ?? [])));
+      setActivityRecords(activities ?? []);
     } catch (error) {
       console.warn('[PracticeMattersPage] Failed to refresh activity', error);
     }
@@ -910,12 +931,12 @@ export const PracticeMattersPage = ({
       const refreshed = await getMatter(activePracticeId, selectedMatterId);
       if (requestId !== refreshRequestIdRef.current || !isMounted.current) return;
       if (refreshed) {
-        setSelectedMatterDetail(toMatterDetail(refreshed, { clientNameById, serviceNameById }));
+        setSelectedMatterDetail(toMatterDetail(refreshed));
       }
     } catch (error) {
       console.warn('[PracticeMattersPage] Failed to refresh matter detail', error);
     }
-  }, [activePracticeId, selectedMatterId, clientNameById, serviceNameById, toActivityItem]);
+  }, [activePracticeId, selectedMatterId]);
 
   // ── Matter CRUD ───────────────────────────────────────────────────────────
   const handleCreateMatter = useCallback(async (values: MatterFormState) => {
@@ -1321,8 +1342,8 @@ export const PracticeMattersPage = ({
   const handleCreateNote = useCallback(async (values: { content: string }) => {
     if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
     const created = await createMatterNote(activePracticeId, selectedMatterId, values.content);
-    if (created) setNoteItems((prev) => [...prev, toNoteItem(created)]);
-  }, [activePracticeId, selectedMatterId, toNoteItem]);
+    if (created) setNoteRecords((prev) => [...prev, created]);
+  }, [activePracticeId, selectedMatterId]);
 
   // ── Derived list data ─────────────────────────────────────────────────────
   const matterEntries = useMemo(() => matters.map((m) => ({
@@ -1386,6 +1407,13 @@ export const PracticeMattersPage = ({
       role: 'client'
     } satisfies MatterOption;
   }, [detailHeaderMeta, clientOptionById]);
+  const activityItems = useMemo(() => {
+    const filtered = activityRecords.filter((item) => !String(item.action ?? '').startsWith('note_'));
+    return sortByTimestamp(filtered).map((item) => toActivityItem(item, activityRecords));
+  }, [activityRecords, toActivityItem]);
+  const noteItems = useMemo(() => {
+    return sortByTimestamp(noteRecords).map(toNoteItem);
+  }, [noteRecords, toNoteItem]);
   const timelineItems = useMemo(() => {
     return [...activityItems, ...noteItems].sort((a, b) => {
       const at = a.dateTime ? new Date(a.dateTime).getTime() : 0;
@@ -2276,9 +2304,6 @@ export const PracticeMattersPage = ({
     return (
       <div className="h-full min-h-0 flex flex-col gap-2">
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-        {listHeaderLeftControl ? (
-          <div className="px-1 py-1">{listHeaderLeftControl}</div>
-        ) : null}
         <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
           <EntityList
             items={sortedMatterSummaries}

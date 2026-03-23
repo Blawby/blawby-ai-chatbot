@@ -8,14 +8,13 @@ import {
   XMarkIcon, 
   HomeIcon, 
   ChatBubbleLeftRightIcon, 
-  ChatBubbleOvalLeftEllipsisIcon 
 } from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import ConversationListView from '@/features/chat/views/ConversationListView';
+import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
@@ -465,24 +464,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           showErrorRef.current?.(message);
         }
       }
-    },
-    {
-      id: 'chat',
-      label: t('nav.chat') ?? 'Chat',
-      icon: ChatBubbleOvalLeftEllipsisIcon,
-      href: '#chat',
-      onClick: async () => {
-        if (isCreatingConversation) return;
-        try {
-          if (!activeConversationId) {
-            await createConversation();
-          }
-          setView('chat');
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to start conversation';
-          showErrorRef.current?.(message);
-        }
-      }
     }
   ], [activeConversationId, t, isCreatingConversation, createConversation]);
 
@@ -535,7 +516,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           </div>
         ) : view === 'list' ? (
             <div className="flex h-full flex-col overflow-hidden relative">
-              <ConversationListView
+              <WidgetConversationListView
                 conversations={conversations}
                 previews={previews}
                 practiceName={practiceConfig.name}
@@ -546,8 +527,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                    setView('chat');
                 }}
                 onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
-                showBackButton={false}
-                showTitle={true}
               />
             </div>
         ) : (
@@ -671,7 +650,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         <div className="mt-auto">
           <NavRail
             items={navItems}
-            activeHref={view === 'home' ? '/home' : view === 'list' ? '/list' : '/chat'}
+            activeHref={view === 'home' ? '/home' : '/list'}
             variant="bottom"
           />
         </div>

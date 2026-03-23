@@ -8,7 +8,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { asMajor, fromMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SectionDivider } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
@@ -226,7 +226,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   }
 
   return (
-    <SettingsPageLayout
+    <ContentPageLayout
       title="Pricing &amp; Fees"
       className={className}
       wrapChildren={false}
@@ -392,6 +392,6 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
           </div>
         </div>
       </Modal>
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

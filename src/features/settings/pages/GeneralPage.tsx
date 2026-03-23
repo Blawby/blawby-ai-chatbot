@@ -5,7 +5,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/shared/i18n/hooks';
 import type { Language } from '@/shared/types/user';
 import { SettingSelect } from '@/features/settings/components/SettingSelect';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 
@@ -172,7 +172,7 @@ export const GeneralPage = ({
 
   // Use same layout for both mobile and desktop
   return (
-    <SettingsPageLayout title={t('settings:general.title')} className={className}>
+    <ContentPageLayout title={t('settings:general.title')} className={className}>
       <SettingSelect
         label={t('settings:general.theme.label')}
         value={settings.theme}
@@ -209,6 +209,6 @@ export const GeneralPage = ({
         ]}
         onChange={(value) => handleSettingChange('spokenLanguage', value)}
       />
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };

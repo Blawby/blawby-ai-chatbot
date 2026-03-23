@@ -325,7 +325,6 @@ export const PracticeClientsPage = ({
   prefetchedLoadingMore = false,
   prefetchedError = null,
   onRefetchList,
-  listHeaderLeftControl,
   detailHeaderRightControl,
   showDetailBackButton = true,
 }: {
@@ -338,7 +337,6 @@ export const PracticeClientsPage = ({
   prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  listHeaderLeftControl?: ComponentChildren;
   detailHeaderRightControl?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
@@ -1062,9 +1060,6 @@ export const PracticeClientsPage = ({
   if (renderMode === 'listOnly') {
     return (
       <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2">
-        {listHeaderLeftControl ? (
-          <div className="px-1 py-1">{listHeaderLeftControl}</div>
-        ) : null}
         <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex-1 items-center justify-center flex">

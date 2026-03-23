@@ -36,6 +36,8 @@ export type SecondaryNavItem = {
   href?: string;
   badge?: number | null;
   children?: SecondaryNavItem[];
+  variant?: 'default' | 'danger';
+  isAction?: boolean;
 };
 
 export type NavSection = {
@@ -307,6 +309,17 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
   sections.push({
     label: 'Support',
     items: [{ id: 'help', label: 'Help', href: `${basePath}/settings/help` }],
+  });
+
+  sections.push({
+    items: [
+      {
+        id: 'sign-out',
+        label: 'Sign out',
+        isAction: true,
+        variant: 'danger',
+      },
+    ],
   });
 
   return sections;

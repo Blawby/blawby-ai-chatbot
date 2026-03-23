@@ -1,8 +1,9 @@
 import { FunctionComponent } from 'preact';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
+import { WorkspaceListHeader } from '@/shared/ui/layout';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
@@ -15,7 +16,7 @@ interface ConversationPreview {
   createdAt: string;
 }
 
-interface ConversationListViewProps {
+interface WidgetConversationListViewProps {
   conversations: Conversation[];
   previews: Record<string, ConversationPreview | undefined>;
   practiceName?: string | null;
@@ -28,12 +29,12 @@ interface ConversationListViewProps {
   activeConversationId?: string | null;
 }
 
-const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
+const resolveConversationTitle = (conversation: Conversation, fallback: string, practiceSetupTitle: string) => {
   if (conversation.user_info?.mode === 'PRACTICE_ONBOARDING') {
     const onboardingTitle = typeof conversation.user_info?.title === 'string'
       ? conversation.user_info.title.trim()
       : '';
-    return onboardingTitle || 'Practice setup';
+    return onboardingTitle || practiceSetupTitle;
   }
   const title = typeof conversation.user_info?.title === 'string'
     ? conversation.user_info?.title.trim()
@@ -42,7 +43,7 @@ const resolveConversationTitle = (conversation: Conversation, fallback: string) 
   return fallback;
 };
 
-const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
+const WidgetConversationListView: FunctionComponent<WidgetConversationListViewProps> = ({
   conversations,
   previews,
   practiceName,
@@ -63,6 +64,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
+  const practiceSetupTitle = t('conversation.practiceSetup', { defaultValue: 'Practice setup' });
   const sorted = [...conversations].sort((a, b) => {
     const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
     const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
@@ -71,6 +73,11 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
 
   return (
     <div className="flex h-full flex-col bg-transparent">
+      <WorkspaceListHeader
+        title={<div className="workspace-header__title">{t('workspace.conversationList.title')}</div>}
+        isLoading={isLoading}
+      />
+
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
@@ -84,7 +91,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
           <div className="pt-1 divide-y divide-line-glass/[0.04]">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
-              const title = resolveConversationTitle(conversation, fallbackName);
+              const title = resolveConversationTitle(conversation, fallbackName, practiceSetupTitle);
               const timeLabel = preview?.createdAt
                 ? formatRelativeTime(preview.createdAt)
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
@@ -178,4 +185,4 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   );
 };
 
-export default ConversationListView;
+export default WidgetConversationListView;

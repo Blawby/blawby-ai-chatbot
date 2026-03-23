@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
-import { SettingsPageLayout } from '@/features/settings/components/SettingsPageLayout';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -189,7 +189,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const missingBusinessEmail = !businessEmail;
 
   return (
-    <SettingsPageLayout title="Payouts" className={className} contentClassName="pb-8">
+    <ContentPageLayout title="Payouts" className={className} contentClassName="pb-8">
       <SettingSection title="External payout accounts">
         {hasStripeAccount && statusSummary ? (
           <div className="space-y-4">
@@ -308,7 +308,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
           </div>
         </>
       )}
-    </SettingsPageLayout>
+    </ContentPageLayout>
   );
 };
 

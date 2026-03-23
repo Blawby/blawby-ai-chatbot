@@ -82,6 +82,7 @@ export function ClientInvoiceDetailPage({
 
   const status = useMemo(() => (detail?.status ?? '').toLowerCase(), [detail?.status]);
   const canPay = Boolean(detail && isUnpaidStatus(status) && detail.stripeHostedInvoiceUrl);
+  const effectiveShowBack = showBack && Boolean(practiceSlug);
 
 
   const handleBackToList = useCallback(() => {
@@ -151,8 +152,6 @@ export function ClientInvoiceDetailPage({
   if (!detail) {
     return <div className="p-6 text-sm text-input-placeholder">Invoice not found.</div>;
   }
-
-  const effectiveShowBack = showBack && Boolean(practiceSlug);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
