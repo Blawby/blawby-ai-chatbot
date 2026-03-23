@@ -1,5 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 type RefObject<T> = { current: T | null };
 
@@ -36,11 +38,7 @@ export function EntityList<T extends { id: string }>({
         ? 'Failed to load data.'
         : null;
   if (isLoading) {
-    return (
-      <div className={cn('p-4 text-sm text-input-placeholder', className)}>
-        Loading...
-      </div>
-    );
+    return <LoadingBlock className={cn('p-4 text-sm', className)} />;
   }
 
   if (errorMessage) {
@@ -81,7 +79,9 @@ export function EntityList<T extends { id: string }>({
         })}
       </div>
       {isLoadingMore ? (
-        <div className="px-4 py-3 text-sm text-input-placeholder">Loading more...</div>
+        <div className="flex justify-center px-4 py-3">
+          <LoadingSpinner size="sm" ariaLabel="Loading more items" className="text-input-placeholder" />
+        </div>
       ) : null}
       {loadMoreRef ? <div ref={loadMoreRef} className="h-6" /> : null}
     </div>

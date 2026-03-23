@@ -1,41 +1,47 @@
 import { cn } from '@/shared/utils/cn';
+import { useTranslation } from 'react-i18next';
 
 export interface LoadingSpinnerProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   ariaLabel?: string;
-  role?: 'status' | 'progressbar' | 'alert';
-  ariaLive?: 'off' | 'polite' | 'assertive';
-  ariaHidden?: boolean;
+  announce?: boolean;
 }
 
 export const LoadingSpinner = ({
   className = '',
   size = 'md',
-  ariaLabel = 'Loading',
-  role = 'status',
-  ariaLive = 'polite',
-  ariaHidden = false
+  ariaLabel,
+  announce = true
 }: LoadingSpinnerProps) => {
+  const { t } = useTranslation('common');
+
   const sizeClasses = {
-    sm: 'w-3 h-3',
-    md: 'w-4 h-4',
-    lg: 'w-5 h-5'
+    sm: 'h-3 w-3 border-2',
+    md: 'h-4 w-4 border-2',
+    lg: 'h-6 w-6 border-2'
   };
+  const resolvedAriaLabel = ariaLabel ?? t('app.loading');
+  const liveRegionProps = announce
+    ? {
+        role: 'status' as const,
+        'aria-live': 'polite' as const
+      }
+    : {};
 
   return (
-    <div 
-      className={cn(
-        'border-2 border-current border-t-transparent rounded-full animate-spin',
-        sizeClasses[size],
-        className
-      )}
-      role={role}
-      aria-label={ariaLabel}
-      aria-live={ariaLive}
-      aria-hidden={ariaHidden}
+    <div
+      className={cn('inline-flex items-center justify-center', className)}
+      {...liveRegionProps}
     >
-      <span className="sr-only">Loading...</span>
+      {announce ? <span className="sr-only">{resolvedAriaLabel}</span> : null}
+      <div
+        aria-hidden="true"
+        className={cn(
+          'rounded-full animate-spin border-[rgb(var(--accent-foreground))] border-t-transparent',
+          sizeClasses[size]
+        )}
+      />
     </div>
   );
 };

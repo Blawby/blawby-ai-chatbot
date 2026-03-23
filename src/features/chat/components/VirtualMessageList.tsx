@@ -11,8 +11,10 @@ import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
+import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 
 export interface OnboardingActions {
@@ -685,6 +687,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const messageMap = useMemo(() => {
         return new Map(dedupedMessages.map((message) => [message.id, message]));
     }, [dedupedMessages]);
+    const olderMessagesButtonClassName = 'text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60';
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
@@ -759,46 +762,43 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             ref={listRef}
             style={!compactLayout ? { paddingBottom: `${Math.max(80, bottomInsetPx ?? 80)}px` } : undefined}
         >
-            {derivedStart > 0 && (
-                <div className="flex justify-center items-center py-4">
-                    <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm lg:text-base">Loading more messages...</div>
-                </div>
-            )}
-            {derivedStart === 0 && hasMoreMessages && (
-                <div className="flex justify-center items-center py-4">
-                    <button
-                        type="button"
-                        className="text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60"
-                        onClick={() => onLoadMoreMessages?.()}
-                        disabled={isLoadingMoreMessages}
-                    >
-                        {isLoadingMoreMessages ? 'Loading older messages...' : 'Load older messages'}
-                    </button>
+            {hasMoreMessages && (
+                <div
+                    className="flex justify-center items-center py-4"
+                    data-testid={derivedStart > 0 ? 'pagination-spacer' : undefined}
+                    aria-hidden={derivedStart > 0 ? 'true' : undefined}
+                >
+                    {derivedStart === 0 ? (
+                        <button
+                            type="button"
+                            className={olderMessagesButtonClassName}
+                            onClick={() => onLoadMoreMessages?.()}
+                            disabled={isLoadingMoreMessages}
+                        >
+                            {isLoadingMoreMessages ? (
+                                <span className="inline-flex items-center">
+                                    <LoadingSpinner size="sm" className="mr-2" ariaLabel="Loading older messages…" />
+                                    Load older messages
+                                </span>
+                            ) : 'Load older messages'}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className={`${olderMessagesButtonClassName} invisible pointer-events-none`}
+                            disabled
+                            tabIndex={-1}
+                        >
+                            Load older messages
+                        </button>
+                    )}
                 </div>
             )}
             {showSkeleton && (
                 <div className="mt-4 space-y-5">
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
-                        <div className="space-y-2">
-                            <div className="h-3 w-36 rounded bg-gray-200 dark:bg-white/10" />
-                            <div className="h-3 w-60 rounded bg-gray-200 dark:bg-white/10" />
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
-                        <div className="space-y-2">
-                            <div className="h-3 w-44 rounded bg-gray-200 dark:bg-white/10" />
-                            <div className="h-3 w-72 rounded bg-gray-200 dark:bg-white/10" />
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
-                        <div className="space-y-2">
-                            <div className="h-3 w-32 rounded bg-gray-200 dark:bg-white/10" />
-                            <div className="h-3 w-56 rounded bg-gray-200 dark:bg-white/10" />
-                        </div>
-                    </div>
+                    <MessageRowSkeleton lineWidths={['w-36', 'w-60']} />
+                    <MessageRowSkeleton lineWidths={['w-44', 'w-72']} />
+                    <MessageRowSkeleton lineWidths={['w-32']} />
                 </div>
             )}
             <ErrorBoundary>

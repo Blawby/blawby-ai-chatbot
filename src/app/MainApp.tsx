@@ -51,6 +51,7 @@ import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -64,11 +65,7 @@ type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'c
  */
 export type LayoutMode = 'widget' | 'mobile' | 'desktop';
 
-const WorkspaceSubviewFallback = () => (
-  <div className="flex h-full min-h-0 items-center justify-center p-6 text-sm text-input-placeholder">
-    Loading...
-  </div>
-);
+const WorkspaceSubviewFallback = () => <LoadingBlock className="p-6" />;
 
 // ─── component ────────────────────────────────────────────────────────────────
 
