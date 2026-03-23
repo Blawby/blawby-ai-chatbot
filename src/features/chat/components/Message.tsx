@@ -206,7 +206,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	const showHeader = Boolean(authorName || timestamp);
 	const contentClassName = showHeader ? 'mt-1' : '';
 	const formattedTime = timestamp
-		? formatRelativeTime(new Date(timestamp).toISOString())
+		? formatRelativeTime(new Date(timestamp))
 		: null;
 
 	// Avatar size based on message size

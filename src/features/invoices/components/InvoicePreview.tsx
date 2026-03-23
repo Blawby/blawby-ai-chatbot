@@ -1,28 +1,38 @@
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { getMajorAmountValue } from '@/shared/utils/money';
-import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 
 type InvoicePreviewProps = {
-  matter: MatterDetail;
+  title: string;
+  referenceLabel?: string | null;
   lineItems: InvoiceLineItem[];
+  issueDate?: string | Date | null;
   dueDate?: string;
 };
 
-export const InvoicePreview = ({ matter, lineItems, dueDate }: InvoicePreviewProps) => {
+export const InvoicePreview = ({
+  title,
+  referenceLabel,
+  lineItems,
+  issueDate,
+  dueDate
+}: InvoicePreviewProps) => {
   const subtotal = lineItems.reduce((sum, item) => sum + getMajorAmountValue(item.line_total), 0);
+  const resolvedIssueDate = issueDate instanceof Date
+    ? `${issueDate.getUTCFullYear()}-${String(issueDate.getUTCMonth() + 1).padStart(2, '0')}-${String(issueDate.getUTCDate()).padStart(2, '0')}`
+    : issueDate;
 
   return (
     <div className="mx-auto min-h-[700px] w-full max-w-[794px] rounded-xl border border-line-glass/30 bg-white p-8 text-gray-900 shadow-sm">
       <header className="flex items-start justify-between border-b border-gray-200 pb-6">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Invoice</p>
-          <h4 className="mt-2 text-lg font-semibold">{matter.title}</h4>
-          <p className="mt-1 text-sm text-gray-600">Matter ID: {matter.id}</p>
+          <h4 className="mt-2 text-lg font-semibold">{title}</h4>
+          {referenceLabel ? <p className="mt-1 text-sm text-gray-600">{referenceLabel}</p> : null}
         </div>
         <div className="text-right">
-          <p className="text-sm text-gray-600">Issue date: {formatLongDate(new Date().toISOString())}</p>
+          <p className="text-sm text-gray-600">Issue date: {resolvedIssueDate ? formatLongDate(resolvedIssueDate) : 'Not set'}</p>
           <p className="text-sm text-gray-600">Due date: {dueDate ? formatLongDate(dueDate) : 'Not set'}</p>
         </div>
       </header>
@@ -47,8 +57,8 @@ export const InvoicePreview = ({ matter, lineItems, dueDate }: InvoicePreviewPro
                 <tr key={item.id} className="border-b border-gray-100 align-top">
                   <td className="py-3 pr-3">{item.description || `Line item ${index + 1}`}</td>
                   <td className="py-3 text-right">{item.quantity}</td>
-                  <td className="py-3 text-right">{formatCurrency(item.unit_price)}</td>
-                  <td className="py-3 text-right font-medium">{formatCurrency(item.line_total)}</td>
+                  <td className="py-3 text-right">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
+                  <td className="py-3 text-right font-medium">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
                 </tr>
               ))
             )}

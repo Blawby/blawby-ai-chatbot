@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import type { LayoutMode } from '@/app/MainApp';
+import { WorkspacePlaceholderState, type WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 
@@ -11,6 +12,7 @@ type WorkspaceView =
   | 'matters'
   | 'clients'
   | 'invoices'
+  | 'invoiceCreate'
   | 'invoiceDetail'
   | 'reports'
   | 'settings';
@@ -22,27 +24,38 @@ type WorkspaceMainPaneProps = {
   isClientWorkspace: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
+  matterListIsEmpty?: boolean;
+  invoiceListIsEmpty?: boolean;
   chatView: ComponentChildren;
   content: ComponentChildren;
   topBar?: ComponentChildren;
   bottomNav?: ComponentChildren;
+  sectionPlaceholderAction?: WorkspacePlaceholderAction;
 };
 
 const SectionPlaceholder = ({
   titleKey,
   descriptionKey,
+  emptyTitleKey,
+  emptyDescriptionKey,
+  action,
+  isEmpty = false,
 }: {
   titleKey: string;
   descriptionKey: string;
+  emptyTitleKey?: string;
+  emptyDescriptionKey?: string;
+  action?: WorkspacePlaceholderAction;
+  isEmpty?: boolean;
 }) => {
   const { t } = useTranslation();
   return (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center">
-        <h3 className="text-sm font-semibold text-input-text">{t(titleKey)}</h3>
-        <p className="mt-2 text-sm text-input-placeholder">{t(descriptionKey)}</p>
-      </div>
-    </div>
+    <WorkspacePlaceholderState
+      title={t(isEmpty && emptyTitleKey ? emptyTitleKey : titleKey)}
+      description={t(isEmpty && emptyDescriptionKey ? emptyDescriptionKey : descriptionKey)}
+      primaryAction={action}
+      className="p-8"
+    />
   );
 };
 
@@ -53,10 +66,13 @@ export function WorkspaceMainPane({
   isClientWorkspace,
   selectedMatterIdFromPath,
   isMatterNonListRoute,
+  matterListIsEmpty = false,
+  invoiceListIsEmpty = false,
   chatView,
   content,
   topBar,
   bottomNav,
+  sectionPlaceholderAction,
 }: WorkspaceMainPaneProps) {
   const isDesktop = layoutMode === 'desktop';
   const isDesktopWorkspace = isPracticeWorkspace || isClientWorkspace;
@@ -88,6 +104,10 @@ export function WorkspaceMainPane({
           <SectionPlaceholder
             titleKey="workspace.empty.matter.title"
             descriptionKey="workspace.empty.matter.description"
+            emptyTitleKey="workspace.empty.matterEmpty.title"
+            emptyDescriptionKey="workspace.empty.matterEmpty.description"
+            action={sectionPlaceholderAction}
+            isEmpty={matterListIsEmpty}
           />
         )
       : isDesktopClientsShell || isDesktopReportsShell
@@ -107,6 +127,10 @@ export function WorkspaceMainPane({
             <SectionPlaceholder
               titleKey="workspace.empty.invoice.title"
               descriptionKey="workspace.empty.invoice.description"
+              emptyTitleKey="workspace.empty.invoiceEmpty.title"
+              emptyDescriptionKey="workspace.empty.invoiceEmpty.description"
+              action={sectionPlaceholderAction}
+              isEmpty={invoiceListIsEmpty}
             />
           )
       : (

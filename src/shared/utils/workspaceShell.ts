@@ -8,6 +8,7 @@ type WorkspaceView =
   | 'matters'
   | 'clients'
   | 'invoices'
+  | 'invoiceCreate'
   | 'invoiceDetail'
   | 'reports'
   | 'settings';
@@ -39,7 +40,7 @@ const normalizeDecodedSegment = (value: string) => {
 
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
-  if (view === 'invoiceDetail') return 'invoices';
+  if (view === 'invoiceCreate' || view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'clients') return 'home';
   return view;
 };

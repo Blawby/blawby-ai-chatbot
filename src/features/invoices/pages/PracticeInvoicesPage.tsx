@@ -5,6 +5,7 @@ import { listInvoices } from '@/features/invoices/services/invoicesService';
 import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -14,16 +15,35 @@ import { cn } from '@/shared/utils/cn';
 const PAGE_SIZE = 10;
 const STABLE_EMPTY_ARRAY: string[] = [];
 
+const InvoicesEmptyState = ({
+  hasFilters,
+  onCreateInvoice,
+}: {
+  hasFilters: boolean;
+  onCreateInvoice?: () => void;
+}) => (
+  <WorkspacePlaceholderState
+    title={hasFilters ? 'No invoices match these filters' : 'No invoices yet'}
+    description={hasFilters
+      ? 'Try adjusting your filters to see more invoices.'
+      : 'Create your first invoice here, or link one to a matter later.'}
+    primaryAction={hasFilters ? undefined : (onCreateInvoice ? { label: 'New Invoice', onClick: onCreateInvoice } : undefined)}
+    className="p-8"
+  />
+);
+
 export function PracticeInvoicesPage({
   practiceId,
   practiceSlug,
   statusFilter = STABLE_EMPTY_ARRAY,
   renderMode = 'full',
+  onCreateInvoice,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   statusFilter?: string[];
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
+  onCreateInvoice?: () => void;
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
@@ -49,7 +69,7 @@ export function PracticeInvoicesPage({
       const expectedCount = page * PAGE_SIZE;
       return { items: result.items, hasMore: result.total > expectedCount };
     },
-    deps: [practiceId, renderMode, JSON.stringify(statusFilter)]
+    deps: [practiceId, renderMode, JSON.stringify(statusFilter)],
   });
 
   const handleRowClick = useCallback((invoice: InvoiceSummary) => {
@@ -64,12 +84,12 @@ export function PracticeInvoicesPage({
     return null;
   }
 
+  if (renderMode === 'listOnly' && !isLoading && !error && invoices.length === 0) {
+    return null;
+  }
+
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-2', isListOnly ? '' : 'p-4 sm:p-6')}>
-      {renderMode === 'full' ? (
-        <p className="mt-1 text-sm text-input-placeholder">Practice-wide invoices across matters and people.</p>
-      ) : null}
-
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
         <EntityList
           items={invoices}
@@ -78,12 +98,10 @@ export function PracticeInvoicesPage({
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           error={error}
-          emptyState={<div className="p-4 text-sm text-input-placeholder">{statusFilter.length > 0 ? 'No invoices match these filters.' : 'No invoices yet.'}</div>}
+          emptyState={<InvoicesEmptyState hasFilters={statusFilter.length > 0} onCreateInvoice={onCreateInvoice} />}
           loadMoreRef={hasMore ? loadMoreRef : undefined}
           renderItem={(invoice) => (
-            <div
-              className={cn('w-full px-4 py-3 text-left hover:bg-white/[0.03]')}
-            >
+            <div className={cn('w-full px-4 py-3 text-left hover:bg-white/[0.03]')}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber}</p>

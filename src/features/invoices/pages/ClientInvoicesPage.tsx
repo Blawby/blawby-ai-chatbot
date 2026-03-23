@@ -5,6 +5,7 @@ import { listClientInvoices } from '@/features/invoices/services/invoicesService
 import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -12,6 +13,16 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
+
+const InvoicesEmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
+  <WorkspacePlaceholderState
+    title={hasFilters ? 'No invoices match these filters' : 'No invoices yet'}
+    description={hasFilters
+      ? 'Try adjusting your filters to see more invoices.'
+      : 'Invoices shared with you will appear here.'}
+    className="p-8"
+  />
+);
 
 export function ClientInvoicesPage({
   practiceId,
@@ -63,10 +74,12 @@ export function ClientInvoicesPage({
     return null;
   }
 
+  if (renderMode === 'listOnly' && !isLoading && !error && invoices.length === 0) {
+    return null;
+  }
+
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-2', isListOnly ? '' : 'p-4 sm:p-6')}>
-      {renderMode === 'full' ? <p className="mt-1 text-sm text-input-placeholder">Your invoices and payment history.</p> : null}
-
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
         <EntityList
           items={invoices}
@@ -75,7 +88,7 @@ export function ClientInvoicesPage({
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           error={error}
-          emptyState={<div className="p-4 text-sm text-input-placeholder">{statusFilter.length > 0 ? 'No invoices match these filters.' : 'No invoices yet.'}</div>}
+          emptyState={<InvoicesEmptyState hasFilters={statusFilter.length > 0} />}
           loadMoreRef={hasMore ? loadMoreRef : undefined}
           renderItem={(invoice) => (
             <div

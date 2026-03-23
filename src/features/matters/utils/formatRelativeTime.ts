@@ -1,5 +1,5 @@
-export const formatRelativeTime = (dateValue: string) => {
-  const date = new Date(dateValue);
+export const formatRelativeTime = (dateValue: string | Date) => {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
   if (Number.isNaN(date.getTime())) return '';
   const diffMs = Date.now() - date.getTime();
   

@@ -8,6 +8,7 @@ export type DetailHeaderProps = {
   subtitle?: string;
   showBack?: boolean;
   onBack?: () => void;
+  leadingAction?: ComponentChildren;
   actions?: ComponentChildren;
   onInspector?: () => void;
   inspectorOpen?: boolean;
@@ -19,6 +20,7 @@ export const DetailHeader = ({
   subtitle,
   showBack = false,
   onBack,
+  leadingAction,
   actions,
   onInspector,
   inspectorOpen = false,
@@ -29,16 +31,19 @@ export const DetailHeader = ({
 
   return (
     <header className={cn('workspace-header', className)}>
-      {showBack ? (
-        <div className="workspace-header__icon">
-          <Button
-            type="button"
-            variant="icon"
-            size="icon-sm"
-            onClick={onBack}
-            aria-label="Back"
-            icon={ChevronLeftIcon} iconClassName="h-4 w-4"
-          />
+      {(leadingAction || showBack) ? (
+        <div className="workspace-header__icon flex items-center gap-2">
+          {leadingAction}
+          {showBack ? (
+            <Button
+              type="button"
+              variant="icon"
+              size="icon-sm"
+              onClick={onBack}
+              aria-label="Back"
+              icon={ChevronLeftIcon} iconClassName="h-5 w-5"
+            />
+          ) : null}
         </div>
       ) : null}
       <div className="workspace-header__identity">

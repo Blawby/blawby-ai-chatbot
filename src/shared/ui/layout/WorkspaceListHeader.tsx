@@ -9,6 +9,7 @@ export interface WorkspaceListHeaderProps {
   onBack?: () => void;
   showBackButton?: boolean;
   title?: ComponentChildren;
+  centerTitle?: boolean;
   controls?: ComponentChildren;
   isLoading?: boolean;
   className?: string;
@@ -20,6 +21,7 @@ export const WorkspaceListHeader = ({
   onBack,
   showBackButton = true,
   title,
+  centerTitle = false,
   controls,
   isLoading = false,
   className,
@@ -38,19 +40,19 @@ export const WorkspaceListHeader = ({
         <div className="workspace-header__icon">{leftControls}</div>
       ) : null}
       {showBack ? (
-        <Button
-          type="button"
-          variant="icon"
-          size="icon-sm"
-          onClick={onBack}
-          className="workspace-header__icon"
-          aria-label={backAriaLabel}
-        >
-          <Icon icon={ChevronLeftIcon} className="h-4 w-4" aria-hidden="true" />
-        </Button>
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={onBack}
+        className="workspace-header__icon"
+        aria-label={backAriaLabel}
+      >
+        <Icon icon={ChevronLeftIcon} className="h-5 w-5" aria-hidden="true" />
+      </Button>
       ) : null}
       {title ? (
-        <div className="workspace-header__identity">
+        <div className={cn('workspace-header__identity', centerTitle && 'absolute left-1/2 -translate-x-1/2 text-center')}>
           {title}
         </div>
       ) : null}

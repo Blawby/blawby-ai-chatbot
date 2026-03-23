@@ -1144,12 +1144,16 @@ export async function deleteUserDetailMemo(
   );
 }
 
-export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
+export async function getOnboardingStatus(
+  organizationId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');
   }
   const response = await apiClient.get(
-    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`
+    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+    { signal: config?.signal }
   );
   return normalizeOnboardingStatus(response.data);
 }

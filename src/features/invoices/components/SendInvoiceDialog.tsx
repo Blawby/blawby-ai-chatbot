@@ -33,7 +33,17 @@ export const SendInvoiceDialog = ({
       </p>
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onCancel} disabled={loading}>Cancel</Button>
-        <Button onClick={() => void onConfirm()} disabled={loading}>
+        <Button
+          onClick={() => {
+            const result = onConfirm();
+            if (result && typeof result.catch === 'function') {
+              void result.catch((error) => {
+                console.error('[SendInvoiceDialog] Failed to confirm invoice send', error);
+              });
+            }
+          }}
+          disabled={loading}
+        >
           {loading ? 'Sending...' : 'Send invoice'}
         </Button>
       </div>

@@ -249,9 +249,17 @@
         "title": "Select a matter",
         "description": "Choose a matter from the list to view its details."
       },
+      "matterEmpty": {
+        "title": "No matters yet",
+        "description": "Create your first matter to start tracking progress and milestones."
+      },
       "invoice": {
         "title": "Select an invoice",
         "description": "Choose an invoice from the list to view details."
+      },
+      "invoiceEmpty": {
+        "title": "No invoices yet",
+        "description": "Create your first invoice to get started."
       }
     },
     "error": {

@@ -61,9 +61,6 @@ export const LineItemsBuilder = ({ lineItems, onChange }: LineItemsBuilderProps)
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Line items</h3>
-          <p className="text-xs text-input-placeholder">
-            Describe the services or expenses to bill.
-          </p>
         </div>
         <Button size="xs" variant="secondary" onClick={addItem}>
           Add line item

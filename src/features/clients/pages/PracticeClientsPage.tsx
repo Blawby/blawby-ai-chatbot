@@ -2,9 +2,8 @@ import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { PageHeader } from '@/shared/ui/layout/PageHeader';
-import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Avatar } from '@/shared/ui/profile';
@@ -43,7 +42,6 @@ import { Icon } from '@/shared/ui/Icon';
 import { getWorkerApiUrl } from '@/config/urls';
 
 const STATUS_LABELS = PERSON_RELATIONSHIP_STATUS_LABELS;
-const PEOPLE_PAGE_SUBTITLE = 'Home > People directory for lookup and relationship status context.';
 
 type DirectoryRecord = {
   id: string;
@@ -155,25 +153,17 @@ const hasRenderableAddressFields = (raw: unknown): boolean => {
 };
 
 const EmptyState = ({ onAddClient }: { onAddClient: () => void }) => (
-  <div className="flex h-full items-center justify-center p-6">
-    <div className="max-w-md text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line-glass/30 bg-surface-glass">
-        <Icon icon={UserIcon} className="h-6 w-6 text-input-placeholder" aria-hidden="true"  />
-      </div>
-      <h3 className="mt-4 text-sm font-semibold text-input-text">No people yet</h3>
-      <p className="mt-2 text-sm text-input-placeholder">
-        People are usually created from intake, conversation, and matter workflows.
-      </p>
-      <p className="mt-2 text-xs text-input-placeholder">
-        Backoffice only: manual person creation is intentionally low-emphasis.
-      </p>
-      <div className="mt-4 flex justify-center">
-        <Button size="sm" variant="ghost" icon={PlusIcon} iconClassName="h-4 w-4" onClick={onAddClient}>
-          Backoffice: Add person manually
-        </Button>
-      </div>
-    </div>
-  </div>
+  <WorkspacePlaceholderState
+    icon={UserIcon}
+    title="No people yet"
+    description="People are usually created from intake, conversation, and matter workflows."
+    caption="Backoffice only: manual person creation is intentionally low-emphasis."
+    primaryAction={{
+      label: 'New Person',
+      onClick: onAddClient,
+      icon: PlusIcon,
+    }}
+  />
 );
 
 const CLIENT_FIELDS = ['name', 'email', 'phone', 'status', 'currency', 'address'] as const;
@@ -326,6 +316,7 @@ export const PracticeClientsPage = ({
   prefetchedError = null,
   onRefetchList,
   detailHeaderRightControl,
+  detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: {
   practiceId?: string | null;
@@ -338,6 +329,7 @@ export const PracticeClientsPage = ({
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
   detailHeaderRightControl?: ComponentChildren;
+  detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
   const location = useLocation();
@@ -352,7 +344,6 @@ export const PracticeClientsPage = ({
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
   const processedDetailIdsRef = useRef<Set<string>>(new Set());
-  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
 
@@ -369,6 +360,7 @@ export const PracticeClientsPage = ({
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
+  const isAddClientOpen = location.query?.create === '1';
   const peopleScope = (() => {
     if (pathSegments[0] === 'archived') return 'archived';
     if (pathSegments[0] === 'team') return 'team';
@@ -776,8 +768,8 @@ export const PracticeClientsPage = ({
 
   const handleOpenAddClient = useCallback(() => {
     setAddClientError(null);
-    setIsAddClientOpen(true);
-  }, []);
+    location.route(`${location.path}?create=1`);
+  }, [location]);
   const handleOpenTeamInvite = useCallback(() => {
     const settingsTeamPath = basePath.replace(/\/(clients|people)$/, '/settings/practice/team');
     location.route(`${settingsTeamPath}?invite=1`);
@@ -802,9 +794,9 @@ export const PracticeClientsPage = ({
   }, []);
 
   const handleCloseAddClient = useCallback(() => {
-    setIsAddClientOpen(false);
     setAddClientError(null);
-  }, []);
+    location.route(location.path);
+  }, [location]);
 
   const handleSubmitAddClient = useCallback(async () => {
     if (!activePracticeId) return;
@@ -835,7 +827,7 @@ export const PracticeClientsPage = ({
       }
       showSuccess('Person added', 'The person has been added to your practice.');
       resetAddClientForm();
-      setIsAddClientOpen(false);
+      location.route(location.path);
     } catch (error) {
       console.error('[People] Failed to create client', error);
       setAddClientError('Failed to create person');
@@ -847,6 +839,7 @@ export const PracticeClientsPage = ({
     addClientForm,
     addClientSubmitting,
     activePracticeId,
+    location,
     onRefetchList,
     resetAddClientForm,
     showError,
@@ -1020,25 +1013,20 @@ export const PracticeClientsPage = ({
       memoActionId={memoActionId}
     />
   ) : (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
-          <Icon icon={UserIcon} className="h-6 w-6 text-input-text/70" aria-hidden="true"  />
-        </div>
-        <h3 className="mt-4 text-sm font-semibold text-input-text">Invite someone to get started</h3>
-        <p className="mt-2 text-sm text-input-placeholder">
-          Invite clients or team members, then select them from the list to view details.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <Button size="sm" onClick={handleOpenAddClient}>
-            Invite client
-          </Button>
-          <Button size="sm" variant="secondary" onClick={handleOpenTeamInvite}>
-            Invite team member
-          </Button>
-        </div>
-      </div>
-    </div>
+    <WorkspacePlaceholderState
+      icon={UserIcon}
+      title="Invite someone to get started"
+      description="Invite clients or team members, then select them from the list to view details."
+      primaryAction={{
+        label: 'Invite Client',
+        onClick: handleOpenAddClient,
+      }}
+      secondaryAction={{
+        label: 'Invite Team Member',
+        onClick: handleOpenTeamInvite,
+        variant: 'secondary',
+      }}
+    />
   );
   const detailHeaderActions = selectedClient ? (
     <div className="flex items-center gap-2">
@@ -1058,6 +1046,10 @@ export const PracticeClientsPage = ({
   ) : detailHeaderRightControl;
 
   if (renderMode === 'listOnly') {
+    if (!clientsLoading && !clientsError && sortedClients.length === 0) {
+      return null;
+    }
+
     return (
       <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2">
         <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
@@ -1098,6 +1090,7 @@ export const PracticeClientsPage = ({
               {selectedClient ? (
                 <DetailHeader
                   title="Person details"
+                  leadingAction={detailHeaderLeadingAction}
                   actions={detailHeaderActions}
                 />
               ) : null}
@@ -1124,9 +1117,10 @@ export const PracticeClientsPage = ({
                   : isTeamListRoute
                     ? `${basePath}/team`
                     : isClientsListRoute
-                      ? `${basePath}/clients`
+                    ? `${basePath}/clients`
                       : basePath
               )}
+              leadingAction={detailHeaderLeadingAction}
               actions={detailHeaderActions}
             />
             <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
@@ -1149,76 +1143,30 @@ export const PracticeClientsPage = ({
     );
   }
 
-  if (clientsLoading) {
-    return (
-      <>
-        <Page className="h-full">
-          <div className="max-w-6xl mx-auto h-full">
-            <PageHeader
-              title={PEOPLE_DIRECTORY_LABEL}
-              subtitle={PEOPLE_PAGE_SUBTITLE}
-            />
-            <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
-              <p className="text-sm text-input-placeholder">Loading people...</p>
-            </Panel>
-          </div>
-        </Page>
-        {addClientModal}
-      </>
-    );
-  }
-
-  if (clientsError) {
-    return (
-      <>
-        <Page className="h-full">
-          <div className="max-w-6xl mx-auto h-full">
-            <PageHeader
-              title={PEOPLE_DIRECTORY_LABEL}
-              subtitle={PEOPLE_PAGE_SUBTITLE}
-            />
-            <Panel className="mt-6 min-h-[520px] flex items-center justify-center">
-              <p className="text-sm text-input-placeholder">{clientsError}</p>
-            </Panel>
-          </div>
-        </Page>
-        {addClientModal}
-      </>
-    );
-  }
-
-  if (sortedClients.length === 0) {
-    return (
-      <>
-        <Page className="h-full">
-          <div className="max-w-6xl mx-auto h-full">
-            <PageHeader
-              title={PEOPLE_DIRECTORY_LABEL}
-              subtitle={PEOPLE_PAGE_SUBTITLE}
-            />
-            <Panel className="mt-6 min-h-[520px]">
-              <EmptyState onAddClient={handleOpenAddClient} />
-            </Panel>
-          </div>
-        </Page>
-        {addClientModal}
-      </>
-    );
-  }
-
   return (
     <>
-      <Page className="h-full">
-        <div className="max-w-6xl mx-auto flex h-full min-h-0 flex-col gap-6">
-          <PageHeader
-            title={PEOPLE_DIRECTORY_LABEL}
-            subtitle={PEOPLE_PAGE_SUBTITLE}
-          />
-          <Panel className="flex-1 min-h-0 overflow-hidden bg-transparent flex flex-col">
+      <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2 p-4 sm:p-6">
+        <Panel
+          className={cn(
+            'list-panel-card-gradient min-h-0 flex-1 overflow-hidden flex flex-col',
+            (clientsLoading || clientsError || sortedClients.length === 0) && 'min-h-[520px]'
+          )}
+        >
+          {clientsLoading ? (
+            <div className="h-full flex-1 items-center justify-center flex">
+              <p className="text-sm text-input-placeholder">Loading people...</p>
+            </div>
+          ) : clientsError ? (
+            <div className="h-full flex-1 items-center justify-center flex">
+              <p className="text-sm text-input-placeholder">{clientsError}</p>
+            </div>
+          ) : sortedClients.length === 0 ? (
+            <EmptyState onAddClient={handleOpenAddClient} />
+          ) : (
             <div className="min-h-0 flex-1">{clientListPane}</div>
-          </Panel>
-        </div>
-      </Page>
+          )}
+        </Panel>
+      </div>
       {addClientModal}
     </>
   );
