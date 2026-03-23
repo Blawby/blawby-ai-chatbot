@@ -331,6 +331,9 @@ export const PracticeMattersPage = ({
   const [noteRecords, setNoteRecords] = useState<BackendMatterNote[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteRetryCount, setNoteRetryCount] = useState(0);
   const [activityRetryCount, setActivityRetryCount] = useState(0);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
@@ -743,20 +746,31 @@ export const PracticeMattersPage = ({
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
       setNoteRecords([]);
+      setNoteError(null);
       return;
     }
 
     const controller = new AbortController();
+    setNoteLoading(true);
     listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
-      .then((items) => setNoteRecords(items))
+      .then((items) => {
+        setNoteError(null);
+        setNoteRecords(items);
+      })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
-        console.warn('[PracticeMattersPage] Failed to load notes', error);
+        console.error('[PracticeMattersPage] Failed to load notes:', error);
+        setNoteError(error instanceof Error ? error.message : 'Failed to load notes');
         setNoteRecords([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setNoteLoading(false);
+        }
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, noteRetryCount]);
 
   // ── Data fetching: time stats (used by summary cards) ────────────────────
   useEffect(() => {

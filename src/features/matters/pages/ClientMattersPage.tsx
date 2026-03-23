@@ -125,6 +125,7 @@ export const ClientMattersPage = ({
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
   const [noteRecords, setNoteRecords] = useState<BackendMatterNote[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<MatterTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
@@ -302,11 +303,14 @@ export const ClientMattersPage = ({
       listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
     ])
       .then(([activities, notes]) => {
+        setFetchError(null);
         setActivityRecords(activities ?? []);
         setNoteRecords(notes ?? []);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
+        console.error('[ClientMattersPage] Failed to fetch activity and notes:', error);
+        setFetchError(error instanceof Error ? error.message : 'Failed to load data');
         setActivityRecords([]);
         setNoteRecords([]);
       })

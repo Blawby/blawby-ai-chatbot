@@ -292,7 +292,7 @@
   "contact": {
     "city": "City",
     "state": "State",
-    "matterMessage": "Tell us about your matter and we will follow up shortly."
+    "matterMessage": "Tell us about your case and we will follow up shortly."
   },
   "intake": {
     "authTitle": "You're almost done",
