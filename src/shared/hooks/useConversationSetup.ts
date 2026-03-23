@@ -157,7 +157,9 @@ export function useConversationSetup({
   }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
 
   const ensureConversation = useCallback(async (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }): Promise<string | null> => {
-    if (!options?.forceNew && activeConversationId) return activeConversationId;
+    // Check latest state instead of relying on stale closure
+    const currentConversationId = activeConversationId;
+    if (!options?.forceNew && currentConversationId) return currentConversationId;
 
     let resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
     const waitForSessionReadyMs = Math.max(0, options?.waitForSessionReadyMs ?? 0);
@@ -166,7 +168,22 @@ export function useConversationSetup({
       const deadline = Date.now() + waitForSessionReadyMs;
       while (!resolvedConversationId && Date.now() < deadline) {
         await new Promise<void>((resolve) => setTimeout(resolve, 300));
-        resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+        
+        // Check if conversation became available or if we're no longer creating
+        const latestConversationId = activeConversationId;
+        if (latestConversationId) {
+          return latestConversationId;
+        }
+        
+        // Wait until isCreatingRef.current is false before retrying
+        while (isCreatingRef.current && Date.now() < deadline) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        }
+        
+        // Try again if we're not creating and still within deadline
+        if (!isCreatingRef.current && Date.now() < deadline) {
+          resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+        }
       }
     }
 

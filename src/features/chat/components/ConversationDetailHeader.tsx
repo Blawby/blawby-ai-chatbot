@@ -91,7 +91,7 @@ const ConversationDetailHeader: FunctionComponent<ConversationDetailHeaderProps>
         {buttonContent}
       </Button>
     );
-  }, [conversationMode, intakeConversationState, onOpenInspector]);
+  }, [conversationMode, intakeConversationState, onOpenInspector, t]);
 
   return (
     <WorkspaceConversationHeader

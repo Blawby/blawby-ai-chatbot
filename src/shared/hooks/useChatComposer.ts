@@ -61,6 +61,7 @@ export interface UseChatComposerOptions {
   pendingStreamMessageIdRef: React.MutableRefObject<string | null>;
   orphanTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   conversationIdRef: React.MutableRefObject<string | undefined>;
+  pendingEnsureConversationPromiseRef: React.MutableRefObject<Promise<string> | null>;
   connectChatRoom: (id: string) => void;
   updateConversationMetadata: (patch: ConversationMetadata, targetId?: string) => Promise<unknown>;
   applyServerMessages: (msgs: ConversationMessage[]) => void;
@@ -102,6 +103,7 @@ export const useChatComposer = ({
   pendingStreamMessageIdRef,
   orphanTimerRef,
   conversationIdRef,
+  pendingEnsureConversationPromiseRef,
   connectChatRoom,
   updateConversationMetadata,
   applyIntakeFields,
@@ -151,12 +153,29 @@ export const useChatComposer = ({
 
     if (!ensureConversation) return '';
 
-    const ensuredConversationId = (await ensureConversation())?.trim() ?? '';
-    if (ensuredConversationId) {
-      conversationIdRef.current = ensuredConversationId;
+    // Check if there's already an in-flight promise
+    if (pendingEnsureConversationPromiseRef.current) {
+      return pendingEnsureConversationPromiseRef.current;
     }
-    return ensuredConversationId;
-  }, [conversationIdRef, ensureConversation]);
+
+    // Create and cache the promise
+    const promise = ensureConversation().then(id => {
+      const ensuredConversationId = (id)?.trim() ?? '';
+      if (ensuredConversationId) {
+        conversationIdRef.current = ensuredConversationId;
+      }
+      // Clear the cached promise after resolution
+      pendingEnsureConversationPromiseRef.current = null;
+      return ensuredConversationId;
+    }).catch(error => {
+      // Clear the cached promise on error
+      pendingEnsureConversationPromiseRef.current = null;
+      throw error;
+    });
+
+    pendingEnsureConversationPromiseRef.current = promise;
+    return promise;
+  }, [conversationIdRef, ensureConversation, pendingEnsureConversationPromiseRef]);
 
   // ── streaming bubble helpers ──────────────────────────────────────────────
 
@@ -191,13 +210,15 @@ export const useChatComposer = ({
     content: string,
     attachments: FileAttachment[],
     metadata?: Record<string, unknown> | null,
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    conversationId?: string | null
   ) => {
+    if (!content.trim()) throw new Error('Message cannot be empty.');
+    
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
-    const activeConversationId = await ensureConversationId();
+    const activeConversationId = conversationId?.trim() || await ensureConversationId();
     if (!effectivePracticeId) throw new Error('practiceId is required');
     if (!activeConversationId) throw new Error('conversationId is required');
-    if (!content.trim()) throw new Error('Message cannot be empty.');
 
     const clientId = createClientId();
     const tempId = `temp-${clientId}`;
@@ -393,6 +414,8 @@ export const useChatComposer = ({
     options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => {
     try {
+      if (!message.trim()) throw new Error('Message cannot be empty.');
+      
       const resolvedConversationId = await ensureConversationId();
       if (!resolvedConversationId) throw new Error('conversationId is required');
 
@@ -450,7 +473,7 @@ export const useChatComposer = ({
         }
       }
 
-      await sendMessageOverWs(message, attachments, messageMetadata, replyToMessageId ?? null);
+      await sendMessageOverWs(message, attachments, messageMetadata, replyToMessageId ?? null, resolvedConversationId);
       if (!shouldUseAi || trimmedMessage.length === 0) return;
 
       const resolvedPracticeId = (practiceId ?? '').trim();
