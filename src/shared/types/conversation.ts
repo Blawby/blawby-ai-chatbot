@@ -42,6 +42,7 @@ export interface ConversationMetadata {
   mode?: ConversationMode;
   first_message_intent?: FirstMessageIntent;
   system_conversation?: boolean;
+  consultation?: import('./intake').ConsultationState | null;
   intakeConversationState?: import('./intake').IntakeConversationState;
   intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
   intakeAiBriefActive?: boolean;

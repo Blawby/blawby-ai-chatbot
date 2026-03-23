@@ -3,6 +3,11 @@ import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from './SessionAuditService.js';
+import {
+  applyConsultationPatchToMetadata,
+  normalizeSlimContactDraft as normalizeSharedSlimContactDraft,
+  resolveConsultationState,
+} from '../../src/shared/utils/consultationState';
 
 export interface Conversation {
   id: string;
@@ -130,17 +135,11 @@ export class ConversationService {
     return trimmed.length > 0 ? trimmed : null;
   }
 
-  private normalizeSlimContactDraft(value: unknown): Record<string, string> | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const record = value as Record<string, unknown>;
-    const name = this.readTrimmedString(record.name) ?? '';
-    const email = this.readTrimmedString(record.email) ?? '';
-    const phone = this.readTrimmedString(record.phone) ?? '';
-    if (!name && !email && !phone) return null;
-    return { name, email, phone };
+  private normalizeSlimContactDraft(value: unknown): { name: string; email: string; phone: string } | null {
+    return normalizeSharedSlimContactDraft(value);
   }
 
-  private extractSlimContactDraftFromContent(content: string | null | undefined): Record<string, string> | null {
+  private extractSlimContactDraftFromContent(content: string | null | undefined): { name: string; email: string; phone: string } | null {
     if (!content) return null;
     const nameMatch = content.match(/(?:^|\n)Name:\s*([^\n]+)/i);
     const emailMatch = content.match(/(?:^|\n)Email:\s*([^\n]+)/i);
@@ -153,9 +152,9 @@ export class ConversationService {
   }
 
   private mergeSlimContactDraft(
-    existing: Record<string, string> | null,
-    recovered: Record<string, string> | null
-  ): Record<string, string> | null {
+    existing: { name: string; email: string; phone: string } | null,
+    recovered: { name: string; email: string; phone: string } | null
+  ): { name: string; email: string; phone: string } | null {
     if (!existing && !recovered) return null;
     return {
       name: existing?.name || recovered?.name || '',
@@ -195,9 +194,11 @@ export class ConversationService {
     if (results.length === 0) return currentUserInfo;
 
     const existing = currentUserInfo ? { ...currentUserInfo } : {};
-    const existingSlimDraft = this.normalizeSlimContactDraft(existing.intakeSlimContactDraft);
+    const existingSlimDraft = this.normalizeSlimContactDraft(
+      resolveConsultationState(existing)?.contact ?? existing.intakeSlimContactDraft
+    );
 
-    let recoveredSlimDraft: Record<string, string> | null = null;
+    let recoveredSlimDraft: { name: string; email: string; phone: string } | null = null;
     let sawConsultationSignal = false;
     let recoveredIntakeSubmitted = false;
     let recoveredIntakeUuid: string | null = null;
@@ -231,37 +232,23 @@ export class ConversationService {
     }
 
     const mergedSlimDraft = this.mergeSlimContactDraft(existingSlimDraft, recoveredSlimDraft);
-    let changed = false;
+    const nextMetadata = sawConsultationSignal || mergedSlimDraft || recoveredIntakeSubmitted || recoveredIntakeUuid
+      ? applyConsultationPatchToMetadata(
+          existing,
+          {
+            contact: mergedSlimDraft ?? undefined,
+            status: recoveredIntakeSubmitted ? 'submitted' : undefined,
+            submission: recoveredIntakeSubmitted || recoveredIntakeUuid
+              ? {
+                  intakeUuid: recoveredIntakeUuid,
+                }
+              : undefined,
+          },
+          { mirrorLegacyFields: true }
+        )
+      : existing;
 
-    if (mergedSlimDraft && JSON.stringify(existingSlimDraft) !== JSON.stringify(mergedSlimDraft)) {
-      existing.intakeSlimContactDraft = mergedSlimDraft;
-      changed = true;
-    }
-
-    if (!this.readTrimmedString(existing.mode) && sawConsultationSignal) {
-      existing.mode = 'REQUEST_CONSULTATION';
-      changed = true;
-    }
-
-    if (
-      existing.intakeAiBriefActive !== true
-      && sawConsultationSignal
-      && existing.intakeSubmitted !== true
-      && !recoveredIntakeSubmitted
-    ) {
-      existing.intakeAiBriefActive = true;
-      changed = true;
-    }
-
-    if (existing.intakeSubmitted !== true && recoveredIntakeSubmitted) {
-      existing.intakeSubmitted = true;
-      changed = true;
-    }
-
-    if (!this.readTrimmedString(existing.intakeUuid) && recoveredIntakeUuid) {
-      existing.intakeUuid = recoveredIntakeUuid;
-      changed = true;
-    }
+    const changed = JSON.stringify(existing) !== JSON.stringify(nextMetadata);
 
     if (!changed) return currentUserInfo;
 
@@ -271,7 +258,7 @@ export class ConversationService {
       UPDATE conversations
       SET user_info = ?
       WHERE id = ? AND practice_id = ? AND updated_at = ?
-    `).bind(JSON.stringify(existing), conversationId, practiceId, currentUpdatedAt).run();
+    `).bind(JSON.stringify(nextMetadata), conversationId, practiceId, currentUpdatedAt).run();
 
     const updatedRows = typeof updateResult.meta?.changes === 'number' ? updateResult.meta.changes : 0;
     if (updatedRows === 0) {
@@ -307,12 +294,40 @@ export class ConversationService {
       conversationId,
       practiceId,
       repairedSlimDraft: Boolean(mergedSlimDraft),
-      repairedMode: existing.mode === 'REQUEST_CONSULTATION',
-      repairedSubmitted: existing.intakeSubmitted === true,
-      repairedIntakeUuid: existing.intakeUuid ?? null,
+      repairedMode: nextMetadata.mode === 'REQUEST_CONSULTATION',
+      repairedSubmitted: resolveConsultationState(nextMetadata)?.status === 'submitted',
+      repairedIntakeUuid: resolveConsultationState(nextMetadata)?.submission.intakeUuid ?? null,
     });
 
-    return existing;
+    return nextMetadata;
+  }
+
+  async mergeConsultationMetadata(
+    conversationId: string,
+    practiceId: string,
+    patch: Parameters<typeof applyConsultationPatchToMetadata>[1],
+    options?: { allowReset?: boolean; repair?: boolean }
+  ): Promise<Conversation> {
+    const currentConversation = await this.getConversation(
+      conversationId,
+      practiceId,
+      options?.repair ? { repair: true } : undefined
+    );
+    const currentMetadata = (currentConversation.user_info ?? {}) as Record<string, unknown>;
+    const nextMetadata = applyConsultationPatchToMetadata(
+      currentMetadata,
+      patch,
+      {
+        allowReset: options?.allowReset,
+        mirrorLegacyFields: true,
+      }
+    );
+    return this.updateConversation(
+      conversationId,
+      practiceId,
+      { metadata: nextMetadata },
+      { repair: options?.repair }
+    );
   }
 
   /**

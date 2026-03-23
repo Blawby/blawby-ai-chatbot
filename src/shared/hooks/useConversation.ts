@@ -35,13 +35,13 @@ import { getWorkerApiUrl } from '@/config/urls';
 import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata } from '@/shared/types/conversation';
-import { initialIntakeState } from '@/shared/types/intake';
 import {
   updateConversationMetadata as patchConversationMetadata,
   fetchMessageReactions,
   addMessageReaction,
   removeMessageReaction,
 } from '@/shared/lib/conversationApi';
+import { applyConsultationPatchToMetadata, hasConsultationSignals, resolveConsultationState } from '@/shared/utils/consultationState';
 import axios from 'axios';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import {
@@ -263,7 +263,14 @@ export const useConversation = ({
     if (!activeConversationId || !practiceKey) return null;
     const runUpdate = async () => {
       const previous = conversationMetadataRef.current ?? {};
-      const nextMetadata = { ...previous, ...patch };
+      const rawNextMetadata = { ...previous, ...patch };
+      const nextMetadata = (
+        patch.consultation !== undefined
+        || hasConsultationSignals(previous)
+        || hasConsultationSignals(patch)
+      )
+        ? applyConsultationPatchToMetadata(rawNextMetadata, {}, { mirrorLegacyFields: true })
+        : rawNextMetadata;
       applyConversationMetadata(nextMetadata);
 
       try {
@@ -908,12 +915,21 @@ export const useConversation = ({
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
     if (!sessionReady || !targetConversationId || !practiceId) return;
-    void updateConversationMetadata({
-      mode: 'REQUEST_CONSULTATION',
-      intakeConversationState: initialIntakeState,
-      intakeSlimContactDraft: null,
-      intakeAiBriefActive: false
-    }, targetConversationId);
+    const currentMetadata = targetConversationId === conversationIdRef.current
+      ? conversationMetadataRef.current
+      : null;
+    const consultation = resolveConsultationState(currentMetadata);
+    void updateConversationMetadata(
+      applyConsultationPatchToMetadata(
+        currentMetadata,
+        {
+          status: consultation?.contact ? consultation.status : 'collecting_contact',
+          mode: 'REQUEST_CONSULTATION',
+        },
+        { mirrorLegacyFields: true }
+      ),
+      targetConversationId
+    );
     consultFlowAbortRef.current?.abort();
     const controller = new AbortController();
     consultFlowAbortRef.current = controller;

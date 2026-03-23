@@ -16,6 +16,14 @@ export interface SlimContactDraft {
   phone: string;
 }
 
+export type ConsultationStatus =
+  | 'idle'
+  | 'collecting_contact'
+  | 'collecting_case'
+  | 'ready_to_submit'
+  | 'submitted'
+  | 'completed';
+
 export interface IntakeConversationState {
   practiceArea: string | null;
   practiceAreaName: string | null;
@@ -40,6 +48,22 @@ export interface IntakeConversationState {
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
   notYetCount: number;
+}
+
+export interface ConsultationSubmissionState {
+  intakeUuid: string | null;
+  submittedAt: string | null;
+  paymentRequired: boolean | null;
+  paymentReceived: boolean | null;
+}
+
+export interface ConsultationState {
+  status: ConsultationStatus;
+  contact: SlimContactDraft | null;
+  case: IntakeConversationState;
+  submission: ConsultationSubmissionState;
+  mode: 'REQUEST_CONSULTATION';
+  version: number;
 }
 
 export const initialIntakeState: IntakeConversationState = {
@@ -67,6 +91,15 @@ export const initialIntakeState: IntakeConversationState = {
   ctaResponse: null,
   notYetCount: 0
 };
+
+export const initialConsultationSubmissionState: ConsultationSubmissionState = {
+  intakeUuid: null,
+  submittedAt: null,
+  paymentRequired: null,
+  paymentReceived: null,
+};
+
+export const CONSULTATION_STATE_VERSION = 1;
 
 export type IntakeFieldsPayload = {
   practiceArea?: string;

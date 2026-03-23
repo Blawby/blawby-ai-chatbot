@@ -9,7 +9,6 @@ import {
   type IntakeConversationState,
   type SlimContactDraft,
   type IntakeFieldsPayload,
-  type IntakeStep,
   type DerivedIntakeStatus,
   type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
@@ -20,6 +19,11 @@ import {
 } from '@/shared/utils/anonymousIdentity';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
+import {
+  applyConsultationPatchToMetadata,
+  deriveIntakeStatusFromConsultation,
+  resolveConsultationState,
+} from '@/shared/utils/consultationState';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -180,36 +184,32 @@ export function useIntakeFlow({
   // ---------------------------------------------------------------------------
 
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
-
-  const intakeConversationState = useMemo(() => 
-    conversationMetadata?.intakeConversationState ?? initialIntakeState,
-    [conversationMetadata?.intakeConversationState]
+  const consultation = useMemo(
+    () => resolveConsultationState(conversationMetadata),
+    [conversationMetadata]
   );
 
-  const intakeStatus = useMemo((): DerivedIntakeStatus => {
-    const meta = conversationMetadata;
-    let step: IntakeStep = 'contact_form_slim';
-    
-    if (meta?.intakeCompleted) step = 'completed';
-    else if (meta?.intakeSubmitted) step = 'pending_review';
-    else if (meta?.intakeAiBriefActive) step = 'ai_brief';
-    else if (meta?.intakeSlimContactDraft) step = 'contact_form_decision';
+  const intakeConversationState = useMemo(() =>
+    consultation?.case ?? conversationMetadata?.intakeConversationState ?? initialIntakeState,
+    [consultation, conversationMetadata?.intakeConversationState]
+  );
 
-    return {
-      step,
-      decision: meta?.intakeDecision as string | undefined,
-      intakeUuid: meta?.intakeUuid as string | undefined,
-      paymentRequired: meta?.intakePaymentRequired as boolean | undefined,
-      paymentReceived: meta?.intakePaymentReceived as boolean | undefined,
-    };
-  }, [conversationMetadata]);
+  const resolvedSlimContactDraft = useMemo(
+    () => consultation?.contact ?? slimContactDraft,
+    [consultation, slimContactDraft]
+  );
+
+  const intakeStatus = useMemo((): DerivedIntakeStatus => (
+    deriveIntakeStatusFromConsultation(conversationMetadata)
+  ), [conversationMetadata]);
 
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
   const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
-    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const current = currentConsultation?.case ?? intakeConversationState;
     const next: IntakeConversationState = { ...current };
 
     const changedFields: string[] = [];
@@ -224,7 +224,16 @@ export function useIntakeFlow({
       }
     });
 
-    await updateConversationMetadata({ intakeConversationState: next });
+    await updateConversationMetadata(
+      applyConsultationPatchToMetadata(
+        conversationMetadataRef.current,
+        {
+          case: next,
+          status: resolvedSlimContactDraft ? 'collecting_case' : 'collecting_contact',
+        },
+        { mirrorLegacyFields: true }
+      )
+    );
 
     if (options?.sendSystemAck && changedFields.length > 0 && conversationId && practiceId) {
       try {
@@ -241,14 +250,20 @@ export function useIntakeFlow({
         console.warn('[Intake] Failed to post manual update ack', err);
       }
     }
-  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, applyServerMessages]);
+  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState, resolvedSlimContactDraft]);
 
   const resetIntakeCta = useCallback(async () => {
-    const current = conversationMetadata?.intakeConversationState ?? initialIntakeState;
-    await updateConversationMetadata({
-      intakeConversationState: { ...current, ctaShown: false, ctaResponse: null }
-    });
-  }, [conversationMetadata, updateConversationMetadata]);
+    const current = consultation?.case ?? intakeConversationState;
+    await updateConversationMetadata(
+      applyConsultationPatchToMetadata(
+        conversationMetadata,
+        {
+          case: { ...current, ctaShown: false, ctaResponse: null },
+        },
+        { mirrorLegacyFields: true }
+      )
+    );
+  }, [consultation, conversationMetadata, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
     const nextDraft: SlimContactDraft = {
@@ -257,13 +272,15 @@ export function useIntakeFlow({
       phone: (draft.phone ?? '').trim(),
     };
 
-    const patch: ConversationMetadata = {
-      intakeSlimContactDraft: nextDraft,
-      intakeAiBriefActive: true,
-    };
-    if (conversationMetadataRef.current?.mode !== 'REQUEST_CONSULTATION') {
-      patch.mode = 'REQUEST_CONSULTATION';
-    }
+    const patch: ConversationMetadata = applyConsultationPatchToMetadata(
+      conversationMetadataRef.current,
+      {
+        contact: nextDraft,
+        status: 'collecting_case',
+        mode: 'REQUEST_CONSULTATION',
+      },
+      { mirrorLegacyFields: true }
+    );
     if (normalizedPracticeSlug) {
       patch.practiceSlug = normalizedPracticeSlug;
     }
@@ -323,14 +340,17 @@ export function useIntakeFlow({
   ]);
 
   const handleBuildBrief = useCallback(async () => {
-    const patch: ConversationMetadata = { intakeAiBriefActive: true };
-    if (conversationMetadataRef.current?.mode !== 'REQUEST_CONSULTATION') {
-      patch.mode = 'REQUEST_CONSULTATION';
-    }
-    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
-    if (current.ctaResponse !== null) {
-      patch.intakeConversationState = { ...current, ctaResponse: null };
-    }
+    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const current = currentConsultation?.case ?? intakeConversationState;
+    const patch: ConversationMetadata = applyConsultationPatchToMetadata(
+      conversationMetadataRef.current,
+      {
+        status: 'collecting_case',
+        mode: 'REQUEST_CONSULTATION',
+        case: current.ctaResponse !== null ? { ...current, ctaResponse: null } : current,
+      },
+      { mirrorLegacyFields: true }
+    );
     await updateConversationMetadata(patch);
 
     const state = patch.intakeConversationState ?? current;
@@ -344,13 +364,20 @@ export function useIntakeFlow({
     } catch (error) {
       console.error('[Intake] Failed to start brief-building conversation', error);
     }
-  }, [conversationMetadataRef, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   const handleIntakeCtaResponse = useCallback(async (response: 'ready' | 'not_yet') => {
-    const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
+    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const current = currentConsultation?.case ?? intakeConversationState;
     if (response === 'ready') {
       const next: IntakeConversationState = { ...current, ctaResponse: 'ready' };
-      await updateConversationMetadata({ intakeConversationState: next });
+      await updateConversationMetadata(
+        applyConsultationPatchToMetadata(
+          conversationMetadataRef.current,
+          { case: next, status: 'ready_to_submit' },
+          { mirrorLegacyFields: true }
+        )
+      );
       return;
     }
     const next: IntakeConversationState = {
@@ -358,17 +385,23 @@ export function useIntakeFlow({
       ctaResponse: 'not_yet',
       notYetCount: (current.notYetCount ?? 0) + 1,
     };
-    await updateConversationMetadata({ intakeConversationState: next });
+    await updateConversationMetadata(
+      applyConsultationPatchToMetadata(
+        conversationMetadataRef.current,
+        { case: next, status: 'collecting_case' },
+        { mirrorLegacyFields: true }
+      )
+    );
     try {
       await sendMessage('Not yet', []);
     } catch (error) {
       if (import.meta.env.DEV) console.warn('[Intake] Failed to send "Not yet" response', error);
     }
-  }, [conversationMetadataRef, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   const handleSubmitNow = useCallback(async () => {
     if (!conversationId || !practiceId) return;
-    if (!slimContactDraft) {
+    if (!resolvedSlimContactDraft) {
       if (import.meta.env.DEV) {
         console.warn('[handleSubmitNow] Missing slimContactDraft, cannot submit intake.');
       }
@@ -471,12 +504,22 @@ export function useIntakeFlow({
       } catch (msgError) {
         console.warn('[handleSubmitNow] Failed to post confirmation message', msgError);
       }
-      const current = conversationMetadataRef.current?.intakeConversationState ?? initialIntakeState;
-      await updateConversationMetadata({
-        intakeUuid,
-        intakeSubmitted: true,
-        intakeConversationState: { ...current, ctaResponse: 'ready' },
-      });
+      const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+      const current = currentConsultation?.case ?? intakeConversationState;
+      await updateConversationMetadata(
+        applyConsultationPatchToMetadata(
+          conversationMetadataRef.current,
+          {
+            case: { ...current, ctaResponse: 'ready' },
+            status: 'submitted',
+            submission: {
+              intakeUuid,
+              submittedAt: new Date().toISOString(),
+            },
+          },
+          { mirrorLegacyFields: true }
+        )
+      );
     } catch (error) {
       console.error('[handleSubmitNow] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
@@ -493,9 +536,10 @@ export function useIntakeFlow({
     isAnonymous,
     onError,
     practiceId,
-    slimContactDraft,
+    resolvedSlimContactDraft,
     updateConversationMetadata,
     normalizedPracticeSlug,
+    intakeConversationState,
   ]);
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
@@ -520,7 +564,7 @@ export function useIntakeFlow({
   return {
     intakeStatus,
     intakeConversationState,
-    slimContactDraft,
+    slimContactDraft: resolvedSlimContactDraft,
     handleSlimFormContinue,
     handleBuildBrief,
     handleIntakeCtaResponse,

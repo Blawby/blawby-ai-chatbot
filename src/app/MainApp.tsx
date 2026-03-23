@@ -38,6 +38,7 @@ const PracticeReportsPage = lazy(() => import('@/features/reports/pages/Practice
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 import {
   peekAnonymousSessionId,
   peekAnonymousUserId,
@@ -667,8 +668,9 @@ export function MainApp({
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
+      || Boolean(resolveConsultationState(conversationMetadata))
       || Boolean(intakeConversationState || intakeStatus || slimContactDraft),
-    [conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
+    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
   );
 
   const conversationStrengthAction = useMemo(() => {

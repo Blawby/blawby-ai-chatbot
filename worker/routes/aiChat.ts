@@ -9,6 +9,7 @@ import { SessionAuditService } from '../services/SessionAuditService.js';
 import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
+import { resolveConsultationState } from '../../src/shared/utils/consultationState';
 
 const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
@@ -768,12 +769,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const isOnboardingMode = effectiveMode === 'PRACTICE_ONBOARDING';
-  const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
-    ? conversationMetadata.intakeConversationState as Record<string, unknown>
-    : null;
-  const slimDraft = isRecord(conversationMetadata?.intakeSlimContactDraft)
-    ? conversationMetadata.intakeSlimContactDraft as Record<string, unknown>
-    : null;
+  const consultation = resolveConsultationState(conversationMetadata);
+  const storedIntakeState = consultation?.case
+    ? consultation.case as unknown as Record<string, unknown>
+    : isRecord(conversationMetadata?.intakeConversationState)
+      ? conversationMetadata.intakeConversationState as Record<string, unknown>
+      : null;
+  const slimDraft = consultation?.contact
+    ? consultation.contact as unknown as Record<string, unknown>
+    : isRecord(conversationMetadata?.intakeSlimContactDraft)
+      ? conversationMetadata.intakeSlimContactDraft as Record<string, unknown>
+      : null;
   const hasSlimContactDraft = Boolean(
     slimDraft && (
       hasNonEmptyStringField(slimDraft, 'name') ||
@@ -781,9 +787,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       hasNonEmptyStringField(slimDraft, 'phone')
     )
   );
-  const intakeBriefActive = conversationMetadata?.intakeAiBriefActive === true;
+  const intakeBriefActive = consultation
+    ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
+    : conversationMetadata?.intakeAiBriefActive === true;
   const isIntakeMode = Boolean(
-    (effectiveMode === 'REQUEST_CONSULTATION' || hasSlimContactDraft || intakeBriefActive) &&
+    (effectiveMode === 'REQUEST_CONSULTATION' || Boolean(consultation) || hasSlimContactDraft || intakeBriefActive) &&
     body.intakeSubmitted !== true &&
     isPublic
   );
@@ -1697,18 +1705,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (isIntakeMode && mergedIntakeState) {
           const updateMetadata = async (attempts = 0) => {
             try {
-              const latestConversation = await conversationService.getConversation(
+              await conversationService.mergeConsultationMetadata(
                 body.conversationId,
                 conversation.practice_id,
+                {
+                  case: mergedIntakeState,
+                  status: 'collecting_case',
+                },
                 { repair: true }
               );
-              const latestMetadata = (latestConversation?.user_info as Record<string, unknown>) || {};
-              await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
-                metadata: {
-                  ...latestMetadata,
-                  intakeConversationState: mergedIntakeState
-                }
-              }, { repair: true });
             } catch (metadataError) {
               if (attempts < 1) {
                 // One retry for concurrent modification or transient errors

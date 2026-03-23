@@ -20,9 +20,10 @@ import { useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
-import { initialIntakeState, type IntakeFieldsPayload } from '@/shared/types/intake';
+import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -483,20 +484,24 @@ export const useChatComposer = ({
         }
         : undefined;
 
-      // Ensure intake state is initialized before first consultation message
-      if (effectiveMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
+      // Ensure consultation state exists before first consultation message.
+      if (effectiveMode === 'REQUEST_CONSULTATION' && !resolveConsultationState(conversationMetadataRef.current)) {
         if (pendingIntakeInitRef.current) {
           try { await pendingIntakeInitRef.current; }
           catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
         } else {
-          // Wait for session readiness before initializing intake state
+          // Wait for session readiness before initializing consultation state.
           const initIntake = async () => {
             await waitForSessionReady();
-            const result = await updateConversationMetadata({ intakeConversationState: initialIntakeState }, resolvedConversationId);
-            // If updateConversationMetadata returns null (session not ready), retry once
+            const initialMetadata = applyConsultationPatchToMetadata(
+              conversationMetadataRef.current,
+              { status: 'collecting_contact', mode: 'REQUEST_CONSULTATION' },
+              { mirrorLegacyFields: true }
+            );
+            const result = await updateConversationMetadata(initialMetadata, resolvedConversationId);
             if (!result) {
               await waitForSessionReady();
-              await updateConversationMetadata({ intakeConversationState: initialIntakeState }, resolvedConversationId);
+              await updateConversationMetadata(initialMetadata, resolvedConversationId);
             }
           };
           

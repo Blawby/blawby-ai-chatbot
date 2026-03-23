@@ -28,6 +28,7 @@ import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 
 interface WidgetAppProps {
   practiceId: string;
@@ -443,8 +444,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
+      || Boolean(resolveConsultationState(conversationMetadata))
       || Boolean(intakeConversationState || intakeStatus || slimContactDraft),
-    [conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
+    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
   );
 
   const conversationStrengthAction = useMemo(() => {

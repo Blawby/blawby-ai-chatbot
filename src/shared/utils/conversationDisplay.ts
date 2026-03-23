@@ -1,4 +1,5 @@
 import type { Conversation, ConversationMetadata } from '@/shared/types/conversation';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 
 type ConversationLike = Conversation | ConversationMetadata | null | undefined;
 
@@ -17,6 +18,9 @@ const getMetadata = (value: ConversationLike): ConversationMetadata | null => {
 export const resolveConversationContactName = (value: ConversationLike): string => {
   const metadata = getMetadata(value);
   if (!metadata) return '';
+
+  const consultationName = trimString(resolveConsultationState(metadata)?.contact?.name);
+  if (consultationName) return consultationName;
 
   const slimDraftName = trimString(metadata.intakeSlimContactDraft?.name);
   if (slimDraftName) return slimDraftName;

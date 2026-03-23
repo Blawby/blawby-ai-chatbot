@@ -17,6 +17,7 @@ import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
+import { resolveConsultationState } from '../../src/shared/utils/consultationState';
 
 // ------------------------------------------------------------------
 // Types
@@ -199,20 +200,22 @@ export async function handleSubmitIntake(
   // Load conversation with row lock to prevent concurrent duplicate submissions
   const conversation = await conversationService.getConversation(conversationId, practiceId, { repair: true });
   const userInfo = (conversation.user_info ?? {}) as ConversationUserInfo;
+  const consultation = resolveConsultationState(userInfo);
 
   // Early exit if already submitted (best-effort check before lock)
-  if (userInfo.intakeUuid) {
+  if (consultation?.submission.intakeUuid || userInfo.intakeUuid) {
+    const existingIntakeUuid = consultation?.submission.intakeUuid ?? userInfo.intakeUuid ?? null;
     Logger.warn('[submitIntake] Intake already submitted, returning existing UUID', {
       conversationId,
       practiceId,
-      existingIntakeUuid: userInfo.intakeUuid,
+      existingIntakeUuid,
     });
     // Return the existing intake UUID idempotently
     return new Response(
       JSON.stringify({
         success: true,
         data: {
-          intake_uuid: userInfo.intakeUuid,
+          intake_uuid: existingIntakeUuid,
           status: 'existing',
           payment_link_url: null,
         },
@@ -231,12 +234,13 @@ export async function handleSubmitIntake(
   }
 
   // Validate draft
-  const draft = normalizeSlimContactDraft(userInfo.intakeSlimContactDraft);
+  const draft = normalizeSlimContactDraft(consultation?.contact ?? userInfo.intakeSlimContactDraft);
   if (!draft) {
     throw HttpErrors.badRequest('Contact details are incomplete — name and email are required');
   }
 
-  const intake = userInfo.intakeConversationState as IntakeConversationState | null | undefined;
+  const intake = (consultation?.case as IntakeConversationState | null | undefined)
+    ?? userInfo.intakeConversationState as IntakeConversationState | null | undefined;
 
   const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request).catch((error) => {
     Logger.warn('[submitIntake] Failed to load intake settings; using fallback amount', {
@@ -285,17 +289,17 @@ export async function handleSubmitIntake(
   const { uuid: intakeUuid, status, payment_link_url } = backendPayload.data;
 
   // Persist intake_uuid back into D1 conversation metadata
-  const updatedUserInfo: ConversationUserInfo = {
-    ...userInfo,
-    intakeUuid,
-  };
-
   try {
-    await conversationService.updateConversation(
+    await conversationService.mergeConsultationMetadata(
       conversationId,
       practiceId,
       {
-        metadata: updatedUserInfo,
+        status: 'submitted',
+        submission: {
+          intakeUuid,
+          submittedAt: new Date().toISOString(),
+          paymentRequired: Boolean(payment_link_url),
+        },
       },
       { repair: true }
     );

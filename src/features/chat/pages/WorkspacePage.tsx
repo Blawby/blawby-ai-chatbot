@@ -1533,6 +1533,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={PlusIcon} iconClassName="h-5 w-5"
     />
   ) : null;
+  const detailInspectorOpen = Boolean(inspectorTarget) && isInspectorOpen;
   const toggleDetailInspector = inspectorTarget ? () => setIsInspectorOpen((prev) => !prev) : undefined;
   const workspacePrefetchData: WorkspacePrefetchData = {
     mattersData: mattersDataForView, // filtered for the list view
@@ -1581,7 +1582,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       mattersStatusFilter,
       workspacePrefetchData,
       toggleDetailInspector,
-      isInspectorOpen,
+      detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
     : mattersView) ?? (
@@ -1601,7 +1602,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       clientsStatusFilter,
       workspacePrefetchData,
       toggleDetailInspector,
-      isInspectorOpen,
+      detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
     : clientsView) ?? (
@@ -1617,7 +1618,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? invoicesView(
       invoicesStatusFilter,
       toggleDetailInspector,
-      isInspectorOpen,
+      detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
     : invoicesView) ?? (
@@ -1872,7 +1873,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       } : {})}
     />
   ) : null;
-  const activeInspector = isInspectorOpen ? inspectorPanel : null;
+  const activeInspector = detailInspectorOpen ? inspectorPanel : null;
   return (
     <AppShell
       className="bg-transparent h-dvh"
@@ -1881,7 +1882,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       secondarySidebar={secondaryPanel}
       listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
       inspector={activeInspector ?? undefined}
-      inspectorMobileOpen={isInspectorOpen && isMobileLayout}
+      inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
       onInspectorMobileClose={() => setIsInspectorOpen(false)}
       mobileSecondaryNavOpen={isMobileNavOpen}
       onMobileSecondaryNavClose={() => setIsMobileNavOpen(false)}
