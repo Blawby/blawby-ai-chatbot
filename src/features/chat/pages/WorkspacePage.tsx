@@ -1558,6 +1558,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && clientsData.items.length === 0
   );
   const shouldShowDesktopInvoicesListPanel = view === 'invoiceDetail' || hasDesktopInvoiceListItems !== false;
+  const matterListIsEmpty = layoutMode === 'desktop'
+    && view === 'matters'
+    && mattersDataForView.isLoaded
+    && !mattersDataForView.isLoading
+    && !mattersDataForView.error
+    && mattersDataForView.items.length === 0;
+  const invoiceListIsEmpty = layoutMode === 'desktop' && view === 'invoices' && hasDesktopInvoiceListItems === false;
   const listContent = (
     <ConversationListView
       conversations={filteredConversations}
@@ -1745,6 +1752,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       isClientWorkspace={isClientWorkspace}
       selectedMatterIdFromPath={selectedMatterIdFromPath}
       isMatterNonListRoute={isMatterNonListRoute}
+      matterListIsEmpty={matterListIsEmpty}
+      invoiceListIsEmpty={invoiceListIsEmpty}
       chatView={chatView}
       content={sectionContent}
       topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}

@@ -24,6 +24,8 @@ type WorkspaceMainPaneProps = {
   isClientWorkspace: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
+  matterListIsEmpty?: boolean;
+  invoiceListIsEmpty?: boolean;
   chatView: ComponentChildren;
   content: ComponentChildren;
   topBar?: ComponentChildren;
@@ -34,17 +36,23 @@ type WorkspaceMainPaneProps = {
 const SectionPlaceholder = ({
   titleKey,
   descriptionKey,
+  emptyTitleKey,
+  emptyDescriptionKey,
   action,
+  isEmpty = false,
 }: {
   titleKey: string;
   descriptionKey: string;
+  emptyTitleKey?: string;
+  emptyDescriptionKey?: string;
   action?: WorkspacePlaceholderAction;
+  isEmpty?: boolean;
 }) => {
   const { t } = useTranslation();
   return (
     <WorkspacePlaceholderState
-      title={t(titleKey)}
-      description={t(descriptionKey)}
+      title={t(isEmpty && emptyTitleKey ? emptyTitleKey : titleKey)}
+      description={t(isEmpty && emptyDescriptionKey ? emptyDescriptionKey : descriptionKey)}
       primaryAction={action}
       className="p-8"
     />
@@ -58,6 +66,8 @@ export function WorkspaceMainPane({
   isClientWorkspace,
   selectedMatterIdFromPath,
   isMatterNonListRoute,
+  matterListIsEmpty = false,
+  invoiceListIsEmpty = false,
   chatView,
   content,
   topBar,
@@ -94,7 +104,10 @@ export function WorkspaceMainPane({
           <SectionPlaceholder
             titleKey="workspace.empty.matter.title"
             descriptionKey="workspace.empty.matter.description"
+            emptyTitleKey="workspace.empty.matterEmpty.title"
+            emptyDescriptionKey="workspace.empty.matterEmpty.description"
             action={sectionPlaceholderAction}
+            isEmpty={matterListIsEmpty}
           />
         )
       : isDesktopClientsShell || isDesktopReportsShell
@@ -114,7 +127,10 @@ export function WorkspaceMainPane({
             <SectionPlaceholder
               titleKey="workspace.empty.invoice.title"
               descriptionKey="workspace.empty.invoice.description"
+              emptyTitleKey="workspace.empty.invoiceEmpty.title"
+              emptyDescriptionKey="workspace.empty.invoiceEmpty.description"
               action={sectionPlaceholderAction}
+              isEmpty={invoiceListIsEmpty}
             />
           )
       : (
