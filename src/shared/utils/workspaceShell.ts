@@ -29,7 +29,13 @@ const REPORT_SECTION_TITLES: Record<string, string> = {
 
 const REPORT_SECTION_IDS = new Set(Object.keys(REPORT_SECTION_TITLES));
 
-const normalizeDecodedSegment = (value: string) => decodeURIComponent(value).trim();
+const normalizeDecodedSegment = (value: string) => {
+  try {
+    return decodeURIComponent(value).trim();
+  } catch {
+    return value.trim();
+  }
+};
 
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';

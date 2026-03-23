@@ -8,7 +8,6 @@ import {
   XMarkIcon, 
   HomeIcon, 
   ChatBubbleLeftRightIcon, 
-  ChatBubbleOvalLeftEllipsisIcon 
 } from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
@@ -465,24 +464,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           showErrorRef.current?.(message);
         }
       }
-    },
-    {
-      id: 'chat',
-      label: t('nav.chat') ?? 'Chat',
-      icon: ChatBubbleOvalLeftEllipsisIcon,
-      href: '#chat',
-      onClick: async () => {
-        if (isCreatingConversation) return;
-        try {
-          if (!activeConversationId) {
-            await createConversation();
-          }
-          setView('chat');
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to start conversation';
-          showErrorRef.current?.(message);
-        }
-      }
     }
   ], [activeConversationId, t, isCreatingConversation, createConversation]);
 
@@ -669,7 +650,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         <div className="mt-auto">
           <NavRail
             items={navItems}
-            activeHref={view === 'home' ? '/home' : view === 'list' ? '/list' : '/chat'}
+            activeHref={view === 'home' ? '/home' : '/list'}
             variant="bottom"
           />
         </div>

@@ -12,6 +12,7 @@ import {
   type OnboardingSaveActionsSnapshot,
 } from '@/features/practice-setup/components/PracticeSetup';
 import SetupInfoPanel from '@/features/practice-setup/components/SetupInfoPanel';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 type PreviewTab = 'home' | 'messages' | 'intake';
 
@@ -70,6 +71,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
   chatAdapter,
   fallbackContent,
 }) => {
+  const { t } = useTranslation();
   if (workspace !== 'practice') return <>{fallbackContent}</>;
 
   const previewContent = previewTab === 'intake'
@@ -77,14 +79,14 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       <div className="flex h-full w-full flex-col overflow-y-auto bg-transparent p-4">
         <ContactForm
           onSubmit={onPreviewSubmit}
-          message="Tell us about your matter and we will follow up shortly."
+          message={t('contact.matterMessage', { defaultValue: 'Tell us about your matter and we will follow up shortly.' })}
         />
       </div>
     )
     : (
       <iframe
         key={`${previewTab}-${previewReloadKey}`}
-        title="Public workspace preview"
+        title={t('preview.workspaceTitle', { defaultValue: 'Public workspace preview' })}
         src={previewTab === 'messages' ? previewSrcs.messages : previewSrcs.home}
         className="h-full w-full border-0"
         loading="lazy"
@@ -119,7 +121,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
         <div className="relative flex w-full flex-col items-center gap-5">
           <div className="flex flex-col items-center gap-2">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
-              {showSidebarPreview ? 'Public preview' : 'Setup progress'}
+              {showSidebarPreview ? t('preview.publicPreview', { defaultValue: 'Public preview' }) : t('preview.setupProgress', { defaultValue: 'Setup progress' })}
             </div>
             {!showSidebarPreview && (
               <CompletionRing score={completionScore} size={46} strokeWidth={3} />
@@ -134,7 +136,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                 label: option.label
               }))}
               onChange={onPreviewTabChange}
-              ariaLabel="Public preview tabs"
+              ariaLabel={t('preview.tabsLabel', { defaultValue: 'Public preview tabs' })}
             />
           ) : null}
           <div

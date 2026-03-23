@@ -29,12 +29,12 @@ interface WidgetConversationListViewProps {
   activeConversationId?: string | null;
 }
 
-const resolveConversationTitle = (conversation: Conversation, fallback: string) => {
+const resolveConversationTitle = (conversation: Conversation, fallback: string, practiceSetupTitle: string) => {
   if (conversation.user_info?.mode === 'PRACTICE_ONBOARDING') {
     const onboardingTitle = typeof conversation.user_info?.title === 'string'
       ? conversation.user_info.title.trim()
       : '';
-    return onboardingTitle || 'Practice setup';
+    return onboardingTitle || practiceSetupTitle;
   }
   const title = typeof conversation.user_info?.title === 'string'
     ? conversation.user_info?.title.trim()
@@ -64,6 +64,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
         ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
+  const practiceSetupTitle = t('conversation.practiceSetup', { defaultValue: 'Practice setup' });
   const sorted = [...conversations].sort((a, b) => {
     const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
     const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
@@ -90,7 +91,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
           <div className="pt-1 divide-y divide-line-glass/[0.04]">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
-              const title = resolveConversationTitle(conversation, fallbackName);
+              const title = resolveConversationTitle(conversation, fallbackName, practiceSetupTitle);
               const timeLabel = preview?.createdAt
                 ? formatRelativeTime(preview.createdAt)
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');

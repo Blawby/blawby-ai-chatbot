@@ -82,6 +82,7 @@ export function ClientInvoiceDetailPage({
 
   const status = useMemo(() => (detail?.status ?? '').toLowerCase(), [detail?.status]);
   const canPay = Boolean(detail && isUnpaidStatus(status) && detail.stripeHostedInvoiceUrl);
+  const effectiveShowBack = showBack && Boolean(practiceSlug);
 
 
   const handleBackToList = useCallback(() => {
@@ -157,8 +158,8 @@ export function ClientInvoiceDetailPage({
       <DetailHeader
         title={detail.invoiceNumber}
         subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
-        showBack={showBack}
-        onBack={showBack ? handleBackToList : undefined}
+        showBack={effectiveShowBack}
+        onBack={effectiveShowBack ? handleBackToList : undefined}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}

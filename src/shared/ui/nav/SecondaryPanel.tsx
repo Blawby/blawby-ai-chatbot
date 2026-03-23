@@ -97,9 +97,11 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
             aria-expanded={hasChildren ? isExpanded : undefined}
             onClick={() => {
               if (item.isAction) {
-                onActionItemClick?.(item);
-                onItemActivate?.();
-                return;
+                if (onActionItemClick) {
+                  onActionItemClick(item);
+                  onItemActivate?.();
+                  return;
+                }
               }
               if (hasChildren) {
                 setExpandedIds((prev) => ({ ...prev, [item.id]: !isExpanded }));

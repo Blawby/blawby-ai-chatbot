@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import type { LayoutMode } from '@/app/MainApp';
 import { cn } from '@/shared/utils/cn';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 type WorkspaceView =
   | 'home'
@@ -28,19 +29,22 @@ type WorkspaceMainPaneProps = {
 };
 
 const SectionPlaceholder = ({
-  title,
-  description,
+  titleKey,
+  descriptionKey,
 }: {
-  title: string;
-  description: string;
-}) => (
-  <div className="h-full flex items-center justify-center">
-    <div className="text-center">
-      <h3 className="text-sm font-semibold text-input-text">{title}</h3>
-      <p className="mt-2 text-sm text-input-placeholder">{description}</p>
+  titleKey: string;
+  descriptionKey: string;
+}) => {
+  const { t } = useTranslation();
+  return (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center">
+        <h3 className="text-sm font-semibold text-input-text">{t(titleKey)}</h3>
+        <p className="mt-2 text-sm text-input-placeholder">{t(descriptionKey)}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export function WorkspaceMainPane({
   layoutMode,
@@ -82,8 +86,8 @@ export function WorkspaceMainPane({
         )
         : (
           <SectionPlaceholder
-            title="Select a matter"
-            description="Choose a matter from the list to view its details."
+            titleKey="workspace.empty.matter.title"
+            descriptionKey="workspace.empty.matter.description"
           />
         )
       : isDesktopClientsShell || isDesktopReportsShell
@@ -101,8 +105,8 @@ export function WorkspaceMainPane({
           )
           : (
             <SectionPlaceholder
-              title="Select an invoice"
-              description="Choose an invoice from the list to view details."
+              titleKey="workspace.empty.invoice.title"
+              descriptionKey="workspace.empty.invoice.description"
             />
           )
       : (
