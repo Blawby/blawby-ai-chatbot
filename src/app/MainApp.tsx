@@ -865,6 +865,7 @@ export function MainApp({
             ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
             : resolvedPublicPracticeSlug
       }
+      routeInvoiceId={routeInvoiceId ?? null}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}

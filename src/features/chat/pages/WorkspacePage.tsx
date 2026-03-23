@@ -126,6 +126,7 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
+  routeInvoiceId?: string | null;
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
@@ -192,6 +193,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
+  routeInvoiceId,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -476,8 +478,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'clients' && selectedClientIdFromPath) {
       return { entityType: 'client' as const, entityId: selectedClientIdFromPath };
     }
+    if (view === 'invoiceDetail' && routeInvoiceId) {
+      return { entityType: 'invoice' as const, entityId: routeInvoiceId };
+    }
     return null;
-  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
+  }, [activeConversationId, routeInvoiceId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleOpenInspector = () => {
