@@ -5,6 +5,7 @@ import { useIntakeFlow } from '@/shared/hooks/useIntakeFlow';
 import { useConversation } from '@/shared/hooks/useConversation';
 import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 
 export interface UseMessageHandlingOptions {
   practiceId?: string;
@@ -47,6 +48,10 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   });
 
   const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
+  const consultation = useMemo(
+    () => resolveConsultationState(conversation.conversationMetadata),
+    [conversation.conversationMetadata]
+  );
 
   // 2. Intake Flow logic
   const intake = useIntakeFlow({
@@ -54,7 +59,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     practiceId,
     practiceSlug,
     conversationMetadata: conversation.conversationMetadata,
-    slimContactDraft: conversation.conversationMetadata?.intakeSlimContactDraft ?? null,
+    slimContactDraft: consultation?.contact ?? null,
     conversationMetadataRef: conversation.conversationMetadataRef,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
@@ -93,6 +98,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     connectChatRoom: conversation.connectChatRoom,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
+    fetchConversationMetadata: conversation.fetchConversationMetadata,
     applyIntakeFields: intake.applyIntakeFields,
     onError,
   });
@@ -109,8 +115,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     conversationId,
     practiceId,
     latestIntakeSubmission: {
-      intakeUuid: conversation.conversationMetadata?.intakeUuid ?? null,
-      paymentRequired: conversation.conversationMetadata?.intakePaymentRequired ?? false,
+      intakeUuid: consultation?.submission?.intakeUuid ?? null,
+      paymentRequired: consultation?.submission?.paymentRequired ?? false,
     },
     onPaymentConfirmed: (uuid) => {
       setVerifiedPaidIntakeUuids(prev => {

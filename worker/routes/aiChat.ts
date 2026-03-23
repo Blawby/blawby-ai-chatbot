@@ -9,6 +9,7 @@ import { SessionAuditService } from '../services/SessionAuditService.js';
 import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
+import { resolveConsultationState } from '../../src/shared/utils/consultationState';
 
 const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
@@ -24,6 +25,7 @@ const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consu
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
 const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
+const isDebugEnabled = (value: unknown): boolean => value === '1' || value === 'true' || value === true;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -146,6 +148,29 @@ const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): strin
     return 'Do you have any documents related to this situation?';
   }
   return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
+};
+
+const buildPracticeContactErrorReply = (
+  practiceName: string,
+  details: Record<string, unknown> | null
+): string => {
+  const phone = readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
+  const email = readAnyString(details, ['businessEmail', 'business_email', 'email']);
+  const website = readAnyString(details, ['website']);
+  const lines = [
+    `We hit an internal error while continuing your consultation with ${practiceName}.`,
+    'Please contact the practice directly so they can help you from here:',
+  ];
+
+  if (phone) lines.push(`Phone: ${phone}`);
+  if (email) lines.push(`Email: ${email}`);
+  if (website) lines.push(`Website: ${website}`);
+
+  if (!phone && !email && !website) {
+    lines.push(`Please reach out to ${practiceName} directly using the contact information on their website.`);
+  }
+
+  return lines.join('\n');
 };
 
 const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): string => {
@@ -681,7 +706,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const conversationService = new ConversationService(env);
-  const conversation = await conversationService.getConversationById(body.conversationId);
+  const conversation = await conversationService.getConversationById(body.conversationId, { repair: true });
   if (!conversation) {
     throw HttpErrors.notFound('Conversation not found');
   }
@@ -744,12 +769,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const isOnboardingMode = effectiveMode === 'PRACTICE_ONBOARDING';
-  const storedIntakeState = isRecord(conversationMetadata?.intakeConversationState)
-    ? conversationMetadata.intakeConversationState as Record<string, unknown>
-    : null;
-  const slimDraft = isRecord(conversationMetadata?.intakeSlimContactDraft)
-    ? conversationMetadata.intakeSlimContactDraft as Record<string, unknown>
-    : null;
+  const consultation = resolveConsultationState(conversationMetadata);
+  const storedIntakeState = consultation?.case
+    ? consultation.case as unknown as Record<string, unknown>
+    : isRecord(conversationMetadata?.intakeConversationState)
+      ? conversationMetadata.intakeConversationState as Record<string, unknown>
+      : null;
+  const slimDraft = consultation?.contact
+    ? consultation.contact as unknown as Record<string, unknown>
+    : isRecord(conversationMetadata?.intakeSlimContactDraft)
+      ? conversationMetadata.intakeSlimContactDraft as Record<string, unknown>
+      : null;
   const hasSlimContactDraft = Boolean(
     slimDraft && (
       hasNonEmptyStringField(slimDraft, 'name') ||
@@ -757,9 +787,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       hasNonEmptyStringField(slimDraft, 'phone')
     )
   );
-  const intakeBriefActive = conversationMetadata?.intakeAiBriefActive === true;
+  const intakeBriefActive = consultation
+    ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
+    : conversationMetadata?.intakeAiBriefActive === true;
   const isIntakeMode = Boolean(
-    (effectiveMode === 'REQUEST_CONSULTATION' || hasSlimContactDraft || intakeBriefActive) &&
+    (effectiveMode === 'REQUEST_CONSULTATION' || Boolean(consultation) || hasSlimContactDraft || intakeBriefActive) &&
     body.intakeSubmitted !== true &&
     isPublic
   );
@@ -937,13 +969,37 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       toolCalls: Array<{name: string, arguments: string}>;
       streamStalled: boolean;
       emittedToken: boolean;
+      diagnostics: {
+        chunkCount: number;
+        parsedChunkCount: number;
+        malformedChunkCount: number;
+        contentChunkCount: number;
+        deltaToolCallChunkCount: number;
+        namedToolFragmentCount: number;
+        argumentOnlyToolFragmentCount: number;
+        finishReasons: string[];
+        sampleToolChunks: string[];
+        sampleUnexpectedChunks: string[];
+      };
     }> => {
       if (!response.body) {
         return {
           reply: '',
           toolCalls: [],
           streamStalled: false,
-          emittedToken: false
+          emittedToken: false,
+          diagnostics: {
+            chunkCount: 0,
+            parsedChunkCount: 0,
+            malformedChunkCount: 0,
+            contentChunkCount: 0,
+            deltaToolCallChunkCount: 0,
+            namedToolFragmentCount: 0,
+            argumentOnlyToolFragmentCount: 0,
+            finishReasons: [],
+            sampleToolChunks: [],
+            sampleUnexpectedChunks: [],
+          }
         };
       }
 
@@ -954,6 +1010,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let localReply = '';
       let localToolCalls: Array<{name: string, arguments: string}> = [];
       let localEmittedToken = false;
+      const diagnostics = {
+        chunkCount: 0,
+        parsedChunkCount: 0,
+        malformedChunkCount: 0,
+        contentChunkCount: 0,
+        deltaToolCallChunkCount: 0,
+        namedToolFragmentCount: 0,
+        argumentOnlyToolFragmentCount: 0,
+        finishReasons: [] as string[],
+        sampleToolChunks: [] as string[],
+        sampleUnexpectedChunks: [] as string[],
+      };
 
       while (true) {
         let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -987,6 +1055,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           const trimmed = line.trim();
           if (!trimmed || trimmed === 'data: [DONE]') continue;
           if (!trimmed.startsWith('data: ')) continue;
+          diagnostics.chunkCount += 1;
 
           let chunk: {
             choices?: Array<{
@@ -997,20 +1066,35 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                   function?: { name?: string; arguments?: string };
                 }>;
               };
+              finish_reason?: string | null;
+              message?: Record<string, unknown>;
             }>;
           };
 
           try {
             chunk = JSON.parse(trimmed.slice(6));
           } catch {
+            diagnostics.malformedChunkCount += 1;
+            if (diagnostics.sampleUnexpectedChunks.length < 3) {
+              diagnostics.sampleUnexpectedChunks.push(trimmed.slice(0, 240));
+            }
             continue;
           }
+          diagnostics.parsedChunkCount += 1;
 
-          const delta = chunk.choices?.[0]?.delta;
+          const choice = chunk.choices?.[0];
+          const delta = choice?.delta;
+          if (typeof choice?.finish_reason === 'string' && choice.finish_reason.length > 0) {
+            diagnostics.finishReasons.push(choice.finish_reason);
+          }
+          if (!delta && choice?.message && diagnostics.sampleUnexpectedChunks.length < 3) {
+            diagnostics.sampleUnexpectedChunks.push(JSON.stringify(choice.message).slice(0, 240));
+          }
           if (!delta) continue;
 
           if (typeof delta.content === 'string' && delta.content.length > 0) {
             localReply += delta.content;
+            diagnostics.contentChunkCount += 1;
 
             const looksLikeToolLeak =
               delta.content.includes('update_intake_fields') ||
@@ -1026,11 +1110,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
           // Handle all tool calls, not just the first one
           if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
+            diagnostics.deltaToolCallChunkCount += 1;
+            if (diagnostics.sampleToolChunks.length < 3) {
+              diagnostics.sampleToolChunks.push(JSON.stringify(delta.tool_calls).slice(0, 240));
+            }
             for (const tc of delta.tool_calls) {
               if (typeof tc.function?.arguments === 'string') {
                 let targetCall: {name: string, arguments: string} | undefined;
                 
                 if (tc.function?.name) {
+                  diagnostics.namedToolFragmentCount += 1;
                   // Find existing tool call with this name or create new one
                   targetCall = localToolCalls.find(call => call.name === tc.function.name);
                   if (!targetCall) {
@@ -1044,6 +1133,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                     targetCall.arguments += tc.function.arguments;
                   }
                 } else {
+                  diagnostics.argumentOnlyToolFragmentCount += 1;
                   // Argument-only fragment: use most recent call if available
                   if (localToolCalls.length > 0) {
                     targetCall = localToolCalls[localToolCalls.length - 1];
@@ -1126,7 +1216,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         reply: localReply,
         toolCalls: localToolCalls,
         streamStalled,
-        emittedToken: localEmittedToken
+        emittedToken: localEmittedToken,
+        diagnostics
       };
     };
 
@@ -1281,6 +1372,27 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }, AI_TIMEOUT_MS);
 
     try {
+      const debugEnabled = isDebugEnabled(env.DEBUG);
+      if (isIntakeMode || isOnboardingMode) {
+        Logger.info('AI tool request summary', {
+          conversationId: body.conversationId,
+          model,
+          mode: effectiveMode ?? null,
+          isIntakeMode,
+          isOnboardingMode,
+          toolNames: Array.isArray(requestPayload.tools)
+            ? requestPayload.tools
+                .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+                .filter((name): name is string => Boolean(name))
+            : [],
+          hasStoredIntakeState: Boolean(storedIntakeState),
+          hasSlimContactDraft,
+          intakeBriefActive,
+          messageCount: body.messages.length,
+          ...(debugEnabled ? { lastUserMessagePreview: lastUserMessage?.content?.slice(0, 120) ?? null } : {}),
+        });
+      }
+
       const aiResponse = await aiClient.requestChatCompletions(requestPayload, controller.signal);
       
       // Clear timeout once headers are received
@@ -1318,13 +1430,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         streamStalled: streamResult.streamStalled,
         hasToolCalls: streamResult.toolCalls.length > 0,
         toolCallCount: streamResult.toolCalls.length,
-        replyLength: streamResult.reply.length
+        replyLength: streamResult.reply.length,
+        contentType: aiResponse.headers.get('content-type') ?? null,
+        diagnostics: debugEnabled
+          ? streamResult.diagnostics
+          : {
+              chunkCount: streamResult.diagnostics.chunkCount,
+              parsedChunkCount: streamResult.diagnostics.parsedChunkCount,
+              malformedChunkCount: streamResult.diagnostics.malformedChunkCount,
+              contentChunkCount: streamResult.diagnostics.contentChunkCount,
+              deltaToolCallChunkCount: streamResult.diagnostics.deltaToolCallChunkCount,
+              namedToolFragmentCount: streamResult.diagnostics.namedToolFragmentCount,
+              argumentOnlyToolFragmentCount: streamResult.diagnostics.argumentOnlyToolFragmentCount,
+              finishReasonCount: streamResult.diagnostics.finishReasons.length,
+              hasToolSamples: streamResult.diagnostics.sampleToolChunks.length > 0,
+              hasUnexpectedSamples: streamResult.diagnostics.sampleUnexpectedChunks.length > 0,
+            },
       });
 
       accumulatedReply = streamResult.reply;
       
       // Only log AI preview in debug mode to avoid PII leakage
-      if (env.DEBUG) {
+      if (isDebugEnabled(env.DEBUG)) {
         Logger.info('AI raw reply preview', {
           conversationId: body.conversationId,
           replyPreview: accumulatedReply.slice(0, 100),
@@ -1481,6 +1608,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (matched) intakeFields.practiceAreaName = matched.name;
       }
       let mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
+      const resolvedPracticeName = readAnyString(details, ['name', 'practiceName', 'practice_name']) ?? 'the practice';
+
+      if (isIntakeMode && !intakeFields) {
+        Logger.warn('Intake tool contract violated: reply completed without structured intake fields', {
+          conversationId: body.conversationId,
+          practiceId,
+          mode: effectiveMode ?? null,
+          lastUserMessage: debugEnabled ? lastUserMessage?.content?.slice(0, 200) ?? null : '[redacted]',
+          aiReplyPreview: accumulatedReply.slice(0, 200),
+          streamDiagnostics: streamResult.diagnostics,
+          practiceContactErrorReply: buildPracticeContactErrorReply(resolvedPracticeName, details),
+        });
+      }
 
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
@@ -1491,6 +1631,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         : null;
       const replyHasIntakePrompt = shouldShowIntakeCtaForReply(accumulatedReply);
       const deterministicReady = isIntakeMode && shouldShowDeterministicIntakeCta(mergedIntakeState);
+
       const shouldForceIntakeSummary =
         isIntakeMode &&
         deterministicReady &&
@@ -1577,14 +1718,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (isIntakeMode && mergedIntakeState) {
           const updateMetadata = async (attempts = 0) => {
             try {
-              const latestConversation = await conversationService.getConversation(body.conversationId, conversation.practice_id);
-              const latestMetadata = (latestConversation?.user_info as Record<string, unknown>) || {};
-              await conversationService.updateConversation(body.conversationId, conversation.practice_id, {
-                metadata: {
-                  ...latestMetadata,
-                  intakeConversationState: mergedIntakeState
-                }
-              });
+              await conversationService.mergeConsultationMetadata(
+                body.conversationId,
+                conversation.practice_id,
+                {
+                  case: mergedIntakeState,
+                  status: consultation?.status === 'ready_to_submit'
+                    || mergedIntakeState.ctaResponse === 'ready'
+                    ? 'ready_to_submit'
+                    : 'collecting_case',
+                },
+                { repair: true }
+              );
             } catch (metadataError) {
               if (attempts < 1) {
                 // One retry for concurrent modification or transient errors

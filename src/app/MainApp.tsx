@@ -36,9 +36,9 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
-import ConversationDetailHeader from '@/features/chat/components/ConversationDetailHeader';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 import {
   peekAnonymousSessionId,
   peekAnonymousUserId,
@@ -47,10 +47,16 @@ import {
   peekPostAuthConversationContext,
 } from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
+import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -646,27 +652,97 @@ export function MainApp({
     };
   }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
+  const filteredMessagesForHeader = useMemo(() => {
+    const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
+    const hasNonSystem = base.some((message) => message.role !== 'system');
+    return hasNonSystem ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
+  }, [messages]);
+
+  const conversationHeaderActiveLabel = useMemo(() => {
+    if (isSocketReady) return 'Active';
+    const lastTimestamp = [...filteredMessagesForHeader].reverse().find((message) => typeof message.timestamp === 'number')?.timestamp;
+    if (!lastTimestamp) return 'Inactive';
+    const relative = formatRelativeTime(new Date(lastTimestamp));
+    return relative ? `Active ${relative}` : 'Inactive';
+  }, [filteredMessagesForHeader, isSocketReady]);
+
+  const isConsultConversation = useMemo(
+    () => conversationMode === 'REQUEST_CONSULTATION'
+      || Boolean(resolveConsultationState(conversationMetadata))
+      || Boolean(
+        slimContactDraft?.name
+        || slimContactDraft?.email
+        || slimContactDraft?.phone
+        || intakeStatus?.intakeUuid
+        || intakeStatus?.step !== 'contact_form_slim'
+        || intakeConversationState?.turnCount
+        || intakeConversationState?.ctaShown
+        || intakeConversationState?.caseStrength
+        || intakeConversationState?.description
+        || intakeConversationState?.opposingParty
+        || intakeConversationState?.city
+        || intakeConversationState?.state
+        || intakeConversationState?.desiredOutcome
+      ),
+    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
+  );
+
+  const conversationStrengthAction = useMemo(() => {
+    if (!isConsultConversation) return null;
+
+    const tier = resolveStrengthTier(intakeConversationState);
+    const { percent, ringClass } = resolveStrengthStyle(tier);
+    const radius = 9;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference - (percent / 100) * circumference;
+
+    return (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={() => {
+          if (typeof window === 'undefined') return;
+          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+        }}
+        aria-label="Case strength"
+      >
+        <span className="relative flex h-6 w-6 items-center justify-center">
+          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
+            <circle
+              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
+              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
+              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+            />
+          </svg>
+          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      </Button>
+    );
+  }, [intakeConversationState, isConsultConversation]);
+
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
     const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
     return (
-      <ConversationDetailHeader
-        practiceName={resolvedPracticeName}
-        messages={messages}
-        isSocketReady={Boolean(isSocketReady && activeConversationId)}
-        conversationMode={conversationMode}
-        intakeConversationState={intakeConversationState}
+      <DetailHeader
+        title={resolvedPracticeName}
+        subtitle={conversationHeaderActiveLabel}
+        showBack={showConversationBack}
         onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
-        onOpenInspector={() => {
+        actions={conversationStrengthAction}
+        onInspector={() => {
           if (typeof window === 'undefined') return;
           window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
         }}
+        className="workspace-conversation-header"
       />
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    layoutMode, navigate, resolvedPracticeName, messages, isSocketReady,
-    conversationMode, intakeConversationState,
+    conversationHeaderActiveLabel, conversationStrengthAction,
+    layoutMode, navigate, resolvedPracticeName,
   ]);
   const showWorkspaceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode),
@@ -805,6 +881,7 @@ export function MainApp({
             ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
             : resolvedPublicPracticeSlug
       }
+      routeInvoiceId={routeInvoiceId ?? null}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
@@ -822,7 +899,7 @@ export function MainApp({
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
-            ? (statusFilter, prefetchData, detailHeaderRightControl, detailHeaderLeadingAction) => (
+            ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
@@ -833,7 +910,8 @@ export function MainApp({
                   prefetchedLoading={prefetchData?.mattersData?.isLoading}
                   prefetchedError={prefetchData?.mattersData?.error}
                   onRefetchList={prefetchData?.mattersData?.refetch}
-                  detailHeaderRightControl={detailHeaderRightControl}
+                  onDetailInspector={onDetailInspector}
+                  detailInspectorOpen={detailInspectorOpen}
                   detailHeaderLeadingAction={detailHeaderLeadingAction}
                   showDetailBackButton={showWorkspaceDetailBack}
                 />
@@ -842,7 +920,7 @@ export function MainApp({
             : null)
           : isClientWorkspace
             ? (clientMattersPath
-              ? (statusFilter, prefetchData, detailHeaderRightControl) => (
+              ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen) => (
                 <Suspense fallback={<WorkspaceSubviewFallback />}>
                   <ClientMattersPage
                     basePath={clientMattersPath}
@@ -853,7 +931,8 @@ export function MainApp({
                     prefetchedLoading={prefetchData?.mattersData?.isLoading}
                     prefetchedError={prefetchData?.mattersData?.error}
                     onRefetchList={prefetchData?.mattersData?.refetch}
-                    detailHeaderRightControl={detailHeaderRightControl}
+                    onDetailInspector={onDetailInspector}
+                    detailInspectorOpen={detailInspectorOpen}
                     showDetailBackButton={showWorkspaceDetailBack}
                   />
                 </Suspense>
@@ -863,7 +942,7 @@ export function MainApp({
       }
       mattersListContent={
         isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
-          ? (statusFilter, prefetchData, detailHeaderRightControl) => (
+          ? (statusFilter, prefetchData) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               <PracticeMattersPage
                 basePath={practiceMattersPath}
@@ -874,13 +953,12 @@ export function MainApp({
                 prefetchedLoading={prefetchData?.mattersData?.isLoading}
                 prefetchedError={prefetchData?.mattersData?.error}
                 onRefetchList={prefetchData?.mattersData?.refetch}
-                detailHeaderRightControl={detailHeaderRightControl}
                 showDetailBackButton={showWorkspaceDetailBack}
               />
             </Suspense>
           )
           : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
-            ? (statusFilter, prefetchData, detailHeaderRightControl) => (
+            ? (statusFilter, prefetchData) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <ClientMattersPage
                   basePath={clientMattersPath}
@@ -891,7 +969,6 @@ export function MainApp({
                   prefetchedLoading={prefetchData?.mattersData?.isLoading}
                   prefetchedError={prefetchData?.mattersData?.error}
                   onRefetchList={prefetchData?.mattersData?.refetch}
-                  detailHeaderRightControl={detailHeaderRightControl}
                   showDetailBackButton={showWorkspaceDetailBack}
                 />
               </Suspense>
@@ -899,7 +976,7 @@ export function MainApp({
           : undefined
       }
       clientsView={isPracticeWorkspace && practiceClientsPath != null
-        ? (statusFilter, prefetchData, detailHeaderRightControl, detailHeaderLeadingAction) => (
+        ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
               practiceId={effectivePracticeId ?? practiceId}
@@ -910,7 +987,8 @@ export function MainApp({
               prefetchedLoading={prefetchData?.clientsData?.isLoading}
               prefetchedError={prefetchData?.clientsData?.error}
               onRefetchList={prefetchData?.clientsData?.refetch}
-              detailHeaderRightControl={detailHeaderRightControl}
+              onDetailInspector={onDetailInspector}
+              detailInspectorOpen={detailInspectorOpen}
               detailHeaderLeadingAction={detailHeaderLeadingAction}
               showDetailBackButton={showWorkspaceDetailBack}
             />
@@ -918,7 +996,7 @@ export function MainApp({
         )
         : undefined}
       clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
-        ? (statusFilter, prefetchData, detailHeaderRightControl) => (
+        ? (statusFilter, prefetchData) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
               practiceId={effectivePracticeId ?? practiceId}
@@ -929,7 +1007,6 @@ export function MainApp({
               prefetchedLoading={prefetchData?.clientsData?.isLoading}
               prefetchedError={prefetchData?.clientsData?.error}
               onRefetchList={prefetchData?.clientsData?.refetch}
-              detailHeaderRightControl={detailHeaderRightControl}
               showDetailBackButton={showWorkspaceDetailBack}
             />
           </Suspense>
@@ -937,7 +1014,7 @@ export function MainApp({
         : undefined}
       invoicesView={
         isPracticeWorkspace
-          ? (statusFilter, detailHeaderRightControl, detailHeaderLeadingAction) => (
+          ? (statusFilter, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
@@ -945,7 +1022,8 @@ export function MainApp({
                   practiceSlug={resolvedPracticeSlug ?? null}
                   invoiceId={routeInvoiceId ?? null}
                   leadingAction={detailHeaderLeadingAction}
-                  headerActions={detailHeaderRightControl}
+                  onInspector={onDetailInspector}
+                  inspectorOpen={detailInspectorOpen}
                   showBack={showPracticeInvoiceDetailBack}
                 />
               ) : resolvedWorkspaceView === 'invoiceCreate' ? (
@@ -965,14 +1043,15 @@ export function MainApp({
             </Suspense>
           )
           : isClientWorkspace
-            ? (statusFilter, detailHeaderRightControl) => (
+            ? (statusFilter, onDetailInspector, detailInspectorOpen) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <ClientInvoiceDetailPage
                     practiceId={effectivePracticeId ?? practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     invoiceId={routeInvoiceId ?? null}
-                    headerActions={detailHeaderRightControl}
+                    onInspector={onDetailInspector}
+                    inspectorOpen={detailInspectorOpen}
                     showBack={showClientInvoiceDetailBack}
                   />
                 ) : (

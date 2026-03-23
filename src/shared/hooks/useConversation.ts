@@ -35,13 +35,13 @@ import { getWorkerApiUrl } from '@/config/urls';
 import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata } from '@/shared/types/conversation';
-import { initialIntakeState } from '@/shared/types/intake';
 import {
   updateConversationMetadata as patchConversationMetadata,
   fetchMessageReactions,
   addMessageReaction,
   removeMessageReaction,
 } from '@/shared/lib/conversationApi';
+import { applyConsultationPatchToMetadata, hasConsultationSignals, resolveConsultationState } from '@/shared/utils/consultationState';
 import axios from 'axios';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import {
@@ -262,8 +262,18 @@ export const useConversation = ({
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
     const runUpdate = async () => {
-      const previous = conversationMetadataRef.current ?? {};
-      const nextMetadata = { ...previous, ...patch };
+      const baseId = targetConversationId ?? activeConversationId;
+      const previous = baseId === conversationId
+        ? (conversationMetadataRef.current ?? {})
+        : {};
+      const rawNextMetadata = { ...previous, ...patch };
+      const nextMetadata = (
+        patch.consultation !== undefined
+        || hasConsultationSignals(previous)
+        || hasConsultationSignals(patch)
+      )
+        ? applyConsultationPatchToMetadata(rawNextMetadata, {}, { mirrorLegacyFields: true })
+        : rawNextMetadata;
       applyConversationMetadata(nextMetadata);
 
       try {
@@ -292,10 +302,10 @@ export const useConversation = ({
   }, [conversationId, currentUserId, isAnonymous, updateConversationMetadata]);
 
   const fetchConversationMetadata = useCallback(async (signal?: AbortSignal, targetConversationId?: string) => {
-    if (!sessionReady) return;
+    if (!sessionReady) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
-    if (!activeConversationId || !practiceKey) return;
+    if (!activeConversationId || !practiceKey) return null;
     const response = await fetch(
       `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
       { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal }
@@ -305,9 +315,11 @@ export const useConversation = ({
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
     const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
-    if (signal?.aborted || isDisposedRef.current) return;
-    if (activeConversationId !== conversationIdRef.current) return;
-    applyConversationMetadata(data.data?.user_info ?? null);
+    const metadata = data.data?.user_info ?? null;
+    if (!signal?.aborted && !isDisposedRef.current && activeConversationId === conversationIdRef.current) {
+      applyConversationMetadata(metadata);
+    }
+    return metadata;
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   // ── message mapping ────────────────────────────────────────────────────────
@@ -908,12 +920,21 @@ export const useConversation = ({
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
     if (!sessionReady || !targetConversationId || !practiceId) return;
-    void updateConversationMetadata({
-      mode: 'REQUEST_CONSULTATION',
-      intakeConversationState: initialIntakeState,
-      intakeSlimContactDraft: null,
-      intakeAiBriefActive: false
-    }, targetConversationId);
+    const currentMetadata = targetConversationId === conversationIdRef.current
+      ? conversationMetadataRef.current
+      : null;
+    const consultation = resolveConsultationState(currentMetadata);
+    void updateConversationMetadata(
+      applyConsultationPatchToMetadata(
+        currentMetadata,
+        {
+          status: consultation?.contact ? consultation.status : 'collecting_contact',
+          mode: 'REQUEST_CONSULTATION',
+        },
+        { mirrorLegacyFields: true }
+      ),
+      targetConversationId
+    );
     consultFlowAbortRef.current?.abort();
     const controller = new AbortController();
     consultFlowAbortRef.current = controller;
@@ -1056,6 +1077,7 @@ export const useConversation = ({
     applyConversationMetadata,
     requestMessageReactions,
     toggleMessageReaction,
+    fetchConversationMetadata,
 
     // Low-level — needed by useChatComposer
     sendFrame,
@@ -1097,6 +1119,7 @@ export const useConversation = ({
     applyConversationMetadata,
     requestMessageReactions,
     toggleMessageReaction,
+    fetchConversationMetadata,
     sendFrame,
     sendReadUpdate,
     waitForSocketReady,

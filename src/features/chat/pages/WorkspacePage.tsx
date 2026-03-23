@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import axios from 'axios';
-import { Bars3Icon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
@@ -126,6 +126,7 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
+  routeInvoiceId?: string | null;
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
@@ -133,11 +134,11 @@ interface WorkspacePageProps {
   ) => Promise<string>;
   activeConversationId?: string | null;
   chatView: ComponentChildren;
-  mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
-  mattersListContent?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
-  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
-  clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
-  invoicesView?: ComponentChildren | ((statusFilter: string[], detailHeaderRightControl?: ComponentChildren, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
+  mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
+  mattersListContent?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData) => ComponentChildren);
+  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
+  clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData) => ComponentChildren);
+  invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
@@ -192,6 +193,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
+  routeInvoiceId,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -476,8 +478,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'clients' && selectedClientIdFromPath) {
       return { entityType: 'client' as const, entityId: selectedClientIdFromPath };
     }
+    if (view === 'invoiceDetail' && routeInvoiceId) {
+      return { entityType: 'invoice' as const, entityId: routeInvoiceId };
+    }
     return null;
-  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
+  }, [activeConversationId, routeInvoiceId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleOpenInspector = () => {
@@ -1528,16 +1533,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={PlusIcon} iconClassName="h-5 w-5"
     />
   ) : null;
-  const inspectorToggleButton = inspectorTarget ? (
-    <Button
-      type="button"
-      variant="icon"
-      size="icon-sm"
-      onClick={() => setIsInspectorOpen(true)}
-      aria-label="Open inspector"
-      icon={InformationCircleIcon} iconClassName="h-5 w-5"
-    />
-  ) : null;
+  const detailInspectorOpen = Boolean(inspectorTarget) && isInspectorOpen;
+  const toggleDetailInspector = inspectorTarget ? () => setIsInspectorOpen((prev) => !prev) : undefined;
   const workspacePrefetchData: WorkspacePrefetchData = {
     mattersData: mattersDataForView, // filtered for the list view
     clientsData,
@@ -1584,7 +1581,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? mattersView(
       mattersStatusFilter,
       workspacePrefetchData,
-      inspectorToggleButton ?? undefined,
+      toggleDetailInspector,
+      detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
     : mattersView) ?? (
@@ -1603,7 +1601,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? clientsView(
       clientsStatusFilter,
       workspacePrefetchData,
-      inspectorToggleButton ?? undefined,
+      toggleDetailInspector,
+      detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
     : clientsView) ?? (
@@ -1618,7 +1617,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesContent = (typeof invoicesView === 'function'
     ? invoicesView(
       invoicesStatusFilter,
-      inspectorToggleButton ?? undefined,
+      toggleDetailInspector,
+      detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
     : invoicesView) ?? (
@@ -1649,12 +1649,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters' && shouldShowDesktopMattersListPanel
     ? (typeof mattersListContent === 'function'
-      ? mattersListContent(mattersStatusFilter, workspacePrefetchData, inspectorToggleButton ?? undefined)
+      ? mattersListContent(mattersStatusFilter, workspacePrefetchData)
       : mattersListContent)
     : undefined;
   const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients' && shouldShowDesktopClientsListPanel
     ? (typeof clientsListContent === 'function'
-      ? clientsListContent(clientsStatusFilter, workspacePrefetchData, inspectorToggleButton ?? undefined)
+      ? clientsListContent(clientsStatusFilter, workspacePrefetchData)
       : clientsListContent)
     : undefined;
   const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail') && shouldShowDesktopInvoicesListPanel
@@ -1873,7 +1873,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       } : {})}
     />
   ) : null;
-  const activeInspector = isInspectorOpen ? inspectorPanel : null;
+  const activeInspector = detailInspectorOpen ? inspectorPanel : null;
   return (
     <AppShell
       className="bg-transparent h-dvh"
@@ -1882,7 +1882,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       secondarySidebar={secondaryPanel}
       listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
       inspector={activeInspector ?? undefined}
-      inspectorMobileOpen={isInspectorOpen && isMobileLayout}
+      inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
       onInspectorMobileClose={() => setIsInspectorOpen(false)}
       mobileSecondaryNavOpen={isMobileNavOpen}
       onMobileSecondaryNavClose={() => setIsMobileNavOpen(false)}

@@ -27,7 +27,6 @@ import {
 } from '@/shared/lib/apiClient';
 import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import {
-  PEOPLE_DIRECTORY_LABEL,
   PERSON_RELATIONSHIP_STATUS_LABELS,
   type PersonRecord,
   type PersonRelationshipStatus,
@@ -38,7 +37,6 @@ import {
   PlusIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
 import { getWorkerApiUrl } from '@/config/urls';
 
 const STATUS_LABELS = PERSON_RELATIONSHIP_STATUS_LABELS;
@@ -315,7 +313,8 @@ export const PracticeClientsPage = ({
   prefetchedLoadingMore = false,
   prefetchedError = null,
   onRefetchList,
-  detailHeaderRightControl,
+  onDetailInspector,
+  detailInspectorOpen = false,
   detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: {
@@ -328,7 +327,8 @@ export const PracticeClientsPage = ({
   prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  detailHeaderRightControl?: ComponentChildren;
+  onDetailInspector?: () => void;
+  detailInspectorOpen?: boolean;
   detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
@@ -1041,9 +1041,8 @@ export const PracticeClientsPage = ({
           icon={ChatBubbleLeftRightIcon} iconClassName="h-5 w-5"
         />
       ) : null}
-      {detailHeaderRightControl}
     </div>
-  ) : detailHeaderRightControl;
+  ) : null;
 
   if (renderMode === 'listOnly') {
     if (!clientsLoading && !clientsError && sortedClients.length === 0) {
@@ -1092,6 +1091,8 @@ export const PracticeClientsPage = ({
                   title="Person details"
                   leadingAction={detailHeaderLeadingAction}
                   actions={detailHeaderActions}
+                  onInspector={onDetailInspector}
+                  inspectorOpen={detailInspectorOpen}
                 />
               ) : null}
               <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">{clientDetailBody}</div>
@@ -1122,6 +1123,8 @@ export const PracticeClientsPage = ({
               )}
               leadingAction={detailHeaderLeadingAction}
               actions={detailHeaderActions}
+              onInspector={onDetailInspector}
+              inspectorOpen={detailInspectorOpen}
             />
             <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
               {clientsLoading ? (

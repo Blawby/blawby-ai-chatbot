@@ -34,14 +34,16 @@ export function PracticeInvoiceDetailPage({
   practiceSlug,
   invoiceId,
   leadingAction,
-  headerActions,
+  onInspector,
+  inspectorOpen = false,
   showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   invoiceId: string | null;
   leadingAction?: ComponentChildren;
-  headerActions?: ComponentChildren;
+  onInspector?: () => void;
+  inspectorOpen?: boolean;
   showBack?: boolean;
 }) {
   const { navigate } = useNavigation();
@@ -215,6 +217,8 @@ export function PracticeInvoiceDetailPage({
         showBack={showBack}
         onBack={handleBackToList}
         leadingAction={leadingAction}
+        onInspector={onInspector}
+        inspectorOpen={inspectorOpen}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {status === 'draft' ? (
@@ -234,7 +238,6 @@ export function PracticeInvoiceDetailPage({
             {status === 'paid' ? (
               <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
             ) : null}
-            {headerActions}
           </div>
         )}
       />

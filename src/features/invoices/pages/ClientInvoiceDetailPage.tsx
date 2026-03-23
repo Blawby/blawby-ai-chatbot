@@ -1,4 +1,3 @@
-import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
@@ -27,13 +26,15 @@ export function ClientInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
-  headerActions,
+  onInspector,
+  inspectorOpen = false,
   showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   invoiceId: string | null;
-  headerActions?: ComponentChildren;
+  onInspector?: () => void;
+  inspectorOpen?: boolean;
   showBack?: boolean;
 }) {
   const { navigate } = useNavigation();
@@ -160,6 +161,8 @@ export function ClientInvoiceDetailPage({
         subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
         showBack={effectiveShowBack}
         onBack={effectiveShowBack ? handleBackToList : undefined}
+        onInspector={onInspector}
+        inspectorOpen={inspectorOpen}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
@@ -173,7 +176,6 @@ export function ClientInvoiceDetailPage({
                 Receipt
               </Button>
             ) : null}
-            {headerActions}
           </div>
         )}
       />

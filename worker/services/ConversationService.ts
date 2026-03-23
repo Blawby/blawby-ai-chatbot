@@ -3,6 +3,11 @@ import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from './SessionAuditService.js';
+import {
+  applyConsultationPatchToMetadata,
+  normalizeSlimContactDraft as normalizeSharedSlimContactDraft,
+  resolveConsultationState,
+} from '../../src/shared/utils/consultationState';
 
 export interface Conversation {
   id: string;
@@ -77,6 +82,10 @@ export interface GetMessagesOptions {
   viewerId?: string | null;
 }
 
+export interface GetConversationOptions {
+  repair?: boolean;
+}
+
 export interface GetMessagesResult {
   messages: ConversationMessage[];
   cursor?: string;
@@ -101,6 +110,221 @@ export class ConversationService {
           .map((id) => (typeof id === 'string' ? id.trim() : ''))
           .filter((id) => id.length > 0)
       )
+    );
+  }
+
+  private parseJsonRecord(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value !== 'string') return null;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private readTrimmedString(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeSlimContactDraft(value: unknown): { name: string; email: string; phone: string } | null {
+    return normalizeSharedSlimContactDraft(value);
+  }
+
+  private extractSlimContactDraftFromContent(content: string | null | undefined): { name: string; email: string; phone: string } | null {
+    if (!content) return null;
+    const nameMatch = content.match(/(?:^|\n)Name:\s*([^\n]+)/i);
+    const emailMatch = content.match(/(?:^|\n)Email:\s*([^\n]+)/i);
+    const phoneMatch = content.match(/(?:^|\n)Phone:\s*([^\n]+)/i);
+    const name = this.readTrimmedString(nameMatch?.[1]) ?? '';
+    const email = this.readTrimmedString(emailMatch?.[1]) ?? '';
+    const phone = this.readTrimmedString(phoneMatch?.[1]) ?? '';
+    if (!name && !email && !phone) return null;
+    return { name, email, phone };
+  }
+
+  private mergeSlimContactDraft(
+    existing: { name: string; email: string; phone: string } | null,
+    recovered: { name: string; email: string; phone: string } | null
+  ): { name: string; email: string; phone: string } | null {
+    if (!existing && !recovered) return null;
+    return {
+      name: existing?.name || recovered?.name || '',
+      email: existing?.email || recovered?.email || '',
+      phone: existing?.phone || recovered?.phone || '',
+    };
+  }
+
+  private async repairConsultationMetadata(
+    conversationId: string,
+    practiceId: string,
+    currentUserInfo: Record<string, unknown> | null,
+    currentUpdatedAt: string | null,
+    attempt = 0
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await this.env.DB.prepare(`
+      SELECT client_id, content, metadata
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND practice_id = ?
+        AND (
+          client_id = 'system-intake-contact-ack'
+          OR client_id = 'system-intake-opening'
+          OR client_id LIKE 'system-intake-submit-%'
+          OR json_extract(metadata, '$.isContactFormSubmission') = 1
+          OR json_extract(metadata, '$.contactDetails.name') IS NOT NULL
+          OR json_extract(metadata, '$.contactDetails.email') IS NOT NULL
+          OR json_extract(metadata, '$.contactDetails.phone') IS NOT NULL
+          OR json_extract(metadata, '$.intakeSubmitted') = 1
+          OR json_extract(metadata, '$.intakeUuid') IS NOT NULL
+        )
+      ORDER BY seq DESC
+      LIMIT 50
+    `).bind(conversationId, practiceId).all<Record<string, unknown>>();
+
+    const results = rows.results ?? [];
+    if (results.length === 0) return currentUserInfo;
+
+    const existing = currentUserInfo ? { ...currentUserInfo } : {};
+    const existingSlimDraft = this.normalizeSlimContactDraft(
+      resolveConsultationState(existing)?.contact ?? existing.intakeSlimContactDraft
+    );
+
+    let recoveredSlimDraft: { name: string; email: string; phone: string } | null = null;
+    let sawConsultationSignal = false;
+    let recoveredIntakeSubmitted = false;
+    let recoveredIntakeUuid: string | null = null;
+
+    for (const row of results) {
+      const clientId = this.readTrimmedString(row.client_id) ?? '';
+      const metadata = this.parseJsonRecord(row.metadata);
+      const content = typeof row.content === 'string' ? row.content : null;
+
+      if (
+        clientId === 'system-intake-contact-ack'
+        || clientId === 'system-intake-opening'
+        || clientId.startsWith('system-intake-submit-')
+        || metadata?.isContactFormSubmission === true
+      ) {
+        sawConsultationSignal = true;
+      }
+
+      if (!recoveredSlimDraft) {
+        recoveredSlimDraft = this.normalizeSlimContactDraft(metadata?.contactDetails)
+          ?? this.extractSlimContactDraftFromContent(content);
+      }
+
+      if (metadata?.intakeSubmitted === true || clientId.startsWith('system-intake-submit-')) {
+        recoveredIntakeSubmitted = true;
+      }
+
+      if (!recoveredIntakeUuid) {
+        recoveredIntakeUuid = this.readTrimmedString(metadata?.intakeUuid) ?? null;
+      }
+    }
+
+    const mergedSlimDraft = this.mergeSlimContactDraft(existingSlimDraft, recoveredSlimDraft);
+    const nextMetadata = sawConsultationSignal || mergedSlimDraft || recoveredIntakeSubmitted || recoveredIntakeUuid
+      ? applyConsultationPatchToMetadata(
+          existing,
+          {
+            contact: mergedSlimDraft ?? undefined,
+            status: recoveredIntakeSubmitted ? 'submitted' : undefined,
+            submission: recoveredIntakeSubmitted
+              ? (recoveredIntakeUuid ? { intakeUuid: recoveredIntakeUuid } : {})
+              : undefined,
+          },
+          { mirrorLegacyFields: true }
+        )
+      : existing;
+
+    const changed = JSON.stringify(existing) !== JSON.stringify(nextMetadata);
+
+    if (!changed) return currentUserInfo;
+
+    if (!currentUpdatedAt) return currentUserInfo;
+
+    const updateResult = await this.env.DB.prepare(`
+      UPDATE conversations
+      SET user_info = ?
+      WHERE id = ? AND practice_id = ? AND updated_at = ?
+    `).bind(JSON.stringify(nextMetadata), conversationId, practiceId, currentUpdatedAt).run();
+
+    const updatedRows = typeof updateResult.meta?.changes === 'number' ? updateResult.meta.changes : 0;
+    if (updatedRows === 0) {
+      if (attempt >= 1) {
+        return currentUserInfo;
+      }
+
+      Logger.warn('Consultation metadata repair hit a concurrent update; retrying once', {
+        conversationId,
+        practiceId,
+      });
+
+      const latestRecord = await this.env.DB.prepare(`
+        SELECT user_info, updated_at
+        FROM conversations
+        WHERE id = ? AND practice_id = ?
+      `).bind(conversationId, practiceId).first<Record<string, unknown>>();
+
+      if (!latestRecord) {
+        return currentUserInfo;
+      }
+
+      return this.repairConsultationMetadata(
+        conversationId,
+        practiceId,
+        this.parseJsonRecord(latestRecord.user_info),
+        typeof latestRecord.updated_at === 'string' ? latestRecord.updated_at : null,
+        attempt + 1
+      );
+    }
+
+    Logger.info('Repaired consultation metadata from message history', {
+      conversationId,
+      practiceId,
+      repairedSlimDraft: Boolean(mergedSlimDraft),
+      repairedMode: nextMetadata.mode === 'REQUEST_CONSULTATION',
+      repairedSubmitted: resolveConsultationState(nextMetadata)?.status === 'submitted',
+      repairedIntakeUuid: resolveConsultationState(nextMetadata)?.submission.intakeUuid ?? null,
+    });
+
+    return nextMetadata;
+  }
+
+  async mergeConsultationMetadata(
+    conversationId: string,
+    practiceId: string,
+    patch: Parameters<typeof applyConsultationPatchToMetadata>[1],
+    options?: { allowReset?: boolean; repair?: boolean }
+  ): Promise<Conversation> {
+    const currentConversation = await this.getConversation(
+      conversationId,
+      practiceId,
+      options?.repair ? { repair: true } : undefined
+    );
+    const currentMetadata = (currentConversation.user_info ?? {}) as Record<string, unknown>;
+    const nextMetadata = applyConsultationPatchToMetadata(
+      currentMetadata,
+      patch,
+      {
+        allowReset: options?.allowReset,
+        mirrorLegacyFields: true,
+      }
+    );
+    return this.updateConversation(
+      conversationId,
+      practiceId,
+      { metadata: nextMetadata },
+      { repair: options?.repair }
     );
   }
 
@@ -273,7 +497,11 @@ export class ConversationService {
   /**
    * Get a single conversation by ID
    */
-  async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
+  async getConversation(
+    conversationId: string,
+    practiceId: string,
+    options?: GetConversationOptions
+  ): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
@@ -284,6 +512,12 @@ export class ConversationService {
       throw HttpErrors.notFound('Conversation not found');
     }
 
+    const parsedUserInfo = this.parseJsonRecord(record.user_info);
+    const currentUpdatedAt = typeof record.updated_at === 'string' ? record.updated_at : null;
+    record.user_info = options?.repair
+      ? await this.repairConsultationMetadata(conversationId, practiceId, parsedUserInfo, currentUpdatedAt)
+      : parsedUserInfo;
+
     return this.mapRecordToConversation(record);
   }
 
@@ -291,7 +525,10 @@ export class ConversationService {
    * Get a single conversation by ID without scoping to a practice.
    * Use with participant checks before returning sensitive data.
    */
-  async getConversationById(conversationId: string): Promise<Conversation> {
+  async getConversationById(
+    conversationId: string,
+    options?: GetConversationOptions
+  ): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
       FROM conversations c
@@ -301,6 +538,13 @@ export class ConversationService {
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
     }
+
+    const practiceId = typeof record.practice_id === 'string' ? record.practice_id : String(record.practice_id ?? '');
+    const parsedUserInfo = this.parseJsonRecord(record.user_info);
+    const currentUpdatedAt = typeof record.updated_at === 'string' ? record.updated_at : null;
+    record.user_info = options?.repair
+      ? await this.repairConsultationMetadata(conversationId, practiceId, parsedUserInfo, currentUpdatedAt)
+      : parsedUserInfo;
 
     return this.mapRecordToConversation(record);
   }
@@ -538,10 +782,14 @@ export class ConversationService {
       priority?: 'low' | 'normal' | 'high' | 'urgent';
       internalNotes?: string | null;
     },
-    options?: { request?: Request }
+    options?: { request?: Request; repair?: boolean }
   ): Promise<Conversation> {
     // Verify conversation exists and belongs to practice
-    const currentConversation = await this.getConversation(conversationId, practiceId);
+    const currentConversation = await this.getConversation(
+      conversationId,
+      practiceId,
+      options?.repair ? { repair: true } : undefined
+    );
 
     const now = new Date().toISOString();
     const updatesList: string[] = [];

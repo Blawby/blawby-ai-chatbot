@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { ChevronLeftIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 
@@ -60,7 +60,7 @@ export const DetailHeader = ({
               size="icon-sm"
               onClick={onInspector}
               aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-              icon={InformationCircleIcon} iconClassName="h-5 w-5"
+              icon={EllipsisVerticalIcon} iconClassName="h-5 w-5"
             />
           ) : null}
         </div>

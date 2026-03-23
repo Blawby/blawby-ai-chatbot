@@ -10,7 +10,6 @@ import { IntakePaymentModal } from '@/features/intake/components/IntakePaymentMo
 import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
@@ -179,7 +178,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isMobile = useMobileDetection();
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
@@ -298,18 +296,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         })();
         setInputValue('');
         setReplyTarget(null);
-        if (textareaRef.current && isMobile) {
-          textareaRef.current.blur();
-        }
         return;
       }
       if (isNegative) {
         onIntakeCtaResponse('not_yet');
         setInputValue('');
         setReplyTarget(null);
-        if (textareaRef.current && isMobile) {
-          textareaRef.current.blur();
-        }
         return;
       }
     }
@@ -323,11 +315,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     // Reset input
     setInputValue('');
     setReplyTarget(null);
-
-    // Only blur on mobile devices to collapse virtual keyboard
-    if (textareaRef.current && isMobile) {
-      textareaRef.current.blur();
-    }
   };
 
   const handleQuickReply = (text: string) => {

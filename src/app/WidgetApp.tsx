@@ -3,10 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
-import { XMarkIcon, HomeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, HomeIcon, ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
-import ConversationDetailHeader from '@/features/chat/components/ConversationDetailHeader';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
@@ -27,6 +26,9 @@ import type { ConversationMetadata, ConversationMode } from '@/shared/types/conv
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
+import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 
 interface WidgetAppProps {
   practiceId: string;
@@ -247,7 +249,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   });
 
   const {
-    messages, conversationMetadata: _conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
+    messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
@@ -426,6 +428,69 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const widgetBackTarget = hasRealConversations ? 'list' : 'home';
   const showConversationBack = shouldShowWorkspaceDetailBack('widget', Boolean(widgetBackTarget));
 
+  const filteredMessagesForHeader = useMemo(() => {
+    const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
+    const hasNonSystem = base.some((message) => message.role !== 'system');
+    return hasNonSystem ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
+  }, [messages]);
+
+  const conversationHeaderActiveLabel = useMemo(() => {
+    if (isSocketReady) return t('workspace.header.activeNow');
+    const lastTimestamp = [...filteredMessagesForHeader].reverse().find((message) => typeof message.timestamp === 'number')?.timestamp;
+    if (!lastTimestamp) return t('workspace.header.inactive');
+    const relative = formatRelativeTime(new Date(lastTimestamp));
+    return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
+  }, [filteredMessagesForHeader, isSocketReady, t]);
+
+  const isConsultConversation = useMemo(
+    () => conversationMode === 'REQUEST_CONSULTATION'
+      || Boolean(resolveConsultationState(conversationMetadata))
+      || Boolean(intakeConversationState || intakeStatus || slimContactDraft),
+    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
+  );
+
+  const conversationStrengthAction = useMemo(() => {
+    if (!isConsultConversation) return null;
+
+    const tier = resolveStrengthTier(intakeConversationState);
+    const { percent, ringClass } = resolveStrengthStyle(tier);
+    const radius = 9;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference - (percent / 100) * circumference;
+
+    return (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={() => setIsInspectorOpen(true)}
+        aria-label="Case strength"
+      >
+        <span className="relative flex h-6 w-6 items-center justify-center">
+          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
+            <circle
+              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
+              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
+              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+            />
+          </svg>
+          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      </Button>
+    );
+  }, [intakeConversationState, isConsultConversation]);
+
+  const widgetChatHeaderActions = useMemo(() => {
+    if (!isEmbedded) return conversationStrengthAction;
+    return (
+      <>
+        {conversationStrengthAction}
+        {closeButton}
+      </>
+    );
+  }, [closeButton, conversationStrengthAction, isEmbedded]);
+
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
     if (isDark) {
@@ -490,15 +555,13 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             </div>
         ) : (
           <>
-            {/* Floating close button */}
-            {isEmbedded && (
-               <div className="absolute right-4 top-4 z-[60]">
-                 {closeButton}
-               </div>
-            )}
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
             <ChatContainer
               messages={messages}
+              conversationTitle={resolveConversationDisplayTitle(
+                conversationMetadata ?? null,
+                conversationMetadata?.title ?? ''
+              )}
               onSendMessage={sendMessage}
               conversationMode={conversationMode}
               onSelectMode={handleModeSelection}
@@ -508,14 +571,13 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               isPublicWorkspace={true}
               messagesReady={messagesReady}
               headerContent={
-                <ConversationDetailHeader
-                  practiceName={practiceConfig.name}
-                  messages={messages}
-                  isSocketReady={isSocketReady}
-                  conversationMode={conversationMode}
-                  intakeConversationState={intakeConversationState}
+                <DetailHeader
+                  title={practiceConfig.name ?? ''}
+                  subtitle={conversationHeaderActiveLabel}
+                  showBack={showConversationBack}
                   onBack={showConversationBack ? () => setView(widgetBackTarget) : undefined}
-                  onOpenInspector={activeConversationId ? () => setIsInspectorOpen(true) : undefined}
+                  actions={widgetChatHeaderActions}
+                  className="workspace-conversation-header"
                 />
               }
               heightClassName="h-full"
