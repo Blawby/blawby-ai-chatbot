@@ -1,16 +1,16 @@
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { getMajorAmountValue } from '@/shared/utils/money';
-import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 
 type InvoicePreviewProps = {
-  matter: MatterDetail;
+  title: string;
+  referenceLabel?: string | null;
   lineItems: InvoiceLineItem[];
   dueDate?: string;
 };
 
-export const InvoicePreview = ({ matter, lineItems, dueDate }: InvoicePreviewProps) => {
+export const InvoicePreview = ({ title, referenceLabel, lineItems, dueDate }: InvoicePreviewProps) => {
   const subtotal = lineItems.reduce((sum, item) => sum + getMajorAmountValue(item.line_total), 0);
 
   return (
@@ -18,8 +18,8 @@ export const InvoicePreview = ({ matter, lineItems, dueDate }: InvoicePreviewPro
       <header className="flex items-start justify-between border-b border-gray-200 pb-6">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Invoice</p>
-          <h4 className="mt-2 text-lg font-semibold">{matter.title}</h4>
-          <p className="mt-1 text-sm text-gray-600">Matter ID: {matter.id}</p>
+          <h4 className="mt-2 text-lg font-semibold">{title}</h4>
+          {referenceLabel ? <p className="mt-1 text-sm text-gray-600">{referenceLabel}</p> : null}
         </div>
         <div className="text-right">
           <p className="text-sm text-gray-600">Issue date: {formatLongDate(new Date().toISOString())}</p>

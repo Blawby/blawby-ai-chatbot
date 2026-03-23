@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks'
 import { useLocation } from 'preact-iso';
 import axios from 'axios';
 import { Bars3Icon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
 import { SessionNotReadyError } from '@/shared/types/errors';
@@ -15,6 +16,8 @@ import ConversationListView from '@/features/chat/views/ConversationListView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
+import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import type { ComboboxOption } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -76,7 +79,6 @@ import {
   getPracticeNavConfig,
   getSettingsNavConfig
 } from '@/shared/config/navConfig';
-import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
 import NavRail from '@/shared/ui/nav/NavRail';
 import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
@@ -90,7 +92,7 @@ import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
@@ -108,6 +110,8 @@ type WorkspacePrefetchData = {
     refetch: (signal?: AbortSignal) => Promise<void>;
   };
 };
+
+type WorkspacePrimaryCreateAction = WorkspacePlaceholderAction;
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -127,12 +131,14 @@ interface WorkspacePageProps {
   ) => Promise<string>;
   activeConversationId?: string | null;
   chatView: ComponentChildren;
-  mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
+  mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   mattersListContent?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
-  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
+  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
-  invoicesView?: ComponentChildren | ((statusFilter: string[], detailHeaderRightControl?: ComponentChildren) => ComponentChildren);
+  invoicesView?: ComponentChildren | ((statusFilter: string[], detailHeaderRightControl?: ComponentChildren, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
+  reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
+  primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
   mockConversationPreviews?: Record<string, {
     content: string;
@@ -193,6 +199,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   clientsListContent,
   invoicesView,
   invoicesListContent,
+  reportsView,
+  primaryCreateAction = null,
   mockConversations = null,
   mockConversationPreviews = null,
   onSelectConversationOverride,
@@ -316,7 +324,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [previewBaseUrl]);
 
   const handleDashboardCreateInvoice = useCallback(() => {
-    navigate(`${normalizedBase}/matters?tab=time`);
+    navigate(`${normalizedBase}/invoices/new`);
   }, [navigate, normalizedBase]);
 
   const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
@@ -1455,6 +1463,26 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={Bars3Icon} iconClassName="h-5 w-5"
     />
   ) : null;
+  const mobileCreateButton = primaryCreateAction && showMobileMenuButton ? (
+    <Button
+      type="button"
+      variant="icon"
+      size="icon-sm"
+      onClick={primaryCreateAction.onClick}
+      aria-label={primaryCreateAction.label}
+      icon={PlusIcon} iconClassName="h-5 w-5"
+    />
+  ) : null;
+  const desktopCreateButton = primaryCreateAction ? (
+    <Button
+      type="button"
+      variant="icon"
+      size="icon-sm"
+      onClick={primaryCreateAction.onClick}
+      aria-label={primaryCreateAction.label}
+      icon={PlusIcon} iconClassName="h-5 w-5"
+    />
+  ) : null;
   const inspectorToggleButton = inspectorTarget ? (
     <Button
       type="button"
@@ -1484,17 +1512,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   );
   const mattersContent = (typeof mattersView === 'function'
-    ? mattersView(mattersStatusFilter, workspacePrefetchData, inspectorToggleButton ?? undefined)
+    ? mattersView(
+      mattersStatusFilter,
+      workspacePrefetchData,
+      inspectorToggleButton ?? undefined,
+      layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
+    )
     : mattersView) ?? (
     <div className="flex flex-1 flex-col glass-card">
-      <div className="px-6 py-6">
-        <h2 className="text-lg font-semibold text-input-text">Matters</h2>
-        <p className="mt-2 text-sm text-input-placeholder">
+      <div className="mx-6 my-6 glass-panel p-5">
+        <div className="text-sm text-input-placeholder">
           Your active matters will appear here once a practice connects them to your account.
-        </p>
-      </div>
-      <div className="mx-6 mb-6 glass-panel p-5">
-        <div className="text-sm font-semibold text-input-text">No matters yet</div>
+        </div>
         <div className="mt-2 text-sm text-input-placeholder">
           Start a conversation to open a new matter with the practice.
         </div>
@@ -1502,47 +1531,38 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     </div>
   );
   const clientsContent = (typeof clientsView === 'function'
-    ? clientsView(clientsStatusFilter, workspacePrefetchData, inspectorToggleButton ?? undefined)
+    ? clientsView(
+      clientsStatusFilter,
+      workspacePrefetchData,
+      inspectorToggleButton ?? undefined,
+      layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
+    )
     : clientsView) ?? (
     <div className="flex flex-1 flex-col glass-card">
-      <div className="px-6 py-6">
-        <h2 className="text-lg font-semibold text-input-text">{PEOPLE_DIRECTORY_LABEL}</h2>
-        <p className="mt-2 text-sm text-input-placeholder">
+      <div className="mx-6 my-6 glass-panel p-5">
+        <p className="text-sm text-input-placeholder">
           Manage people and relationship statuses here.
         </p>
       </div>
     </div>
   );
   const invoicesContent = (typeof invoicesView === 'function'
-    ? invoicesView(invoicesStatusFilter, inspectorToggleButton ?? undefined)
+    ? invoicesView(
+      invoicesStatusFilter,
+      inspectorToggleButton ?? undefined,
+      layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
+    )
     : invoicesView) ?? (
     <div className="flex flex-1 flex-col glass-card">
-      <div className="px-6 py-6">
-        <h2 className="text-lg font-semibold text-input-text">Invoices</h2>
-        <p className="mt-2 text-sm text-input-placeholder">
+      <div className="mx-6 my-6 glass-panel p-5">
+        <p className="text-sm text-input-placeholder">
           Invoice details and payments will appear here.
         </p>
       </div>
     </div>
   );
-  const reportsContent = (
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="px-6 py-6">
-        <h2 className="text-lg font-semibold text-input-text">Reports</h2>
-        <p className="mt-2 text-sm text-input-placeholder">
-          {WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports']}
-        </p>
-      </div>
-      <div className="mx-6 mb-6 glass-panel p-5">
-        <div className="text-sm font-semibold text-input-text">
-          {WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports']}
-        </div>
-        <div className="mt-2 text-sm text-input-placeholder">
-          Report data and exports will appear here.
-        </div>
-      </div>
-    </div>
-  );
+  const reportsTitle = WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
+  const reportsContent = (typeof reportsView === 'function' ? reportsView(reportsTitle) : reportsView) ?? null;
   const settingsContent = practiceSlug ? (
     <SettingsContent
       workspace={workspace === 'practice' ? 'practice' : 'client'}
@@ -1593,8 +1613,43 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
-  const mobileSectionTopBar = layoutMode !== 'desktop' && mobileMenuButton && view !== 'conversation'
-    ? <div className="px-1 py-1">{mobileMenuButton}</div>
+  const mobileSectionTitle = (() => {
+    if (view === 'conversation') return null;
+    if (view === 'reports') {
+      return WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
+    }
+    switch (view) {
+      case 'list':
+        return 'Messages';
+      case 'matters':
+        return selectedMatterIdFromPath || isMatterNonListRoute ? null : 'Matters';
+      case 'clients':
+        return selectedClientIdFromPath ? null : 'People';
+      case 'invoices':
+        return 'Invoices';
+      case 'invoiceCreate':
+      case 'invoiceDetail':
+        return null;
+      case 'settings':
+        return 'Settings';
+      case 'home':
+        return 'Home';
+      case 'setup':
+        return 'Setup';
+      default:
+        return null;
+    }
+  })();
+  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && (mobileMenuButton || mobileCreateButton || mobileSectionTitle)
+    ? (
+      <WorkspaceListHeader
+        leftControls={mobileMenuButton ?? undefined}
+        title={mobileSectionTitle ? <h1 className="workspace-header__title">{mobileSectionTitle}</h1> : undefined}
+        centerTitle={Boolean(mobileSectionTitle)}
+        controls={mobileCreateButton ?? undefined}
+        className="px-1 py-1"
+      />
+    )
     : undefined;
   const sectionContent = (() => {
     switch (view) {
@@ -1609,6 +1664,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'clients':
         return clientsContent;
       case 'invoices':
+      case 'invoiceCreate':
       case 'invoiceDetail':
         return invoicesContent;
       case 'reports':
@@ -1630,8 +1686,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       isMatterNonListRoute={isMatterNonListRoute}
       chatView={chatView}
       content={sectionContent}
-      topBar={mobileSectionTopBar}
+      topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
       bottomNav={bottomNav}
+      sectionPlaceholderAction={
+        layoutMode === 'desktop' && (view === 'matters' || view === 'invoices') ? primaryCreateAction ?? undefined : undefined
+      }
     />
   );
   const inspectorPanel = inspectorTarget ? (

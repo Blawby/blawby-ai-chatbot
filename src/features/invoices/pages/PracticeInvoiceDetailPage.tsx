@@ -8,7 +8,7 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getMajorAmountValue } from '@/shared/utils/money';
-import { LineItemsBuilder } from '@/features/matters/components/billing/LineItemsBuilder';
+import { LineItemsBuilder } from '@/features/invoices/components/LineItemsBuilder';
 import {
   deleteInvoice,
   getInvoice,
@@ -33,12 +33,14 @@ export function PracticeInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
+  leadingAction,
   headerActions,
   showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
   invoiceId: string | null;
+  leadingAction?: ComponentChildren;
   headerActions?: ComponentChildren;
   showBack?: boolean;
 }) {
@@ -212,6 +214,7 @@ export function PracticeInvoiceDetailPage({
         subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)} • Paid ${renderEventDate(detail.paidAt)}`}
         showBack={showBack}
         onBack={handleBackToList}
+        leadingAction={leadingAction}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {status === 'draft' ? (

@@ -1,20 +1,24 @@
 import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, Textarea } from '@/shared/ui/input';
+import { Combobox, Input, Textarea } from '@/shared/ui/input';
 import { asMajor, safeAdd } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
-import { createInvoice, sendInvoice, updateInvoice } from '@/features/matters/services/invoicesApi';
-import { LineItemsBuilder } from '@/features/matters/components/billing/LineItemsBuilder';
-import { InvoicePreview } from '@/features/matters/components/billing/InvoicePreview';
-import { SendInvoiceDialog } from '@/features/matters/components/billing/SendInvoiceDialog';
+import { createInvoice, sendInvoice, updateInvoice } from '@/features/invoices/services/invoicesService';
+import { LineItemsBuilder } from '@/features/invoices/components/LineItemsBuilder';
+import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
+import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDialog';
 
 type InvoiceBuilderProps = {
   practiceId: string;
-  matter: MatterDetail;
+  matter?: MatterDetail | null;
   connectedAccountId?: string | null;
+  clientOptions?: Array<{ value: string; label: string; meta?: string }>;
+  matterOptions?: Array<{ value: string; label: string; meta?: string }>;
+  initialClientId?: string;
+  initialMatterId?: string;
   initialLineItems?: InvoiceLineItem[];
   initialDueDate?: string;
   initialNotes?: string;
@@ -24,7 +28,7 @@ type InvoiceBuilderProps = {
   invoiceContext?: 'default' | 'milestone' | 'retainer';
   existingInvoiceId?: string;
   onClose: () => void;
-  onSuccess: () => Promise<void> | void;
+  onSuccess: (invoiceId?: string | null) => Promise<void> | void;
 };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,6 +38,14 @@ const buildDefaultDueDate = () => {
   next.setUTCDate(next.getUTCDate() + 30);
   return next.toISOString().slice(0, 10);
 };
+
+const INVOICE_TYPE_OPTIONS = [
+  { value: 'flat_fee', label: 'Flat fee' },
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'phase_fee', label: 'Milestone / phase fee' },
+  { value: 'retainer_deposit', label: 'Retainer deposit' },
+  { value: 'contingency', label: 'Contingency fee' },
+] satisfies Array<{ value: Invoice['invoice_type']; label: string }>;
 
 const detectDefaultInvoiceType = (
   items: InvoiceLineItem[],
@@ -56,8 +68,12 @@ const detectDefaultInvoiceType = (
 
 export const InvoiceBuilder = ({
   practiceId,
-  matter,
+  matter = null,
   connectedAccountId = null,
+  clientOptions = [],
+  matterOptions = [],
+  initialClientId,
+  initialMatterId,
   initialLineItems = [],
   initialDueDate,
   initialNotes,
@@ -70,6 +86,8 @@ export const InvoiceBuilder = ({
   onSuccess
 }: InvoiceBuilderProps) => {
   const { showError } = useToastContext();
+  const [clientId, setClientId] = useState(initialClientId ?? matter?.clientId ?? '');
+  const [matterId, setMatterId] = useState(initialMatterId ?? matter?.id ?? '');
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(initialLineItems);
   const [notes, setNotes] = useState(initialNotes ?? '');
   const [memo, setMemo] = useState(initialMemo ?? '');
@@ -82,11 +100,32 @@ export const InvoiceBuilder = ({
   );
   const [sendError, setSendError] = useState<string | null>(null);
   const [invoiceType, setInvoiceType] = useState<Invoice['invoice_type']>(
-    detectDefaultInvoiceType(initialLineItems, invoiceContext, matter.billingType, initialInvoiceType)
+    detectDefaultInvoiceType(initialLineItems, invoiceContext, matter?.billingType ?? 'fixed', initialInvoiceType)
   );
-  const invoiceTypeFieldId = useMemo(() => `invoice-type-${matter.id}`, [matter.id]);
-
-
+  const isMatterScoped = Boolean(matter);
+  const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
+  const resolvedClientId = isMatterScoped ? matter?.clientId ?? '' : clientId;
+  const resolvedMatterLabel = isMatterScoped
+    ? (matter?.title ?? 'Matter invoice')
+    : (matterOptions.find((option) => option.value === matterId)?.label ?? '');
+  const resolvedClientLabel = isMatterScoped
+    ? matter?.clientName ?? ''
+    : (clientOptions.find((option) => option.value === clientId)?.label ?? '');
+  const previewTitle = resolvedMatterLabel || resolvedClientLabel || 'Draft invoice';
+  const previewReferenceLabel = resolvedMatterId
+    ? `Matter ID: ${resolvedMatterId}`
+    : resolvedClientLabel
+      ? `Person: ${resolvedClientLabel}`
+      : null;
+  const handleClientChange = (nextClientId: string) => {
+    setClientId(nextClientId);
+    setMatterId((currentMatterId) => {
+      if (!currentMatterId) return currentMatterId;
+      const selectedMatter = matterOptions.find((option) => option.value === currentMatterId);
+      const matterClientId = typeof selectedMatter?.meta === 'string' ? selectedMatter.meta : null;
+      return !matterClientId || matterClientId === nextClientId ? currentMatterId : '';
+    });
+  };
 
   const total = useMemo(() => {
     return lineItems.reduce((acc, item) => {
@@ -107,8 +146,8 @@ export const InvoiceBuilder = ({
   };
 
   const buildCreatePayload = (accountId: string) => ({
-    client_id: matter.clientId,
-    matter_id: matter.id,
+    client_id: resolvedClientId,
+    matter_id: resolvedMatterId || undefined,
     connected_account_id: accountId,
     invoice_type: invoiceType,
     due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
@@ -126,10 +165,15 @@ export const InvoiceBuilder = ({
   });
 
   const handleSaveDraft = async () => {
+    if (!resolvedClientId) {
+      showError('Could not save invoice', 'Choose a person before creating the invoice.');
+      return;
+    }
     if (disableActions || !connectedAccountId) return;
     setIsSaving(true);
     setSendError(null);
     try {
+      let nextInvoiceId: string | null = existingInvoiceId ?? createdInvoiceId;
       if (editMode && existingInvoiceId) {
         const payload = buildUpdatePayload();
         logInvoiceAction('update-draft', {
@@ -138,6 +182,7 @@ export const InvoiceBuilder = ({
         });
         await updateInvoice(practiceId, existingInvoiceId, payload);
         setCreatedInvoiceId(existingInvoiceId);
+        nextInvoiceId = existingInvoiceId;
       } else {
         const payload = buildCreatePayload(connectedAccountId);
         logInvoiceAction('create-draft', {
@@ -146,9 +191,10 @@ export const InvoiceBuilder = ({
           lineItemCount: payload.line_items.length
         });
         const created = await createInvoice(practiceId, payload);
-        setCreatedInvoiceId(created?.id ?? null);
+        nextInvoiceId = created?.id ?? null;
+        setCreatedInvoiceId(nextInvoiceId);
       }
-      await onSuccess();
+      await onSuccess(nextInvoiceId);
       onClose();
     } catch (error) {
       showError('Could not save invoice', error instanceof Error ? error.message : 'Please try again.');
@@ -158,6 +204,10 @@ export const InvoiceBuilder = ({
   };
 
   const handleSendInvoice = async () => {
+    if (!resolvedClientId) {
+      showError('Could not send invoice', 'Choose a person before creating the invoice.');
+      return;
+    }
     if (disableActions || !connectedAccountId) return;
     setIsSending(true);
     setSendError(null);
@@ -191,7 +241,7 @@ export const InvoiceBuilder = ({
 
       logInvoiceAction('send', { invoiceId, invoiceType });
       await sendInvoice(practiceId, invoiceId);
-      await onSuccess();
+      await onSuccess(invoiceId);
       onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send invoice';
@@ -205,50 +255,61 @@ export const InvoiceBuilder = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="invoiceDialogTitle"
-    >
-      <div className="flex h-[90vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface">
-        <header className="flex items-center justify-between border-b border-line-glass/30 px-6 py-4">
-          <div>
-            <h2 id="invoiceDialogTitle" className="text-base font-semibold text-input-text">Create Invoice</h2>
-            <p className="text-xs text-input-placeholder">{matter.title}</p>
-          </div>
-          <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
-        </header>
-
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_520px]">
-          <div className="min-h-0 overflow-y-auto p-6">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+        <div className="grid min-h-0 flex-1 gap-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-10">
+          <div className="min-h-0 overflow-y-auto">
             <div className="space-y-5">
               {!isValidConnectedAccount ? (
                 <div className="status-warning rounded-xl px-4 py-3 text-sm">
                   Complete Stripe onboarding to enable invoicing.
                 </div>
               ) : null}
-              <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
-              <div>
-                <label className="block text-sm font-semibold text-input-text" htmlFor={invoiceTypeFieldId}>
-                  Invoice type
-                </label>
-                <select
-                  id={invoiceTypeFieldId}
-                  className="mt-2 w-full rounded-xl border border-line-glass/40 bg-transparent px-3 py-2 text-sm text-input-text focus:border-accent-500 focus:outline-none"
+              {!isMatterScoped ? (
+                <div className="space-y-4">
+                  <Combobox
+                    label="Person"
+                    value={clientId}
+                    onChange={handleClientChange}
+                    options={clientOptions}
+                    placeholder="Choose a person"
+                  />
+                  <Combobox
+                    label="Matter (optional)"
+                    value={matterId}
+                    onChange={setMatterId}
+                    options={matterOptions.filter((option) => {
+                      if (!clientId) return true;
+                      const clientMatch = typeof option.meta === 'string' ? option.meta : null;
+                      return !clientMatch || clientMatch === clientId;
+                    }).map((option) => ({
+                      value: option.value,
+                      label: option.label,
+                    }))}
+                    placeholder={clientId ? 'Link a matter' : 'Choose a person first'}
+                    disabled={!clientId}
+                    clearable
+                  />
+                  <Combobox
+                    label="Invoice type"
                   value={invoiceType}
-                  onChange={(event) => setInvoiceType(event.currentTarget.value as Invoice['invoice_type'])}
-                >
-                  <option value="flat_fee">Flat fee</option>
-                  <option value="hourly">Hourly</option>
-                  <option value="phase_fee">Milestone / phase fee</option>
-                  <option value="retainer_deposit">Retainer deposit</option>
-                  <option value="contingency">Contingency fee</option>
-                </select>
-                <p className="mt-1 text-xs text-input-placeholder">
-                  Choose how this invoice should be categorized for billing.
-                </p>
+                  onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
+                  options={INVOICE_TYPE_OPTIONS}
+                  searchable={false}
+                  clearable={false}
+                />
               </div>
+            ) : (
+                <Combobox
+                  label="Invoice type"
+                  value={invoiceType}
+                  onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
+                  options={INVOICE_TYPE_OPTIONS}
+                  searchable={false}
+                  clearable={false}
+                />
+              )}
+              <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
               <Input
                 label="Due date"
                 type="date"
@@ -272,13 +333,18 @@ export const InvoiceBuilder = ({
             </div>
           </div>
 
-          <div className="min-h-0 overflow-y-auto border-l border-line-glass/30 bg-surface/50 p-6">
+          <div className="min-h-0 overflow-y-auto">
             <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
-            <InvoicePreview matter={matter} lineItems={lineItems} dueDate={dueDate} />
+            <InvoicePreview
+              title={previewTitle}
+              referenceLabel={previewReferenceLabel}
+              lineItems={lineItems}
+              dueDate={dueDate}
+            />
           </div>
         </div>
 
-        <footer className="flex flex-col gap-3 border-t border-line-glass/30 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <footer className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-sm font-semibold text-input-text">
             Total: {formatCurrency(total)}
           </p>
@@ -289,6 +355,9 @@ export const InvoiceBuilder = ({
             </div>
           ) : null}
           <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={isSaving || isSending}>
+              Cancel
+            </Button>
             <Button variant="secondary" onClick={() => void handleSaveDraft()} disabled={disableActions}>
               {isSaving ? 'Saving...' : 'Save draft'}
             </Button>

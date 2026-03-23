@@ -5,6 +5,7 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { Breadcrumbs } from '@/shared/ui/navigation';
@@ -39,7 +40,6 @@ import { MatterExpensesPanel } from '@/features/matters/components/expenses/Matt
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
-import { InvoiceBuilder } from '@/features/matters/components/billing/InvoiceBuilder';
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
 import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
@@ -79,9 +79,10 @@ import {
   updateMatterTask,
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
-import { getInvoice, sendInvoice, syncInvoice, voidInvoice as voidInvoiceRequest } from '@/features/matters/services/invoicesApi';
+import { sendInvoice, syncInvoice, voidInvoice as voidInvoiceRequest } from '@/features/matters/services/invoicesApi';
 import { useBillingData } from '@/features/matters/hooks/useBillingData';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
+import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
@@ -129,22 +130,18 @@ const resolveQueryValue = (value?: string | string[] | null) => {
 // ---------------------------------------------------------------------------
 
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
-  <div className="flex h-full items-center justify-center p-8">
-    <div className="max-w-md text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.12]">
-        <Icon icon={FolderIcon} className="h-6 w-6 text-input-text/70" aria-hidden="true"  />
-      </div>
-      <h3 className="mt-4 text-sm font-semibold text-input-text">No matters yet</h3>
-      <p className="mt-2 text-sm text-input-placeholder">
-        Create your first matter to start tracking progress and milestones.
-      </p>
-      <div className="mt-6 flex justify-center">
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={onCreate} disabled={disableCreate}>
-          Add Matter
-        </Button>
-      </div>
-    </div>
-  </div>
+  <WorkspacePlaceholderState
+    icon={FolderIcon}
+    title="No matters yet"
+    description="Create your first matter to start tracking progress and milestones."
+    primaryAction={{
+      label: 'New Matter',
+      onClick: onCreate,
+      disabled: disableCreate,
+      icon: PlusIcon,
+    }}
+    className="p-8"
+  />
 );
 
 const LoadingState = ({ message }: { message: string }) => (
@@ -262,6 +259,7 @@ type PracticeMattersPageProps = {
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
   detailHeaderRightControl?: ComponentChildren;
+  detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 };
 
@@ -275,6 +273,7 @@ export const PracticeMattersPage = ({
   prefetchedError = null,
   onRefetchList,
   detailHeaderRightControl,
+  detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: PracticeMattersPageProps) => {
   const location = useLocation();
@@ -309,6 +308,9 @@ export const PracticeMattersPage = ({
   const conversationBasePath = basePath.endsWith('/matters')
     ? basePath.replace(/\/matters$/, '/conversations')
     : '/practice/conversations';
+  const invoicesBasePath = useMemo(() => {
+    return basePath.replace(/\/matters(?:\/.*)?$/, '/invoices');
+  }, [basePath]);
 
   // ── External hooks ────────────────────────────────────────────────────────
   const { getMembers, fetchMembers } = usePracticeManagement({
@@ -359,18 +361,6 @@ export const PracticeMattersPage = ({
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
-  const [isInvoiceBuilderOpen, setIsInvoiceBuilderOpen] = useState(false);
-  const [invoiceSeedItems, setInvoiceSeedItems] = useState<InvoiceLineItem[]>([]);
-  const [isInvoiceEditMode, setIsInvoiceEditMode] = useState(false);
-  const [invoiceFormDefaults, setInvoiceFormDefaults] = useState<{
-    dueDate?: string;
-    notes?: string;
-    memo?: string;
-    invoiceType?: Invoice['invoice_type'];
-  }>({});
-  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
-  const [invoiceContext, setInvoiceContext] = useState<'default' | 'milestone' | 'retainer'>('default');
-  const [milestoneToComplete, setMilestoneToComplete] = useState<MatterDetail['milestones'][number] | null>(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementDraft, setSettlementDraft] = useState<MajorAmount | undefined>(undefined);
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
@@ -1471,32 +1461,33 @@ export const PracticeMattersPage = ({
     invoiceType?: Invoice['invoice_type'];
   };
 
-  const openInvoiceBuilderWithItems = useCallback((
+  const navigateToInvoiceCreate = useCallback((
     items?: InvoiceLineItem[],
     options?: InvoiceLaunchOptions
   ) => {
-    setInvoiceSeedItems(items ?? prefilledInvoiceLineItems);
-    setMilestoneToComplete(options?.milestone ?? null);
-    setIsInvoiceEditMode(false);
-    setInvoiceContext(options?.context ?? 'default');
-    setInvoiceFormDefaults(options?.invoiceType ? { invoiceType: options.invoiceType } : {});
-    setEditingInvoiceId(null);
-    setIsInvoiceBuilderOpen(true);
-  }, [prefilledInvoiceLineItems]);
-
-  const closeInvoiceBuilder = useCallback(() => {
-    setIsInvoiceBuilderOpen(false);
-    setInvoiceSeedItems([]);
-    setInvoiceFormDefaults({});
-    setEditingInvoiceId(null);
-    setIsInvoiceEditMode(false);
-    setInvoiceContext('default');
-    setMilestoneToComplete(null);
-  }, []);
+    if (!selectedMatterDetail) return;
+    const draftId = createPendingInvoiceDraftContext({
+      matterId: selectedMatterDetail.id,
+      clientId: selectedMatterDetail.clientId,
+      lineItems: items ?? prefilledInvoiceLineItems,
+      invoiceType: options?.invoiceType,
+      invoiceContext: options?.context ?? 'default',
+      milestoneToComplete: options?.milestone
+        ? {
+            id: options.milestone.id,
+            description: options.milestone.description,
+            amount: options.milestone.amount,
+            dueDate: options.milestone.dueDate,
+          }
+        : null,
+      returnPath: location.path,
+      returnLabel: 'Back to matter',
+    });
+    navigate(`${invoicesBasePath}/new?draft=${encodeURIComponent(draftId)}`);
+  }, [invoicesBasePath, location.path, navigate, prefilledInvoiceLineItems, selectedMatterDetail]);
 
   const handleCreateInvoiceFromSummary = useCallback(() => {
     if (!selectedMatterDetail) {
-      openInvoiceBuilderWithItems(prefilledInvoiceLineItems);
       return;
     }
 
@@ -1509,7 +1500,7 @@ export const PracticeMattersPage = ({
         return;
       }
       const fee = asMajor((settlement * percent) / 100);
-      openInvoiceBuilderWithItems([{
+      navigateToInvoiceCreate([{
         id: crypto.randomUUID(),
         type: 'service',
         description: `Contingency fee (${percent}% of ${formatCurrency(settlement)} settlement)`,
@@ -1522,7 +1513,7 @@ export const PracticeMattersPage = ({
 
     if (selectedMatterDetail.billingType === 'fixed' && selectedMatterDetail.paymentFrequency === 'project') {
       const fixedTotal = selectedMatterDetail.totalFixedPrice ?? asMajor(0);
-      openInvoiceBuilderWithItems([{
+      navigateToInvoiceCreate([{
         id: crypto.randomUUID(),
         type: 'flat_fee',
         description: `${selectedMatterDetail.title} - Fixed project fee`,
@@ -1533,30 +1524,12 @@ export const PracticeMattersPage = ({
       return;
     }
 
-    openInvoiceBuilderWithItems(prefilledInvoiceLineItems);
-  }, [selectedMatterDetail, openInvoiceBuilderWithItems, prefilledInvoiceLineItems]);
+    navigateToInvoiceCreate(prefilledInvoiceLineItems);
+  }, [selectedMatterDetail, navigateToInvoiceCreate, prefilledInvoiceLineItems]);
 
-  const handleEditDraftInvoice = useCallback(async (invoice: Invoice) => {
-    if (!activePracticeId) return;
-    try {
-      const detail = await getInvoice(activePracticeId, invoice.id);
-      if (!detail) throw new Error('Invoice not found');
-      setInvoiceSeedItems(detail.line_items ?? []);
-      setInvoiceFormDefaults({
-        dueDate: detail.due_date ? detail.due_date.split('T')[0] : undefined,
-        notes: detail.notes ?? '',
-        memo: detail.memo ?? '',
-        invoiceType: detail.invoice_type
-      });
-      setIsInvoiceEditMode(true);
-      setInvoiceContext('default');
-      setEditingInvoiceId(detail.id);
-      setMilestoneToComplete(null);
-      setIsInvoiceBuilderOpen(true);
-    } catch (error) {
-      showError('Could not load invoice', error instanceof Error ? error.message : 'Please try again.');
-    }
-  }, [activePracticeId, showError]);
+  const handleEditDraftInvoice = useCallback((invoice: Invoice) => {
+    navigate(`${invoicesBasePath}/${encodeURIComponent(invoice.id)}`);
+  }, [invoicesBasePath, navigate]);
 
   const handleCreateMilestoneInvoice = useCallback((milestoneId: string) => {
     if (!selectedMatterDetail) return;
@@ -1570,12 +1543,12 @@ export const PracticeMattersPage = ({
       unit_price: milestone.amount,
       line_total: milestone.amount
     }];
-    openInvoiceBuilderWithItems(items, {
+    navigateToInvoiceCreate(items, {
       milestone,
       context: 'milestone',
       invoiceType: 'phase_fee'
     });
-  }, [openInvoiceBuilderWithItems, selectedMatterDetail]);
+  }, [navigateToInvoiceCreate, selectedMatterDetail]);
 
   const handleOpenSettlementModal = useCallback(() => {
     setSettlementDraft(selectedMatterDetail?.settlementAmount);
@@ -1608,11 +1581,11 @@ export const PracticeMattersPage = ({
         unit_price: fee,
         line_total: fee
       }];
-      openInvoiceBuilderWithItems(items, { invoiceType: 'contingency' });
+      navigateToInvoiceCreate(items, { invoiceType: 'contingency' });
     } catch (error) {
       showError('Could not save settlement amount', error instanceof Error ? error.message : 'Please try again.');
     }
-  }, [activePracticeId, selectedMatterId, settlementDraft, selectedMatterDetail, openInvoiceBuilderWithItems, refreshMatters, showError]);
+  }, [activePracticeId, selectedMatterId, settlementDraft, selectedMatterDetail, navigateToInvoiceCreate, refreshMatters, showError]);
 
   const handleSendInvoice = useCallback(async (invoice: Invoice) => {
     if (!activePracticeId) return;
@@ -1667,32 +1640,6 @@ export const PracticeMattersPage = ({
       showError('Could not void invoice', error instanceof Error ? error.message : 'Please try again.');
     }
   }, [activePracticeId, refetchBilling, showError]);
-
-  const handleInvoiceBuilderSuccess = useCallback(async () => {
-    const milestoneSnapshot = milestoneToComplete;
-    if (milestoneSnapshot?.id && activePracticeId && selectedMatterId) {
-      try {
-        if (import.meta.env.DEV) {
-          console.info('[Billing][Milestone] Marking milestone as invoiced', {
-            milestoneId: milestoneSnapshot.id
-          });
-        }
-        await updateMatterMilestone(activePracticeId, selectedMatterId, milestoneSnapshot.id, {
-          description: milestoneSnapshot.description,
-          amount: milestoneSnapshot.amount,
-          due_date: milestoneSnapshot.dueDate,
-          status: 'completed'
-        });
-      } catch (error) {
-        showError('Invoice created, but milestone status was not updated', error instanceof Error ? error.message : 'Please refresh and try again.');
-      }
-    }
-    await Promise.all([
-      refetchBilling(),
-      refreshMilestones()
-    ]);
-    closeInvoiceBuilder();
-  }, [milestoneToComplete, activePracticeId, selectedMatterId, refetchBilling, refreshMilestones, showError, closeInvoiceBuilder]);
 
   // ── Patch matter — partial update from inline field groups ───────────────
   const handlePatchMatter = useCallback(async (patch: Partial<MatterFormState>) => {
@@ -1772,7 +1719,6 @@ export const PracticeMattersPage = ({
             subtitle={convertIntakeUuid
               ? 'Finalize intake details and convert this intake into a new matter.'
               : 'Capture matter details, billing structure, and assignment in one place.'}
-            actions={<Button size="sm" variant="secondary" onClick={goToList}>Back to matters</Button>}
           />
           {convertError && <ErrorBanner>{convertError}</ErrorBanner>}
           {convertIntakeUuid && convertLoading && !convertInitialValues ? (
@@ -1840,6 +1786,7 @@ export const PracticeMattersPage = ({
               title="Matter details"
               showBack={showDetailBackButton}
               onBack={goToList}
+              leadingAction={detailHeaderLeadingAction}
               actions={matterDetailHeaderActions}
             />
             {detailHeaderMeta ? (
@@ -2240,25 +2187,6 @@ export const PracticeMattersPage = ({
           </Modal>
         )}
 
-        {isInvoiceBuilderOpen && selectedMatterDetail && activePracticeId ? (
-          <InvoiceBuilder
-            key={isInvoiceEditMode ? (editingInvoiceId ?? 'edit') : 'new'}
-            practiceId={activePracticeId}
-            matter={selectedMatterDetail}
-            connectedAccountId={connectedAccountId}
-            initialLineItems={invoiceSeedItems}
-            initialDueDate={invoiceFormDefaults.dueDate}
-            initialNotes={invoiceFormDefaults.notes}
-            initialMemo={invoiceFormDefaults.memo}
-            initialInvoiceType={invoiceFormDefaults.invoiceType}
-            editMode={isInvoiceEditMode}
-            existingInvoiceId={editingInvoiceId ?? undefined}
-            invoiceContext={invoiceContext}
-            onClose={closeInvoiceBuilder}
-            onSuccess={handleInvoiceBuilderSuccess}
-          />
-        ) : null}
-
         {isSettlementModalOpen ? (
           <Modal
             isOpen={isSettlementModalOpen}
@@ -2303,56 +2231,13 @@ export const PracticeMattersPage = ({
   if (renderMode === 'listOnly') {
     return (
       <div className="h-full min-h-0 flex flex-col gap-2">
-        {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-          <EntityList
-            items={sortedMatterSummaries}
-            renderItem={(matter, isSelected) => (
-              <MatterListItem
-                matter={matter}
-                isSelected={isSelected}
-                onSelect={(selected) => goToDetail(selected.id)}
-              />
-            )}
-            onSelect={(matter) => goToDetail(matter.id)}
-            selectedId={selectedMatterId ?? undefined}
-            isLoading={mattersLoading}
-            isLoadingMore={mattersLoadingMore}
-            error={mattersError}
-            emptyState={<div className="p-4 text-sm text-input-placeholder">No matters found.</div>}
-          />
-        </Panel>
-      </div>
-    );
-  }
-
-  return (
-    <Page className="min-h-full">
-      <div className="max-w-6xl mx-auto flex flex-col gap-6">
-        <PageHeader
-          title="Matters"
-          subtitle="Track matter progress, people updates, and case milestones."
-          actions={
-            <Button
-              size="sm"
-              icon={PlusIcon} iconClassName="h-4 w-4"
-              onClick={() => navigate(`${basePath}/new`)}
-              disabled={!activePracticeId}
-            >
-              Create Matter
-            </Button>
-          }
-        />
-
         {isClientListTruncated && (
           <WarningBanner>
             <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
           </WarningBanner>
         )}
-
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-
-        <Panel className="list-panel-card-gradient overflow-hidden">
+        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
           <EntityList
             items={sortedMatterSummaries}
             renderItem={(matter, isSelected) => (
@@ -2371,6 +2256,37 @@ export const PracticeMattersPage = ({
           />
         </Panel>
       </div>
-    </Page>
+    );
+  }
+
+  return (
+    <div className="min-h-0 flex flex-1 flex-col gap-2 p-4 sm:p-6">
+      {isClientListTruncated && (
+        <WarningBanner>
+          <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
+        </WarningBanner>
+      )}
+
+      {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
+
+      <Panel className="list-panel-card-gradient overflow-hidden">
+        <EntityList
+          items={sortedMatterSummaries}
+          renderItem={(matter, isSelected) => (
+            <MatterListItem
+              matter={matter}
+              isSelected={isSelected}
+              onSelect={(selected) => goToDetail(selected.id)}
+            />
+          )}
+          onSelect={(matter) => goToDetail(matter.id)}
+          selectedId={selectedMatterId ?? undefined}
+          isLoading={mattersLoading}
+          isLoadingMore={mattersLoadingMore}
+          error={mattersError}
+          emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />}
+        />
+      </Panel>
+    </div>
   );
 };

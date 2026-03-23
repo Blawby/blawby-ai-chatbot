@@ -1,9 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
-import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { ActivityTimeline, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
@@ -534,14 +532,8 @@ export const ClientMattersPage = ({
   }
 
   return (
-    <Page className="min-h-full">
-      <div className="max-w-6xl mx-auto flex flex-col gap-6">
-        <PageHeader
-          title="Matters"
-          subtitle="Track your matter status, tasks, and related conversations."
-        />
-        {listContent}
-      </div>
-    </Page>
+    <div className="min-h-0 flex flex-1 flex-col gap-2 p-4 sm:p-6">
+      {listContent}
+    </div>
   );
 };

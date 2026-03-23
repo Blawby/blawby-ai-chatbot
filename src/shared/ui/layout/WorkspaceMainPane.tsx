@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import type { LayoutMode } from '@/app/MainApp';
+import { WorkspacePlaceholderState, type WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 
@@ -11,6 +12,7 @@ type WorkspaceView =
   | 'matters'
   | 'clients'
   | 'invoices'
+  | 'invoiceCreate'
   | 'invoiceDetail'
   | 'reports'
   | 'settings';
@@ -26,23 +28,26 @@ type WorkspaceMainPaneProps = {
   content: ComponentChildren;
   topBar?: ComponentChildren;
   bottomNav?: ComponentChildren;
+  sectionPlaceholderAction?: WorkspacePlaceholderAction;
 };
 
 const SectionPlaceholder = ({
   titleKey,
   descriptionKey,
+  action,
 }: {
   titleKey: string;
   descriptionKey: string;
+  action?: WorkspacePlaceholderAction;
 }) => {
   const { t } = useTranslation();
   return (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center">
-        <h3 className="text-sm font-semibold text-input-text">{t(titleKey)}</h3>
-        <p className="mt-2 text-sm text-input-placeholder">{t(descriptionKey)}</p>
-      </div>
-    </div>
+    <WorkspacePlaceholderState
+      title={t(titleKey)}
+      description={t(descriptionKey)}
+      primaryAction={action}
+      className="p-8"
+    />
   );
 };
 
@@ -57,6 +62,7 @@ export function WorkspaceMainPane({
   content,
   topBar,
   bottomNav,
+  sectionPlaceholderAction,
 }: WorkspaceMainPaneProps) {
   const isDesktop = layoutMode === 'desktop';
   const isDesktopWorkspace = isPracticeWorkspace || isClientWorkspace;
@@ -88,6 +94,7 @@ export function WorkspaceMainPane({
           <SectionPlaceholder
             titleKey="workspace.empty.matter.title"
             descriptionKey="workspace.empty.matter.description"
+            action={sectionPlaceholderAction}
           />
         )
       : isDesktopClientsShell || isDesktopReportsShell
@@ -107,6 +114,7 @@ export function WorkspaceMainPane({
             <SectionPlaceholder
               titleKey="workspace.empty.invoice.title"
               descriptionKey="workspace.empty.invoice.description"
+              action={sectionPlaceholderAction}
             />
           )
       : (

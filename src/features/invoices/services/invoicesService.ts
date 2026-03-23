@@ -1,6 +1,7 @@
 import { apiClient } from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import {
+  createInvoice as createMatterInvoice,
   listInvoices as listMatterInvoices,
   sendInvoice as sendMatterInvoice,
   syncInvoice as syncMatterInvoice,
@@ -203,6 +204,14 @@ export const getClientInvoice = async (
   }
 
   return normalizeInvoiceDetail(invoice, rawInvoice, { refundRequests, refundRequestSupported, refundRequestError });
+};
+
+export const createInvoice = async (
+  practiceId: string,
+  payload: CreateInvoicePayload,
+  options: FetchOptions = {}
+) => {
+  return createMatterInvoice(practiceId, payload, options);
 };
 
 export const sendInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}) => {

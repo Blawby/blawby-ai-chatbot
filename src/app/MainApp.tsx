@@ -30,9 +30,11 @@ const PracticeMattersPage = lazy(() => import('@/features/matters/pages/Practice
 const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
 const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
+const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then(m => ({ default: m.PracticeInvoiceCreatePage })));
 const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
+const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
@@ -49,13 +51,14 @@ import {
 } from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -202,6 +205,12 @@ export function MainApp({
     if (!slug) return null;
     return `/client/${encodeURIComponent(slug)}/matters`;
   }, [clientPracticeSlug, isClientWorkspace, resolvedClientPracticeSlug]);
+  const practiceInvoicesPath = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const slug = effectivePracticeSlug ?? practiceSlug ?? resolvedPracticeSlug;
+    if (!slug) return null;
+    return `/practice/${encodeURIComponent(slug)}/invoices`;
+  }, [effectivePracticeSlug, isPracticeWorkspace, practiceSlug, resolvedPracticeSlug]);
 
   useEffect(() => {
     initializeAccentColor(fullAccentColor);
@@ -883,7 +892,7 @@ export function MainApp({
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
-            ? (statusFilter, prefetchData, detailHeaderRightControl) => (
+            ? (statusFilter, prefetchData, detailHeaderRightControl, detailHeaderLeadingAction) => (
               <Suspense fallback={<WorkspaceSubviewFallback />}>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
@@ -895,6 +904,7 @@ export function MainApp({
                   prefetchedError={prefetchData?.mattersData?.error}
                   onRefetchList={prefetchData?.mattersData?.refetch}
                   detailHeaderRightControl={detailHeaderRightControl}
+                  detailHeaderLeadingAction={detailHeaderLeadingAction}
                   showDetailBackButton={showWorkspaceDetailBack}
                 />
               </Suspense>
@@ -959,7 +969,7 @@ export function MainApp({
           : undefined
       }
       clientsView={isPracticeWorkspace && practiceClientsPath != null
-        ? (statusFilter, prefetchData, detailHeaderRightControl) => (
+        ? (statusFilter, prefetchData, detailHeaderRightControl, detailHeaderLeadingAction) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
             <PracticeClientsPage
               practiceId={effectivePracticeId ?? practiceId}
@@ -971,6 +981,7 @@ export function MainApp({
               prefetchedError={prefetchData?.clientsData?.error}
               onRefetchList={prefetchData?.clientsData?.refetch}
               detailHeaderRightControl={detailHeaderRightControl}
+              detailHeaderLeadingAction={detailHeaderLeadingAction}
               showDetailBackButton={showWorkspaceDetailBack}
             />
           </Suspense>
@@ -996,23 +1007,30 @@ export function MainApp({
         : undefined}
       invoicesView={
         isPracticeWorkspace
-          ? (statusFilter, detailHeaderRightControl) => (
+          ? (statusFilter, detailHeaderRightControl, detailHeaderLeadingAction) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
                   practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={effectivePracticeSlug ?? null}
                   invoiceId={routeInvoiceId ?? null}
+                  leadingAction={detailHeaderLeadingAction}
                   headerActions={detailHeaderRightControl}
                   showBack={showPracticeInvoiceDetailBack}
                 />
+              ) : resolvedWorkspaceView === 'invoiceCreate' ? (
+                <PracticeInvoiceCreatePage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={effectivePracticeSlug ?? null}
+                />
               ) : (
-                  <PracticeInvoicesPage
-                    practiceId={effectivePracticeId ?? practiceId}
-                    practiceSlug={effectivePracticeSlug ?? null}
-                    statusFilter={statusFilter}
-                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
-                  />
+                <PracticeInvoicesPage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={effectivePracticeSlug ?? null}
+                  statusFilter={statusFilter}
+                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                />
               )}
             </Suspense>
           )
@@ -1050,6 +1068,7 @@ export function MainApp({
                   practiceSlug={effectivePracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
                 />
               ) : (
                 <ClientInvoicesPage
@@ -1063,6 +1082,36 @@ export function MainApp({
             </Suspense>
           )
           : undefined
+      }
+      reportsView={
+        isPracticeWorkspace
+          ? (reportTitle) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <PracticeReportsPage title={reportTitle} />
+            </Suspense>
+          )
+          : undefined
+      }
+      primaryCreateAction={
+        resolvedWorkspaceView === 'matters' && isPracticeWorkspace && practiceMattersPath
+          ? {
+              label: 'New Matter',
+              onClick: () => navigate(`${practiceMattersPath}/new`),
+              icon: PlusIcon,
+            }
+          : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
+            ? {
+                label: 'New Invoice',
+                onClick: () => navigate(`${practiceInvoicesPath}/new`),
+                icon: PlusIcon,
+              }
+          : resolvedWorkspaceView === 'clients' && isPracticeWorkspace && practiceClientsPath
+            ? {
+                label: 'New Person',
+                onClick: () => navigate(`${practiceClientsPath}?create=1`),
+                icon: PlusIcon,
+              }
+            : null
       }
     />
   );

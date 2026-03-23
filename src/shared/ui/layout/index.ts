@@ -16,6 +16,7 @@ export { BottomBar } from './BottomBar';
 export { FormGrid } from './FormGrid';
 export { DetailHeader } from './DetailHeader';
 export { WorkspaceListHeader } from './WorkspaceListHeader';
+export { WorkspacePlaceholderState } from './WorkspacePlaceholderState';
 
 export type { IconContainerProps } from './IconContainer';
 export type { LoadingBlockProps } from './LoadingBlock';
@@ -28,3 +29,4 @@ export type { DetailHeaderProps } from './DetailHeader';
 export type { ContentHeaderProps } from './ContentHeader';
 export type { ContentPageLayoutProps } from './ContentPageLayout';
 export type { WorkspaceListHeaderProps } from './WorkspaceListHeader';
+export type { WorkspacePlaceholderAction } from './WorkspacePlaceholderState';
