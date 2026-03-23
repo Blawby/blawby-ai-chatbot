@@ -19,7 +19,9 @@ export const InvoicePreview = ({
   dueDate
 }: InvoicePreviewProps) => {
   const subtotal = lineItems.reduce((sum, item) => sum + getMajorAmountValue(item.line_total), 0);
-  const resolvedIssueDate = issueDate instanceof Date ? issueDate.toISOString() : issueDate;
+  const resolvedIssueDate = issueDate instanceof Date
+    ? `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}-${String(issueDate.getDate()).padStart(2, '0')}`
+    : issueDate;
 
   return (
     <div className="mx-auto min-h-[700px] w-full max-w-[794px] rounded-xl border border-line-glass/30 bg-white p-8 text-gray-900 shadow-sm">

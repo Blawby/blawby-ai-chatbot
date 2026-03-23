@@ -27,6 +27,7 @@ type InvoiceBuilderProps = {
   editMode?: boolean;
   invoiceContext?: 'default' | 'milestone' | 'retainer';
   existingInvoiceId?: string;
+  closeAfterSuccess?: boolean;
   onClose: () => void;
   onSuccess: (invoiceId?: string | null) => Promise<void> | void;
 };
@@ -112,6 +113,7 @@ export const InvoiceBuilder = ({
   editMode = false,
   invoiceContext = 'default',
   existingInvoiceId,
+  closeAfterSuccess = true,
   onClose,
   onSuccess
 }: InvoiceBuilderProps) => {
@@ -217,6 +219,13 @@ export const InvoiceBuilder = ({
     line_items: lineItems
   });
 
+  const finalizeSuccess = async (invoiceId: string | null) => {
+    await onSuccess(invoiceId);
+    if (closeAfterSuccess) {
+      onClose();
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!resolvedClientId) {
       showError('Could not save invoice', 'Choose a person before creating the invoice.');
@@ -226,15 +235,16 @@ export const InvoiceBuilder = ({
     setIsSaving(true);
     setSendError(null);
     try {
-      let nextInvoiceId: string | null = existingInvoiceId ?? createdInvoiceId;
-      if (editMode && existingInvoiceId) {
+      const targetInvoiceId = existingInvoiceId ?? createdInvoiceId;
+      let nextInvoiceId: string | null = targetInvoiceId;
+      if (targetInvoiceId) {
         const payload = currentUpdatePayload;
         logInvoiceAction('update-draft', {
-          invoiceId: existingInvoiceId,
+          invoiceId: targetInvoiceId,
           invoiceType: payload.invoice_type
         });
-        const updated = await updateInvoice(practiceId, existingInvoiceId, payload);
-        nextInvoiceId = updated?.id ?? existingInvoiceId;
+        const updated = await updateInvoice(practiceId, targetInvoiceId, payload);
+        nextInvoiceId = updated?.id ?? targetInvoiceId;
         setCreatedInvoiceId(nextInvoiceId);
         setLastPersistedSnapshot(currentUpdateSnapshot);
       } else {
@@ -249,8 +259,7 @@ export const InvoiceBuilder = ({
         setCreatedInvoiceId(nextInvoiceId);
         setLastPersistedSnapshot(currentUpdateSnapshot);
       }
-      await onSuccess(nextInvoiceId);
-      onClose();
+      await finalizeSuccess(nextInvoiceId);
     } catch (error) {
       showError('Could not save invoice', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -308,8 +317,7 @@ export const InvoiceBuilder = ({
 
       logInvoiceAction('send', { invoiceId, invoiceType });
       await sendInvoice(practiceId, invoiceId);
-      await onSuccess(invoiceId);
-      onClose();
+      await finalizeSuccess(invoiceId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send invoice';
       setSendError(

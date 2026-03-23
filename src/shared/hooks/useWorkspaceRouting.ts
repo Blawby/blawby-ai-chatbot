@@ -26,7 +26,7 @@
  *  isAuthenticatedClient   – public workspace + authenticated client role
  *
  *  effectivePracticeId     – the practiceId to use for API calls
- *  effectivePracticeSlug   – resolved slug, preferring explicit prop
+ *  resolvedPracticeSlug    – canonical practice slug after fallback resolution
  *
  *  resolvedPracticeName    – display name (live practice > config fallback)
  *  resolvedPracticeLogo    – logo URL (live practice > config fallback)
@@ -171,8 +171,6 @@ export const useWorkspaceRouting = ({
     [currentPractice?.slug, practiceConfig?.slug, practiceSlug]
   );
 
-  const effectivePracticeSlug = practiceSlug ?? resolvedPracticeSlug ?? null;
-
   // ── effective practice ID ──────────────────────────────────────────────────
 
   /**
@@ -260,13 +258,13 @@ export const useWorkspaceRouting = ({
   }, [conversationsBasePath, isPublicWorkspace, resolvedPublicPracticeSlug]);
 
   const practiceMattersPath = useMemo(
-    () => getWorkspaceMattersPath('practice', effectivePracticeSlug),
-    [effectivePracticeSlug]
+    () => getWorkspaceMattersPath('practice', resolvedPracticeSlug ?? null),
+    [resolvedPracticeSlug]
   );
   
   const practiceClientsPath = useMemo(
-    () => getWorkspaceClientsPath('practice', effectivePracticeSlug),
-    [effectivePracticeSlug]
+    () => getWorkspaceClientsPath('practice', resolvedPracticeSlug ?? null),
+    [resolvedPracticeSlug]
   );
 
   // ── layout mode ───────────────────────────────────────────────────────────
@@ -340,7 +338,6 @@ export const useWorkspaceRouting = ({
 
     // IDs & slugs
     effectivePracticeId,
-    effectivePracticeSlug,
     resolvedPracticeSlug,
     resolvedPublicPracticeSlug,
     resolvedClientPracticeSlug,

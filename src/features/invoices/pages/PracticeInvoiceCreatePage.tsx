@@ -84,6 +84,7 @@ export function PracticeInvoiceCreatePage({
     return `/practice/${encodeURIComponent(practiceSlug)}/invoices`;
   }, [practiceSlug]);
   const returnPath = draftContext?.returnPath?.trim() || invoicesPath;
+  const breadcrumbLabel = draftContext?.returnLabel?.trim() || 'Invoices';
   const pageSubtitle = draftContext?.matterId
     ? 'Draft a new invoice for this matter, review the preview, and send it when ready.'
     : 'Draft a new invoice, choose who it belongs to, and optionally link it to a matter.';
@@ -180,7 +181,7 @@ export function PracticeInvoiceCreatePage({
     <Page className="min-h-full">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <Breadcrumbs
-          items={[{ label: 'Invoices', href: returnPath ?? undefined }, { label: 'Create invoice' }]}
+          items={[{ label: breadcrumbLabel, href: returnPath ?? undefined }, { label: 'Create invoice' }]}
           onNavigate={navigate}
         />
         <PageHeader
@@ -212,6 +213,7 @@ export function PracticeInvoiceCreatePage({
             invoiceContext={draftContext?.invoiceContext ?? 'default'}
             onClose={handleBackToInvoices}
             onSuccess={handleCreated}
+            closeAfterSuccess={false}
           />
         )}
       </div>

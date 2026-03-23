@@ -878,7 +878,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       ? `${trimmedContent.slice(0, 90)}…`
       : trimmedContent;
     const timestampLabel = candidate.timestamp
-      ? formatRelativeTime(new Date(candidate.timestamp).toISOString())
+      ? formatRelativeTime(new Date(candidate.timestamp))
       : '';
     return {
       preview,

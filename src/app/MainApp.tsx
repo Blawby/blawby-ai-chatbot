@@ -168,7 +168,6 @@ export function MainApp({
     isPracticeWorkspace,
     isClientWorkspace,
     effectivePracticeId,
-    effectivePracticeSlug,
     resolvedPracticeSlug,
     resolvedPublicPracticeSlug,
     resolvedClientPracticeSlug,
@@ -207,10 +206,10 @@ export function MainApp({
   }, [clientPracticeSlug, isClientWorkspace, resolvedClientPracticeSlug]);
   const practiceInvoicesPath = useMemo(() => {
     if (!isPracticeWorkspace) return null;
-    const slug = effectivePracticeSlug ?? practiceSlug ?? resolvedPracticeSlug;
+    const slug = resolvedPracticeSlug;
     if (!slug) return null;
     return `/practice/${encodeURIComponent(slug)}/invoices`;
-  }, [effectivePracticeSlug, isPracticeWorkspace, practiceSlug, resolvedPracticeSlug]);
+  }, [isPracticeWorkspace, resolvedPracticeSlug]);
 
   useEffect(() => {
     initializeAccentColor(fullAccentColor);
@@ -667,7 +666,7 @@ export function MainApp({
     if (headerPresenceStatus === 'active') return 'Active';
     const lastTimestamp = [...filteredMessagesForHeader].reverse().find(m => typeof m.timestamp === 'number')?.timestamp;
     if (!lastTimestamp) return 'Inactive';
-    const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
+    const relative = formatRelativeTime(new Date(lastTimestamp));
     return relative ? `Active ${relative}` : 'Inactive';
   }, [filteredMessagesForHeader, headerPresenceStatus]);
 
@@ -746,8 +745,8 @@ export function MainApp({
     [layoutMode]
   );
   const showPracticeInvoiceDetailBack = useMemo(
-    () => shouldShowWorkspaceDetailBack(layoutMode, Boolean(effectivePracticeSlug)),
-    [effectivePracticeSlug, layoutMode]
+    () => shouldShowWorkspaceDetailBack(layoutMode, Boolean(resolvedPracticeSlug)),
+    [layoutMode, resolvedPracticeSlug]
   );
   const showClientInvoiceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode, Boolean((clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null)),
@@ -870,7 +869,7 @@ export function MainApp({
       practiceId={effectivePracticeId ?? practiceId}
       practiceSlug={
         isPracticeWorkspace
-          ? effectivePracticeSlug
+          ? (resolvedPracticeSlug ?? null)
           : isClientWorkspace
             ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
             : resolvedPublicPracticeSlug
@@ -1012,7 +1011,7 @@ export function MainApp({
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
                   practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={effectivePracticeSlug ?? null}
+                  practiceSlug={resolvedPracticeSlug ?? null}
                   invoiceId={routeInvoiceId ?? null}
                   leadingAction={detailHeaderLeadingAction}
                   headerActions={detailHeaderRightControl}
@@ -1021,12 +1020,12 @@ export function MainApp({
               ) : resolvedWorkspaceView === 'invoiceCreate' ? (
                 <PracticeInvoiceCreatePage
                   practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={effectivePracticeSlug ?? null}
+                  practiceSlug={resolvedPracticeSlug ?? null}
                 />
               ) : (
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={effectivePracticeSlug ?? null}
+                  practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                   onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
@@ -1065,7 +1064,7 @@ export function MainApp({
               {isPracticeWorkspace ? (
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={effectivePracticeSlug ?? null}
+                  practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
                   onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
@@ -1099,7 +1098,7 @@ export function MainApp({
               onClick: () => navigate(`${practiceMattersPath}/new`),
               icon: PlusIcon,
             }
-          : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
+          : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
             ? {
                 label: 'New Invoice',
                 onClick: () => navigate(`${practiceInvoicesPath}/new`),
