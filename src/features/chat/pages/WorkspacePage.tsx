@@ -8,7 +8,6 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
-import { WorkspaceSectionContent } from '@/features/chat/components/WorkspaceSectionContent';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
 import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
@@ -141,7 +140,6 @@ interface WorkspacePageProps {
     createdAt: string;
   }> | null;
   onSelectConversationOverride?: (conversationId: string) => void;
-  onCloseConversationListOverride?: () => void;
   intakeConversationState?: IntakeConversationState | null;
   intakeStatus?: DerivedIntakeStatus | null;
   onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: IntakeFieldChangeOptions) => Promise<void> | void;
@@ -198,7 +196,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   mockConversations = null,
   mockConversationPreviews = null,
   onSelectConversationOverride,
-  onCloseConversationListOverride,
   intakeConversationState,
   intakeStatus,
   onIntakeFieldsChange,
@@ -597,7 +594,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       matterOpposingCounsel: selectedMatter.opposing_counsel ?? null,
     };
   }, [clientsData?.items, selectedMatter]);
-  const showConversationListTitle = workspace === 'public';
   const isMobileLayout = layoutMode !== 'desktop';
 
   useEffect(() => {
@@ -748,14 +744,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       isMounted = false;
     };
   }, [mockConversationPreviews, mockConversations, practiceId, resolvedConversations, isSessionPending, session?.user?.id, view, workspace]);
-
-  const handleCloseConversationList = useCallback(() => {
-    if (onCloseConversationListOverride) {
-      onCloseConversationListOverride();
-      return;
-    }
-    navigate(withWidgetQuery(workspaceBasePath));
-  }, [navigate, onCloseConversationListOverride, withWidgetQuery, workspaceBasePath]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
@@ -1477,20 +1465,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       icon={InformationCircleIcon} iconClassName="h-5 w-5"
     />
   ) : null;
-  const mobileConversationHeaderLeftControl = layoutMode !== 'desktop' && mobileMenuButton
-    ? (
-      <div className="flex items-center gap-2">
-        {mobileMenuButton}
-      </div>
-    )
-    : undefined;
-  const mobileConversationHeaderRightControl = layoutMode !== 'desktop' && inspectorToggleButton
-    ? (
-      <div className="flex items-center gap-2">
-        {inspectorToggleButton}
-      </div>
-    )
-    : undefined;
   const workspacePrefetchData: WorkspacePrefetchData = {
     mattersData: mattersDataForView, // filtered for the list view
     clientsData,
@@ -1503,14 +1477,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceLogo={practiceLogo}
       isLoading={resolvedConversationsLoading}
       error={resolvedConversationsError}
-      onClose={handleCloseConversationList}
       onSelectConversation={handleSelectConversation}
       onSendMessage={() => handleStartConversation('ASK_QUESTION')}
       showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
       activeConversationId={activeConversationId}
-      showTitle={showConversationListTitle}
-      headerLeftControls={mobileConversationHeaderLeftControl}
-      assignedToFilter={conversationAssignedToFilter}
     />
   );
   const mattersContent = (typeof mattersView === 'function'
@@ -1612,16 +1582,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           practiceLogo={practiceLogo}
           isLoading={resolvedConversationsLoading}
           error={resolvedConversationsError}
-          onClose={handleCloseConversationList}
           onSelectConversation={handleSelectConversation}
           onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-          showBackButton={false}
           showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
           activeConversationId={activeConversationId}
-          showTitle={showConversationListTitle}
-          headerLeftControls={mobileConversationHeaderLeftControl}
-          headerControls={mobileConversationHeaderRightControl}
-          assignedToFilter={conversationAssignedToFilter}
         />
       </Panel>
     </div>
@@ -1629,23 +1593,33 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
-  const mobileSectionTopBar = layoutMode !== 'desktop' && mobileMenuButton && view !== 'list' && view !== 'conversation'
+  const mobileSectionTopBar = layoutMode !== 'desktop' && mobileMenuButton && view !== 'conversation'
     ? <div className="px-1 py-1">{mobileMenuButton}</div>
     : undefined;
-  const sectionContent = (
-    <WorkspaceSectionContent
-      view={view}
-      setupContent={setupContent}
-      homeContent={homeContent}
-      listContent={listContent}
-      mattersContent={mattersContent}
-      clientsContent={clientsContent}
-      invoicesContent={invoicesContent}
-      reportsContent={reportsContent}
-      settingsContent={settingsContent}
-      chatContent={chatContent}
-    />
-  );
+  const sectionContent = (() => {
+    switch (view) {
+      case 'setup':
+        return setupContent;
+      case 'home':
+        return homeContent;
+      case 'list':
+        return listContent;
+      case 'matters':
+        return mattersContent;
+      case 'clients':
+        return clientsContent;
+      case 'invoices':
+      case 'invoiceDetail':
+        return invoicesContent;
+      case 'reports':
+        return reportsContent;
+      case 'settings':
+        return settingsContent;
+      case 'conversation':
+      default:
+        return chatContent;
+    }
+  })();
   const unifiedMainShell = (
     <WorkspaceMainPane
       layoutMode={layoutMode}

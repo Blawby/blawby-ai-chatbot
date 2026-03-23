@@ -15,7 +15,7 @@ import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import ConversationListView from '@/features/chat/views/ConversationListView';
+import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
@@ -535,7 +535,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           </div>
         ) : view === 'list' ? (
             <div className="flex h-full flex-col overflow-hidden relative">
-              <ConversationListView
+              <WidgetConversationListView
                 conversations={conversations}
                 previews={previews}
                 practiceName={practiceConfig.name}
@@ -546,8 +546,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                    setView('chat');
                 }}
                 onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
-                showBackButton={false}
-                showTitle={true}
               />
             </div>
         ) : (

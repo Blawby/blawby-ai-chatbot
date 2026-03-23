@@ -1,8 +1,9 @@
 import { FunctionComponent } from 'preact';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
+import { WorkspaceListHeader } from '@/shared/ui/layout';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
@@ -15,7 +16,7 @@ interface ConversationPreview {
   createdAt: string;
 }
 
-interface ConversationListViewProps {
+interface WidgetConversationListViewProps {
   conversations: Conversation[];
   previews: Record<string, ConversationPreview | undefined>;
   practiceName?: string | null;
@@ -42,7 +43,7 @@ const resolveConversationTitle = (conversation: Conversation, fallback: string) 
   return fallback;
 };
 
-const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
+const WidgetConversationListView: FunctionComponent<WidgetConversationListViewProps> = ({
   conversations,
   previews,
   practiceName,
@@ -71,6 +72,11 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
 
   return (
     <div className="flex h-full flex-col bg-transparent">
+      <WorkspaceListHeader
+        title={<div className="workspace-header__title">{t('workspace.conversationList.title')}</div>}
+        isLoading={isLoading}
+      />
+
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
@@ -178,4 +184,4 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   );
 };
 
-export default ConversationListView;
+export default WidgetConversationListView;
