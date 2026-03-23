@@ -154,7 +154,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isLoadingRef = useRef(false);
     const loggedNoServerPaginationRef = useRef(false);
     const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
-    const currentUserName = session?.user?.name || session?.user?.email || 'You';
+    const sessionUserName = session?.user?.name || session?.user?.email || '';
+    const resolvedConversationName = conversationTitle?.trim() || '';
+    const currentUserName = (
+        isPublicWorkspace
+        && (session?.user?.isAnonymous === true || !sessionUserName)
+        && resolvedConversationName
+    ) ? resolvedConversationName : (sessionUserName || 'You');
     const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;
     const isNearTail = virtualizationEnabled && endIndex >= Math.max(0, dedupedMessages.length - 2);
     const useTailWindow = virtualizationEnabled && (isScrolledToBottomRef.current || isNearTail);

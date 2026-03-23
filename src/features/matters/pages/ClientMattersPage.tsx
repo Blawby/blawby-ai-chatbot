@@ -51,7 +51,8 @@ type ClientMattersPageProps = {
   prefetchedLoading?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  detailHeaderRightControl?: ComponentChildren;
+  onDetailInspector?: () => void;
+  detailInspectorOpen?: boolean;
   showDetailBackButton?: boolean;
 };
 
@@ -86,7 +87,8 @@ export const ClientMattersPage = ({
   prefetchedLoading,
   prefetchedError,
   onRefetchList: _onRefetchList,
-  detailHeaderRightControl,
+  onDetailInspector,
+  detailInspectorOpen = false,
   showDetailBackButton = true
 }: ClientMattersPageProps) => {
   const location = useLocation();
@@ -376,7 +378,8 @@ export const ClientMattersPage = ({
             subtitle={MATTER_STATUS_LABELS[resolvedMatter.status]}
             showBack={showDetailBackButton}
             onBack={goToList}
-            actions={detailHeaderRightControl}
+            onInspector={onDetailInspector}
+            inspectorOpen={detailInspectorOpen}
           />
           <nav
             className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"

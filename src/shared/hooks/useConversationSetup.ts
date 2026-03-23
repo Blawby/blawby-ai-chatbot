@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
-import { getConversationEndpoint, getConversationsEndpoint, getCurrentConversationEndpoint } from '@/config/api';
+import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import type { ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
@@ -104,7 +104,7 @@ export function useConversationSetup({
     }
   }, [conversationCacheKey, activeConversationId]);
 
-  const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string | null> => {
+  const createConversation = useCallback(async (_options?: { forceNew?: boolean }): Promise<string | null> => {
     if (isPracticeWorkspace) return null;
     if (!practiceId || isCreatingRef.current) return null;
 
@@ -119,34 +119,6 @@ export function useConversationSetup({
           params.set('participantUserIds', JSON.stringify([currentUserId]));
         }
         params.set('metadata', JSON.stringify({ source: 'chat' }));
-
-        // Handle widget flow with external conversation ID
-        if (false && conversationId) {
-          const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
-            method: 'POST',
-            headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-            credentials: 'include',
-            body: JSON.stringify({
-              participantUserIds: currentUserId ? [currentUserId] : [],
-              metadata: { source: 'chat' },
-              practiceId,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({})) as { error?: string };
-            throw new Error(errorData.error || `HTTP ${response.status}`);
-          }
-
-          const data = await response.json() as { success?: boolean; error?: string; data?: { conversation?: { id?: string } }; conversation?: { id?: string } };
-          const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
-          if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
-          setConversationIdWithRef(resolvedId);
-          if (isPublicWorkspace && currentUserId) {
-            rememberConversationAnonymousParticipant(resolvedId, currentUserId);
-          }
-          return resolvedId;
-        }
 
         const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
           method: 'POST',

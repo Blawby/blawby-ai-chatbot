@@ -104,7 +104,7 @@ export const useChatComposer = ({
   pendingStreamMessageIdRef,
   orphanTimerRef,
   conversationIdRef,
-  pendingEnsureConversationPromiseRef,
+  pendingEnsureConversationPromiseRef: _pendingEnsureConversationPromiseRef,
   pendingEnsureConversationPromisesRef,
   connectChatRoom,
   updateConversationMetadata,
@@ -584,8 +584,17 @@ export const useChatComposer = ({
           const errorData = await aiResponse.json().catch(() => ({})) as {
             error?: string;
             errorCode?: string;
-            details?: unknown;
+            details?: {
+              userMessage?: string;
+              [key: string]: unknown;
+            } | unknown;
           };
+          const recoveryMessage =
+            errorData.details && typeof errorData.details === 'object' && !Array.isArray(errorData.details)
+              ? (typeof (errorData.details as { userMessage?: unknown }).userMessage === 'string'
+                  ? (errorData.details as { userMessage: string }).userMessage
+                  : null)
+              : null;
           console.error('[useChatComposer] /api/ai/chat failed', {
             status: aiResponse.status,
             statusText: aiResponse.statusText,
@@ -599,6 +608,19 @@ export const useChatComposer = ({
               intakeSubmitted,
             },
           });
+          if (recoveryMessage) {
+            setMessages(prev => [...prev, {
+              id: `system-error-${Date.now()}`,
+              role: 'assistant',
+              content: recoveryMessage,
+              isUser: false,
+              timestamp: Date.now(),
+              userId: null,
+              reply_to_message_id: null,
+              metadata: { source: 'system', error: true, errorCode: errorData.errorCode ?? null },
+            }]);
+            return;
+          }
           throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
         }
 

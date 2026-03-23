@@ -3,10 +3,9 @@ import { ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
-import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
-import PracticeConversationHeaderMenu from '@/features/chat/components/PracticeConversationHeaderMenu';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import Modal from '@/shared/components/Modal';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import type { Conversation } from '@/shared/types/conversation';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import type { FileAttachment, ChatMessageUI } from '../../worker/types';
@@ -353,28 +352,25 @@ export default function DebugConversationsPage() {
       useFrame={layoutMode === 'desktop'}
       heightClassName="h-full"
       headerContent={
-        <WorkspaceConversationHeader
-          practiceName={PRACTICE_NAME}
-          activeLabel="Active"
-          presenceStatus="active"
+        <DetailHeader
+          title={PRACTICE_NAME}
+          subtitle="Active"
+          showBack={!isPractice}
           onBack={() => {
             if (!isPractice) setClientView('list');
           }}
-          rightSlot={isPractice
+          actions={isPractice
             ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="icon"
-                  size="icon-sm"
-                  className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
-                  aria-label="Open conversation details"
-                  onClick={() => setIsConversationDetailsOpen(true)}
-                >
-                  <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
-                </Button>
-                <PracticeConversationHeaderMenu practiceId={PRACTICE_ID} conversationId={activeConversation?.id} />
-              </div>
+              <Button
+                type="button"
+                variant="icon"
+                size="icon-sm"
+                className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
+                aria-label="Open conversation details"
+                onClick={() => setIsConversationDetailsOpen(true)}
+              >
+                <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
+              </Button>
             )
             : (
               <Button

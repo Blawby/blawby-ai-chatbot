@@ -104,6 +104,179 @@ export class ConversationService {
     );
   }
 
+  private parseJsonRecord(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value !== 'string') return null;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private readTrimmedString(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeSlimContactDraft(value: unknown): Record<string, string> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    const name = this.readTrimmedString(record.name) ?? '';
+    const email = this.readTrimmedString(record.email) ?? '';
+    const phone = this.readTrimmedString(record.phone) ?? '';
+    if (!name && !email && !phone) return null;
+    return { name, email, phone };
+  }
+
+  private extractSlimContactDraftFromContent(content: string | null | undefined): Record<string, string> | null {
+    if (!content) return null;
+    const nameMatch = content.match(/(?:^|\n)Name:\s*([^\n]+)/i);
+    const emailMatch = content.match(/(?:^|\n)Email:\s*([^\n]+)/i);
+    const phoneMatch = content.match(/(?:^|\n)Phone:\s*([^\n]+)/i);
+    const name = this.readTrimmedString(nameMatch?.[1]) ?? '';
+    const email = this.readTrimmedString(emailMatch?.[1]) ?? '';
+    const phone = this.readTrimmedString(phoneMatch?.[1]) ?? '';
+    if (!name && !email && !phone) return null;
+    return { name, email, phone };
+  }
+
+  private mergeSlimContactDraft(
+    existing: Record<string, string> | null,
+    recovered: Record<string, string> | null
+  ): Record<string, string> | null {
+    if (!existing && !recovered) return null;
+    return {
+      name: existing?.name || recovered?.name || '',
+      email: existing?.email || recovered?.email || '',
+      phone: existing?.phone || recovered?.phone || '',
+    };
+  }
+
+  private async repairConsultationMetadata(
+    conversationId: string,
+    practiceId: string,
+    currentUserInfo: Record<string, unknown> | null
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await this.env.DB.prepare(`
+      SELECT client_id, content, metadata
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND practice_id = ?
+        AND (
+          client_id = 'system-intake-contact-ack'
+          OR client_id = 'system-intake-opening'
+          OR client_id LIKE 'system-intake-submit-%'
+          OR json_extract(metadata, '$.isContactFormSubmission') = 1
+          OR json_extract(metadata, '$.contactDetails.name') IS NOT NULL
+          OR json_extract(metadata, '$.contactDetails.email') IS NOT NULL
+          OR json_extract(metadata, '$.contactDetails.phone') IS NOT NULL
+          OR json_extract(metadata, '$.intakeSubmitted') = 1
+          OR json_extract(metadata, '$.intakeUuid') IS NOT NULL
+        )
+      ORDER BY seq DESC
+      LIMIT 50
+    `).bind(conversationId, practiceId).all<Record<string, unknown>>();
+
+    const results = rows.results ?? [];
+    if (results.length === 0) return currentUserInfo;
+
+    const existing = currentUserInfo ? { ...currentUserInfo } : {};
+    const existingSlimDraft = this.normalizeSlimContactDraft(existing.intakeSlimContactDraft);
+
+    let recoveredSlimDraft: Record<string, string> | null = null;
+    let sawConsultationSignal = false;
+    let recoveredIntakeSubmitted = false;
+    let recoveredIntakeUuid: string | null = null;
+
+    for (const row of results) {
+      const clientId = this.readTrimmedString(row.client_id) ?? '';
+      const metadata = this.parseJsonRecord(row.metadata);
+      const content = typeof row.content === 'string' ? row.content : null;
+
+      if (
+        clientId === 'system-intake-contact-ack'
+        || clientId === 'system-intake-opening'
+        || clientId.startsWith('system-intake-submit-')
+        || metadata?.isContactFormSubmission === true
+      ) {
+        sawConsultationSignal = true;
+      }
+
+      if (!recoveredSlimDraft) {
+        recoveredSlimDraft = this.normalizeSlimContactDraft(metadata?.contactDetails)
+          ?? this.extractSlimContactDraftFromContent(content);
+      }
+
+      if (metadata?.intakeSubmitted === true || clientId.startsWith('system-intake-submit-')) {
+        recoveredIntakeSubmitted = true;
+      }
+
+      if (!recoveredIntakeUuid) {
+        recoveredIntakeUuid = this.readTrimmedString(metadata?.intakeUuid) ?? null;
+      }
+    }
+
+    const mergedSlimDraft = this.mergeSlimContactDraft(existingSlimDraft, recoveredSlimDraft);
+    let changed = false;
+
+    if (mergedSlimDraft && JSON.stringify(existingSlimDraft) !== JSON.stringify(mergedSlimDraft)) {
+      existing.intakeSlimContactDraft = mergedSlimDraft;
+      changed = true;
+    }
+
+    if (!this.readTrimmedString(existing.mode) && sawConsultationSignal) {
+      existing.mode = 'REQUEST_CONSULTATION';
+      changed = true;
+    }
+
+    if (
+      existing.intakeAiBriefActive !== true
+      && sawConsultationSignal
+      && existing.intakeSubmitted !== true
+      && !recoveredIntakeSubmitted
+    ) {
+      existing.intakeAiBriefActive = true;
+      changed = true;
+    }
+
+    if (existing.intakeSubmitted !== true && recoveredIntakeSubmitted) {
+      existing.intakeSubmitted = true;
+      changed = true;
+    }
+
+    if (!this.readTrimmedString(existing.intakeUuid) && recoveredIntakeUuid) {
+      existing.intakeUuid = recoveredIntakeUuid;
+      changed = true;
+    }
+
+    if (!changed) return currentUserInfo;
+
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET user_info = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(JSON.stringify(existing), conversationId, practiceId).run();
+
+    Logger.info('Repaired consultation metadata from message history', {
+      conversationId,
+      practiceId,
+      repairedSlimDraft: Boolean(mergedSlimDraft),
+      repairedMode: existing.mode === 'REQUEST_CONSULTATION',
+      repairedSubmitted: existing.intakeSubmitted === true,
+      repairedIntakeUuid: existing.intakeUuid ?? null,
+    });
+
+    return existing;
+  }
+
   /**
    * Create a new conversation
    * 
@@ -284,6 +457,12 @@ export class ConversationService {
       throw HttpErrors.notFound('Conversation not found');
     }
 
+    record.user_info = await this.repairConsultationMetadata(
+      conversationId,
+      practiceId,
+      this.parseJsonRecord(record.user_info)
+    );
+
     return this.mapRecordToConversation(record);
   }
 
@@ -301,6 +480,13 @@ export class ConversationService {
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
     }
+
+    const practiceId = typeof record.practice_id === 'string' ? record.practice_id : String(record.practice_id ?? '');
+    record.user_info = await this.repairConsultationMetadata(
+      conversationId,
+      practiceId,
+      this.parseJsonRecord(record.user_info)
+    );
 
     return this.mapRecordToConversation(record);
   }

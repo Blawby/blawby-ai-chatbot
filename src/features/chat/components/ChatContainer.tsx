@@ -179,7 +179,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isMobile = useMobileDetection();
+  useMobileDetection();
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
@@ -298,18 +298,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         })();
         setInputValue('');
         setReplyTarget(null);
-        if (textareaRef.current && isMobile) {
-          textareaRef.current.blur();
-        }
         return;
       }
       if (isNegative) {
         onIntakeCtaResponse('not_yet');
         setInputValue('');
         setReplyTarget(null);
-        if (textareaRef.current && isMobile) {
-          textareaRef.current.blur();
-        }
         return;
       }
     }
@@ -323,11 +317,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     // Reset input
     setInputValue('');
     setReplyTarget(null);
-
-    // Only blur on mobile devices to collapse virtual keyboard
-    if (textareaRef.current && isMobile) {
-      textareaRef.current.blur();
-    }
   };
 
   const handleQuickReply = (text: string) => {

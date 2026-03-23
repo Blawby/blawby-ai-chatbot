@@ -258,7 +258,8 @@ type PracticeMattersPageProps = {
   prefetchedLoading?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  detailHeaderRightControl?: ComponentChildren;
+  onDetailInspector?: () => void;
+  detailInspectorOpen?: boolean;
   detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 };
@@ -272,7 +273,8 @@ export const PracticeMattersPage = ({
   prefetchedLoading = false,
   prefetchedError = null,
   onRefetchList,
-  detailHeaderRightControl,
+  onDetailInspector,
+  detailInspectorOpen = false,
   detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: PracticeMattersPageProps) => {
@@ -1781,7 +1783,6 @@ export const PracticeMattersPage = ({
           iconClassName="h-4 w-4"
           aria-label={isDescriptionEditing ? 'Close matter editor' : 'Edit matter title and description'}
         />
-        {detailHeaderRightControl}
       </div>
     );
 
@@ -1795,6 +1796,8 @@ export const PracticeMattersPage = ({
               onBack={goToList}
               leadingAction={detailHeaderLeadingAction}
               actions={matterDetailHeaderActions}
+              onInspector={onDetailInspector}
+              inspectorOpen={detailInspectorOpen}
             />
             {detailHeaderMeta ? (
               <div className="px-4 py-4">

@@ -237,7 +237,7 @@
   }
 
   .workspace-header__right {
-    @apply ml-auto;
+    @apply ml-auto flex shrink-0 items-center gap-2;
   }
 
   .workspace-header__loading {
