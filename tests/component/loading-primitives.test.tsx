@@ -10,15 +10,27 @@ import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
 import { MessageContent } from '@/features/chat/components/MessageContent';
 
-const mockListMatters = vi.fn();
-const mockGetMatter = vi.fn();
-const mockUpdateConversationMatter = vi.fn();
-const mockShowError = vi.fn();
-const mockShowSuccess = vi.fn();
-const mockShowInfo = vi.fn();
-const loadingLabel = 'Loading\u2026';
-const loadingMattersText = ['Loading', 'matters...'].join(' ');
-const loadingMattersEllipsis = `Loading matters${String.fromCharCode(0x2026)}`;
+const {
+  mockListMatters,
+  mockGetMatter,
+  mockUpdateConversationMatter,
+  mockShowError,
+  mockShowSuccess,
+  mockShowInfo,
+  loadingLabel,
+  loadingMattersText,
+  loadingMattersEllipsis
+} = vi.hoisted(() => ({
+  mockListMatters: vi.fn(),
+  mockGetMatter: vi.fn(),
+  mockUpdateConversationMatter: vi.fn(),
+  mockShowError: vi.fn(),
+  mockShowSuccess: vi.fn(),
+  mockShowInfo: vi.fn(),
+  loadingLabel: 'Loading\u2026',
+  loadingMattersText: ['Loading', 'matters...'].join(' '),
+  loadingMattersEllipsis: `Loading matters${String.fromCharCode(0x2026)}`
+}));
 
 const createMessages = (count: number) => Array.from({ length: count }, (_, index) => ({
   id: `message-${index}`,
