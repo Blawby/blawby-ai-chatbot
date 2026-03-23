@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { FolderIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { listMatters, getMatter } from '@/features/matters/services/mattersApi';
@@ -138,7 +139,6 @@ export const LinkMatterModal = ({
         setLoadingState('idle');
       }
     }
-
   }, [practiceId, pageSize]);
 
   useEffect(() => {
@@ -227,7 +227,7 @@ export const LinkMatterModal = ({
         <div className="space-y-4">
           <Combobox
             label="Matter"
-            placeholder={loadingState === 'loading' ? 'Loading matters...' : 'Select matter'}
+            placeholder="Select matter"
             value={selectedMatterId}
             options={matterOptions}
             onChange={setSelectedMatterId}
@@ -236,7 +236,9 @@ export const LinkMatterModal = ({
             optionLeading={() => <Icon icon={FolderIcon} className="h-4 w-4 text-input-placeholder"  />}
           />
           {loadingState === 'loading' && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">Loading matters…</div>
+            <div className="flex justify-center py-1">
+              <LoadingSpinner size="sm" ariaLabel="Loading matters" />
+            </div>
           )}
           {loadingState !== 'loading' && hasMore && (
             <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -286,7 +288,14 @@ export const LinkMatterModal = ({
               onClick={handleLoadMore}
               disabled={loadingState !== 'idle' || saving}
             >
-              {loadingState === 'loading-more' ? 'Loading…' : 'Load more'}
+              {loadingState === 'loading-more' ? (
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" ariaLabel="Load more" />
+                  Load more
+                </span>
+              ) : (
+                'Load more'
+              )}
             </Button>
           </div>
         )}

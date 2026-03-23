@@ -11,6 +11,7 @@ import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import Modal from '@/shared/components/Modal';
+import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
 import {
   InfoRow,
   InspectorEditableRow,
@@ -18,7 +19,6 @@ import {
   InspectorHeaderEntity,
   InspectorHeaderPerson,
   InspectorHeaderHero,
-  SkeletonRow,
 } from './InspectorPrimitives';
 import { XMarkIcon, PhoneIcon, EnvelopeIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -393,9 +393,6 @@ export const InspectorPanel = ({
     return () => controller.abort();
   }, [conversationMatterId, conversationUserId, entityId, entityType, practiceId, isClientView, propPracticeDetails]);
 
-  const conversationSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
-  const clientSkeletonRows = useMemo(() => [0, 1, 2], []);
-  const matterSkeletonRows = useMemo(() => [0, 1, 2, 3], []);
   const [inspectorMatterStatus, setInspectorMatterStatus] = useState<MatterStatus | null>(
     isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null
   );
@@ -741,23 +738,17 @@ export const InspectorPanel = ({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isLoading && entityType === 'conversation' ? (
           <div className="py-3">
-            {conversationSkeletonRows.map((row) => (
-              <SkeletonRow key={`conversation-skeleton-${row}`} wide={row % 2 === 0} />
-            ))}
+            <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
           </div>
         ) : null}
         {isLoading && entityType === 'client' ? (
           <div className="py-3">
-            {clientSkeletonRows.map((row) => (
-              <SkeletonRow key={`client-skeleton-${row}`} wide={row === 0} />
-            ))}
+            <InspectorSectionSkeleton wideRows={[true, false, false]} />
           </div>
         ) : null}
         {isLoading && entityType === 'matter' ? (
           <div className="py-3">
-            {matterSkeletonRows.map((row) => (
-              <SkeletonRow key={`matter-skeleton-${row}`} wide={row === 0 || row === 2} />
-            ))}
+            <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
           </div>
         ) : null}
         {error ? <p className="px-4 py-3 text-sm text-red-400">{error}</p> : null}

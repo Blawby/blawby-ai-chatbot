@@ -7,12 +7,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { getWorkspaceHomePath } from '@/shared/utils/workspace';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
-
-const LoadingScreen = () => (
-  <div className="flex h-screen items-center justify-center text-sm text-input-placeholder">
-    Loading…
-  </div>
-);
+import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 
 const isSafeRedirectPath = (path: string | null | undefined): path is string => {
   if (!path) return false;
