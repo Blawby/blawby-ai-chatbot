@@ -56,6 +56,7 @@ export function useConversationSetup({
   const isSelectingRef = useRef(false);
   const isCreatingRef = useRef(false);
   const conversationRestoreAttemptedRef = useRef(false);
+  const activeConversationIdRef = useRef<string | null>(null);
 
   // Decode route conversation ID safely
   const normalizedRouteConversationId = routeConversationId
@@ -70,6 +71,11 @@ export function useConversationSetup({
 
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
   const activeConversationId = conversationId ?? normalizedRouteConversationId;
+
+  // Keep activeConversationIdRef in sync with the derived value
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   // Sync route ID to state when it changes
   useEffect(() => {
@@ -120,6 +126,7 @@ export function useConversationSetup({
         const resolvedId = data.conversation?.id ?? data.data?.conversation?.id ?? null;
         if (!resolvedId) throw new Error(data.error || 'Failed to start conversation');
         setConversationId(resolvedId);
+        activeConversationIdRef.current = resolvedId;
         if (isPublicWorkspace && currentUserId) {
           rememberConversationAnonymousParticipant(resolvedId, currentUserId);
         }
@@ -146,6 +153,7 @@ export function useConversationSetup({
       if (!data.success || !data.data?.id) throw new Error(data.error || 'Failed to start conversation');
 
       setConversationId(data.data.id);
+      activeConversationIdRef.current = data.data.id;
       return data.data.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
@@ -157,9 +165,8 @@ export function useConversationSetup({
   }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
 
   const ensureConversation = useCallback(async (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }): Promise<string | null> => {
-    // Check latest state instead of relying on stale closure
-    const currentConversationId = activeConversationId;
-    if (!options?.forceNew && currentConversationId) return currentConversationId;
+    // Read from ref to get latest value and avoid stale closure
+    if (!options?.forceNew && activeConversationIdRef.current) return activeConversationIdRef.current;
 
     let resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
     const waitForSessionReadyMs = Math.max(0, options?.waitForSessionReadyMs ?? 0);
@@ -169,10 +176,9 @@ export function useConversationSetup({
       while (!resolvedConversationId && Date.now() < deadline) {
         await new Promise<void>((resolve) => setTimeout(resolve, 300));
         
-        // Check if conversation became available or if we're no longer creating
-        const latestConversationId = activeConversationId;
-        if (latestConversationId) {
-          return latestConversationId;
+        // Check if conversation became available by reading from ref
+        if (activeConversationIdRef.current) {
+          return activeConversationIdRef.current;
         }
         
         // Wait until isCreatingRef.current is false before retrying
@@ -188,13 +194,13 @@ export function useConversationSetup({
     }
 
     return resolvedConversationId;
-  }, [activeConversationId, createConversation]);
+  }, [createConversation]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !currentUserId) return null;
     const cached = window.localStorage.getItem(conversationCacheKey);
     if (!cached) return null;
-    if (activeConversationId === cached) return cached;
+    if (activeConversationIdRef.current === cached) return cached;
 
     const params = new URLSearchParams({ practiceId });
     const response = await fetch(`${getConversationEndpoint(cached)}?${params}`, {
@@ -202,18 +208,20 @@ export function useConversationSetup({
       headers: withWidgetAuthHeaders(),
       credentials: 'include',
     });
+
     if (!response.ok) {
-      throw new Error(`Failed to restore conversation: ${response.status} ${response.statusText} (ID: ${cached})`);
+      throw new Error('Cached conversation not found');
     }
     setConversationId(cached);
+    activeConversationIdRef.current = cached;
     return cached;
-  }, [conversationCacheKey, activeConversationId, practiceId, currentUserId]);
+  }, [conversationCacheKey, practiceId, currentUserId]);
 
   // Attempt to restore a previously cached conversation on mount (non-public workspaces)
   useEffect(() => {
     if (isPublicWorkspace) return;
     if (sessionIsPending || !session?.user?.id || !practiceId) return;
-    if (activeConversationId) return;
+    if (activeConversationIdRef.current) return;
     if (isCreatingRef.current) return;
     if (conversationRestoreAttemptedRef.current) return;
     conversationRestoreAttemptedRef.current = true;
@@ -224,7 +232,6 @@ export function useConversationSetup({
       onError?.(err instanceof Error ? err.message : 'Failed to restore conversation');
     });
   }, [
-    activeConversationId,
     isPublicWorkspace,
     practiceId,
     restoreConversationFromCache,
@@ -273,7 +280,7 @@ export function useConversationSetup({
     if (isSelectingRef.current) return;
     isSelectingRef.current = true;
     try {
-      let convId = activeConversationId;
+      let convId = activeConversationIdRef.current;
       if (!convId && !isCreatingRef.current) {
         convId = await ensureConversation();
       }
@@ -288,7 +295,6 @@ export function useConversationSetup({
       isSelectingRef.current = false;
     }
   }, [
-    activeConversationId,
     applyConversationMode,
     ensureConversation,
     onModeChange,
