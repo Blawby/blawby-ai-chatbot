@@ -118,7 +118,7 @@ export function WorkspaceMainPane({
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">
       {topBar ? <div>{topBar}</div> : null}
-      <div className="relative h-full min-h-0">
+      <div className="relative flex-1 min-h-0">
         {mainContent}
       </div>
       {bottomNav ? <div className="mt-auto">{bottomNav}</div> : null}

@@ -461,7 +461,9 @@ export const ClientMattersPage = ({
                 <section>
                   <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
                   <Panel className="mt-4 p-4">
-                    {activityLoading && activityItems.length === 0 ? (
+                    {fetchError ? (
+                      <ErrorBanner>{fetchError}</ErrorBanner>
+                    ) : activityLoading && activityItems.length === 0 ? (
                       <LoadingState message="Loading activity..." />
                     ) : (
                       <ActivityTimeline items={activityItems} />
