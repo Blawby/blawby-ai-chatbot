@@ -27,6 +27,7 @@ export interface UseConversationSetupResult {
   setConversationMode: (mode: ConversationMode | null) => void;
   isCreatingConversation: boolean;
   createConversation: (options?: { forceNew?: boolean }) => Promise<string | null>;
+  ensureConversation: (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }) => Promise<string | null>;
   handleModeSelection: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer', startConsultFlow: (id: string) => void) => Promise<void>;
   handleStartNewConversation: (mode: ConversationMode, startConsultFlow: (id: string) => void) => Promise<string>;
   applyConversationMode: (
@@ -155,6 +156,23 @@ export function useConversationSetup({
     }
   }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId]);
 
+  const ensureConversation = useCallback(async (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }): Promise<string | null> => {
+    if (!options?.forceNew && activeConversationId) return activeConversationId;
+
+    let resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+    const waitForSessionReadyMs = Math.max(0, options?.waitForSessionReadyMs ?? 0);
+
+    if (!resolvedConversationId && waitForSessionReadyMs > 0) {
+      const deadline = Date.now() + waitForSessionReadyMs;
+      while (!resolvedConversationId && Date.now() < deadline) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+      }
+    }
+
+    return resolvedConversationId;
+  }, [activeConversationId, createConversation]);
+
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !currentUserId) return null;
     const cached = window.localStorage.getItem(conversationCacheKey);
@@ -240,7 +258,7 @@ export function useConversationSetup({
     try {
       let convId = activeConversationId;
       if (!convId && !isCreatingRef.current) {
-        convId = await createConversation();
+        convId = await ensureConversation();
       }
       if (!convId || !practiceId) return;
       await applyConversationMode(nextMode, convId, source, startConsultFlow);
@@ -255,7 +273,7 @@ export function useConversationSetup({
   }, [
     activeConversationId,
     applyConversationMode,
-    createConversation,
+    ensureConversation,
     onModeChange,
     onError,
     practiceId,
@@ -267,7 +285,7 @@ export function useConversationSetup({
     isSelectingRef.current = true;
     try {
       if (!practiceId) throw new Error('Practice context is required');
-      const newId = await createConversation();
+      const newId = await ensureConversation({ waitForSessionReadyMs: 3000 });
       if (!newId) throw new Error('Unable to create conversation');
       await applyConversationMode(nextMode, newId, 'home_cta', startConsultFlow);
       return newId;
@@ -278,7 +296,7 @@ export function useConversationSetup({
     } finally {
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, createConversation, onModeChange, practiceId, setConversationMode]);
+  }, [applyConversationMode, ensureConversation, onModeChange, practiceId, setConversationMode]);
 
   return {
     conversationId,
@@ -288,6 +306,7 @@ export function useConversationSetup({
     setConversationMode,
     isCreatingConversation,
     createConversation,
+    ensureConversation,
     handleModeSelection,
     handleStartNewConversation,
     applyConversationMode,

@@ -114,6 +114,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.methodNotAllowed('Unsupported method for conversation WS endpoint');
   }
 
+  // Let the submit handler own its anon/auth handoff. Some widget flows can
+  // legitimately arrive with a valid anonymous widget token while the browser
+  // also carries a cookie that should not block submission at the route level.
+  if (segments.length === 4 && segments[3] === 'submit-intake' && request.method === 'POST') {
+    const conversationId = segments[2];
+    return handleSubmitIntake(request, env, conversationId);
+  }
+
   // Support optional auth for anonymous users (Better Auth anonymous plugin)
   const authContext = await optionalAuth(request, env);
   if (!authContext) {
@@ -1046,14 +1054,6 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     );
 
     return createJsonResponse(conversation);
-  }
-
-  // POST /api/conversations/:id/submit-intake
-  // Submission bridge: maps D1 conversation metadata -> backend client-intakes/create
-  if (segments.length === 4 && segments[3] === 'submit-intake' && request.method === 'POST') {
-    const conversationId = segments[2];
-    // Pass the already-resolved authContext to avoid a second remote auth round-trip.
-    return handleSubmitIntake(request, env, conversationId, authContext);
   }
 
   throw HttpErrors.methodNotAllowed('Unsupported method for conversations endpoint');

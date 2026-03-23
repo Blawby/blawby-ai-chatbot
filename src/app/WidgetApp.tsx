@@ -3,15 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
-import { 
-  InformationCircleIcon, 
-  XMarkIcon, 
-  HomeIcon, 
-  ChatBubbleLeftRightIcon, 
-} from '@heroicons/react/24/outline';
+import { XMarkIcon, HomeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
-import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
+import ConversationDetailHeader from '@/features/chat/components/ConversationDetailHeader';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
@@ -19,10 +14,11 @@ import { useConversations } from '@/shared/hooks/useConversations';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
+import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
+import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
@@ -30,8 +26,7 @@ import { NavRail, NavRailItem } from '@/shared/ui/nav/NavRail';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
-
-const MAX_AUTO_CONVERSATION_RETRIES = 3;
+import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 
 interface WidgetAppProps {
   practiceId: string;
@@ -55,16 +50,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const [retryTrigger, setRetryTrigger] = useState(0);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [hasPersistError, setHasPersistError] = useState(false);
-  const autoConversationAttemptedRef = useRef(false);
-  const autoConversationRetryCountRef = useRef(0);
-  const autoConversationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const widgetVisibleRef = useRef(false);
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
   const inFlightCreateRef = useRef<Promise<string> | null>(null);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
   const { showError: showToastError } = useToastContext();
 
@@ -74,7 +64,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
-  const sessionIsPending = false; // Bootstrap session is immediate
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 
@@ -82,7 +71,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     if (inFlightCreateRef.current) return inFlightCreateRef.current;
 
     const createPromise = (async () => {
-      setIsCreatingConversation(true);
       try {
         const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
         const conversationId = await apiCreateConversation(practiceId, {
@@ -92,7 +80,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         setConversationId(conversationId);
         return conversationId;
       } finally {
-        setIsCreatingConversation(false);
         inFlightCreateRef.current = null;
       }
     })();
@@ -100,6 +87,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     inFlightCreateRef.current = createPromise;
     return createPromise;
   }, [practiceId, currentUserId, setConversationId]);
+
+  const ensureConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string | null> => {
+    const existingConversationId = setupConversationId ?? routeConversationId ?? null;
+    if (!options?.forceNew && existingConversationId) return existingConversationId;
+    return createConversation(options);
+  }, [createConversation, routeConversationId, setupConversationId]);
 
   const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
     try {
@@ -142,69 +135,92 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [conversations]);
 
   const hasRealConversations = Boolean(latestConversation);
+  const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
+    content: string;
+    role: string;
+    createdAt: string;
+  }>>({});
+  const fetchedPreviewIds = useRef<Set<string>>(new Set());
+  const previewFailureCounts = useRef<Record<string, number>>({});
+  const MAX_PREVIEW_ATTEMPTS = 2;
 
   const recentMessage = useMemo(() => {
     if (!latestConversation) return null;
+    const conversationLabel = resolveConversationDisplayTitle(latestConversation, practiceConfig.name || 'Assistant');
+    const latestPreview = conversationPreviews[latestConversation.id];
     return {
-      preview: latestConversation.last_message_content || latestConversation.user_info?.title || 'Click to continue your conversation',
-      timestampLabel: latestConversation.last_message_at ? formatRelativeTime(latestConversation.last_message_at) : '',
-      senderLabel: practiceConfig.name || 'Assistant',
+      preview: latestPreview?.content || latestConversation.last_message_content || latestConversation.user_info?.title || 'Click to continue your conversation',
+      timestampLabel: latestPreview?.createdAt
+        ? formatRelativeTime(latestPreview.createdAt)
+        : latestConversation.last_message_at
+          ? formatRelativeTime(latestConversation.last_message_at)
+          : '',
+      senderLabel: conversationLabel,
       avatarSrc: practiceConfig.profileImage,
       conversationId: latestConversation.id
     };
-  }, [latestConversation, practiceConfig.name, practiceConfig.profileImage]);
+  }, [latestConversation, practiceConfig.name, practiceConfig.profileImage, conversationPreviews]);
+
+  useEffect(() => {
+    fetchedPreviewIds.current = new Set();
+    previewFailureCounts.current = {};
+    setConversationPreviews({});
+  }, [practiceId]);
+
+  useEffect(() => {
+    if (!practiceId || conversations.length === 0 || view === 'chat') return;
+    let isMounted = true;
+
+    const loadPreviews = async () => {
+      const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
+      const toFetch = conversations.slice(0, 10).filter(
+        (conversation) => !fetchedPreviewIds.current.has(conversation.id)
+      );
+
+      await Promise.all(toFetch.map(async (conversation) => {
+        const message = await fetchLatestConversationMessage(conversation.id, practiceId).catch(() => null);
+        if (message?.content) {
+          fetchedPreviewIds.current.add(conversation.id);
+          updates[conversation.id] = {
+            content: message.content,
+            role: message.role,
+            createdAt: message.created_at,
+          };
+          return;
+        }
+
+        const currentFailures = previewFailureCounts.current[conversation.id] ?? 0;
+        const nextFailures = currentFailures + 1;
+        previewFailureCounts.current[conversation.id] = nextFailures;
+        if (nextFailures >= MAX_PREVIEW_ATTEMPTS) {
+          fetchedPreviewIds.current.add(conversation.id);
+        }
+      }));
+
+      if (isMounted && Object.keys(updates).length > 0) {
+        setConversationPreviews((prev) => ({ ...prev, ...updates }));
+      }
+    };
+
+    void loadPreviews();
+    return () => {
+      isMounted = false;
+    };
+  }, [conversations, practiceId, view]);
 
   // Previews for ConversationListView
   const previews = useMemo(() => {
     const map: Record<string, { content: string; role: string; createdAt: string }> = {};
     conversations.forEach(c => {
+      const preview = conversationPreviews[c.id];
       map[c.id] = {
-        content: c.last_message_content || c.user_info?.title || 'No messages yet',
-        role: 'assistant',
-        createdAt: c.last_message_at || c.updated_at || ''
+        content: preview?.content || c.last_message_content || c.user_info?.title || 'No messages yet',
+        role: preview?.role || 'assistant',
+        createdAt: preview?.createdAt || c.last_message_at || c.updated_at || ''
       };
     });
     return map;
-  }, [conversations]);
-
-  useEffect(() => {
-    // Cleanup function that always runs on effect cleanup or re-run
-    const cleanup = () => {
-      if (autoConversationTimeoutRef.current) {
-        clearTimeout(autoConversationTimeoutRef.current);
-        autoConversationTimeoutRef.current = null;
-      }
-    };
-
-    // In widget mode, we don't necessarily want to force-create a conversation on mount
-    // if the user is on the Home page. But if they switch to chat, they'll need it.
-    // However, for anonymous tracking, it's often better to have one ready.
-    // We'll keep the creation logic but NOT force the view change here.
-
-    if (routeConversationId || setupConversationId) return cleanup;
-    if (sessionIsPending || !currentUserId || !practiceId) return cleanup;
-    if (autoConversationAttemptedRef.current) return cleanup;
-    if (autoConversationRetryCountRef.current >= MAX_AUTO_CONVERSATION_RETRIES) return cleanup;
-
-    autoConversationAttemptedRef.current = true;
-    void createConversation().catch((error) => {
-      const retryCount = autoConversationRetryCountRef.current + 1;
-      autoConversationRetryCountRef.current = retryCount;
-      const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      showErrorRef.current?.(message);
-
-      if (retryCount < MAX_AUTO_CONVERSATION_RETRIES) {
-        // Exponential backoff: 1s, 2s, 4s
-        const delayMs = Math.pow(2, retryCount - 1) * 1000;
-        autoConversationTimeoutRef.current = setTimeout(() => {
-          autoConversationAttemptedRef.current = false;
-          setRetryTrigger(prev => prev + 1);
-        }, delayMs);
-      }
-    });
-
-    return cleanup;
-  }, [createConversation, currentUserId, practiceId, routeConversationId, sessionIsPending, setupConversationId, retryTrigger]);
+  }, [conversations, conversationPreviews]);
 
   const { t } = useTranslation('common');
 
@@ -222,6 +238,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     practiceId,
     practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: setupConversationId ?? routeConversationId ?? undefined,
+    ensureConversation: () => ensureConversation(),
     userId: currentUserId,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
@@ -289,15 +306,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     if (!practiceId) return;
     
     try {
-      let targetId: string | null = null;
-      if (source === 'intro_gate' || mode === 'REQUEST_CONSULTATION') {
-        targetId = await createConversation({ forceNew: true });
-      } else {
-        targetId = activeConversationId ?? null;
-        if (!targetId) {
-          targetId = await createConversation();
-        }
-      }
+      const targetId = source === 'intro_gate' || mode === 'REQUEST_CONSULTATION'
+        ? await ensureConversation({ forceNew: true })
+        : await ensureConversation();
       
       if (!targetId) return;
       const success = await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
@@ -309,7 +320,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       showErrorRef.current?.(message);
     }
-  }, [practiceId, activeConversationId, applyConversationMode, createConversation]);
+  }, [practiceId, applyConversationMode, ensureConversation]);
 
   // File Uploads
   const {
@@ -322,7 +333,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     isDragging,
     cancelUpload,
     handleMediaCapture,
-  } = useFileUploadWithContext({ conversationId: activeConversationId ?? undefined });
+  } = useFileUploadWithContext({
+    conversationId: activeConversationId ?? undefined,
+    ensureConversation: () => ensureConversation(),
+  });
 
   const handleCameraCapture = useCallback(async (file: File) => {
     await handleFileSelect([file]);
@@ -393,52 +407,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     </Button>
   ), [requestWidgetClose]);
 
-  const headerRightSlot = useMemo(() => {
-    const hasConversation = Boolean(activeConversationId);
-    let inspectorButtonContent = <Icon icon={InformationCircleIcon} className="h-5 w-5" />;
-
-    if (conversationMode === 'REQUEST_CONSULTATION' && intakeConversationState) {
-      const tier = resolveStrengthTier(intakeConversationState);
-      const { percent, ringClass } = resolveStrengthStyle(tier);
-      const radius = 9;
-      const circumference = 2 * Math.PI * radius;
-      const dashOffset = circumference - (percent / 100) * circumference;
-
-      inspectorButtonContent = (
-        <span className="relative flex h-6 w-6 items-center justify-center">
-          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
-            <circle
-              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
-              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
-              strokeDasharray={circumference} strokeDashoffset={dashOffset}
-            />
-          </svg>
-          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
-        </span>
-      );
-    }
-
-    const inspectorButton = hasConversation ? (
-      <Button
-        type="button"
-        variant="icon"
-        size="icon-sm"
-        onClick={() => setIsInspectorOpen(true)}
-        aria-label="Open inspector"
-      >
-        {inspectorButtonContent}
-      </Button>
-    ) : null;
-
-    return (
-      <div className="flex items-center gap-1">
-        {inspectorButton}
-        {isEmbedded ? closeButton : null}
-      </div>
-    );
-  }, [conversationMode, intakeConversationState, isEmbedded, closeButton, activeConversationId, setIsInspectorOpen]);
-
   const navItems = useMemo<NavRailItem[]>(() => [
     {
       id: 'home',
@@ -452,20 +420,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       label: t('nav.messages') ?? 'Messages',
       icon: ChatBubbleLeftRightIcon,
       href: '#list',
-      onClick: async () => {
-        if (isCreatingConversation) return;
-        try {
-          if (!activeConversationId) {
-            await createConversation();
-          }
-          setView('list');
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to start conversation';
-          showErrorRef.current?.(message);
-        }
-      }
+      onClick: () => setView('list')
     }
-  ], [activeConversationId, t, isCreatingConversation, createConversation]);
+  ], [t]);
+  const widgetBackTarget = hasRealConversations ? 'list' : 'home';
+  const showConversationBack = shouldShowWorkspaceDetailBack('widget', Boolean(widgetBackTarget));
 
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
@@ -548,12 +507,17 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               composerDisabled={false}
               isPublicWorkspace={true}
               messagesReady={messagesReady}
-              headerContent={<WorkspaceConversationHeader
+              headerContent={
+                <ConversationDetailHeader
                   practiceName={practiceConfig.name}
-                  activeLabel={t('workspace.header.activeNow')}
-                  onBack={hasRealConversations ? () => setView('list') : undefined}
-                  rightSlot={headerRightSlot}
-                />}
+                  messages={messages}
+                  isSocketReady={isSocketReady}
+                  conversationMode={conversationMode}
+                  intakeConversationState={intakeConversationState}
+                  onBack={showConversationBack ? () => setView(widgetBackTarget) : undefined}
+                  onOpenInspector={activeConversationId ? () => setIsInspectorOpen(true) : undefined}
+                />
+              }
               heightClassName="h-full"
               useFrame={false}
               layoutMode="widget"

@@ -36,10 +36,7 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
-import WorkspaceConversationHeader from '@/features/chat/components/WorkspaceConversationHeader';
-import { resolveStrengthTier, resolveStrengthStyle } from '@/shared/utils/intakeStrength';
-import { Icon } from '@/shared/ui/Icon';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import ConversationDetailHeader from '@/features/chat/components/ConversationDetailHeader';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
 import {
@@ -50,10 +47,9 @@ import {
   peekPostAuthConversationContext,
 } from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
-import { Button } from '@/shared/ui/Button';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
+import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -229,7 +225,7 @@ export function MainApp({
     conversationId: setupConversationId,
     setConversationId,
     isCreatingConversation,
-    createConversation,
+    ensureConversation,
     applyConversationMode,
   } = useConversationSetup({
     practiceId,
@@ -300,6 +296,7 @@ export function MainApp({
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
     conversationId: activeConversationId ?? undefined,
+    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
     linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
@@ -413,8 +410,7 @@ export function MainApp({
     if (isSelectingRef.current) return;
     try {
       isSelectingRef.current = true;
-      let currentConversationId = activeConversationId;
-      if (!currentConversationId && !isCreatingConversation) currentConversationId = await createConversation();
+      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation());
       if (!currentConversationId || !practiceId) return;
       await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
     } catch (error) {
@@ -424,7 +420,7 @@ export function MainApp({
     } finally {
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, activeConversationId, createConversation, isCreatingConversation, practiceId, startConsultFlow]);
+  }, [activeConversationId, applyConversationMode, ensureConversation, isCreatingConversation, practiceId, startConsultFlow]);
 
   const handleSlimFormDismiss = useCallback(async () => {
     if (conversationMode !== 'REQUEST_CONSULTATION') return;
@@ -454,18 +450,8 @@ export function MainApp({
       }
 
       // ── Create new conversation ─────────────────────────────────────────────
-      // createConversation returns null when the session user isn't available yet
-      // (anonymous sign-in still in-flight).  Poll briefly so we don't throw an
-      // error that leaves the user wondering what happened.
-      let newConversationId = await createConversation();
-      if (!newConversationId) {
-        // Wait up to 3 s in 300 ms increments for the session to settle.
-        const deadline = Date.now() + 3000;
-        while (!newConversationId && Date.now() < deadline) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 300));
-          newConversationId = await createConversation();
-        }
-      }
+      // Poll briefly so we don't fail while auth/session state is still settling.
+      const newConversationId = await ensureConversation({ waitForSessionReadyMs: 3000 });
 
       if (!newConversationId) {
         // Session still not ready — surface a friendly toast and bail without
@@ -486,7 +472,7 @@ export function MainApp({
       // Always release the lock so subsequent clicks work.
       isSelectingRef.current = false;
     }
-  }, [activeConversationId, applyConversationMode, createConversation, practiceId, startConsultFlow]);
+  }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
 
   // ── send message ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (
@@ -495,16 +481,11 @@ export function MainApp({
     replyToMessageId?: string | null,
     options?: { mentionedUserIds?: string[] }
   ) => {
-    if (!activeConversationId) {
-      showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
-      if (!isCreatingConversation) void createConversation();
-      return;
-    }
     await sendMessage(message, attachments, replyToMessageId ?? null, {
       mentionedUserIds: options?.mentionedUserIds,
       suppressAi: isPracticeWorkspace,
     });
-  }, [activeConversationId, isCreatingConversation, createConversation, sendMessage, isPracticeWorkspace]);
+  }, [sendMessage, isPracticeWorkspace]);
 
   const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
   useEffect(() => {
@@ -553,6 +534,7 @@ export function MainApp({
     clearPreviewFiles, cancelUpload, isReadyToUpload,
   } = useFileUploadWithContext({
     conversationId: activeConversationId ?? undefined,
+    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
     onError: handleUploadError,
   });
 
@@ -652,24 +634,6 @@ export function MainApp({
   };
 
   // ── conversation header ────────────────────────────────────────────────────
-  const filteredMessagesForHeader = useMemo(() => {
-    const base = messages.filter(m => m.metadata?.systemMessageKey !== 'ask_question_help');
-    const hasNonSystem = base.some(m => m.role !== 'system');
-    return hasNonSystem ? base.filter(m => m.metadata?.systemMessageKey !== 'intro') : base;
-  }, [messages]);
-
-  const headerPresenceStatus = typeof isSocketReady === 'boolean'
-    ? (isSocketReady ? 'active' : 'inactive')
-    : undefined;
-
-  const headerActiveTimeLabel = useMemo(() => {
-    if (headerPresenceStatus === 'active') return 'Active';
-    const lastTimestamp = [...filteredMessagesForHeader].reverse().find(m => typeof m.timestamp === 'number')?.timestamp;
-    if (!lastTimestamp) return 'Inactive';
-    const relative = formatRelativeTime(new Date(lastTimestamp));
-    return relative ? `Active ${relative}` : 'Inactive';
-  }, [filteredMessagesForHeader, headerPresenceStatus]);
-
   const leadReviewActions = useMemo(() => {
     if (!isPracticeWorkspace || !practiceId || !activeConversationId || !practiceMattersPath) return undefined;
     return {
@@ -682,63 +646,27 @@ export function MainApp({
     };
   }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
-  const headerRightSlot = useMemo(() => {
-    let buttonContent = <Icon icon={InformationCircleIcon} className="h-5 w-5" />;
-
-    if (!isPracticeWorkspace && conversationMode === 'REQUEST_CONSULTATION' && intakeConversationState) {
-      const tier = resolveStrengthTier(intakeConversationState);
-      const { percent, ringClass } = resolveStrengthStyle(tier);
-      const radius = 9;
-      const circumference = 2 * Math.PI * radius;
-      const dashOffset = circumference - (percent / 100) * circumference;
-
-      buttonContent = (
-        <span className="relative flex h-6 w-6 items-center justify-center">
-          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
-            <circle
-              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
-              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
-              strokeDasharray={circumference} strokeDashoffset={dashOffset}
-            />
-          </svg>
-          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
-        </span>
-      );
-    }
-
-    return (
-      <Button
-        type="button"
-        variant="icon"
-        size="icon-sm"
-        onClick={() => {
-          if (typeof window === 'undefined') return;
-          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
-        }}
-        aria-label="Open inspector"
-      >
-        {buttonContent}
-      </Button>
-    );
-  }, [isPracticeWorkspace, conversationMode, intakeConversationState]);
-
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
     const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
     return (
-      <WorkspaceConversationHeader
+      <ConversationDetailHeader
         practiceName={resolvedPracticeName}
-        activeLabel={headerActiveTimeLabel}
-        presenceStatus={headerPresenceStatus}
+        messages={messages}
+        isSocketReady={Boolean(isSocketReady && activeConversationId)}
+        conversationMode={conversationMode}
+        intakeConversationState={intakeConversationState}
         onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
-        rightSlot={headerRightSlot}
+        onOpenInspector={() => {
+          if (typeof window === 'undefined') return;
+          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+        }}
       />
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    headerActiveTimeLabel, headerPresenceStatus, headerRightSlot,
-    layoutMode, navigate, resolvedPracticeName,
+    layoutMode, navigate, resolvedPracticeName, messages, isSocketReady,
+    conversationMode, intakeConversationState,
   ]);
   const showWorkspaceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode),
@@ -785,7 +713,10 @@ export function MainApp({
         <div className="flex-1 min-h-0">
           <ChatContainer
             messages={messages}
-            conversationTitle={conversationMetadata?.title ?? null}
+            conversationTitle={resolveConversationDisplayTitle(
+              conversationMetadata ?? null,
+              conversationMetadata?.title ?? ''
+            )}
             onSendMessage={handleSendMessage}
             onAddMessage={addMessage}
             conversationMode={conversationMode}

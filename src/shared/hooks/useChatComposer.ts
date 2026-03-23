@@ -36,6 +36,7 @@ export interface UseChatComposerOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
+  ensureConversation?: () => Promise<string | null>;
   userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
@@ -83,6 +84,7 @@ export const useChatComposer = ({
   practiceId,
   practiceSlug,
   conversationId,
+  ensureConversation,
   userId: externalUserId,
   linkAnonymousConversationOnLoad = false,
   mode,
@@ -143,6 +145,19 @@ export const useChatComposer = ({
     }
   }, []);
 
+  const ensureConversationId = useCallback(async () => {
+    const existingConversationId = conversationIdRef.current?.trim();
+    if (existingConversationId) return existingConversationId;
+
+    if (!ensureConversation) return '';
+
+    const ensuredConversationId = (await ensureConversation())?.trim() ?? '';
+    if (ensuredConversationId) {
+      conversationIdRef.current = ensuredConversationId;
+    }
+    return ensuredConversationId;
+  }, [conversationIdRef, ensureConversation]);
+
   // ── streaming bubble helpers ──────────────────────────────────────────────
 
   const addStreamingBubble = useCallback((bubbleId: string) => {
@@ -179,7 +194,7 @@ export const useChatComposer = ({
     replyToMessageId?: string | null
   ) => {
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
-    const activeConversationId = conversationIdRef.current;
+    const activeConversationId = await ensureConversationId();
     if (!effectivePracticeId) throw new Error('practiceId is required');
     if (!activeConversationId) throw new Error('conversationId is required');
     if (!content.trim()) throw new Error('Message cannot be empty.');
@@ -265,7 +280,7 @@ export const useChatComposer = ({
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
     });
-  }, [connectChatRoom, conversationIdRef, currentUserId, isSocketReadyRef, pendingAckRef, pendingClientMessageRef, sendFrame, setMessages, socketConversationIdRef, waitForSessionReady, waitForSocketReady]);
+  }, [connectChatRoom, currentUserId, ensureConversationId, isSocketReadyRef, pendingAckRef, pendingClientMessageRef, sendFrame, setMessages, socketConversationIdRef, waitForSessionReady, waitForSocketReady]);
 
   // ── SSE stream processor ──────────────────────────────────────────────────
 
@@ -377,61 +392,64 @@ export const useChatComposer = ({
     replyToMessageId?: string | null,
     options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => {
-    const metadataMode = conversationMetadataRef.current?.mode ?? null;
-    if (metadataMode) {
-      lastKnownModeRef.current = metadataMode;
-    } else if (mode) {
-      lastKnownModeRef.current = mode;
-    }
-    const activeMode = metadataMode ?? mode ?? lastKnownModeRef.current ?? null;
-    const effectiveMode: ConversationMode = activeMode ?? 'ASK_QUESTION';
-
-    // In public/widget flows the user can type before metadata mode finishes
-    // syncing. Treat that first send as ASK_QUESTION and persist once.
-    if (!activeMode && conversationId && defaultModePersistedConversationRef.current !== conversationId) {
-      defaultModePersistedConversationRef.current = conversationId;
-      void updateConversationMetadata({ mode: 'ASK_QUESTION' }, conversationId).catch(() => {
-        defaultModePersistedConversationRef.current = null;
-      });
-    }
-
-    const shouldUseAi =
-      !options?.suppressAi && (
-        effectiveMode === 'ASK_QUESTION' ||
-        effectiveMode === 'REQUEST_CONSULTATION' ||
-        effectiveMode === 'PRACTICE_ONBOARDING'
-      );
-    const shouldClassifyIntent = effectiveMode === 'ASK_QUESTION';
-    const preSendMessages = [...messagesRef.current];
-    const hasUserMessages = preSendMessages.some(msg => msg.isUser);
-    const trimmedMessage = message.trim();
-    const mentionUserIds = Array.from(new Set(
-      (options?.mentionedUserIds ?? [])
-        .filter((value): value is string => typeof value === 'string')
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0)
-    ));
-    const messageMetadata = mentionUserIds.length > 0
-      ? {
-        mentionedUserIds: mentionUserIds,
-        mentionUserIds,
-        mentions: mentionUserIds,
-      }
-      : undefined;
-
-    // Ensure intake state is initialized before first consultation message
-    if (effectiveMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
-      if (pendingIntakeInitRef.current) {
-        try { await pendingIntakeInitRef.current; }
-        catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
-      } else {
-        const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState });
-        pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
-        try { await initPromise; } finally { pendingIntakeInitRef.current = null; }
-      }
-    }
-
     try {
+      const resolvedConversationId = await ensureConversationId();
+      if (!resolvedConversationId) throw new Error('conversationId is required');
+
+      const metadataMode = conversationMetadataRef.current?.mode ?? null;
+      if (metadataMode) {
+        lastKnownModeRef.current = metadataMode;
+      } else if (mode) {
+        lastKnownModeRef.current = mode;
+      }
+      const activeMode = metadataMode ?? mode ?? lastKnownModeRef.current ?? null;
+      const effectiveMode: ConversationMode = activeMode ?? 'ASK_QUESTION';
+
+      // In public/widget flows the user can type before metadata mode finishes
+      // syncing. Treat that first send as ASK_QUESTION and persist once.
+      if (!activeMode && defaultModePersistedConversationRef.current !== resolvedConversationId) {
+        defaultModePersistedConversationRef.current = resolvedConversationId;
+        void updateConversationMetadata({ mode: 'ASK_QUESTION' }, resolvedConversationId).catch(() => {
+          defaultModePersistedConversationRef.current = null;
+        });
+      }
+
+      const shouldUseAi =
+        !options?.suppressAi && (
+          effectiveMode === 'ASK_QUESTION' ||
+          effectiveMode === 'REQUEST_CONSULTATION' ||
+          effectiveMode === 'PRACTICE_ONBOARDING'
+        );
+      const shouldClassifyIntent = effectiveMode === 'ASK_QUESTION';
+      const preSendMessages = [...messagesRef.current];
+      const hasUserMessages = preSendMessages.some(msg => msg.isUser);
+      const trimmedMessage = message.trim();
+      const mentionUserIds = Array.from(new Set(
+        (options?.mentionedUserIds ?? [])
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0)
+      ));
+      const messageMetadata = mentionUserIds.length > 0
+        ? {
+          mentionedUserIds: mentionUserIds,
+          mentionUserIds,
+          mentions: mentionUserIds,
+        }
+        : undefined;
+
+      // Ensure intake state is initialized before first consultation message
+      if (effectiveMode === 'REQUEST_CONSULTATION' && !conversationMetadataRef.current?.intakeConversationState) {
+        if (pendingIntakeInitRef.current) {
+          try { await pendingIntakeInitRef.current; }
+          catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
+        } else {
+          const initPromise = updateConversationMetadata({ intakeConversationState: initialIntakeState });
+          pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
+          try { await initPromise; } finally { pendingIntakeInitRef.current = null; }
+        }
+      }
+
       await sendMessageOverWs(message, attachments, messageMetadata, replyToMessageId ?? null);
       if (!shouldUseAi || trimmedMessage.length === 0) return;
 
@@ -444,7 +462,7 @@ export const useChatComposer = ({
         intentAbortRef.current?.abort();
         const intentController = new AbortController();
         intentAbortRef.current = intentController;
-        const intentConversationId = conversationId;
+        const intentConversationId = resolvedConversationId;
         const intentPracticeId = resolvedPracticeId;
 
         try {
@@ -453,7 +471,7 @@ export const useChatComposer = ({
             headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
             credentials: 'include',
             signal: intentController.signal,
-            body: JSON.stringify({ conversationId, practiceId: resolvedPracticeId, message: trimmedMessage }),
+            body: JSON.stringify({ conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage }),
           });
           if (intentResponse?.ok) {
             const intentData = await intentResponse.json() as FirstMessageIntent;
@@ -484,7 +502,7 @@ export const useChatComposer = ({
 
       // ── streaming bubble ────────────────────────────────────────────────
       const streamRequestId = createClientId();
-      const bubbleId = `${STREAMING_BUBBLE_PREFIX}${conversationId}-${streamRequestId}`;
+      const bubbleId = `${STREAMING_BUBBLE_PREFIX}${resolvedConversationId}-${streamRequestId}`;
       addStreamingBubble(bubbleId);
 
       abortControllerRef.current?.abort();
@@ -498,7 +516,7 @@ export const useChatComposer = ({
           credentials: 'include',
           signal: abortController.signal,
           body: JSON.stringify({
-            conversationId, practiceId: resolvedPracticeId,
+            conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
             ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
             mode: effectiveMode, intakeSubmitted, messages: aiMessages,
             additionalContext: options?.additionalContext,
@@ -518,6 +536,7 @@ export const useChatComposer = ({
             payload: errorData,
             request: {
               conversationId,
+              resolvedConversationId,
               practiceId: resolvedPracticeId,
               practiceSlug: resolvedPracticeSlug || null,
               mode: effectiveMode,
@@ -584,8 +603,9 @@ export const useChatComposer = ({
     addStreamingBubble,
     applyIntakeFields,
     conversationId,
-    conversationIdRef,
     conversationMetadataRef,
+    conversationIdRef,
+    ensureConversationId,
     messagesRef,
     mode,
     onError,

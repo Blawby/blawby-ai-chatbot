@@ -10,6 +10,7 @@ export interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
+  ensureConversation?: () => Promise<string | null>;
   userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
@@ -27,6 +28,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     practiceId,
     practiceSlug,
     conversationId,
+    ensureConversation,
     userId,
     mode,
     onConversationMetadataUpdated,
@@ -67,6 +69,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     practiceId,
     practiceSlug,
     conversationId,
+    ensureConversation,
     userId,
     linkAnonymousConversationOnLoad,
     mode,

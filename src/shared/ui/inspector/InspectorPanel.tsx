@@ -154,7 +154,7 @@ export const InspectorPanel = ({
   const [isSavingPriority, setIsSavingPriority] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [isSavingMatter, setIsSavingMatter] = useState(false);
-  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDescription' | 'intakeName' | 'intakeEmail' | 'intakePhone' | null>(null);
+  const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDesiredOutcome' | 'intakeDescription' | 'intakeName' | 'intakeEmail' | 'intakePhone' | null>(null);
   const [activeMatterEditor, setActiveMatterEditor] = useState<
     'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | null
   >(null);
@@ -968,6 +968,47 @@ export const InspectorPanel = ({
                                     if (e.key === 'Enter') {
                                       skipBlurRef.current = true;
                                       void handleIntakeFieldChange({ opposingParty: localIntakeDraft ?? intakeConversationState.opposingParty ?? '' }, true);
+                                    }
+                                    if (e.key === 'Escape') {
+                                      skipBlurRef.current = true;
+                                      setActiveConversationEditor(null);
+                                    }
+                                  }}
+                                />
+                              </InspectorEditableRow>
+                            </InspectorGroup>
+
+                            <InspectorGroup
+                              label="Desired Outcome"
+                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeDesiredOutcome' ? null : 'intakeDesiredOutcome') : undefined}
+                              isOpen={activeConversationEditor === 'intakeDesiredOutcome'}
+                            >
+                              <InspectorEditableRow
+                                label=""
+                                summary={intakeConversationState.desiredOutcome || 'Not set'}
+                                summaryMuted={!intakeConversationState.desiredOutcome}
+                                isOpen={activeConversationEditor === 'intakeDesiredOutcome'}
+                              >
+                                <Textarea
+                                  value={localIntakeDraft ?? intakeConversationState.desiredOutcome ?? ''}
+                                  onChange={setLocalIntakeDraft}
+                                  placeholder="Desired outcome"
+                                  autoFocus
+                                  className="w-full"
+                                  rows={3}
+                                  onBlur={() => {
+                                    if (skipBlurRef.current) {
+                                      skipBlurRef.current = false;
+                                      return;
+                                    }
+                                    if (localIntakeDraft !== null) {
+                                      void handleIntakeFieldChange({ desiredOutcome: localIntakeDraft }, false);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                                      skipBlurRef.current = true;
+                                      void handleIntakeFieldChange({ desiredOutcome: localIntakeDraft ?? intakeConversationState.desiredOutcome ?? '' }, true);
                                     }
                                     if (e.key === 'Escape') {
                                       skipBlurRef.current = true;
