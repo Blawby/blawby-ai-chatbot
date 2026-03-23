@@ -52,17 +52,14 @@ export function AIThinkingIndicator({
 
   // For thinking indicators, use the full wrapper
   return (
-    <div 
+    <div
       className={`flex items-center gap-2 min-h-4 ${className}`}
       role="status"
       aria-live="polite"
       aria-busy="true"
       aria-atomic="true"
     >
-      <span className="relative flex h-2.5 w-2.5">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-accent-500/30 animate-ping" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-500 shadow-lg shadow-accent-500/20" />
-      </span>
+      <span className="ai-thinking-indicator__dot" aria-hidden="true" />
       <span className="sr-only">{displayMessage}</span>
     </div>
   );
