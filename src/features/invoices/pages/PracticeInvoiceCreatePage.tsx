@@ -18,34 +18,52 @@ import {
   readPendingInvoiceDraftContext,
 } from '@/features/invoices/utils/invoiceDraftContext';
 
-const loadAllClients = async (practiceId: string, signal: AbortSignal) => {
-  const pageSize = 50;
-  let offset = 0;
-  const allClients: UserDetailRecord[] = [];
+const PAGE_SIZE = 50;
 
-  while (true) {
-    const response = await listUserDetails(practiceId, { limit: pageSize, offset, signal });
-    allClients.push(...response.data);
-    if (response.data.length < pageSize) break;
-    offset += pageSize;
+const mergeRecordsById = <T extends { id: string }>(currentRecords: T[], incomingRecords: T[]) => {
+  if (incomingRecords.length === 0) return currentRecords;
+  const existingIds = new Set(currentRecords.map((record) => record.id));
+  const mergedRecords = [...currentRecords];
+  for (const record of incomingRecords) {
+    if (existingIds.has(record.id)) continue;
+    existingIds.add(record.id);
+    mergedRecords.push(record);
   }
-
-  return allClients;
+  return mergedRecords;
 };
 
-const loadAllMatters = async (practiceId: string, signal: AbortSignal) => {
-  const pageSize = 50;
-  let page = 1;
-  const allMatters: BackendMatter[] = [];
+const loadFirstClientPage = async (practiceId: string, signal: AbortSignal) => {
+  return listUserDetails(practiceId, { limit: PAGE_SIZE, offset: 0, signal });
+};
 
-  while (true) {
-    const pageItems = await listMatters(practiceId, { page, limit: pageSize, signal });
-    allMatters.push(...pageItems);
-    if (pageItems.length < pageSize) break;
-    page += 1;
+const loadRemainingClientPages = async (
+  practiceId: string,
+  signal: AbortSignal,
+  onPage: (records: UserDetailRecord[]) => void
+) => {
+  for (let offset = PAGE_SIZE; ; offset += PAGE_SIZE) {
+    const response = await listUserDetails(practiceId, { limit: PAGE_SIZE, offset, signal });
+    if (response.data.length === 0) break;
+    onPage(response.data);
+    if (response.data.length < PAGE_SIZE) break;
   }
+};
 
-  return allMatters;
+const loadFirstMatterPage = async (practiceId: string, signal: AbortSignal) => {
+  return listMatters(practiceId, { page: 1, limit: PAGE_SIZE, signal });
+};
+
+const loadRemainingMatterPages = async (
+  practiceId: string,
+  signal: AbortSignal,
+  onPage: (records: BackendMatter[]) => void
+) => {
+  for (let page = 2; ; page += 1) {
+    const pageItems = await listMatters(practiceId, { page, limit: PAGE_SIZE, signal });
+    if (pageItems.length === 0) break;
+    onPage(pageItems);
+    if (pageItems.length < PAGE_SIZE) break;
+  }
 };
 
 const getClientLabel = (client: UserDetailRecord) => {
@@ -85,6 +103,10 @@ export function PracticeInvoiceCreatePage({
   }, [practiceSlug]);
   const returnPath = draftContext?.returnPath?.trim() || invoicesPath;
   const breadcrumbLabel = draftContext?.returnLabel?.trim() || 'Invoices';
+  const missingDraftError = draftId && !draftContext
+    ? 'Invoice draft context was not found. Start invoice creation from the matter or invoices page again.'
+    : null;
+  const displayError = loadError ?? missingDraftError;
   const pageSubtitle = draftContext?.matterId
     ? 'Draft a new invoice for this matter, review the preview, and send it when ready.'
     : 'Draft a new invoice, choose who it belongs to, and optionally link it to a matter.';
@@ -95,35 +117,48 @@ export function PracticeInvoiceCreatePage({
     setLoading(true);
     setLoadError(null);
 
-    void Promise.all([
-      loadAllClients(practiceId, controller.signal),
-      loadAllMatters(practiceId, controller.signal),
-      getOnboardingStatus(practiceId, { signal: controller.signal }),
-    ])
-      .then(([loadedClients, loadedMatters, onboardingStatus]) => {
-        setClients(loadedClients);
-        setMatters(loadedMatters);
+    void (async () => {
+      try {
+        const [clientPage, matterPage, onboardingStatus] = await Promise.all([
+          loadFirstClientPage(practiceId, controller.signal),
+          loadFirstMatterPage(practiceId, controller.signal),
+          getOnboardingStatus(practiceId, { signal: controller.signal }),
+        ]);
+
+        if (controller.signal.aborted) return;
+
+        setClients(clientPage.data);
+        setMatters(matterPage);
         setConnectedAccountId(onboardingStatus.connectedAccountId ?? null);
-      })
-      .catch((error) => {
-        if ((error as DOMException)?.name === 'AbortError') return;
+
+        void Promise.allSettled([
+          loadRemainingClientPages(practiceId, controller.signal, (records) => {
+            if (controller.signal.aborted) return;
+            setClients((current) => mergeRecordsById(current, records));
+          }),
+          loadRemainingMatterPages(practiceId, controller.signal, (records) => {
+            if (controller.signal.aborted) return;
+            setMatters((current) => mergeRecordsById(current, records));
+          }),
+        ]).then((results) => {
+          if (controller.signal.aborted) return;
+          const rejection = results.find((result) => result.status === 'rejected');
+          if (rejection && rejection.status === 'rejected') {
+            setLoadError(rejection.reason instanceof Error ? rejection.reason.message : 'Failed to load invoice builder');
+          }
+        });
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError' || controller.signal.aborted) return;
         setLoadError(error instanceof Error ? error.message : 'Failed to load invoice builder');
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => controller.abort();
   }, [practiceId]);
-
-  useEffect(() => {
-    if (!draftId) return;
-    if (draftContext) return;
-    setLoadError('Invoice draft context was not found. Start invoice creation from the matter or invoices page again.');
-    setLoading(false);
-  }, [draftContext, draftId]);
 
   const clientOptions = useMemo(() => {
     return clients.map((client) => ({
@@ -188,16 +223,16 @@ export function PracticeInvoiceCreatePage({
           title="Create Invoice"
           subtitle={pageSubtitle}
         />
-        {loadError ? (
+        {displayError ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {loadError}
+            {displayError}
           </div>
         ) : null}
         {loading ? (
           <Panel className="p-6">
             <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
           </Panel>
-        ) : draftId && !draftContext ? null : (
+        ) : missingDraftError ? null : (
           <InvoiceBuilder
             practiceId={practiceId}
             connectedAccountId={connectedAccountId}

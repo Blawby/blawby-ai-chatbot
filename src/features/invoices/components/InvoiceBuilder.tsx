@@ -44,8 +44,11 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 const buildDefaultDueDate = () => {
   const next = new Date();
-  next.setUTCDate(next.getUTCDate() + 30);
-  return next.toISOString().slice(0, 10);
+  next.setDate(next.getDate() + 30);
+  const year = next.getFullYear();
+  const month = String(next.getMonth() + 1).padStart(2, '0');
+  const day = String(next.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const INVOICE_TYPE_OPTIONS = [
@@ -190,11 +193,9 @@ export const InvoiceBuilder = ({
     [currentUpdatePayload]
   );
   const previewIssueDate = useMemo(() => {
-    if (!currentUpdatePayload.due_date) return null;
-    const issueDate = new Date(currentUpdatePayload.due_date);
-    issueDate.setUTCDate(issueDate.getUTCDate() - 30);
-    return issueDate.toISOString();
-  }, [currentUpdatePayload.due_date]);
+    const explicitIssueDate = (currentUpdatePayload as { issue_date?: string | Date | null }).issue_date;
+    return explicitIssueDate ?? new Date();
+  }, [currentUpdatePayload]);
 
   const isValidConnectedAccount = useMemo(
     () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),

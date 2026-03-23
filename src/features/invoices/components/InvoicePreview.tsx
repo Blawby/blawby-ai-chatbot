@@ -20,7 +20,7 @@ export const InvoicePreview = ({
 }: InvoicePreviewProps) => {
   const subtotal = lineItems.reduce((sum, item) => sum + getMajorAmountValue(item.line_total), 0);
   const resolvedIssueDate = issueDate instanceof Date
-    ? `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}-${String(issueDate.getDate()).padStart(2, '0')}`
+    ? `${issueDate.getUTCFullYear()}-${String(issueDate.getUTCMonth() + 1).padStart(2, '0')}-${String(issueDate.getUTCDate()).padStart(2, '0')}`
     : issueDate;
 
   return (
