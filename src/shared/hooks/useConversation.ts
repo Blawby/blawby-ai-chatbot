@@ -262,7 +262,8 @@ export const useConversation = ({
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
     const runUpdate = async () => {
-      const previous = targetConversationId && targetConversationId === conversationId
+      const baseId = targetConversationId ?? activeConversationId;
+      const previous = baseId === conversationId
         ? (conversationMetadataRef.current ?? {})
         : {};
       const rawNextMetadata = { ...previous, ...patch };
@@ -301,10 +302,10 @@ export const useConversation = ({
   }, [conversationId, currentUserId, isAnonymous, updateConversationMetadata]);
 
   const fetchConversationMetadata = useCallback(async (signal?: AbortSignal, targetConversationId?: string) => {
-    if (!sessionReady) return;
+    if (!sessionReady) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
-    if (!activeConversationId || !practiceKey) return;
+    if (!activeConversationId || !practiceKey) return null;
     const response = await fetch(
       `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
       { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal }
@@ -314,10 +315,12 @@ export const useConversation = ({
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
     const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
-    if (signal?.aborted || isDisposedRef.current) return;
-    if (activeConversationId !== conversationIdRef.current) return;
-    applyConversationMetadata(data.data?.user_info ?? null);
-  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
+    const metadata = data.data?.user_info ?? null;
+    if (!signal?.aborted && !isDisposedRef.current && activeConversationId === conversationIdRef.current) {
+      applyConversationMetadata(metadata);
+    }
+    return metadata;
+  }, [applyConversationMetadata, conversationId, conversationIdRef, practiceId, sessionReady]);
 
   // ── message mapping ────────────────────────────────────────────────────────
 
@@ -1074,6 +1077,7 @@ export const useConversation = ({
     applyConversationMetadata,
     requestMessageReactions,
     toggleMessageReaction,
+    fetchConversationMetadata,
 
     // Low-level — needed by useChatComposer
     sendFrame,
@@ -1115,6 +1119,7 @@ export const useConversation = ({
     applyConversationMetadata,
     requestMessageReactions,
     toggleMessageReaction,
+    fetchConversationMetadata,
     sendFrame,
     sendReadUpdate,
     waitForSocketReady,

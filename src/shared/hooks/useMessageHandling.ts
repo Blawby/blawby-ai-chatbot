@@ -98,6 +98,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     connectChatRoom: conversation.connectChatRoom,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
+    fetchConversationMetadata: conversation.fetchConversationMetadata,
     applyIntakeFields: intake.applyIntakeFields,
     onError,
   });

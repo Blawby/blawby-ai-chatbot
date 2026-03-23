@@ -66,6 +66,7 @@ export interface UseChatComposerOptions {
   pendingEnsureConversationPromisesRef: React.MutableRefObject<Map<string, Promise<string>>>;
   connectChatRoom: (id: string) => void;
   updateConversationMetadata: (patch: ConversationMetadata, targetId?: string) => Promise<unknown>;
+  fetchConversationMetadata?: (signal?: AbortSignal, targetConversationId?: string) => Promise<ConversationMetadata | null | undefined>;
   applyServerMessages: (msgs: ConversationMessage[]) => void;
 
   // Injected from useIntakeFlow
@@ -111,6 +112,7 @@ export const useChatComposer = ({
   pendingEnsureConversationPromisesRef,
   connectChatRoom,
   updateConversationMetadata,
+  fetchConversationMetadata,
   applyIntakeFields,
   onError,
 }: UseChatComposerOptions) => {
@@ -487,29 +489,35 @@ export const useChatComposer = ({
         : undefined;
 
       // Ensure consultation state exists before first consultation message.
-      if (effectiveMode === 'REQUEST_CONSULTATION' && !resolveConsultationState(conversationMetadataRef.current)) {
-        if (pendingIntakeInitRef.current) {
-          try { await pendingIntakeInitRef.current; }
-          catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
-        } else {
-          // Wait for session readiness before initializing consultation state.
-          const initIntake = async () => {
-            await waitForSessionReady();
-            const initialMetadata = applyConsultationPatchToMetadata(
-              conversationMetadataRef.current,
-              { status: 'collecting_contact', mode: 'REQUEST_CONSULTATION' },
-              { mirrorLegacyFields: true }
-            );
-            const result = await updateConversationMetadata(initialMetadata, resolvedConversationId);
-            if (!result) {
+      if (effectiveMode === 'REQUEST_CONSULTATION') {
+        const resolvedMetadataForConversation = resolvedConversationId === conversationIdRef.current
+          ? conversationMetadataRef.current
+          : (await fetchConversationMetadata?.(undefined, resolvedConversationId)) ?? null;
+        const resolvedConsultationState = resolveConsultationState(resolvedMetadataForConversation);
+        if (!resolvedConsultationState) {
+          if (pendingIntakeInitRef.current) {
+            try { await pendingIntakeInitRef.current; }
+            catch (err) { console.error('[useChatComposer] Failed to await pending intake init', err); }
+          } else {
+            // Wait for session readiness before initializing consultation state.
+            const initIntake = async () => {
               await waitForSessionReady();
-              await updateConversationMetadata(initialMetadata, resolvedConversationId);
-            }
-          };
-          
-          const initPromise = initIntake();
-          pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
-          try { await initPromise; } finally { pendingIntakeInitRef.current = null; }
+              const initialMetadata = applyConsultationPatchToMetadata(
+                resolvedMetadataForConversation,
+                { status: 'collecting_contact', mode: 'REQUEST_CONSULTATION' },
+                { mirrorLegacyFields: true }
+              );
+              const result = await updateConversationMetadata(initialMetadata, resolvedConversationId);
+              if (!result) {
+                await waitForSessionReady();
+                await updateConversationMetadata(initialMetadata, resolvedConversationId);
+              }
+            };
+
+            const initPromise = initIntake();
+            pendingIntakeInitRef.current = initPromise as unknown as Promise<void>;
+            try { await initPromise; } finally { pendingIntakeInitRef.current = null; }
+          }
         }
       }
 
@@ -556,6 +564,7 @@ export const useChatComposer = ({
       const aiMessages = [
         ...preSendMessages
           .filter(msg => msg.role === 'user' || msg.role === 'assistant' || (msg.role === 'system' && msg.metadata?.source === 'ai'))
+          .filter(msg => !msg.metadata?.error)
           .filter(msg => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
           .map(msg => ({ role: msg.role === 'system' ? 'assistant' : msg.role, content: msg.content })),
         { role: 'user' as const, content: trimmedMessage },
@@ -618,7 +627,7 @@ export const useChatComposer = ({
           if (recoveryMessage) {
             setMessages(prev => [...prev, {
               id: createClientId('system-error'),
-              role: 'assistant',
+              role: 'system',
               content: recoveryMessage,
               isUser: false,
               timestamp: Date.now(),
@@ -700,6 +709,8 @@ export const useChatComposer = ({
     removeStreamingBubble,
     sendMessageOverWs,
     setMessages,
+    fetchConversationMetadata,
+    waitForSessionReady,
     updateConversationMetadata,
   ]);
 
