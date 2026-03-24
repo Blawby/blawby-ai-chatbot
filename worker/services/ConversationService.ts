@@ -813,8 +813,14 @@ export class ConversationService {
     if (updates.metadata !== undefined) {
       const mergedMetadata = {
         ...((currentConversation.user_info ?? {}) as Record<string, unknown>),
-        ...updates.metadata,
       };
+      for (const [key, value] of Object.entries(updates.metadata)) {
+        if (value === null) {
+          delete mergedMetadata[key];
+          continue;
+        }
+        mergedMetadata[key] = value;
+      }
       updatesList.push('user_info = ?');
       bindings.push(JSON.stringify(mergedMetadata));
     }

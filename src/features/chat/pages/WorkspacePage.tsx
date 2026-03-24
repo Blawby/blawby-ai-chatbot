@@ -1330,7 +1330,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     try {
       const shouldReuseConversation = mode !== 'REQUEST_CONSULTATION';
       const reusableAskQuestionConversations = shouldReuseConversation
-        ? conversations.filter((conversation) => {
+        ? resolvedConversations.filter((conversation) => {
             const metadata = conversation.user_info ?? null;
             if (resolveConsultationState(metadata)) return false;
             return metadata?.mode !== 'REQUEST_CONSULTATION';

@@ -768,18 +768,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       effectiveMode: effectiveMode ?? null,
       intakeModeSignals,
       metadataKeys: conversationMetadata ? Object.keys(conversationMetadata).sort() : [],
-	      consultationSnapshot: consultation
-	        ? {
-	            mode: consultation.mode ?? null,
-	            status: consultation.status ?? null,
-	            hasCase: Boolean(consultation.case),
-	            hasContact: Boolean(consultation.contact),
-	            hasIntakeId:
-	              typeof consultation.submission.intakeUuid === 'string'
-	              && consultation.submission.intakeUuid.trim().length > 0,
-	          }
-	        : null,
-	    });
+      consultationSnapshot: consultation
+        ? {
+            mode: consultation.mode ?? null,
+            status: consultation.status ?? null,
+            hasCase: Boolean(consultation.case),
+            hasContact: Boolean(consultation.contact),
+            hasIntakeId:
+              typeof consultation.submission.intakeUuid === 'string'
+              && consultation.submission.intakeUuid.trim().length > 0,
+          }
+        : null,
+    });
   }
 
   if (!details) {
@@ -1380,14 +1380,36 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           : 'You have already saved the structured onboarding fields for the latest user message. Respond to the user with one warm, concise next step. Do not output JSON or tool-call syntax.',
       ].filter(Boolean).join('\n\n');
 
-      const followupResponse = await aiClient.requestChatCompletions({
-        model,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: nextFullSystemPrompt },
-          ...body.messages.map((message) => ({ role: message.role, content: message.content }))
-        ]
-      });
+      const followupController = new AbortController();
+      const followupTimeoutId = setTimeout(() => {
+        followupController.abort();
+      }, AI_TIMEOUT_MS);
+
+      let followupResponse: Response;
+      try {
+        followupResponse = await aiClient.requestChatCompletions({
+          model,
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: nextFullSystemPrompt },
+            ...body.messages.map((message) => ({ role: message.role, content: message.content })),
+          ],
+        }, followupController.signal);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw createAiDebugError(
+            'AI follow-up request timed out after successful tool extraction.',
+            'ai_followup_timeout',
+            {
+              mode: options.mode,
+              timeoutMs: AI_TIMEOUT_MS,
+            }
+          );
+        }
+        throw error;
+      } finally {
+        clearTimeout(followupTimeoutId);
+      }
 
       if (!followupResponse.ok) {
         const errorText = await followupResponse.text().catch(() => '');
@@ -1656,7 +1678,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             {
               mode: effectiveMode ?? null,
               violations,
-              replyPreview: accumulatedReply.slice(0, 300),
+              ...(isDebugEnabled(env.DEBUG)
+                ? { replyPreview: accumulatedReply.slice(0, 300) }
+                : {}),
             }
           );
         }
