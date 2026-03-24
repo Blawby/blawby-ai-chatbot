@@ -101,7 +101,7 @@ export class RemoteApiService {
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
     const url = `${baseUrl}${endpoint}`;
-    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice/client-intakes/');
+    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice-client-intakes/') || endpoint.includes('/api/practice/client-intakes/');
     
     const headers = new Headers({
       'Content-Type': 'application/json',
@@ -735,7 +735,7 @@ export class RemoteApiService {
   ): Promise<Response> {
     return this.fetchFromRemoteApi(
       env,
-      '/api/practice/client-intakes/create',
+      '/api/practice-client-intakes/create',
       request,
       {
         method: 'POST',
@@ -767,7 +767,7 @@ export class RemoteApiService {
   }> {
     const response = await this.fetchFromRemoteApi(
       env,
-      `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/convert`,
+      `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/convert`,
       request,
       {
         method: 'POST',
@@ -814,7 +814,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/status`,
         request
       );
 
@@ -870,7 +870,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`,
+        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/invite`,
         request,
         {
           method: 'POST',
@@ -917,7 +917,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice/client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
+        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
         request
       );
       const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
