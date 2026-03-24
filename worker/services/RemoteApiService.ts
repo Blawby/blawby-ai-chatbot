@@ -101,7 +101,7 @@ export class RemoteApiService {
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
     const url = `${baseUrl}${endpoint}`;
-    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice-client-intakes/') || endpoint.includes('/api/practice/client-intakes/');
+    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice-client-intakes/');
     
     const headers = new Headers({
       'Content-Type': 'application/json',
