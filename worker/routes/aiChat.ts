@@ -64,6 +64,29 @@ import {
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+const summarizeIntakeLocation = (
+  state: Record<string, unknown> | null | undefined
+): Record<string, unknown> => ({
+  city: typeof state?.city === 'string' ? state.city : null,
+  state: typeof state?.state === 'string' ? state.state : null,
+  postalCode: typeof state?.postalCode === 'string' ? state.postalCode : null,
+  addressLine1: typeof state?.addressLine1 === 'string' ? state.addressLine1 : null,
+  addressLine2: typeof state?.addressLine2 === 'string' ? state.addressLine2 : null,
+});
+
+const summarizeIntakeCoreFields = (
+  state: Record<string, unknown> | null | undefined
+): Record<string, unknown> => ({
+  practiceArea: typeof state?.practiceArea === 'string' ? state.practiceArea : null,
+  practiceAreaName: typeof state?.practiceAreaName === 'string' ? state.practiceAreaName : null,
+  description: typeof state?.description === 'string' ? state.description.slice(0, 180) : null,
+  opposingParty: typeof state?.opposingParty === 'string' ? state.opposingParty : null,
+  desiredOutcome: typeof state?.desiredOutcome === 'string' ? state.desiredOutcome : null,
+  urgency: typeof state?.urgency === 'string' ? state.urgency : null,
+  hasDocuments: typeof state?.hasDocuments === 'boolean' ? state.hasDocuments : null,
+  intakeReady: typeof state?.intakeReady === 'boolean' ? state.intakeReady : null,
+});
+
 // ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
@@ -254,7 +277,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             hasCase: Boolean(consultation.case),
             hasContact: Boolean(consultation.contact),
             hasIntakeId:
-              typeof consultation.submission.intakeUuid === 'string'
+              consultation.submission != null
+              && typeof consultation.submission.intakeUuid === 'string'
               && consultation.submission.intakeUuid.trim().length > 0,
           }
         : null,
@@ -485,13 +509,34 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           } | null;
 
           const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+          if (debugEnabled) {
+            Logger.info('Intake extraction raw result', {
+              conversationId: body.conversationId,
+              messageCount: body.messages.length,
+              latestUserMessagePreview: lastUserMessage?.content?.slice(0, 160) ?? null,
+              storedLocation: summarizeIntakeLocation(storedIntakeState),
+              storedCoreFields: summarizeIntakeCoreFields(storedIntakeState),
+              rawToolArgsPreview: typeof toolCallArgs === 'string' ? toolCallArgs.slice(0, 800) : null,
+              searchContextPreview: body.additionalContext ? body.additionalContext.slice(0, 300) : null,
+            });
+          }
           if (typeof toolCallArgs === 'string' && toolCallArgs.length > 0) {
             try {
               intakeFields = normalizeKeys(JSON.parse(toolCallArgs)) as Record<string, unknown>;
+              if (debugEnabled) {
+                Logger.info('Intake extraction parsed fields', {
+                  conversationId: body.conversationId,
+                  extractedLocation: summarizeIntakeLocation(intakeFields),
+                  extractedCoreFields: summarizeIntakeCoreFields(intakeFields),
+                });
+              }
             } catch (parseError) {
               Logger.warn('Failed to parse extraction tool call arguments', {
                 conversationId: body.conversationId,
                 error: parseError instanceof Error ? parseError.message : String(parseError),
+                ...(debugEnabled
+                  ? { rawToolArgsPreview: toolCallArgs.slice(0, 800) }
+                  : {}),
               });
             }
           }
@@ -507,6 +552,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           ...(intakeFields ?? {}),
           intakeReady: shouldShowDeterministicIntakeCta(mergedForReadiness),
         };
+        if (debugEnabled) {
+          Logger.info('Intake extraction merged state', {
+            conversationId: body.conversationId,
+            beforeLocation: summarizeIntakeLocation(storedIntakeState),
+            extractedLocation: summarizeIntakeLocation(intakeFields),
+            mergedLocation: summarizeIntakeLocation(mergedForReadiness),
+            beforeCoreFields: summarizeIntakeCoreFields(storedIntakeState),
+            mergedCoreFields: summarizeIntakeCoreFields(mergedForReadiness),
+            locationIntroducedByExtraction: {
+              city: !hasNonEmptyStringField(storedIntakeState, 'city') && hasNonEmptyStringField(intakeFields, 'city'),
+              state: !hasNonEmptyStringField(storedIntakeState, 'state') && hasNonEmptyStringField(intakeFields, 'state'),
+            },
+          });
+        }
       }
 
       if (isIntakeMode) {
@@ -524,6 +583,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         delete requestPayload.tools;
         delete requestPayload.tool_choice;
         delete requestPayload.parallel_tool_calls;
+        if (debugEnabled) {
+          Logger.info('Intake conversation prompt context', {
+            conversationId: body.conversationId,
+            mergedLocation: summarizeIntakeLocation(mergedForConversation),
+            mergedCoreFields: summarizeIntakeCoreFields(mergedForConversation),
+            systemPromptPreview: conversationSystemPrompt.slice(0, 900),
+          });
+        }
       }
 
       const aiResponse = await aiClient.requestChatCompletions(requestPayload, controller.signal);
@@ -697,6 +764,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         intakeFields = { ...(intakeFields ?? {}), intakeReady };
       }
       let mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
+      if (isIntakeMode && debugEnabled) {
+        Logger.info('Intake state before persistence', {
+          conversationId: body.conversationId,
+          latestUserMessagePreview: lastUserMessage?.content?.slice(0, 160) ?? null,
+          accumulatedReplyPreview: accumulatedReply.slice(0, 260),
+          intakeFieldsLocation: summarizeIntakeLocation(intakeFields),
+          mergedLocation: summarizeIntakeLocation(mergedIntakeState),
+          mergedCoreFields: summarizeIntakeCoreFields(mergedIntakeState),
+          quickReplies,
+        });
+      }
       const resolvedPracticeName = readAnyString(details, ['name', 'practiceName', 'practice_name']) ?? 'the practice';
 
       if (isIntakeMode && !intakeFields) {
