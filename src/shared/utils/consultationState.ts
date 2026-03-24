@@ -395,6 +395,28 @@ export const applyConsultationPatchToMetadata = (
   return nextMetadata;
 };
 
+export const clearConsultationMetadata = (
+  metadata: ConversationMetadata | null | undefined,
+  mode: ConversationMetadata['mode'] = 'ASK_QUESTION'
+): ConversationMetadata => {
+  const previous = metadata ?? {};
+  const nextMetadata: ConversationMetadata = {
+    ...previous,
+    consultation: null,
+    mode,
+    intakeConversationState: { ...initialIntakeState },
+    intakeSlimContactDraft: null,
+    intakeAiBriefActive: false,
+    intakeUuid: null,
+    intakePaymentRequired: undefined,
+    intakePaymentReceived: undefined,
+    intakeSubmitted: false,
+    intakeCompleted: false,
+  };
+
+  return nextMetadata;
+};
+
 export const deriveIntakeStatusFromConsultation = (
   metadata: ConversationMetadata | null | undefined
 ) => {

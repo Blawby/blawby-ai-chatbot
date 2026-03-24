@@ -366,9 +366,18 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.error === true) {
+        console.error('[useChatComposer] AI stream error', {
+          code: typeof parsed.code === 'string' ? parsed.code : null,
+          message: typeof parsed.message === 'string' ? parsed.message : null,
+          details: parsed.details && typeof parsed.details === 'object' ? parsed.details : null,
+        });
         if (isMountedRef.current) {
           removeStreamingBubble(bubbleId);
-          onError?.(typeof parsed.message === 'string' ? parsed.message : 'Something went wrong. Please try again.');
+          onError?.(
+            typeof parsed.message === 'string' && parsed.message.trim().length > 0
+              ? parsed.message
+              : 'AI request failed'
+          );
         }
         return;
       }

@@ -59,6 +59,7 @@ interface BackendIntakeCreatePayload {
   amount: number;
   name: string;
   email: string;
+  user_id?: string;
   phone?: string;
   conversation_id: string;
   description?: string;
@@ -113,6 +114,7 @@ const buildIntakePayload = (
   intake: IntakeConversationState | null | undefined,
   options?: {
     amountMinor?: number;
+    userId?: string;
   }
 ): BackendIntakeCreatePayload => {
   const normalizeAmount = (value: number | undefined): number => {
@@ -136,6 +138,10 @@ const buildIntakePayload = (
     email: draft.email,
     conversation_id: conversationId,
   };
+
+  if (options?.userId && options.userId.trim().length > 0) {
+    payload.user_id = options.userId.trim();
+  }
 
   if (draft.phone) payload.phone = draft.phone;
   if (draft.city) payload.city = draft.city;
@@ -255,6 +261,7 @@ export async function handleSubmitIntake(
   // Build backend payload
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: typeof intakeSettings?.prefillAmount === 'number' ? intakeSettings.prefillAmount : undefined,
+    userId,
   });
 
   Logger.info('[submitIntake] Calling backend intake create', {
@@ -264,14 +271,33 @@ export async function handleSubmitIntake(
     hasIntakeFields: Boolean(intake),
     caseStrength: intake?.caseStrength ?? null,
     amountMinor: intakePayload.amount,
+    hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
+    hasAuthorization: Boolean(request.headers.get('Authorization')?.trim()),
   });
 
   // Call backend API via existing RemoteApiService pattern
-  const backendResponse = await RemoteApiService.createIntake(
-    env,
-    intakePayload as unknown as Record<string, unknown>,
-    request
-  );
+  let backendResponse: Response;
+  try {
+    backendResponse = await RemoteApiService.createIntake(
+      env,
+      intakePayload as unknown as Record<string, unknown>,
+      request
+    );
+  } catch (error) {
+    Logger.error('[submitIntake] Backend intake create request failed before response handling', {
+      conversationId,
+      practiceId,
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+      status: typeof (error as { status?: unknown })?.status === 'number'
+        ? (error as { status: number }).status
+        : null,
+      context: typeof (error as { context?: unknown })?.context === 'object'
+        ? (error as { context: unknown }).context
+        : null,
+    });
+    throw error;
+  }
   const backendPayload = await backendResponse.json().catch(() => null) as BackendIntakeCreateResponse | null;
 
   if (!backendPayload?.success || !backendPayload.data?.uuid) {

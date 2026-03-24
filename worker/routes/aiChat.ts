@@ -13,9 +13,6 @@ import { resolveConsultationState } from '../../src/shared/utils/consultationSta
 
 const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
-const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
-const INTRO_INTAKE_DISCLAIMER_FALLBACK = "I cannot provide legal advice, but I can help you submit a consultation request. Please describe your situation so I can gather the details for the firm.";
-const INTRO_ONBOARDING_FALLBACK = "I'm here to help you set up your practice profile. What would you like to update next?";
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
@@ -32,6 +29,22 @@ const normalizeText = (text: string): string =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+type DebuggableAiError = Error & {
+  code?: string;
+  details?: Record<string, unknown>;
+};
+
+const createAiDebugError = (
+  message: string,
+  code: string,
+  details?: Record<string, unknown>
+): DebuggableAiError => {
+  const error = new Error(message) as DebuggableAiError;
+  error.code = code;
+  if (details) error.details = details;
+  return error;
+};
 
 const extractServiceNames = (details: Record<string, unknown> | null): string[] => {
   if (!details) return [];
@@ -124,32 +137,6 @@ const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; c
 
 const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
 
-const buildIntakeFallbackReply = (fields: Record<string, unknown> | null): string => {
-  if (!fields) return 'Thanks — can you share a bit more about what happened?';
-  if (typeof fields.practiceArea !== 'string' || fields.practiceArea.trim() === '') {
-    return 'Which practice area best fits your situation?';
-  }
-  if (typeof fields.description !== 'string' || fields.description.trim() === '') {
-    return 'Can you describe what happened in your own words?';
-  }
-  if (!fields.urgency && !fields.courtDate) {
-    return 'Are there any upcoming deadlines or court dates?';
-  }
-  if (typeof fields.opposingParty !== 'string' || fields.opposingParty.trim() === '') {
-    return 'Is there an opposing party involved?';
-  }
-  if (typeof fields.desiredOutcome !== 'string' || fields.desiredOutcome.trim() === '') {
-    return 'What outcome are you hoping for?';
-  }
-  if (typeof fields.city !== 'string' || fields.city.trim() === '' || typeof fields.state !== 'string' || fields.state.trim() === '') {
-    return 'What city and state are you in?';
-  }
-  if (typeof fields.hasDocuments !== 'boolean') {
-    return 'Do you have any documents related to this situation?';
-  }
-  return 'Would you like to continue now, or build a stronger brief first so we can match you with the right attorney?';
-};
-
 const buildPracticeContactErrorReply = (
   practiceName: string,
   details: Record<string, unknown> | null
@@ -213,69 +200,6 @@ const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): str
         : 'Here is what I have gathered so far.';
 
   return `${opening} ${parts.join(' ')}`.trim() + ' Are you ready for me to submit this information to connect you with the right attorney?';
-};
-
-const buildOnboardingFallbackReplyFromProfile = (profile: Record<string, unknown> | null): string => {
-  if (!profile) return 'What would you like to set up first for your practice profile?';
-  const completionScore = typeof profile.completionScore === 'number' ? profile.completionScore : 0;
-  const missingFields = Array.isArray(profile.missingFields)
-    ? profile.missingFields.filter((value): value is string => typeof value === 'string')
-    : [];
-  if (completionScore >= 80 && missingFields.length === 0) {
-    return 'Welcome back! Your profile looks great. Anything you want to update?';
-  }
-  const nextField = missingFields[0] ?? null;
-  const prompts: Record<string, string> = {
-    website: 'If you have a website, share the URL and I can scan it to pre-fill your profile.',
-    name: "What's the name of your practice?",
-    description: 'What does your firm do or who do you serve?',
-    services: 'What services or practice areas should clients be able to choose from?',
-    contactPhone: "What's your main phone number?",
-    businessEmail: "What's your business email?",
-    address: "What's your office address?",
-    accentColor: 'What accent color would you like to use?',
-  };
-  if (nextField && prompts[nextField]) return prompts[nextField];
-  if (completionScore >= 80) return 'Welcome back! Your profile looks great. Anything you want to update?';
-  return 'What would you like to update in your practice profile?';
-};
-
-const extractEmailFromText = (text: string | null | undefined): string | null => {
-  if (!text) return null;
-  const match = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  return match ? match[0] : null;
-};
-
-const buildOnboardingEditAwareFallbackReply = (
-  profile: Record<string, unknown> | null,
-  onboardingFields: Record<string, unknown> | null,
-  lastUserContent?: string | null
-): string => {
-  const requestedEmail =
-    (typeof onboardingFields?.businessEmail === 'string' && onboardingFields.businessEmail.trim()) ||
-    extractEmailFromText(lastUserContent) ||
-    null;
-  if (requestedEmail && /\b(email|e-mail)\b/i.test(lastUserContent ?? '')) {
-    return `Got it. I'll use ${requestedEmail} as your business email. Anything else you'd like to update?`;
-  }
-
-  const requestedPhone =
-    typeof onboardingFields?.contactPhone === 'string' && onboardingFields.contactPhone.trim().length > 0
-      ? onboardingFields.contactPhone.trim()
-      : null;
-  if (requestedPhone && /\b(phone|number|call)\b/i.test(lastUserContent ?? '')) {
-    return `Got it. I'll use ${requestedPhone} as your main phone number. Anything else you'd like to update?`;
-  }
-
-  const requestedName =
-    typeof onboardingFields?.name === 'string' && onboardingFields.name.trim().length > 0
-      ? onboardingFields.name.trim()
-      : null;
-  if (requestedName && /\b(name|practice)\b/i.test(lastUserContent ?? '')) {
-    return `Got it. I'll update the practice name to ${requestedName}. Anything else you'd like to update?`;
-  }
-
-  return buildOnboardingFallbackReplyFromProfile(profile);
 };
 
 const shouldShowIntakeCtaForReply = (reply: string): boolean => {
@@ -431,6 +355,9 @@ Conversation style:
 - Never give legal advice
 - Never ask for personal contact info (name, email, phone) — that's already collected
 - Only identify practice areas from the list above
+- Before the brief is strong or ready to submit, every assistant reply must include exactly ONE concrete next-step intake question for the user.
+- If the user just shared what happened, briefly acknowledge it and immediately ask the single most important missing intake question.
+- Do not stop at empathy or validation alone. Move the intake forward in the same reply.
 
 Your goal through the conversation is to naturally learn:
 1. What is happening (in their words) — ask this first, openly. CHECK INTAKE_CONTEXT first.
@@ -454,6 +381,14 @@ caseStrength rules:
 When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking intake questions. Your only task is to respectfully show a brief summary of the case you've collected and ask if they are ready to submit it to the firm.
 
 If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
+
+Question priority when information is missing:
+- First: what happened / short description
+- Then: city and state
+- Then: opposing party
+- Then: urgency or deadline
+- Then: desired outcome
+- Then: whether they have documents
 
 missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".
 
@@ -790,6 +725,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const intakeBriefActive = consultation
     ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
     : conversationMetadata?.intakeAiBriefActive === true;
+  const intakeModeSignals = {
+    requestedModeIsConsultation: effectiveMode === 'REQUEST_CONSULTATION',
+    hasConsultationState: Boolean(consultation),
+    consultationStatus: consultation?.status ?? null,
+    hasSlimContactDraft,
+    intakeBriefActive,
+    intakeSubmitted: body.intakeSubmitted === true,
+    isPublic,
+  };
   const isIntakeMode = Boolean(
     (effectiveMode === 'REQUEST_CONSULTATION' || Boolean(consultation) || hasSlimContactDraft || intakeBriefActive) &&
     body.intakeSubmitted !== true &&
@@ -797,6 +741,46 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   );
   const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
+
+  Logger.info('AI chat mode resolution', {
+    conversationId: body.conversationId,
+    requestedMode: body.mode ?? null,
+    storedMode,
+    effectiveMode: effectiveMode ?? null,
+    isPublic,
+    isAnonymous: authContext.isAnonymous === true,
+    consultationResolved: Boolean(consultation),
+    consultationStatus: consultation?.status ?? null,
+    hasStoredIntakeState: Boolean(storedIntakeState),
+    hasSlimContactDraft,
+    intakeBriefActive,
+    intakeSubmitted: body.intakeSubmitted === true,
+    isIntakeMode,
+    isOnboardingMode,
+    isGeneralQaMode,
+  });
+
+  if (isIntakeMode && effectiveMode !== 'REQUEST_CONSULTATION') {
+    Logger.warn('AI chat entered intake mode without explicit consultation mode', {
+      conversationId: body.conversationId,
+      requestedMode: body.mode ?? null,
+      storedMode,
+      effectiveMode: effectiveMode ?? null,
+      intakeModeSignals,
+      metadataKeys: conversationMetadata ? Object.keys(conversationMetadata).sort() : [],
+	      consultationSnapshot: consultation
+	        ? {
+	            mode: consultation.mode ?? null,
+	            status: consultation.status ?? null,
+	            hasCase: Boolean(consultation.case),
+	            hasContact: Boolean(consultation.contact),
+	            hasIntakeId:
+	              typeof consultation.submission.intakeUuid === 'string'
+	              && consultation.submission.intakeUuid.trim().length > 0,
+	          }
+	        : null,
+	    });
+  }
 
   if (!details) {
     throw HttpErrors.badGateway(
@@ -945,8 +929,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // separately and only emit the done event once the full tool call is parsed.
   if (isIntakeMode) {
     requestPayload.tools = [INTAKE_TOOL];
+    requestPayload.tool_choice = {
+      type: 'function',
+      function: { name: 'update_intake_fields' },
+    };
+    requestPayload.parallel_tool_calls = false;
   } else if (isOnboardingMode) {
     requestPayload.tools = [ONBOARDING_TOOL];
+    requestPayload.tool_choice = {
+      type: 'function',
+      function: { name: 'update_practice_fields' },
+    };
+    requestPayload.parallel_tool_calls = false;
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
@@ -1363,6 +1357,69 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
     };
 
+    const requestFollowupUserFacingReply = async (options: {
+      mode: 'intake' | 'onboarding';
+      intakeFields?: Record<string, unknown> | null;
+      onboardingFields?: Record<string, unknown> | null;
+    }): Promise<string> => {
+      const nextFullSystemPrompt = [
+        options.mode === 'intake'
+          ? buildIntakeSystemPrompt(servicesForPrompt)
+          : buildOnboardingSystemPrompt(
+              options.onboardingFields
+                ? buildOnboardingProfileMetadata(details, options.onboardingFields)
+                : onboardingPromptProfile
+            ),
+        `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
+        options.mode === 'intake'
+          ? `INTAKE_CONTEXT: ${JSON.stringify(mergeIntakeState(storedIntakeState, options.intakeFields ?? null))}`
+          : null,
+        body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
+        options.mode === 'intake'
+          ? 'You have already saved the structured intake fields for the latest user message. Respond to the user with exactly one warm, concise next-step intake question. Do not output JSON or tool-call syntax.'
+          : 'You have already saved the structured onboarding fields for the latest user message. Respond to the user with one warm, concise next step. Do not output JSON or tool-call syntax.',
+      ].filter(Boolean).join('\n\n');
+
+      const followupResponse = await aiClient.requestChatCompletions({
+        model,
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: nextFullSystemPrompt },
+          ...body.messages.map((message) => ({ role: message.role, content: message.content }))
+        ]
+      });
+
+      if (!followupResponse.ok) {
+        const errorText = await followupResponse.text().catch(() => '');
+        throw createAiDebugError(
+          'AI follow-up request failed after successful tool extraction.',
+          'ai_followup_request_failed',
+          {
+            mode: options.mode,
+            status: followupResponse.status,
+            body: errorText,
+          }
+        );
+      }
+
+      const payload = await followupResponse.json().catch(() => null) as {
+        choices?: Array<{ message?: { content?: string | null } }>;
+      } | null;
+      const rawContent = payload?.choices?.[0]?.message?.content;
+      const content = typeof rawContent === 'string' ? rawContent.trim() : '';
+      if (!content) {
+        throw createAiDebugError(
+          'AI follow-up request returned no user-facing reply.',
+          'ai_followup_empty_reply',
+          {
+            mode: options.mode,
+            payload,
+          }
+        );
+      }
+      return content;
+    };
+
     const startedAt = Date.now();
 
       // Add timeout for the initial AI request
@@ -1417,7 +1474,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
-      const shouldStreamTokensToUser = !isIntakeMode && !isOnboardingMode;
+      const shouldStreamTokensToUser = !isOnboardingMode;
       const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser);
       const latencyMs = Date.now() - startedAt;
 
@@ -1487,17 +1544,36 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // Post-process reply — same validation logic as the non-streaming path
       if (!accumulatedReply.trim()) {
         if (isIntakeMode && intakeFields) {
-          accumulatedReply = buildIntakeFallbackReply(intakeFields);
+          accumulatedReply = await requestFollowupUserFacingReply({
+            mode: 'intake',
+            intakeFields,
+          });
         } else if (isOnboardingMode && onboardingFields) {
-          const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
-          accumulatedReply = buildOnboardingEditAwareFallbackReply(
-            currentOnboardingProfile,
+          accumulatedReply = await requestFollowupUserFacingReply({
+            mode: 'onboarding',
             onboardingFields,
-            lastUserMessage?.content ?? null
-          );
-        } else {
-          throw new Error('AI returned an empty reply');
+          });
         }
+      }
+
+      if (!accumulatedReply.trim()) {
+        throw createAiDebugError(
+          isIntakeMode
+            ? 'AI returned no user-facing reply in intake mode.'
+            : isOnboardingMode
+              ? 'AI returned no user-facing reply in onboarding mode.'
+              : 'AI returned an empty reply.',
+          'ai_empty_reply',
+          {
+            mode: effectiveMode ?? null,
+            isIntakeMode,
+            isOnboardingMode,
+            hasIntakeFields: Boolean(intakeFields),
+            hasOnboardingFields: Boolean(onboardingFields),
+            streamStalled: streamResult.streamStalled,
+            diagnostics: streamResult.diagnostics,
+          }
+        );
       }
 
       // Final cleanup of accumulatedReply to strip any leaked tool calls
@@ -1528,26 +1604,37 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           }
           if (finalParsing.contentBuffer && finalParsing.contentBuffer.trim().length > 0) {
             accumulatedReply = finalParsing.contentBuffer;
-          } else if (isIntakeMode && intakeFields) {
-            accumulatedReply = buildIntakeFallbackReply(intakeFields);
-          } else if (isOnboardingMode && onboardingFields) {
-            const currentOnboardingProfile = buildOnboardingProfileMetadata(details, onboardingFields);
-            accumulatedReply = buildOnboardingEditAwareFallbackReply(
-              currentOnboardingProfile,
-              onboardingFields,
-              lastUserMessage?.content ?? null
-            );
           } else {
-            accumulatedReply = isIntakeMode
-              ? INTRO_INTAKE_DISCLAIMER_FALLBACK
-              : isOnboardingMode
-                ? INTRO_ONBOARDING_FALLBACK
-                : EMPTY_REPLY_FALLBACK;
+            if (isIntakeMode && intakeFields) {
+              accumulatedReply = await requestFollowupUserFacingReply({
+                mode: 'intake',
+                intakeFields,
+              });
+            } else if (isOnboardingMode && onboardingFields) {
+              accumulatedReply = await requestFollowupUserFacingReply({
+                mode: 'onboarding',
+                onboardingFields,
+              });
+            } else {
+              throw createAiDebugError(
+                'AI returned tool-call content without a user-facing reply.',
+                'ai_tool_only_reply',
+                {
+                  mode: effectiveMode ?? null,
+                  isIntakeMode,
+                  isOnboardingMode,
+                  toolName: finalParsing.name ?? null,
+                  hasParsedParameters: Boolean(finalParsing.parameters),
+                  streamStalled: streamResult.streamStalled,
+                  diagnostics: streamResult.diagnostics,
+                }
+              );
+            }
           }
         }
       }
 
-      if (accumulatedReply !== EMPTY_REPLY_FALLBACK) {
+      if (accumulatedReply.trim().length > 0) {
         const violations: string[] = [];
         if (
           shouldRequireDisclaimer(body.messages) &&
@@ -1563,11 +1650,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             conversationId: body.conversationId,
             violations
           });
-          if (violations.includes('missing_disclaimer')) {
-            accumulatedReply = isIntakeMode ? INTRO_INTAKE_DISCLAIMER_FALLBACK : EMPTY_REPLY_FALLBACK;
-          } else if (!isIntakeMode && !isOnboardingMode) {
-            accumulatedReply = EMPTY_REPLY_FALLBACK;
-          }
+          throw createAiDebugError(
+            `AI response violated prompt contract: ${violations.join(', ')}`,
+            'ai_prompt_contract_violation',
+            {
+              mode: effectiveMode ?? null,
+              violations,
+              replyPreview: accumulatedReply.slice(0, 300),
+            }
+          );
         }
       }
 
@@ -1611,15 +1702,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const resolvedPracticeName = readAnyString(details, ['name', 'practiceName', 'practice_name']) ?? 'the practice';
 
       if (isIntakeMode && !intakeFields) {
-        Logger.warn('Intake tool contract violated: reply completed without structured intake fields', {
-          conversationId: body.conversationId,
-          practiceId,
-          mode: effectiveMode ?? null,
-          lastUserMessage: debugEnabled ? lastUserMessage?.content?.slice(0, 200) ?? null : '[redacted]',
-          aiReplyPreview: accumulatedReply.slice(0, 200),
-          streamDiagnostics: streamResult.diagnostics,
-          practiceContactErrorReply: buildPracticeContactErrorReply(resolvedPracticeName, details),
-        });
+        throw createAiDebugError(
+          'Intake AI reply completed without structured intake fields.',
+          'ai_missing_intake_fields',
+          {
+            conversationId: body.conversationId,
+            practiceId,
+            mode: effectiveMode ?? null,
+            lastUserMessage: debugEnabled ? lastUserMessage?.content?.slice(0, 200) ?? null : '[redacted]',
+            aiReplyPreview: accumulatedReply.slice(0, 200),
+            streamDiagnostics: streamResult.diagnostics,
+            practiceContactErrorReply: buildPracticeContactErrorReply(resolvedPracticeName, details),
+          }
+        );
       }
 
       const shouldPromptConsultation =
@@ -1771,13 +1866,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           conversationId: body.conversationId,
           timeout: AI_TIMEOUT_MS
         });
-        write({ error: true, message: 'AI request timed out' });
+        write({ error: true, code: 'ai_request_timeout', message: 'AI request timed out' });
       } else {
+        const typedError = error as DebuggableAiError;
         Logger.warn('Streaming AI handler error', {
           conversationId: body.conversationId,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          code: typedError?.code ?? null,
+          details: typedError?.details ?? null,
         });
-        write({ error: true, message: error instanceof Error ? error.message : 'AI request failed' });
+        write({
+          error: true,
+          code: typedError?.code ?? 'ai_request_failed',
+          message: error instanceof Error ? error.message : 'AI request failed',
+          details: typedError?.details ?? null,
+        });
       }
     } finally {
       close();

@@ -811,8 +811,12 @@ export class ConversationService {
     }
 
     if (updates.metadata !== undefined) {
+      const mergedMetadata = {
+        ...((currentConversation.user_info ?? {}) as Record<string, unknown>),
+        ...updates.metadata,
+      };
       updatesList.push('user_info = ?');
-      bindings.push(JSON.stringify(updates.metadata));
+      bindings.push(JSON.stringify(mergedMetadata));
     }
 
     if (updates.tags !== undefined) {

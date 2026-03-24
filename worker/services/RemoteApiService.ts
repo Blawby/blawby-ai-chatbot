@@ -60,6 +60,7 @@ export class RemoteApiService {
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
     const url = `${baseUrl}${endpoint}`;
+    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice/client-intakes/');
     
     const headers = new Headers({
       'Content-Type': 'application/json',
@@ -75,6 +76,16 @@ export class RemoteApiService {
     const method = options?.method || 'GET';
     const body = options?.body;
 
+    if (shouldDebugIntakeEndpoint) {
+      Logger.info('[RemoteApiService] Upstream request', {
+        endpoint,
+        method,
+        forwardAuthCookie: options?.forwardAuthCookie !== false,
+        hasCookieHeader: headers.has('Cookie'),
+        hasAuthorizationHeader: headers.has('Authorization'),
+      });
+    }
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -88,7 +99,7 @@ export class RemoteApiService {
         });
         clearTimeout(timeoutId);
 
-      if (!response.ok) {
+        if (!response.ok) {
         let parsedBody: unknown = null;
         let rawBody = '';
         try {
@@ -108,6 +119,19 @@ export class RemoteApiService {
           (parsedRecord && typeof parsedRecord.message === 'string' && parsedRecord.message.trim()) ||
           '';
         const message = upstreamMessage || `Remote API error: ${response.statusText}`;
+
+        if (shouldDebugIntakeEndpoint) {
+          Logger.warn('[RemoteApiService] Upstream request failed', {
+            endpoint,
+            method,
+            status: response.status,
+            statusText: response.statusText,
+            hasCookieHeader: headers.has('Cookie'),
+            hasAuthorizationHeader: headers.has('Authorization'),
+            upstreamMessage: upstreamMessage || null,
+            upstreamBodyPreview: rawBody ? rawBody.slice(0, 500) : null,
+          });
+        }
 
         if (response.status === 404) {
           throw HttpErrors.notFound(message, { endpoint, upstream: parsedBody });
@@ -666,8 +690,8 @@ export class RemoteApiService {
       {
         method: 'POST',
         body: JSON.stringify(payload),
-        // Intakes are public/visitor scoped by slug and should not depend on
-        // the caller's org cookie context.
+        // Public slug-based intake create endpoint. Pass the resolved visitor
+        // identity in the payload and avoid org-scoped session cookies.
         forwardAuthCookie: false,
       }
     );
