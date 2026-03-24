@@ -35,6 +35,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
@@ -1328,8 +1329,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const handleStartConversation = async (mode: ConversationMode) => {
     try {
       const shouldReuseConversation = mode !== 'REQUEST_CONSULTATION';
-      const latestConversation = shouldReuseConversation && conversations.length > 0
-        ? [...conversations].sort((a, b) => {
+      const reusableAskQuestionConversations = shouldReuseConversation
+        ? resolvedConversations.filter((conversation) => {
+            const metadata = conversation.user_info ?? null;
+            if (resolveConsultationState(metadata)) return false;
+            return metadata?.mode !== 'REQUEST_CONSULTATION';
+          })
+        : [];
+      const latestConversation = shouldReuseConversation && reusableAskQuestionConversations.length > 0
+        ? [...reusableAskQuestionConversations].sort((a, b) => {
             const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
             const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
             return bTime - aTime;

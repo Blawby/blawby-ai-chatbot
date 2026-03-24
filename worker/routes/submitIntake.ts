@@ -39,11 +39,11 @@ interface IntakeConversationState {
   opposingParty?: string | null;
   desiredOutcome?: string | null;
   courtDate?: string | null;
-  caseStrength?: 'needs_more_info' | 'developing' | 'strong' | null;
   hasDocuments?: boolean | null;
   income?: string | null;
   householdSize?: number | null;
   practiceArea?: string | null;
+  intakeReady?: boolean | null;
 }
 
 interface ConversationUserInfo {
@@ -59,6 +59,7 @@ interface BackendIntakeCreatePayload {
   amount: number;
   name: string;
   email: string;
+  user_id?: string;
   phone?: string;
   conversation_id: string;
   description?: string;
@@ -113,6 +114,7 @@ const buildIntakePayload = (
   intake: IntakeConversationState | null | undefined,
   options?: {
     amountMinor?: number;
+    userId?: string;
   }
 ): BackendIntakeCreatePayload => {
   const normalizeAmount = (value: number | undefined): number => {
@@ -121,14 +123,6 @@ const buildIntakePayload = (
     if (typeof value !== 'number' || !Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, Math.round(value)));
   };
-  const mapCaseStrength = (value: IntakeConversationState['caseStrength']): number | undefined => {
-    if (!value) return undefined;
-    if (value === 'needs_more_info') return 0;
-    if (value === 'developing') return 1;
-    if (value === 'strong') return 1;
-    return undefined;
-  };
-
   const payload: BackendIntakeCreatePayload = {
     slug,
     amount: normalizeAmount(options?.amountMinor),
@@ -136,6 +130,10 @@ const buildIntakePayload = (
     email: draft.email,
     conversation_id: conversationId,
   };
+
+  if (options?.userId && options.userId.trim().length > 0) {
+    payload.user_id = options.userId.trim();
+  }
 
   if (draft.phone) payload.phone = draft.phone;
   if (draft.city) payload.city = draft.city;
@@ -151,8 +149,6 @@ const buildIntakePayload = (
   if (intake?.urgency) payload.urgency = intake.urgency;
   if (intake?.desiredOutcome) payload.desired_outcome = intake.desiredOutcome;
   if (intake?.courtDate) payload.court_date = intake.courtDate;
-  const caseStrengthScore = mapCaseStrength(intake?.caseStrength);
-  if (typeof caseStrengthScore === 'number') payload.case_strength = caseStrengthScore;
   if (typeof intake?.hasDocuments === 'boolean') payload.has_documents = intake.hasDocuments;
   if (intake?.income) payload.income = intake.income;
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
@@ -255,6 +251,7 @@ export async function handleSubmitIntake(
   // Build backend payload
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: typeof intakeSettings?.prefillAmount === 'number' ? intakeSettings.prefillAmount : undefined,
+    userId,
   });
 
   Logger.info('[submitIntake] Calling backend intake create', {
@@ -262,16 +259,35 @@ export async function handleSubmitIntake(
     practiceId,
     slug,
     hasIntakeFields: Boolean(intake),
-    caseStrength: intake?.caseStrength ?? null,
+    intakeReady: intake?.intakeReady ?? null,
     amountMinor: intakePayload.amount,
+    hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
+    hasAuthorization: Boolean(request.headers.get('Authorization')?.trim()),
   });
 
   // Call backend API via existing RemoteApiService pattern
-  const backendResponse = await RemoteApiService.createIntake(
-    env,
-    intakePayload as unknown as Record<string, unknown>,
-    request
-  );
+  let backendResponse: Response;
+  try {
+    backendResponse = await RemoteApiService.createIntake(
+      env,
+      intakePayload as unknown as Record<string, unknown>,
+      request
+    );
+  } catch (error) {
+    Logger.error('[submitIntake] Backend intake create request failed before response handling', {
+      conversationId,
+      practiceId,
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+      status: typeof (error as { status?: unknown })?.status === 'number'
+        ? (error as { status: number }).status
+        : null,
+      context: typeof (error as { context?: unknown })?.context === 'object'
+        ? (error as { context: unknown }).context
+        : null,
+    });
+    throw error;
+  }
   const backendPayload = await backendResponse.json().catch(() => null) as BackendIntakeCreateResponse | null;
 
   if (!backendPayload?.success || !backendPayload.data?.uuid) {

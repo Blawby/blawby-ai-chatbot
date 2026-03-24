@@ -45,6 +45,47 @@ export class RemoteApiService {
     return cookieHeader && cookieHeader.trim() ? cookieHeader : null;
   }
 
+  private static getAuthorizationHeader(request?: Request): string | null {
+    if (!request) return null;
+    const authHeader = request.headers.get('Authorization');
+    return authHeader && authHeader.trim() ? authHeader.trim() : null;
+  }
+
+  private static redactSensitiveFields(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.redactSensitiveFields(item));
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    const redacted: Record<string, unknown> = {};
+    const sensitiveKeys = new Set([
+      'password',
+      'token',
+      'access_token',
+      'authorization',
+      'email',
+      'ssn',
+      'secret',
+      'refresh_token',
+      'api_key',
+      'client_secret',
+    ]);
+
+    for (const [key, fieldValue] of Object.entries(record)) {
+      if (sensitiveKeys.has(key.toLowerCase())) {
+        redacted[key] = '[redacted]';
+        continue;
+      }
+      redacted[key] = this.redactSensitiveFields(fieldValue);
+    }
+
+    return redacted;
+  }
+
   /**
    * Fetch data from remote API with error handling
    */
@@ -60,6 +101,7 @@ export class RemoteApiService {
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
     const url = `${baseUrl}${endpoint}`;
+    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice/client-intakes/');
     
     const headers = new Headers({
       'Content-Type': 'application/json',
@@ -75,6 +117,16 @@ export class RemoteApiService {
     const method = options?.method || 'GET';
     const body = options?.body;
 
+    if (shouldDebugIntakeEndpoint) {
+      Logger.info('[RemoteApiService] Upstream request', {
+        endpoint,
+        method,
+        forwardAuthCookie: options?.forwardAuthCookie !== false,
+        hasCookieHeader: headers.has('Cookie'),
+        hasAuthorizationHeader: Boolean(this.getAuthorizationHeader(request)),
+      });
+    }
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -88,7 +140,7 @@ export class RemoteApiService {
         });
         clearTimeout(timeoutId);
 
-      if (!response.ok) {
+        if (!response.ok) {
         let parsedBody: unknown = null;
         let rawBody = '';
         try {
@@ -108,6 +160,28 @@ export class RemoteApiService {
           (parsedRecord && typeof parsedRecord.message === 'string' && parsedRecord.message.trim()) ||
           '';
         const message = upstreamMessage || `Remote API error: ${response.statusText}`;
+
+        if (shouldDebugIntakeEndpoint) {
+          let upstreamBodyPreview: string | null = null;
+          if (rawBody) {
+            try {
+              const parsedPreview = JSON.parse(rawBody);
+              upstreamBodyPreview = JSON.stringify(this.redactSensitiveFields(parsedPreview)).slice(0, 500);
+            } catch {
+              upstreamBodyPreview = '[non-json body omitted]';
+            }
+          }
+          Logger.warn('[RemoteApiService] Upstream request failed', {
+            endpoint,
+            method,
+            status: response.status,
+            statusText: response.statusText,
+            hasCookieHeader: headers.has('Cookie'),
+            hasAuthorizationHeader: Boolean(this.getAuthorizationHeader(request)),
+            upstreamMessage: upstreamMessage || null,
+            upstreamBodyPreview,
+          });
+        }
 
         if (response.status === 404) {
           throw HttpErrors.notFound(message, { endpoint, upstream: parsedBody });
@@ -666,8 +740,8 @@ export class RemoteApiService {
       {
         method: 'POST',
         body: JSON.stringify(payload),
-        // Intakes are public/visitor scoped by slug and should not depend on
-        // the caller's org cookie context.
+        // Public slug-based intake create endpoint. Pass the resolved visitor
+        // identity in the payload and avoid org-scoped session cookies.
         forwardAuthCookie: false,
       }
     );

@@ -5,6 +5,7 @@ import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/c
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
 import { rememberConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { clearConsultationMetadata } from '@/shared/utils/consultationState';
 
 export interface UseConversationSetupOptions {
   practiceId?: string;
@@ -238,11 +239,15 @@ export function useConversationSetup({
     startConsultFlow: (id: string) => void
   ) => {
     if (!practiceId) return;
+    const nextMetadata =
+      nextMode === 'REQUEST_CONSULTATION'
+        ? { mode: nextMode }
+        : clearConsultationMetadata({ mode: nextMode }, nextMode);
 
     // Attempt to persist the mode to the backend, but don't block the UI
     // if the server is temporarily unavailable (503, network flap, etc.).
     try {
-      await updateConversationMetadata(convId, practiceId, { mode: nextMode });
+      await updateConversationMetadata(convId, practiceId, nextMetadata);
     } catch (persistError) {
       const isServerError = persistError instanceof Error &&
         /HTTP 5\d{2}/.test(persistError.message);

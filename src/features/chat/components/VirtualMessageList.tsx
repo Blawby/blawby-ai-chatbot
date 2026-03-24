@@ -87,8 +87,6 @@ const SCROLL_THRESHOLD = 100;
 const STICKY_BOTTOM_THRESHOLD = 72;
 const DEBOUNCE_DELAY = 50;
 const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
-const INTAKE_READY_PROMPT_REGEX = /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|would you like to submit|would you like to continue now)/i;
-
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
     conversationTitle,
@@ -829,8 +827,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const leadReview = resolveLeadReview(message);
                     const authCta = resolveAuthCta(message);
 
-                    const quickReplies = Array.isArray(message.metadata?.quickReplies)
-                        ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
+                    const quickReplies = isLast
+                        ? (Array.isArray(intakeConversationState?.quickReplies)
+                            ? intakeConversationState.quickReplies
+                            : Array.isArray(message.metadata?.quickReplies)
+                                ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
+                                : undefined)
                         : undefined;
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
@@ -867,10 +869,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             onChange: onboardingActions.onLogoChange,
                         } : undefined,
                     } : undefined;
-                    const fallbackIntakeReadyCta =
+                    const showSharedIntakeCta =
                         !message.isUser &&
-                        typeof message.content === 'string' &&
-                        INTAKE_READY_PROMPT_REGEX.test(message.content);
+                        isLast &&
+                        Boolean(intakeConversationState?.intakeReady) &&
+                        intakeConversationState?.ctaResponse !== 'ready' &&
+                        _intakeStatus?.step !== 'pending_review' &&
+                        _intakeStatus?.step !== 'completed';
                     const stableClientId = typeof message.metadata?.__client_id === 'string'
                         ? message.metadata.__client_id
                         : null;
@@ -927,7 +932,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 intakeConversationState={intakeConversationState}
                                 quickReplies={quickReplies}
                                 onQuickReply={onQuickReply}
-                                showIntakeCta={Boolean(message.metadata?.intakeReadyCta) || fallbackIntakeReadyCta}
+                                showIntakeCta={showSharedIntakeCta}
                                 showIntakeDecisionPrompt={message.metadata?.intakeDecisionPrompt === true}
                                 onIntakeCtaResponse={onIntakeCtaResponse}
                                 onSubmitNow={onSubmitNow}

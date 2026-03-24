@@ -44,6 +44,10 @@ const normalizeStringArrayOrNull = (value: unknown): string[] | null => {
   return next.length > 0 ? next : null;
 };
 
+const hasNonEmptyString = (value: unknown): boolean => (
+  typeof value === 'string' && value.trim().length > 0
+);
+
 const isEmptyContact = (value: SlimContactDraft | null | undefined): boolean => !value
   || (!trimString(value.name) && !trimString(value.email) && !trimString(value.phone));
 
@@ -83,8 +87,11 @@ const mergeIntakeState = (
     householdSize: normalized.householdSize ?? fallback.householdSize,
     hasDocuments: normalized.hasDocuments ?? fallback.hasDocuments,
     eligibilitySignals: normalized.eligibilitySignals?.length ? normalized.eligibilitySignals : fallback.eligibilitySignals,
-    caseStrength: normalized.caseStrength ?? fallback.caseStrength,
-    missingSummary: normalized.missingSummary ?? fallback.missingSummary,
+    quickReplies: normalized.quickReplies?.length ? normalized.quickReplies : fallback.quickReplies,
+    intakeReady:
+      typeof normalized.intakeReady === 'boolean'
+        ? normalized.intakeReady
+        : (fallback.intakeReady ?? false),
     turnCount: normalized.turnCount > 0 ? normalized.turnCount : fallback.turnCount,
     ctaShown: normalized.ctaShown || fallback.ctaShown || false,
     ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
@@ -138,14 +145,25 @@ export const hasConsultationContact = (value: SlimContactDraft | null | undefine
   value && (trimString(value.name) || trimString(value.email) || trimString(value.phone))
 );
 
+export const isIntakeReadyForSubmission = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
+): boolean => {
+  if (!state) return false;
+  const hasDescription = hasNonEmptyString(state.description);
+  const hasLocation = hasNonEmptyString(state.city) && hasNonEmptyString(state.state);
+  const hasOpposingParty = hasNonEmptyString(state.opposingParty);
+  const hasDesiredOutcome = hasNonEmptyString(state.desiredOutcome);
+  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+};
+
 export const normalizeIntakeConversationState = (value: unknown): IntakeConversationState => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ...initialIntakeState };
   }
   const record = value as Record<string, unknown>;
   const urgency = trimString(record.urgency);
-  const caseStrength = trimString(record.caseStrength);
-  return {
+  const nextState: IntakeConversationState = {
     practiceArea: trimString(record.practiceArea) || null,
     practiceAreaName: trimString(record.practiceAreaName) || null,
     description: trimString(record.description) || null,
@@ -163,8 +181,8 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
     householdSize: normalizeNumberOrNull(record.householdSize),
     hasDocuments: typeof record.hasDocuments === 'boolean' ? record.hasDocuments : null,
     eligibilitySignals: normalizeStringArrayOrNull(record.eligibilitySignals),
-    caseStrength: (caseStrength || null) as IntakeConversationState['caseStrength'],
-    missingSummary: trimString(record.missingSummary) || null,
+    quickReplies: normalizeStringArrayOrNull(record.quickReplies),
+    intakeReady: typeof record.intakeReady === 'boolean' ? record.intakeReady : false,
     turnCount: normalizeNumberOrNull(record.turnCount) ?? 0,
     ctaShown: typeof record.ctaShown === 'boolean' ? record.ctaShown : false,
     ctaResponse:
@@ -173,6 +191,7 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
         : null,
     notYetCount: normalizeNumberOrNull(record.notYetCount) ?? 0,
   };
+  return { ...nextState, intakeReady: isIntakeReadyForSubmission(nextState) };
 };
 
 const normalizeConsultationSubmission = (value: unknown): ConsultationState['submission'] => {
@@ -391,6 +410,28 @@ export const applyConsultationPatchToMetadata = (
     );
     nextMetadata.intakeCompleted = consultation.status === 'completed';
   }
+
+  return nextMetadata;
+};
+
+export const clearConsultationMetadata = (
+  metadata: ConversationMetadata | null | undefined,
+  mode: ConversationMetadata['mode'] = 'ASK_QUESTION'
+): ConversationMetadata => {
+  const previous = metadata ?? {};
+  const nextMetadata: ConversationMetadata = {
+    ...previous,
+    consultation: null,
+    mode,
+    intakeConversationState: { ...initialIntakeState },
+    intakeSlimContactDraft: null,
+    intakeAiBriefActive: false,
+    intakeUuid: null,
+    intakePaymentRequired: undefined,
+    intakePaymentReceived: undefined,
+    intakeSubmitted: false,
+    intakeCompleted: false,
+  };
 
   return nextMetadata;
 };

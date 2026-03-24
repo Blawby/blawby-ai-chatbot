@@ -1,4 +1,3 @@
-export type IntakeCaseStrength = 'needs_more_info' | 'developing' | 'strong';
 export type IntakeUrgency = 'routine' | 'time_sensitive' | 'emergency';
 export type IntakeStep =
   | 'ready'
@@ -42,8 +41,8 @@ export interface IntakeConversationState {
   householdSize: number | null;
   hasDocuments: boolean | null;
   eligibilitySignals: string[] | null;
-  caseStrength: IntakeCaseStrength | null;
-  missingSummary: string | null;
+  quickReplies: string[] | null;
+  intakeReady: boolean;
   turnCount: number;
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
@@ -84,8 +83,8 @@ export const initialIntakeState: IntakeConversationState = {
   householdSize: null,
   hasDocuments: null,
   eligibilitySignals: null,
-  caseStrength: null,
-  missingSummary: null,
+  quickReplies: null,
+  intakeReady: false,
   turnCount: 0,
   ctaShown: false,
   ctaResponse: null,
@@ -119,8 +118,8 @@ export type IntakeFieldsPayload = {
   householdSize?: number;
   hasDocuments?: boolean;
   eligibilitySignals?: string[];
-  caseStrength?: IntakeCaseStrength;
-  missingSummary?: string | null;
+  quickReplies?: string[] | null;
+  intakeReady?: boolean;
   ctaShown?: boolean;
 };
 

@@ -47,10 +47,14 @@ export const resolveConversationDisplayTitle = (
     return onboardingTitle || practiceSetupTitle;
   }
 
+  const contactName = resolveConversationContactName(metadata);
+  if (resolveConsultationState(metadata) && contactName) {
+    return contactName;
+  }
+
   const title = trimString(metadata.title);
   if (title) return title;
 
-  const contactName = resolveConversationContactName(metadata);
   if (contactName) return contactName;
 
   return fallback;
