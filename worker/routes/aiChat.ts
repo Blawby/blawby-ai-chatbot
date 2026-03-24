@@ -538,6 +538,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                   ? { rawToolArgsPreview: toolCallArgs.slice(0, 800) }
                   : {}),
               });
+              throw new Error(`Intake extraction parsing failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
             }
           }
         } else {
@@ -545,6 +546,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             conversationId: body.conversationId,
             status: extractionResponse.status,
           });
+          throw new Error(`Intake extraction failed with status ${extractionResponse.status}`);
+        }
+
+        // Only proceed if we have successfully parsed intakeFields
+        if (!intakeFields) {
+          throw new Error('Intake extraction failed: no valid tool call arguments received');
         }
 
         const mergedForReadiness = mergeIntakeState(storedIntakeState, intakeFields);
@@ -617,7 +624,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
-      const shouldStreamTokensToUser = !isOnboardingMode;
+      
+      // Determine if we need to buffer for validation
+      const needsValidation = !isOnboardingMode || shouldRequireDisclaimer(body.messages);
+      const shouldStreamTokensToUser = !isOnboardingMode && !needsValidation;
+      
       const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser, write, body.conversationId);
       const latencyMs = Date.now() - startedAt;
 
@@ -721,6 +732,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                 : {}),
             }
           );
+        }
+        
+        // Validation passed - stream buffered tokens if we were buffering
+        if (needsValidation && !shouldStreamTokensToUser && accumulatedReply.length > 0) {
+          // Stream the buffered reply token by token
+          const tokens = accumulatedReply.split(/\s+/).filter(token => token.length > 0);
+          for (const token of tokens) {
+            write({ token: token + ' ' });
+          }
+          write({ done: true });
         }
       }
 
