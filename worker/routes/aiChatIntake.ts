@@ -71,8 +71,7 @@ Rules:
 
 export const buildIntakeConversationPrompt = (
   services: Array<{ name: string; key: string }>,
-  mergedState: Record<string, unknown> | null,
-  messageCount: number
+  mergedState: Record<string, unknown> | null
 ): string => {
   const knownFields: string[] = [];
   if (mergedState) {
@@ -92,7 +91,7 @@ export const buildIntakeConversationPrompt = (
 
   const isReadyToSubmit = shouldShowDeterministicIntakeCta(mergedState);
 
-  const ctaInstruction = isReadyToSubmit || messageCount >= 8
+  const ctaInstruction = isReadyToSubmit
     ? `\nThe intake brief is complete. Do not ask any more questions. Summarize what you know in 2-3 sentences and ask if the user is ready to submit to the firm.`
     : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents.`;
 
