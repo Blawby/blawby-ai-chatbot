@@ -273,6 +273,15 @@
     box-shadow: var(--glass-rim-medium);
   }
 
+  .ai-thinking-indicator__dot {
+    @apply inline-flex h-3 w-3 rounded-full bg-accent-500;
+    transform-origin: 50% center;
+    backface-visibility: hidden;
+    will-change: transform;
+    transform: translateZ(0);
+    animation: ai-thinking-dot-pulse 1.25s ease-in-out infinite;
+  }
+
   /* ============================================================
      BUTTON SYSTEM
      All button visual styles are defined here as component
@@ -1345,6 +1354,17 @@
 
   .animate-float-in {
     animation: float-in 600ms ease-out both;
+  }
+
+  @keyframes ai-thinking-dot-pulse {
+    0%,
+    100% {
+      transform: translateZ(0) scale(1);
+    }
+
+    50% {
+      transform: translateZ(0) scale(1.25);
+    }
   }
 
   @keyframes workspace-header-progress {
