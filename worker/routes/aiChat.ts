@@ -538,7 +538,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                   ? { rawToolArgsPreview: toolCallArgs.slice(0, 800) }
                   : {}),
               });
-              throw new Error(`Intake extraction parsing failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+              throw createAiDebugError(
+                'Intake extraction parsing failed.',
+                'intake_extraction_failed',
+                {
+                  conversationId: body.conversationId,
+                  parseError: parseError instanceof Error ? parseError.message : String(parseError),
+                  ...(debugEnabled
+                    ? { rawToolArgsPreview: toolCallArgs.slice(0, 800) }
+                    : {}),
+                }
+              );
             }
           }
         } else {
@@ -546,12 +556,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             conversationId: body.conversationId,
             status: extractionResponse.status,
           });
-          throw new Error(`Intake extraction failed with status ${extractionResponse.status}`);
+          throw createAiDebugError(
+            'Intake extraction call failed.',
+            'intake_extraction_failed',
+            {
+              conversationId: body.conversationId,
+              status: extractionResponse.status,
+            }
+          );
         }
 
         // Only proceed if we have successfully parsed intakeFields
         if (!intakeFields) {
-          throw new Error('Intake extraction failed: no valid tool call arguments received');
+          throw createAiDebugError(
+            'Intake extraction returned no valid tool call arguments.',
+            'intake_extraction_failed',
+            {
+              conversationId: body.conversationId,
+              messageCount: body.messages.length,
+              hasStoredIntakeState: Boolean(storedIntakeState),
+              latestUserMessagePreview: debugEnabled ? lastUserMessage?.content?.slice(0, 160) ?? null : '[redacted]',
+            }
+          );
         }
 
         const mergedForReadiness = mergeIntakeState(storedIntakeState, intakeFields);
@@ -736,12 +762,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         
         // Validation passed - stream buffered tokens if we were buffering
         if (needsValidation && !shouldStreamTokensToUser && accumulatedReply.length > 0) {
-          // Stream the buffered reply token by token
-          const tokens = accumulatedReply.split(/\s+/).filter(token => token.length > 0);
+          const tokens = accumulatedReply.match(/\S+\s*|\s+/g) ?? [];
           for (const token of tokens) {
-            write({ token: token + ' ' });
+            write({ token });
           }
-          write({ done: true });
+          emittedAnyToken = true;
         }
       }
 

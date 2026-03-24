@@ -14,6 +14,10 @@ const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do 
 
 const encoder = new TextEncoder();
 
+function looksLikeToolLeak(content: string): boolean {
+  return content.includes('update_practice_fields');
+}
+
 function sseEvent(payload: Record<string, unknown>): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
@@ -66,6 +70,7 @@ const consumeAiStream = async (
     finishReasons: string[];
     sampleToolChunks: string[];
     sampleUnexpectedChunks: string[];
+    failClosedReason?: string;
   };
 }> => {
   if (!response.body) {
@@ -85,6 +90,7 @@ const consumeAiStream = async (
         finishReasons: [],
         sampleToolChunks: [],
         sampleUnexpectedChunks: [],
+        failClosedReason: undefined,
       }
     };
   }
@@ -110,6 +116,7 @@ const consumeAiStream = async (
     sampleUnexpectedChunks: [] as string[],
     failClosedReason: undefined as string | undefined,
   };
+  let blockedByPotentialToolLeak = false;
 
   while (true) {
     let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -185,12 +192,14 @@ const consumeAiStream = async (
         localReply += delta.content;
         diagnostics.contentChunkCount += 1;
 
-        const looksLikeToolLeak =
-          delta.content.includes('update_practice_fields') ||
-          // Detect fenced code tool outputs
-          (delta.content.includes('```') && delta.content.includes('update_practice_fields'));
+        const contentLooksLikeToolLeak = looksLikeToolLeak(delta.content);
+        if (contentLooksLikeToolLeak) {
+          blockedByPotentialToolLeak = true;
+          streamStalled = true;
+          diagnostics.failClosedReason = 'potential_tool_leak';
+        }
 
-        if (emitTokens && !looksLikeToolLeak) {
+        if (emitTokens && !blockedByPotentialToolLeak) {
           write({ token: delta.content });
           localEmittedToken = true;
         }
@@ -219,6 +228,9 @@ const consumeAiStream = async (
                   };
                   localToolCallsByIndex.set(tc.index, targetCall);
                 } else {
+                  if (!targetCall.name) {
+                    targetCall.name = tc.function.name;
+                  }
                   targetCall.arguments += tc.function.arguments;
                 }
               } else {
@@ -274,10 +286,14 @@ const consumeAiStream = async (
         if (typeof token === 'string' && token.length > 0) {
           localReply += token;
 
-          const looksLikeToolLeak =
-            token.includes('update_practice_fields');
+          const contentLooksLikeToolLeak = looksLikeToolLeak(token);
+          if (contentLooksLikeToolLeak) {
+            blockedByPotentialToolLeak = true;
+            streamStalled = true;
+            diagnostics.failClosedReason = 'potential_tool_leak';
+          }
 
-          if (emitTokens && !looksLikeToolLeak) {
+          if (emitTokens && !blockedByPotentialToolLeak) {
             write({ token });
             localEmittedToken = true;
           }
@@ -300,6 +316,9 @@ const consumeAiStream = async (
                     };
                     localToolCallsByIndex.set(tc.index, targetCall);
                   } else {
+                    if (!targetCall.name) {
+                      targetCall.name = tc.function.name;
+                    }
                     targetCall.arguments += tc.function.arguments;
                   }
                 } else {
@@ -349,14 +368,15 @@ const consumeAiStream = async (
 
   if (hasPotentialToolLeak && emitTokens) {
     // Block streaming until reply is explicitly parsed as safe
+    diagnostics.failClosedReason = 'potential_tool_leak';
     return {
       reply: localReply,
       toolCalls: finalToolCalls,
-      streamStalled: false,
-      emittedToken: false,
+      streamStalled,
+      emittedToken: localEmittedToken,
       diagnostics: {
         ...diagnostics,
-        ...(hasPotentialToolLeak ? { failClosedReason: 'potential_tool_leak' } : {})
+        failClosedReason: 'potential_tool_leak'
       }
     };
   }
