@@ -781,6 +781,7 @@ export class ConversationService {
       assignedTo?: string | null;
       priority?: 'low' | 'normal' | 'high' | 'urgent';
       internalNotes?: string | null;
+      metadataMergeMode?: 'patch' | 'replace';
     },
     options?: { request?: Request; repair?: boolean }
   ): Promise<Conversation> {
@@ -811,18 +812,25 @@ export class ConversationService {
     }
 
     if (updates.metadata !== undefined) {
-      const mergedMetadata = {
-        ...((currentConversation.user_info ?? {}) as Record<string, unknown>),
-      };
-      for (const [key, value] of Object.entries(updates.metadata)) {
-        if (value === null) {
-          delete mergedMetadata[key];
-          continue;
+      if (updates.metadataMergeMode === 'replace') {
+        // Replace mode: clear and set new metadata
+        updatesList.push('user_info = ?');
+        bindings.push(JSON.stringify(updates.metadata));
+      } else {
+        // Patch mode (default): merge with existing metadata
+        const mergedMetadata = {
+          ...((currentConversation.user_info ?? {}) as Record<string, unknown>),
+        };
+        for (const [key, value] of Object.entries(updates.metadata)) {
+          if (value === null) {
+            delete mergedMetadata[key];
+            continue;
+          }
+          mergedMetadata[key] = value;
         }
-        mergedMetadata[key] = value;
+        updatesList.push('user_info = ?');
+        bindings.push(JSON.stringify(mergedMetadata));
       }
-      updatesList.push('user_info = ?');
-      bindings.push(JSON.stringify(mergedMetadata));
     }
 
     if (updates.tags !== undefined) {
