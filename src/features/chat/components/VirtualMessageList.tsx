@@ -827,12 +827,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const leadReview = resolveLeadReview(message);
                     const authCta = resolveAuthCta(message);
 
-                    const quickReplies = isLast
-                        ? (Array.isArray(intakeConversationState?.quickReplies)
-                            ? intakeConversationState.quickReplies
-                            : Array.isArray(message.metadata?.quickReplies)
-                                ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
-                                : undefined)
+                    const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies)
+                        ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
                         : undefined;
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile

@@ -604,7 +604,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (isIntakeMode) {
         const mergedForConversation = mergeIntakeState(storedIntakeState, intakeFields);
         const conversationSystemPrompt = [
-          buildIntakeConversationPrompt(servicesForPrompt, mergedForConversation, body.messages.length),
+          buildIntakeConversationPrompt(servicesForPrompt, mergedForConversation),
           `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
           body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
         ].filter(Boolean).join('\n\n');
