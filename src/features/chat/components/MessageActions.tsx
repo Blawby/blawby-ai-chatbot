@@ -142,32 +142,11 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const { showSuccess, showInfo } = useToastContext();
 	const { t } = useTranslation('common');
 
-	const strength = intakeConversationState?.caseStrength ?? null;
 	const isIntakeCompleted = intakeStatus?.step === 'completed';
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
 	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
 	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
-	const strengthTier = (() => {
-		if (!strength) return 'none';
-		if (strength === 'needs_more_info') return 'weak';
-		if (strength === 'strong') return 'strong';
-		if (intakeConversationState?.missingSummary) return 'basic';
-		return 'good';
-	})() as 'none' | 'weak' | 'basic' | 'good' | 'strong';
 	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
-	const _canShowNotYet = (intakeConversationState?.notYetCount ?? 0) < 2;
-	const _ctaPrimaryLabel = strengthTier === 'strong'
-		? t('chat.cta.submit')
-		: strengthTier === 'good'
-			? t('chat.cta.reviewSubmit')
-			: strengthTier === 'basic'
-				? t('chat.continue')
-				: t('chat.cta.continue');
-	const _ctaSecondaryLabel = strengthTier === 'strong'
-		? t('chat.cta.addMore')
-		: strengthTier === 'good'
-			? t('chat.cta.addMore')
-			: t('chat.cta.notYet');
 	const leadIntake = leadReview?.intake;
 	const formatLeadAmount = (amount?: number, currency?: string) => {
 		if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
@@ -334,11 +313,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			{showCtaButtons && (
 				<div className="mt-3 space-y-3">
-					{intakeConversationState?.missingSummary && strength === 'developing' && (
-						<p className="text-sm leading-relaxed text-input-text">
-							{intakeConversationState.missingSummary}
-						</p>
-					)}
 					<Button variant="primary" size="sm" onClick={() => {
 						if (onSubmitNow) {
 							void onSubmitNow();

@@ -29,23 +29,22 @@ import {
   createSseResponse,
   consumeAiStream,
   normalizeKeys,
-  parseToolCallFromReply,
   createAiDebugError,
   isRecord,
   readStringField,
   hasNonEmptyStringField,
   readAnyString,
   isDebugEnabled,
-  DebuggableAiError,
 } from './aiChatShared.js';
+import type { DebuggableAiError } from './aiChatShared.js';
 
 import {
   INTAKE_TOOL,
   buildIntakeSystemPrompt,
+  buildIntakeConversationPrompt,
   mergeIntakeState,
   shouldShowDeterministicIntakeCta,
   buildIntakeSummaryFromState,
-  shouldShowIntakeCtaForReply,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
@@ -276,7 +275,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
   const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
-  const intakeReadyByState = isIntakeMode && shouldShowDeterministicIntakeCta(storedIntakeState);
 
   // ------------------------------------------------------------------
   // Short-circuit paths — instant replies that don't need streaming.
@@ -285,7 +283,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // ------------------------------------------------------------------
 
   let shortCircuitReply: string | null = null;
-  let shortCircuitIntakeReadyCta = false;
   let shortCircuitOnboardingProfile: Record<string, unknown> | null = null;
 
   if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
@@ -314,15 +311,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const shouldPromptConsultation =
       !hasSlimContactDraft &&
       (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(shortCircuitReply));
-    const shortCircuitShouldShowIntakeCta =
-      isIntakeMode &&
-      (
-        shortCircuitIntakeReadyCta ||
-        (
-          intakeReadyByState &&
-          shouldShowIntakeCtaForReply(shortCircuitReply)
-        )
-      );
 
     const storedMessage = await conversationService.sendSystemMessage({
       conversationId: body.conversationId,
@@ -332,7 +320,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         source: 'ai',
         model: DEFAULT_AI_MODEL,
         ...(shortCircuitOnboardingProfile ? { onboardingProfile: shortCircuitOnboardingProfile } : {}),
-        ...(shortCircuitShouldShowIntakeCta ? { intakeReadyCta: true } : {}),
         ...(shouldPromptConsultation
           ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
           : {})
@@ -395,7 +382,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   ].filter(Boolean).join('\n\n');
 
   const requestPayload: Record<string, unknown> = {
-    model: model,
+    model,
     temperature: 0.2,
     stream: true,
     messages: [
@@ -404,13 +391,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     ]
   };
 
-  // Intake mode uses tools — Workers AI supports streaming with tools,
-  // but the tool call arguments arrive in chunks too. We accumulate them
-  // separately and only emit the done event once the full tool call is parsed.
-  if (isIntakeMode) {
-    requestPayload.tools = [INTAKE_TOOL];
-  } else if (isOnboardingMode) {
+  if (isOnboardingMode) {
     requestPayload.tools = [ONBOARDING_TOOL];
+    requestPayload.tool_choice = {
+      type: 'function',
+      function: { name: 'update_practice_fields' },
+    };
+    requestPayload.parallel_tool_calls = false;
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
@@ -424,91 +411,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let quickReplies: string[] | null = null;
     let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
-
-    const requestFollowupUserFacingReply = async (options: {
-      mode: 'intake' | 'onboarding';
-      intakeFields?: Record<string, unknown> | null;
-      onboardingFields?: Record<string, unknown> | null;
-    }): Promise<string> => {
-      const nextFullSystemPrompt = [
-        options.mode === 'intake'
-          ? buildIntakeSystemPrompt(servicesForPrompt)
-          : buildOnboardingSystemPrompt(
-              options.onboardingFields
-                ? buildOnboardingProfileMetadata(details, options.onboardingFields)
-                : onboardingPromptProfile
-            ),
-        `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
-        options.mode === 'intake'
-          ? `INTAKE_CONTEXT: ${JSON.stringify(mergeIntakeState(storedIntakeState, options.intakeFields ?? null))}`
-          : null,
-        body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
-        options.mode === 'intake'
-          ? 'You have already saved the structured intake fields for the latest user message. Respond to the user with exactly one warm, concise next-step intake question. Do not output JSON or tool-call syntax.'
-          : 'You have already saved the structured onboarding fields for the latest user message. Respond to the user with one warm, concise next step. Do not output JSON or tool-call syntax.',
-      ].filter(Boolean).join('\n\n');
-
-      const followupController = new AbortController();
-      const followupTimeoutId = setTimeout(() => {
-        followupController.abort();
-      }, AI_TIMEOUT_MS);
-
-      let followupResponse: Response;
-      try {
-        followupResponse = await aiClient.requestChatCompletions({
-          model,
-          temperature: 0.2,
-          messages: [
-            { role: 'system', content: nextFullSystemPrompt },
-            ...body.messages.map((message) => ({ role: message.role, content: message.content })),
-          ],
-        }, followupController.signal);
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw createAiDebugError(
-            'AI follow-up request timed out after successful tool extraction.',
-            'ai_followup_timeout',
-            {
-              mode: options.mode,
-              timeoutMs: AI_TIMEOUT_MS,
-            }
-          );
-        }
-        throw error;
-      } finally {
-        clearTimeout(followupTimeoutId);
-      }
-
-      if (!followupResponse.ok) {
-        const errorText = await followupResponse.text().catch(() => '');
-        throw createAiDebugError(
-          'AI follow-up request failed after successful tool extraction.',
-          'ai_followup_request_failed',
-          {
-            mode: options.mode,
-            status: followupResponse.status,
-            body: errorText,
-          }
-        );
-      }
-
-      const payload = await followupResponse.json().catch(() => null) as {
-        choices?: Array<{ message?: { content?: string | null } }>;
-      } | null;
-      const rawContent = payload?.choices?.[0]?.message?.content;
-      const content = typeof rawContent === 'string' ? rawContent.trim() : '';
-      if (!content) {
-        throw createAiDebugError(
-          'AI follow-up request returned no user-facing reply.',
-          'ai_followup_empty_reply',
-          {
-            mode: options.mode,
-            payload,
-          }
-        );
-      }
-      return content;
-    };
 
     const startedAt = Date.now();
 
@@ -538,6 +440,90 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           messageCount: body.messages.length,
           ...(debugEnabled ? { lastUserMessagePreview: lastUserMessage?.content?.slice(0, 120) ?? null } : {}),
         });
+      }
+
+      // Intake extraction call (non-streaming, tool-only)
+      if (isIntakeMode) {
+        const extractionSystemPrompt = [
+          buildIntakeSystemPrompt(servicesForPrompt),
+          `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
+          storedIntakeState ? `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` : null,
+          body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
+        ].filter(Boolean).join('\n\n');
+
+        const extractionPayload: Record<string, unknown> = {
+          model,
+          temperature: 0.1,
+          stream: false,
+          tools: [INTAKE_TOOL],
+          tool_choice: { type: 'function', function: { name: 'update_intake_fields' } },
+          parallel_tool_calls: false,
+          messages: [
+            { role: 'system', content: extractionSystemPrompt },
+            ...body.messages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+        };
+
+        const extractionController = new AbortController();
+        const extractionTimeoutId = setTimeout(() => extractionController.abort(), AI_TIMEOUT_MS);
+        let extractionResponse: Response;
+        try {
+          extractionResponse = await aiClient.requestChatCompletions(extractionPayload, extractionController.signal);
+        } finally {
+          clearTimeout(extractionTimeoutId);
+        }
+
+        if (extractionResponse.ok) {
+          const extractionData = await extractionResponse.json().catch(() => null) as {
+            choices?: Array<{
+              message?: {
+                tool_calls?: Array<{
+                  function?: { name?: string; arguments?: string };
+                }>;
+              };
+            }>;
+          } | null;
+
+          const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+          if (typeof toolCallArgs === 'string' && toolCallArgs.length > 0) {
+            try {
+              intakeFields = normalizeKeys(JSON.parse(toolCallArgs)) as Record<string, unknown>;
+            } catch (parseError) {
+              Logger.warn('Failed to parse extraction tool call arguments', {
+                conversationId: body.conversationId,
+                error: parseError instanceof Error ? parseError.message : String(parseError),
+              });
+            }
+          }
+        } else {
+          Logger.warn('Intake extraction call failed', {
+            conversationId: body.conversationId,
+            status: extractionResponse.status,
+          });
+        }
+
+        const mergedForReadiness = mergeIntakeState(storedIntakeState, intakeFields);
+        intakeFields = {
+          ...(intakeFields ?? {}),
+          intakeReady: shouldShowDeterministicIntakeCta(mergedForReadiness),
+        };
+      }
+
+      if (isIntakeMode) {
+        const mergedForConversation = mergeIntakeState(storedIntakeState, intakeFields);
+        const conversationSystemPrompt = [
+          buildIntakeConversationPrompt(servicesForPrompt, mergedForConversation, body.messages.length),
+          `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
+          body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
+        ].filter(Boolean).join('\n\n');
+
+        requestPayload.messages = [
+          { role: 'system', content: conversationSystemPrompt },
+          ...body.messages.map((m) => ({ role: m.role, content: m.content })),
+        ];
+        delete requestPayload.tools;
+        delete requestPayload.tool_choice;
+        delete requestPayload.parallel_tool_calls;
       }
 
       const aiResponse = await aiClient.requestChatCompletions(requestPayload, controller.signal);
@@ -608,17 +594,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       // Parse accumulated tool calls if present
       for (const toolCall of streamResult.toolCalls) {
-        if (toolCall.name === 'update_intake_fields' && toolCall.arguments.length > 0) {
-          try {
-            const rawParams = JSON.parse(toolCall.arguments);
-            intakeFields = normalizeKeys(rawParams) as Record<string, unknown>;
-          } catch (error) {
-            Logger.warn('Failed to parse streamed intake tool arguments', {
-              conversationId: body.conversationId,
-              error: error instanceof Error ? error.message : String(error)
-            });
-          }
-        } else if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
+        if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
           try {
             const rawParams = JSON.parse(toolCall.arguments);
             onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
@@ -628,21 +604,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               error: error instanceof Error ? error.message : String(error)
             });
           }
-        }
-      }
-
-      // Post-process reply — same validation logic as the non-streaming path
-      if (!accumulatedReply.trim()) {
-        if (isIntakeMode && intakeFields) {
-          accumulatedReply = await requestFollowupUserFacingReply({
-            mode: 'intake',
-            intakeFields,
-          });
-        } else if (isOnboardingMode && onboardingFields) {
-          accumulatedReply = await requestFollowupUserFacingReply({
-            mode: 'onboarding',
-            onboardingFields,
-          });
         }
       }
 
@@ -664,64 +625,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             diagnostics: streamResult.diagnostics,
           }
         );
-      }
-
-      // Final cleanup of accumulatedReply to strip any leaked tool calls
-      // that might have arrived in the text stream but weren't caught by the delta-parsing logic.
-      const looksLikeLeakedToolContent =
-        accumulatedReply.includes('update_intake_fields') ||
-        accumulatedReply.includes('update_practice_fields') ||
-        accumulatedReply.includes('"caseStrength"') ||
-        accumulatedReply.includes('"practiceArea"') ||
-        accumulatedReply.includes('"opposingParty"') ||
-        accumulatedReply.includes('"desiredOutcome"') ||
-        accumulatedReply.includes('"completionScore"') ||
-        accumulatedReply.includes('"missingFields"') ||
-        accumulatedReply.includes('```json') ||
-        accumulatedReply.includes('"practice_area"') ||
-        accumulatedReply.includes('"case_strength"') ||
-        accumulatedReply.includes('"missing_summary"');
-
-      if (looksLikeLeakedToolContent) {
-        const finalParsing = parseToolCallFromReply(accumulatedReply);
-        if (finalParsing) {
-          if (finalParsing.parameters) {
-            if (finalParsing.name === 'update_intake_fields') {
-              intakeFields = { ...(intakeFields ?? {}), ...finalParsing.parameters };
-            } else if (finalParsing.name === 'update_practice_fields') {
-              onboardingFields = { ...(onboardingFields ?? {}), ...finalParsing.parameters };
-            }
-          }
-          if (finalParsing.contentBuffer && finalParsing.contentBuffer.trim().length > 0) {
-            accumulatedReply = finalParsing.contentBuffer;
-          } else {
-            if (isIntakeMode && intakeFields) {
-              accumulatedReply = await requestFollowupUserFacingReply({
-                mode: 'intake',
-                intakeFields,
-              });
-            } else if (isOnboardingMode && onboardingFields) {
-              accumulatedReply = await requestFollowupUserFacingReply({
-                mode: 'onboarding',
-                onboardingFields,
-              });
-            } else {
-              throw createAiDebugError(
-                'AI returned tool-call content without a user-facing reply.',
-                'ai_tool_only_reply',
-                {
-                  mode: effectiveMode ?? null,
-                  isIntakeMode,
-                  isOnboardingMode,
-                  toolName: finalParsing.name ?? null,
-                  hasParsedParameters: Boolean(finalParsing.parameters),
-                  streamStalled: streamResult.streamStalled,
-                  diagnostics: streamResult.diagnostics,
-                }
-              );
-            }
-          }
-        }
       }
 
       if (accumulatedReply.trim().length > 0) {
@@ -769,9 +672,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           .slice(0, 3);
         if (quickReplies.length === 0) quickReplies = null;
       }
-      if (intakeFields && 'quickReplies' in intakeFields) {
-        const { quickReplies: _q, ...rest } = intakeFields as Record<string, unknown>;
-        intakeFields = rest;
+      if (isIntakeMode) {
+        intakeFields = { ...(intakeFields ?? {}), quickReplies };
       }
       if (onboardingFields && 'quickReplies' in onboardingFields) {
         const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
@@ -789,6 +691,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (intakeFields && typeof intakeFields.practiceArea === 'string') {
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
         if (matched) intakeFields.practiceAreaName = matched.name;
+      }
+      const intakeReady = isIntakeMode && shouldShowDeterministicIntakeCta(mergeIntakeState(storedIntakeState, intakeFields));
+      if (isIntakeMode) {
+        intakeFields = { ...(intakeFields ?? {}), intakeReady };
       }
       let mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
       const resolvedPracticeName = readAnyString(details, ['name', 'practiceName', 'practice_name']) ?? 'the practice';
@@ -813,16 +719,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
 
-      const intakeCaseStrength = typeof intakeFields?.caseStrength === 'string'
-        ? intakeFields.caseStrength
-        : null;
-      const replyHasIntakePrompt = shouldShowIntakeCtaForReply(accumulatedReply);
-      const deterministicReady = isIntakeMode && shouldShowDeterministicIntakeCta(mergedIntakeState);
+      const deterministicReady = intakeReady;
 
       const shouldForceIntakeSummary =
         isIntakeMode &&
         deterministicReady &&
-        !replyHasIntakePrompt &&
         countQuestions(accumulatedReply) === 0 &&
         mergedIntakeState?.ctaShown !== true;
 
@@ -831,10 +732,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
       }
 
-      const shouldShowIntakeCta =
-        isIntakeMode &&
-        replyHasIntakePrompt &&
-        (deterministicReady || intakeCaseStrength === 'developing' || intakeCaseStrength === 'strong');
       const forcedSummaryContent = shouldForceIntakeSummary
         ? buildIntakeSummaryFromState(mergedIntakeState)
         : null;
@@ -863,9 +760,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           ...(intakeFields ? { intakeFields } : {}),
           ...(onboardingFields ? { onboardingFields } : {}),
           ...(onboardingProfile ? { onboardingProfile } : {}),
-          ...(quickReplies ? { quickReplies } : {}),
+          ...(quickReplies && !isIntakeMode ? { quickReplies } : {}),
           ...(triggerEditModal ? { triggerEditModal } : {}),
-          ...(isIntakeMode && shouldShowIntakeCta ? { intakeReadyCta: true } : {}),
           ...(shouldPromptConsultation
             ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
             : {})
@@ -883,7 +779,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           metadata: {
             source: 'ai',
             model,
-            intakeReadyCta: true,
           },
           recipientUserId: authContext.user.id,
           skipPracticeValidation: true,

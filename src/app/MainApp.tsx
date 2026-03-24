@@ -677,7 +677,7 @@ export function MainApp({
         || intakeStatus?.step !== 'contact_form_slim'
         || intakeConversationState?.turnCount
         || intakeConversationState?.ctaShown
-        || intakeConversationState?.caseStrength
+        || intakeConversationState?.intakeReady
         || intakeConversationState?.description
         || intakeConversationState?.opposingParty
         || intakeConversationState?.city

@@ -39,11 +39,11 @@ interface IntakeConversationState {
   opposingParty?: string | null;
   desiredOutcome?: string | null;
   courtDate?: string | null;
-  caseStrength?: 'needs_more_info' | 'developing' | 'strong' | null;
   hasDocuments?: boolean | null;
   income?: string | null;
   householdSize?: number | null;
   practiceArea?: string | null;
+  intakeReady?: boolean | null;
 }
 
 interface ConversationUserInfo {
@@ -123,14 +123,6 @@ const buildIntakePayload = (
     if (typeof value !== 'number' || !Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, Math.round(value)));
   };
-  const mapCaseStrength = (value: IntakeConversationState['caseStrength']): number | undefined => {
-    if (!value) return undefined;
-    if (value === 'needs_more_info') return 0;
-    if (value === 'developing') return 1;
-    if (value === 'strong') return 1;
-    return undefined;
-  };
-
   const payload: BackendIntakeCreatePayload = {
     slug,
     amount: normalizeAmount(options?.amountMinor),
@@ -157,8 +149,6 @@ const buildIntakePayload = (
   if (intake?.urgency) payload.urgency = intake.urgency;
   if (intake?.desiredOutcome) payload.desired_outcome = intake.desiredOutcome;
   if (intake?.courtDate) payload.court_date = intake.courtDate;
-  const caseStrengthScore = mapCaseStrength(intake?.caseStrength);
-  if (typeof caseStrengthScore === 'number') payload.case_strength = caseStrengthScore;
   if (typeof intake?.hasDocuments === 'boolean') payload.has_documents = intake.hasDocuments;
   if (intake?.income) payload.income = intake.income;
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
@@ -269,7 +259,7 @@ export async function handleSubmitIntake(
     practiceId,
     slug,
     hasIntakeFields: Boolean(intake),
-    caseStrength: intake?.caseStrength ?? null,
+    intakeReady: intake?.intakeReady ?? null,
     amountMinor: intakePayload.amount,
     hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
     hasAuthorization: Boolean(request.headers.get('Authorization')?.trim()),

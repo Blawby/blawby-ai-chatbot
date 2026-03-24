@@ -1,4 +1,5 @@
 import type { IntakeConversationState } from '@/shared/types/intake';
+import { isIntakeReadyForSubmission } from '@/shared/utils/consultationState';
 
 export type StrengthTier = 'none' | 'weak' | 'basic' | 'good' | 'strong';
 
@@ -29,8 +30,8 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
   // 1. None: Literally nothing shared yet
   if (signals === 0) return 'none';
 
-  // 2. Strong: High confidence (Practice area + 15+ word description + at least 3 other signals)
-  if (hasPracticeArea && descriptionWords >= 15 && signals >= 5) {
+  // 2. Strong: Deterministically ready to submit or very complete.
+  if (isIntakeReadyForSubmission(state) || (hasPracticeArea && descriptionWords >= 15 && signals >= 5)) {
     return 'strong';
   }
 
@@ -81,10 +82,7 @@ export const resolveStrengthStyle = (tier: StrengthTier): { percent: number; rin
   }
 };
 
-export const resolveStrengthDescription = (tier: StrengthTier, state: IntakeConversationState | null): string => {
-  if ((tier === 'weak' || tier === 'basic') && state?.missingSummary) {
-    return state.missingSummary;
-  }
+export const resolveStrengthDescription = (tier: StrengthTier, _state: IntakeConversationState | null): string => {
   switch (tier) {
     case 'weak':
       return 'We need core facts before generating a reliable brief.';

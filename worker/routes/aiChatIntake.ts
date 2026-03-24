@@ -43,14 +43,9 @@ const INTAKE_TOOL = {
           maxItems: 3,
           items: { type: 'string' },
           description: '2-3 short suggested answers for predictable questions. Omit for open-ended questions.'
-        },
-        caseStrength: { type: 'string', enum: ['needs_more_info', 'developing', 'strong'] },
-        missingSummary: {
-          type: ['string', 'null'],
-          description: 'Plain English — what would most improve case strength. Null if strong.'
         }
       },
-      required: ['caseStrength']
+      required: []
     }
   }
 } as const;
@@ -60,55 +55,56 @@ const buildIntakeSystemPrompt = (services: Array<{ name: string; key: string }>)
     ? services.map((service) => `- ${service.name} (key: ${service.key})`).join('\n')
     : '- General intake (no service list provided)';
 
-  return `You are a warm, helpful legal intake assistant for this law firm. Your job is to understand someone's legal situation so they can be connected with the right attorney.
+  return `You are a legal intake data extractor for a law firm. Extract structured information from the conversation and save it using the update_intake_fields tool.
 
 This firm handles the following practice areas only:
 ${serviceList}
 
-Conversation style:
-- Be warm, human, and concise — like a knowledgeable friend, not a form
-- Ask ONE focused question at a time
+Rules:
+- Extract only what the user has explicitly stated. Do not infer or guess.
+- Use camelCase keys only (practiceArea, opposingParty, etc).
+- Map the practice area to the correct key from the list above.
+- Call the tool after every user message with everything known so far.
+- Do not write anything to the user. Only call the tool.
+- Never include caseStrength or missingSummary in the tool call.`;
+};
+
+export const buildIntakeConversationPrompt = (
+  services: Array<{ name: string; key: string }>,
+  mergedState: Record<string, unknown> | null,
+  messageCount: number
+): string => {
+  const knownFields: string[] = [];
+  if (mergedState) {
+    if (typeof mergedState.description === 'string' && mergedState.description.trim()) knownFields.push(`Situation: ${mergedState.description.trim()}`);
+    if (typeof mergedState.practiceArea === 'string' && mergedState.practiceArea.trim()) knownFields.push(`Practice area: ${mergedState.practiceAreaName ?? mergedState.practiceArea}`);
+    if (typeof mergedState.city === 'string' && mergedState.city.trim()) knownFields.push(`City: ${mergedState.city.trim()}`);
+    if (typeof mergedState.state === 'string' && mergedState.state.trim()) knownFields.push(`State: ${mergedState.state.trim()}`);
+    if (typeof mergedState.opposingParty === 'string' && mergedState.opposingParty.trim()) knownFields.push(`Opposing party: ${mergedState.opposingParty.trim()}`);
+    if (typeof mergedState.desiredOutcome === 'string' && mergedState.desiredOutcome.trim()) knownFields.push(`Desired outcome: ${mergedState.desiredOutcome.trim()}`);
+    if (typeof mergedState.urgency === 'string' && mergedState.urgency.trim()) knownFields.push(`Urgency: ${mergedState.urgency.trim()}`);
+    if (typeof mergedState.hasDocuments === 'boolean') knownFields.push(`Has documents: ${mergedState.hasDocuments}`);
+  }
+
+  const knownSection = knownFields.length > 0
+    ? `\nKNOWN SO FAR (do not ask for these again):\n${knownFields.map(f => `- ${f}`).join('\n')}`
+    : '';
+
+  const isReadyToSubmit = shouldShowDeterministicIntakeCta(mergedState);
+
+  const ctaInstruction = isReadyToSubmit || messageCount >= 8
+    ? `\nThe intake brief is complete. Do not ask any more questions. Summarize what you know in 2-3 sentences and ask if the user is ready to submit to the firm.`
+    : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents.`;
+
+  return `You are a warm, helpful legal intake assistant for a law firm. The structured intake fields have already been saved by a separate process. Your only job is to respond naturally to the user.
+
+This firm handles: ${services.map(s => s.name).join(', ') || 'general legal matters'}.${knownSection}
+
+Conversation rules:
+- Be warm and human — like a knowledgeable friend, not a form
 - Never give legal advice
-- Never ask for personal contact info (name, email, phone) — that's already collected
-- Only identify practice areas from the list above
-- Before the brief is strong or ready to submit, every assistant reply must include exactly ONE concrete next-step intake question for the user.
-- If the user just shared what happened, briefly acknowledge it and immediately ask the single most important missing intake question.
-- Do not stop at empathy or validation alone. Move the intake forward in the same reply.
-
-Your goal through the conversation is to naturally learn:
-1. What is happening (in their words) — ask this first, openly. CHECK INTAKE_CONTEXT first.
-2. Which practice area applies — CHECK INTAKE_CONTEXT first.
-3. Their city and state — CHECK INTAKE_CONTEXT first. If present, do NOT ask.
-4. Whether there's an opposing party — CHECK INTAKE_CONTEXT first.
-5. Any time pressure or deadlines
-6. What outcome they're hoping for
-
-CRITICAL: The INTAKE_CONTEXT provided in system messages is your GROUND TRUTH. If a field (city, state, practiceArea, opposingParty, description) has a value in the context, treat it as known. NEVER ask for a known field. Instead, focus on the remaining missing pieces.
-
-Do NOT ask for all of this at once. Follow the natural thread of the conversation. Once you know what's happening, ask for one missing piece at a time.
-
-After every user message, call the update_intake_fields function with a SINGLE JSON object using camelCase keys (e.g., practiceArea, opposingParty) containing everything you've learned so far, including your caseStrength assessment and missingSummary.
-
-caseStrength rules:
-- needs_more_info: practice area unknown OR description is fewer than 10 words
-- developing: practice area known + description has substance, but city/state OR opposing party are still unknown (check context for these!)
-- strong: practice area known + description 20+ words + city and state known + at least one of (opposing party OR desired outcome OR urgency) known. WHEN STRONG, DO NOT SAY YOU NEED MORE INFO.
-
-When caseStrength is "strong" (or if the user has sent 8+ messages), stop asking intake questions. Your only task is to respectfully show a brief summary of the case you've collected and ask if they are ready to submit it to the firm.
-
-If the user says "yes", "sure", "go ahead", "ready", or similar in response to your ready-to-submit question, do NOT ask another intake question. Confirm they can submit now.
-
-Question priority when information is missing:
-- First: what happened / short description
-- Then: city and state
-- Then: opposing party
-- Then: urgency or deadline
-- Then: desired outcome
-- Then: whether they have documents
-
-missingSummary: always set this when caseStrength is "needs_more_info" or "developing". One plain sentence saying what's missing (look at what is NOT in INTAKE_CONTEXT). Set to null if caseStrength is "strong".
-
-IMPORTANT: Never print function names, JSON, or structured data to the user. Never write update_intake_fields in chat content. If you need to save fields, use the tool silently and then continue with normal user-facing text.`;
+- Never ask for contact info (name, email, phone) — already collected
+- Never output JSON, tool names, or structured data${ctaInstruction}`;
 };
 
 const mergeIntakeState = (
@@ -121,9 +117,6 @@ const mergeIntakeState = (
 
 const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null): boolean => {
   if (!state) return false;
-  const caseStrength = typeof state.caseStrength === 'string' ? state.caseStrength : null;
-  if (caseStrength !== 'developing' && caseStrength !== 'strong') return false;
-
   const hasDescription = hasNonEmptyStringField(state, 'description');
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
@@ -142,7 +135,6 @@ const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): str
     return typeof value === 'string' ? value.trim() : '';
   };
 
-  const caseStrength = typeof state.caseStrength === 'string' ? state.caseStrength : null;
   const description = read('description');
   const city = read('city');
   const st = read('state');
@@ -164,27 +156,8 @@ const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): str
     parts.push(hasDocuments ? 'They already have supporting documents.' : 'They have not gathered documents yet.');
   }
 
-  const opening =
-    caseStrength === 'strong'
-      ? 'This brief looks strong.'
-      : caseStrength === 'developing'
-        ? 'This brief is developing well.'
-        : 'Here is what I have gathered so far.';
-
+  const opening = 'Here is what I have gathered so far.';
   return `${opening} ${parts.join(' ')}`.trim() + ' Are you ready for me to submit this information to connect you with the right attorney?';
-};
-
-const shouldShowIntakeCtaForReply = (reply: string): boolean => {
-  const normalized = reply.toLowerCase();
-  if (
-    normalized.includes("here's what we have so far") ||
-    normalized.includes('here is what we have so far') ||
-    normalized.includes('summary') ||
-    normalized.includes('summarize')
-  ) {
-    return true;
-  }
-  return /(are you ready to submit|ready to submit|submit your request|submit this|submit this information|submit your consultation|connect you with the right attorney|would you like to submit|would you like to continue now)/i.test(reply);
 };
 
 const normalizeServicesForPrompt = (
@@ -218,7 +191,11 @@ const extractServiceNames = (details: Record<string, unknown> | null): string[] 
   const services = details.services;
   if (!Array.isArray(services)) return [];
   return services
-    .map((service) => (typeof service?.name === 'string' ? service.name.trim() : ''))
+    .map((service) => {
+      const name = typeof service?.name === 'string' ? service.name.trim() : null;
+      const title = typeof service?.title === 'string' ? service.title.trim() : null;
+      return name || title || '';
+    })
     .filter((name) => name.length > 0);
 };
 
@@ -296,7 +273,6 @@ export {
   mergeIntakeState,
   shouldShowDeterministicIntakeCta,
   buildIntakeSummaryFromState,
-  shouldShowIntakeCtaForReply,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,

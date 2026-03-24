@@ -281,9 +281,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
-    const lastMessage = filteredMessages[filteredMessages.length - 1];
-    const hasIntakeCta = Boolean(lastMessage?.metadata?.intakeReadyCta);
-    const canHandleCta = hasIntakeCta && intakeConversationState?.ctaResponse !== 'ready';
+    const canHandleCta = Boolean(intakeConversationState?.intakeReady) && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
     const isAffirmative = affirmative.test(normalized);

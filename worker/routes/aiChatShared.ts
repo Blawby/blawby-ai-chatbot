@@ -95,6 +95,7 @@ const consumeAiStream = async (
   let streamStalled = false;
   let localReply = '';
   let localToolCalls: Array<{name: string, arguments: string}> = [];
+  let localToolCallsByIndex = new Map<number, {name: string, arguments: string}>();
   let localEmittedToken = false;
   const diagnostics = {
     chunkCount: 0,
@@ -107,6 +108,7 @@ const consumeAiStream = async (
     finishReasons: [] as string[],
     sampleToolChunks: [] as string[],
     sampleUnexpectedChunks: [] as string[],
+    failClosedReason: undefined as string | undefined,
   };
 
   while (true) {
@@ -184,10 +186,9 @@ const consumeAiStream = async (
         diagnostics.contentChunkCount += 1;
 
         const looksLikeToolLeak =
-          delta.content.includes('update_intake_fields') ||
           delta.content.includes('update_practice_fields') ||
-          delta.content.includes('"caseStrength"') ||
-          delta.content.includes('"practiceArea"');
+          // Detect fenced code tool outputs
+          (delta.content.includes('```') && delta.content.includes('update_practice_fields'));
 
         if (emitTokens && !looksLikeToolLeak) {
           write({ token: delta.content });
@@ -206,19 +207,47 @@ const consumeAiStream = async (
             
             if (tc.function?.name) {
               diagnostics.namedToolFragmentCount += 1;
-              targetCall = localToolCalls.find(call => call.name === tc.function.name);
-              if (!targetCall) {
-                targetCall = {
-                  name: tc.function.name,
-                  arguments: tc.function.arguments
-                };
-                localToolCalls.push(targetCall);
+              
+              // Use tc.index when available to avoid mixing fragments from concurrent tool calls
+              if (typeof tc.index === 'number') {
+                // Find or create tool call by index using Map
+                targetCall = localToolCallsByIndex.get(tc.index);
+                if (!targetCall) {
+                  targetCall = {
+                    name: tc.function.name,
+                    arguments: tc.function.arguments
+                  };
+                  localToolCallsByIndex.set(tc.index, targetCall);
+                } else {
+                  targetCall.arguments += tc.function.arguments;
+                }
               } else {
-                targetCall.arguments += tc.function.arguments;
+                // Fallback to name-only behavior if index is absent
+                targetCall = localToolCalls.find(call => call.name === tc.function.name);
+                if (!targetCall) {
+                  targetCall = {
+                    name: tc.function.name,
+                    arguments: tc.function.arguments
+                  };
+                  localToolCalls.push(targetCall);
+                } else {
+                  targetCall.arguments += tc.function.arguments;
+                }
               }
             } else {
               diagnostics.argumentOnlyToolFragmentCount += 1;
-              if (localToolCalls.length > 0) {
+              if (typeof tc.index === 'number') {
+                // Use index-aware lookup for argument-only fragments
+                targetCall = localToolCallsByIndex.get(tc.index);
+                if (targetCall) {
+                  targetCall.arguments += tc.function.arguments;
+                } else {
+                  // Create new entry at index if not found
+                  targetCall = { name: '', arguments: tc.function.arguments };
+                  localToolCallsByIndex.set(tc.index, targetCall);
+                }
+              } else if (localToolCalls.length > 0) {
+                // Fallback to last call if index is absent
                 targetCall = localToolCalls[localToolCalls.length - 1];
                 targetCall.arguments += tc.function.arguments;
               }
@@ -237,7 +266,7 @@ const consumeAiStream = async (
           choices?: Array<{
             delta?: {
               content?: string | null;
-              tool_calls?: Array<{ function?: { name?: string; arguments?: string } }>;
+              tool_calls?: Array<{ index?: number; function?: { name?: string; arguments?: string } }>;
             };
           }>;
         };
@@ -246,10 +275,7 @@ const consumeAiStream = async (
           localReply += token;
 
           const looksLikeToolLeak =
-            token.includes('update_intake_fields') ||
-            token.includes('update_practice_fields') ||
-            token.includes('"caseStrength"') ||
-            token.includes('"practiceArea"');
+            token.includes('update_practice_fields');
 
           if (emitTokens && !looksLikeToolLeak) {
             write({ token });
@@ -263,18 +289,45 @@ const consumeAiStream = async (
               let targetCall: {name: string, arguments: string} | undefined;
               
               if (tc.function?.name) {
-                targetCall = localToolCalls.find(call => call.name === tc.function.name);
-                if (!targetCall) {
-                  targetCall = {
-                    name: tc.function.name,
-                    arguments: tc.function.arguments
-                  };
-                  localToolCalls.push(targetCall);
+                // Use tc.index when available to avoid mixing fragments from concurrent tool calls
+                if (typeof tc.index === 'number') {
+                  // Find or create tool call by index using Map
+                  targetCall = localToolCallsByIndex.get(tc.index);
+                  if (!targetCall) {
+                    targetCall = {
+                      name: tc.function.name,
+                      arguments: tc.function.arguments
+                    };
+                    localToolCallsByIndex.set(tc.index, targetCall);
+                  } else {
+                    targetCall.arguments += tc.function.arguments;
+                  }
                 } else {
-                  targetCall.arguments += tc.function.arguments;
+                  // Fallback to name-only behavior if index is absent
+                  targetCall = localToolCalls.find(call => call.name === tc.function.name);
+                  if (!targetCall) {
+                    targetCall = {
+                      name: tc.function.name,
+                      arguments: tc.function.arguments
+                    };
+                    localToolCalls.push(targetCall);
+                  } else {
+                    targetCall.arguments += tc.function.arguments;
+                  }
                 }
               } else {
-                if (localToolCalls.length > 0) {
+                if (typeof tc.index === 'number') {
+                  // Use index-aware lookup for argument-only fragments
+                  targetCall = localToolCallsByIndex.get(tc.index);
+                  if (targetCall) {
+                    targetCall.arguments += tc.function.arguments;
+                  } else {
+                    // Create new entry at index if not found
+                    targetCall = { name: '', arguments: tc.function.arguments };
+                    localToolCallsByIndex.set(tc.index, targetCall);
+                  }
+                } else if (localToolCalls.length > 0) {
+                  // Fallback to last call if index is absent
                   targetCall = localToolCalls[localToolCalls.length - 1];
                   targetCall.arguments += tc.function.arguments;
                 }
@@ -288,9 +341,29 @@ const consumeAiStream = async (
     }
   }
 
+  // Convert Map back to array for return value
+  const finalToolCalls = Array.from(localToolCallsByIndex.values()).concat(localToolCalls);
+
+  const hasPotentialToolLeak = finalToolCalls.length > 0 || 
+    localReply.includes('update_practice_fields');
+
+  if (hasPotentialToolLeak && emitTokens) {
+    // Block streaming until reply is explicitly parsed as safe
+    return {
+      reply: localReply,
+      toolCalls: finalToolCalls,
+      streamStalled: false,
+      emittedToken: false,
+      diagnostics: {
+        ...diagnostics,
+        ...(hasPotentialToolLeak ? { failClosedReason: 'potential_tool_leak' } : {})
+      }
+    };
+  }
+
   return {
     reply: localReply,
-    toolCalls: localToolCalls,
+    toolCalls: finalToolCalls,
     streamStalled,
     emittedToken: localEmittedToken,
     diagnostics
@@ -307,8 +380,6 @@ const normalizeKeys = (obj: unknown): unknown => {
     practice_area: 'practiceArea',
     opposing_party: 'opposingParty',
     desired_outcome: 'desiredOutcome',
-    case_strength: 'caseStrength',
-    missing_summary: 'missingSummary',
     postal_code: 'postalCode',
     address_line1: 'addressLine1',
     address_line_1: 'addressLine1',
@@ -333,110 +404,6 @@ const normalizeKeys = (obj: unknown): unknown => {
   }
 
   return next;
-};
-
-const parseToolCallFromReply = (
-  rawReply: string
-): { name?: string; parameters?: Record<string, unknown>; contentBuffer?: string } | null => {
-  const startMatch = rawReply.match(/(update_intake_fields|update_practice_fields)\s*\(/);
-  if (startMatch) {
-    const startIndex = startMatch.index!;
-    const name = startMatch[1];
-
-    const parenIndex = rawReply.indexOf('(', startIndex + name.length);
-    let endIndex = -1;
-
-    if (parenIndex !== -1) {
-      let parenCount = 1;
-      for (let i = parenIndex + 1; i < rawReply.length; i += 1) {
-        if (rawReply[i] === '(') parenCount += 1;
-        else if (rawReply[i] === ')') {
-          parenCount -= 1;
-          if (parenCount === 0) {
-            endIndex = i;
-            break;
-          }
-        }
-      }
-    }
-
-    const matchedText =
-      endIndex !== -1
-        ? rawReply.substring(startIndex, endIndex + 1)
-        : rawReply.substring(startIndex);
-
-    let parameters: Record<string, unknown> = {};
-    let parseSuccess = false;
-
-    try {
-      let jsonPayload = '';
-      const openingBraceIndex = matchedText.indexOf('{');
-
-      if (openingBraceIndex !== -1) {
-        let braceCount = 0;
-        let j = openingBraceIndex;
-
-        for (; j < matchedText.length; j += 1) {
-          if (matchedText[j] === '{') braceCount += 1;
-          else if (matchedText[j] === '}') braceCount -= 1;
-          if (braceCount === 0) break;
-        }
-
-        if (braceCount === 0) {
-          jsonPayload = matchedText.substring(openingBraceIndex, j + 1);
-        }
-      }
-
-      if (jsonPayload) {
-        parameters = normalizeKeys(JSON.parse(jsonPayload)) as Record<string, unknown>;
-        parseSuccess = true;
-
-        if (name === 'update_intake_fields' && !parameters.caseStrength) {
-          const rest = matchedText.substring(matchedText.indexOf(jsonPayload) + jsonPayload.length);
-          const positionalMatch = rest.match(/,\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?/);
-          if (positionalMatch) {
-            parameters.caseStrength = positionalMatch[1];
-            if (positionalMatch[2]) {
-              parameters.missingSummary = positionalMatch[2];
-            }
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    const cleanText = rawReply.replace(matchedText, '').trim();
-    return {
-      name,
-      parameters: parseSuccess ? parameters : undefined,
-      contentBuffer: cleanText,
-    };
-  }
-
-  const trimmed = rawReply.trim();
-  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
-
-  try {
-    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-    const name = typeof parsed.name === 'string' ? parsed.name : undefined;
-    const p =
-      parsed.parameters &&
-      typeof parsed.parameters === 'object' &&
-      !Array.isArray(parsed.parameters)
-        ? (parsed.parameters as Record<string, unknown>)
-        : undefined;
-
-    if (!name && !p) return null;
-
-    return {
-      name,
-      parameters: p ? (normalizeKeys(p) as Record<string, unknown>) : undefined,
-      contentBuffer: '',
-    };
-  } catch {
-    return null;
-  }
 };
 
 type DebuggableAiError = Error & {
@@ -502,7 +469,6 @@ export {
   createSseResponse,
   consumeAiStream,
   normalizeKeys,
-  parseToolCallFromReply,
   createAiDebugError,
   isRecord,
   readStringField,

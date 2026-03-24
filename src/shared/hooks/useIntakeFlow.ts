@@ -22,6 +22,7 @@ import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
   applyConsultationPatchToMetadata,
   deriveIntakeStatusFromConsultation,
+  isIntakeReadyForSubmission,
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
 
@@ -223,6 +224,7 @@ export function useIntakeFlow({
         (next as unknown as Record<string, unknown>)[key] = val;
       }
     });
+    next.intakeReady = isIntakeReadyForSubmission(next);
 
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
