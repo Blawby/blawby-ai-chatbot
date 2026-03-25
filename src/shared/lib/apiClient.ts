@@ -42,7 +42,7 @@ export const clearPublicPracticeDetailsCache = (slug?: string) => {
   }
 };
 
-const normalizePublicFileUrl = (value?: string | null): string | null => {
+export const normalizePublicFileUrl = (value?: string | null): string | null => {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;

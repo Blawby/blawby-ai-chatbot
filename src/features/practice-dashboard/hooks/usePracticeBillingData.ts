@@ -297,6 +297,9 @@ export const usePracticeBillingData = ({
             const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
             return summary.totalUnbilled ?? null;
           } catch (err) {
+            if ((err as DOMException)?.name === 'AbortError' || (err as { name?: string })?.name === 'CanceledError') {
+              return null;
+            }
             console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
             return null;
           }
