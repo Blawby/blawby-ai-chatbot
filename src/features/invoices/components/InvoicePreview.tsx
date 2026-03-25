@@ -65,8 +65,9 @@ export const InvoicePreview = ({
 
   const totalFormatted = formatCurrency(subtotal);
   const dueDateFormatted = dueDate ? formatLongDate(dueDate) : null;
+  const normalizedLogoUrl = practiceLogoUrl ? normalizePublicFileUrl(practiceLogoUrl) : null;
 
-  const hasFirmBlock = Boolean(practiceName || practiceLogoUrl);
+  const hasFirmBlock = Boolean(practiceName || normalizedLogoUrl);
   const hasBillingBlock = Boolean(practiceName || clientName || practiceEmail || clientEmail);
 
   return (
@@ -93,9 +94,9 @@ export const InvoicePreview = ({
             {/* Firm identity block (top-right) */}
             {hasFirmBlock && (
               <div className="flex items-center gap-3">
-                {practiceLogoUrl ? (
+                {normalizedLogoUrl ? (
                   <img
-                    src={normalizePublicFileUrl(practiceLogoUrl) || ''}
+                    src={normalizedLogoUrl}
                     alt={practiceName ?? 'Firm logo'}
                     className="h-14 w-14 rounded-full object-cover"
                   />
