@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { TrashIcon, PencilSquareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
@@ -33,11 +33,6 @@ interface LineItemDialogProps {
 const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes }: LineItemDialogProps) => {
   const step = billingIncrementMinutes ? billingIncrementMinutes / 60 : 0.1;
   const [formData, setFormData] = useState<InvoiceLineItem>(() => item || newLineItem());
-
-  // Reset/Update form data when item changes or modal opens/closes
-  useEffect(() => {
-    setFormData(item ?? newLineItem());
-  }, [item]);
 
   const handleSave = () => {
     if (!formData.description.trim()) return;
@@ -232,6 +227,7 @@ export const LineItemsBuilder = ({ lineItems, onChange, billingIncrementMinutes 
 
       {/* Logic for Dialogs */}
       <LineItemDialog 
+        key={`add-${isAddMode}`}
         isOpen={isAddMode} 
         item={null}
         onSave={handleSaveItem}
@@ -240,6 +236,7 @@ export const LineItemsBuilder = ({ lineItems, onChange, billingIncrementMinutes 
       />
 
       <LineItemDialog 
+        key={editingItem?.item?.id ?? 'none'}
         isOpen={!!editingItem} 
         item={editingItem?.item || null}
         onSave={handleSaveItem}
