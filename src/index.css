@@ -174,7 +174,7 @@
   }
 
   .dark .glass-panel {
-    background: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.12);
     box-shadow: var(--glass-rim-medium);
   }
 

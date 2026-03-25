@@ -61,11 +61,11 @@ export const SendInvoiceDialog = ({
       )}
 
       <div className="space-y-4">
-        <div>
-          <p className="text-sm text-input-placeholder">
+        <div className="rounded-xl border border-line-glass/10 bg-white/[0.03] p-4">
+          <p className="text-sm text-white/70">
             You are about to send this invoice to the client.
           </p>
-          <p className="mt-1 text-sm font-semibold text-input-text">
+          <p className="mt-1 text-base font-semibold text-white">
             Total due: {formatCurrency(totalAmount)}
           </p>
         </div>
