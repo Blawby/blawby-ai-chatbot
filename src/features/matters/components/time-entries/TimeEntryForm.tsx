@@ -17,16 +17,14 @@ const buildTimeString = (date: Date) => {
 
 const buildDateOptions = () => {
   const options: Array<{ value: string; label: string }> = [];
-  const start = new Date();
-  start.setFullYear(start.getFullYear() - 1);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setDate(end.getDate() + 30);
-  end.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 30));
 
-  for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+  for (let current = new Date(start); current <= end; current.setUTCDate(current.getUTCDate() + 1)) {
     const value = buildDateString(current);
     const label = current.toLocaleDateString('en-US', {
+      timeZone: 'UTC',
       weekday: 'short',
       month: 'short',
       day: 'numeric',

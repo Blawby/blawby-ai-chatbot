@@ -295,7 +295,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				workbox: {
 					// Precache app shell assets only — exclude static standalone pages
 					// and the widget script (they are served directly by Cloudflare Pages).
-					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp}'],
+					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp,html}'],
 					globIgnores: [
 						'widget-loader.js',
 						'widget-test.html',

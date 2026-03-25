@@ -386,7 +386,7 @@ export default function DebugMatterPage() {
                 <MatterSummaryCards
                   activeTab={activeTab}
                   timeStats={timeStats}
-                  onAddTime={() => setActiveTab('time')}
+                  onCreateInvoice={() => setActiveTab('time')}
                   onViewTimesheet={() => setActiveTab('time')}
                 />
               ) : null}

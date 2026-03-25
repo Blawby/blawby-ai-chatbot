@@ -30,6 +30,7 @@ import {
   toMatterSummary,
   toMatterTask
 } from '@/features/matters/utils/matterUtils';
+import { asMajor, safeAdd } from '@/shared/utils/money';
 
 type DetailTabId = 'overview' | 'tasks' | 'messages';
 
@@ -277,6 +278,30 @@ export const ClientMattersPage = ({
 
     return totals;
   }, [resolvedMatter?.timeEntries]);
+
+  const fixedSummaryMetrics = useMemo(() => {
+    const milestones = resolvedMatter?.milestones ?? [];
+    const milestonesPaid = milestones.filter((milestone) => milestone.status === 'completed');
+    const milestonesRemaining = milestones.filter((milestone) => milestone.status !== 'completed');
+
+    const milestonesPaidAmount = milestonesPaid.reduce(
+      (sum, milestone) => safeAdd(sum, milestone.amount ?? asMajor(0)),
+      asMajor(0)
+    );
+    const milestonesRemainingAmount = milestonesRemaining.reduce(
+      (sum, milestone) => safeAdd(sum, milestone.amount ?? asMajor(0)),
+      asMajor(0)
+    );
+
+    return {
+      projectPrice: resolvedMatter?.totalFixedPrice ?? null,
+      milestonesPaidCount: milestonesPaid.length,
+      milestonesPaidAmount,
+      milestonesRemainingCount: milestonesRemaining.length,
+      milestonesRemainingAmount,
+      hasMilestones: milestones.length > 0
+    };
+  }, [resolvedMatter?.milestones, resolvedMatter?.totalFixedPrice]);
   const resolvePerson = useCallback((userId?: string | null): TimelinePerson => {
     if (!userId) return { name: 'System' };
     if (session?.user?.id === userId) {
@@ -425,6 +450,7 @@ export const ClientMattersPage = ({
                   totalFixedPrice={resolvedMatter.totalFixedPrice ?? null}
                   contingencyPercent={resolvedMatter.contingencyPercent ?? null}
                   paymentFrequency={resolvedMatter.paymentFrequency ?? null}
+                  fixedMetrics={fixedSummaryMetrics}
                 />
                 <section className="glass-panel overflow-hidden">
                   <header className="border-b border-line-glass/30 px-6 py-4">

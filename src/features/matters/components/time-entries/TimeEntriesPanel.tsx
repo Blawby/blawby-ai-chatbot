@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
@@ -137,6 +137,12 @@ export const TimeEntriesPanel = ({
   };
 
   const showEntries = !error && !(loading && entries.length === 0);
+  const handlePreviousWeek = () => {
+    setSelectedWeekStart((prev) => addDays(prev, -7));
+  };
+  const handleNextWeek = () => {
+    setSelectedWeekStart((prev) => addDays(prev, 7));
+  };
 
   return (
     <div className="space-y-6">
@@ -148,9 +154,25 @@ export const TimeEntriesPanel = ({
         <div className="glass-panel overflow-hidden">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Previous week"
+                icon={ChevronLeftIcon}
+                iconClassName="h-4 w-4"
+                onClick={handlePreviousWeek}
+              />
               <div className="min-w-[220px] text-center">
                 <p className="text-sm font-semibold text-input-text">{weekRangeLabel}</p>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Next week"
+                icon={ChevronRightIcon}
+                iconClassName="h-4 w-4"
+                onClick={handleNextWeek}
+              />
             </div>
             <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
               Add time entry

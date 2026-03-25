@@ -6,7 +6,7 @@ type SummaryTab = 'overview' | 'time' | 'messages';
 
 interface MatterSummaryCardsProps {
   activeTab: SummaryTab;
-  onAddTime?: () => void;
+  onCreateInvoice?: () => void;
   onViewTimesheet?: () => void;
   onLearnMore?: () => void;
   timeStats?: {
@@ -21,9 +21,19 @@ interface MatterSummaryCardsProps {
   totalFixedPrice?: MajorAmount | null;
   contingencyPercent?: number | null;
   paymentFrequency?: 'project' | 'milestone' | null;
+  fixedMetrics?: {
+    projectPrice?: MajorAmount | null;
+    projectFunds?: MajorAmount | null;
+    totalEarnings?: MajorAmount | null;
+    milestonesPaidCount?: number;
+    milestonesPaidAmount?: MajorAmount | null;
+    milestonesRemainingCount?: number;
+    milestonesRemainingAmount?: MajorAmount | null;
+    hasMilestones?: boolean;
+  } | null;
 }
 
-const summaryItemBase = 'min-w-0 py-1';
+const summaryItemBase = 'min-w-0 py-1 flex flex-col gap-1';
 const gridBase = 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4';
 const wrapperBase = 'glass-panel p-4 sm:p-5';
 
@@ -45,7 +55,7 @@ const formatDurationFromHours = (totalHours?: number | null) => {
 
 export const MatterSummaryCards = ({
   activeTab,
-  onAddTime,
+  onCreateInvoice,
   onViewTimesheet,
   onLearnMore,
   timeStats,
@@ -54,7 +64,8 @@ export const MatterSummaryCards = ({
   adminHourlyRate,
   totalFixedPrice,
   contingencyPercent,
-  paymentFrequency
+  paymentFrequency,
+  fixedMetrics
 }: MatterSummaryCardsProps) => {
   const resolveMajorAmount = (amount: MajorAmount | null | undefined): number | null =>
     amount === null || amount === undefined ? null : getMajorAmountValue(amount);
@@ -94,15 +105,62 @@ export const MatterSummaryCards = ({
     return percent !== null ? `${percent}% contingency` : 'Rate not set';
   })();
 
+  const fixedProjectPrice = resolveMajorAmount(fixedMetrics?.projectPrice ?? totalFixedPrice ?? null) ?? 0;
+  const fixedProjectFunds = resolveMajorAmount(fixedMetrics?.projectFunds ?? null) ?? 0;
+  const fixedTotalEarnings = resolveMajorAmount(fixedMetrics?.totalEarnings ?? null) ?? 0;
+  const milestonesPaidCount = Math.max(0, fixedMetrics?.milestonesPaidCount ?? 0);
+  const milestonesPaidAmount = resolveMajorAmount(fixedMetrics?.milestonesPaidAmount ?? null) ?? 0;
+  const milestonesRemainingCount = Math.max(0, fixedMetrics?.milestonesRemainingCount ?? 0);
+  const milestonesRemainingAmount = resolveMajorAmount(fixedMetrics?.milestonesRemainingAmount ?? null) ?? 0;
+  const hasMilestones = Boolean(fixedMetrics?.hasMilestones ?? (milestonesPaidCount + milestonesRemainingCount > 0));
+
   if (activeTab === 'overview') {
+    if (billingType === 'fixed') {
+      const fixedCards = [
+        { label: 'Project price', value: formatCurrency(fixedProjectPrice), helper: 'Fixed-price' },
+        { label: 'Project funds', value: formatCurrency(fixedProjectFunds) },
+        ...(hasMilestones ? [
+          {
+            label: `Milestones paid (${milestonesPaidCount})`,
+            value: formatCurrency(milestonesPaidAmount)
+          },
+          {
+            label: `Milestones remaining (${milestonesRemainingCount})`,
+            value: formatCurrency(milestonesRemainingAmount)
+          }
+        ] : []),
+        { label: 'Total earnings', value: formatCurrency(fixedTotalEarnings) }
+      ];
+
+      const fixedGridClass = hasMilestones
+        ? 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-5'
+        : 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3';
+
+      return (
+        <section className={wrapperBase}>
+          <div className={fixedGridClass}>
+            {fixedCards.map((card) => (
+              <div key={card.label} className={`${summaryItemBase} text-center`}>
+                <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
+                <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{card.value}</p>
+                {card.helper ? (
+                  <p className="mt-1 text-xs text-input-placeholder leading-tight">{card.helper}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
     return (
       <section className={wrapperBase}>
         <div className={gridBase}>
           <div className={summaryItemBase}>
-          <p className="text-xs font-medium text-input-placeholder">Billable time</p>
-          <p className="mt-2 text-lg font-semibold text-input-text">{billableDisplay}</p>
-          <p className="mt-1 text-xs text-input-placeholder">
-            Based on recorded billable entries.
+          <p className="text-xs font-medium text-input-placeholder leading-tight">Billable time this week</p>
+          <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{billableDisplay}</p>
+          <p className="mt-1 text-xs text-input-placeholder leading-tight">
+            Based on recorded billable entries this week.
           </p>
           {onLearnMore ? (
             <button
@@ -119,7 +177,7 @@ export const MatterSummaryCards = ({
           )}
           </div>
           <div className={summaryItemBase}>
-            <p className="text-xs font-medium text-input-placeholder">{billingTypeLabel}</p>
+            <p className="text-xs font-medium text-input-placeholder leading-tight">{billingTypeLabel}</p>
             {Array.isArray(billingRateLines) ? (
               <div className="mt-2 space-y-1 text-sm text-input-text">
                 {billingRateLines.map((line) => (
@@ -131,22 +189,22 @@ export const MatterSummaryCards = ({
             )}
           </div>
           <div className={summaryItemBase}>
-            <p className="text-xs font-medium text-input-placeholder">Total time tracked</p>
-            <p className="mt-2 text-lg font-semibold text-input-text">{totalDisplay}</p>
-            <p className="mt-1 text-xs text-input-placeholder">Across all logged entries</p>
+            <p className="text-xs font-medium text-input-placeholder leading-tight">This week&apos;s tracked</p>
+            <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{totalDisplay}</p>
+            <p className="mt-1 text-xs text-input-placeholder leading-tight">Across all logged entries this week</p>
           </div>
-          <div className={summaryItemBase}>
-            <div className="mt-3 flex flex-col items-start gap-2">
+          <div className={`${summaryItemBase} items-center text-center`}>
+            <div className="mt-3 flex flex-col items-center gap-2">
               <Button
                 size="xs"
-                onClick={() => onAddTime?.()}
-                disabled={!onAddTime}
+                onClick={() => onCreateInvoice?.()}
+                disabled={!onCreateInvoice}
                 className="w-auto"
               >
-                Add time
+                Invoice
               </Button>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 flex justify-center">
               {onViewTimesheet ? (
                 <button
                   type="button"
@@ -167,10 +225,8 @@ export const MatterSummaryCards = ({
 
   if (activeTab === 'time') {
     const cards = [
-      { label: 'Billable total', value: billableDisplay, helper: 'All billable time logged' },
-      { label: 'Total tracked', value: totalDisplay, helper: 'All time entries' },
-      { label: 'Billable hours', value: billableDisplay },
-      { label: 'Since start', value: totalDisplay }
+      { label: 'Billable hours', value: billableDisplay, helper: 'All billable time logged' },
+      { label: 'Total time tracked', value: totalDisplay, helper: 'All time entries' }
     ];
 
     return (
@@ -178,10 +234,10 @@ export const MatterSummaryCards = ({
         <div className={gridBase}>
           {cards.map((card) => (
             <div key={card.label} className={summaryItemBase}>
-              <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
-              <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
+              <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
+              <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{card.value}</p>
               {card.helper ? (
-                <p className="mt-1 text-xs text-input-placeholder">{card.helper}</p>
+                <p className="mt-1 text-xs text-input-placeholder leading-tight">{card.helper}</p>
               ) : null}
             </div>
           ))}
