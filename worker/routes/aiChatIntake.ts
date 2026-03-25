@@ -4,6 +4,11 @@ import {
   LEGAL_INTENT_REGEX,
 } from './aiChatShared.js';
 
+// messageCount includes both user and assistant turns; 10 total turns is roughly
+// 5 user turns before we pivot to closing language. This is a UX default and may
+// need tuning per firm/intake context in future configuration.
+const INTAKE_CLOSING_MESSAGE_THRESHOLD = 6;
+
 const INTAKE_TOOL = {
   type: 'function',
   function: {
@@ -91,7 +96,7 @@ export const buildIntakeConversationPrompt = (
     ? `\nKNOWN SO FAR (do not ask for these again):\n${knownFields.map(f => `- ${f}`).join('\n')}`
     : '';
 
-  const ctaInstruction = messageCount >= 10
+  const ctaInstruction = messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD
     ? `\nYou have asked enough questions. Briefly summarize what you know and ask if the user is ready to submit to the firm.`
     : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents.`;
 
