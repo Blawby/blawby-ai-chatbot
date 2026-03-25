@@ -4,6 +4,11 @@ import {
   LEGAL_INTENT_REGEX,
 } from './aiChatShared.js';
 
+// messageCount includes both user and assistant turns; 10 total turns is roughly
+// 5 user turns before we pivot to closing language. This is a UX default and may
+// need tuning per firm/intake context in future configuration.
+const INTAKE_CLOSING_MESSAGE_THRESHOLD = 6;
+
 const INTAKE_TOOL = {
   type: 'function',
   function: {
@@ -66,12 +71,14 @@ Rules:
 - Map the practice area to the correct key from the list above.
 - Call the tool after every user message with everything known so far.
 - Do not write anything to the user. Only call the tool.
+- Tool arguments must be a raw JSON object only (no function name wrapper, no markdown fences, no XML tags).
 - Never include caseStrength or missingSummary in the tool call.`;
 };
 
 export const buildIntakeConversationPrompt = (
   services: Array<{ name: string; key: string }>,
-  mergedState: Record<string, unknown> | null
+  mergedState: Record<string, unknown> | null,
+  messageCount: number
 ): string => {
   const knownFields: string[] = [];
   if (mergedState) {
@@ -89,10 +96,8 @@ export const buildIntakeConversationPrompt = (
     ? `\nKNOWN SO FAR (do not ask for these again):\n${knownFields.map(f => `- ${f}`).join('\n')}`
     : '';
 
-  const isReadyToSubmit = shouldShowDeterministicIntakeCta(mergedState);
-
-  const ctaInstruction = isReadyToSubmit
-    ? `\nThe intake brief is complete. Do not ask any more questions. Summarize what you know in 2-3 sentences and ask if the user is ready to submit to the firm.`
+  const ctaInstruction = messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD
+    ? `\nYou have asked enough questions. Briefly summarize what you know and ask if the user is ready to submit to the firm.`
     : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents.`;
 
   return `You are a warm, helpful legal intake assistant for a law firm. The structured intake fields have already been saved by a separate process. Your only job is to respond naturally to the user.
@@ -120,8 +125,7 @@ const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null)
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
-  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome;
 };
 
 const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): string => {

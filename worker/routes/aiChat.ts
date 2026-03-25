@@ -19,7 +19,6 @@ import {
   MAX_MESSAGE_LENGTH,
   MAX_TOTAL_LENGTH,
   AI_TIMEOUT_MS,
-  AI_STREAM_READ_TIMEOUT_MS,
   CONSULTATION_CTA_REGEX,
   SERVICE_QUESTION_REGEX,
   HOURS_QUESTION_REGEX,
@@ -48,10 +47,8 @@ import {
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
-  normalizeApostrophes,
   shouldRequireDisclaimer,
   countQuestions,
-  buildPracticeContactErrorReply,
   normalizePracticeDetailsForAi,
 } from './aiChatIntake.js';
 
@@ -92,6 +89,8 @@ const summarizeIntakeCoreFields = (
 // ---------------------------------------------------------------------------
 
 export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+  const requestStartedAt = Date.now();
+
   if (request.method !== 'POST') {
     throw HttpErrors.methodNotAllowed('Method not allowed');
   }
@@ -106,6 +105,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required');
   }
+  Logger.info('AI chat timing: auth complete', {
+    elapsedMs: Date.now() - requestStartedAt,
+  });
 
   const body = await parseJsonBody(request) as {
     conversationId?: string;
@@ -115,6 +117,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
     additionalContext?: string;
   };
+  Logger.info('AI chat timing: request body parsed', {
+    conversationId: body.conversationId ?? null,
+    elapsedMs: Date.now() - requestStartedAt,
+    messageCount: Array.isArray(body.messages) ? body.messages.length : null,
+  });
 
   if (!body.conversationId || typeof body.conversationId !== 'string') {
     throw HttpErrors.badRequest('conversationId is required');
@@ -144,6 +151,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const conversationService = new ConversationService(env);
   const conversation = await conversationService.getConversationById(body.conversationId, { repair: true });
+  Logger.info('AI chat timing: conversation loaded', {
+    conversationId: body.conversationId,
+    elapsedMs: Date.now() - requestStartedAt,
+  });
   if (!conversation) {
     throw HttpErrors.notFound('Conversation not found');
   }
@@ -164,6 +175,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     actorType: 'user',
     actorId: authContext.user.id,
     payload: { conversationId: body.conversationId }
+  });
+  Logger.info('AI chat timing: user audit event created', {
+    conversationId: body.conversationId,
+    elapsedMs: Date.now() - requestStartedAt,
   });
 
   const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
@@ -194,6 +209,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         preferPracticeIdLookup: authContext.isAnonymous !== true,
       }
     ));
+    Logger.info('AI chat timing: practice details loaded', {
+      conversationId: body.conversationId,
+      practiceId,
+      elapsedMs: Date.now() - requestStartedAt,
+    });
   } catch (error) {
     Logger.error('AI chat failed to load practice details', {
       practiceId,
@@ -425,6 +445,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
+  Logger.info('AI chat timing: SSE response prepared', {
+    conversationId: body.conversationId,
+    elapsedMs: Date.now() - requestStartedAt,
+    isIntakeMode,
+    isOnboardingMode,
+  });
 
   // Kick off the async work and register it with ctx.waitUntil so Cloudflare
   // does not terminate the worker before persistence completes.
@@ -466,145 +492,151 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         });
       }
 
-      // Intake extraction call (non-streaming, tool-only)
-      if (isIntakeMode) {
-        const extractionSystemPrompt = [
-          buildIntakeSystemPrompt(servicesForPrompt),
-          `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
-          storedIntakeState ? `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` : null,
-          body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
-        ].filter(Boolean).join('\n\n');
+      const extractionPromise: Promise<Record<string, unknown> | null> = isIntakeMode
+        ? (async () => {
+            const extractionStartedAt = Date.now();
+            let extractionOutcome: 'ok' | 'no_args' | 'parse_failed' | 'http_error' | 'exception' = 'ok';
+            const extractionSystemPrompt = [
+              buildIntakeSystemPrompt(servicesForPrompt),
+              `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
+              storedIntakeState ? `INTAKE_CONTEXT: ${JSON.stringify(storedIntakeState)}` : null,
+              body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
+            ].filter(Boolean).join('\n\n');
 
-        const extractionPayload: Record<string, unknown> = {
-          model,
-          temperature: 0.1,
-          stream: false,
-          tools: [INTAKE_TOOL],
-          tool_choice: { type: 'function', function: { name: 'update_intake_fields' } },
-          parallel_tool_calls: false,
-          messages: [
-            { role: 'system', content: extractionSystemPrompt },
-            ...body.messages.map((m) => ({ role: m.role, content: m.content })),
-          ],
-        };
+            const extractionPayload: Record<string, unknown> = {
+              model,
+              temperature: 0.1,
+              stream: false,
+              tools: [INTAKE_TOOL],
+              tool_choice: { type: 'function', function: { name: 'update_intake_fields' } },
+              parallel_tool_calls: false,
+              messages: [
+                { role: 'system', content: extractionSystemPrompt },
+                ...body.messages.map((m) => ({ role: m.role, content: m.content })),
+              ],
+            };
 
-        const extractionController = new AbortController();
-        const extractionTimeoutId = setTimeout(() => extractionController.abort(), AI_TIMEOUT_MS);
-        let extractionResponse: Response;
-        try {
-          extractionResponse = await aiClient.requestChatCompletions(extractionPayload, extractionController.signal);
-        } finally {
-          clearTimeout(extractionTimeoutId);
-        }
+            const extractionController = new AbortController();
+            const extractionTimeoutId = setTimeout(() => extractionController.abort(), AI_TIMEOUT_MS);
 
-        if (extractionResponse.ok) {
-          const extractionData = await extractionResponse.json().catch(() => null) as {
-            choices?: Array<{
-              message?: {
-                tool_calls?: Array<{
-                  function?: { name?: string; arguments?: string };
-                }>;
-              };
-            }>;
-          } | null;
-
-          const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-          if (debugEnabled) {
-            Logger.info('Intake extraction raw result', {
-              conversationId: body.conversationId,
-              messageCount: body.messages.length,
-              latestUserMessagePreview: lastUserMessage?.content?.slice(0, 160) ?? null,
-              storedLocation: summarizeIntakeLocation(storedIntakeState),
-              storedCoreFields: summarizeIntakeCoreFields(storedIntakeState),
-              rawToolArgsPreview: typeof toolCallArgs === 'string' ? toolCallArgs.slice(0, 800) : null,
-              searchContextPreview: body.additionalContext ? body.additionalContext.slice(0, 300) : null,
-            });
-          }
-          if (typeof toolCallArgs === 'string' && toolCallArgs.length > 0) {
             try {
-              intakeFields = normalizeKeys(JSON.parse(toolCallArgs)) as Record<string, unknown>;
-              if (debugEnabled) {
-                Logger.info('Intake extraction parsed fields', {
+              const extractionResponse = await aiClient.requestChatCompletions(extractionPayload, extractionController.signal);
+
+              if (!extractionResponse.ok) {
+                extractionOutcome = 'http_error';
+                Logger.warn('Intake extraction call failed', {
                   conversationId: body.conversationId,
-                  extractedLocation: summarizeIntakeLocation(intakeFields),
-                  extractedCoreFields: summarizeIntakeCoreFields(intakeFields),
+                  status: extractionResponse.status,
+                });
+                return null;
+              }
+
+              const extractionData = await extractionResponse.json().catch(() => null) as {
+                choices?: Array<{
+                  message?: {
+                    tool_calls?: Array<{
+                      function?: { name?: string; arguments?: string };
+                    }>;
+                    content?: string | null;
+                  };
+                  finish_reason?: string | null;
+                }>;
+              } | null;
+
+              const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+              const rawArgs = typeof toolCallArgs === 'string' && toolCallArgs.length > 0
+                ? toolCallArgs
+                : null;
+
+              if (debugEnabled) {
+                Logger.info('Intake extraction raw result', {
+                  conversationId: body.conversationId,
+                  messageCount: body.messages.length,
+                  latestUserMessagePreview: lastUserMessage?.content?.slice(0, 160) ?? null,
+                  storedLocation: summarizeIntakeLocation(storedIntakeState),
+                  storedCoreFields: summarizeIntakeCoreFields(storedIntakeState),
+                  rawToolArgsPreview: typeof rawArgs === 'string' ? rawArgs.slice(0, 800) : null,
+                  messageContentPreview:
+                    typeof extractionData?.choices?.[0]?.message?.content === 'string'
+                      ? extractionData.choices[0].message.content.slice(0, 800)
+                      : null,
+                  finishReason: extractionData?.choices?.[0]?.finish_reason ?? null,
+                  toolCallCount: Array.isArray(extractionData?.choices?.[0]?.message?.tool_calls)
+                    ? extractionData.choices[0].message.tool_calls.length
+                    : 0,
+                  searchContextPreview: body.additionalContext ? body.additionalContext.slice(0, 300) : null,
                 });
               }
-            } catch (parseError) {
-              Logger.warn('Failed to parse extraction tool call arguments', {
-                conversationId: body.conversationId,
-                error: parseError instanceof Error ? parseError.message : String(parseError),
-                ...(debugEnabled
-                  ? { rawToolArgsPreview: toolCallArgs.slice(0, 800) }
-                  : {}),
-              });
-              throw createAiDebugError(
-                'Intake extraction parsing failed.',
-                'intake_extraction_failed',
-                {
+
+              if (typeof rawArgs !== 'string' || rawArgs.length === 0) {
+                extractionOutcome = 'no_args';
+                Logger.warn('Intake extraction missing tool call arguments', {
                   conversationId: body.conversationId,
-                  parseError: parseError instanceof Error ? parseError.message : String(parseError),
-                  ...(debugEnabled
-                    ? { rawToolArgsPreview: toolCallArgs.slice(0, 800) }
-                    : {}),
+                  finishReason: extractionData?.choices?.[0]?.finish_reason ?? null,
+                  toolCallCount: Array.isArray(extractionData?.choices?.[0]?.message?.tool_calls)
+                    ? extractionData.choices[0].message.tool_calls.length
+                    : 0,
+                  messageContentPreview:
+                    typeof extractionData?.choices?.[0]?.message?.content === 'string'
+                      ? extractionData.choices[0].message.content.slice(0, 300)
+                      : null,
+                });
+                return null;
+              }
+
+              try {
+                let cleanArgs = rawArgs.trim();
+                // glm-4.7-flash sometimes wraps tool calls in <tool_call>...</tool_call> XML
+                const xmlMatch = cleanArgs.match(/<tool_call[^>]*>([\s\S]*?)<\/tool_call>/i);
+                if (xmlMatch) {
+                  cleanArgs = xmlMatch[1].trim();
                 }
-              );
+                // Also handle markdown code fences
+                const fenceMatch = cleanArgs.match(/```(?:json)?\s*([\s\S]*?)```/i);
+                if (fenceMatch) {
+                  cleanArgs = fenceMatch[1].trim();
+                }
+                const parsed = normalizeKeys(JSON.parse(cleanArgs)) as Record<string, unknown>;
+                if (debugEnabled) {
+                  Logger.info('Intake extraction parsed fields', {
+                    conversationId: body.conversationId,
+                    extractedLocation: summarizeIntakeLocation(parsed),
+                    extractedCoreFields: summarizeIntakeCoreFields(parsed),
+                  });
+                }
+                return parsed;
+              } catch (parseError) {
+                extractionOutcome = 'parse_failed';
+                Logger.warn('Failed to parse extraction tool call arguments', {
+                  conversationId: body.conversationId,
+                  error: parseError instanceof Error ? parseError.message : String(parseError),
+                  ...(debugEnabled
+                    ? { rawToolArgsPreview: rawArgs.slice(0, 800) }
+                    : {}),
+                });
+                return null;
+              }
+            } catch (error) {
+              extractionOutcome = 'exception';
+              Logger.warn('Intake extraction failed', {
+                conversationId: body.conversationId,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
+            } finally {
+              clearTimeout(extractionTimeoutId);
+              Logger.info('AI chat timing: intake extraction finished', {
+                conversationId: body.conversationId,
+                elapsedMs: Date.now() - extractionStartedAt,
+                outcome: extractionOutcome,
+              });
             }
-          }
-        } else {
-          Logger.warn('Intake extraction call failed', {
-            conversationId: body.conversationId,
-            status: extractionResponse.status,
-          });
-          throw createAiDebugError(
-            'Intake extraction call failed.',
-            'intake_extraction_failed',
-            {
-              conversationId: body.conversationId,
-              status: extractionResponse.status,
-            }
-          );
-        }
-
-        // Only proceed if we have successfully parsed intakeFields
-        if (!intakeFields) {
-          throw createAiDebugError(
-            'Intake extraction returned no valid tool call arguments.',
-            'intake_extraction_failed',
-            {
-              conversationId: body.conversationId,
-              messageCount: body.messages.length,
-              hasStoredIntakeState: Boolean(storedIntakeState),
-              latestUserMessagePreview: debugEnabled ? lastUserMessage?.content?.slice(0, 160) ?? null : '[redacted]',
-            }
-          );
-        }
-
-        const mergedForReadiness = mergeIntakeState(storedIntakeState, intakeFields);
-        intakeFields = {
-          ...(intakeFields ?? {}),
-          intakeReady: shouldShowDeterministicIntakeCta(mergedForReadiness),
-        };
-        if (debugEnabled) {
-          Logger.info('Intake extraction merged state', {
-            conversationId: body.conversationId,
-            beforeLocation: summarizeIntakeLocation(storedIntakeState),
-            extractedLocation: summarizeIntakeLocation(intakeFields),
-            mergedLocation: summarizeIntakeLocation(mergedForReadiness),
-            beforeCoreFields: summarizeIntakeCoreFields(storedIntakeState),
-            mergedCoreFields: summarizeIntakeCoreFields(mergedForReadiness),
-            locationIntroducedByExtraction: {
-              city: !hasNonEmptyStringField(storedIntakeState, 'city') && hasNonEmptyStringField(intakeFields, 'city'),
-              state: !hasNonEmptyStringField(storedIntakeState, 'state') && hasNonEmptyStringField(intakeFields, 'state'),
-            },
-          });
-        }
-      }
+          })()
+        : Promise.resolve(null);
 
       if (isIntakeMode) {
-        const mergedForConversation = mergeIntakeState(storedIntakeState, intakeFields);
         const conversationSystemPrompt = [
-          buildIntakeConversationPrompt(servicesForPrompt, mergedForConversation),
+          buildIntakeConversationPrompt(servicesForPrompt, storedIntakeState, body.messages.length),
           `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
           body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
         ].filter(Boolean).join('\n\n');
@@ -619,14 +651,23 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (debugEnabled) {
           Logger.info('Intake conversation prompt context', {
             conversationId: body.conversationId,
-            mergedLocation: summarizeIntakeLocation(mergedForConversation),
-            mergedCoreFields: summarizeIntakeCoreFields(mergedForConversation),
+            mergedLocation: summarizeIntakeLocation(storedIntakeState),
+            mergedCoreFields: summarizeIntakeCoreFields(storedIntakeState),
             systemPromptPreview: conversationSystemPrompt.slice(0, 900),
           });
         }
       }
 
-      const aiResponse = await aiClient.requestChatCompletions(requestPayload, controller.signal);
+      const conversationRequestStartedAt = Date.now();
+      const conversationCallPromise = aiClient.requestChatCompletions(requestPayload, controller.signal);
+
+      const aiResponse = await conversationCallPromise;
+      Logger.info('AI chat timing: conversation upstream headers received', {
+        conversationId: body.conversationId,
+        elapsedMs: Date.now() - conversationRequestStartedAt,
+        totalElapsedMs: Date.now() - requestStartedAt,
+        status: aiResponse.status,
+      });
       
       // Clear timeout once headers are received
       if (timeoutId) {
@@ -651,9 +692,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
       
-      // Determine if we need to buffer for validation
-      const needsValidation = !isOnboardingMode || shouldRequireDisclaimer(body.messages);
-      const shouldStreamTokensToUser = !isOnboardingMode && !needsValidation;
+      const shouldStreamTokensToUser = !isOnboardingMode;
       
       const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser, write, body.conversationId);
       const latencyMs = Date.now() - startedAt;
@@ -686,6 +725,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       accumulatedReply = streamResult.reply;
+      const extractionAwaitStartedAt = Date.now();
+      intakeFields = await extractionPromise;
+      Logger.info('AI chat timing: extraction await complete', {
+        conversationId: body.conversationId,
+        waitedMs: Date.now() - extractionAwaitStartedAt,
+        hasIntakeFields: Boolean(intakeFields),
+      });
       
       // Only log AI preview in debug mode to avoid PII leakage
       if (isDebugEnabled(env.DEBUG)) {
@@ -729,45 +775,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             diagnostics: streamResult.diagnostics,
           }
         );
-      }
-
-      if (accumulatedReply.trim().length > 0) {
-        const violations: string[] = [];
-        if (
-          shouldRequireDisclaimer(body.messages) &&
-          !normalizeApostrophes(accumulatedReply).toLowerCase().includes(normalizeApostrophes(LEGAL_DISCLAIMER).toLowerCase())
-        ) {
-          violations.push('missing_disclaimer');
-        }
-        if (!isIntakeMode && !isOnboardingMode && countQuestions(accumulatedReply) > 1) {
-          violations.push('too_many_questions');
-        }
-        if (violations.length > 0) {
-          Logger.warn('AI response violated prompt contract', {
-            conversationId: body.conversationId,
-            violations
-          });
-          throw createAiDebugError(
-            `AI response violated prompt contract: ${violations.join(', ')}`,
-            'ai_prompt_contract_violation',
-            {
-              mode: effectiveMode ?? null,
-              violations,
-              ...(isDebugEnabled(env.DEBUG)
-                ? { replyPreview: accumulatedReply.slice(0, 300) }
-                : {}),
-            }
-          );
-        }
-        
-        // Validation passed - stream buffered tokens if we were buffering
-        if (needsValidation && !shouldStreamTokensToUser && accumulatedReply.length > 0) {
-          const tokens = accumulatedReply.match(/\S+\s*|\s+/g) ?? [];
-          for (const token of tokens) {
-            write({ token });
-          }
-          emittedAnyToken = true;
-        }
       }
 
       if (!emittedAnyToken && accumulatedReply.trim()) {
@@ -821,22 +828,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           quickReplies,
         });
       }
-      const resolvedPracticeName = readAnyString(details, ['name', 'practiceName', 'practice_name']) ?? 'the practice';
-
       if (isIntakeMode && !intakeFields) {
-        throw createAiDebugError(
-          'Intake AI reply completed without structured intake fields.',
-          'ai_missing_intake_fields',
-          {
-            conversationId: body.conversationId,
-            practiceId,
-            mode: effectiveMode ?? null,
-            lastUserMessage: debugEnabled ? lastUserMessage?.content?.slice(0, 200) ?? null : '[redacted]',
-            aiReplyPreview: accumulatedReply.slice(0, 200),
-            streamDiagnostics: streamResult.diagnostics,
-            practiceContactErrorReply: buildPracticeContactErrorReply(resolvedPracticeName, details),
-          }
-        );
+        Logger.warn('Intake extraction returned no fields — reply will proceed without structured data', {
+          conversationId: body.conversationId,
+        });
       }
 
       const shouldPromptConsultation =
