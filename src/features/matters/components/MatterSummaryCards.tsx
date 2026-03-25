@@ -225,10 +225,8 @@ export const MatterSummaryCards = ({
 
   if (activeTab === 'time') {
     const cards = [
-      { label: 'Billable time this week', value: billableDisplay, helper: 'All billable time logged this week' },
-      { label: 'This week\'s tracked', value: totalDisplay, helper: 'All time entries this week' },
-      { label: 'Billable hours', value: billableDisplay },
-      { label: 'Since start', value: totalDisplay }
+      { label: 'Billable hours', value: billableDisplay, helper: 'All billable time logged' },
+      { label: 'Total time tracked', value: totalDisplay, helper: 'All time entries' }
     ];
 
     return (
