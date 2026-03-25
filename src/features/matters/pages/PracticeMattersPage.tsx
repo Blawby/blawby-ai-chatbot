@@ -47,7 +47,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeAdd, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import {
   createMatter,
@@ -1449,6 +1449,40 @@ export const PracticeMattersPage = ({
     return [...timeItems, ...expenseItems];
   }, [selectedMatterDetail?.attorneyHourlyRate, selectedMatterDetail?.adminHourlyRate, unbilledTimeEntries, unbilledExpenses]);
 
+  const fixedSummaryMetrics = useMemo(() => {
+    const milestones = selectedMatterDetail?.milestones ?? [];
+    const hasMilestones = milestones.length > 0;
+    const milestonesPaid = milestones.filter((milestone) => milestone.status === 'completed');
+    const milestonesRemaining = milestones.filter((milestone) => milestone.status !== 'completed');
+
+    const milestonesPaidAmount = milestonesPaid.reduce(
+      (sum, milestone) => safeAdd(sum, milestone.amount ?? asMajor(0)),
+      asMajor(0)
+    );
+    const milestonesRemainingAmount = milestonesRemaining.reduce(
+      (sum, milestone) => safeAdd(sum, milestone.amount ?? asMajor(0)),
+      asMajor(0)
+    );
+
+    const totalEarnings = invoices
+      .filter((invoice) => invoice.status === 'paid')
+      .reduce((sum, invoice) => {
+        const paidValue = getMajorAmountValue(invoice.amount_paid);
+        return safeAdd(sum, paidValue > 0 ? invoice.amount_paid : invoice.total);
+      }, asMajor(0));
+
+    return {
+      projectPrice: selectedMatterDetail?.totalFixedPrice ?? null,
+      projectFunds: unbilledSummary?.totalUnbilled ?? null,
+      totalEarnings,
+      milestonesPaidCount: milestonesPaid.length,
+      milestonesPaidAmount,
+      milestonesRemainingCount: milestonesRemaining.length,
+      milestonesRemainingAmount,
+      hasMilestones
+    };
+  }, [invoices, selectedMatterDetail?.milestones, selectedMatterDetail?.totalFixedPrice, unbilledSummary?.totalUnbilled]);
+
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     console.info('[Billing][Prefill] Updated unbilled counts', {
@@ -1927,10 +1961,7 @@ export const PracticeMattersPage = ({
             <div className="px-4 pb-4 pt-2">
               <MatterSummaryCards
                 activeTab="overview"
-                onAddTime={() => {
-                  setQuickTimeEntryKey((k) => k + 1);
-                  setIsQuickTimeEntryOpen(true);
-                }}
+                onCreateInvoice={handleCreateInvoiceFromSummary}
                 onViewTimesheet={() => {
                   if (!selectedMatterId) return;
                   goToDetail(selectedMatterId, 'billing');
@@ -1942,6 +1973,7 @@ export const PracticeMattersPage = ({
                 totalFixedPrice={selectedMatterDetail?.totalFixedPrice ?? null}
                 contingencyPercent={selectedMatterDetail?.contingencyPercent ?? null}
                 paymentFrequency={selectedMatterDetail?.paymentFrequency ?? null}
+                fixedMetrics={fixedSummaryMetrics}
               />
             </div>
           </div>

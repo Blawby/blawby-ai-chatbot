@@ -1,6 +1,4 @@
 import { useMemo } from 'preact/hooks';
-import { Button } from '@/shared/ui/Button';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -74,43 +72,9 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
     nowUtc.getUTCDate()
   ));
 
-  const handlePrevMonth = () => {
-    const prev = new Date(Date.UTC(
-      selectedWeekStart.getUTCFullYear(),
-      selectedWeekStart.getUTCMonth() - 1,
-      1
-    ));
-    onSelectWeek(prev);
-  };
-
-  const handleNextMonth = () => {
-    const next = new Date(Date.UTC(
-      selectedWeekStart.getUTCFullYear(),
-      selectedWeekStart.getUTCMonth() + 1,
-      1
-    ));
-    onSelectWeek(next);
-  };
-
   return (
     <div className="glass-panel p-4">
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Previous month"
-          icon={ChevronLeftIcon} iconClassName="h-4 w-4"
-          onClick={handlePrevMonth}
-        />
-        <div className="text-sm font-semibold text-input-text">{monthLabel}</div>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Next month"
-          icon={ChevronRightIcon} iconClassName="h-4 w-4"
-          onClick={handleNextMonth}
-        />
-      </div>
+      <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
 
       <div
         className="mt-4 grid gap-2 text-center text-[11px] font-medium text-gray-500 dark:text-gray-400 justify-items-center"
