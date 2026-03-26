@@ -656,9 +656,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           })()
         : Promise.resolve(null);
 
+      let intakeFieldsFromExtraction: Record<string, unknown> | null = null;
       if (isIntakeMode) {
+        intakeFieldsFromExtraction = await extractionPromise;
+        const promptMergedIntakeState = mergeIntakeState(storedIntakeState, intakeFieldsFromExtraction);
         const conversationSystemPrompt = [
-          buildIntakeConversationPrompt(servicesForPrompt, storedIntakeState, body.messages.length),
+          buildIntakeConversationPrompt(servicesForPrompt, promptMergedIntakeState, body.messages.length),
           `PRACTICE_CONTEXT: ${JSON.stringify(aiDetails)}`,
           body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
         ].filter(Boolean).join('\n\n');
@@ -673,8 +676,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (debugEnabled) {
           Logger.info('Intake conversation prompt context', {
             conversationId: body.conversationId,
-            mergedLocation: summarizeIntakeLocation(storedIntakeState),
-            mergedCoreFields: summarizeIntakeCoreFields(storedIntakeState),
+            promptLocationSource: intakeFieldsFromExtraction ? 'stored+latest_extraction' : 'stored_only',
+            storedLocation: summarizeIntakeLocation(storedIntakeState),
+            extractedLocation: summarizeIntakeLocation(intakeFieldsFromExtraction),
+            mergedLocation: summarizeIntakeLocation(promptMergedIntakeState),
+            mergedCoreFields: summarizeIntakeCoreFields(promptMergedIntakeState),
             systemPromptPreview: conversationSystemPrompt.slice(0, 900),
           });
         }
@@ -748,7 +754,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       accumulatedReply = streamResult.reply;
       const extractionAwaitStartedAt = Date.now();
-      intakeFields = await extractionPromise;
+      intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
       Logger.info('AI chat timing: extraction await complete', {
         conversationId: body.conversationId,
         waitedMs: Date.now() - extractionAwaitStartedAt,
@@ -865,6 +871,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
       let mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
       if (isIntakeMode && debugEnabled) {
+        const mergedCity = typeof mergedIntakeState?.city === 'string' ? mergedIntakeState.city.trim().toLowerCase() : '';
+        const replyLower = accumulatedReply.trim().toLowerCase();
+        const replyMentionsDifferentCity = Boolean(
+          mergedCity &&
+          replyLower.includes('have you down for') &&
+          !replyLower.includes(mergedCity)
+        );
         Logger.info('Intake state before persistence', {
           conversationId: body.conversationId,
           latestUserMessagePreview: lastUserMessage?.content?.slice(0, 160) ?? null,
@@ -873,6 +886,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           mergedLocation: summarizeIntakeLocation(mergedIntakeState),
           mergedCoreFields: summarizeIntakeCoreFields(mergedIntakeState),
           quickReplies,
+          replyMentionsDifferentCity,
         });
       }
       if (isIntakeMode && !intakeFields) {
