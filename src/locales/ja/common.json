@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "Unable to save your return path."
+  },
+  "messageActions": {
+    "submitRequest": "リクエストを送信"
   }
 }

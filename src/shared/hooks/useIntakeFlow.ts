@@ -424,7 +424,6 @@ export function useIntakeFlow({
       return;
     }
     submitInFlightRef.current = true;
-    let keepLockedForRedirect = false;
     try {
       if (currentUserId && !isAnonymous) {
         try {
@@ -480,30 +479,46 @@ export function useIntakeFlow({
         requiresPayment: Boolean(paymentLinkUrl)
       });
       if (paymentLinkUrl) {
-        keepLockedForRedirect = true;
-        if (typeof window !== 'undefined') {
-          const returnTo = `${window.location.pathname}${window.location.search}`;
-          window.sessionStorage.setItem(
-            `intakePaymentPending:${intakeUuid}`,
-            JSON.stringify({ conversationId, practiceId, returnTo }),
-          );
-          window.location.href = paymentLinkUrl;
+        const paymentPromptMessageId = `system-intake-payment-${intakeUuid}`;
+        try {
+          const paymentPromptMessage = await postSystemMessage(conversationId, practiceId, {
+            clientId: paymentPromptMessageId,
+            content: 'Your request has been submitted. To continue, please complete payment using the button below.',
+            metadata: {
+              intakeUuid,
+              intakeSubmitted: true,
+              paymentRequired: true,
+              paymentRequest: {
+                intakeUuid,
+                paymentLinkUrl,
+                practiceId,
+                conversationId,
+                returnTo: typeof window !== 'undefined'
+                  ? `${window.location.pathname}${window.location.search}`
+                  : undefined,
+              },
+            },
+          });
+          if (paymentPromptMessage) applyServerMessages([paymentPromptMessage]);
+        } catch (msgError) {
+          console.warn('[handleSubmitNow] Failed to post payment prompt message', msgError);
         }
-        return;
       }
-      const practiceName =
-        (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
-        ?? 'the practice';
-      const messageId = `system-intake-submit-${intakeUuid}`;
-      try {
-        const persistedMessage = await postSystemMessage(conversationId, practiceId, {
-          clientId: messageId,
-          content: `Your intake has been submitted. ${practiceName} will review it and follow up with you here shortly.`,
-          metadata: { intakeUuid, intakeSubmitted: true },
-        });
-        if (persistedMessage) applyServerMessages([persistedMessage]);
-      } catch (msgError) {
-        console.warn('[handleSubmitNow] Failed to post confirmation message', msgError);
+      if (!paymentLinkUrl) {
+        const practiceName =
+          (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
+          ?? 'the practice';
+        const messageId = `system-intake-submit-${intakeUuid}`;
+        try {
+          const persistedMessage = await postSystemMessage(conversationId, practiceId, {
+            clientId: messageId,
+            content: `Your intake has been submitted. ${practiceName} will review it and follow up with you here shortly.`,
+            metadata: { intakeUuid, intakeSubmitted: true },
+          });
+          if (persistedMessage) applyServerMessages([persistedMessage]);
+        } catch (msgError) {
+          console.warn('[handleSubmitNow] Failed to post confirmation message', msgError);
+        }
       }
       const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
       const current = currentConsultation?.case ?? intakeConversationState;
@@ -516,6 +531,7 @@ export function useIntakeFlow({
             submission: {
               intakeUuid,
               submittedAt: new Date().toISOString(),
+              paymentRequired: Boolean(paymentLinkUrl),
             },
           },
           { mirrorLegacyFields: true }
@@ -525,9 +541,7 @@ export function useIntakeFlow({
       console.error('[handleSubmitNow] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
     } finally {
-      if (!keepLockedForRedirect) {
-        submitInFlightRef.current = false;
-      }
+      submitInFlightRef.current = false;
     }
   }, [
     applyServerMessages,

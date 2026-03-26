@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "Не вдалося зберегти ваш зворотній шлях."
+  },
+  "messageActions": {
+    "submitRequest": "Надіслати запит"
   }
 }

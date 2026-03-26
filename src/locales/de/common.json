@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "Ihr Rückweg konnte nicht gespeichert werden."
+  },
+  "messageActions": {
+    "submitRequest": "Anfrage absenden"
   }
 }

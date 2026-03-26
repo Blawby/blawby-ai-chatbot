@@ -815,6 +815,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         } else if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
           quickReplies = (intakeFields.quickReplies as unknown[])
             .filter((v): v is string => typeof v === 'string')
+            .filter((v) => v !== '__submit__')
             .map((v) => v.trim())
             .filter((v) => v.length > 0)
             .slice(0, 3);

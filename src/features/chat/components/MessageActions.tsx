@@ -149,7 +149,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
 	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
 		if (reply === '__submit__') {
-			return Boolean(onSubmitNow);
+			return Boolean(onSubmitNow || onIntakeCtaResponse);
 		}
 		return Boolean(onQuickReply);
 	}));
@@ -277,17 +277,21 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
 						reply === '__submit__' ? (
-							onSubmitNow ? (
+							(onSubmitNow || onIntakeCtaResponse) ? (
 								<Button
 									key="__submit__"
 									variant="primary"
 									size="sm"
 									className="shrink-0"
 									onClick={() => {
-										void onSubmitNow();
+										if (onSubmitNow) {
+											void onSubmitNow();
+										} else {
+											onIntakeCtaResponse?.('ready');
+										}
 									}}
 								>
-									Submit my request
+									{t('messageActions.submitRequest')}
 								</Button>
 							) : null
 						) : (

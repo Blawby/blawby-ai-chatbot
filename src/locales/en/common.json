@@ -334,5 +334,8 @@
   },
   "widget": {
     "persistIntakePathError": "Unable to save your return path."
+  },
+  "messageActions": {
+    "submitRequest": "Submit my request"
   }
 }

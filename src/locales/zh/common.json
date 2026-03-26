@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "无法保存您的返回路径。"
+  },
+  "messageActions": {
+    "submitRequest": "提交请求"
   }
 }

@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "복귀 경로를 저장할 수 없습니다."
+  },
+  "messageActions": {
+    "submitRequest": "요청 제출"
   }
 }

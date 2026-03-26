@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "Nie udało się zapisać ścieżki powrotu."
+  },
+  "messageActions": {
+    "submitRequest": "Prześlij prośbę"
   }
 }

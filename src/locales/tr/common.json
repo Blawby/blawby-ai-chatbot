@@ -301,5 +301,8 @@
   },
   "widget": {
     "persistIntakePathError": "Geri dönüş yolunuz kaydedilemedi."
+  },
+  "messageActions": {
+    "submitRequest": "Talebi gönder"
   }
 }

@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "Impossibile salvare il percorso di ritorno."
+  },
+  "messageActions": {
+    "submitRequest": "Invia richiesta"
   }
 }

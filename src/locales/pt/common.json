@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "Não foi possível salvar o caminho de retorno."
+  },
+  "messageActions": {
+    "submitRequest": "Enviar solicitação"
   }
 }

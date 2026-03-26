@@ -300,5 +300,8 @@
   },
   "widget": {
     "persistIntakePathError": "No se pudo guardar tu ruta de retorno."
+  },
+  "messageActions": {
+    "submitRequest": "Enviar solicitud"
   }
 }
