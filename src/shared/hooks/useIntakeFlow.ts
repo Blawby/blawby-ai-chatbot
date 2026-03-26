@@ -483,14 +483,6 @@ export function useIntakeFlow({
         }
       }
 
-      // If the caller has a payment UI and there is a payment link waiting, show it
-      // before calling the API. The actual intake record is not created until Phase 2.
-      const pendingPaymentUrl = conversationMetadataRef.current?.pendingIntakePaymentLinkUrl as string | undefined;
-      if (callbacks?.onOpenPayment && typeof pendingPaymentUrl === 'string' && pendingPaymentUrl.trim().length > 0) {
-        callbacks.onOpenPayment(pendingPaymentUrl.trim());
-        return;
-      }
-
       // No payment gate: go straight to finalize.
       await finalizeRef.current();
     } catch (error) {
