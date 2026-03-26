@@ -23,8 +23,6 @@ import {
   SERVICE_QUESTION_REGEX,
   HOURS_QUESTION_REGEX,
   LEGAL_INTENT_REGEX,
-  encoder,
-  sseEvent,
   createSseResponse,
   consumeAiStream,
   normalizeKeys,
@@ -32,7 +30,6 @@ import {
   isRecord,
   readStringField,
   hasNonEmptyStringField,
-  readAnyString,
   isDebugEnabled,
 } from './aiChatShared.js';
 import type { DebuggableAiError } from './aiChatShared.js';
@@ -43,12 +40,10 @@ import {
   buildIntakeConversationPrompt,
   mergeIntakeState,
   shouldShowDeterministicIntakeCta,
-  buildIntakeSummaryFromState,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
   shouldRequireDisclaimer,
-  countQuestions,
   normalizePracticeDetailsForAi,
 } from './aiChatIntake.js';
 
@@ -461,6 +456,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let quickReplies: string[] | null = null;
     let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
+    const debugEnabled = isDebugEnabled(env.DEBUG);
 
     const startedAt = Date.now();
 
@@ -471,7 +467,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }, AI_TIMEOUT_MS);
 
     try {
-      const debugEnabled = isDebugEnabled(env.DEBUG);
       if (isIntakeMode || isOnboardingMode) {
         Logger.info('AI tool request summary', {
           conversationId: body.conversationId,
@@ -734,7 +729,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
       
       // Only log AI preview in debug mode to avoid PII leakage
-      if (isDebugEnabled(env.DEBUG)) {
+      if (debugEnabled) {
         Logger.info('AI raw reply preview', {
           conversationId: body.conversationId,
           replyPreview: accumulatedReply.slice(0, 100),
@@ -792,9 +787,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           .slice(0, 3);
         if (quickReplies.length === 0) quickReplies = null;
       }
-      if (isIntakeMode) {
-        intakeFields = { ...(intakeFields ?? {}), quickReplies };
-      }
       if (onboardingFields && 'quickReplies' in onboardingFields) {
         const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
         onboardingFields = rest;
@@ -812,9 +804,29 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
         if (matched) intakeFields.practiceAreaName = matched.name;
       }
-      const intakeReady = isIntakeMode && shouldShowDeterministicIntakeCta(mergeIntakeState(storedIntakeState, intakeFields));
+      let intakeReady = false;
       if (isIntakeMode) {
-        intakeFields = { ...(intakeFields ?? {}), intakeReady };
+        const mergedForReady = mergeIntakeState(storedIntakeState, intakeFields);
+        intakeReady = shouldShowDeterministicIntakeCta(mergedForReady);
+
+        if (intakeReady) {
+          // Submit is ready - replace quick replies with a single submit action
+          quickReplies = ['__submit__'];
+        } else if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
+          quickReplies = (intakeFields.quickReplies as unknown[])
+            .filter((v): v is string => typeof v === 'string')
+            .filter((v) => v !== '__submit__')
+            .map((v) => v.trim())
+            .filter((v) => v.length > 0)
+            .slice(0, 3);
+          if (quickReplies.length === 0) quickReplies = null;
+        }
+
+        intakeFields = {
+          ...(intakeFields ?? {}),
+          intakeReady,
+          quickReplies: quickReplies ?? null,
+        };
       }
       let mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
       if (isIntakeMode && debugEnabled) {
@@ -837,23 +849,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
-
-      const deterministicReady = intakeReady;
-
-      const shouldForceIntakeSummary =
-        isIntakeMode &&
-        deterministicReady &&
-        countQuestions(accumulatedReply) === 0 &&
-        mergedIntakeState?.ctaShown !== true;
-
-      if (shouldForceIntakeSummary) {
-        intakeFields = { ...(intakeFields ?? {}), ctaShown: true };
-        mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
-      }
-
-      const forcedSummaryContent = shouldForceIntakeSummary
-        ? buildIntakeSummaryFromState(mergedIntakeState)
-        : null;
 
       // Emit the done event before persisting — client can act on intakeFields
       // immediately without waiting for the DB write
@@ -889,29 +884,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         skipPracticeValidation: shouldSkipPracticeValidation,
         request
       });
-
-      if (forcedSummaryContent) {
-        const forcedSummaryMessage = await conversationService.sendSystemMessage({
-          conversationId: body.conversationId,
-          practiceId: conversation.practice_id,
-          content: forcedSummaryContent,
-          metadata: {
-            source: 'ai',
-            model,
-          },
-          recipientUserId: authContext.user.id,
-          skipPracticeValidation: true,
-          request
-        });
-        if (forcedSummaryMessage) {
-          write({ 
-            persisted: true, 
-            messageId: forcedSummaryMessage.id,
-            content: forcedSummaryContent,
-            metadata: forcedSummaryMessage.metadata
-          });
-        }
-      }
 
       if (storedMessage) {
         // Persist the merged intake state back to the conversation metadata

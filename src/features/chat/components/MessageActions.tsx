@@ -147,6 +147,12 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
 	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
 	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
+	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
+		if (reply === '__submit__') {
+			return Boolean(onSubmitNow || onIntakeCtaResponse);
+		}
+		return Boolean(onQuickReply);
+	}));
 	const leadIntake = leadReview?.intake;
 	const formatLeadAmount = (amount?: number, currency?: string) => {
 		if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
@@ -267,18 +273,40 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					)}
 				</div>
 			)}
-			{isLast && quickReplies && quickReplies.length > 0 && onQuickReply && (
+			{isLast && quickReplies && quickReplies.length > 0 && hasRenderableQuickReply && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
-						<Button
-							key={`${reply}-${idx}`}
-							variant="secondary"
-							size="sm"
-							className="shrink-0"
-							onClick={() => onQuickReply(reply)}
-						>
-							{reply}
-						</Button>
+						reply === '__submit__' ? (
+							(onSubmitNow || onIntakeCtaResponse) ? (
+								<Button
+									key="__submit__"
+									variant="primary"
+									size="sm"
+									className="shrink-0"
+									onClick={() => {
+										if (onSubmitNow) {
+											void onSubmitNow();
+										} else {
+											onIntakeCtaResponse?.('ready');
+										}
+									}}
+								>
+									{t('chat.submitRequest')}
+								</Button>
+							) : null
+						) : (
+							onQuickReply ? (
+								<Button
+									key={`${reply}-${idx}`}
+									variant="secondary"
+									size="sm"
+									className="shrink-0"
+									onClick={() => onQuickReply(reply)}
+								>
+									{reply}
+								</Button>
+							) : null
+						)
 					))}
 				</div>
 			)}
