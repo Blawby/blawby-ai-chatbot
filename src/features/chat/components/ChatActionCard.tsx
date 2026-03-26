@@ -115,6 +115,8 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
           onSuccess={async () => {
             try {
               if (authProps.onSuccess) await authProps.onSuccess();
+            } catch (error) {
+              console.error('[ChatActionCard] auth success handler failed:', error);
             } finally {
               onClose();
             }
