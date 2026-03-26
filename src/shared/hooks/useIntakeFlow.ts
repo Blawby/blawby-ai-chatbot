@@ -194,6 +194,8 @@ export function useIntakeFlow({
   const { session, isAnonymous } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
+  const phase1InFlightRef = useRef(false);
+  const finalizeRef = useRef<() => Promise<void>>(async () => {});
 
   // ---------------------------------------------------------------------------
   // Derived State
@@ -432,10 +434,14 @@ export function useIntakeFlow({
         console.warn('[handleConfirmSubmit] Missing slimContactDraft, cannot submit intake.');
       }
       const errMessage = 'We need your contact information before submitting. Please fill out the contact form.';
-      onError ? onError(errMessage) : window.alert(errMessage);
+      if (onError) {
+        onError(errMessage);
+      } else {
+        window.alert(errMessage);
+      }
       return;
     }
-    if (submitInFlightRef.current) {
+    if (phase1InFlightRef.current) {
       if (import.meta.env.DEV) {
         console.info('[handleConfirmSubmit] Skipping duplicate submit while request is in-flight', {
           conversationId,
@@ -445,7 +451,7 @@ export function useIntakeFlow({
       return;
     }
 
-    // Phase 1 does NOT set submitInFlightRef — that's Phase 2's guard.
+    phase1InFlightRef.current = true;
     try {
       // Link auth identity first so the API call has the right session.
       if (currentUserId && !isAnonymous) {
@@ -486,12 +492,13 @@ export function useIntakeFlow({
       }
 
       // No payment gate: go straight to finalize.
-      await handleFinalizeSubmit();
+      await finalizeRef.current();
     } catch (error) {
       console.error('[handleConfirmSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+    } finally {
+      phase1InFlightRef.current = false;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- handleFinalizeSubmit declared below, stable ref
   }, [
     conversationId,
     conversationMetadataRef,
@@ -641,6 +648,8 @@ export function useIntakeFlow({
     updateConversationMetadata,
     intakeConversationState,
   ]);
+
+  finalizeRef.current = handleFinalizeSubmit;
 
   /** Backward-compat alias for callers that don't have a payment UI wired */
   const handleSubmitNow = useCallback(async () => {
