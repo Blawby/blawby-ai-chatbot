@@ -96,19 +96,30 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
   }
 };
 
+const isBackendInvoice = (val: unknown): val is BackendInvoice => {
+  if (!val || typeof val !== 'object') return false;
+  const record = val as Record<string, unknown>;
+  return (
+    typeof record.id === 'string' &&
+    typeof record.organization_id === 'string' &&
+    typeof record.client_id === 'string' &&
+    typeof record.connected_account_id === 'string'
+  );
+};
+
 export const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
   if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendInvoice => !!item && typeof item === 'object');
+    return payload.filter(isBackendInvoice);
   }
   if (!payload || typeof payload !== 'object') return [];
   const record = payload as Record<string, unknown>;
   if (Array.isArray(record.invoices)) {
-    return record.invoices.filter((item): item is BackendInvoice => !!item && typeof item === 'object');
+    return record.invoices.filter(isBackendInvoice);
   }
-  if (record.invoice && typeof record.invoice === 'object') {
+  if (record.invoice && isBackendInvoice(record.invoice)) {
     return [record.invoice as BackendInvoice];
   }
-  if (record.id && typeof record.id === 'string') {
+  if (isBackendInvoice(record)) {
     return [record as BackendInvoice];
   }
   if (record.data) return extractInvoicesArray(record.data);
