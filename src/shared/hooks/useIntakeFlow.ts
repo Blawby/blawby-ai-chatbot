@@ -157,14 +157,9 @@ interface UseIntakeFlowResult {
   /** Reset CTA state */
   resetIntakeCta: () => Promise<void>;
   /**
-   * Phase 1: validate contact, link user, then either:
-   * - no payment required → call API immediately via handleFinalizeSubmit
-   * - payment required → call onOpenPayment so the UI can show payment screen first;
-   *   the actual API call is deferred until the caller invokes handleFinalizeSubmit.
+   * Phase 1: validate contact, link user, then delegate to handleFinalizeSubmit.
    */
-  handleConfirmSubmit: (callbacks?: {
-    onOpenPayment?: (paymentLinkUrl: string) => void;
-  }) => Promise<void>;
+  handleConfirmSubmit: () => Promise<void>;
   /**
    * Phase 2: call the submit-intake API and post the success/payment-prompt message.
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
@@ -419,15 +414,9 @@ export function useIntakeFlow({
 
   /**
    * Phase 1 — validate contact, link user identity, persist practice slug.
-   * If payment is required: invoke onOpenPayment and return (API not called yet).
-   * If no payment: delegate straight to handleFinalizeSubmit.
-   *
-   * The caller is responsible for invoking handleFinalizeSubmit after the
-   * payment UI confirms success.
+   * Delegates straight to handleFinalizeSubmit.
    */
-  const handleConfirmSubmit = useCallback(async (callbacks?: {
-    onOpenPayment?: (paymentLinkUrl: string) => void;
-  }) => {
+  const handleConfirmSubmit = useCallback(async () => {
     if (!conversationId || !practiceId) return;
     if (!resolvedSlimContactDraft) {
       if (import.meta.env.DEV) {
