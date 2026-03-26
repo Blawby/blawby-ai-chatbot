@@ -500,6 +500,18 @@ export function useIntakeFlow({
    */
   const handleFinalizeSubmit = useCallback(async () => {
     if (!conversationId || !practiceId) return;
+
+    const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
+    if (existingSubmission?.intakeUuid) {
+      if (import.meta.env.DEV) {
+        console.info('[handleFinalizeSubmit] Skipping submit: intake record already exists', {
+          conversationId,
+          practiceId,
+          intakeUuid: existingSubmission.intakeUuid,
+        });
+      }
+      return;
+    }
     if (submitInFlightRef.current) {
       if (import.meta.env.DEV) {
         console.info('[handleFinalizeSubmit] Skipping duplicate submit while request is in-flight', {
