@@ -201,7 +201,7 @@ export const MatterTasksPanel = ({
               return stageOptions;
             })();
             return (
-              <li key={task.id} className="px-6 py-4">
+              <li key={task.id} className="px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     {!canUpdateTask ? (

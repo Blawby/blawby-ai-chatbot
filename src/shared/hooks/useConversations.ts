@@ -347,7 +347,7 @@ export function useConversations({
     return () => {
       controller.abort();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [practiceId, sessionPracticeId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList, limit, offset]);
 
   return {

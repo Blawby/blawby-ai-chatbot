@@ -10,6 +10,7 @@
     --surface-nav-rail: 244 246 251;
     --surface-nav-secondary: 240 242 249;
     --surface-list-panel: 236 239 247;
+    --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
@@ -40,6 +41,7 @@
     --surface-nav-rail: 18 22 34;
     --surface-nav-secondary: 14 18 30;
     --surface-list-panel: 11 15 25;
+    --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;
     --input-placeholder: 156 163 175;
@@ -179,21 +181,20 @@
   }
 
   .list-panel-card-gradient {
-    background:
+    /* Set to transparent at the bottom so it adopts the container's base color */
+    background-image:
       linear-gradient(to bottom,
-        rgb(var(--accent-500) / 0.10) 0%,
-        rgb(var(--accent-600) / 0.04) 45%,
-        transparent 100%),
-      rgb(var(--surface-overlay) / 0.6);
+        rgb(var(--accent-500) / 0.12) 0%,
+        rgb(var(--accent-600) / 0.04) 10%,
+        transparent 20%);
   }
 
   .dark .list-panel-card-gradient {
-    background:
+    background-image:
       linear-gradient(to bottom,
-        rgb(var(--accent-500) / 0.10) 0%,
-        rgb(var(--accent-600) / 0.04) 45%,
-        transparent 100%),
-      rgb(255 255 255 / 0.08);
+        rgb(var(--accent-500) / 0.15) 0%,
+        rgb(var(--accent-600) / 0.05) 10%,
+        transparent 20%);
   }
 
   /* Inputs — tertiary surface, subtle rim */
@@ -1377,19 +1378,4 @@
     }
   }
 
-  @keyframes drawer-up {
-    from {
-      opacity: 0;
-      transform: translateY(32px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-drawer-up {
-    animation: drawer-up 300ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
-  }
 }

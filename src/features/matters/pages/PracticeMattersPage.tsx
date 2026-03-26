@@ -2306,7 +2306,7 @@ export const PracticeMattersPage = ({
   }
 
   return (
-    <div className="min-h-0 flex flex-1 flex-col gap-2 p-4 sm:p-6">
+    <div className="min-h-0 flex flex-1 flex-col gap-2">
       {isClientListTruncated && (
         <WarningBanner>
           <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.

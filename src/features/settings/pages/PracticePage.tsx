@@ -613,8 +613,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     <h3 className="text-sm font-semibold text-input-text">
                       {practice.name || 'Practice'}
                     </h3>
-                    <div className="mt-2 space-y-2">
-                    </div>
+                    <div className="mt-2 space-y-2" />
                   </div>
                 )}
               >

@@ -88,7 +88,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                   key={conversation.id}
                   type="button"
                   className={cn(
-                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                    'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
                     isActive ? 'bg-white/10' : 'hover:bg-white/5'
                   )}
                   onClick={() => onSelectConversation(conversation.id)}

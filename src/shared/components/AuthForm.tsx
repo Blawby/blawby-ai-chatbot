@@ -23,6 +23,7 @@ interface AuthFormProps {
   showGoogleSignIn?: boolean;
   showModeToggle?: boolean;
   className?: string;
+  variant?: 'card' | 'plain';
 }
 
 const AuthForm = ({
@@ -38,7 +39,8 @@ const AuthForm = ({
   showHeader = true,
   showGoogleSignIn = true,
   showModeToggle = true,
-  className = ''
+  className = '',
+  variant = 'card'
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
   const [internalMode, setInternalMode] = useState<AuthMode>(mode ?? defaultMode);
@@ -254,7 +256,7 @@ const AuthForm = ({
         </div>
       )}
 
-      <div className="glass-card py-8 px-4 sm:px-10">
+      <div className={variant === 'card' ? "glass-card py-8 px-4 sm:px-10" : "w-full"}>
         {showGoogleSignIn && (
           <div className="mb-6">
             <Button

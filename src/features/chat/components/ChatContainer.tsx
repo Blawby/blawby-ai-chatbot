@@ -6,14 +6,9 @@ import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData, ContactForm } from '@/features/intake/components/ContactForm';
-import { IntakePaymentModal } from '@/features/intake/components/IntakePaymentModal';
 import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import AuthPromptModal from './AuthPromptModal';
-import { XMarkIcon } from '@heroicons/react/24/outline';
-import { Button } from '@/shared/ui/Button';
-import { Icon } from '@/shared/ui/Icon';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -23,6 +18,7 @@ import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
 import { rememberPostAuthConversationContext, type PostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
+import { ChatActionCard } from './ChatActionCard';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -204,7 +200,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const shouldShowSlimForm = isPublicWorkspace && 
     intakeStatus?.step === 'contact_form_slim' && 
     conversationMode === 'REQUEST_CONSULTATION' && 
-    !hasContactInfoSubmitted;
+    !hasContactInfoSubmitted &&
+    typeof onSlimFormContinue === 'function';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
   // Simple resize handler for window size changes
   useEffect(() => {
@@ -625,39 +622,32 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             </div>
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
-              {shouldShowSlimForm ? (
-                onSlimFormContinue ? (
-                  <div className="mx-2 mb-4 overflow-hidden rounded-2xl border border-white/10 bg-surface-glass p-6 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-4 duration-300">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold text-input-text">{t('chat.requestConsultation')}</h3>
-                        <p className="text-sm text-input-placeholder">{t('chat.provideContactDetails')}</p>
-                      </div>
-                      {onSlimFormDismiss && (
-                        <Button
-                          variant="icon"
-                          size="icon-sm"
-                          onClick={() => dismissSlimForm('manual')}
-                          aria-label={t('common.dismiss', 'Dismiss')}
-                          className="text-input-placeholder hover:text-input-text"
-                        >
-                          <Icon icon={XMarkIcon} className="h-5 w-5" />
-                        </Button>
-                      )}
-                    </div>
-                    <ContactForm
-                      onSubmit={onSlimFormContinue}
-                      fields={['name', 'email', 'phone']}
-                      required={['name', 'email', 'phone']}
-                      initialValues={slimContactDraft ?? undefined}
-                      variant="plain"
-                      showSubmitButton={true}
-                      submitFullWidth={true}
-                      submitLabel={t('chat.continue')}
-                    />
-                  </div>
-                ) : null
-              ) : (
+              <ChatActionCard
+                isOpen={isPaymentModalOpen || showAuthPrompt || shouldShowSlimForm}
+                type={isPaymentModalOpen ? 'payment' : showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
+                onClose={() => {
+                  if (isPaymentModalOpen) handleClosePayment();
+                  else if (showAuthPrompt) handleAuthPromptClose();
+                  else if (shouldShowSlimForm) dismissSlimForm('manual');
+                }}
+                authProps={{
+                  practiceName: practiceConfig?.name,
+                  initialEmail: slimContactDraft?.email ?? '',
+                  initialName: slimContactDraft?.name ?? '',
+                  callbackURL: authPromptCallbackUrl,
+                  onSuccess: handleAuthSuccess
+                }}
+                paymentProps={{
+                  request: paymentRequest,
+                  onSuccess: handlePaymentSuccess
+                }}
+                slimFormProps={{
+                  onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
+                  initialValues: slimContactDraft
+                }}
+              />
+
+              {(!isPaymentModalOpen && !showAuthPrompt && !shouldShowSlimForm) && (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}
@@ -690,22 +680,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
 
 
-      <AuthPromptModal
-        isOpen={showAuthPrompt}
-        onClose={handleAuthPromptClose}
-        practiceName={practiceConfig?.name}
-        initialName={slimContactDraft?.name}
-        initialEmail={slimContactDraft?.email}
-        onSuccess={handleAuthSuccess}
-        callbackURL={authPromptCallbackUrl}
-      />
-
-      <IntakePaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={handleClosePayment}
-        paymentRequest={paymentRequest}
-        onSuccess={handlePaymentSuccess}
-      />
     </div>
   );
 };

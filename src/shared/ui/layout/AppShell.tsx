@@ -176,7 +176,7 @@ export const AppShell = ({
       {hasListPanel && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-list px-2 pt-3 pb-2 hidden lg:block',
+            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto hidden lg:block',
             listPanelColStartClass,
             listPanelClassName
           )}
