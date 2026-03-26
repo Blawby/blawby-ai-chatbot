@@ -15,23 +15,7 @@ export interface OneSignalSendResult {
 
 const DEFAULT_API_BASE = 'https://onesignal.com/api/v1';
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
-function buildEmailBody(input: OneSignalNotificationInput): string {
-  const lines = [input.body ?? ''].filter(Boolean);
-  if (input.url) {
-    lines.push(`Open: ${input.url}`);
-  }
-  const joined = lines.join('\n');
-  return `<p>${escapeHtml(joined).replace(/\n/g, '<br>')}</p>`;
-}
 
 export class OneSignalService {
   private appId: string;
@@ -60,18 +44,7 @@ export class OneSignalService {
     });
   }
 
-  async sendEmail(email: string, input: OneSignalNotificationInput): Promise<OneSignalSendResult> {
-    return await this.send({
-      app_id: this.appId,
-      headings: { en: input.title },
-      contents: { en: input.body ?? '' },
-      url: input.url ?? undefined,
-      data: input.data ?? undefined,
-      include_email_tokens: [email],
-      email_subject: input.title,
-      email_body: buildEmailBody(input)
-    });
-  }
+
 
   async setExternalUserId(onesignalId: string, externalUserId: string): Promise<void> {
     if (!this.appId || !this.restApiKey) {

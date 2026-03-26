@@ -47,13 +47,6 @@ const readEnvToggle = (value: string | boolean | undefined, defaultValue: boolea
   return defaultValue;
 };
 
-function shouldSendEmail(recipient: NotificationRecipientSnapshot): boolean {
-  if (recipient.preferences?.emailEnabled === false) {
-    return false;
-  }
-  return Boolean(recipient.email);
-}
-
 function shouldSendPush(recipient: NotificationRecipientSnapshot): boolean {
   if (recipient.preferences?.desktopPushEnabled === false) {
     return false;
@@ -340,25 +333,6 @@ async function hasDedupeMessage(options: {
   return Boolean(existing?.id);
 }
 
-async function sendEmailNotification(
-  oneSignal: OneSignalService,
-  recipient: NotificationRecipientSnapshot,
-  message: NotificationQueueMessage
-): Promise<OneSignalSendResult | null> {
-  if (!recipient.email) return null;
-  return await oneSignal.sendEmail(recipient.email, {
-    title: message.title,
-    body: message.body ?? '',
-    url: message.link ?? null,
-    data: {
-      link: message.link ?? null,
-      category: message.category,
-      entityType: message.entityType ?? null,
-      entityId: message.entityId ?? null
-    }
-  });
-}
-
 async function sendPushNotification(
   oneSignal: OneSignalService,
   recipient: NotificationRecipientSnapshot,
@@ -600,12 +574,7 @@ export async function handleNotificationQueue(
     NODE_ENV: env.NODE_ENV
   });
 
-  const emailEnabled = readEnvToggle(env.ENABLE_EMAIL_NOTIFICATIONS, true);
   const pushEnabled = readEnvToggle(env.ENABLE_PUSH_NOTIFICATIONS, true);
-
-  if (!emailEnabled) {
-    Logger.info('Email notifications disabled via ENABLE_EMAIL_NOTIFICATIONS');
-  }
 
   if (!pushEnabled) {
     Logger.info('Push notifications disabled via ENABLE_PUSH_NOTIFICATIONS');
@@ -701,34 +670,6 @@ export async function handleNotificationQueue(
           ?? sharedMessageId
           ?? payload.eventId
           ?? crypto.randomUUID();
-
-        if (emailEnabled && shouldSendEmail(recipient) && oneSignal) {
-          try {
-            await sendEmailNotification(oneSignal, recipient, payload);
-            await deliveryStore.recordResult({
-              notificationId: deliveryId,
-              userId: recipient.userId,
-              channel: 'email',
-              provider: 'onesignal',
-              status: 'success'
-            });
-          } catch (error) {
-            hadFailure = true;
-            await deliveryStore.recordResult({
-              notificationId: deliveryId,
-              userId: recipient.userId,
-              channel: 'email',
-              provider: 'onesignal',
-              status: 'failure',
-              errorMessage: error instanceof Error ? error.message : String(error)
-            });
-            Logger.warn('Failed to send email notification', {
-              eventId: payload.eventId,
-              recipient: recipient.userId,
-              error: error instanceof Error ? error.message : String(error)
-            });
-          }
-        }
 
         if (pushEnabled && shouldSendPush(recipient) && oneSignal) {
           try {
