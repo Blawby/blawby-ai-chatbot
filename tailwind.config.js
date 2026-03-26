@@ -22,6 +22,7 @@ export default {
           'nav-rail': 'rgb(var(--surface-nav-rail))',
           'nav-secondary': 'rgb(var(--surface-nav-secondary))',
           'nav-list': 'rgb(var(--surface-list-panel))',
+          glass: 'rgb(var(--surface-glass) / <alpha-value>)',
         },
         line: {
 

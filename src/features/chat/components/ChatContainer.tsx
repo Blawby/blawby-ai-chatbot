@@ -200,7 +200,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const shouldShowSlimForm = isPublicWorkspace && 
     intakeStatus?.step === 'contact_form_slim' && 
     conversationMode === 'REQUEST_CONSULTATION' && 
-    !hasContactInfoSubmitted;
+    !hasContactInfoSubmitted &&
+    typeof onSlimFormContinue === 'function';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
   // Simple resize handler for window size changes
   useEffect(() => {
@@ -641,7 +642,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onSuccess: handlePaymentSuccess
                 }}
                 slimFormProps={{
-                  onContinue: onSlimFormContinue ?? (() => {}),
+                  onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
                   initialValues: slimContactDraft
                 }}
               />

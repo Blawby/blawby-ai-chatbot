@@ -13,7 +13,7 @@ interface IntakePaymentFormProps {
   intakeUuid?: string;
   conversationId?: string;
   onSuccess?: () => void | Promise<void>;
-  onClose?: () => void;
+
   variant?: 'card' | 'plain';
 }
 
@@ -40,7 +40,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   intakeUuid,
   conversationId,
   onSuccess,
-  onClose,
+
   variant = 'card'
 }) => {
   const stripe = useStripe();

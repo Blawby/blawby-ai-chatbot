@@ -77,20 +77,20 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         description={t('common:payment.subtitle', 'Securely finalize your intake request')}
       >
         {canUseElements ? (
-          <Elements stripe={stripePromise} options={elementsOptions}>
+          <Elements stripe={stripePromise} options={elementsOptions!}>
             <IntakePaymentForm
               amount={paymentProps.request.amount}
               currency={paymentProps.request.currency}
               intakeUuid={paymentProps.request.intakeUuid}
               conversationId={paymentProps.request.conversationId}
               onSuccess={paymentProps.onSuccess}
-              onClose={onClose}
+
               variant="plain"
             />
           </Elements>
         ) : (
-          <div className="p-4 text-center text-sm text-red-200">
-            Payment details missing or unavailable.
+          <div className="p-4 text-center text-sm text-[rgb(var(--accent-foreground))]">
+            {t('common:chat.paymentDetailsMissing', 'Payment details missing or unavailable.')}
           </div>
         )}
       </ChatDockedAction>
@@ -103,7 +103,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={authMode === 'signup' ? t('auth:authPrompt.title', 'Sign up') : t('auth:signin.title', 'Sign in')}
-        description={authMode === 'signup' ? t('auth:authPrompt.subtitle') : t('auth:signin.subtitle')}
+        description={authMode === 'signup' ? t('auth:authPrompt.subtitle', 'Create an account to get started') : t('auth:signin.subtitle', 'Welcome back — please sign in')}
       >
         <AuthForm
           mode={authMode}
@@ -113,8 +113,11 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
           initialName={authProps.initialName}
           callbackURL={authProps.callbackURL}
           onSuccess={async () => {
-            if (authProps.onSuccess) await authProps.onSuccess();
-            onClose();
+            try {
+              if (authProps.onSuccess) await authProps.onSuccess();
+            } finally {
+              onClose();
+            }
           }}
           showHeader={false}
           variant="plain"

@@ -10,6 +10,7 @@
     --surface-nav-rail: 244 246 251;
     --surface-nav-secondary: 240 242 249;
     --surface-list-panel: 236 239 247;
+    --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
     --input-placeholder: 107 114 128;
@@ -40,6 +41,7 @@
     --surface-nav-rail: 18 22 34;
     --surface-nav-secondary: 14 18 30;
     --surface-list-panel: 11 15 25;
+    --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;
     --input-placeholder: 156 163 175;

@@ -281,6 +281,7 @@
   },
   "chat": {
     "publicIntro": "Ask us anything, or share your feedback.",
+    "paymentDetailsMissing": "Payment details missing or unavailable.",
     "continue": "Continue",
     "submitRequest": "Submit request",
     "submitNow": "Submit now",
