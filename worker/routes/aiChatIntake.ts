@@ -34,15 +34,8 @@ const INTAKE_TOOL = {
         addressLine1: { type: 'string' },
         addressLine2: { type: 'string' },
         desiredOutcome: { type: 'string', description: 'What the user wants to achieve, max 150 chars' },
-        courtDate: { type: 'string', description: 'Any known court date or deadline in plain text' },
-        income: { type: 'string', description: 'Monthly or yearly income if mentioned' },
-        householdSize: { type: 'number', description: 'Number of people in the household' },
+        courtDate: { type: 'string', description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated as a specific date.' },
         hasDocuments: { type: 'boolean', description: 'Whether the user has mentioned having relevant documents' },
-        eligibilitySignals: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Any income, household, or fee-related details mentioned'
-        },
         quickReplies: {
           type: 'array',
           maxItems: 3,

@@ -894,7 +894,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const leadReview = resolveLeadReview(message);
                     const authCta = resolveAuthCta(message);
 
-                    const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies)
+                    const intakeIsTerminal =
+                        _intakeStatus?.step === 'submitted' ||
+                        _intakeStatus?.step === 'pending_review' ||
+                        _intakeStatus?.step === 'completed';
+                    const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies) && !intakeIsTerminal
                         ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
                         : undefined;
                     const hasSubmitQuickReply = Array.isArray(quickReplies) && quickReplies.includes('__submit__');

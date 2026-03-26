@@ -313,7 +313,7 @@ export function MainApp({
     messages, conversationMetadata, sendMessage, addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit,
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -842,6 +842,7 @@ export function MainApp({
             onSlimFormDismiss={handleSlimFormDismiss}
             onBuildBrief={handleBuildBrief}
             onSubmitNow={handleSubmitNow}
+            onFinalizeSubmit={handleFinalizeSubmit}
             isAnonymousUser={isAnonymous}
             canChat={canChat}
             hasMoreMessages={hasMoreMessages}
