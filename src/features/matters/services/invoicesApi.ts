@@ -108,6 +108,9 @@ export const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
   if (record.invoice && typeof record.invoice === 'object') {
     return [record.invoice as BackendInvoice];
   }
+  if (record.id && typeof record.id === 'string') {
+    return [record as BackendInvoice];
+  }
   if (record.data) return extractInvoicesArray(record.data);
   return [];
 };
@@ -349,14 +352,12 @@ const buildInvoiceNumber = () => {
 const normalizeCreatePayload = (payload: CreateInvoicePayload) => ({
   ...payload,
   invoice_number: payload.invoice_number || buildInvoiceNumber(),
-  line_items: payload.line_items.map((item, index) => {
+  line_items: payload.line_items.map(({ id: _id, line_total: _total, ...item }, index) => {
     const unitMinor = toMinorAmount(item.unit_price);
-    const lineTotalMajor = item.line_total ?? safeMultiply(item.unit_price, item.quantity);
     return {
       ...item,
       sort_order: item.sort_order ?? index,
-      unit_price: unitMinor,
-      line_total: toMinorAmount(lineTotalMajor)
+      unit_price: unitMinor
     };
   })
 });
@@ -437,14 +438,12 @@ export const updateInvoice = async (
   if (!practiceId || !invoiceId) return null;
   const body: Record<string, unknown> = { ...payload };
   if (Array.isArray(payload.line_items)) {
-    body.line_items = payload.line_items.map((item, index) => {
+    body.line_items = payload.line_items.map(({ id: _id, line_total: _total, ...item }, index) => {
       const unitMinor = toMinorAmount(item.unit_price);
-      const lineTotalMajor = item.line_total ?? safeMultiply(item.unit_price, item.quantity);
       return {
         ...item,
         sort_order: item.sort_order ?? index,
-        unit_price: unitMinor,
-        line_total: toMinorAmount(lineTotalMajor)
+        unit_price: unitMinor
       };
     });
   }
