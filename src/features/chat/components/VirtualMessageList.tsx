@@ -830,6 +830,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies)
                         ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
                         : undefined;
+                    const hasSubmitQuickReply = Array.isArray(quickReplies) && quickReplies.includes('__submit__');
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
                     ) ? (message.metadata.onboardingProfile as Record<string, unknown>) : null;
@@ -869,6 +870,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         !message.isUser &&
                         isLast &&
                         Boolean(intakeConversationState?.intakeReady) &&
+                        !hasSubmitQuickReply &&
                         intakeConversationState?.ctaResponse !== 'ready' &&
                         _intakeStatus?.step !== 'pending_review' &&
                         _intakeStatus?.step !== 'completed';
