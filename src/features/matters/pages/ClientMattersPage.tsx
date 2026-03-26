@@ -561,7 +561,7 @@ export const ClientMattersPage = ({
   }
 
   return (
-    <div className="min-h-0 flex flex-1 flex-col gap-2 p-4 sm:p-6">
+    <div className="min-h-0 flex flex-1 flex-col gap-2">
       {listContent}
     </div>
   );

@@ -1148,7 +1148,7 @@ export const PracticeClientsPage = ({
 
   return (
     <>
-      <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2 p-4 sm:p-6">
+      <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2">
         <Panel
           className={cn(
             'list-panel-card-gradient min-h-0 flex-1 overflow-hidden flex flex-col',

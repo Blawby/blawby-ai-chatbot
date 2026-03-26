@@ -79,7 +79,7 @@ export function ClientInvoicesPage({
   }
 
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-2', isListOnly ? '' : 'p-4 sm:p-6')}>
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-2')}>
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
         <EntityList
           items={invoices}

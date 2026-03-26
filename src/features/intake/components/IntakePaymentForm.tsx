@@ -13,6 +13,8 @@ interface IntakePaymentFormProps {
   intakeUuid?: string;
   conversationId?: string;
   onSuccess?: () => void | Promise<void>;
+  onClose?: () => void;
+  variant?: 'card' | 'plain';
 }
 
 const formatIntakeAmount = (amount?: number, currency?: string, locale?: string) => {
@@ -37,7 +39,9 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   currency,
   intakeUuid,
   conversationId,
-  onSuccess
+  onSuccess,
+  onClose,
+  variant = 'card'
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -316,7 +320,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           Loading secure payment form…
         </div>
       )}
-      <div className="glass-panel p-5">
+      <div className={variant === 'card' ? "glass-panel p-5" : "pb-4"}>
         <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
