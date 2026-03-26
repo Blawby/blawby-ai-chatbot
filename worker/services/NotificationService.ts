@@ -1,7 +1,7 @@
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import type { PracticeOrWorkspace } from '../types.js';
-import { OneSignalService } from './OneSignalService.js';
+import { BackendEventService } from './BackendEventService.js';
 
 export interface NotificationRequest {
   type: 'lawyer_review' | 'matter_created' | 'matter_update';
@@ -45,7 +45,7 @@ function extractOwnerEmail(practiceConfig: PracticeOrWorkspace | null): string |
 }
 
 export class NotificationService {
-  private oneSignal: OneSignalService | null;
+  private eventService: BackendEventService;
 
   constructor(private env: Env) {
     // Initialize Logger with environment variables for Cloudflare Workers compatibility
@@ -54,7 +54,7 @@ export class NotificationService {
       NODE_ENV: env.NODE_ENV
     });
 
-    this.oneSignal = OneSignalService.isConfigured(env) ? new OneSignalService(env) : null;
+    this.eventService = new BackendEventService(env);
   }
 
   async sendLawyerReviewNotification(request: NotificationRequest): Promise<void> {
@@ -67,26 +67,21 @@ export class NotificationService {
         Logger.info('No owner email configured for practice - skipping lawyer review notification');
         return;
       }
-      if (!this.oneSignal) {
-        Logger.info('OneSignal not configured - skipping lawyer review notification');
-        return;
-      }
-
-      await this.oneSignal.sendEmail(ownerEmail, {
-        title: `Urgent Legal Matter Review Required - ${matterInfo?.type || 'Unknown'}`,
-        body: `A new urgent legal matter requires immediate review:
-
-Matter Type: ${matterInfo?.type || 'Unknown'}
-Urgency: ${matterInfo?.urgency || 'Standard'}
-Complexity: ${matterInfo?.complexity || 'Standard'}
-Description: ${matterInfo?.description || 'No description provided'}
-
-Please review this matter as soon as possible.`
+      await this.eventService.emitEvent({
+        event_type: 'matter.review_required',
+        practice_id: effectivePractice?.id,
+        contact_email: ownerEmail,
+        sla_metadata: {
+          matterType: matterInfo?.type || 'Unknown',
+          urgency: matterInfo?.urgency || 'Standard',
+          complexity: matterInfo?.complexity || 'Standard',
+          description: matterInfo?.description || 'No description provided'
+        }
       });
 
-      Logger.info('Lawyer review notification sent successfully');
+      Logger.info('Lawyer review notification event emitted successfully');
     } catch (error) {
-      Logger.warn('Failed to send lawyer review notification:', error);
+      Logger.warn('Failed to emit lawyer review notification event:', error);
     }
   }
 
@@ -100,27 +95,23 @@ Please review this matter as soon as possible.`
         Logger.info('No owner email configured for practice - skipping matter creation notification');
         return;
       }
-      if (!this.oneSignal) {
-        Logger.info('OneSignal not configured - skipping matter creation notification');
-        return;
-      }
-
-      await this.oneSignal.sendEmail(ownerEmail, {
-        title: `New Legal Matter Created - ${matterInfo?.type || 'Unknown'}`,
-        body: `A new legal matter has been created:
-
-Client: ${clientInfo?.name || 'Unknown'}
-Contact: ${clientInfo?.email || 'No email'}, ${clientInfo?.phone || 'No phone'}
-Matter Type: ${matterInfo?.type || 'Unknown'}
-Description: ${matterInfo?.description || 'No description provided'}
-Urgency: ${matterInfo?.urgency || 'Standard'}
-
-Please review and take appropriate action.`
+      await this.eventService.emitEvent({
+        event_type: 'matter.created',
+        practice_id: effectivePractice?.id,
+        contact_email: ownerEmail,
+        contact_identifier: clientInfo?.name || 'Unknown',
+        message_preview: matterInfo?.description || 'No description provided',
+        sla_metadata: {
+          clientEmail: clientInfo?.email,
+          clientPhone: clientInfo?.phone,
+          matterType: matterInfo?.type || 'Unknown',
+          urgency: matterInfo?.urgency || 'Standard'
+        }
       });
 
-      Logger.info('Matter creation notification sent successfully');
+      Logger.info('Matter creation notification event emitted successfully');
     } catch (error) {
-      Logger.warn('Failed to send matter creation notification:', error);
+      Logger.warn('Failed to emit matter creation notification event:', error);
     }
   }
 
@@ -158,28 +149,26 @@ Please review and take appropriate action.`
         Logger.info('No owner email configured for practice - skipping matter update notification');
         return;
       }
-      if (!this.oneSignal) {
-        Logger.info('OneSignal not configured - skipping matter update notification');
-        return;
-      }
 
       const actionLabel = (update?.action || 'status_change').replace('_', ' ');
       const subjectMatter = matterInfo?.type || 'Matter';
 
-      await this.oneSignal.sendEmail(ownerEmail, {
-        title: `${subjectMatter}: ${actionLabel}`,
-        body: `A matter was updated:
-
-Action: ${actionLabel}
-From: ${update?.fromStatus || 'n/a'}
-To: ${update?.toStatus || 'n/a'}
-Actor: ${update?.actorId || 'system'}
-`
+      await this.eventService.emitEvent({
+        event_type: 'matter.updated',
+        practice_id: effectivePractice?.id,
+        contact_email: ownerEmail,
+        sla_metadata: {
+          action: actionLabel,
+          fromStatus: update?.fromStatus,
+          toStatus: update?.toStatus,
+          actorId: update?.actorId,
+          matterType: subjectMatter
+        }
       });
 
-      Logger.info('Matter update notification sent successfully');
+      Logger.info('Matter update notification event emitted successfully');
     } catch (error) {
-      Logger.warn('Failed to send matter update notification:', error);
+      Logger.warn('Failed to emit matter update notification event:', error);
     }
   }
 }
