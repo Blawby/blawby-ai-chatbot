@@ -69,7 +69,7 @@ interface BackendIntakeCreatePayload {
   court_date?: string;
   case_strength?: number;
   has_documents?: boolean;
-  income?: string;
+  // income is intentionally omitted — free-text string incompatible with backend number type
   household_size?: number;
   city?: string;
   state?: string;
@@ -118,10 +118,17 @@ const buildIntakePayload = (
   }
 ): BackendIntakeCreatePayload => {
   const normalizeAmount = (value: number | undefined): number => {
-    const min = 50;
+    const min = 0;
     const max = 99_999_999;
     if (typeof value !== 'number' || !Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, Math.round(value)));
+  };
+  const isIsoDateString = (value: string): boolean => {
+    // Accept ISO 8601 date-only (YYYY-MM-DD) and datetime strings
+    // (YYYY-MM-DDTHH:mm:ss[.sss][Z|±HH:mm]) — reject plain-text like "next Tuesday".
+    // The backend validates the full datetime; we only gate on structural shape here
+    // so we don't pass clearly garbage strings.
+    return /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/.test(value.trim());
   };
   const payload: BackendIntakeCreatePayload = {
     slug,
@@ -148,9 +155,10 @@ const buildIntakePayload = (
 
   if (intake?.urgency) payload.urgency = intake.urgency;
   if (intake?.desiredOutcome) payload.desired_outcome = intake.desiredOutcome;
-  if (intake?.courtDate) payload.court_date = intake.courtDate;
+  if (intake?.courtDate && isIsoDateString(intake.courtDate)) payload.court_date = intake.courtDate;
   if (typeof intake?.hasDocuments === 'boolean') payload.has_documents = intake.hasDocuments;
-  if (intake?.income) payload.income = intake.income;
+  // income is intentionally omitted — the backend expects a number but extraction returns free-text;
+  // if sliding-scale eligibility is needed, handle it in a separate dedicated flow.
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
 
   return payload;

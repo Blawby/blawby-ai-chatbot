@@ -156,7 +156,16 @@ interface UseIntakeFlowResult {
   handleIntakeCtaResponse: (response: 'ready' | 'not_yet') => Promise<void>;
   /** Reset CTA state */
   resetIntakeCta: () => Promise<void>;
-  /** Final intake submission via worker bridge */
+  /**
+   * Phase 1: validate contact, link user, then delegate to handleFinalizeSubmit.
+   */
+  handleConfirmSubmit: () => Promise<void>;
+  /**
+   * Phase 2: call the submit-intake API and post the success/payment-prompt message.
+   * Called by the parent after payment is confirmed, or immediately if no payment needed.
+   */
+  handleFinalizeSubmit: () => Promise<void>;
+  /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
   handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
   applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
@@ -180,6 +189,8 @@ export function useIntakeFlow({
   const { session, isAnonymous } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
+  const phase1InFlightRef = useRef(false);
+  const finalizeRef = useRef<() => Promise<void>>(async () => {});
 
   // ---------------------------------------------------------------------------
   // Derived State
@@ -401,11 +412,15 @@ export function useIntakeFlow({
     }
   }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
 
-  const handleSubmitNow = useCallback(async () => {
+  /**
+   * Phase 1 — validate contact, link user identity, persist practice slug.
+   * Delegates straight to handleFinalizeSubmit.
+   */
+  const handleConfirmSubmit = useCallback(async () => {
     if (!conversationId || !practiceId) return;
     if (!resolvedSlimContactDraft) {
       if (import.meta.env.DEV) {
-        console.warn('[handleSubmitNow] Missing slimContactDraft, cannot submit intake.');
+        console.warn('[handleConfirmSubmit] Missing slimContactDraft, cannot submit intake.');
       }
       const errMessage = 'We need your contact information before submitting. Please fill out the contact form.';
       if (onError) {
@@ -415,24 +430,26 @@ export function useIntakeFlow({
       }
       return;
     }
-    if (submitInFlightRef.current) {
+    if (phase1InFlightRef.current) {
       if (import.meta.env.DEV) {
-        console.info('[handleSubmitNow] Skipping duplicate submit while request is in-flight', {
+        console.info('[handleConfirmSubmit] Skipping duplicate submit while request is in-flight', {
           conversationId,
           practiceId,
         });
       }
       return;
     }
-    submitInFlightRef.current = true;
+
+    phase1InFlightRef.current = true;
     try {
+      // Link auth identity first so the API call has the right session.
       if (currentUserId && !isAnonymous) {
         try {
           await linkConversationToUser(conversationId, practiceId);
           clearConversationAnonymousParticipant(conversationId);
         } catch (linkError) {
           if (!axios.isAxiosError(linkError) || linkError.response?.status !== 409) {
-            console.warn('[handleSubmitNow] Conversation link check failed', linkError);
+            console.warn('[handleConfirmSubmit] Conversation link check failed', linkError);
           }
         }
       }
@@ -447,17 +464,65 @@ export function useIntakeFlow({
         return;
       }
 
-      if (
-        effectivePracticeSlug &&
-        conversationMetadataRef.current?.practiceSlug !== effectivePracticeSlug
-      ) {
+      if (conversationMetadataRef.current?.practiceSlug !== effectivePracticeSlug) {
         try {
           await updateConversationMetadata({ practiceSlug: effectivePracticeSlug });
         } catch (metadataError) {
-          console.warn('[handleSubmitNow] Failed to persist practice slug before submission', metadataError);
+          console.warn('[handleConfirmSubmit] Failed to persist practice slug before submission', metadataError);
         }
       }
 
+      // No payment gate: go straight to finalize.
+      await finalizeRef.current();
+    } catch (error) {
+      console.error('[handleConfirmSubmit] Intake submission failed', error);
+      onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+    } finally {
+      phase1InFlightRef.current = false;
+    }
+  }, [
+    conversationId,
+    conversationMetadataRef,
+    currentUserId,
+    isAnonymous,
+    onError,
+    practiceId,
+    resolvedSlimContactDraft,
+    updateConversationMetadata,
+    normalizedPracticeSlug,
+  ]);
+
+  /**
+   * Phase 2 — call the submit-intake API and post outcome messages.
+   * Should be invoked:
+   *   - directly by handleConfirmSubmit when no payment is required, OR
+   *   - by the payment UI's onSuccess callback after payment completes.
+   */
+  const handleFinalizeSubmit = useCallback(async () => {
+    if (!conversationId || !practiceId) return;
+
+    const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
+    if (existingSubmission?.intakeUuid) {
+      if (import.meta.env.DEV) {
+        console.info('[handleFinalizeSubmit] Skipping submit: intake record already exists', {
+          conversationId,
+          practiceId,
+          intakeUuid: existingSubmission.intakeUuid,
+        });
+      }
+      return;
+    }
+    if (submitInFlightRef.current) {
+      if (import.meta.env.DEV) {
+        console.info('[handleFinalizeSubmit] Skipping duplicate submit while request is in-flight', {
+          conversationId,
+          practiceId,
+        });
+      }
+      return;
+    }
+    submitInFlightRef.current = true;
+    try {
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
         { method: 'POST', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' },
@@ -482,11 +547,14 @@ export function useIntakeFlow({
         throw new Error('Intake submission returned an unexpected response');
       }
       const { intake_uuid: intakeUuid, payment_link_url: paymentLinkUrl } = result.data;
+
       emitWidgetLeadSubmitted({
         intakeUuid,
         status: result.data.status ?? 'submitted',
-        requiresPayment: Boolean(paymentLinkUrl)
+        requiresPayment: Boolean(paymentLinkUrl),
       });
+
+      // Post the appropriate system message: payment prompt or plain success.
       if (paymentLinkUrl) {
         const paymentPromptMessageId = `system-intake-payment-${intakeUuid}`;
         const paymentPromptMetadata: Record<string, unknown> = {
@@ -521,10 +589,9 @@ export function useIntakeFlow({
           });
           if (paymentPromptMessage) applyServerMessages([paymentPromptMessage]);
         } catch (msgError) {
-          console.warn('[handleSubmitNow] Failed to post payment prompt message', msgError);
+          console.warn('[handleFinalizeSubmit] Failed to post payment prompt message', msgError);
         }
-      }
-      if (!paymentLinkUrl) {
+      } else {
         const practiceName =
           (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
           ?? 'the practice';
@@ -537,9 +604,11 @@ export function useIntakeFlow({
           });
           if (persistedMessage) applyServerMessages([persistedMessage]);
         } catch (msgError) {
-          console.warn('[handleSubmitNow] Failed to post confirmation message', msgError);
+          console.warn('[handleFinalizeSubmit] Failed to post confirmation message', msgError);
         }
       }
+
+      // Persist submission state so reload derives step: 'pending_review' correctly.
       const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
       const current = currentConsultation?.case ?? intakeConversationState;
       await updateConversationMetadata(
@@ -558,7 +627,7 @@ export function useIntakeFlow({
         )
       );
     } catch (error) {
-      console.error('[handleSubmitNow] Intake submission failed', error);
+      console.error('[handleFinalizeSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
     } finally {
       submitInFlightRef.current = false;
@@ -567,15 +636,18 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
-    currentUserId,
-    isAnonymous,
     onError,
     practiceId,
-    resolvedSlimContactDraft,
     updateConversationMetadata,
-    normalizedPracticeSlug,
     intakeConversationState,
   ]);
+
+  finalizeRef.current = handleFinalizeSubmit;
+
+  /** Backward-compat alias for callers that don't have a payment UI wired */
+  const handleSubmitNow = useCallback(async () => {
+    await handleConfirmSubmit();
+  }, [handleConfirmSubmit]);
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
     try {
@@ -604,6 +676,8 @@ export function useIntakeFlow({
     handleBuildBrief,
     handleIntakeCtaResponse,
     resetIntakeCta,
+    handleConfirmSubmit,
+    handleFinalizeSubmit,
     handleSubmitNow,
     applyIntakeFields,
     handleContactFormSubmit,

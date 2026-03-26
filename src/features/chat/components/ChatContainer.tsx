@@ -78,6 +78,8 @@ export interface ChatContainerProps {
   onSlimFormDismiss?: () => void | Promise<void>;
   onBuildBrief?: () => void;
   onSubmitNow?: () => void | Promise<void>;
+  /** Phase 2: called after payment is confirmed; creates the intake record */
+  onFinalizeSubmit?: () => void | Promise<void>;
   slimContactDraft?: {
     name: string;
     email: string;
@@ -152,6 +154,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onSlimFormDismiss,
   onBuildBrief,
   onSubmitNow,
+  onFinalizeSubmit,
   slimContactDraft,
   clearInput,
   isAnonymousUser,
@@ -500,6 +503,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       console.warn('[Chat] Skipped persisting invalid intakeUuid', paymentRequest.intakeUuid);
     }
     handleClosePayment();
+    // Phase 2: now that payment is confirmed, create the intake record.
+    if (onFinalizeSubmit) {
+      try {
+        await onFinalizeSubmit();
+      } catch (finalizeError) {
+        console.error('[ChatContainer] handleFinalizeSubmit failed after payment success', finalizeError);
+      }
+    }
   };
 
   const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
