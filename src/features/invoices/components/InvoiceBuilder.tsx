@@ -30,6 +30,14 @@ type InvoiceBuilderProps = {
   closeAfterSuccess?: boolean;
   onClose: () => void;
   onSuccess: (invoiceId?: string | null) => Promise<void> | void;
+  /** Practice name shown in the invoice preview and send dialog */
+  practiceName?: string | null;
+  /** Absolute URL for the practice logo (already resolved via R2 proxy) */
+  practiceLogoUrl?: string | null;
+  /** Practice e-mail used in the "From" block of the preview */
+  practiceEmail?: string | null;
+  /** Practice billing increment in minutes (e.g. 6 for 0.1h steps) */
+  billingIncrementMinutes?: number | null;
 };
 
 type InvoiceUpdatePayload = {
@@ -118,7 +126,11 @@ export const InvoiceBuilder = ({
   existingInvoiceId,
   closeAfterSuccess = true,
   onClose,
-  onSuccess
+  onSuccess,
+  practiceName = null,
+  practiceLogoUrl = null,
+  practiceEmail = null,
+  billingIncrementMinutes = null,
 }: InvoiceBuilderProps) => {
   const { showError } = useToastContext();
   const defaultInvoiceType = detectDefaultInvoiceType(
@@ -163,6 +175,10 @@ export const InvoiceBuilder = ({
   const resolvedClientLabel = isMatterScoped
     ? matter?.clientName ?? ''
     : (clientOptions.find((option) => option.value === clientId)?.label ?? '');
+  // Client e-mail is stored as `meta` on standalone (non-matter-scoped) options
+  const resolvedClientEmail = isMatterScoped
+    ? null
+    : (clientOptions.find((option) => option.value === clientId)?.meta ?? null);
   const previewTitle = resolvedMatterLabel || resolvedClientLabel || 'Draft invoice';
   const previewReferenceLabel = resolvedMatterId
     ? `Matter ID: ${resolvedMatterId}`
@@ -385,7 +401,11 @@ export const InvoiceBuilder = ({
                   clearable={false}
                 />
               )}
-              <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
+              <LineItemsBuilder 
+                lineItems={lineItems} 
+                onChange={setLineItems} 
+                billingIncrementMinutes={billingIncrementMinutes} 
+              />
               <Input
                 label="Due date"
                 type="date"
@@ -417,6 +437,12 @@ export const InvoiceBuilder = ({
               lineItems={lineItems}
               issueDate={previewIssueDate}
               dueDate={dueDate}
+              practiceName={practiceName}
+              practiceLogoUrl={practiceLogoUrl}
+              practiceEmail={practiceEmail}
+              clientName={resolvedClientLabel || null}
+              clientEmail={resolvedClientEmail}
+              billingIncrementMinutes={billingIncrementMinutes}
             />
           </div>
         </div>
@@ -451,6 +477,17 @@ export const InvoiceBuilder = ({
         onConfirm={handleSendInvoice}
         onCancel={() => setShowSendDialog(false)}
         loading={isSending}
+        lineItems={lineItems}
+        dueDate={dueDate}
+        previewTitle={previewTitle}
+        previewReferenceLabel={previewReferenceLabel}
+        previewIssueDate={previewIssueDate}
+        practiceName={practiceName}
+        practiceLogoUrl={practiceLogoUrl}
+        practiceEmail={practiceEmail}
+        clientName={resolvedClientLabel || null}
+        clientEmail={resolvedClientEmail}
+        billingIncrementMinutes={billingIncrementMinutes}
       />
     </div>
   );

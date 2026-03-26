@@ -118,7 +118,7 @@ export default function ConfirmationDialog({
               <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-input-placeholder mb-4">
+              <p className="text-sm text-input-text mb-4">
                 {description}
               </p>
               

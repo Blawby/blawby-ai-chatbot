@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useStore } from '@nanostores/preact';
 import { useLocation } from 'preact-iso';
 import { Breadcrumbs } from '@/shared/ui/navigation';
 import { Page } from '@/shared/ui/layout/Page';
@@ -17,6 +18,8 @@ import {
   clearPendingInvoiceDraftContext,
   readPendingInvoiceDraftContext,
 } from '@/features/invoices/utils/invoiceDraftContext';
+import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 const PAGE_SIZE = 50;
 
@@ -87,6 +90,15 @@ export function PracticeInvoiceCreatePage({
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Read cached practice identity — no extra requests; usePracticeManagement uses shared snapshot cache
+  const { currentPractice } = usePracticeManagement({
+    practiceSlug: practiceSlug ?? undefined,
+    fetchPracticeDetails: true,
+  });
+  const practiceDetailsMap = useStore(practiceDetailsStore);
+  const cachedDetails = practiceId ? (practiceDetailsMap[practiceId] ?? null) : null;
+
   const draftId = useMemo(() => {
     const value = location.query?.draft;
     if (!value) return null;
@@ -257,6 +269,10 @@ export function PracticeInvoiceCreatePage({
             onClose={handleBackToInvoices}
             onSuccess={handleCreated}
             closeAfterSuccess={false}
+            practiceName={currentPractice?.name ?? undefined}
+            practiceLogoUrl={currentPractice?.logo ?? undefined}
+            practiceEmail={currentPractice?.businessEmail ?? cachedDetails?.businessEmail ?? undefined}
+            billingIncrementMinutes={currentPractice?.billingIncrementMinutes ?? undefined}
           />
         )}
       </div>

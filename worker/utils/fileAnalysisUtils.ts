@@ -23,7 +23,7 @@ export type FileAnalysisEnv = Pick<
 /**
  * Analyzes files using the vision API
  */
-export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question?: string): Promise<Record<string, unknown>> {
+export async function analyzeFile(env: FileAnalysisEnv, fileId: string, _question?: string): Promise<Record<string, unknown>> {
   // Question parameter is kept for API compatibility but not used (Adobe extraction doesn't need it)
   
   try {
@@ -103,8 +103,8 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
     // Find the UUID part (8-4-4-4-12 format) - this could be conversationId (new format) or sessionId (legacy)
     let practiceIdOrSlug = '';
     let conversationIdOrSessionId = '';
-    let timestamp = '';
-    let random = '';
+    let _timestamp = '';
+    let _random = '';
     
     // Look for UUID pattern in the middle
     for (let i = 0; i < parts.length - 2; i++) {
@@ -114,8 +114,8 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
         // Found UUID, reconstruct the parts
         practiceIdOrSlug = parts.slice(0, i).join('-');
         conversationIdOrSessionId = potentialUuid;
-        timestamp = parts[i + 5];
-        random = parts[i + 6];
+        _timestamp = parts[i + 5];
+        _random = parts[i + 6];
         
         // Try to find the file with new format first (conversationId)
         const newFormatPrefix = `uploads/${practiceIdOrSlug}/${conversationIdOrSessionId}/${fileId}`;

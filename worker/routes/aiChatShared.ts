@@ -1,4 +1,3 @@
-import type { Env } from '../types.js';
 
 const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';

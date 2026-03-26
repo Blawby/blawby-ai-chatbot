@@ -139,7 +139,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                                         variant="ghost"
                                         size="icon"
                                         onClick={onClose}
-                                        className="text-input-placeholder hover:text-input-text hover:bg-white/5"
+                                        className="text-white/50 hover:text-white hover:bg-white/10"
                                         aria-label="Close modal"
                                         icon={
                                             <Icon icon={XMarkIcon} className="w-6 h-6"  />
