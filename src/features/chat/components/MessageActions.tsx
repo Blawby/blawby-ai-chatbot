@@ -291,7 +291,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										}
 									}}
 								>
-									{t('messageActions.submitRequest')}
+									{t('chat.submitRequest')}
 								</Button>
 							) : null
 						) : (

@@ -874,7 +874,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           ...(intakeFields ? { intakeFields } : {}),
           ...(onboardingFields ? { onboardingFields } : {}),
           ...(onboardingProfile ? { onboardingProfile } : {}),
-          ...(quickReplies ? { quickReplies } : {}),
+          ...(quickReplies && !isIntakeMode ? { quickReplies } : {}),
           ...(triggerEditModal ? { triggerEditModal } : {}),
           ...(shouldPromptConsultation
             ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }

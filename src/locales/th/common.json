@@ -300,8 +300,5 @@
   },
   "widget": {
     "persistIntakePathError": "ไม่สามารถบันทึกเส้นทางกลับของคุณได้"
-  },
-  "messageActions": {
-    "submitRequest": "ส่งคำขอ"
   }
 }

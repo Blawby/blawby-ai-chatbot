@@ -301,8 +301,5 @@
   },
   "widget": {
     "persistIntakePathError": "आपका रिटर्न पथ सहेजा नहीं जा सका। कृपया बाद में पुनः प्रयास करें।"
-  },
-  "messageActions": {
-    "submitRequest": "अनुरोध सबमिट करें"
   }
 }

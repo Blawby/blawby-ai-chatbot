@@ -300,8 +300,5 @@
   },
   "widget": {
     "persistIntakePathError": "Tidak dapat menyimpan jalur kembalian Anda."
-  },
-  "messageActions": {
-    "submitRequest": "Kirim permintaan"
   }
 }
