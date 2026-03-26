@@ -316,22 +316,22 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="rounded-xl border border-line-glass/30 bg-white/5 px-4 py-3 text-sm text-input-placeholder backdrop-blur-md">
+        <div className="rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 text-sm text-input-placeholder backdrop-blur-md">
           Loading secure payment form…
         </div>
       )}
-      <div className={variant === 'card' ? "glass-panel p-5" : "pb-4"}>
+      <div className={variant === 'card' ? "glass-panel p-5" : "rounded-xl border border-line-glass/30 bg-surface-panel/60 p-4"}>
         <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
       {errorMessage && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100 backdrop-blur-xl">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 backdrop-blur-xl dark:text-red-200">
           {errorMessage}
         </div>
       )}
 
       {callbackWarning && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 backdrop-blur-xl">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 backdrop-blur-xl dark:text-amber-200">
           {callbackWarning}
         </div>
       )}
@@ -340,7 +340,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         <div className="glass-card p-6 text-center border-emerald-500/30">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-emerald-500/20 p-3 shadow-lg shadow-emerald-500/20">
-              <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-8 w-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -351,7 +351,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           <p className="text-input-placeholder">
             {formattedAmount ? `Thank you for your payment of ${formattedAmount}.` : 'Thank you for your payment.'}
           </p>
-          <div className="mt-4 pt-4 border-t border-line-glass/30 text-xs text-emerald-400">
+          <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-emerald-700 dark:text-emerald-300">
             Payment processed successfully. You will receive confirmation if an email is on file.
           </div>
         </div>

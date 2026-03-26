@@ -40,7 +40,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
             mass: 0.8
           }}
           className={cn(
-            "mx-2 mb-4 overflow-hidden rounded-2xl border border-white/10 bg-surface-glass p-6 shadow-2xl backdrop-blur-xl",
+            "mx-2 mb-4 overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-overlay/95 p-6 text-input-text shadow-2xl backdrop-blur-xl",
             containerClassName
           )}
         >
@@ -64,7 +64,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
                   size="icon-sm"
                   onClick={onClose}
                   aria-label="Dismiss"
-                  className="text-input-placeholder hover:text-input-text hover:bg-white/10 shrink-0"
+                  className="shrink-0 text-input-placeholder hover:bg-surface-hover hover:text-input-text"
                 >
                   <Icon icon={XMarkIcon} className="h-5 w-5" />
                 </Button>

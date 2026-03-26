@@ -25,6 +25,7 @@ import {
   isIntakeReadyForSubmission,
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
+import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -469,6 +470,14 @@ export function useIntakeFlow({
         success: boolean;
         data: { intake_uuid: string; status: string; payment_link_url: string | null };
       };
+      quickActionDebugLog('submit-intake response received', {
+        conversationId,
+        practiceId,
+        httpOk: response.ok,
+        success: result.success,
+        intakeUuid: result.data?.intake_uuid ?? null,
+        hasPaymentLinkUrl: Boolean(result.data?.payment_link_url),
+      });
       if (!result.success || !result.data?.intake_uuid) {
         throw new Error('Intake submission returned an unexpected response');
       }
@@ -480,24 +489,35 @@ export function useIntakeFlow({
       });
       if (paymentLinkUrl) {
         const paymentPromptMessageId = `system-intake-payment-${intakeUuid}`;
+        const paymentPromptMetadata: Record<string, unknown> = {
+          intakeUuid,
+          intakeSubmitted: true,
+          paymentRequired: true,
+          paymentRequest: {
+            intakeUuid,
+            paymentLinkUrl,
+            practiceId,
+            conversationId,
+            returnTo: typeof window !== 'undefined'
+              ? `${window.location.pathname}${window.location.search}`
+              : undefined,
+          },
+        };
+        quickActionDebugLog('posting payment prompt system message', {
+          conversationId,
+          practiceId,
+          clientId: paymentPromptMessageId,
+          metadataKeys: Object.keys(paymentPromptMetadata),
+          hasPaymentRequest: true,
+          paymentRequestKeys: Object.keys(
+            (paymentPromptMetadata.paymentRequest as Record<string, unknown>) ?? {}
+          ),
+        });
         try {
           const paymentPromptMessage = await postSystemMessage(conversationId, practiceId, {
             clientId: paymentPromptMessageId,
             content: 'Your request has been submitted. To continue, please complete payment using the button below.',
-            metadata: {
-              intakeUuid,
-              intakeSubmitted: true,
-              paymentRequired: true,
-              paymentRequest: {
-                intakeUuid,
-                paymentLinkUrl,
-                practiceId,
-                conversationId,
-                returnTo: typeof window !== 'undefined'
-                  ? `${window.location.pathname}${window.location.search}`
-                  : undefined,
-              },
-            },
+            metadata: paymentPromptMetadata,
           });
           if (paymentPromptMessage) applyServerMessages([paymentPromptMessage]);
         } catch (msgError) {

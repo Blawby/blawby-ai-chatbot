@@ -49,6 +49,7 @@ import {
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
 import { appendWidgetTokenToUrl, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -88,9 +89,12 @@ export const buildFileUrl = (value: string): string => {
 const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | undefined => {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
   const record = metadata as Record<string, unknown>;
+  const metadataKeys = Object.keys(record);
   const candidate = record.paymentRequest;
-  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return undefined;
+  const hasPaymentRequestCandidate = Boolean(candidate && typeof candidate === 'object' && !Array.isArray(candidate));
+  if (!hasPaymentRequestCandidate) return undefined;
   const data = candidate as Record<string, unknown>;
+  const paymentRequestKeys = Object.keys(data);
   const request: IntakePaymentRequest = {};
   if (typeof data.intakeUuid === 'string') request.intakeUuid = data.intakeUuid;
   if (typeof data.clientSecret === 'string') request.clientSecret = data.clientSecret;
@@ -110,6 +114,14 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
     typeof request.clientSecret === 'string' ||
     typeof request.paymentLinkUrl === 'string' ||
     typeof request.checkoutSessionUrl === 'string';
+  if (hasPayload) {
+    quickActionDebugLog('parsePaymentRequestMetadata', {
+      metadataKeys,
+      hasPaymentRequestCandidate,
+      paymentRequestKeys,
+      parsedHasPayload: hasPayload,
+    });
+  }
   return hasPayload ? request : undefined;
 };
 
@@ -203,6 +215,7 @@ export const useConversation = ({
   // Reaction refs
   const reactionFetchRef = useRef(new Map<string, Promise<MessageReaction[]>>());
   const reactionLoadedRef = useRef(new Set<string>());
+  const quickActionMessageDebugRef = useRef(new Map<string, string>());
 
   // Consult abort ref
   const consultFlowAbortRef = useRef<AbortController | null>(null);
@@ -328,6 +341,37 @@ export const useConversation = ({
     const senderId = typeof msg.user_id === 'string' && msg.user_id.trim().length > 0 ? msg.user_id : null;
     const normalizedRole = msg.role === 'assistant' ? 'assistant' : msg.role === 'system' ? 'system' : 'user';
     const isUser = normalizedRole === 'user' && Boolean(senderId && currentUserId && senderId === currentUserId);
+    const paymentRequest = parsePaymentRequestMetadata(msg.metadata);
+    const metadataRecord = (msg.metadata && typeof msg.metadata === 'object' && !Array.isArray(msg.metadata))
+      ? msg.metadata as Record<string, unknown>
+      : null;
+    const rawQuickReplies = Array.isArray(metadataRecord?.quickReplies) ? metadataRecord.quickReplies : null;
+    if (isQuickActionDebugEnabled()) {
+      const hasQuickReplies = (rawQuickReplies?.length ?? 0) > 0;
+      const hasPaymentRequest = Boolean(paymentRequest);
+      if (hasQuickReplies || hasPaymentRequest) {
+        const debugKey = msg.id || msg.client_id || `${msg.role}:${msg.created_at}`;
+        const snapshot = JSON.stringify({
+          role: normalizedRole,
+          hasPaymentRequest,
+          rawQuickReplies,
+          metadataKeys: metadataRecord ? Object.keys(metadataRecord) : [],
+        });
+        const previous = quickActionMessageDebugRef.current.get(debugKey);
+        if (previous !== snapshot) {
+          quickActionMessageDebugRef.current.set(debugKey, snapshot);
+          quickActionDebugLog('toUIMessage mapped', {
+            messageId: msg.id,
+            role: normalizedRole,
+            metadataKeys: metadataRecord ? Object.keys(metadataRecord) : [],
+            hasPaymentRequest,
+            rawQuickRepliesCount: rawQuickReplies?.length ?? 0,
+            rawQuickReplies,
+          });
+        }
+      }
+    }
+
     return {
       id: msg.id,
       role: normalizedRole,
@@ -341,7 +385,7 @@ export const useConversation = ({
             id: fileId, name: 'File', size: 0, type: 'application/octet-stream', url: buildFileUrl(fileId),
           }))
         : undefined,
-      paymentRequest: parsePaymentRequestMetadata(msg.metadata),
+      paymentRequest,
       reactions: Array.isArray(msg.reactions)
         ? msg.reactions
             .filter((r): r is MessageReaction => r !== null && typeof r === 'object')

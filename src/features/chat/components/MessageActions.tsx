@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useEffect, useRef } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
@@ -11,6 +12,7 @@ import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { Button } from '@/shared/ui/Button';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
+import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -141,6 +143,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
 	const { t } = useTranslation('common');
+	const quickActionRenderSnapshotRef = useRef('');
 
 	const isIntakeCompleted = intakeStatus?.step === 'completed';
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
@@ -166,6 +169,38 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		}
 	};
 	const paymentAmount = formatLeadAmount(leadIntake?.amount, leadIntake?.currency);
+
+	useEffect(() => {
+		if (!isQuickActionDebugEnabled()) return;
+		const snapshot = JSON.stringify({
+			isLast: Boolean(isLast),
+			quickReplies: quickReplies ?? null,
+			hasRenderableQuickReply,
+			showCtaButtons,
+			shouldShowDecisionPrompt,
+			shouldShowPaymentCard,
+			hasPaymentRequest: Boolean(paymentRequest),
+		});
+		if (snapshot === quickActionRenderSnapshotRef.current) return;
+		quickActionRenderSnapshotRef.current = snapshot;
+		quickActionDebugLog('MessageActions render gating', {
+			isLast: Boolean(isLast),
+			quickReplies: quickReplies ?? null,
+			hasRenderableQuickReply,
+			showCtaButtons,
+			shouldShowDecisionPrompt,
+			shouldShowPaymentCard,
+			hasPaymentRequest: Boolean(paymentRequest),
+		});
+	}, [
+		hasRenderableQuickReply,
+		isLast,
+		paymentRequest,
+		quickReplies,
+		showCtaButtons,
+		shouldShowDecisionPrompt,
+		shouldShowPaymentCard
+	]);
 
 	return (
 		<div className={className}>

@@ -96,9 +96,10 @@ export const buildIntakeConversationPrompt = (
     ? `\nKNOWN SO FAR (do not ask for these again):\n${knownFields.map(f => `- ${f}`).join('\n')}`
     : '';
 
-  const ctaInstruction = messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD
-    ? `\nYou have asked enough questions. Briefly summarize what you know and ask if the user is ready to submit to the firm.`
-    : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents.`;
+  const isSubmissionReady = shouldShowDeterministicIntakeCta(mergedState);
+  const ctaInstruction = (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady)
+    ? `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`
+    : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
 
   return `You are a warm, helpful legal intake assistant for a law firm. The structured intake fields have already been saved by a separate process. Your only job is to respond naturally to the user.
 
@@ -125,7 +126,8 @@ const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null)
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
-  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome;
+  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): string => {

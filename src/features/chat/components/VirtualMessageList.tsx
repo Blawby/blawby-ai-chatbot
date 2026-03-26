@@ -16,6 +16,7 @@ import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
+import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 
 export interface OnboardingActions {
     onSaveAll?: () => void | Promise<void>;
@@ -688,6 +689,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         () => dedupedMessages.slice(derivedStart, derivedEnd),
         [dedupedMessages, derivedStart, derivedEnd]
     );
+    const visibleMessageIdsKey = useMemo(
+        () => visibleMessages.map((message) => message.id).join(','),
+        [visibleMessages]
+    );
+    const quickActionDebugSnapshotRef = useRef('');
+    const visibleMessagesRef = useRef<ChatMessageUI[]>(visibleMessages);
     const messageMap = useMemo(() => {
         return new Map(dedupedMessages.map((message) => [message.id, message]));
     }, [dedupedMessages]);
@@ -726,12 +733,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const reactionRequestedRef = useRef(new Set<string>());
 
     useEffect(() => {
-        if (!onRequestReactions || visibleMessages.length === 0) {
+        visibleMessagesRef.current = visibleMessages;
+    }, [visibleMessages]);
+
+    useEffect(() => {
+        if (!onRequestReactions || visibleMessagesRef.current.length === 0) {
             return;
         }
         
         const requestVisibleReactions = () => {
-            const messagesToRequest = visibleMessages.filter(message => {
+            const messagesToRequest = visibleMessagesRef.current.filter(message => {
                 if (!message.id) return false;
                 // Skip if reactions are already loaded on the message object.
                 if (message.reactions !== undefined) return false;
@@ -757,7 +768,63 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
         
         requestVisibleReactions();
-    }, [onRequestReactions, visibleMessages.map(m => m.id).join(',')]); // Only re-run when message IDs change, not on every render
+    }, [onRequestReactions, visibleMessageIdsKey]); // Only re-run when message IDs change, not on every render
+
+    useEffect(() => {
+        if (!isQuickActionDebugEnabled()) return;
+
+        const actionableMessages = visibleMessages
+            .map((message, index) => {
+                const isLast = (index + derivedStart) === (dedupedMessages.length - 1);
+                const rawQuickReplies = Array.isArray(message.metadata?.quickReplies)
+                    ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
+                    : [];
+                const derivedQuickReplies = isLast ? rawQuickReplies : [];
+                const hasSubmitQuickReply = derivedQuickReplies.includes('__submit__');
+                const showSharedIntakeCta =
+                    !message.isUser &&
+                    isLast &&
+                    Boolean(intakeConversationState?.intakeReady) &&
+                    !hasSubmitQuickReply &&
+                    intakeConversationState?.ctaResponse !== 'ready' &&
+                    _intakeStatus?.step !== 'pending_review' &&
+                    _intakeStatus?.step !== 'completed';
+
+                const isActionable = isLast || rawQuickReplies.length > 0 || Boolean(message.paymentRequest) || showSharedIntakeCta;
+                if (!isActionable) return null;
+
+                return {
+                    messageId: message.id ?? null,
+                    role: message.role,
+                    isLast,
+                    rawQuickReplies,
+                    derivedQuickReplies,
+                    hasSubmitQuickReply,
+                    showSharedIntakeCta,
+                    hasPaymentRequest: Boolean(message.paymentRequest),
+                };
+            })
+            .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+        const snapshot = JSON.stringify({
+            intakeReady: Boolean(intakeConversationState?.intakeReady),
+            intakeStep: _intakeStatus?.step ?? null,
+            ctaResponse: intakeConversationState?.ctaResponse ?? null,
+            actionableMessages,
+        });
+
+        if (snapshot === quickActionDebugSnapshotRef.current) {
+            return;
+        }
+        quickActionDebugSnapshotRef.current = snapshot;
+
+        quickActionDebugLog('VirtualMessageList action gating snapshot', {
+            intakeReady: Boolean(intakeConversationState?.intakeReady),
+            intakeStep: _intakeStatus?.step ?? null,
+            ctaResponse: intakeConversationState?.ctaResponse ?? null,
+            actionableMessages,
+        });
+    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeConversationState?.intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.step]);
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">

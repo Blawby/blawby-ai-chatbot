@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Elements } from '@stripe/react-stripe-js';
 import type { StripeElementsOptionsClientSecret } from '@stripe/stripe-js';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -44,6 +44,24 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
 }) => {
   const { t } = useTranslation(['common', 'auth']);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateTheme = () => {
+      const hasDarkClass = document.documentElement.classList.contains('dark');
+      setIsDarkTheme(hasDarkClass || mediaQuery.matches);
+    };
+    updateTheme();
+    mediaQuery.addEventListener('change', updateTheme);
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      mediaQuery.removeEventListener('change', updateTheme);
+      observer.disconnect();
+    };
+  }, []);
 
   // Payment elements options
   const clientSecret = paymentProps?.request?.clientSecret;
@@ -52,18 +70,18 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
     return {
       clientSecret,
       appearance: {
-        theme: 'stripe',
+        theme: isDarkTheme ? 'night' : 'stripe',
         variables: {
-          colorPrimary: '#2563eb',
-          colorText: '#0f172a',
-          colorBackground: '#ffffff',
+          colorPrimary: '#3b82f6',
+          colorText: isDarkTheme ? '#f8fafc' : '#0f172a',
+          colorBackground: isDarkTheme ? '#0f172a' : '#ffffff',
           colorDanger: '#dc2626',
           fontFamily: 'ui-sans-serif, system-ui',
           borderRadius: '12px'
         }
       }
     };
-  }, [clientSecret]);
+  }, [clientSecret, isDarkTheme]);
 
   if (!type || !isOpen) return null;
 
@@ -77,7 +95,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         description={t('common:payment.subtitle', 'Securely finalize your intake request')}
       >
         {canUseElements ? (
-          <Elements stripe={stripePromise} options={elementsOptions!}>
+          <Elements stripe={stripePromise} options={elementsOptions ?? undefined}>
             <IntakePaymentForm
               amount={paymentProps.request.amount}
               currency={paymentProps.request.currency}
@@ -89,7 +107,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
             />
           </Elements>
         ) : (
-          <div className="p-4 text-center text-sm text-[rgb(var(--accent-foreground))]">
+          <div className="p-4 text-center text-sm text-input-text">
             {t('common:chat.paymentDetailsMissing', 'Payment details missing or unavailable.')}
           </div>
         )}

@@ -79,6 +79,33 @@ const summarizeIntakeCoreFields = (
   intakeReady: typeof state?.intakeReady === 'boolean' ? state.intakeReady : null,
 });
 
+const extractReplyOptionCandidates = (reply: string): string[] => {
+  const trimmed = reply.trim();
+  if (!trimmed) return [];
+  const forExampleMatch = trimmed.match(/for example,\s*(.+?)\?/i);
+  const clause = forExampleMatch?.[1]?.trim();
+  if (!clause) return [];
+  const normalized = clause
+    .replace(/^are you looking to\s+/i, '')
+    .replace(/^are you trying to\s+/i, '')
+    .replace(/^are you hoping to\s+/i, '')
+    .replace(/\s+or\s+/gi, ', ');
+  return normalized
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .slice(0, 3);
+};
+
+const summarizeQuickReplyQuality = (values: string[] | null): Record<string, unknown> => {
+  const replies = values ?? [];
+  return {
+    count: replies.length,
+    containsQuestionLike: replies.some((value) => /\?$/.test(value.trim())),
+    values: replies,
+  };
+};
+
 // ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
@@ -778,6 +805,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const fieldsForQuickReplies = isIntakeMode ? intakeFields : (isOnboardingMode ? onboardingFields : null);
+      let quickRepliesSource: 'none' | 'fieldsForQuickReplies' | 'intakeReadySubmit' | 'intakeFieldsQuickReplies' = 'none';
       // Extract quickReplies from structured tool fields before persisting
       if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
         quickReplies = (fieldsForQuickReplies.quickReplies as unknown[])
@@ -786,6 +814,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           .filter((v) => v.length > 0)
           .slice(0, 3);
         if (quickReplies.length === 0) quickReplies = null;
+        if (quickReplies) {
+          quickRepliesSource = 'fieldsForQuickReplies';
+        }
       }
       if (onboardingFields && 'quickReplies' in onboardingFields) {
         const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
@@ -812,6 +843,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (intakeReady) {
           // Submit is ready - replace quick replies with a single submit action
           quickReplies = ['__submit__'];
+          quickRepliesSource = 'intakeReadySubmit';
         } else if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
           quickReplies = (intakeFields.quickReplies as unknown[])
             .filter((v): v is string => typeof v === 'string')
@@ -820,6 +852,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             .filter((v) => v.length > 0)
             .slice(0, 3);
           if (quickReplies.length === 0) quickReplies = null;
+          if (quickReplies) {
+            quickRepliesSource = 'intakeFieldsQuickReplies';
+          }
         }
 
         intakeFields = {
@@ -849,6 +884,23 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
+      const includeQuickRepliesInMetadata = Boolean(quickReplies);
+
+      if (debugEnabled) {
+        Logger.info('[QuickActionDebug] aiChat computed action payload', {
+          conversationId: body.conversationId,
+          intakeReady,
+          quickReplies,
+          quickRepliesSource,
+          quickRepliesQuality: summarizeQuickReplyQuality(quickReplies),
+          intakeFieldsQuickReplies: Array.isArray(intakeFields?.quickReplies) ? intakeFields?.quickReplies : null,
+          replyOptionCandidates: extractReplyOptionCandidates(accumulatedReply),
+          replyPreview: accumulatedReply.slice(0, 240),
+          includeQuickRepliesInMetadata,
+          isIntakeMode,
+          isOnboardingMode,
+        });
+      }
 
       // Emit the done event before persisting — client can act on intakeFields
       // immediately without waiting for the DB write
@@ -874,7 +926,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           ...(intakeFields ? { intakeFields } : {}),
           ...(onboardingFields ? { onboardingFields } : {}),
           ...(onboardingProfile ? { onboardingProfile } : {}),
-          ...(quickReplies && !isIntakeMode ? { quickReplies } : {}),
+          ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
           ...(triggerEditModal ? { triggerEditModal } : {}),
           ...(shouldPromptConsultation
             ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
@@ -886,6 +938,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       if (storedMessage) {
+        if (debugEnabled) {
+          Logger.info('[QuickActionDebug] aiChat persisted message metadata', {
+            conversationId: body.conversationId,
+            messageId: storedMessage.id,
+            quickReplies,
+            quickRepliesSource,
+            quickRepliesQuality: summarizeQuickReplyQuality(quickReplies),
+            includeQuickRepliesInMetadata,
+            storedMetadataKeys: storedMessage.metadata && typeof storedMessage.metadata === 'object'
+              ? Object.keys(storedMessage.metadata as Record<string, unknown>)
+              : [],
+          });
+        }
         // Persist the merged intake state back to the conversation metadata
         // so that it persists across devices/refreshes.
         if (isIntakeMode && mergedIntakeState) {
