@@ -2,9 +2,18 @@
 # Keep secrets here; non-sensitive configuration lives in wrangler.toml.
 # For production secrets, use: wrangler secret put <KEY_NAME>
 # Copy this file to worker/.dev.vars (single source of truth).
+# Durable Object bindings (CHAT_ROOM, MATTER_PROGRESS) are configured in worker/wrangler.toml.
 
 # Required for local Worker development; must match VITE_BACKEND_API_URL when set
 BACKEND_API_URL=your_backend_api_url_here
+
+# AI routing
+# Use AI Gateway dynamic routes for provider failover, e.g. OpenAI -> Workers AI
+AI_PROVIDER=cloudflare_gateway
+AI_MODEL=dynamic/blawby-chat-failover
+
+# Optional: if your code-level fallback path is enabled, override fallback model
+# AI_GATEWAY_WORKERS_MODEL=workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
 
 # API Keys and Tokens (SENSITIVE)
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here

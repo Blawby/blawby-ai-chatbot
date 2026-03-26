@@ -7,11 +7,11 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { MatterData, MatterStatus } from '@/shared/types/matter';
 import { getDefaultDocumentSuggestions } from '@/shared/hooks/useMatterState';
 import type { DocumentIconAttachment } from '../../../../worker/types';
-import { MatterStatusBadge } from './StatusBadge';
-import type { MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
+import { MatterStatusBadge, type MatterWorkflowStatus } from './StatusBadge';
 
 interface MatterTabProps {
   matter: MatterData | null;
@@ -120,7 +120,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
   if (status === 'empty') {
     return (
       <div>
-        <DocumentIcon />
+        <Icon icon={DocumentIcon} className="h-4 w-4" />
         <h3>No Matter Yet</h3>
         <p>Start a chat to create your matter</p>
         <Button onClick={onStartChat} variant="primary" size="sm">
@@ -186,7 +186,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {missingInfo.length > 0 && (
         <div>
           <div>
-            <ExclamationTriangleIcon />
+            <Icon icon={ExclamationTriangleIcon} className="h-4 w-4" />
             <h4>Missing Information</h4>
           </div>
           <ul>
@@ -206,7 +206,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {/* Document Suggestions */}
       <div>
         <div>
-          <DocumentIcon />
+          <Icon icon={DocumentIcon} className="h-4 w-4" />
           <h4>Suggested Documents</h4>
         </div>
         <div>
@@ -214,9 +214,9 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
             <div key={doc.id}>
               <div>
                 {doc.status === 'uploaded' ? (
-                  <CheckCircleIcon />
+                  <Icon icon={CheckCircleIcon} className="h-4 w-4" />
                 ) : (
-                  <DocumentIcon />
+                  <Icon icon={DocumentIcon} className="h-4 w-4" />
                 )}
                 <div>
                   <p>{doc.name}</p>
@@ -246,7 +246,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {status === 'ready' && (
         <div>
           <div>
-            <CheckCircleIcon />
+            <Icon icon={CheckCircleIcon} className="h-4 w-4" />
             <h4>Matter Complete</h4>
           </div>
           <p>All required information has been provided</p>

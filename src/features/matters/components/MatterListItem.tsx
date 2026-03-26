@@ -1,74 +1,65 @@
-import type { MatterSummary } from '@/features/matters/data/mockMatters';
-import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import type { MatterSummary } from '@/features/matters/data/matterTypes';
 import { cn } from '@/shared/utils/cn';
 import { Avatar } from '@/shared/ui/profile';
-import { Button } from '@/shared/ui/Button';
-import { MatterStatusDot } from './MatterStatusDot';
-import { MatterStatusPill } from './MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 interface MatterListItemProps {
   matter: MatterSummary;
   onSelect?: (matter: MatterSummary) => void;
+  isSelected?: boolean;
 }
 
-export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
+export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterListItemProps) => {
   const updatedLabel = formatRelativeTime(matter.updatedAt);
   const isInteractive = Boolean(onSelect);
 
-  const sharedClassName = cn(
-    'w-full text-left relative flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8 transition-colors',
-    isInteractive
-      ? 'hover:bg-gray-50 dark:hover:bg-dark-hover cursor-pointer'
-      : 'cursor-default'
+  const rowClassName = cn(
+    'w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors duration-150',
+    isSelected ? 'bg-white/5' : '',
+    isInteractive ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
   );
 
   const content = (
     <>
-      <div className="min-w-0 flex-auto">
-        <div className="flex items-center gap-x-3">
-          <MatterStatusDot status={matter.status} className="flex-none" />
-          <h2 className="min-w-0 text-sm font-semibold leading-6 text-gray-900 dark:text-white">
-            <span className="flex gap-x-2">
-              <span className="truncate">{matter.title}</span>
-              <span className="text-gray-400">/</span>
-              <span className="flex items-center gap-x-2 whitespace-nowrap text-gray-600 dark:text-gray-300">
-                <Avatar
-                  name={matter.clientName}
-                  size="xs"
-                  className="bg-gray-200 text-gray-700 dark:bg-gray-700"
-                />
-                <span>{matter.clientName}</span>
-              </span>
-            </span>
+      <Avatar
+        name={matter.clientName}
+        size="sm"
+        className="bg-white/10 text-input-text ring-1 ring-white/20"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-3">
+          <h2 className="min-w-0 truncate text-sm font-semibold leading-6 text-input-text">
+            {matter.title}
           </h2>
         </div>
-        <div className="mt-3 flex items-center gap-x-2.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-          <p className="truncate">Practice Area: {matter.practiceArea || 'Not Assigned'}</p>
-          <svg className="h-0.5 w-0.5 flex-none fill-gray-300 dark:fill-white/30" viewBox="0 0 2 2">
+        <div className="mt-1 flex items-center gap-2 text-xs text-input-placeholder">
+          <span className="truncate">{matter.clientName}</span>
+          <svg className="h-0.5 w-0.5 flex-none fill-line-glass/60" viewBox="0 0 2 2" aria-hidden="true">
             <circle cx="1" cy="1" r="1" />
           </svg>
-          <p className="whitespace-nowrap">Updated {updatedLabel}</p>
+          <span className="whitespace-nowrap">Updated {updatedLabel}</span>
         </div>
       </div>
-      <MatterStatusPill status={matter.status} className="flex-none" />
-      <ChevronRightIcon aria-hidden="true" className="h-5 w-5 flex-none text-gray-400" />
     </>
   );
 
   return (
     <li>
       {isInteractive ? (
-        <Button
-          variant="ghost"
+        <button
+          type="button"
           onClick={() => onSelect?.(matter)}
-          className={cn(sharedClassName, 'w-full h-auto')}
+          className={cn(
+            rowClassName,
+            'h-auto rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
+          )}
+          aria-current={isSelected ? 'true' : undefined}
           aria-label={`Select matter ${matter.title} for ${matter.clientName} (${matter.status})`}
         >
           {content}
-        </Button>
+        </button>
       ) : (
-        <div className={sharedClassName}>
+        <div className={rowClassName}>
           {content}
         </div>
       )}

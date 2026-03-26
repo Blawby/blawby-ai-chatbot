@@ -23,13 +23,8 @@ export type FileAnalysisEnv = Pick<
 /**
  * Analyzes files using the vision API
  */
-export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question?: string): Promise<Record<string, unknown>> {
-  console.log('=== ANALYZE FILE FUNCTION CALLED ===');
-  console.log('File ID:', fileId);
-  console.log('Question:', question);
-  
+export async function analyzeFile(env: FileAnalysisEnv, fileId: string, _question?: string): Promise<Record<string, unknown>> {
   // Question parameter is kept for API compatibility but not used (Adobe extraction doesn't need it)
-  const _analysisQuestion = question || "Extract document content";
   
   try {
     // Get file from R2 storage
@@ -48,14 +43,12 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
         SELECT * FROM files WHERE id = ? AND is_deleted = FALSE
       `);
       fileRecord = await stmt.bind(fileId).first();
-      console.log('Database file record:', fileRecord);
     } catch (dbError) {
       console.warn('Failed to get file metadata from database:', dbError);
     }
 
     // Construct file path
     let filePath = fileRecord?.file_path;
-    console.log('Initial file path from database:', filePath);
     
     if (!filePath) {
       filePath = await findFilePathInR2(env, fileId);
@@ -69,7 +62,6 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
     }
 
     // Get file from R2
-    console.log('Attempting to get file from R2:', filePath);
     const fileObject = await env.FILES_BUCKET.get(filePath);
     if (!fileObject) {
       console.warn('File not found in R2 storage for analysis:', filePath);
@@ -78,18 +70,6 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
       ) as unknown as Record<string, unknown>;
     }
 
-    console.log('R2 file object:', {
-      size: fileObject.size,
-      etag: fileObject.etag,
-      httpMetadata: fileObject.httpMetadata,
-      customMetadata: fileObject.customMetadata
-    });
-
-    // Get the file body as ArrayBuffer
-    const fileBuffer = await fileObject.arrayBuffer();
-    console.log('File buffer size:', fileBuffer.byteLength);
-    // Only log buffer size, not content
-    console.log('File buffer size:', fileBuffer.byteLength);
 
     // File analysis is now handled by the /api/analyze endpoint
     // This utility function is kept for backward compatibility but should not be used directly
@@ -110,8 +90,6 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
  * Finds file path in R2 storage by file ID
  */
 async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<string | null> {
-  console.log('No file path from database, attempting to construct from file ID');
-  
   // Handle the actual file ID format with UUID
   // Format: practiceId-conversationId-timestamp-random (new format)
   // Legacy format: practice-slug-uuid-timestamp-random (old format with sessionId)
@@ -120,42 +98,33 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
   
   // Split by hyphens and look for UUID pattern
   const parts = fileId.split('-');
-  console.log('File ID parts:', parts);
   
   if (parts.length >= 6) {
     // Find the UUID part (8-4-4-4-12 format) - this could be conversationId (new format) or sessionId (legacy)
     let practiceIdOrSlug = '';
     let conversationIdOrSessionId = '';
-    let timestamp = '';
-    let random = '';
+    let _timestamp = '';
+    let _random = '';
     
     // Look for UUID pattern in the middle
     for (let i = 0; i < parts.length - 2; i++) {
       const potentialUuid = parts.slice(i, i + 5).join('-');
-      console.log(`Checking potential UUID at index ${i}:`, potentialUuid);
       
       if (potentialUuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)) {
         // Found UUID, reconstruct the parts
         practiceIdOrSlug = parts.slice(0, i).join('-');
         conversationIdOrSessionId = potentialUuid;
-        timestamp = parts[i + 5];
-        random = parts[i + 6];
-        
-        console.log('Successfully parsed file ID:', { practiceIdOrSlug, conversationIdOrSessionId, timestamp, random, fileId });
+        _timestamp = parts[i + 5];
+        _random = parts[i + 6];
         
         // Try to find the file with new format first (conversationId)
         const newFormatPrefix = `uploads/${practiceIdOrSlug}/${conversationIdOrSessionId}/${fileId}`;
-        console.log('Looking for file with new format prefix:', newFormatPrefix);
         
         try {
           const objects = await env.FILES_BUCKET.list({ prefix: newFormatPrefix });
-          console.log('R2 objects found:', objects.objects.length);
           if (objects.objects.length > 0) {
             const filePath = objects.objects[0].key;
-            console.log('Found file path:', filePath);
             return filePath;
-          } else {
-            console.log('No R2 objects found with new format prefix:', newFormatPrefix);
           }
         } catch (listError) {
           console.warn('Failed to list R2 objects:', listError);
@@ -170,7 +139,6 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
         prefix: 'uploads/',
         limit: 1000  // Add reasonable limit to avoid performance issues
       });
-      console.log('Total R2 objects found:', allObjects.objects.length);
 
       if (allObjects.truncated) {
         console.warn('R2 listing was truncated, some files may not be searched');
@@ -180,16 +148,11 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
       const matchingObject = allObjects.objects.find(obj => obj.key.includes(fileId));
       if (matchingObject) {
         const filePath = matchingObject.key;
-        console.log('Found file path by searching all objects:', filePath);
         return filePath;
-      } else {
-        console.log('No matching object found for fileId:', fileId);
       }
     } catch (searchError) {
       console.warn('Failed to search all R2 objects:', searchError);
     }
-  } else {
-    console.log('File ID does not have enough parts for parsing:', parts.length);
   }
   
   return null;

@@ -1,0 +1,266 @@
+/**
+ * PracticeOnboardingPage - Clean onboarding page architecture
+ *
+ * Replaces the monolithic WorkspacePage practice onboarding section
+ * with a cleaner, more maintainable component structure.
+ */
+
+import { FunctionComponent } from 'preact';
+import { useMemo, useCallback, useState, useEffect } from 'preact/hooks';
+import { Page } from '@/shared/ui/layout/Page';
+import { PageHeader } from '@/shared/ui/layout/PageHeader';
+import { SplitView } from '@/shared/ui/layout/SplitView';
+import OnboardingChat from '../components/OnboardingChat';
+import OnboardingActions from '../components/OnboardingActions';
+import OnboardingModals from '../components/OnboardingModals';
+import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
+import type { Practice } from '@/shared/hooks/usePracticeManagement';
+import type { PracticeDetails } from '@/shared/lib/apiClient';
+import type { FileAttachment, ChatMessageUI } from '../../../../worker/types';
+import { useOnboardingState } from '../hooks/useOnboardingState';
+import { normalizeAccentColor } from '@/shared/utils/accentColors';
+
+export interface PracticeOnboardingPageProps {
+  status: PracticeSetupStatus;
+  practice: Practice | null;
+  details: PracticeDetails | null;
+  onSaveBasics?: (values: {
+    name: string;
+    slug: string;
+    accentColor: string;
+  }) => Promise<void>;
+  onSaveContact?: (values: {
+    website: string;
+    businessEmail: string;
+    businessPhone: string;
+    address?: {
+      address?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    };
+  }) => Promise<void>;
+  servicesSlot?: {
+    children: React.ReactNode;
+  };
+  payoutsSlot?: {
+    children: React.ReactNode;
+  };
+  logoUploading: boolean;
+  logoUploadProgress: number | null;
+  onLogoChange: (files: FileList | File[]) => void;
+  onProgressChange?: (snapshot: {
+    fields: Record<string, unknown>;
+    hasPendingSave: boolean;
+    completionScore: number;
+    missingFields: string[];
+  }) => void;
+  chatAdapter?: {
+    messages: ChatMessageUI[];
+    sendMessage: (
+      message: string,
+      attachments?: FileAttachment[],
+      replyToMessageId?: string | null,
+      options?: { additionalContext?: string }
+    ) => void | Promise<void>;
+    messagesReady?: boolean;
+    isSocketReady?: boolean;
+    hasMoreMessages?: boolean;
+    isLoadingMoreMessages?: boolean;
+    onLoadMoreMessages?: () => void | Promise<void>;
+    onToggleReaction?: (messageId: string, emoji: string) => void;
+    onRequestReactions?: (messageId: string) => void | Promise<void>;
+  } | null;
+}
+
+const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = ({
+  status,
+  practice,
+  details,
+  onSaveBasics,
+  onSaveContact,
+  servicesSlot,
+  payoutsSlot,
+  logoUploading,
+  logoUploadProgress,
+  onLogoChange,
+  onProgressChange,
+  chatAdapter,
+}) => {
+  const { state, actions } = useOnboardingState();
+  const [basicsSaved, setBasicsSaved] = useState(false);
+  const [contactSaved, setContactSaved] = useState(false);
+  
+  // Reset saved flags when the underlying data source changes allowing saves again
+  useEffect(() => {
+    setBasicsSaved(false);
+    setContactSaved(false);
+  }, [practice, details]);
+
+  const normalizedContactAddress = useMemo(() => {
+    const candidate = details?.address;
+    if (candidate && typeof candidate === 'object') {
+      return candidate;
+    }
+    return undefined;
+  }, [details?.address]);
+  
+  const handleEditBasics = useCallback(() => {
+    // Modal opening logic would go here
+  }, []);
+  
+  const handleEditContact = useCallback(() => {
+    // Modal opening logic would go here
+  }, []);
+
+  const handleSaveBasics = useCallback(async (values: {
+    name: string;
+    slug: string;
+    accentColor: string;
+  }) => {
+    if (!onSaveBasics) return;
+    try {
+      await onSaveBasics(values);
+    } catch (error) {
+      console.error('Failed to save basics:', error);
+    }
+  }, [onSaveBasics]);
+
+  const handleSaveContact = useCallback(async (values: {
+    website: string;
+    businessEmail: string;
+    businessPhone: string;
+    address?: {
+      address?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    };
+  }) => {
+    if (!onSaveContact) return;
+    try {
+      await onSaveContact(values);
+    } catch (error) {
+      console.error('Failed to save contact:', error);
+    }
+  }, [onSaveContact]);
+
+  const handleSaveAll = useCallback(async () => {
+    actions.setIsSaving(true);
+    actions.setSaveError(null);
+    let basicsErr = '';
+    let contactErr = '';
+    
+    try {
+      if (onSaveBasics && !basicsSaved) {
+        try {
+          const accentColor = normalizeAccentColor(details?.accentColor || practice?.accentColor) ?? '#D4AF37';
+          await onSaveBasics({
+            name: practice?.name ?? '',
+            slug: practice?.slug ?? '',
+            accentColor
+          });
+          setBasicsSaved(true);
+        } catch (e) {
+          basicsErr = e instanceof Error ? e.message : 'Failed to save basics';
+        }
+      }
+
+      if (onSaveContact && !contactSaved) {
+        try {
+          await onSaveContact({
+            website: details?.website ?? practice?.website ?? '',
+            businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+            businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+            address: normalizedContactAddress
+          });
+          setContactSaved(true);
+        } catch (e) {
+          contactErr = e instanceof Error ? e.message : 'Failed to save contact';
+        }
+      }
+      
+      if (basicsErr || contactErr) {
+        const errors = [];
+        if (basicsErr) errors.push(`Basics: ${basicsErr}`);
+        if (contactErr) errors.push(`Contact: ${contactErr}`);
+        actions.setSaveError(errors.join(' | '));
+      }
+    } finally {
+      actions.setIsSaving(false);
+    }
+  }, [actions, basicsSaved, contactSaved, details, normalizedContactAddress, onSaveBasics, onSaveContact, practice]);
+
+  const chatAdapterProps = useMemo(() => ({
+    messages: chatAdapter?.messages || [],
+    sendMessage: chatAdapter?.sendMessage || (() => {}),
+    messagesReady: chatAdapter?.messagesReady,
+    isSocketReady: chatAdapter?.isSocketReady,
+    hasMoreMessages: chatAdapter?.hasMoreMessages,
+    isLoadingMoreMessages: chatAdapter?.isLoadingMoreMessages,
+    onLoadMoreMessages: chatAdapter?.onLoadMoreMessages,
+    onToggleReaction: chatAdapter?.onToggleReaction,
+    onRequestReactions: chatAdapter?.onRequestReactions,
+  }), [chatAdapter]);
+
+  return (
+    <Page className="h-full">
+      <PageHeader
+        title="Practice Setup"
+        subtitle="Configure your practice information and preferences"
+      />
+
+      <SplitView
+        primary={
+          <div className="flex-1 min-h-0">
+            <OnboardingChat
+              status={status}
+              practice={practice}
+              details={details}
+              chatAdapter={chatAdapterProps}
+              logoUploading={logoUploading}
+              logoUploadProgress={logoUploadProgress}
+              onLogoChange={onLogoChange}
+              onProgressChange={onProgressChange}
+              extractedFields={{}}
+              onFieldUpdate={() => {}}
+            />
+          </div>
+        }
+        secondary={
+          <div className="w-96 min-w-0 space-y-6">
+            <OnboardingActions
+              status={status}
+              onSaveBasics={handleSaveBasics}
+              onSaveContact={handleSaveContact}
+              servicesSlot={servicesSlot ? { children: servicesSlot } : undefined}
+              payoutsSlot={payoutsSlot ? { children: payoutsSlot } : undefined}
+              logoUploading={logoUploading}
+              logoUploadProgress={logoUploadProgress}
+              onLogoChange={onLogoChange}
+              isSaving={state.isSaving}
+              saveError={state.saveError}
+              onEditBasics={handleEditBasics}
+              onEditContact={handleEditContact}
+              onSaveAll={handleSaveAll}
+            />
+          </div>
+        }
+      />
+
+      {/* Modals */}
+      <OnboardingModals
+        practice={practice}
+        details={details}
+        onSaveBasics={handleSaveBasics}
+        onSaveContact={handleSaveContact}
+        isModalSaving={state.isSaving}
+        onSetModalSaving={actions.setIsModalSaving}
+      />
+    </Page>
+  );
+};
+
+export default PracticeOnboardingPage;

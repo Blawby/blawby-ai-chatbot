@@ -3,21 +3,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
-import { getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
+import { getConversationWsEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
-import { useNavigation } from '@/shared/utils/navigation';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 
 interface IntakePaymentFormProps {
-  practiceName: string;
   amount?: MinorAmount;
   currency?: string;
   intakeUuid?: string;
-  practiceId?: string;
   conversationId?: string;
-  returnTo: string;
   onSuccess?: () => void | Promise<void>;
-  onReturn?: () => void;
+
+  variant?: 'card' | 'plain';
 }
 
 const formatIntakeAmount = (amount?: number, currency?: string, locale?: string) => {
@@ -38,23 +35,19 @@ const formatIntakeAmount = (amount?: number, currency?: string, locale?: string)
 };
 
 export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
-  practiceName,
   amount,
   currency,
   intakeUuid,
-  practiceId,
   conversationId,
-  returnTo,
   onSuccess,
-  onReturn
+
+  variant = 'card'
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { navigate } = useNavigation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
-  const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [callbackWarning, setCallbackWarning] = useState<string | null>(null);
   const isMountedRef = useRef(true);
@@ -78,35 +71,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     () => formatIntakeAmount(amount, currency, locale),
     [amount, currency, locale]
   );
-
-  const confirmIntakeLead = useCallback(async (): Promise<boolean> => {
-    if (!intakeUuid || !practiceId || !conversationId) {
-      return false;
-    }
-    try {
-      const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          intakeUuid,
-          conversationId
-        })
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { error?: string } | null;
-        const detail = payload?.error ? ` (${payload.error})` : '';
-        console.warn(`[IntakePayment] Intake confirmation failed: ${response.status}${detail}`);
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.warn('[IntakePayment] Intake confirmation failed', error);
-      return false;
-    }
-  }, [conversationId, intakeUuid, practiceId]);
 
   const waitForPaymentConfirmation = useCallback(async (timeoutMs = 20000, signal?: AbortSignal): Promise<string | null> => {
     if (!conversationId || !intakeUuid) {
@@ -239,7 +203,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const handleSubmit = useCallback(async (event: SubmitEvent) => {
     event.preventDefault();
     setErrorMessage(null);
-    setStatusDetail(null);
     let paymentSucceeded = false;
 
     if (!stripe || !elements) {
@@ -273,9 +236,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
 
       const paymentIntentStatus = result.paymentIntent?.status ?? null;
-      if (paymentIntentStatus) {
-        setStatusDetail(paymentIntentStatus);
-      }
 
       if (paymentIntentStatus === 'requires_action') {
         setPaymentSubmitted(false);
@@ -298,19 +258,16 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         return;
       }
 
-      if (paymentIntentStatus === 'succeeded' || paymentIntentStatus === 'processing') {
-        const confirmed = await confirmIntakeLead();
-        if (!isMountedRef.current) return;
-        if (confirmed) {
-          setStatus('succeeded');
-          paymentSucceeded = true;
-          await handlePostPaymentSuccess();
-          return;
-        }
-        console.warn('[IntakePayment] Intake confirmation did not succeed after payment intent result', {
-          intakeUuid,
-          paymentIntentStatus
-        });
+      if (paymentIntentStatus === 'succeeded') {
+        setStatus('succeeded');
+        paymentSucceeded = true;
+        await handlePostPaymentSuccess();
+        return;
+      }
+
+      if (paymentIntentStatus === 'processing') {
+        setStatus('processing');
+        return;
       }
 
       const waitController = new AbortController();
@@ -322,24 +279,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
       if (!isMountedRef.current) return;
         if (wsStatus && isPaidIntakeStatus(wsStatus)) {
-          const confirmed = await confirmIntakeLead();
-          if (!isMountedRef.current) return;
-          if (!confirmed) {
-          const retryConfirmed = await confirmIntakeLead();
-          if (!isMountedRef.current) return;
-          if (!retryConfirmed) {
-            setPaymentSubmitted(false);
-            setStatus('failed');
-            setStatusDetail(wsStatus);
-            setErrorMessage(
-              'Payment was received, but we could not confirm your intake. Please refresh or contact support.'
-            );
-            return;
-          }
-        }
         setStatus('succeeded');
         paymentSucceeded = true;
-        setStatusDetail(wsStatus);
         await handlePostPaymentSuccess();
         return;
       }
@@ -367,8 +308,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   }, [
     stripe,
     elements,
-    intakeUuid,
-    confirmIntakeLead,
     handlePostPaymentSuccess,
     TERMINAL_FAILURE_STATUSES,
     waitForPaymentConfirmation
@@ -377,97 +316,57 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 text-sm text-input-placeholder backdrop-blur-md">
           Loading secure payment form…
         </div>
       )}
-      <div className="rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-white">Consultation fee</div>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {practiceName} requires payment before confirming your intake.
-            </p>
-          </div>
-          {formattedAmount && (
-            <div className="text-lg font-semibold text-gray-900 dark:text-white">{formattedAmount}</div>
-          )}
-        </div>
-        <div className="mt-4">
-          <PaymentElement options={{ layout: 'tabs' }} />
-        </div>
+      <div className={variant === 'card' ? "glass-panel p-5" : "rounded-xl border border-line-glass/30 bg-surface-panel/60 p-4"}>
+        <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 backdrop-blur-xl dark:text-red-200">
           {errorMessage}
         </div>
       )}
 
       {callbackWarning && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 backdrop-blur-xl dark:text-amber-200">
           {callbackWarning}
         </div>
       )}
 
-      {status === 'succeeded' ? (
-        <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
-          Payment received. You can return to the conversation for next steps.
+      {status === 'succeeded' && (
+        <div className="glass-card p-6 text-center border-emerald-500/30">
+          <div className="flex justify-center mb-4">
+            <div className="rounded-full bg-emerald-500/20 p-3 shadow-lg shadow-emerald-500/20">
+              <svg className="h-8 w-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold text-input-text mb-1">
+            Payment successful
+          </h3>
+          <p className="text-input-placeholder">
+            {formattedAmount ? `Thank you for your payment of ${formattedAmount}.` : 'Thank you for your payment.'}
+          </p>
+          <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-emerald-700 dark:text-emerald-300">
+            Payment processed successfully. You will receive confirmation if an email is on file.
+          </div>
         </div>
-      ) : null}
+      )}
 
-      {status === 'processing' && statusDetail ? (
-        <div className="rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-700 dark:text-blue-200">
-          Payment status: {statusDetail}.
-        </div>
-      ) : null}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-        <Button
-          variant="secondary"
-          type="button"
-          onClick={() => {
-            if (onReturn) {
-              onReturn();
-              return;
-            }
-            if (typeof window !== 'undefined') {
-              const candidate = returnTo || '/';
-              const safe =
-                candidate.startsWith('/') &&
-                !candidate.startsWith('//') &&
-                !candidate.includes('://');
-              if (safe) {
-                navigate(candidate, true);
-                return;
-              }
-              try {
-                const url = new URL(candidate, window.location.origin);
-                if (url.origin === window.location.origin) {
-                  navigate(url.pathname + url.search + url.hash, true);
-                  return;
-                }
-                window.location.href = url.toString();
-                return;
-              } catch {
-                // Fall through to default.
-              }
-              navigate('/', true);
-            }
-          }}
-        >
-          Return to chat
-        </Button>
-        {status !== 'succeeded' && (
+      {status !== 'succeeded' && (
         <Button
           variant="primary"
           type="submit"
           disabled={isSubmitting || paymentSubmitted || !stripe || !elements}
+          className="w-full"
         >
-          {isSubmitting ? 'Processing payment…' : 'Pay now'}
+          {isSubmitting ? 'Processing payment…' : (formattedAmount ? `Pay ${formattedAmount}` : 'Pay now')}
         </Button>
-        )}
-      </div>
+      )}
     </form>
   );
 };

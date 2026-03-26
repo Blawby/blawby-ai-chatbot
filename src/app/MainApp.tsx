@@ -1,1185 +1,1163 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
-import DragDropOverlay from '@/features/media/components/DragDropOverlay';
-import AppLayout from './AppLayout';
-import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
-import PublicEmbedLayout from '@/features/chat/components/PublicEmbedLayout';
+import DragDropOverlay from '@/shared/ui/DragDropOverlay';
+import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import type { SubscriptionTier } from '@/shared/types/user';
-import { resolvePracticeKind } from '@/shared/utils/subscription';
+import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
+import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
+import { useWorkspaceRouting } from '@/shared/hooks/useWorkspaceRouting';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
-import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import { useNavigation } from '@/shared/utils/navigation';
-import {
-  BanknotesIcon,
-  ChatBubbleLeftRightIcon,
-  ClipboardDocumentListIcon,
-  CreditCardIcon,
-  HomeIcon,
-  InboxIcon,
-  Squares2X2Icon,
-  UsersIcon
-} from '@heroicons/react/24/outline';
-import PricingModal from '@/features/modals/components/PricingModal';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
+import { SessionNotReadyError } from '@/shared/types/errors';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import { logConversationEvent } from '@/shared/lib/conversationApi';
-import { LeadsPage } from '@/features/leads/pages/LeadsPage';
-import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
-import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { PracticeHomePage } from '@/features/home/pages/PracticeHomePage';
-import { PracticePaymentsPage } from '@/features/payments/pages/PracticePaymentsPage';
-import { PracticePayoutsPage } from '@/features/payouts/pages/PracticePayoutsPage';
-import { PracticePricingPage } from '@/features/pricing/pages/PracticePricingPage';
-import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
-import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
-import { ClientPaymentsPage } from '@/features/payments/pages/ClientPaymentsPage';
-import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
-import type { SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
-import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
-import PublicConversationHeader from '@/features/chat/components/PublicConversationHeader';
+import { lazy, Suspense } from 'preact/compat';
+const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
+const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
+const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
+const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
+const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then(m => ({ default: m.PracticeInvoiceCreatePage })));
+const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
+const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
+const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
+const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
+import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
+import {
+  peekAnonymousSessionId,
+  peekAnonymousUserId,
+  peekConversationAnonymousParticipant,
+  consumePostAuthConversationContext,
+  peekPostAuthConversationContext,
+} from '@/shared/utils/anonymousIdentity';
+import type { SettingsView } from '@/features/settings/pages/SettingsContent';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
+import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
+import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
+import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
-type RouteKey =
-  | 'home'
-  | 'payments'
-  | 'payouts'
-  | 'pricing'
-  | 'clients'
-  | 'leads'
-  | 'matters'
-  | 'conversations';
+// ─── types ────────────────────────────────────────────────────────────────────
 
-// Main application component (non-auth pages)
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceDetail' | 'reports' | 'settings';
+
+/**
+ * LayoutMode controls how ChatContainer renders its shell.
+ * - 'desktop' – practice dashboard, full chrome
+ * - 'mobile'  – authenticated client on phone
+ * - 'widget'  – embedded in 3rd-party site via iframe (?v=widget)
+ */
+export type LayoutMode = 'widget' | 'mobile' | 'desktop';
+
+const WorkspaceSubviewFallback = () => <LoadingBlock className="p-6" />;
+
+// ─── component ────────────────────────────────────────────────────────────────
+
 export function MainApp({
   practiceId,
   practiceConfig,
-  practiceNotFound,
-  handleRetryPracticeConfig,
   isPracticeView,
   workspace,
-  settingsOverlayOpen,
   chatContent,
-  activeRoute,
   routeConversationId,
+  routeInvoiceId,
+  routeSettingsView,
+  routeSettingsAppId,
   publicPracticeSlug,
-  publicEmbedView
+  workspaceView,
+  clientPracticeSlug,
+  practiceSlug,
+  isWidget = false,
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
-  practiceNotFound: boolean;
-  handleRetryPracticeConfig: () => void;
   isPracticeView: boolean;
   workspace: WorkspaceType;
-  settingsOverlayOpen?: boolean;
   chatContent?: ComponentChildren;
-  activeRoute: RouteKey;
   routeConversationId?: string;
+  routeInvoiceId?: string;
+  routeSettingsView?: SettingsView;
+  routeSettingsAppId?: string;
   publicPracticeSlug?: string;
-  publicEmbedView?: 'home' | 'list' | 'conversation' | 'matters';
+  workspaceView?: WorkspaceView;
+  clientPracticeSlug?: string;
+  practiceSlug?: string;
+  isWidget?: boolean;
 }) {
-  // Core state
+  // ── UI state ───────────────────────────────────────────────────────────────
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const location = useLocation();
-  const { navigate } = useNavigation();
-  const isSettingsRouteNow = settingsOverlayOpen ?? location.path.startsWith('/settings');
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const conversationRestoreAttemptedRef = useRef(false);
-  const isPublicWorkspace = workspace === 'public';
-  const resolvedPublicPracticeSlug = useMemo(() => {
-    if (!isPublicWorkspace) return null;
-    return publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null;
-  }, [isPublicWorkspace, practiceConfig.slug, practiceId, publicPracticeSlug]);
-  const publicConversationsBasePath = useMemo(() => {
-    if (!resolvedPublicPracticeSlug) return null;
-    return `/embed/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations`;
-  }, [resolvedPublicPracticeSlug]);
-  const conversationResetKey = useMemo(() => {
-    if (isPublicWorkspace) return resolvedPublicPracticeSlug ?? '';
-    return practiceId;
-  }, [isPublicWorkspace, practiceId, resolvedPublicPracticeSlug]);
+  const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
+  const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
+  const preAuthUserIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    setConversationId(null);
-    setConversationMode(null);
-    conversationRestoreAttemptedRef.current = false;
-  }, [conversationResetKey]);
-
-  const basePath = useMemo(() => {
-    if (workspace === 'practice') return '/practice';
-    if (workspace === 'client') return '/client';
-    return null;
-  }, [workspace]);
-  const conversationsBasePath = useMemo(() => (basePath ? `${basePath}/conversations` : null), [basePath]);
-  const resolvedConversationsBasePath = useMemo(
-    () => conversationsBasePath ?? publicConversationsBasePath,
-    [conversationsBasePath, publicConversationsBasePath]
-  );
-  const routeKey = activeRoute;
-
-  const practiceNavItems = useMemo<SidebarNavItem[]>(() => ([
-    {
-      id: 'home',
-      label: 'Home',
-      icon: <HomeIcon />,
-      isActive: routeKey === 'home',
-      onClick: () => navigate('/practice/home')
-    },
-    {
-      id: 'payments',
-      label: 'Payments',
-      icon: <CreditCardIcon />,
-      isActive: routeKey === 'payments',
-      onClick: () => navigate('/practice/payments')
-    },
-    {
-      id: 'payouts',
-      label: 'Payouts',
-      icon: <BanknotesIcon />,
-      isActive: routeKey === 'payouts',
-      onClick: () => navigate('/practice/payouts')
-    },
-    {
-      id: 'pricing',
-      label: 'Pricing',
-      icon: <Squares2X2Icon />,
-      isActive: routeKey === 'pricing',
-      onClick: () => navigate('/practice/pricing')
-    },
-    {
-      id: 'clients',
-      label: 'Clients',
-      icon: <UsersIcon />,
-      isActive: routeKey === 'clients',
-      onClick: () => navigate('/practice/clients')
-    },
-    {
-      id: 'leads',
-      label: 'Leads',
-      icon: <InboxIcon />,
-      isActive: routeKey === 'leads',
-      onClick: () => navigate('/practice/leads')
-    },
-    {
-      id: 'matters',
-      label: 'Matters',
-      icon: <ClipboardDocumentListIcon />,
-      isActive: routeKey === 'matters',
-      onClick: () => navigate('/practice/matters')
-    }
-  ]), [navigate, routeKey]);
-
-  const clientNavItems = useMemo<SidebarNavItem[]>(() => ([
-    {
-      id: 'conversations',
-      label: 'Conversations',
-      icon: <ChatBubbleLeftRightIcon />,
-      isActive: routeKey === 'conversations',
-      onClick: () => navigate('/client/conversations')
-    },
-    {
-      id: 'payments',
-      label: 'Payments',
-      icon: <CreditCardIcon />,
-      isActive: routeKey === 'payments',
-      onClick: () => navigate('/client/payments')
-    },
-    {
-      id: 'matters',
-      label: 'Matters',
-      icon: <ClipboardDocumentListIcon />,
-      isActive: routeKey === 'matters',
-      onClick: () => navigate('/client/matters')
-    }
-  ]), [navigate, routeKey]);
-
-  const navItems = workspace === 'practice'
-    ? practiceNavItems
-    : (workspace === 'client' ? clientNavItems : []);
-
-  const normalizedRouteConversationId = useMemo(() => {
-    if (!routeConversationId) return null;
-    try {
-      return decodeURIComponent(routeConversationId);
-    } catch (error) {
-      console.warn('[MainApp] Failed to decode conversation id from route params', {
-        id: routeConversationId,
-        error
-      });
-      return routeConversationId;
-    }
-  }, [routeConversationId]);
-
-  useEffect(() => {
-    if (!normalizedRouteConversationId) return;
-    if (normalizedRouteConversationId === conversationId) return;
-    setConversationId(normalizedRouteConversationId);
-    setConversationMode(null);
-  }, [conversationId, normalizedRouteConversationId]);
-
-
-  useEffect(() => {
-    if (isPublicWorkspace) return;
-    if (!resolvedConversationsBasePath) return;
-    if (routeKey !== 'conversations') return;
-    if (!conversationId) return;
-    if (normalizedRouteConversationId === conversationId) return;
-    const targetPath = `${resolvedConversationsBasePath}/${encodeURIComponent(conversationId)}`;
-    navigate(targetPath, true);
-  }, [isPublicWorkspace, normalizedRouteConversationId, resolvedConversationsBasePath, conversationId, routeKey, navigate]);
-
-  // Use session from Better Auth
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
-  const isAnonymousUser = isAnonymous;
-  const isPracticeWorkspace = workspace === 'practice';
-  const isAuthenticatedClient = Boolean(
-    workspace === 'public' &&
-    session?.user &&
-    !session.user.isAnonymous &&
-    normalizePracticeRole(activeMemberRole) === 'client'
-  );
-  const conversationCacheKey = useMemo(() => {
-    if (isPublicWorkspace) {
-      return null;
-    }
-    if (!practiceId || !session?.user?.id) {
-      return null;
-    }
-    return `chat:lastConversation:${workspace}:${practiceId}:${session.user.id}`;
-  }, [isPublicWorkspace, practiceId, session?.user?.id, workspace]);
-  const effectivePracticeId = useMemo(() => {
-    if (isPublicWorkspace) {
-      if (
-        practiceConfig.id &&
-        resolvedPublicPracticeSlug &&
-        practiceConfig.slug === resolvedPublicPracticeSlug
-      ) {
-        return practiceConfig.id;
-      }
-      return practiceId || undefined;
-    }
-    return practiceId || undefined;
-  }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, resolvedPublicPracticeSlug]);
-
-  // Practice data is now passed as props
-
-  // Using our custom practice system instead of Better Auth's organization plugin
-  // Removed unused submitUpgrade
+  const { navigate } = useNavigation();
   const { showError, showInfo } = useToastContext();
   const showErrorRef = useRef(showError);
-  const practiceWelcomeCheckRef = useRef(false);
-  const isSelectingRef = useRef(false);
-  useEffect(() => {
-    showErrorRef.current = showError;
-  }, [showError]);
-  const {
-    currentPractice,
-    acceptMatter,
-    rejectMatter,
-    updateMatterStatus
-  } = usePracticeManagement({
+  useEffect(() => { showErrorRef.current = showError; }, [showError]);
+
+  // ── practice data ──────────────────────────────────────────────────────────
+  const { currentPractice } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
-    fetchInvitations: workspace !== 'public'
+    practiceSlug: workspace === 'practice'
+      ? (practiceSlug ?? null)
+      : workspace === 'client'
+        ? (clientPracticeSlug ?? null)
+        : null,
   });
-  const practiceDetailsId = workspace === 'public'
-    ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
-    : practiceId;
+
+  // ── workspace routing — single source of truth ────────────────────────────
+  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole, routingClaims } = useSessionContext();
+
+  // ── practice details (accent color, description) ──────────────────────────
+  // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
+  // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
+  // the UUID (see usePracticeConfig lines 151-155), so using the UUID here gives
+  // usePracticeDetails an instant cache hit and eliminates the second network
+  // request on widget load.
+  //
+  // Fall-back chain: UUID from config → raw slug prop → config slug → practiceId.
+  // For client/practice workspaces the UUID practiceId is already correct.
+  const practiceDetailsId = (workspace === 'public')
+    ? (practiceConfig.id ?? publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
+    : (practiceConfig.id ?? practiceId);
+
+  // Slug hint is still forwarded so usePracticeDetails can use the public
+  // endpoint as a fallback when the store has no entry for this key.
+  const practiceDetailsSlug = (workspace === 'public')
+    ? (publicPracticeSlug ?? practiceConfig.slug ?? null)
+    : (workspace === 'client')
+      ? clientPracticeSlug
+      : (currentPractice?.slug ?? practiceConfig.slug ?? null);
+
+  const allowPublicPracticeDetails = workspace === 'public' || workspace === 'client';
   const {
     details: practiceDetails,
     fetchDetails: fetchPracticeDetails,
     hasDetails: hasPracticeDetails
-  } = usePracticeDetails(practiceDetailsId);
+  } = usePracticeDetails(practiceDetailsId, practiceDetailsSlug, allowPublicPracticeDetails);
 
   useEffect(() => {
     if (!practiceDetailsId || hasPracticeDetails) return;
     void fetchPracticeDetails();
   }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
 
+  const {
+    isPublicWorkspace,
+    isPracticeWorkspace,
+    isClientWorkspace,
+    effectivePracticeId,
+    resolvedPracticeSlug,
+    resolvedPublicPracticeSlug,
+    resolvedClientPracticeSlug,
+    resolvedPracticeName,
+    resolvedPracticeLogo,
+    resolvedPracticeDescription: fullDescription,
+    resolvedAccentColor: fullAccentColor,
+    normalizedRouteConversationId,
+    conversationsBasePath,
+    conversationBackPath,
+    practiceMattersPath,
+    practiceClientsPath,
+    conversationResetKey,
+    layoutMode,
+    canReviewLeads,
+  } = useWorkspaceRouting({
+    practiceId,
+    practiceConfig,
+    workspace,
+    publicPracticeSlug,
+    clientPracticeSlug,
+    practiceSlug,
+    routeConversationId,
+    isWidget,
+    currentPractice,
+    practiceDetails,
+    activeMemberRole,
+    session,
+    routing: routingClaims,
+  });
+  const clientMattersPath = useMemo(() => {
+    if (!isClientWorkspace) return null;
+    const slug = clientPracticeSlug ?? resolvedClientPracticeSlug;
+    if (!slug) return null;
+    return `/client/${encodeURIComponent(slug)}/matters`;
+  }, [clientPracticeSlug, isClientWorkspace, resolvedClientPracticeSlug]);
+  const practiceInvoicesPath = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const slug = resolvedPracticeSlug;
+    if (!slug) return null;
+    return `/practice/${encodeURIComponent(slug)}/invoices`;
+  }, [isPracticeWorkspace, resolvedPracticeSlug]);
 
+  useEffect(() => {
+    initializeAccentColor(fullAccentColor);
+  }, [fullAccentColor]);
 
-  const handleMessageError = useCallback((error: string | Error) => {
-    const message = typeof error === 'string' ? error : error.message;
-    const normalized = message.toLowerCase();
-    if (normalized.includes('chat connection closed')) {
+  // ── reset conversation when practice context changes ───────────────────────
+  useEffect(() => {
+    setConversationMode(null);
+  }, [conversationResetKey]);
+
+  const handleSetupError = useCallback((msg: string) => {
+    showErrorRef.current?.(msg);
+  }, []);
+
+  // ── conversation setup ─────────────────────────────────────────────────────
+  const {
+    conversationId: setupConversationId,
+    setConversationId,
+    isCreatingConversation,
+    ensureConversation,
+    applyConversationMode,
+  } = useConversationSetup({
+    practiceId,
+    workspace,
+    routeConversationId: normalizedRouteConversationId,
+    session,
+    sessionIsPending,
+    isPracticeWorkspace,
+    isPublicWorkspace,
+    onModeChange: setConversationMode,
+    onError: handleSetupError,
+  });
+
+  const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
+
+  useEffect(() => {
+    if (sessionIsPending) return;
+    if (!session?.user || isAnonymous) return;
+    const pending = peekPostAuthConversationContext();
+    if (!pending) return;
+    if (pending.practiceId) {
+      const matchesPractice =
+        pending.practiceId === practiceId ||
+        pending.practiceId === effectivePracticeId;
+      if (!matchesPractice) return;
+    }
+
+    const consumedPending = consumePostAuthConversationContext();
+    if (!consumedPending) return;
+
+    if (consumedPending.workspace === 'public' && consumedPending.practiceSlug) {
+      const slug = consumedPending.practiceSlug;
+      navigate(`/public/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(consumedPending.conversationId)}`, true);
       return;
     }
+
+    setConversationId(consumedPending.conversationId);
+  }, [
+    effectivePracticeId,
+    isAnonymous,
+    navigate,
+    practiceId,
+    session?.user,
+    sessionIsPending,
+    setConversationId,
+  ]);
+
+  // ── message handling ───────────────────────────────────────────────────────
+  const handleMessageError = useCallback((error: string | Error) => {
+    const message = typeof error === 'string' ? error : error.message;
+    if (message.toLowerCase().includes('chat connection closed')) return;
     console.error('Message handling error:', error);
     showErrorRef.current?.(message || 'We hit a snag sending that message.');
   }, []);
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
-    if (metadata?.mode) {
-      setConversationMode(metadata.mode);
+    const persistedMode = metadata?.mode;
+    if (
+      persistedMode === 'ASK_QUESTION' ||
+      persistedMode === 'REQUEST_CONSULTATION' ||
+      persistedMode === 'PRACTICE_ONBOARDING'
+    ) {
+      setConversationMode(persistedMode);
     }
   }, []);
 
-  const realMessageHandling = useMessageHandling({
+  const messageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
-    practiceSlug: practiceConfig.slug ?? undefined,
-    conversationId: conversationId ?? undefined,
+    practiceSlug: resolvedPracticeSlug ?? undefined,
+    conversationId: activeConversationId ?? undefined,
+    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
+    linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
-    onError: handleMessageError
+    onError: handleMessageError,
   });
 
-  const messages = realMessageHandling.messages;
-  const addMessage = realMessageHandling.addMessage;
-  const clearMessages = realMessageHandling.clearMessages;
-  const requestMessageReactions = realMessageHandling.requestMessageReactions;
-  const toggleMessageReaction = realMessageHandling.toggleMessageReaction;
-  const conversationMetadata = realMessageHandling.conversationMetadata;
-  const intakeStatus = realMessageHandling.intakeStatus;
-  const startConsultFlow = realMessageHandling.startConsultFlow;
-  const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
-  const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
-  const messagesReady = realMessageHandling.messagesReady;
-  const hasMoreMessages = realMessageHandling.hasMoreMessages;
-  const isLoadingMoreMessages = realMessageHandling.isLoadingMoreMessages;
-  const loadMoreMessages = realMessageHandling.loadMoreMessages;
+  const {
+    messages, conversationMetadata, sendMessage, addMessage, clearMessages,
+    requestMessageReactions, toggleMessageReaction,
+    intakeStatus, intakeConversationState, handleIntakeCtaResponse,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
+    startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
+    ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
+    loadMoreMessages, isSocketReady, applyIntakeFields,
+  } = messageHandling;
+
+
+
+  useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
+
+  // ── intake auth prompt ─────────────────────────────────────────────────────
+  const intakeUuid = intakeStatus?.intakeUuid ?? null;
+
+  const intakeAuthTarget = useMemo(() => {
+    if (!isPublicWorkspace || !intakeUuid) return null;
+    if (intakeStatus?.paymentRequired && !intakeStatus?.paymentReceived) return null;
+    return intakeUuid;
+  }, [intakeUuid, intakeStatus?.paymentReceived, intakeStatus?.paymentRequired, isPublicWorkspace]);
+
+  const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
+  const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
+
+  const intakePostAuthPath = useMemo(() => {
+    if (!isPublicWorkspace) return null;
+    if (!resolvedPublicPracticeSlug || !activeConversationId) return null;
+    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
+  }, [activeConversationId, isPublicWorkspace, resolvedPublicPracticeSlug]);
+
+  const handleIntakeAuthSuccess = useCallback(async () => {
+    if (!intakePostAuthPath) return;
+    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
+    navigate(intakePostAuthPath, true);
+  }, [intakePostAuthPath, intakeAuthTarget, navigate]);
+
+  const capturePreAuthUserId = useCallback(() => {
+    if (preAuthUserIdRef.current) return;
+    preAuthUserIdRef.current = session?.user?.id ?? null;
+  }, [session?.user?.id]);
+  const handlePaymentAuthRequest = useCallback(() => {
+    capturePreAuthUserId();
+    setIsPaymentAuthPromptOpen(true);
+  }, [capturePreAuthUserId]);
+
+  const handleAuthPromptClose = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try { window.sessionStorage.removeItem('intakeAwaitingInvitePath'); } catch { /* noop */ }
+    }
+    if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
+    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
+    preAuthUserIdRef.current = null;
+  }, [intakeAuthTarget, isPaymentAuthPromptOpen]);
+
+  const handleAuthPromptSuccess = useCallback(async () => {
+    const hadPreAuthIdentity = Boolean(preAuthUserIdRef.current);
+    const linkPracticeId = effectivePracticeId ?? practiceId;
+    if (activeConversationId && linkPracticeId && hadPreAuthIdentity) {
+      try {
+        const previousParticipantId =
+          peekConversationAnonymousParticipant(activeConversationId) ??
+          peekAnonymousUserId();
+        const anonymousSessionId = peekAnonymousSessionId();
+        await linkConversationToUser(
+          activeConversationId,
+          linkPracticeId,
+          undefined,
+          {
+            previousParticipantId: previousParticipantId ?? undefined,
+            anonymousSessionId: anonymousSessionId ?? undefined,
+          }
+        );
+        preAuthUserIdRef.current = null;
+      } catch (error) {
+        console.warn('[MainApp] Conversation link after auth failed', error);
+      }
+    }
+    if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
+    if (isWidget) {
+      if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
+      return;
+    }
+    await handleIntakeAuthSuccess();
+  }, [activeConversationId, effectivePracticeId, handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget, practiceId]);
 
   useEffect(() => {
-    clearMessages();
-  }, [practiceId, clearMessages]);
+    if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
+    try { window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath); } catch { /* noop */ }
+  }, [intakePostAuthPath, shouldShowAuthPrompt]);
 
-  const createConversation = useCallback(async () => {
-    if (isPracticeWorkspace) return null;
-    if (!practiceId || !session?.user || isCreatingConversation) return null;
+  useEffect(() => {
+    if (!shouldShowAuthPrompt) return;
+    capturePreAuthUserId();
+  }, [capturePreAuthUserId, shouldShowAuthPrompt]);
 
-    try {
-      setIsCreatingConversation(true);
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      const params = new URLSearchParams({ practiceId });
-      const url = `${getConversationsEndpoint()}?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          participantUserIds: [session.user.id],
-          metadata: { source: 'chat' },
-          practiceId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json() as { success: boolean; error?: string; data?: { id: string } };
-      if (!data.success || !data.data?.id) {
-        throw new Error(data.error || 'Failed to start conversation');
-      }
-
-      setConversationId(data.data.id);
-      return data.data.id;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      showErrorRef.current?.(message);
-      return null;
-    } finally {
-      setIsCreatingConversation(false);
-    }
-  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
-
-  const restoreConversationFromCache = useCallback(async () => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-    if (!conversationCacheKey || !practiceId || !session?.user) {
-      return null;
-    }
-    const cached = window.localStorage.getItem(conversationCacheKey);
-    if (!cached) {
-      return null;
-    }
-    if (conversationId === cached) {
-      return cached;
-    }
-
-    try {
-      const params = new URLSearchParams({ practiceId });
-      const response = await fetch(
-        `${getConversationEndpoint(cached)}?${params.toString()}`,
-        {
-          method: 'GET',
-          credentials: 'include'
-        }
-      );
-      if (!response.ok) {
-        window.localStorage.removeItem(conversationCacheKey);
-        return null;
-      }
-      setConversationId(cached);
-      return cached;
-    } catch (error) {
-      console.warn('[MainApp] Failed to restore cached conversation', error);
-      return null;
-    }
-  }, [
-    conversationCacheKey,
-    conversationId,
-    practiceId,
-    session?.user
-  ]);
-
-  const applyConversationMode = useCallback(async (
-    nextMode: ConversationMode,
-    activeConversationId: string,
-    source: 'intro_gate' | 'composer_footer' | 'home_cta'
-  ) => {
-    if (!practiceId) return;
-    await updateConversationMetadata({
-      mode: nextMode
-    }, activeConversationId);
-    setConversationMode(nextMode);
-    void logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode, source });
-    if (nextMode === 'REQUEST_CONSULTATION') {
-      startConsultFlow(activeConversationId);
-      void logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
-    }
-  }, [
-    practiceId,
-    startConsultFlow,
-    updateConversationMetadata
-  ]);
+  // ── conversation mode selection ────────────────────────────────────────────
+  const isSelectingRef = useRef(false);
 
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
     source: 'intro_gate' | 'composer_footer'
   ) => {
+    if (isSelectingRef.current) return;
     try {
-      if (isSelectingRef.current) {
-        return;
-      }
       isSelectingRef.current = true;
-
-      let activeConversationId = conversationId;
-      if (!activeConversationId && !isCreatingConversation) {
-        activeConversationId = await createConversation();
-      }
-      if (!activeConversationId || !practiceId) {
-        return;
-      }
-
-      await applyConversationMode(nextMode, activeConversationId, source);
+      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation({ waitForSessionReadyMs: 3000 }));
+      if (!currentConversationId || !practiceId) return;
+      await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
     } catch (error) {
       setConversationMode(null);
+      showErrorRef.current?.(error instanceof Error ? error.message : 'Unable to start conversation');
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
     } finally {
       isSelectingRef.current = false;
     }
-  }, [
-    applyConversationMode,
-    conversationId,
-    createConversation,
-    isCreatingConversation,
-    practiceId
-  ]);
+  }, [activeConversationId, applyConversationMode, ensureConversation, isCreatingConversation, practiceId, startConsultFlow]);
 
-  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode): Promise<string | null> => {
+  const handleSlimFormDismiss = useCallback(async () => {
+    if (conversationMode !== 'REQUEST_CONSULTATION') return;
+    await handleModeSelection('ASK_QUESTION', 'composer_footer');
+  }, [conversationMode, handleModeSelection]);
+
+  const handleStartNewConversation = useCallback(async (
+    nextMode: ConversationMode,
+    preferredConversationId?: string,
+    options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
+  ): Promise<string> => {
+    if (isSelectingRef.current) throw new Error('Conversation start already in progress');
+    isSelectingRef.current = true;
     try {
-      if (isSelectingRef.current) {
-        return null;
+      if (!practiceId) throw new Error('Practice context is required');
+
+      // ── Reuse logic ────────────────────────────────────────────────────────
+      // Both ASK_QUESTION and REQUEST_CONSULTATION reuse a provided conversation
+      // when one exists.  forceCreate=true is only passed when the caller
+      // explicitly wants a fresh thread (e.g. "New conversation" button).
+      if (!options?.forceCreate) {
+        const reusableConversationId = preferredConversationId ?? activeConversationId ?? null;
+        if (reusableConversationId) {
+          await applyConversationMode(nextMode, reusableConversationId, 'home_cta', startConsultFlow);
+          return reusableConversationId;
+        }
       }
-      isSelectingRef.current = true;
-      if (!practiceId) {
-        return null;
-      }
-      const newConversationId = await createConversation();
+
+      // ── Create new conversation ─────────────────────────────────────────────
+      // Poll briefly so we don't fail while auth/session state is still settling.
+      const newConversationId = await ensureConversation({ waitForSessionReadyMs: 3000 });
+
       if (!newConversationId) {
-        return null;
+        // Session still not ready — surface a friendly toast and bail without
+        // throwing so the caller can handle gracefully.
+        if (!options?.silentSessionNotReady) {
+          showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
+        }
+        return Promise.reject(new SessionNotReadyError());
       }
-      await applyConversationMode(nextMode, newConversationId, 'home_cta');
+
+      await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
       return newConversationId;
     } catch (error) {
       setConversationMode(null);
       console.warn('[MainApp] Failed to start new conversation', error);
-      return null;
+      throw error;
     } finally {
+      // Always release the lock so subsequent clicks work.
       isSelectingRef.current = false;
     }
-  }, [applyConversationMode, createConversation, practiceId]);
+  }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
 
+  // ── send message ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (
     message: string,
     attachments: FileAttachment[] = [],
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    options?: { mentionedUserIds?: string[] }
   ) => {
-    if (!conversationId) {
-      showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
-      if (!isCreatingConversation) {
-        void createConversation();
-      }
+    await sendMessage(message, attachments, replyToMessageId ?? null, {
+      mentionedUserIds: options?.mentionedUserIds,
+      suppressAi: isPracticeWorkspace,
+    });
+  }, [sendMessage, isPracticeWorkspace]);
+
+  const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
+  useEffect(() => {
+    if (!isPracticeWorkspace || !practiceId || !activeConversationId) {
+      setMentionCandidates([]);
       return;
     }
 
-    await realMessageHandling.sendMessage(message, attachments, replyToMessageId ?? null);
-  }, [conversationId, isCreatingConversation, createConversation, realMessageHandling]);
-  const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
-
-  const {
-    previewFiles,
-    uploadingFiles,
-    isDragging,
-    setIsDragging,
-    handleCameraCapture,
-    handleFileSelect,
-    removePreviewFile,
-    clearPreviewFiles,
-    cancelUpload,
-    isReadyToUpload
-  } = useFileUploadWithContext({
-    conversationId: conversationId ?? undefined,
-    onError: (error) => {
-      // Handle file upload error
-
-      console.error('File upload error:', error);
-      showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
-    }
-  });
-
-  // Session error handling removed - no longer using sessions
-
-  // Welcome modal state via server-truth + session debounce
-  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({
-    enabled: workspace !== 'public'
-  });
-  const showWelcomeModal = shouldShowWelcome && workspace !== 'public';
-
-  // Note: Auto-practice creation removed - clients don't need practices.
-  // Practice members (lawyers) will create practices through onboarding/upgrade flow.
-  // Clients chat with practices via widget (practiceId from URL), not their own practice.
-
-
-
-
-  // Check if we should show practice welcome modal
-  useEffect(() => {
-    if (workspace !== 'practice') {
-      practiceWelcomeCheckRef.current = false;
-      setShowBusinessWelcome(false);
-      return;
-    }
-    if (sessionIsPending || isAnonymous || !session?.user?.id) {
-      setShowBusinessWelcome(false);
-      return;
-    }
-    if (practiceWelcomeCheckRef.current) return;
-    practiceWelcomeCheckRef.current = true;
-
-    const checkPracticeWelcome = async () => {
-      try {
-        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const hasCompletedOnboarding = prefs?.completed === true;
-        const shouldShow = hasCompletedOnboarding && !prefs?.practice_welcome_shown;
-
-        if (import.meta.env.DEV) {
-          console.debug('[PRACTICE_WELCOME][CHECK] preferences', {
-            completed: prefs?.completed ?? null,
-            practice_welcome_shown: prefs?.practice_welcome_shown ?? null
-          });
-        }
-
-        setShowBusinessWelcome(shouldShow);
-      } catch (error) {
-        console.warn('[PRACTICE_WELCOME][CHECK] preferences fetch failed:', error);
-        practiceWelcomeCheckRef.current = false;
-        setShowBusinessWelcome(false);
-      }
-    };
-
-    void checkPracticeWelcome();
-  }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
-
-  // Handle hash-based routing for pricing modal
-  const [showPricingModal, setShowPricingModal] = useState(false);
-
-  // Derive current user tier from practice config (our custom system)
-  // Note: subscriptionTier is on Practice
-  const resolvedKindForTier = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
-
-  // Whitelist of valid SubscriptionTier values
-  const VALID_SUBSCRIPTION_TIERS: SubscriptionTier[] = ['free', 'plus', 'business', 'enterprise'];
-
-  // Normalize and validate subscriptionTier
-  const normalizedTier = currentPractice?.subscriptionTier
-    ? currentPractice.subscriptionTier.trim().toLowerCase()
-    : null;
-
-  // Find matching tier from whitelist (case-insensitive) to avoid unsafe casts
-  const validatedTier = normalizedTier
-    ? VALID_SUBSCRIPTION_TIERS.find(tier => tier.toLowerCase() === normalizedTier)
-    : null;
-
-  const currentUserTier: SubscriptionTier = validatedTier
-    ? validatedTier
-    : resolvedKindForTier === 'business'
-      ? 'business'
-      : 'free';
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash;
-      setShowPricingModal(hash === '#pricing');
-    };
-
-    // Check initial hash
-    handleHashChange();
-
-    // Listen for hash changes
-    window.addEventListener('hashchange', handleHashChange);
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
-
-  // User tier is now derived directly from practice - no need for custom event listeners
-
-  const shouldRequireModeSelection = workspace === 'public';
-  const isConversationReady = Boolean(conversationId && !isCreatingConversation);
-  const isAuthReady = Boolean(session?.user) && !sessionIsPending;
-  const isSessionReady = isConversationReady && isAuthReady;
-  const isSocketReady = isConversationReady && isAuthReady ? realMessageHandling.isSocketReady : false;
-  const isComposerDisabled = (shouldRequireModeSelection && !conversationMode) || isConsultFlowActive;
-  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
-  const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
-
-  useEffect(() => {
-    if (isPublicWorkspace) return;
-    if (!isAuthReady) return;
-    if (!practiceId) return;
-    if (conversationId) return;
-    if (isCreatingConversation) return;
-    if (conversationRestoreAttemptedRef.current) return;
-    conversationRestoreAttemptedRef.current = true;
+    const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const controller = new AbortController();
 
     (async () => {
       try {
-        const restored = await restoreConversationFromCache();
-        if (restored) {
-          return;
-        }
-      } catch {
-        conversationRestoreAttemptedRef.current = false;
+        const participants = await getConversationParticipants(activeConversationId, practiceId, { signal: controller.signal });
+        const nextMentionCandidates = participants
+          .filter((participant) => participant.role !== 'client')
+          .map((participant) => ({
+            userId: participant.userId,
+            name: (participant.name ?? '').trim(),
+          }))
+          .filter((participant) => (
+            participant.userId.trim().length > 0
+            && participant.name.length > 0
+            && !looksLikeEmail(participant.name)
+          ));
+        setMentionCandidates(nextMentionCandidates);
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError') return;
+        console.warn('[MainApp] Failed to load conversation participants for mentions', error);
+        setMentionCandidates([]);
       }
     })();
-  }, [
-    conversationId,
-    isAuthReady,
-    isCreatingConversation,
-    isPublicWorkspace,
-    practiceId,
-    restoreConversationFromCache,
-    session?.user?.id
-  ]);
 
+    return () => controller.abort();
+  }, [activeConversationId, isPracticeWorkspace, practiceId]);
+
+  const handleUploadError = useCallback((error: unknown) => {
+    console.error('File upload error:', error);
+    showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
+  }, []);
+
+  // ── file upload ────────────────────────────────────────────────────────────
+  const {
+    previewFiles, uploadingFiles, isDragging, setIsDragging,
+    handleCameraCapture, handleFileSelect, removePreviewFile,
+    clearPreviewFiles, cancelUpload, isReadyToUpload,
+  } = useFileUploadWithContext({
+    conversationId: activeConversationId ?? undefined,
+    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
+    onError: handleUploadError,
+  });
+
+  // ── welcome modals ─────────────────────────────────────────────────────────
+  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({ enabled: workspace !== 'public' });
+  const showWelcomeModal = shouldShowWelcome && workspace !== 'public';
+
+  const practiceWelcomeCheckRef = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const inviteLink = readPendingPracticeInviteLink();
-    if (!inviteLink) {
-      return;
-    }
+    if (workspace !== 'practice') { practiceWelcomeCheckRef.current = false; setShowBusinessWelcome(false); return; }
+    if (sessionIsPending || isAnonymous || !session?.user?.id) { setShowBusinessWelcome(false); return; }
+    if (practiceWelcomeCheckRef.current) return;
+    practiceWelcomeCheckRef.current = true;
+    (async () => {
+      try {
+        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+        setShowBusinessWelcome(prefs?.completed === true && !prefs?.practice_welcome_shown);
+      } catch (err) {
+        console.warn('[PRACTICE_WELCOME] Preferences fetch failed:', err);
+        practiceWelcomeCheckRef.current = false;
+        setShowBusinessWelcome(false);
+      }
+    })();
+  }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
 
+  const handleWelcomeComplete = async () => { await markWelcomeAsShown(); };
+  const handleWelcomeClose = async () => { await markWelcomeAsShown(); };
+  const handleBusinessWelcomeClose = async () => {
+    setShowBusinessWelcome(false);
+    try { await updatePreferencesCategory('onboarding', { practice_welcome_shown: true }); }
+    catch (err) {
+      console.warn('[PRACTICE_WELCOME] Failed to update preferences', err);
+      showError('Update failed', 'We could not save your preference. You may see this prompt again.');
+    }
+    if (resolvedPracticeSlug) {
+      navigate(`/practice/${encodeURIComponent(resolvedPracticeSlug)}/settings/practice`);
+    }
+  };
+
+  // ── invite link handling ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const inviteLink = readPendingPracticeInviteLink();
+    if (!inviteLink) return;
     try {
       const resolved = new URL(inviteLink, window.location.origin);
-      const sameOrigin = resolved.origin === window.location.origin;
-      if (sameOrigin) {
+      if (resolved.origin === window.location.origin) {
         navigate(`${resolved.pathname}${resolved.search}${resolved.hash}`);
         clearPendingPracticeInviteLink();
         return;
       }
-
       const opened = window.open(resolved.toString(), '_blank', 'noopener');
-      if (opened) {
-        clearPendingPracticeInviteLink();
-        return;
-      }
-    } catch (error) {
-      console.warn('[Invite] Failed to navigate to invite link', error);
-    }
-
+      if (opened) { clearPendingPracticeInviteLink(); return; }
+    } catch (err) { console.warn('[Invite] Failed to navigate to invite link', err); }
     showInfo('Join your practice', 'Open your invite link to finish joining the practice.');
   }, [navigate, showInfo]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!conversationCacheKey || !conversationId) return;
-    window.localStorage.setItem(conversationCacheKey, conversationId);
-  }, [conversationCacheKey, conversationId]);
-
-  const currentUserRole = normalizePracticeRole(activeMemberRole) ?? 'member';
-  const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
-
-
-  useConversationSystemMessages({
-    conversationId,
-    practiceId: effectivePracticeId,
-    practiceConfig,
-    messagesReady,
-    messages,
-    conversationMode,
-    isConsultFlowActive,
-    shouldRequireModeSelection,
-    ingestServerMessages: realMessageHandling.ingestServerMessages
-  });
-
-  // Create stable callback references for keyboard handlers
+  // ── keyboard & scroll ──────────────────────────────────────────────────────
   const handleEscape = useCallback(() => {
-    if (previewFiles.length > 0) {
-      clearPreviewFiles();
-      setClearInputTrigger(prev => prev + 1);
-    }
+    if (previewFiles.length > 0) { clearPreviewFiles(); setClearInputTrigger(prev => prev + 1); }
   }, [previewFiles.length, clearPreviewFiles]);
 
   const handleFocusInput = useCallback(() => {
-    const textarea = document.querySelector('.message-input') as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.focus();
-    }
+    (document.querySelector('.message-input') as HTMLTextAreaElement | null)?.focus();
   }, []);
 
-  // Setup global event handlers
   useEffect(() => {
-    // Setup keyboard handlers
-    const cleanupKeyboard = setupGlobalKeyboardListeners({
-      onEscape: handleEscape,
-      onSubmit: () => {
-        // This will be handled by ChatContainer
-      },
-      onFocusInput: handleFocusInput
-    });
-
-    return () => {
-      cleanupKeyboard?.();
-    };
+    const cleanup = setupGlobalKeyboardListeners({ onEscape: handleEscape, onSubmit: () => {}, onFocusInput: handleFocusInput });
+    return () => { cleanup?.(); };
   }, [handleEscape, handleFocusInput]);
 
-  // Setup scroll behavior
   useEffect(() => {
     if (typeof document === 'undefined') return;
-
     const messageList = document.querySelector('.message-list');
     if (!messageList) return;
-
     let scrollTimer: number | null = null;
-
     const handleScroll = () => {
-      // Add scrolling class when scrolling starts
       messageList.classList.add('scrolling');
-
-      // Clear any existing timer
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-        scrollTimer = null;
-      }
-
-      // Set a timer to remove the scrolling class after scrolling stops
-      scrollTimer = window.setTimeout(() => {
-        messageList.classList.remove('scrolling');
-      }, 1000); // Hide scrollbar 1 second after scrolling stops
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => { messageList.classList.remove('scrolling'); }, 1000);
     };
-
     messageList.addEventListener('scroll', handleScroll);
-
-    return () => {
-      messageList.removeEventListener('scroll', handleScroll);
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-      }
-    };
+    return () => { messageList.removeEventListener('scroll', handleScroll); if (scrollTimer) clearTimeout(scrollTimer); };
   }, []);
 
-  // Handle welcome modal using server-truth hook
-  const handleWelcomeComplete = async () => {
-    await markWelcomeAsShown();
-  };
-
-  const handleWelcomeClose = async () => {
-    await markWelcomeAsShown();
-  };
-
-  const handleBusinessWelcomeClose = async () => {
-    setShowBusinessWelcome(false);
-    try {
-      await updatePreferencesCategory('onboarding', {
-        practice_welcome_shown: true
-      });
-    } catch (error) {
-      console.warn('[PRACTICE_WELCOME] Failed to update preferences', error);
-      showError('Update failed', 'We could not save your preference. You may see this prompt again.');
-    }
-    navigate('/settings/practice');
-  };
-
-  // Handle media capture
+  // ── media capture ──────────────────────────────────────────────────────────
   const handleMediaCaptureWrapper = async (blob: Blob, type: 'audio' | 'video') => {
     try {
-      // Create a File object from the blob
-      const fileName = `Recording_${new Date().toISOString()}.${type === 'audio' ? 'webm' : 'mp4'}`;
-      const file = new File([blob], fileName, { type: blob.type });
-
-      // Upload the file to backend and get metadata
+      const ext = type === 'audio' ? 'webm' : 'mp4';
+      const file = new File([blob], `Recording_${new Date().toISOString()}.${ext}`, { type: blob.type });
       const uploadedFiles = await handleFileSelect([file]);
-
-      // Send a message with the uploaded file metadata
       await handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
-
-    } catch (_error) {
-      // Handle media upload error
-
-      console.error('Failed to upload captured media:', _error);
+    } catch (err) {
+      console.error('Failed to upload captured media:', err);
       showErrorRef.current?.('Failed to upload recording. Please try again.');
     }
   };
 
-  const resolvedPracticeLogo = isPublicWorkspace
-    ? (practiceConfig.profileImage ?? null)
-    : (currentPractice?.logo ?? practiceConfig?.profileImage ?? null);
-  const resolvedPracticeName = isPublicWorkspace
-    ? (practiceConfig.name ?? '')
-    : (currentPractice?.name ?? practiceConfig.name ?? '');
-  const resolvedPracticeSlug = currentPractice?.slug ?? practiceConfig?.slug ?? practiceId;
-  const resolvedPracticeDescription = practiceDetails?.description
-    ?? currentPractice?.description
-    ?? practiceConfig?.description
-    ?? '';
-  const publicFilteredMessages = useMemo(() => {
-    if (!isPublicWorkspace) return [];
-    const base = messages.filter((message) =>
-      message.metadata?.systemMessageKey !== 'ask_question_help'
-    );
-    const hasNonSystemMessages = base.some((message) => message.role !== 'system');
-    return hasNonSystemMessages ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
-  }, [isPublicWorkspace, messages]);
-  const publicPresenceStatus = typeof isSocketReady === 'boolean'
-    ? (isSocketReady ? 'active' : 'inactive')
-    : undefined;
-  const publicActiveTimeLabel = useMemo(() => {
-    if (!isPublicWorkspace) return '';
-    if (publicPresenceStatus === 'active') {
-      return 'Active';
-    }
-    const lastTimestamp = [...publicFilteredMessages]
-      .reverse()
-      .find((message) => typeof message.timestamp === 'number')?.timestamp;
-    if (!lastTimestamp) {
-      return 'Inactive';
-    }
-    const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
+  // ── conversation header ────────────────────────────────────────────────────
+  const leadReviewActions = useMemo(() => {
+    if (!isPracticeWorkspace || !practiceId || !activeConversationId || !practiceMattersPath) return undefined;
+    return {
+      practiceId,
+      practiceName: resolvedPracticeName,
+      conversationId: activeConversationId,
+      canReviewLeads,
+      mattersBasePath: practiceMattersPath,
+      navigateTo: (path: string) => navigate(path),
+    };
+  }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
+
+  const filteredMessagesForHeader = useMemo(() => {
+    const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
+    const hasNonSystem = base.some((message) => message.role !== 'system');
+    return hasNonSystem ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
+  }, [messages]);
+
+  const conversationHeaderActiveLabel = useMemo(() => {
+    if (isSocketReady) return 'Active';
+    const lastTimestamp = [...filteredMessagesForHeader].reverse().find((message) => typeof message.timestamp === 'number')?.timestamp;
+    if (!lastTimestamp) return 'Inactive';
+    const relative = formatRelativeTime(new Date(lastTimestamp));
     return relative ? `Active ${relative}` : 'Inactive';
-  }, [isPublicWorkspace, publicFilteredMessages, publicPresenceStatus]);
-  const publicHeaderContent = useMemo(() => {
-    if (!isPublicWorkspace || !publicConversationsBasePath) return undefined;
+  }, [filteredMessagesForHeader, isSocketReady]);
+
+  const isConsultConversation = useMemo(
+    () => conversationMode === 'REQUEST_CONSULTATION'
+      || Boolean(resolveConsultationState(conversationMetadata))
+      || Boolean(
+        slimContactDraft?.name
+        || slimContactDraft?.email
+        || slimContactDraft?.phone
+        || intakeStatus?.intakeUuid
+        || intakeStatus?.step !== 'contact_form_slim'
+        || intakeConversationState?.turnCount
+        || intakeConversationState?.ctaShown
+        || intakeConversationState?.intakeReady
+        || intakeConversationState?.description
+        || intakeConversationState?.opposingParty
+        || intakeConversationState?.city
+        || intakeConversationState?.state
+        || intakeConversationState?.desiredOutcome
+      ),
+    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
+  );
+
+  const conversationStrengthAction = useMemo(() => {
+    if (!isConsultConversation) return null;
+
+    const tier = resolveStrengthTier(intakeConversationState);
+    const { percent, ringClass } = resolveStrengthStyle(tier);
+    const radius = 9;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference - (percent / 100) * circumference;
+
     return (
-      <PublicConversationHeader
-        practiceName={resolvedPracticeName}
-        practiceLogo={resolvedPracticeLogo}
-        activeLabel={publicActiveTimeLabel}
-        presenceStatus={publicPresenceStatus}
-        onBack={() => navigate(publicConversationsBasePath)}
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={() => {
+          if (typeof window === 'undefined') return;
+          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+        }}
+        aria-label="Case strength"
+      >
+        <span className="relative flex h-6 w-6 items-center justify-center">
+          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
+            <circle
+              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
+              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
+              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+            />
+          </svg>
+          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      </Button>
+    );
+  }, [intakeConversationState, isConsultConversation]);
+
+  const conversationHeaderContent = useMemo(() => {
+    if (!conversationsBasePath || !activeConversationId) return undefined;
+    const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
+    return (
+      <DetailHeader
+        title={resolvedPracticeName}
+        subtitle={conversationHeaderActiveLabel}
+        showBack={showConversationBack}
+        onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
+        actions={conversationStrengthAction}
+        onInspector={() => {
+          if (typeof window === 'undefined') return;
+          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+        }}
+        className="workspace-conversation-header"
       />
     );
   }, [
-    isPublicWorkspace,
-    navigate,
-    publicActiveTimeLabel,
-    publicConversationsBasePath,
-    publicPresenceStatus,
-    resolvedPracticeLogo,
-    resolvedPracticeName
+    activeConversationId, conversationBackPath, conversationsBasePath,
+    conversationHeaderActiveLabel, conversationStrengthAction,
+    layoutMode, navigate, resolvedPracticeName,
   ]);
+  const showWorkspaceDetailBack = useMemo(
+    () => shouldShowWorkspaceDetailBack(layoutMode),
+    [layoutMode]
+  );
+  const showPracticeInvoiceDetailBack = useMemo(
+    () => shouldShowWorkspaceDetailBack(layoutMode, Boolean(resolvedPracticeSlug)),
+    [layoutMode, resolvedPracticeSlug]
+  );
+  const showClientInvoiceDetailBack = useMemo(
+    () => shouldShowWorkspaceDetailBack(layoutMode, Boolean((clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null)),
+    [clientPracticeSlug, layoutMode, resolvedClientPracticeSlug]
+  );
 
-  // Handle navigation to chats - removed since bottom nav is disabled
-  const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
-  const handleSelectConversation = useCallback((id: string) => {
-    setConversationId(id);
-    if (resolvedConversationsBasePath) {
-      navigate(`${resolvedConversationsBasePath}/${encodeURIComponent(id)}`);
-    }
-  }, [navigate, resolvedConversationsBasePath]);
+  // ── system messages ────────────────────────────────────────────────────────
+  useConversationSystemMessages({
+    conversationId: activeConversationId,
+    practiceId: effectivePracticeId,
+    ingestServerMessages,
+  });
 
+  // ── derived layout flags ───────────────────────────────────────────────────
+  const isConversationReady = Boolean(activeConversationId && !isCreatingConversation);
+  const hasAnonymousPublicChatContext = Boolean(
+    isPublicWorkspace && activeConversationId && effectivePracticeId && !sessionIsPending
+  );
+  const isAuthReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousPublicChatContext);
+  const isSessionReady = isConversationReady && isAuthReady;
+  const effectiveIsSocketReady = isConversationReady && isAuthReady ? isSocketReady : false;
+  const isComposerDisabled = isPublicWorkspace && !conversationMode;
+  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
+  const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
+
+  // ── chat panel ─────────────────────────────────────────────────────────────
   const chatPanel = chatContent ?? (
-    <div className="relative h-full flex flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {shouldShowChatPlaceholder ? (
-        <div className="flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-          {workspace === 'practice'
+        <div className="flex-1 flex items-center justify-center text-sm text-input-placeholder">
+          {isPracticeWorkspace
             ? 'Select a conversation to view the thread.'
             : 'Open a practice link to start chatting.'}
         </div>
       ) : (
-        <>
-          {showMatterControls && (
-            <ConversationHeader
-              practiceId={practiceId}
-              matterId={null}
-              canReviewLeads={canReviewLeads}
-              acceptMatter={acceptMatter}
-              rejectMatter={rejectMatter}
-              updateMatterStatus={updateMatterStatus}
-            />
-          )}
-          <div className="flex-1 min-h-0">
-            <ChatContainer
-              messages={messages}
-              conversationTitle={conversationMetadata?.title ?? null}
-              onSendMessage={handleSendMessage}
-              onContactFormSubmit={handleContactFormSubmit}
-              onAddMessage={addMessage}
-              onSelectMode={handleModeSelection}
-              onToggleReaction={toggleMessageReaction}
-              onRequestReactions={requestMessageReactions}
-              composerDisabled={isComposerDisabled}
-              isPublicWorkspace={workspace === 'public'}
-              messagesReady={messagesReady}
-              headerContent={workspace === 'public' ? publicHeaderContent : undefined}
-              heightClassName={workspace === 'public' ? 'h-full' : undefined}
-              useFrame={workspace !== 'public'}
-              practiceConfig={{
-                name: resolvedPracticeName,
-                profileImage: resolvedPracticeLogo,
-                practiceId,
-                description: resolvedPracticeDescription,
-                slug: resolvedPracticeSlug,
-                introMessage: practiceConfig.introMessage
-              }}
-              onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-              practiceId={practiceId}
-              previewFiles={previewFiles}
-              uploadingFiles={uploadingFiles}
-              removePreviewFile={removePreviewFile}
-              clearPreviewFiles={clearPreviewFiles}
-              handleCameraCapture={handleCameraCapture}
-              handleFileSelect={async (files: File[]) => {
-                await handleFileSelect(files);
-              }}
-              cancelUpload={cancelUpload}
-              handleMediaCapture={handleMediaCaptureWrapper}
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-              clearInput={clearInputTrigger}
-              isReadyToUpload={isReadyToUpload}
-              isSessionReady={isSessionReady}
-              isSocketReady={isSocketReady}
-              intakeStatus={intakeStatus}
-              conversationId={conversationId}
-              isAnonymousUser={isAnonymousUser}
-              canChat={canChat}
-              hasMoreMessages={hasMoreMessages}
-              isLoadingMoreMessages={isLoadingMoreMessages}
-              onLoadMoreMessages={loadMoreMessages}
-            />
-          </div>
-        </>
+        <div className="flex-1 min-h-0">
+          <ChatContainer
+            messages={messages}
+            conversationTitle={resolveConversationDisplayTitle(
+              conversationMetadata ?? null,
+              conversationMetadata?.title ?? ''
+            )}
+            onSendMessage={handleSendMessage}
+            onAddMessage={addMessage}
+            conversationMode={conversationMode}
+            onSelectMode={handleModeSelection}
+            onToggleReaction={toggleMessageReaction}
+            onRequestReactions={requestMessageReactions}
+            composerDisabled={isComposerDisabled}
+            isPublicWorkspace={isPublicWorkspace}
+            leadReviewActions={leadReviewActions}
+            messagesReady={messagesReady}
+            headerContent={conversationHeaderContent}
+            onOpenSidebar={() => {
+              if (typeof window === 'undefined') return;
+              window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
+            }}
+            heightClassName={layoutMode === 'desktop' ? undefined : 'h-full'}
+            useFrame={layoutMode === 'desktop'}
+            layoutMode={layoutMode}
+            practiceConfig={{
+              name: resolvedPracticeName,
+              profileImage: resolvedPracticeLogo,
+              practiceId,
+              description: fullDescription,
+              slug: resolvedPracticeSlug,
+            }}
+            practiceId={practiceId}
+            conversationId={activeConversationId ?? null}
+            previewFiles={previewFiles}
+            uploadingFiles={uploadingFiles}
+            removePreviewFile={removePreviewFile}
+            clearPreviewFiles={clearPreviewFiles}
+            handleCameraCapture={handleCameraCapture}
+            handleFileSelect={async (files: File[]) => { await handleFileSelect(files); }}
+            cancelUpload={cancelUpload}
+            handleMediaCapture={handleMediaCaptureWrapper}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+            clearInput={clearInputTrigger}
+            isReadyToUpload={isReadyToUpload}
+            isSessionReady={isSessionReady}
+            isSocketReady={effectiveIsSocketReady}
+            intakeStatus={intakeStatus}
+            intakeConversationState={intakeConversationState}
+            onIntakeCtaResponse={handleIntakeCtaResponse}
+            slimContactDraft={slimContactDraft}
+            onSlimFormContinue={handleSlimFormContinue}
+            onSlimFormDismiss={handleSlimFormDismiss}
+            onBuildBrief={handleBuildBrief}
+            onSubmitNow={handleSubmitNow}
+            isAnonymousUser={isAnonymous}
+            canChat={canChat}
+            hasMoreMessages={hasMoreMessages}
+            isLoadingMoreMessages={isLoadingMoreMessages}
+            onLoadMoreMessages={loadMoreMessages}
+            showAuthPrompt={shouldShowAuthPrompt}
+            authPromptCallbackUrl={intakePostAuthPath ?? undefined}
+            onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
+            onAuthPromptClose={handleAuthPromptClose}
+            onAuthPromptSuccess={handleAuthPromptSuccess}
+            mentionCandidates={mentionCandidates}
+          />
+        </div>
       )}
     </div>
   );
 
-  const conversationSidebarContent = useMemo(() => {
-    if (workspace === 'public') return null;
-    return (
-      <ConversationSidebar
-        workspace={workspace}
-        practiceId={practiceId}
-        selectedConversationId={conversationId}
-        onSelectConversation={handleSelectConversation}
-      />
-    );
-  }, [conversationId, handleSelectConversation, practiceId, workspace]);
-
-  const practiceContent = (() => {
-    switch (routeKey) {
-      case 'payments':
-        return <PracticePaymentsPage />;
-      case 'payouts':
-        return <PracticePayoutsPage />;
-      case 'pricing':
-        return <PracticePricingPage />;
-      case 'clients':
-        return <PracticeClientsPage />;
-      case 'leads':
-        return (
-          <LeadsPage
-            practiceId={currentPractice?.id ?? practiceId ?? null}
-            canReviewLeads={canReviewLeads}
-            acceptMatter={acceptMatter}
-            rejectMatter={rejectMatter}
-          />
-        );
-      case 'matters':
-        return <PracticeMattersPage />;
-      case 'conversations':
-        return chatPanel;
-      case 'home':
-      default:
-        return <PracticeHomePage />;
+  // ── workspace view (route-driven) ─────────────────────────────────────────
+  const resolvedWorkspaceView = useMemo<WorkspaceView>(() => {
+    const requested = workspaceView ?? (isPublicWorkspace ? 'conversation' : 'home');
+    if ((isClientWorkspace || isPracticeWorkspace) && requested === 'conversation' && !activeConversationId) {
+      return 'list';
     }
-  })();
+    return requested;
+  }, [activeConversationId, isClientWorkspace, isPracticeWorkspace, isPublicWorkspace, workspaceView]);
 
-  const clientContent = (() => {
-    switch (routeKey) {
-      case 'payments':
-        return <ClientPaymentsPage />;
-      case 'matters':
-        return <ClientMattersPage />;
-      case 'conversations':
-      default:
-        return chatPanel;
-    }
-  })();
 
-  const publicEmbedContent = workspace === 'public' ? (
-    <PublicEmbedLayout
-      view={publicEmbedView ?? 'conversation'}
-      practiceId={practiceId}
-      practiceSlug={resolvedPublicPracticeSlug}
+
+  const workspacePage = (
+    <WorkspacePage
+      view={resolvedWorkspaceView}
+      practiceId={effectivePracticeId ?? practiceId}
+      practiceSlug={
+        isPracticeWorkspace
+          ? (resolvedPracticeSlug ?? null)
+          : isClientWorkspace
+            ? (clientPracticeSlug ?? resolvedClientPracticeSlug)
+            : resolvedPublicPracticeSlug
+      }
+      routeInvoiceId={routeInvoiceId ?? null}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
-      showClientTabs={isAuthenticatedClient}
+      layoutMode={layoutMode}
+      workspace={workspace}
+      settingsView={routeSettingsView}
+      settingsAppId={routeSettingsAppId}
       onStartNewConversation={handleStartNewConversation}
+      activeConversationId={activeConversationId}
+      intakeConversationState={intakeConversationState}
+      intakeStatus={intakeStatus}
+      onIntakeFieldsChange={applyIntakeFields}
+      practiceDetails={practiceDetails}
       chatView={chatPanel}
+      mattersView={
+        isPracticeWorkspace
+          ? (practiceMattersPath
+            ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <PracticeMattersPage
+                  basePath={practiceMattersPath}
+                  practiceId={effectivePracticeId ?? practiceId}
+                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  statusFilter={statusFilter}
+                  prefetchedItems={prefetchData?.mattersData?.items}
+                  prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                  prefetchedError={prefetchData?.mattersData?.error}
+                  onRefetchList={prefetchData?.mattersData?.refetch}
+                  onDetailInspector={onDetailInspector}
+                  detailInspectorOpen={detailInspectorOpen}
+                  detailHeaderLeadingAction={detailHeaderLeadingAction}
+                  showDetailBackButton={showWorkspaceDetailBack}
+                />
+              </Suspense>
+            )
+            : null)
+          : isClientWorkspace
+            ? (clientMattersPath
+              ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen) => (
+                <Suspense fallback={<WorkspaceSubviewFallback />}>
+                  <ClientMattersPage
+                    basePath={clientMattersPath}
+                    practiceId={effectivePracticeId ?? practiceId}
+                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    statusFilter={statusFilter}
+                    prefetchedItems={prefetchData?.mattersData?.items}
+                    prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                    prefetchedError={prefetchData?.mattersData?.error}
+                    onRefetchList={prefetchData?.mattersData?.refetch}
+                    onDetailInspector={onDetailInspector}
+                    detailInspectorOpen={detailInspectorOpen}
+                    showDetailBackButton={showWorkspaceDetailBack}
+                  />
+                </Suspense>
+              )
+              : null)
+            : undefined
+      }
+      mattersListContent={
+        isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
+          ? (statusFilter, prefetchData) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <PracticeMattersPage
+                basePath={practiceMattersPath}
+                practiceId={effectivePracticeId ?? practiceId}
+                renderMode="listOnly"
+                statusFilter={statusFilter}
+                prefetchedItems={prefetchData?.mattersData?.items}
+                prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                prefetchedError={prefetchData?.mattersData?.error}
+                onRefetchList={prefetchData?.mattersData?.refetch}
+                showDetailBackButton={showWorkspaceDetailBack}
+              />
+            </Suspense>
+          )
+          : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
+            ? (statusFilter, prefetchData) => (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <ClientMattersPage
+                  basePath={clientMattersPath}
+                  practiceId={effectivePracticeId ?? practiceId}
+                  renderMode="listOnly"
+                  statusFilter={statusFilter}
+                  prefetchedItems={prefetchData?.mattersData?.items}
+                  prefetchedLoading={prefetchData?.mattersData?.isLoading}
+                  prefetchedError={prefetchData?.mattersData?.error}
+                  onRefetchList={prefetchData?.mattersData?.refetch}
+                  showDetailBackButton={showWorkspaceDetailBack}
+                />
+              </Suspense>
+            )
+          : undefined
+      }
+      clientsView={isPracticeWorkspace && practiceClientsPath != null
+        ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
+          <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <PracticeClientsPage
+              practiceId={effectivePracticeId ?? practiceId}
+              basePath={practiceClientsPath}
+              renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+              statusFilter={statusFilter}
+              prefetchedItems={prefetchData?.clientsData?.items}
+              prefetchedLoading={prefetchData?.clientsData?.isLoading}
+              prefetchedError={prefetchData?.clientsData?.error}
+              onRefetchList={prefetchData?.clientsData?.refetch}
+              onDetailInspector={onDetailInspector}
+              detailInspectorOpen={detailInspectorOpen}
+              detailHeaderLeadingAction={detailHeaderLeadingAction}
+              showDetailBackButton={showWorkspaceDetailBack}
+            />
+          </Suspense>
+        )
+        : undefined}
+      clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
+        ? (statusFilter, prefetchData) => (
+          <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <PracticeClientsPage
+              practiceId={effectivePracticeId ?? practiceId}
+              basePath={practiceClientsPath}
+              renderMode="listOnly"
+              statusFilter={statusFilter}
+              prefetchedItems={prefetchData?.clientsData?.items}
+              prefetchedLoading={prefetchData?.clientsData?.isLoading}
+              prefetchedError={prefetchData?.clientsData?.error}
+              onRefetchList={prefetchData?.clientsData?.refetch}
+              showDetailBackButton={showWorkspaceDetailBack}
+            />
+          </Suspense>
+        )
+        : undefined}
+      invoicesView={
+        isPracticeWorkspace
+          ? (statusFilter, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              {resolvedWorkspaceView === 'invoiceDetail' ? (
+                <PracticeInvoiceDetailPage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={resolvedPracticeSlug ?? null}
+                  invoiceId={routeInvoiceId ?? null}
+                  leadingAction={detailHeaderLeadingAction}
+                  onInspector={onDetailInspector}
+                  inspectorOpen={detailInspectorOpen}
+                  showBack={showPracticeInvoiceDetailBack}
+                />
+              ) : resolvedWorkspaceView === 'invoiceCreate' ? (
+                <PracticeInvoiceCreatePage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={resolvedPracticeSlug ?? null}
+                />
+              ) : (
+                <PracticeInvoicesPage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={resolvedPracticeSlug ?? null}
+                  statusFilter={statusFilter}
+                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                />
+              )}
+            </Suspense>
+          )
+          : isClientWorkspace
+            ? (statusFilter, onDetailInspector, detailInspectorOpen) => (
+              <Suspense fallback={<WorkspaceSubviewFallback />}>
+                {resolvedWorkspaceView === 'invoiceDetail' ? (
+                <ClientInvoiceDetailPage
+                    practiceId={effectivePracticeId ?? practiceId}
+                    practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                    invoiceId={routeInvoiceId ?? null}
+                    onInspector={onDetailInspector}
+                    inspectorOpen={detailInspectorOpen}
+                    showBack={showClientInvoiceDetailBack}
+                  />
+                ) : (
+                  <ClientInvoicesPage
+                    key={`${effectivePracticeId}-${layoutMode === 'desktop' ? 'detailOnly' : 'full'}-${JSON.stringify(statusFilter)}`}
+                    practiceId={effectivePracticeId ?? practiceId}
+                    practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                    statusFilter={statusFilter}
+                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  />
+                )}
+              </Suspense>
+            )
+            : undefined
+      }
+      invoicesListContent={
+        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop'
+          ? (statusFilter) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              {isPracticeWorkspace ? (
+                <PracticeInvoicesPage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={resolvedPracticeSlug ?? null}
+                  statusFilter={statusFilter}
+                  renderMode="listOnly"
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                />
+              ) : (
+                <ClientInvoicesPage
+                  key={`${effectivePracticeId}-listOnly-${JSON.stringify(statusFilter)}`}
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
+                  statusFilter={statusFilter}
+                  renderMode="listOnly"
+                />
+              )}
+            </Suspense>
+          )
+          : undefined
+      }
+      reportsView={
+        isPracticeWorkspace
+          ? (reportTitle) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <PracticeReportsPage title={reportTitle} />
+            </Suspense>
+          )
+          : undefined
+      }
+      primaryCreateAction={
+        resolvedWorkspaceView === 'matters' && isPracticeWorkspace && practiceMattersPath
+          ? {
+              label: 'New Matter',
+              onClick: () => navigate(`${practiceMattersPath}/new`),
+              icon: PlusIcon,
+            }
+          : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
+            ? {
+                label: 'New Invoice',
+                onClick: () => navigate(`${practiceInvoicesPath}/new`),
+                icon: PlusIcon,
+              }
+          : resolvedWorkspaceView === 'clients' && isPracticeWorkspace && practiceClientsPath
+            ? {
+                label: 'New Person',
+                onClick: () => navigate(`${practiceClientsPath}?create=1`),
+                icon: PlusIcon,
+              }
+            : null
+      }
     />
-  ) : null;
+  );
 
-  const mainContent = workspace === 'practice'
-    ? practiceContent
-    : (workspace === 'client' ? clientContent : publicEmbedContent ?? chatPanel);
-  const shouldShowRightSidebar = workspace === 'practice' && routeKey === 'conversations';
+  // ── render ─────────────────────────────────────────────────────────────────
+  const rootClassName = isWidget ? 'h-full w-full overflow-hidden' : 'min-h-dvh w-full';
 
-  // Render the main app
+  const routePracticeContextValue = {
+    practiceId: effectivePracticeId ?? null,
+    practiceSlug: workspace === 'practice'
+      ? (practiceSlug ?? null)
+      : workspace === 'client'
+        ? (clientPracticeSlug ?? null)
+        : (resolvedPublicPracticeSlug ?? null),
+    workspace,
+  } as const;
+
   return (
     <>
-      <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
-
-      <AppLayout
-        workspace={workspace}
-        practiceNotFound={practiceNotFound}
-        practiceId={practiceId}
-        onRetryPracticeConfig={handleRetryPracticeConfig}
-        navItems={navItems}
-        isMobileSidebarOpen={isMobileSidebarOpen}
-        onToggleMobileSidebar={setIsMobileSidebarOpen}
-        isSettingsModalOpen={isSettingsRouteNow}
-        practiceConfig={{
-          name: resolvedPracticeName,
-          profileImage: resolvedPracticeLogo,
-          description: resolvedPracticeDescription,
-          slug: resolvedPracticeSlug
-        }}
-        currentPractice={currentPractice}
-        practiceDetails={practiceDetails}
-        messages={messages}
-        conversationSidebarContent={conversationSidebarContent ?? undefined}
-        showRightSidebar={shouldShowRightSidebar}
-      >
-        {mainContent}
-      </AppLayout>
-
-      {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
-
-      {/* Pricing Modal */}
-      {workspace !== 'public' && (
-        <PricingModal
-          isOpen={showPricingModal}
-          onClose={() => {
-            setShowPricingModal(false);
-            window.location.hash = '';
-          }}
-          currentTier={currentUserTier}
-          onUpgrade={async (tier) => {
-            let shouldNavigateToCart = true;
-            try {
-              if (!session?.user) {
-                showError('Sign-in required', 'Please sign in before upgrading your plan.');
-                return false;
-              }
-
-              if (tier === 'business') {
-                // Navigate to cart page for business upgrades instead of direct checkout
-                try {
-                  const existing = localStorage.getItem('cartPreferences');
-                  const parsed = existing ? JSON.parse(existing) : {};
-                  localStorage.setItem('cartPreferences', JSON.stringify({
-                    ...parsed,
-                    tier,
-                  }));
-                } catch (_error) {
-                  console.warn('Unable to store cart preferences for upgrade:', _error);
-                }
-                // Keep shouldNavigateToCart = true to go to cart page
-              } else if (tier === 'enterprise') {
-                navigate('/enterprise');
-                shouldNavigateToCart = false;
-              } else {
-                try {
-                  const existing = localStorage.getItem('cartPreferences');
-                  const parsed = existing ? JSON.parse(existing) : {};
-                  localStorage.setItem('cartPreferences', JSON.stringify({
-                    ...parsed,
-                    tier,
-                  }));
-                } catch (_error) {
-                  console.warn('Unable to store cart preferences for upgrade:', _error);
-                }
-              }
-            } catch (_error) {
-              console.error('Error initiating subscription upgrade:', _error);
-              const message = _error instanceof Error ? _error.message : 'Unable to start upgrade.';
-              showError('Upgrade failed', message);
-              shouldNavigateToCart = false;
-            } finally {
-              setShowPricingModal(false);
-              window.location.hash = '';
-            }
-
-            return shouldNavigateToCart;
-          }}
-        />
-      )}
-
-      {/* Welcome Modal */}
-      <WelcomeModal
-        isOpen={showWelcomeModal}
-        onClose={handleWelcomeClose}
-        onComplete={handleWelcomeComplete}
-        workspace={workspace === 'practice' ? 'practice' : 'client'}
-      />
-
-      {/* Business Welcome Modal */}
-      {showBusinessWelcome && (
-        <BusinessWelcomePrompt
-          isOpen={showBusinessWelcome}
-          onClose={handleBusinessWelcomeClose}
-        />
+      {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
+      <div className={rootClassName}>
+        <RoutePracticeProvider value={routePracticeContextValue}>
+          {workspacePage}
+        </RoutePracticeProvider>
+      </div>
+      {!isWidget && (
+        <>
+          <WelcomeModal
+            isOpen={showWelcomeModal}
+            onClose={handleWelcomeClose}
+            onComplete={handleWelcomeComplete}
+            workspace={isPracticeWorkspace ? 'practice' : 'client'}
+          />
+          {showBusinessWelcome && (
+            <BusinessWelcomePrompt isOpen={showBusinessWelcome} onClose={handleBusinessWelcomeClose} />
+          )}
+        </>
       )}
     </>
   );

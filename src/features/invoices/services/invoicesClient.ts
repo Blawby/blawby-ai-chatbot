@@ -1,0 +1,139 @@
+import axios from 'axios';
+import { apiClient } from '@/shared/lib/apiClient';
+import { urls } from '@/config/urls';
+import type { Invoice } from '@/features/matters/types/billing.types';
+
+type FetchOptions = { signal?: AbortSignal };
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === 'string' && data.trim().length > 0) return data;
+    if (data && typeof data === 'object') {
+      const record = data as Record<string, unknown>;
+      const message = typeof record.message === 'string' ? record.message : null;
+      const err = typeof record.error === 'string' ? record.error : null;
+      return message ?? err ?? error.message ?? fallback;
+    }
+    return error.message ?? fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+};
+
+const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: string): Promise<T> => {
+  try {
+    const response = await promise;
+    return response.data;
+  } catch (error) {
+    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
+    const normalized = new Error(getErrorMessage(error, fallbackMessage)) as Error & { status?: number };
+    if (axios.isAxiosError(error)) {
+      normalized.status = error.response?.status;
+    }
+    throw normalized;
+  }
+};
+
+const extractInvoices = (payload: unknown): Invoice[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is Invoice => Boolean(item && typeof item === 'object'));
+  }
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.invoices)) {
+    return record.invoices.filter((item): item is Invoice => Boolean(item && typeof item === 'object'));
+  }
+  if (record.invoice && typeof record.invoice === 'object') {
+    return [record.invoice as Invoice];
+  }
+  if ('data' in record) return extractInvoices(record.data);
+  return [];
+};
+
+const extractArray = <T extends Record<string, unknown>>(payload: unknown, keys: string[]): T[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((entry): entry is T => Boolean(entry && typeof entry === 'object'));
+  }
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  for (const key of keys) {
+    if (Array.isArray(record[key])) {
+      return record[key].filter((entry): entry is T => Boolean(entry && typeof entry === 'object'));
+    }
+  }
+  if ('data' in record) return extractArray<T>(record.data, keys);
+  return [];
+};
+
+export const listClientInvoices = async (practiceId: string, options: FetchOptions = {}): Promise<Invoice[]> => {
+  if (!practiceId) return [];
+  const payload = await requestData(
+    apiClient.get(urls.clientInvoicesList(practiceId), { signal: options.signal }),
+    'Failed to load client invoices'
+  );
+
+  const invoices = extractInvoices(payload);
+  if (invoices.length > 0) return invoices;
+  return extractArray<Invoice>(payload, ['items', 'data']);
+};
+
+export const getClientInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}): Promise<Invoice | null> => {
+  if (!practiceId || !invoiceId) return null;
+  const payload = await requestData(
+    apiClient.get(urls.clientInvoice(practiceId, invoiceId), { signal: options.signal }),
+    'Failed to load client invoice'
+  );
+  const invoices = extractInvoices(payload);
+  return invoices[0] ?? null;
+};
+
+export interface RefundRequestPayload {
+  amount?: number;
+  reason?: string;
+}
+
+export const createRefundRequest = async (
+  practiceId: string,
+  invoiceId: string,
+  payload: RefundRequestPayload,
+  options: FetchOptions = {}
+): Promise<Record<string, unknown>> => {
+  if (!practiceId || !invoiceId) {
+    throw new Error('Practice ID and invoice ID are required');
+  }
+  return requestData(
+    apiClient.post(urls.clientInvoiceRefundRequests(practiceId, invoiceId), payload, { signal: options.signal }),
+    'Failed to request refund'
+  ) as Promise<Record<string, unknown>>;
+};
+
+export const listClientRefundRequests = async (
+  practiceId: string,
+  options: FetchOptions = {}
+): Promise<Array<Record<string, unknown>>> => {
+  if (!practiceId) return [];
+  const payload = await requestData(
+    apiClient.get(urls.clientRefundRequests(practiceId), { signal: options.signal }),
+    'Failed to load refund requests'
+  );
+
+  return extractArray<Record<string, unknown>>(payload, ['refund_requests', 'refundRequests', 'requests', 'items']);
+};
+
+export const cancelRefundRequest = async (
+  practiceId: string,
+  refundRequestId: string,
+  options: FetchOptions = {}
+): Promise<Record<string, unknown>> => {
+  if (!practiceId || !refundRequestId) {
+    throw new Error('Practice ID and refund request ID are required');
+  }
+
+  return requestData(
+    apiClient.patch(urls.cancelClientRefundRequest(practiceId, refundRequestId), {}, { signal: options.signal }),
+    'Failed to cancel refund request'
+  ) as Promise<Record<string, unknown>>;
+};

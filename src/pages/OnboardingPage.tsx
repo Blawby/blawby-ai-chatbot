@@ -3,18 +3,11 @@ import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { getWorkspaceHomePath } from '@/shared/utils/workspace';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
-
-const LoadingScreen = () => (
-  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-    Loading…
-  </div>
-);
-
-const resolveFallbackPath = (workspace: ReturnType<typeof useWorkspace>['defaultWorkspace']) => {
-  if (workspace === 'practice') return '/practice/home';
-  return '/client/conversations';
-};
+import { SetupShell } from '@/shared/ui/layout/SetupShell';
+import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 
 const isSafeRedirectPath = (path: string | null | undefined): path is string => {
   if (!path) return false;
@@ -34,6 +27,7 @@ const OnboardingPage = () => {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
   const { defaultWorkspace } = useWorkspace();
+  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
   const location = useLocation();
   let rawReturnTo: string | null = null;
   if (typeof location.query?.returnTo === 'string') {
@@ -48,10 +42,12 @@ const OnboardingPage = () => {
   }
   const requestedReturnPath = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : null;
 
-  const fallbackPath = useMemo(
-    () => requestedReturnPath ?? resolveFallbackPath(defaultWorkspace),
-    [defaultWorkspace, requestedReturnPath]
-  );
+  const fallbackPath = useMemo(() => {
+    if (requestedReturnPath) return requestedReturnPath;
+    if (practicesLoading) return null;
+    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    return getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
+  }, [currentPractice?.slug, defaultWorkspace, practices, practicesLoading, requestedReturnPath]);
 
   const userId = session?.user?.id;
   const userIsAnonymous = session?.user?.isAnonymous;
@@ -63,7 +59,7 @@ const OnboardingPage = () => {
       navigate('/auth?mode=signup', true);
       return;
     }
-    if (userOnboardingComplete) {
+    if (userOnboardingComplete && fallbackPath) {
       navigate(fallbackPath, true);
     }
   }, [
@@ -91,13 +87,15 @@ const OnboardingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
-      <OnboardingFlow
-        onClose={() => navigate(fallbackPath, true)}
-        onComplete={() => navigate(fallbackPath, true)}
-        active
-      />
-    </div>
+    <SetupShell>
+      <div className="min-h-screen bg-transparent flex flex-col">
+        <OnboardingFlow
+          onClose={() => fallbackPath && navigate(fallbackPath, true)}
+          onComplete={() => fallbackPath && navigate(fallbackPath, true)}
+          active
+        />
+      </div>
+    </SetupShell>
   );
 };
 

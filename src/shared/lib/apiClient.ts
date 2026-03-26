@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -7,7 +7,7 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Address } from '@/shared/types/address';
-import { getWorkerApiUrl } from '@/config/urls';
+import { getWorkerApiUrl, isWidgetTokenEligibleRequestUrl } from '@/config/urls';
 import {
   toMajorUnits,
   toMinorUnitsValue,
@@ -15,10 +15,45 @@ import {
   assertMinorUnits,
   type MajorAmount
 } from '@/shared/utils/money';
+import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
+// In-flight deduplicator: prevents concurrent duplicate requests for the same slug.
 const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
+// Persistent result cache: once a slug resolves, reuse the result for the entire session.
+// This is the primary fix for the "Too Many Requests" issue — previously every caller
+// (usePracticeConfig, usePracticeDetails, forms.ts) would fire
+// independent HTTP requests because the in-flight map was cleared after each request.
+const publicPracticeDetailsCache = new Map<string, PublicPracticeDetails | null>();
+const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+/**
+ * Clear the public practice details cache for a specific slug (or all slugs).
+ * Call this on logout or when practice data is known to have changed.
+ */
+export const clearPublicPracticeDetailsCache = (slug?: string) => {
+  if (slug) {
+    publicPracticeDetailsCache.delete(slug.trim());
+    publicPracticeDetailsInFlight.delete(slug.trim());
+  } else {
+    publicPracticeDetailsCache.clear();
+    publicPracticeDetailsInFlight.clear();
+  }
+};
+
+export const normalizePublicFileUrl = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+  return `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
+};
 
 /**
  * Get the base URL for backend API requests via the Worker proxy
@@ -57,13 +92,24 @@ apiClient.interceptors.request.use(
     // Always set baseURL fresh - don't rely on existing value
     if (config.baseURL !== baseUrl) {
       config.baseURL = baseUrl;
-      if (import.meta.env.DEV) {
-        console.log('[apiClient] Updated baseURL to:', baseUrl, 'for request:', config.url);
-      }
     }
 
     // Use session cookies for auth; include credentials for cross-origin requests when allowed.
     config.withCredentials = true;
+    const widgetToken = getWidgetAuthToken();
+    if (widgetToken) {
+      const requestUrl = typeof config.url === 'string' ? config.url : '';
+      if (isWidgetTokenEligibleRequestUrl(requestUrl)) {
+        if (!config.headers) {
+          config.headers = new AxiosHeaders();
+        }
+        if (config.headers instanceof AxiosHeaders) {
+          config.headers.set('Authorization', `Bearer ${widgetToken}`);
+        } else {
+          (config.headers as Record<string, string>).Authorization = `Bearer ${widgetToken}`;
+        }
+      }
+    }
 
     return config;
   },
@@ -95,14 +141,12 @@ export interface Practice {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 
   // Subscription and practice management properties
   kind?: 'personal' | 'business' | 'practice';
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
-  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   config?: {
     ownerEmail?: string;
@@ -151,10 +195,11 @@ export interface PracticeDetailsUpdate {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  businessOnboardingHasDraft?: boolean;
 }
 
 export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
@@ -178,7 +223,6 @@ export interface PracticeDetails {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
@@ -204,6 +248,7 @@ export interface ConnectedAccountResponse {
 export interface OnboardingStatus {
   practiceUuid: string;
   stripeAccountId: string | null;
+  connectedAccountId: string | null;
   clientSecret?: string | null;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
@@ -227,6 +272,14 @@ export interface CurrentSubscriptionPlan {
   id?: string | null;
   name?: string | null;
   displayName?: string | null;
+  description?: string | null;
+  stripeProductId?: string | null;
+  stripeMonthlyPriceId?: string | null;
+  stripeYearlyPriceId?: string | null;
+  monthlyPrice?: string | null;
+  yearlyPrice?: string | null;
+  currency?: string | null;
+  features?: string[] | null;
   isActive?: boolean | null;
 }
 
@@ -235,7 +288,12 @@ export interface CurrentSubscription {
   status?: string | null;
   plan?: CurrentSubscriptionPlan | null;
   cancelAtPeriodEnd?: boolean | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
+}
+
+export interface UpdateConversationMatterRequest {
+  matterId?: string | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -254,10 +312,16 @@ function unwrapApiData(payload: unknown): unknown {
   return current;
 }
 
+interface LinkConversationOptions {
+  previousParticipantId?: string | null;
+  anonymousSessionId?: string | null;
+}
+
 export async function linkConversationToUser(
   conversationId: string,
   practiceId: string,
-  userId?: string | null
+  userId?: string | null,
+  options?: LinkConversationOptions
 ): Promise<Conversation> {
   if (!conversationId) {
     throw new Error('conversationId is required to link conversation');
@@ -266,11 +330,17 @@ export async function linkConversationToUser(
     throw new Error('practiceId is required to link conversation');
   }
 
+  const payload: Record<string, unknown> = {};
+  if (userId !== undefined) payload.userId = userId;
+  if (options?.previousParticipantId !== undefined) {
+    payload.previousParticipantId = options.previousParticipantId;
+  }
+  if (options?.anonymousSessionId !== undefined) {
+    payload.anonymousSessionId = options.anonymousSessionId;
+  }
   const response = await apiClient.patch(
     `${getConversationLinkEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      userId: userId || undefined
-    }
+    Object.keys(payload).length > 0 ? payload : undefined
   );
 
   const conversation = unwrapApiData(response.data) as Conversation | null;
@@ -279,6 +349,99 @@ export async function linkConversationToUser(
   }
 
   return conversation;
+}
+
+export async function updateConversationMatter(
+  conversationId: string,
+  matterId: string | null,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Conversation> {
+  if (!conversationId) {
+    throw new Error('conversationId is required to update a conversation matter');
+  }
+
+  const response = await apiClient.patch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/matter`,
+    { matterId } satisfies UpdateConversationMatterRequest,
+    { signal: config?.signal }
+  );
+
+  const data = unwrapApiData(response.data);
+  if (!isRecord(data)) {
+    throw new Error('Invalid response from updateConversationMatter');
+  }
+
+  return data as unknown as Conversation;
+}
+
+export type ConversationParticipant = {
+  userId: string;
+  role?: string | null;
+  name?: string | null;
+  image?: string | null;
+};
+
+export async function getConversationParticipants(
+  conversationId: string,
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<ConversationParticipant[]> {
+  if (!conversationId) {
+    throw new Error('conversationId is required');
+  }
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+
+  const response = await apiClient.get(
+    `/api/conversations/${encodeURIComponent(conversationId)}/participants`,
+    {
+      params: { practiceId },
+      signal: config?.signal
+    }
+  );
+  const payload = unwrapApiData(response.data);
+  const rows = isRecord(payload) && Array.isArray(payload.participants)
+    ? payload.participants
+    : (Array.isArray(payload) ? payload : []);
+
+  return rows
+    .filter((row): row is Record<string, unknown> => isRecord(row))
+    .map((row) => ({
+      userId: typeof row.userId === 'string'
+        ? row.userId
+        : (typeof row.user_id === 'string' ? row.user_id : ''),
+      role: typeof row.role === 'string' ? row.role : null,
+      name: typeof row.name === 'string' ? row.name : null,
+      image: typeof row.image === 'string' ? row.image : null,
+    }))
+    .filter((row) => row.userId.trim().length > 0);
+}
+
+export async function listMatterConversations(
+  practiceId: string,
+  matterId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Conversation[]> {
+  // Legacy/undocumented: this endpoint is not part of the supplied matters contract.
+  if (!practiceId) {
+    throw new Error('Missing required parameter: practiceId');
+  }
+  if (!matterId) {
+    throw new Error('Missing required parameter: matterId');
+  }
+
+  const response = await apiClient.get(
+    `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/conversations`,
+    { signal: config?.signal }
+  );
+
+  const data = unwrapApiData(response.data);
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid response from listMatterConversations');
+  }
+
+  return data as Conversation[];
 }
 
 async function postSubscriptionEndpoint(
@@ -372,7 +535,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     country: toNullableString(record.country),
     primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
     accentColor: toNullableString(record.accentColor ?? record.accent_color),
-    introMessage: toNullableString(record.introMessage ?? record.intro_message),
     description: toNullableString(record.description ?? record.overview),
     isPublic: 'isPublic' in record || 'is_public' in record
       ? Boolean(record.isPublic ?? record.is_public)
@@ -456,6 +618,7 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   return {
     practiceUuid: String(normalized.practice_uuid ?? normalized.practiceUuid ?? ''),
     stripeAccountId: toNullableString(normalized.stripe_account_id ?? normalized.stripeAccountId),
+    connectedAccountId: toNullableString(normalized.connected_account_id ?? normalized.connectedAccountId),
     clientSecret: toNullableString(normalized.client_secret ?? normalized.clientSecret),
     chargesEnabled: Boolean(normalized.charges_enabled ?? normalized.chargesEnabled),
     payoutsEnabled: Boolean(normalized.payouts_enabled ?? normalized.payoutsEnabled),
@@ -490,6 +653,7 @@ export async function getPractice(practiceId: string, config?: Pick<AxiosRequest
   });
   return unwrapPracticeResponse(response.data);
 }
+
 
 export async function createPractice(
   payload: CreatePracticeRequest,
@@ -542,8 +706,17 @@ export async function setActivePractice(practiceId: string): Promise<void> {
   await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}/active`);
 }
 
-export async function listPracticeInvitations(): Promise<unknown[]> {
-  const response = await apiClient.get('/api/practice/invitations');
+export async function listPracticeInvitations(
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<unknown[]> {
+  if (!practiceId || practiceId.trim().length === 0) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
+    { signal: config?.signal }
+  );
   const payload = unwrapApiData(response.data);
   if (Array.isArray(payload)) {
     return payload;
@@ -558,6 +731,9 @@ export async function createPracticeInvitation(
   practiceId: string,
   payload: { email: string; role: string }
 ): Promise<{ inviteUrl?: string; invitationId?: string } | null> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   const response = await apiClient.post(
     `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
     payload
@@ -587,21 +763,6 @@ export async function createPracticeInvitation(
   };
 }
 
-export async function triggerIntakeInvitation(intakeUuid: string): Promise<{ message?: string } | null> {
-  if (!intakeUuid) {
-    throw new Error('intakeUuid is required');
-  }
-  const response = await apiClient.post(
-    `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/invite`
-  );
-  const data = unwrapApiData(response.data);
-  if (!isRecord(data)) {
-    return null;
-  }
-  const message = toNullableString(data.message);
-  return message ? { message } : null;
-}
-
 export async function respondToPracticeInvitation(
   invitationId: string,
   action: 'accept' | 'decline'
@@ -612,8 +773,15 @@ export async function respondToPracticeInvitation(
 }
 
 export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/members`);
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`);
   const payload = unwrapApiData(response.data);
+  const practiceRecord = isRecord(payload) && isRecord(payload.practice) ? payload.practice : payload;
+  if (isRecord(practiceRecord) && Array.isArray(practiceRecord.members)) {
+    return practiceRecord.members as unknown[];
+  }
   if (Array.isArray(payload)) {
     return payload;
   }
@@ -627,6 +795,9 @@ export async function updatePracticeMemberRole(
   practiceId: string,
   payload: { userId: string; role: string }
 ): Promise<void> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   await apiClient.patch(`/api/practice/${encodeURIComponent(practiceId)}/members`, payload);
 }
 
@@ -634,6 +805,9 @@ export async function deletePracticeMember(
   practiceId: string,
   userId: string
 ): Promise<void> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   await apiClient.delete(
     `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`
   );
@@ -670,14 +844,18 @@ export async function listUserDetails(
     status?: UserDetailStatus;
     limit?: number;
     offset?: number;
+    // Backend contract field name; maps to user-details lookup key.
+    client_id?: string;
+    signal?: AbortSignal;
   }
 ): Promise<UserDetailListResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const { signal, ...queryParams } = params ?? {};
   const response = await apiClient.get(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details`,
-    { params }
+    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    { params: queryParams, signal }
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data)) {
@@ -694,19 +872,46 @@ export async function listUserDetails(
 
 export async function getUserDetail(
   practiceId: string,
-  userDetailId: string
+  userDetailId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`
+    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    // Backend contract uses `client_id` even though this record is presented as Person in UI.
+    { params: { client_id: userDetailId }, signal: config?.signal }
   );
   const payload = response.data;
+  if (isRecord(payload) && Array.isArray(payload.data) && payload.data.length > 0) {
+    return payload.data[0] as UserDetailRecord;
+  }
   if (isRecord(payload) && isRecord(payload.data)) {
     return payload.data as UserDetailRecord;
   }
   return null;
+}
+
+export async function getUserDetailAddressById(
+  practiceId: string,
+  addressId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Record<string, unknown> | null> {
+  if (!practiceId || !addressId) {
+    throw new Error('practiceId and addressId are required');
+  }
+  const response = await apiClient.get(
+    `/api/user-details/${encodeURIComponent(practiceId)}/addresses/${encodeURIComponent(addressId)}`,
+    { signal: config?.signal }
+  );
+  const payload = unwrapApiData(response.data);
+  const container = isRecord(payload) && isRecord(payload.data)
+    ? payload.data
+    : (isRecord(payload) ? payload : null);
+  if (!container) return null;
+  const address = isRecord(container.address) ? container.address : container;
+  return isRecord(address) ? address : null;
 }
 
 export type CreateUserDetailPayload = {
@@ -804,12 +1009,12 @@ export async function createUserDetail(
       console.info('[apiClient] inviteMember', {
         organizationId: practiceId,
         email: normalizedEmail,
-        role: 'member'
+        role: 'client'
       });
     }
     await authClient.organization.inviteMember({
       email: normalizedEmail,
-      role: 'member',
+      role: 'client',
       organizationId: practiceId,
     });
     return null;
@@ -829,8 +1034,8 @@ export async function updateUserDetail(
   }
   const { address, name, email, phone, status, currency, event_name, ...rest } = payload;
   const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
-  const response = await apiClient.put(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`,
+  const response = await apiClient.patch(
+    `/api/user-details/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(userDetailId)}`,
     { ...rest, ...normalized }
   );
   const data = response.data;
@@ -848,7 +1053,7 @@ export async function deleteUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   await apiClient.delete(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}`
+    `/api/user-details/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(userDetailId)}`
   );
 }
 
@@ -875,7 +1080,7 @@ export async function listUserDetailMemos(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos`
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data)) {
@@ -896,7 +1101,7 @@ export async function createUserDetailMemo(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.post(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos`,
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`,
     payload
   );
   const data = response.data;
@@ -915,8 +1120,8 @@ export async function updateUserDetailMemo(
   if (!practiceId || !userDetailId || !memoId) {
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
-  const response = await apiClient.put(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`,
+  const response = await apiClient.patch(
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/update/${encodeURIComponent(memoId)}`,
     payload
   );
   const data = response.data;
@@ -935,16 +1140,20 @@ export async function deleteUserDetailMemo(
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
   await apiClient.delete(
-    `/api/user-details/practice/${encodeURIComponent(practiceId)}/user-details/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`
+    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/delete/${encodeURIComponent(memoId)}`
   );
 }
 
-export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
+export async function getOnboardingStatus(
+  organizationId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');
   }
   const response = await apiClient.get(
-    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`
+    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+    { signal: config?.signal }
   );
   return normalizeOnboardingStatus(response.data);
 }
@@ -988,12 +1197,12 @@ export async function updatePracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const normalized = normalizePracticeUpdatePayload(details);
+  const normalized = normalizePracticeDetailsPayload(details);
   if (import.meta.env.DEV) {
     console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
   }
   const response = await apiClient.put(
-    `/api/practice/${encodeURIComponent(practiceId)}`,
+    `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
     { signal: config?.signal }
   );
@@ -1009,7 +1218,7 @@ export async function getPracticeDetails(
   }
   try {
     const response = await apiClient.get(
-      `/api/practice/${encodeURIComponent(practiceId)}`,
+      `/api/practice/${encodeURIComponent(practiceId)}/details`,
       { signal: config?.signal }
     );
     return normalizePracticeDetailsResponse(response.data);
@@ -1062,6 +1271,13 @@ export async function getPublicPracticeDetails(
     throw new Error('practice slug is required');
   }
   const normalizedSlug = slug.trim();
+
+  // 1. Return from persistent cache if already resolved (primary dedup across all callers).
+  if (publicPracticeDetailsCache.has(normalizedSlug)) {
+    return publicPracticeDetailsCache.get(normalizedSlug) ?? null;
+  }
+
+  // 2. Return in-flight promise if a request is already underway (concurrent dedup).
   const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
   if (existing) {
     return existing;
@@ -1070,9 +1286,6 @@ export async function getPublicPracticeDetails(
   const requestPromise = (async () => {
     try {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
-      if (import.meta.env.DEV) {
-        console.log('[getPublicPracticeDetails] Making request to:', apiUrl);
-      }
 
       const response = await axios.get(
         apiUrl,
@@ -1085,21 +1298,28 @@ export async function getPublicPracticeDetails(
       const displayDetails = extractPublicPracticeDisplayDetails(response.data);
       const practiceId = extractPublicPracticeId(response.data);
       if (!details) {
+        // Cache null so we don't keep retrying a practice that returned no details.
+        publicPracticeDetailsCache.set(normalizedSlug, null);
         return null;
       }
-      return {
+      const result: PublicPracticeDetails = {
         practiceId: practiceId ?? undefined,
         slug: normalizedSlug,
         details,
         name: displayDetails.name,
         logo: displayDetails.logo
       };
+      publicPracticeDetailsCache.set(normalizedSlug, result);
+      return result;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
+          // Cache null for 404 — the practice doesn't exist, no point retrying.
+          publicPracticeDetailsCache.set(normalizedSlug, null);
           return null;
         }
       }
+      // Do NOT cache transient errors (rate limit, network failure) so callers can retry.
       throw error;
     }
   })();
@@ -1157,7 +1377,8 @@ function extractPublicPracticeDisplayDetails(
 
   for (const candidate of candidates) {
     const name = toNullableString(candidate.name ?? candidate.practiceName ?? candidate.practice_name);
-    const logo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    const rawLogo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    const logo = normalizePublicFileUrl(rawLogo);
     if (name || logo) {
       return { name, logo };
     }
@@ -1170,22 +1391,50 @@ function extractPublicPracticeId(payload: unknown): string | null {
   if (!isRecord(payload)) {
     return null;
   }
-  const direct = toNullableString(
-    payload.practiceId ??
-    payload.practice_id ??
-    payload.organizationId ??
-    payload.organization_id
-  );
-  if (direct) {
-    return direct;
+
+  const extractFromRecord = (value: Record<string, unknown>): string | null => {
+    const direct = toNullableString(
+      value.practiceId ??
+      value.practice_id ??
+      value.organizationId ??
+      value.organization_id ??
+      value.id
+    );
+    return direct ?? null;
+  };
+
+  const candidates: Record<string, unknown>[] = [];
+  const pushCandidate = (value: unknown) => {
+    if (isRecord(value)) {
+      candidates.push(value);
+    }
+  };
+
+  pushCandidate(payload);
+  pushCandidate(payload.organization);
+  pushCandidate(payload.practice);
+
+  if ('details' in payload && isRecord(payload.details)) {
+    pushCandidate(payload.details);
+    pushCandidate(payload.details.data);
+    pushCandidate(payload.details.organization);
+    pushCandidate(payload.details.practice);
   }
-  const organization = payload.organization;
-  if (isRecord(organization)) {
-    const orgId = toNullableString(organization.id ?? organization.practiceId ?? organization.practice_id);
-    if (orgId) {
-      return orgId;
+
+  if ('data' in payload && isRecord(payload.data)) {
+    pushCandidate(payload.data);
+    pushCandidate(payload.data.details);
+    pushCandidate(payload.data.organization);
+    pushCandidate(payload.data.practice);
+  }
+
+  for (const candidate of candidates) {
+    const id = extractFromRecord(candidate);
+    if (id) {
+      return id;
     }
   }
+
   return null;
 }
 
@@ -1261,8 +1510,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  const introMessage = normalizeTextOrUndefined(payload.introMessage);
-  if (introMessage !== undefined) normalized.intro_message = introMessage;
   const description = normalizeTextOrUndefined(payload.description);
   if (description !== undefined) normalized.overview = description;
   if ('isPublic' in payload && payload.isPublic !== undefined) {
@@ -1305,18 +1552,23 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     }
   }
 
+  if (payload.businessOnboardingStatus !== undefined) {
+    normalized.business_onboarding_status = payload.businessOnboardingStatus;
+  }
+  if (payload.businessOnboardingHasDraft !== undefined) {
+    normalized.business_onboarding_has_draft = payload.businessOnboardingHasDraft;
+  }
+
   return normalized;
 }
 
-function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
+export function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
   if (!isRecord(payload)) {
     return null;
   }
   const hasMappedDetailKey = (value: Record<string, unknown>): boolean => ([
     'overview',
     'description',
-    'intro_message',
-    'introMessage',
     'business_phone',
     'businessPhone',
     'business_email',
@@ -1334,6 +1586,10 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     'calendly_url',
     'calendlyUrl',
     'website',
+    'accent_color',
+    'accentColor',
+    'primary_color',
+    'primaryColor',
     'is_public',
     'isPublic',
     'services',
@@ -1448,7 +1704,6 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
     billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes', 'billingIncrementMinutes']),
     website: getOptionalNullableString(container, ['website']),
-    introMessage: getOptionalNullableString(container, ['intro_message', 'introMessage']),
     description: getOptionalNullableString(container, ['overview', 'description']),
     isPublic: 'is_public' in container || 'isPublic' in container
       ? Boolean(container.is_public ?? container.isPublic)
@@ -1463,10 +1718,10 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     postalCode: getOptionalNullableString(address, ['postal_code', 'postalCode'])
       ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
-    primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
-    accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
-  };
-}
+     primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
+     accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
+   };
+ }
 
 export async function requestBillingPortalSession(
   payload: BillingPortalPayload
@@ -1484,31 +1739,35 @@ export async function getCurrentSubscription(
   const response = await apiClient.get('/api/subscriptions/current', {
     signal: config?.signal
   });
-  const payload = response.data as Record<string, unknown>;
-  const container = (() => {
-    if (isRecord(payload) && 'subscription' in payload) {
-      return payload.subscription;
-    }
-    if (isRecord(payload) && 'data' in payload && isRecord(payload.data) && 'subscription' in payload.data) {
-      return payload.data.subscription;
-    }
-    return null;
-  })();
+  const payload = response.data;
+  if (!isRecord(payload) || !('subscription' in payload)) {
+    throw new Error('Invalid /api/subscriptions/current payload: missing subscription.');
+  }
 
-  if (!isRecord(container)) {
+  const container = payload.subscription;
+  if (container === null) {
     return null;
+  }
+  if (!isRecord(container)) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription must be an object or null.');
   }
 
   const plan = isRecord(container.plan)
     ? {
       id: toNullableString(container.plan.id),
       name: toNullableString(container.plan.name),
-      displayName: toNullableString(container.plan.displayName ?? container.plan.display_name),
-      isActive: typeof container.plan.isActive === 'boolean'
-        ? container.plan.isActive
-        : typeof container.plan.is_active === 'boolean'
-          ? container.plan.is_active
-          : null
+      displayName: toNullableString(container.plan.display_name),
+      description: toNullableString(container.plan.description),
+      stripeProductId: toNullableString(container.plan.stripe_product_id),
+      stripeMonthlyPriceId: toNullableString(container.plan.stripe_monthly_price_id),
+      stripeYearlyPriceId: toNullableString(container.plan.stripe_yearly_price_id),
+      monthlyPrice: toNullableString(container.plan.monthly_price),
+      yearlyPrice: toNullableString(container.plan.yearly_price),
+      currency: toNullableString(container.plan.currency),
+      features: Array.isArray(container.plan.features)
+        ? container.plan.features.filter((feature): feature is string => typeof feature === 'string')
+        : null,
+      isActive: typeof container.plan.is_active === 'boolean' ? container.plan.is_active : null
     }
     : null;
 
@@ -1516,12 +1775,9 @@ export async function getCurrentSubscription(
     id: toNullableString(container.id),
     status: toNullableString(container.status),
     plan,
-    cancelAtPeriodEnd: typeof container.cancelAtPeriodEnd === 'boolean'
-      ? container.cancelAtPeriodEnd
-      : typeof container.cancel_at_period_end === 'boolean'
-        ? container.cancel_at_period_end
-        : null,
-    currentPeriodEnd: toNullableString(container.currentPeriodEnd ?? container.current_period_end)
+    cancelAtPeriodEnd: typeof container.cancel_at_period_end === 'boolean' ? container.cancel_at_period_end : null,
+    currentPeriodStart: toNullableString(container.period_start ?? container.current_period_start),
+    currentPeriodEnd: toNullableString(container.period_end ?? container.current_period_end)
   };
 }
 

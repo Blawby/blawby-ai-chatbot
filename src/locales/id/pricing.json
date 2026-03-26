@@ -204,12 +204,22 @@
     "billedAnnually": "Ditagih tahunan",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Tidak ada praktik yang dipilih",
+    "selectPracticeToManage": "Silakan pilih praktik untuk mengelola penagihan.",
+    "unableOpenPortal": "Tidak dapat membuka portal penagihan",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Memuat…",
   "comparison": {
     "title": "Bandingkan Paket",
     "feature": "Fitur",
     "included": "Termasuk",
     "notIncluded": "Tidak termasuk"
-  }
+  },
+  "upgradeFailed": "Peningkatan gagal",
+  "noFeatures": "Paket ini tidak memiliki fitur.",
+  "upgradeButton": "Tingkatkan seharga {{price}}",
+  "autoRenewsDisclaimer": "Perpanjangan otomatis setiap bulan. Batalkan kapan saja.",
+  "errorGeneric": "Tidak dapat memuat informasi harga, silakan coba lagi nanti."
 }

@@ -37,7 +37,11 @@
         "blue": "蓝色",
         "green": "绿色",
         "purple": "紫色",
-        "red": "红色"
+        "red": "红色",
+        "gold": "金色",
+        "yellow": "黄色",
+        "pink": "粉色",
+        "orange": "橙色"
       }
     },
     "language": {

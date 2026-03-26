@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
-import { Select } from '@/shared/ui/input/Select';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import { Checkbox } from '@/shared/ui/input/Checkbox';
+import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 
 const buildDateString = (date: Date) => formatDateOnlyStringUtc(date);
@@ -16,16 +17,14 @@ const buildTimeString = (date: Date) => {
 
 const buildDateOptions = () => {
   const options: Array<{ value: string; label: string }> = [];
-  const start = new Date();
-  start.setFullYear(start.getFullYear() - 1);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setDate(end.getDate() + 30);
-  end.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 30));
 
-  for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+  for (let current = new Date(start); current <= end; current.setUTCDate(current.getUTCDate() + 1)) {
     const value = buildDateString(current);
     const label = current.toLocaleDateString('en-US', {
+      timeZone: 'UTC',
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -45,7 +44,8 @@ const buildInitialFormState = (initialEntry: TimeEntry | null | undefined, initi
       date: buildDateString(startDate),
       startTime: buildTimeString(startDate),
       endTime: buildTimeString(endDate),
-      description: initialEntry.description ?? ''
+      description: initialEntry.description ?? '',
+      billable: initialEntry.billable ?? true
     };
   }
 
@@ -56,7 +56,8 @@ const buildInitialFormState = (initialEntry: TimeEntry | null | undefined, initi
     date: dateValue,
     startTime: '09:00',
     endTime: '17:00',
-    description: ''
+    description: '',
+    billable: true
   };
 };
 
@@ -64,6 +65,7 @@ export type TimeEntryFormValues = {
   startTime: string;
   endTime: string;
   description: string;
+  billable: boolean;
 };
 
 interface TimeEntryFormProps {
@@ -104,7 +106,8 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
     onSubmit({
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
-      description: formState.description.trim()
+      description: formState.description.trim(),
+      billable: formState.billable
     });
   };
 
@@ -112,18 +115,18 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="w-full">
-          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Date</span>
-          <Select
+          <span className="block text-sm font-medium text-input-text mb-1">Date</span>
+          <Combobox
             value={formState.date}
             options={dateOptions}
             onChange={(value) => setFormState((prev) => ({ ...prev, date: value }))}
             disabled={lockDate}
-            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           />
         </div>
         <div>
-          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Timezone</span>
-          <div className="min-h-[44px] rounded-lg border border-gray-200 dark:border-dark-border bg-gray-100 dark:bg-white/10 px-3 py-2 text-sm text-gray-500 dark:text-gray-300 flex items-center">
+          <span className="block text-sm font-medium text-input-text mb-1">Timezone</span>
+          <div className="glass-input min-h-[44px] rounded-lg px-3 py-2 text-sm text-input-placeholder flex items-center">
             UTC
           </div>
         </div>
@@ -150,6 +153,12 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
         value={formState.description}
         onChange={(value) => setFormState((prev) => ({ ...prev, description: value }))}
         rows={3}
+      />
+
+      <Checkbox
+        checked={formState.billable}
+        onChange={(checked) => setFormState((prev) => ({ ...prev, billable: checked }))}
+        label="Billable"
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3 pt-2">

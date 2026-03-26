@@ -1,18 +1,23 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '@/config/api';
+import { getConversationsEndpoint, getConversationParticipantsEndpoint, getPracticeConversationsEndpoint } from '@/config/api';
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
 import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
+import { clearConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 interface UseConversationsOptions {
   practiceId?: string;
   matterId?: string | null;
   status?: ConversationStatus | null;
+  assignedTo?: 'none' | null;
   scope?: 'practice' | 'all';
   limit?: number;
   offset?: number;
   list?: boolean;
   enabled?: boolean;
+  allowAnonymous?: boolean;
+  preferOrgScopedPracticeList?: boolean;
   onError?: (error: string) => void;
 }
 
@@ -22,7 +27,11 @@ interface UseConversationsReturn {
   error: string | null;
   refresh: () => Promise<void>;
   addParticipants: (conversationId: string, participantUserIds: string[]) => Promise<Conversation | null>;
-  linkConversationToUser: (conversationId: string, userId?: string) => Promise<Conversation | null>;
+  linkConversationToUser: (
+    conversationId: string,
+    userId?: string,
+    options?: { previousParticipantId?: string | null; anonymousSessionId?: string | null }
+  ) => Promise<Conversation | null>;
 }
 
 /**
@@ -42,18 +51,19 @@ export function useConversations({
   practiceId,
   matterId,
   status,
+  assignedTo,
   scope = 'practice',
   limit,
   offset,
   list = false,
   enabled = true,
+  allowAnonymous = false,
+  preferOrgScopedPracticeList = false,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
-  const { activePracticeId, activeOrganizationId } = useSessionContext();
-  const sessionPracticeId = useMemo(
-    () => activePracticeId ?? activeOrganizationId ?? null,
-    [activePracticeId, activeOrganizationId]
-  );
+  const { activePracticeId, session, isPending: sessionIsPending } = useSessionContext();
+  const sessionPracticeId = useMemo(() => activePracticeId ?? null, [activePracticeId]);
+  const sessionReady = !sessionIsPending && (Boolean(session?.user) || allowAnonymous);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +71,15 @@ export function useConversations({
   const abortControllerRef = useRef<AbortController | null>(null);
   const isDisposedRef = useRef(false);
   const onErrorRef = useRef(onError);
+
+  // Ref that always points to the latest fetchConversations callback.
+  // Initialised with a no-op; the effect below keeps it current every render.
+  // This lets the fetch effect below depend only on primitive query params.
+  const fetchConversationsRef = useRef<(signal?: AbortSignal) => Promise<void>>(() => Promise.resolve());
+  useEffect(() => {
+    fetchConversationsRef.current = fetchConversations;
+  });
+
 
   // Keep onError ref in sync
   useEffect(() => {
@@ -77,9 +96,14 @@ export function useConversations({
   }, []);
 
   // Fetch conversations
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (signal?: AbortSignal) => {
     if (!enabled) {
       setIsLoading(false);
+      return;
+    }
+
+    if (!sessionReady) {
+      setIsLoading(true);
       return;
     }
 
@@ -105,7 +129,11 @@ export function useConversations({
       if (scope === 'all') {
         params.set('scope', 'all');
       } else if (effectivePracticeId) {
-        params.set('practiceId', effectivePracticeId);
+        if (preferOrgScopedPracticeList) {
+          params.set('practice_id', effectivePracticeId);
+        } else {
+          params.set('practiceId', effectivePracticeId);
+        }
       }
 
       if (matterId && scope !== 'all') {
@@ -113,6 +141,9 @@ export function useConversations({
       }
       if (status) {
         params.set('status', status);
+      }
+      if (assignedTo != null) {
+        params.set('assignedTo', String(assignedTo));
       }
       if (limit) {
         params.set('limit', limit.toString());
@@ -125,10 +156,14 @@ export function useConversations({
       }
 
       const queryString = params.toString();
-      const response = await fetch(`${getConversationsEndpoint()}${queryString ? `?${queryString}` : ''}`, {
+      const endpoint = scope === 'practice' && preferOrgScopedPracticeList
+        ? getPracticeConversationsEndpoint()
+        : getConversationsEndpoint();
+      const response = await fetch(`${endpoint}${queryString ? `?${queryString}` : ''}`, {
         method: 'GET',
-        headers,
+        headers: withWidgetAuthHeaders(headers),
         credentials: 'include',
+        signal,
       });
 
       if (!response.ok) {
@@ -181,7 +216,7 @@ export function useConversations({
         setError(null);
       }
     } catch (err) {
-      if (isDisposedRef.current) return;
+      if (isDisposedRef.current || (err instanceof DOMException && err.name === 'AbortError')) return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversations';
       setError(errorMessage);
       onErrorRef.current?.(errorMessage);
@@ -190,7 +225,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId]);
+  }, [practiceId, matterId, status, assignedTo, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady, preferOrgScopedPracticeList]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
@@ -227,7 +262,7 @@ export function useConversations({
 
       const response = await fetch(getConversationParticipantsEndpoint(conversationId), {
         method: 'POST',
-        headers,
+        headers: withWidgetAuthHeaders(headers),
         credentials: 'include',
         body: JSON.stringify({ participantUserIds }),
       });
@@ -257,7 +292,8 @@ export function useConversations({
 
   const linkConversationToUser = useCallback(async (
     conversationId: string,
-    userId?: string
+    userId?: string,
+    options?: { previousParticipantId?: string | null; anonymousSessionId?: string | null }
   ): Promise<Conversation | null> => {
     if (!practiceId) {
       return null;
@@ -271,7 +307,8 @@ export function useConversations({
     }
 
     try {
-      const conversation = await apiLinkConversationToUser(conversationId, practiceId, userId);
+      const conversation = await apiLinkConversationToUser(conversationId, practiceId, userId, options);
+      clearConversationAnonymousParticipant(conversationId);
       await refresh();
       return conversation;
     } catch (err) {
@@ -283,10 +320,18 @@ export function useConversations({
     }
   }, [practiceId, onError, refresh]);
 
-  // Initial load and refetch when filters change
+  // Initial load and refetch when the query parameters change.
+  // Note: fetchConversations is intentionally NOT in this dep array — it's
+  // stored in a ref above. The primitives here are the actual query axes;
+  // including the callback would cause re-fires on every render cycle.
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
+      return;
+    }
+
+    if (!sessionReady) {
+      setIsLoading(true);
       return;
     }
 
@@ -295,15 +340,15 @@ export function useConversations({
       return;
     }
 
-    abortControllerRef.current = new AbortController();
-    fetchConversations();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    void fetchConversationsRef.current(controller.signal);
 
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      controller.abort();
     };
-  }, [practiceId, matterId, status, fetchConversations, scope, enabled]);
+   
+  }, [practiceId, sessionPracticeId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList, limit, offset]);
 
   return {
     conversations,

@@ -1,5 +1,6 @@
 import { forwardRef, useState } from 'preact/compat';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -83,18 +84,19 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
+    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -108,13 +110,6 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
     return score;
   };
 
-  const getStrengthColor = (strength: number) => {
-    if (strength <= 1) return 'text-red-600 dark:text-red-400';
-    if (strength <= 2) return 'text-yellow-600 dark:text-yellow-400';
-    if (strength <= 3) return 'text-blue-600 dark:text-blue-400';
-    return 'text-green-600 dark:text-green-400';
-  };
-
   const getStrengthText = (strength: number) => {
     if (strength <= 1) return 'Very weak';
     if (strength <= 2) return 'Weak';
@@ -122,9 +117,22 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
     return 'Strong';
   };
 
+  const getStrengthVariant = (strength: number): 'error' | 'warning' | 'info' | 'success' => {
+    if (strength <= 1) return 'error';
+    if (strength <= 2) return 'warning';
+    if (strength <= 3) return 'info';
+    return 'success';
+  };
+
   const strength = calculateStrength(value);
-  const strengthColor = getStrengthColor(strength);
   const strengthText = getStrengthText(strength);
+  const strengthVariant = getStrengthVariant(strength);
+  const strengthVariantClasses: Record<'error' | 'warning' | 'info' | 'success', string> = {
+    error: 'status-error',
+    warning: 'status-warning',
+    info: 'status-info',
+    success: 'status-success'
+  };
 
   // Build aria-describedby attribute
   const describedByIds = [];
@@ -139,7 +147,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -173,30 +181,19 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
         >
           {showPassword ? (
-            <EyeSlashIcon className="w-4 h-4" />
+            <Icon icon={EyeSlashIcon} className="w-4 h-4"  />
           ) : (
-            <EyeIcon className="w-4 h-4" />
+            <Icon icon={EyeIcon} className="w-4 h-4"  />
           )}
         </button>
       </div>
       
       {showStrength && value && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500 dark:text-gray-400">Password strength:</span>
-            <span className={strengthColor}>{strengthText}</span>
-          </div>
-          <div className="mt-1 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-            <div
-              className={cn(
-                'h-1 rounded-full transition-all duration-300',
-                strength <= 1 ? 'bg-red-500' :
-                strength <= 2 ? 'bg-yellow-500' :
-                strength <= 3 ? 'bg-blue-500' : 'bg-green-500'
-              )}
-              style={{ width: `${(strength / 5) * 100}%` }}
-            />
-          </div>
+        <div className="mt-2 flex items-center justify-between text-xs text-input-placeholder">
+          <span>Password strength:</span>
+          <span className={cn('px-2 py-0.5 rounded-full font-medium', strengthVariantClasses[strengthVariant])}>
+            {strengthText}
+          </span>
         </div>
       )}
       

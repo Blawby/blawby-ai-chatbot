@@ -81,12 +81,7 @@ interface FeatureFlags {
      */
     enableMultiplePractices: boolean;
 
-    /**
-     * Enable paralegal agent feature
-     * When false, paralegal agent functionality will be disabled
-     * When true, paralegal agent features like matter progress tracking will be available
-     */
-    enableParalegalAgent: boolean;
+
 
     /**
      * Enable Plus subscription tier in UI
@@ -120,7 +115,7 @@ const baseFeatureConfig: FeatureFlags = {
     enablePaymentIframe: false, // Disable payment iframe/drawer - only show "Open in Browser" button
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultiplePractices: true, // Enable multiple practices feature
-    enableParalegalAgent: false, // Disable paralegal agent features by default
+
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
     enableActivity: false, // Disabled until activity is migrated off Worker/D1
 };

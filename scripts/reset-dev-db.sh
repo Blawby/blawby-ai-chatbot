@@ -12,7 +12,7 @@ if [ ! -f "worker/schema.sql" ]; then
 fi
 
 echo "🗑️  Dropping all tables..."
-wrangler d1 execute blawby-ai-chatbot --local --command "
+npx wrangler d1 execute blawby-ai-chatbot --local --command "
 PRAGMA foreign_keys = OFF;
 DROP TABLE IF EXISTS organization_events;
 DROP TABLE IF EXISTS organization_api_tokens;
@@ -54,9 +54,9 @@ if [ $DROP_EXIT_CODE -ne 0 ]; then
 fi
 
 echo "📝 Applying schema..."
-wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql
+npx wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql
 
 echo "🔄 Applying migrations..."
-wrangler d1 migrations apply blawby-ai-chatbot --local
+npx wrangler d1 migrations apply blawby-ai-chatbot --local
 
 echo "✅ Database reset complete!"

@@ -1,5 +1,11 @@
 // TypeScript types for user-to-user conversations and messages
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
 /**
  * Conversation status
  */
@@ -10,7 +16,7 @@ export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
 
-export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION';
+export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
 
 export interface FirstMessageIntent {
   intent: ConversationMode | 'UNCLEAR';
@@ -36,6 +42,19 @@ export interface ConversationMetadata {
   mode?: ConversationMode;
   first_message_intent?: FirstMessageIntent;
   system_conversation?: boolean;
+  consultation?: import('./intake').ConsultationState | null;
+  intakeConversationState?: import('./intake').IntakeConversationState;
+  intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
+  intakeAiBriefActive?: boolean;
+  intakeUuid?: string | null;
+  intakePaymentRequired?: boolean;
+  intakePaymentReceived?: boolean;
+  intakeSubmitted?: boolean;
+  intakeCompleted?: boolean;
+  intakeDecision?: string | null;
+  practiceName?: string;
+  practiceSlug?: string;
+  anonParticipantId?: string;
   [key: string]: unknown;
 }
 
@@ -61,17 +80,26 @@ export interface Conversation {
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // ISO timestamp of last message
+  last_message_content?: string | null; // Content of last message for preview
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // ISO timestamp of first practice member response
   closed_at?: string | null; // ISO timestamp when conversation was closed
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
+  lead?: {
+    is_lead: boolean;
+    lead_id?: string;
+    matter_id?: string;
+    lead_source?: string | null;
+    created_at?: string | null;
+  };
 }
 
 /**
  * Message object from API
  */
+
 export interface ConversationMessage {
   id: string;
   conversation_id: string;
@@ -81,11 +109,13 @@ export interface ConversationMessage {
   content: string;
   reply_to_message_id?: string | null;
   metadata: Record<string, unknown> | null;
+  // Protocol-level message dedupe/ordering id. Not a person/client relationship identifier.
   client_id: string;
   seq: number;
   server_ts: string;
   token_count: number | null;
   created_at: string; // ISO timestamp
+  reactions?: MessageReaction[];
 }
 
 export interface MessageReactionSummary {

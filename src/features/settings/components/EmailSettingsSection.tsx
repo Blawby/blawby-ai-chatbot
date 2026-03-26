@@ -1,4 +1,5 @@
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { SettingSection } from './SettingSection';
 
 export interface EmailSettingsSectionProps {
@@ -24,8 +25,8 @@ export const EmailSettingsSection = ({
     <SettingSection title={title} className={className}>
       {/* Email Address */}
       <div className="flex items-center gap-3 py-3">
-        <EnvelopeIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        <span className="text-sm text-gray-900 dark:text-gray-100">
+        <Icon icon={EnvelopeIcon} className="w-4 h-4 text-input-placeholder"  />
+        <span className="text-sm text-input-text">
           {email}
         </span>
       </div>
@@ -38,9 +39,9 @@ export const EmailSettingsSection = ({
             id="feedback-emails"
             checked={receiveFeedbackEmails}
             onChange={(e) => onFeedbackChange(e.currentTarget.checked)}
-            className="w-4 h-4 text-accent-500 bg-transparent border-gray-300 dark:border-gray-600 rounded focus:ring-accent-500 focus:ring-2"
+            className="w-4 h-4 text-accent-500 bg-transparent border-line-glass/30 rounded focus:ring-accent-500 focus:ring-2"
           />
-          <label htmlFor="feedback-emails" className="text-sm text-gray-900 dark:text-gray-100 cursor-pointer">
+          <label htmlFor="feedback-emails" className="text-sm text-input-text cursor-pointer">
             {feedbackLabel}
           </label>
         </div>

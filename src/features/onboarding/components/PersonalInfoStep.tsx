@@ -4,14 +4,12 @@ import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData } from '@/shared/ui/form';
-import { DatePicker, Checkbox, Input, PasswordInput } from '@/shared/ui/input';
+import { DatePicker, Checkbox, Input } from '@/shared/ui/input';
 import { schemas } from '@/shared/ui/validation/schemas';
 
 interface PersonalInfoData extends FormData {
   fullName: string;
   birthday?: string;
-  password: string;
-  confirmPassword: string;
   agreedToTerms: boolean;
 }
 
@@ -20,9 +18,15 @@ interface PersonalInfoStepProps {
   data: PersonalInfoData;
   onComplete: (data: PersonalInfoData) => void;
   isSubmitting?: boolean;
+  requireName?: boolean;
 }
 
-const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitting = false }: PersonalInfoStepProps) => {
+const PersonalInfoStep = ({
+  data: _data,
+  onComplete,
+  isSubmitting: parentSubmitting = false,
+  requireName = true
+}: PersonalInfoStepProps) => {
   const { t } = useTranslation('common');
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const mountedRef = useRef<boolean>(true);
@@ -52,53 +56,56 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
 
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mx-auto w-full max-w-md">
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
 
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
           {t('onboarding.step1.title')}
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-center text-sm text-input-placeholder">
           {t('onboarding.step1.subtitle')}
         </p>
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-md">
-        <div className="bg-white dark:bg-dark-card-bg py-8 px-6 shadow sm:rounded-lg sm:px-10">
+        <div className="glass-card py-8 px-6 sm:px-10">
           <Form<PersonalInfoData> 
             onSubmit={async (formData: PersonalInfoData): Promise<void> => {
               await handleSubmit(formData);
             }} 
             initialData={_data}
-            schema={schemas.onboarding.personalInfo}
+            schema={requireName ? schemas.onboarding.personalInfo : schemas.onboarding.personalInfoNoName}
           >
             <div className="space-y-4">
               {/* Full Name */}
-              <FormField name="fullName">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        required
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.fullNamePlaceholder')}
-                        icon={<UserIcon className="h-5 w-5 text-gray-400" />}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
+              {requireName && (
+                <FormField name="fullName">
+                  {({ value, error, onChange }) => (
+                    <FormItem>
+                      <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          required
+                          value={(value as string) || ''}
+                          onChange={(value) => onChange(value)}
+                          placeholder={t('onboarding.step1.fullNamePlaceholder')}
+                          icon={UserIcon}
+                          iconClassName="h-5 w-5 text-input-placeholder"
+                          error={error?.message}
+                        />
+                      </FormControl>
+                      {error && (
+                        <FormMessage>{error.message}</FormMessage>
+                      )}
+                    </FormItem>
+                  )}
+                </FormField>
+              )}
 
               {/* Birthday */}
               <FormField name="birthday">
@@ -124,46 +131,6 @@ const PersonalInfoStep = ({ data: _data, onComplete, isSubmitting: parentSubmitt
                 )}
               </FormField>
 
-              {/* Password */}
-              <FormField name="password">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.password', 'Create a password')}</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        required
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.passwordPlaceholder', 'Enter a secure password')}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
-              {/* Confirm Password */}
-              <FormField name="confirmPassword">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.confirmPassword', 'Confirm password')}</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        required
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.confirmPasswordPlaceholder', 'Re-enter your password')}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
             </div>
 
             {/* Terms Agreement */}

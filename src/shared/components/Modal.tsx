@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/shared/ui/Button';
 import { THEME } from '@/shared/utils/constants';
@@ -14,12 +15,13 @@ interface ModalProps {
     onClose: () => void;
     children: preact.ComponentChildren;
     title?: string;
-    type?: 'modal' | 'drawer' | 'fullscreen';
+    type?: 'modal' | 'drawer' | 'drawer-right' | 'fullscreen';
     showCloseButton?: boolean;
     mobileBehavior?: 'modal' | 'drawer';
     disableBackdropClick?: boolean;
     contentClassName?: string;
     headerClassName?: string;
+    bodyClassName?: string;
 }
 
 const Modal: FunctionComponent<ModalProps> = ({ 
@@ -32,7 +34,8 @@ const Modal: FunctionComponent<ModalProps> = ({
     mobileBehavior = 'drawer',
     disableBackdropClick = false,
     contentClassName,
-    headerClassName
+    headerClassName,
+    bodyClassName
 }) => {
     // Add state to track if we're in browser environment
     const [isBrowser, setIsBrowser] = useState(false);
@@ -66,14 +69,15 @@ const Modal: FunctionComponent<ModalProps> = ({
     if (!isOpen || !isBrowser) return null;
 
     // Determine modal behavior based on type and mobile state
-    const shouldUseDrawer = type === 'drawer' || (type !== 'fullscreen' && mobileBehavior === 'drawer' && isMobile);
+    const shouldUseDrawer = type === 'drawer' || (type !== 'fullscreen' && type !== 'drawer-right' && mobileBehavior === 'drawer' && isMobile);
+    const shouldUseRightDrawer = type === 'drawer-right';
     const shouldUseFullscreen = type === 'fullscreen';
 
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
                 <motion.div 
-                    className={`fixed inset-0 ${shouldUseDrawer ? '' : 'flex items-center justify-center p-4'}`}
+                    className={`fixed inset-0 ${(shouldUseDrawer || shouldUseRightDrawer) ? '' : 'flex items-center justify-center p-4'}`}
                     style={{ zIndex: THEME.zIndex.modal }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -82,7 +86,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                 >
                     {/* Backdrop */}
                     <div 
-                        className="absolute inset-0 bg-black bg-opacity-50"
+                        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
                         onClick={disableBackdropClick ? undefined : onClose}
                         onKeyDown={disableBackdropClick ? undefined : () => {}}
                     />
@@ -90,51 +94,55 @@ const Modal: FunctionComponent<ModalProps> = ({
                     {/* Content */}
                     <motion.div 
                         className={cn(
-                            `shadow-2xl bg-white dark:bg-dark-bg text-gray-900 dark:text-white border border-gray-200 dark:border-dark-border ${
+                            `shadow-glass glass-panel text-input-text border-opacity-30 ${
                             shouldUseDrawer 
-                                ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-2xl flex flex-col overflow-hidden'
+                                ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-3xl flex flex-col overflow-hidden'
+                                : shouldUseRightDrawer
+                                ? 'fixed right-0 top-0 h-dvh w-full max-w-xl rounded-none sm:rounded-l-3xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
                                 ? 'fixed inset-0 w-full h-full overflow-y-auto'
-                                : 'relative rounded-xl max-w-4xl w-full flex flex-col overflow-hidden'
+                                : 'relative rounded-3xl max-w-4xl w-full flex flex-col overflow-hidden'
                         }`,
                             contentClassName
                         )}
-                        initial={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
-                        animate={shouldUseDrawer ? { y: 0 } : { scale: 1 }}
-                        exit={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
-                        transition={shouldUseDrawer ? { 
-                            type: "tween", 
-                            duration: 0.3, 
-                            ease: [0.25, 0.46, 0.45, 0.94] 
-                        } : { 
-                            type: "spring" 
+                        initial={shouldUseDrawer ? { y: "100%" } : shouldUseRightDrawer ? { x: "100%" } : { scale: 0.95 }}
+                        animate={shouldUseDrawer ? { y: 0 } : shouldUseRightDrawer ? { x: 0 } : { scale: 1 }}
+                        exit={shouldUseDrawer ? { y: "100%" } : shouldUseRightDrawer ? { x: "100%" } : { scale: 0.95 }}
+                        transition={(shouldUseDrawer || shouldUseRightDrawer) ? {
+                            type: "tween",
+                            duration: 0.22,
+                            ease: [0.25, 0.46, 0.45, 0.94]
+                        } : {
+                            type: "tween",
+                            duration: 0.14,
+                            ease: [0.22, 1, 0.36, 1]
                         }}
-                        key={`content-${shouldUseDrawer}`}
+                        key={`content-${type}-${shouldUseDrawer ? 'bottom' : shouldUseRightDrawer ? 'right' : 'center'}`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Handle for mobile drawer */}
                         {shouldUseDrawer && (
                             <div className="flex justify-center pt-4 pb-2">
-                                <div className="w-12 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                                <div className="w-12 h-1 rounded-full bg-white/10" />
                             </div>
                         )}
                         
                         {/* Header */}
                         {(title || showCloseButton) && !shouldUseFullscreen && (
                             <div className={cn(
-                                'flex justify-between items-center p-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg',
+                                'flex justify-between items-center p-4 border-b border-line-glass/30 bg-white/5 backdrop-blur-xl',
                                 headerClassName
                             )}>
-                                {title && <h3 className="text-base sm:text-lg lg:text-xl font-semibold m-0 text-gray-900 dark:text-white">{title}</h3>}
+                                {title && <h3 className="text-base sm:text-lg lg:text-xl font-semibold m-0 text-input-text">{title}</h3>}
                                 {showCloseButton && (
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={onClose}
-                                        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-hover"
+                                        className="text-white/50 hover:text-white hover:bg-white/10"
                                         aria-label="Close modal"
                                         icon={
-                                            <XMarkIcon className="w-6 h-6" />
+                                            <Icon icon={XMarkIcon} className="w-6 h-6"  />
                                         }
                                     />
                                 )}
@@ -150,15 +158,18 @@ const Modal: FunctionComponent<ModalProps> = ({
                                 className="absolute top-4 right-4 w-10 h-10 border-none bg-black bg-opacity-50 text-white rounded-full hover:bg-black hover:bg-opacity-70 hover:scale-110 z-10 transition-all duration-200"
                                 aria-label="Close modal"
                                 icon={
-                                    <XMarkIcon className="w-6 h-6" />
+                                    <Icon icon={XMarkIcon} className="w-6 h-6"  />
                                 }
                             />
                         )}
                         
                         {/* Content */}
-                        <div className={shouldUseFullscreen 
-                          ? 'min-h-full flex flex-col'
-                          : 'p-4 overflow-auto flex-1 min-h-0'}>
+                        <div className={cn(
+                          shouldUseFullscreen
+                            ? 'min-h-full flex flex-col'
+                            : 'p-4 overflow-auto flex-1 min-h-0',
+                          bodyClassName
+                        )}>
                             {children}
                         </div>
                     </motion.div>

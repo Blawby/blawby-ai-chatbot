@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Select } from '@/shared/ui/input';
+import { Input, LogoUploadInput } from '@/shared/ui/input';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui';
 import Modal from '@/shared/components/Modal';
@@ -8,25 +9,31 @@ import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { signOut } from '@/shared/utils/auth';
-import { TIER_FEATURES } from '@/shared/utils/stripe-products';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
+import { useLocation } from 'preact-iso';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { displayPlan, hasManagedSubscription } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
-import { deleteUser } from '@/shared/lib/authClient';
+import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
+import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
+import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
-import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
+import { CheckIcon } from '@heroicons/react/20/solid';
+import { Icon } from '@/shared/ui/Icon';
+import type { UserLinks, EmailSettings } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
+import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
+import { ContentPageLayout } from '@/shared/ui/layout';
+import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import type { AccountPreferences } from '@/shared/types/preferences';
-import { FormLabel } from '@/shared/ui/form';
+import { FormActions, FormLabel } from '@/shared/ui/form';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 
 export interface AccountPageProps {
@@ -37,44 +44,56 @@ export interface AccountPageProps {
 
 const DOMAIN_SELECT_VALUE = '__select__';
 
+const parsePeriodEndDate = (value: string | number | null | undefined): Date | null => {
+  if (value === null || value === undefined) return null;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    const d = new Date(numeric * 1000);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 export const AccountPage = ({
   isMobile: _isMobile = false,
   onClose: _onClose,
   className = ''
 }: AccountPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const { navigate } = useNavigation();
+  const location = useLocation();
+  const { navigate, navigateToPricing } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
   const { session, isPending, activeMemberRole } = useSessionContext();
+  const { canAccessPractice: _canAccessPractice } = useWorkspace();
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
-  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [domainInput, setDomainInput] = useState('');
   const [domainError, setDomainError] = useState<string | null>(null);
   const [deleteVerificationSent, setDeleteVerificationSent] = useState(false);
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUploadProgress, setAvatarUploadProgress] = useState<number | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
   
 
-  const hasSubscription = hasManagedSubscription(
-    currentPractice?.kind,
-    currentPractice?.subscriptionStatus,
-    currentPractice?.isPersonal ?? null
-  );
-  
-  // Get renewal date from subscription period_end (stored in seconds, from Stripe webhooks)
+  // Get renewal date from subscription current_period_end first, then practice webhook period end.
   const renewalDate = useMemo(() => {
-    if (!hasSubscription || !currentPractice?.subscriptionPeriodEnd) return null;
-    // subscriptionPeriodEnd is stored as Unix timestamp in seconds
-    return new Date(currentPractice.subscriptionPeriodEnd * 1000);
-  }, [hasSubscription, currentPractice?.subscriptionPeriodEnd]);
+    if (!currentSubscription) return null;
+    return parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
+           parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
+  }, [currentSubscription, currentPractice?.subscriptionPeriodEnd]);
 
   const clearLocalAuthState = useCallback(() => {
     try {
@@ -118,17 +137,13 @@ export const AccountPage = ({
         securityAlerts: prefs?.security_alerts ?? true
       };
       
-      const practiceTier = currentPractice?.subscriptionTier;
-      const displayTier = practiceTier ?? (hasSubscription ? 'business' : 'free');
-      
       setLinks(linksData);
       setEmailSettings(emailData);
-      setCurrentTier(displayTier as SubscriptionTier);
     } catch (error) {
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
     }
-  }, [session?.user, currentPractice?.subscriptionTier, hasSubscription]);
+  }, [session?.user]);
 
   // Load account data when component mounts or practice changes
   // Only load when practice data is available (not loading) and session is available
@@ -154,38 +169,20 @@ export const AccountPage = ({
   const isOwner = activeMemberRole === 'owner';
   const canManageBilling = isOwner;
 
-  const resolveSubscriptionEnd = (value: string | null | undefined): Date | null => {
-    if (!value) return null;
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
-      return new Date(numeric * 1000);
-    }
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? null : date;
-  };
-
-  const subscriptionStatus = (currentSubscription?.status ?? '').toLowerCase();
-  const subscriptionEnd = resolveSubscriptionEnd(currentSubscription?.currentPeriodEnd);
-  const hasActiveSubscription = Boolean(
-    currentSubscription?.id &&
-    subscriptionStatus &&
-    subscriptionStatus !== 'canceled'
-  );
+  const subscriptionStatus = (currentSubscription?.status ?? 'none').toLowerCase();
+  const subscriptionEnd = parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
+                           parsePeriodEndDate(currentPractice?.subscriptionPeriodEnd);
+  const hasActiveSubscription = currentSubscription !== null && 
+    ['active', 'trialing', 'past_due'].includes((currentSubscription.status || '').toLowerCase());
   const hasActivePeriod = Boolean(subscriptionEnd && subscriptionEnd.getTime() > Date.now());
+  const hasSubscription = Boolean(hasActiveSubscription || currentSubscription);
   const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
-  const deletionBlockedBySubscriptionCheck = isOwner && Boolean(subscriptionError);
-  const isDeleteBlocked = deletionBlockedBySubscription || deletionBlockedBySubscriptionCheck;
+  const isDeleteBlocked = deletionBlockedBySubscription;
   const deletionBlockedMessage = (() => {
-    if (subscriptionLoading) {
-      return 'Checking subscription status...';
-    }
-    if (deletionBlockedBySubscriptionCheck) {
-      return 'Unable to verify your subscription status. Please try again.';
-    }
     if (!deletionBlockedBySubscription) {
       return '';
     }
-    if (currentSubscription?.cancelAtPeriodEnd && subscriptionEnd) {
+    if (subscriptionStatus === 'canceled' && subscriptionEnd) {
       return `Subscription will end on ${formatDate(subscriptionEnd)}. You can delete your account after it ends.`;
     }
     if (subscriptionEnd) {
@@ -199,57 +196,74 @@ export const AccountPage = ({
     ? window.location.origin
     : '';
 
+  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
+    if (!session?.user) return;
+    setSubscriptionLoading(true);
+    try {
+      const subscription = await getCurrentSubscription({ signal });
+      setCurrentSubscription(subscription);
+      setSubscriptionError(null);
+    } catch (fetchError) {
+      if (signal?.aborted) {
+        return;
+      }
+      console.error('[Account] Failed to load subscription state', fetchError);
+      setSubscriptionError('Unable to load subscription state from API.');
+      setCurrentSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [session?.user]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setCurrentSubscription(null);
+      setSubscriptionError(null);
+      setSubscriptionLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    void refreshSubscription(controller.signal);
+    return () => controller.abort();
+  }, [refreshSubscription, session?.user]);
+
   // Refetch after return from Stripe portal or checkout
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
-      refetch()
-        .then(() => {
-          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        })
-        .catch((error) => {
+      const controller = new AbortController();
+      
+      // Cleanup URL immediately to avoid re-triggering on slow re-renders
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('sync');
+      location.route(newUrl.pathname + newUrl.search, true);
+
+      void (async () => {
+        let refreshSucceeded = false;
+        try {
+          await refreshSubscription(controller.signal);
+          refreshSucceeded = true;
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          console.error('Failed to refresh current subscription:', error);
+        }
+
+        try {
+          // Note: refetch from usePracticeManagement does not currently support AbortSignal cancellation
+          await refetch();
+          if (!controller.signal.aborted && refreshSucceeded) {
+            showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+          }
+        } catch (error) {
+          if (controller.signal.aborted) return;
           console.error('Failed to refresh subscription:', error);
-          // Don't show error toast - refetch failure is not critical
-        })
-        .finally(() => {
-          // Remove sync param to prevent re-trigger (URL hygiene)
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
-        });
+        }
+      })();
+
+      return () => controller.abort();
     }
-  }, [currentPractice?.id, refetch, showSuccess]);
-
-  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
-    setSubscriptionLoading(true);
-    setSubscriptionError(null);
-
-    try {
-      const subscription = await getCurrentSubscription({ signal });
-      setCurrentSubscription(subscription);
-    } catch (fetchError) {
-      console.warn('[Account] Failed to load current subscription', fetchError);
-      setSubscriptionError('Unable to verify subscription status.');
-      setCurrentSubscription(null);
-    } finally {
-      setSubscriptionLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!session?.user) {
-      setCurrentSubscription(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    void refreshSubscription(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, [refreshSubscription, session?.user]);
+  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess, location]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
@@ -265,11 +279,89 @@ export const AccountPage = ({
   // No need for custom event listeners - Better Auth handles reactivity automatically
 
   // Simple computed values for demo - only compute when currentTier is available
-  const currentPlanFeatures = currentTier && (currentTier === 'free' || currentTier === 'business')
-    ? TIER_FEATURES[currentTier]
-    : TIER_FEATURES['business'];
+  const currentPlanFeatures = (() => {
+    const backendFeatures = currentSubscription?.plan?.features;
+    if (!Array.isArray(backendFeatures)) {
+      return [] as PlanFeature[];
+    }
+    return backendFeatures.map((feature): PlanFeature => ({
+      icon: CheckIcon,
+      text: feature
+    }));
+  })();
   const emailAddress = emailSettings?.email || session?.user?.email || '';
   const displayName = session?.user?.name || emailAddress || '—';
+  const currentAvatarUrl = avatarPreviewUrl ?? session?.user?.image ?? null;
+
+  const handleAvatarChange = useCallback(async (files: FileList | File[]) => {
+    const fileList = Array.isArray(files) ? files : Array.from(files ?? []);
+    const [file] = fileList;
+    if (!file) return;
+
+    if (!currentPractice?.id) {
+      showError('Select a practice first', 'Choose a practice before uploading a profile photo.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      showError('Invalid file', 'Please select an image file.');
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showError('File too large', 'Please upload an image under 5 MB.');
+      return;
+    }
+
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current);
+      avatarObjectUrlRef.current = null;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    avatarObjectUrlRef.current = previewUrl;
+    setAvatarPreviewUrl(previewUrl);
+    setAvatarUploading(true);
+    setAvatarUploadProgress(0);
+
+    try {
+      const uploaded = await uploadWithProgress(file, {
+        practiceId: currentPractice.id,
+        onProgress: (progress) => setAvatarUploadProgress(progress.percentage)
+      });
+      await updateUser({ image: uploaded.url });
+      await getSession().catch((error) => {
+        console.warn('[Account] Session refresh failed after avatar update', error);
+      });
+
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      setAvatarPreviewUrl(null);
+      showSuccess('Profile photo updated', 'Your avatar has been saved.');
+    } catch (error) {
+      showError('Avatar upload failed', error instanceof Error ? error.message : 'Unable to upload image.');
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      setAvatarPreviewUrl(session?.user?.image ?? null);
+    } finally {
+      setAvatarUploading(false);
+      setAvatarUploadProgress(null);
+    }
+  }, [currentPractice?.id, session?.user?.image, showError, showSuccess]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+    };
+  }, []);
   const customDomainOptions = (links?.customDomains || []).map(domain => ({
     value: domain.domain,
     label: domain.domain
@@ -279,7 +371,7 @@ export const AccountPage = ({
   const selectedDomain = links?.selectedDomain && links.selectedDomain !== 'Select a domain'
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
-  const showLinksSection = false;
+  const showLinksSection = true;
   const showFeedbackToggle = false;
 
 
@@ -292,11 +384,9 @@ export const AccountPage = ({
     }
     if (isDeleteBlocked) {
       const endLabel = subscriptionEnd ? `Access ends on ${formatDate(subscriptionEnd)}.` : undefined;
-      const message = deletionBlockedBySubscriptionCheck
-        ? 'We could not verify your subscription status. Please try again.'
-        : (currentSubscription?.cancelAtPeriodEnd
-          ? `Your subscription is scheduled to cancel. ${endLabel ?? ''} You can delete your account after it ends.`
-          : `Your subscription is still active. ${endLabel ?? ''} Please cancel it before deleting your account.`);
+      const message = subscriptionStatus === 'canceled'
+        ? `Your subscription is scheduled to cancel. ${endLabel ?? ''} You can delete your account after it ends.`
+        : `Your subscription is still active. ${endLabel ?? ''} Please cancel it before deleting your account.`;
       showError('Account deletion unavailable', message.trim());
       return;
     }
@@ -581,7 +671,7 @@ export const AccountPage = ({
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   useEffect(() => {
-    if (isPending || practiceLoading) {
+    if (isPending || practiceLoading || subscriptionLoading) {
       const timeout = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000); // 10 second timeout
@@ -589,9 +679,9 @@ export const AccountPage = ({
     } else {
       setLoadingTimeout(false);
     }
-  }, [isPending, practiceLoading]);
+  }, [isPending, practiceLoading, subscriptionLoading]);
 
-  if ((isPending || practiceLoading) && !loadingTimeout) {
+  if ((isPending || practiceLoading || subscriptionLoading) && !loadingTimeout) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -600,59 +690,44 @@ export const AccountPage = ({
   }
 
   if (loadingTimeout || error) {
-    const errorMessage = loadingTimeout 
-      ? 'Loading timed out. Please check your connection and try again.'
-      : error || 'An error occurred while loading your account information.';
-    
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 mb-4">
-            <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <p className="text-sm font-medium">{t('settings:account.loadingError')}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{errorMessage}</p>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setLoadingTimeout(false);
-              setError(null);
-              refetch().then(() => {
-                if (session?.user && currentPractice !== undefined) {
-                  loadAccountData();
-                }
-              });
-            }}
-          >
-            {t('settings:account.retry')}
-          </Button>
-        </div>
-      </div>
+    throw new Error(
+      loadingTimeout
+        ? 'Loading timed out. Please check your connection and try again.'
+        : (error || 'An error occurred while loading your account information.')
     );
   }
 
+  const currentPlanLabel = hasSubscription
+    ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || t('settings:account.plan.tiers.free'))
+    : t('settings:account.plan.tiers.free');
+
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title={t('settings:account.title')} />
+    <ContentPageLayout title={t('settings:account.title')} className={className}>
+      <SettingRow label={t('settings:account.nameLabel')}>
+        <span className="text-sm text-input-text">
+          {displayName}
+        </span>
+      </SettingRow>
+      <SettingRow label="Profile photo" description="Upload a square image (max 5 MB).">
+        <div className="w-full">
+          <LogoUploadInput
+            imageUrl={currentAvatarUrl}
+            name={displayName}
+            accept="image/*"
+            multiple={false}
+            onChange={handleAvatarChange}
+            disabled={avatarUploading}
+            progress={avatarUploading ? avatarUploadProgress : null}
+          />
+        </div>
+      </SettingRow>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          <SettingRow label={t('settings:account.nameLabel')}>
-            <span className="text-sm text-gray-900 dark:text-gray-100">
-              {displayName}
-            </span>
-          </SettingRow>
-
-          <SectionDivider />
+      <SectionDivider />
 
           {/* Subscription Plan Section */}
           <SettingRow
-            label={displayPlan((currentTier || 'free'))}
-            labelClassName="text-gray-900 dark:text-white font-semibold"
+            label={currentPlanLabel}
+            labelClassName="text-input-text font-semibold"
             description={
               hasSubscription && renewalDate
                 ? t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })
@@ -668,24 +743,31 @@ export const AccountPage = ({
                         variant="secondary"
                         size="sm"
                         disabled={submitting}
-                        icon={<ChevronDownIcon className="w-4 h-4" />}
+                        icon={ChevronDownIcon} iconClassName="w-4 h-4"
                         iconPosition="right"
                       >
                         {t('settings:account.plan.manage')}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="min-w-[220px]">
                       <DropdownMenuItem
                         onSelect={() => {
                           if (!currentPractice) return;
+                          if (!origin) {
+                            showError(
+                              t('common:error.title'),
+                              'Unable to open billing portal. Please try again.'
+                            );
+                            return;
+                          }
                           void openBillingPortal({
                             practiceId: currentPractice.id,
-                            returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                            returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
                           });
                         }}
                       >
-                        <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                          <XMarkIcon className="h-4 w-4" />
+                        <span className="flex items-center gap-2 whitespace-nowrap text-red-600 dark:text-red-400">
+                          <Icon icon={XMarkIcon} className="h-4 w-4"  />
                           {t('settings:account.plan.cancelSubscription')}
                         </span>
                       </DropdownMenuItem>
@@ -696,13 +778,18 @@ export const AccountPage = ({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => navigate('/#pricing')}
+                  onClick={() => navigateToPricing()}
                 >
                   {t('settings:account.plan.upgrade')}
                 </Button>
               )}
             </div>
           </SettingRow>
+          {subscriptionError && (
+            <SettingsHelperText className="mt-2 text-red-500">
+              {subscriptionError}
+            </SettingsHelperText>
+          )}
 
           {/* Plan Features Section */}
           <SettingRow
@@ -710,7 +797,7 @@ export const AccountPage = ({
             labelNode={
               <div className="space-y-3">
                 {hasSubscription && (
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <p className="text-sm font-semibold text-input-text">
                     {t('settings:account.plan.thanksForSubscribing')}
                   </p>
                 )}
@@ -719,7 +806,7 @@ export const AccountPage = ({
             }
           />
 
-          <SectionDivider />
+      <SectionDivider />
 
           <SettingRow
             label={t('settings:account.payments.sectionTitle')}
@@ -728,17 +815,27 @@ export const AccountPage = ({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => currentPractice && openBillingPortal({
-                practiceId: currentPractice.id,
-                returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
-              })}
+              onClick={() => {
+                if (!currentPractice) return;
+                if (!origin) {
+                  showError(
+                    t('common:error.title'),
+                    'Unable to open billing portal. Please try again.'
+                  );
+                  return;
+                }
+                void openBillingPortal({
+                  practiceId: currentPractice.id,
+                  returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
+                });
+              }}
               disabled={!currentPractice || !isOwner || !canManageBilling || submitting}
             >
               {t('settings:account.payments.manage')}
             </Button>
           </SettingRow>
 
-          <SectionDivider />
+      <SectionDivider />
 
           <SettingRow
             label={t('settings:account.payouts.sectionTitle')}
@@ -747,158 +844,149 @@ export const AccountPage = ({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => navigate('/settings/account/payouts')}
+              onClick={() => navigate(toSettingsPath('account/payouts'))}
             >
               {t('settings:account.payouts.manage')}
             </Button>
           </SettingRow>
 
-          <SectionDivider />
+      <SectionDivider />
 
           {/* Delete account Section */}
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
+            description={isDeleteBlocked ? deletionBlockedMessage : undefined}
           >
             {isDeleteBlocked ? (
               <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => currentPractice && openBillingPortal({
-                    practiceId: currentPractice.id,
-                    returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
-                  })}
+                  onClick={() => {
+                    if (!currentPractice) return;
+                    if (!origin) {
+                      showError(
+                        t('common:error.title'),
+                        'Unable to open billing portal. Please try again.'
+                      );
+                      return;
+                    }
+                    void openBillingPortal({
+                      practiceId: currentPractice.id,
+                      returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
+                    });
+                  }}
                   disabled={!currentPractice || !isOwner || !canManageBilling}
                   data-testid="account-delete-action"
                 >
                   {t('settings:account.plan.manage')}
                 </Button>
-                {deletionBlockedBySubscriptionCheck && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void refreshSubscription()}
-                    disabled={subscriptionLoading}
-                  >
-                    {t('settings:account.retry')}
-                  </Button>
-                )}
               </div>
             ) : (
-              <Button
-                variant="primary"
+              <SettingsDangerButton
                 size="sm"
                 onClick={handleDeleteAccount}
-                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
                 data-testid="account-delete-action"
               >
                 {t('settings:account.delete.button')}
-              </Button>
+              </SettingsDangerButton>
             )}
           </SettingRow>
-          {isDeleteBlocked && deletionBlockedMessage && (
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {deletionBlockedMessage}
-            </div>
-          )}
+
+      <SectionDivider />
+
+      {showLinksSection && (
+        <>
+          {/* Links Section */}
+          <SettingSection title={t('settings:account.links.title')}>
+            {/* Domain Selector */}
+            <SettingRow
+              label={t('settings:account.links.domainLabel')}
+              labelNode={
+                <div className="flex items-center gap-3">
+                  <Icon icon={GlobeAltIcon} className="w-5 h-5 text-input-placeholder"  />
+                  <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
+                </div>
+              }
+            >
+              <Combobox
+                value={selectedDomain}
+                options={[
+                  { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
+                  ...customDomainOptions,
+                  { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
+                ]}
+                onChange={handleDomainChange}
+                placeholder={t('settings:account.links.selectOption')}
+                className="border-0 bg-transparent px-3 py-1 hover:bg-white/[0.04] focus:ring-2 focus:ring-accent-500"
+                searchable={false}
+              />
+            </SettingRow>
+
+            {/* LinkedIn */}
+            <SettingRow
+              label="LinkedIn"
+              labelNode={
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">in</span>
+                  </div>
+                  <FormLabel>LinkedIn</FormLabel>
+                </div>
+              }
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddLinkedIn}
+                icon={PlusIcon} iconClassName="w-4 h-4"
+                iconPosition="right"
+              >
+                {t('settings:account.links.addButton')}
+              </Button>
+            </SettingRow>
+
+            {/* GitHub */}
+            <SettingRow
+              label="GitHub"
+              labelNode={
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 text-input-placeholder fill-current">
+                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                  </div>
+                  <FormLabel>GitHub</FormLabel>
+                </div>
+              }
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddGitHub}
+                icon={PlusIcon} iconClassName="w-4 h-4"
+                iconPosition="right"
+              >
+                {t('settings:account.links.addButton')}
+              </Button>
+            </SettingRow>
+          </SettingSection>
 
           <SectionDivider />
+        </>
+      )}
 
-          {showLinksSection && (
-            <>
-              {/* Links Section */}
-              <SettingSection title={t('settings:account.links.title')}>
-                {/* Domain Selector */}
-                <SettingRow
-                  label={t('settings:account.links.domainLabel')}
-                  labelNode={
-                    <div className="flex items-center gap-3">
-                      <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
-                    </div>
-                  }
-                >
-                  <Select
-                    value={selectedDomain}
-                    options={[
-                      { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                      ...customDomainOptions,
-                      { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
-                    ]}
-                    onChange={handleDomainChange}
-                    placeholder={t('settings:account.links.selectOption')}
-                    className="border-0 bg-transparent px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-accent-500"
-                  />
-                </SettingRow>
+      {/* Email Section */}
+      <EmailSettingsSection
+        email={emailAddress}
+        receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
+        onFeedbackChange={handleFeedbackEmailsChange}
+        title={t('settings:account.email.title')}
+        feedbackLabel={t('settings:account.email.receiveFeedback')}
+        showFeedbackToggle={showFeedbackToggle}
+      />
 
-                {/* LinkedIn */}
-                <SettingRow
-                  label="LinkedIn"
-                  labelNode={
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">in</span>
-                      </div>
-                      <FormLabel>LinkedIn</FormLabel>
-                    </div>
-                  }
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleAddLinkedIn}
-                    icon={<PlusIcon className="w-4 h-4" />}
-                    iconPosition="right"
-                  >
-                    {t('settings:account.links.addButton')}
-                  </Button>
-                </SettingRow>
-
-                {/* GitHub */}
-                <SettingRow
-                  label="GitHub"
-                  labelNode={
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4">
-                        <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
-                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                      </div>
-                      <FormLabel>GitHub</FormLabel>
-                    </div>
-                  }
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleAddGitHub}
-                    icon={<PlusIcon className="w-4 h-4" />}
-                    iconPosition="right"
-                  >
-                    {t('settings:account.links.addButton')}
-                  </Button>
-                </SettingRow>
-              </SettingSection>
-
-              <SectionDivider />
-            </>
-          )}
-
-          {/* Email Section */}
-          <EmailSettingsSection
-            email={emailAddress}
-            receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
-            onFeedbackChange={handleFeedbackEmailsChange}
-            title={t('settings:account.email.title')}
-            feedbackLabel={t('settings:account.email.receiveFeedback')}
-            showFeedbackToggle={showFeedbackToggle}
-          />
-
-          <SectionDivider />
-        </div>
-      </div>
-
-
+      <SectionDivider />
 
       {/* Delete Account Confirmation Dialog */}
       <ConfirmationDialog
@@ -938,55 +1026,35 @@ export const AccountPage = ({
         type="modal"
       >
         <div className="space-y-4">
-          <div>
-            <label htmlFor="domain-input" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-              {t('settings:account.domainModal.label')}
-            </label>
-            <input
-              id="domain-input"
-              type="text"
-              value={domainInput}
-              onChange={(e) => {
-                setDomainInput(e.currentTarget.value);
-                setDomainError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleDomainSubmit();
-                }
-              }}
-              placeholder={t('settings:account.links.domainPlaceholder')}
-              className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
-                domainError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
-              }`}
-            />
-            {domainError && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                {domainError}
-              </p>
-            )}
-          </div>
+          <Input
+            id="domain-input"
+            type="text"
+            label={t('settings:account.domainModal.label')}
+            value={domainInput}
+            onChange={(value) => {
+              setDomainInput(value);
+              setDomainError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                void handleDomainSubmit();
+              }
+            }}
+            placeholder={t('settings:account.links.domainPlaceholder')}
+            error={domainError ?? undefined}
+          />
           
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCloseDomainModal}
-              className="min-w-[80px]"
-            >
-              {t('settings:account.domainModal.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleDomainSubmit}
-              className="min-w-[80px]"
-            >
-              {t('settings:account.domainModal.submit')}
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            size="sm"
+            onCancel={handleCloseDomainModal}
+            onSubmit={handleDomainSubmit}
+            submitType="button"
+            cancelText={t('settings:account.domainModal.cancel')}
+            submitText={t('settings:account.domainModal.submit')}
+          />
         </div>
       </Modal>
-    </div>
+    </ContentPageLayout>
   );
 };

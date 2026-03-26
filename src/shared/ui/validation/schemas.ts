@@ -92,12 +92,12 @@ export const onboardingSchemas = {
   personalInfo: z.object({
     fullName: z.string().min(2, 'Full name must be at least 2 characters'),
     birthday: commonSchemas.birthday,
-    password: commonSchemas.password,
-    confirmPassword: z.string(),
     agreedToTerms: commonSchemas.termsAgreement,
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords must match',
-    path: ['confirmPassword']
+  }),
+  personalInfoNoName: z.object({
+    fullName: z.string().min(2, 'Full name must be at least 2 characters').optional(),
+    birthday: commonSchemas.birthday,
+    agreedToTerms: commonSchemas.termsAgreement,
   }),
   
   useCase: z.object({
@@ -112,7 +112,12 @@ export const onboardingSchemas = {
 export const settingsSchemas = {
   general: z.object({
     theme: z.enum(['light', 'dark', 'system']),
-    accentColor: z.enum(['default', 'blue', 'green', 'purple', 'red']),
+    accentColor: z.preprocess((val) => {
+      // Data migration for legacy values
+      if (val === 'default') return 'gold';
+      if (val === 'red') return 'orange';
+      return val;
+    }, z.enum(['gold', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple'])),
     language: z.string(),
     spokenLanguage: z.string(),
   }),

@@ -5,6 +5,8 @@ export type IntakePaymentRequest = {
   intakeUuid?: string;
   clientSecret?: string;
   paymentLinkUrl?: string;
+  checkoutSessionUrl?: string;
+  checkoutSessionId?: string;
   amount?: MinorAmount;
   currency?: string;
   practiceName?: string;
@@ -29,7 +31,7 @@ const sanitizeReturnTo = (value?: string) => {
   return trimmed.startsWith('/') && !trimmed.startsWith('//') ? trimmed : undefined;
 };
 
-const PAID_STATUSES = new Set(['succeeded', 'completed', 'paid', 'complete']);
+const PAID_STATUSES = new Set(['succeeded', 'completed', 'paid', 'complete', 'captured']);
 const STRIPE_PAYMENT_HOSTS = ['checkout.stripe.com', '.stripe.com'];
 
 const normalizeStatus = (value?: string | null) => {
@@ -38,12 +40,32 @@ const normalizeStatus = (value?: string | null) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-export const isPaidIntakeStatus = (status?: string | null): boolean => {
+export const isPaidIntakeStatus = (status?: unknown, succeededAt?: unknown): boolean => {
+  if (typeof succeededAt === 'string' && succeededAt.trim().length > 0) {
+    if (Number.isFinite(Date.parse(succeededAt))) {
+      return true;
+    }
+  }
+  if (typeof status !== 'string') return false;
   const normalized = normalizeStatus(status);
   return normalized ? PAID_STATUSES.has(normalized) : false;
 };
 
 export const isValidStripePaymentLink = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return STRIPE_PAYMENT_HOSTS.some((host) =>
+      host.startsWith('.')
+        ? parsed.hostname.endsWith(host)
+        : parsed.hostname === host
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const isValidStripeCheckoutSessionUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
@@ -95,13 +117,28 @@ export const buildIntakePaymentUrl = (
   if (intakeUuid) params.set('uuid', intakeUuid);
 
   const paymentLinkUrl = getQueryValue(request.paymentLinkUrl);
-  if (paymentLinkUrl) params.set('payment_link_url', paymentLinkUrl);
+  if (paymentLinkUrl && isValidStripePaymentLink(paymentLinkUrl)) {
+    params.set('payment_link_url', paymentLinkUrl);
+  }
+
+  const checkoutSessionUrl = getQueryValue(request.checkoutSessionUrl);
+  if (checkoutSessionUrl && isValidStripeCheckoutSessionUrl(checkoutSessionUrl)) {
+    params.set('checkout_session_url', checkoutSessionUrl);
+  }
+
+  const checkoutSessionId = getQueryValue(request.checkoutSessionId);
+  if (checkoutSessionId) {
+    const isValidCheckoutSessionId = /^cs_(test|live)_[A-Za-z0-9]+$/.test(checkoutSessionId);
+    if (isValidCheckoutSessionId) {
+      params.set('checkout_session_id', checkoutSessionId);
+    }
+  }
 
   const returnTo = sanitizeReturnTo(request.returnTo);
   if (returnTo) params.set('return_to', returnTo);
 
   const query = params.toString();
-  return query.length > 0 ? `/intake/pay?${query}` : '/intake/pay';
+  return query.length > 0 ? `/pay?${query}` : '/pay';
 };
 
 export const fetchIntakePaymentStatus = async (

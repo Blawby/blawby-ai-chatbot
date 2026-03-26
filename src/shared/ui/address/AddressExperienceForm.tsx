@@ -5,18 +5,22 @@ import { Input } from '@/shared/ui/input/Input';
 import { EmailInput } from '@/shared/ui/input/EmailInput';
 import { PhoneInput } from '@/shared/ui/input/PhoneInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import { Select, type SelectOption } from '@/shared/ui/input/Select';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { AddressInput } from '@/shared/ui/address/AddressInput';
+import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { isAddressEmpty } from '@/shared/utils/addressFormat';
 import { commonSchemas } from '@/shared/ui/validation/schemas';
 import { addressLooseSchema, addressStrictWithCountrySchema } from '@/shared/ui/validation/schemas/address';
 import type { Address } from '@/shared/types/address';
+import { STATUS_OPTIONS } from '@/shared/forms/fieldRegistry';
 
 export const ADDRESS_EXPERIENCE_FIELDS = [
   'name',
   'email',
   'phone',
+  'city',
+  'state',
   'status',
   'currency',
   'address',
@@ -30,9 +34,11 @@ export interface AddressExperienceData extends Record<string, unknown> {
   name?: string;
   email?: string;
   phone?: string;
+  city?: string;
+  state?: string;
   status?: string;
   currency?: string;
-  address?: Address;
+  address?: Partial<Address>;
   opposingParty?: string;
   description?: string;
 }
@@ -47,6 +53,7 @@ export interface AddressExperienceFormProps {
   variant?: 'card' | 'plain';
   formId?: string;
   showSubmitButton?: boolean;
+  submitFullWidth?: boolean;
   submitLabel?: string;
   cancelLabel?: string;
   onCancel?: () => void;
@@ -56,6 +63,7 @@ export interface AddressExperienceFormProps {
   addressOptions?: {
     country?: string;
     showCountry?: boolean;
+    stackedFields?: boolean;
     enableAutocomplete?: boolean;
     autocompleteUrl?: string;
     minChars?: number;
@@ -64,16 +72,10 @@ export interface AddressExperienceFormProps {
     size?: 'sm' | 'md' | 'lg';
   };
   className?: string;
+  inputClassName?: string;
 }
 
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'archived', label: 'Archived' },
-];
-
-const CURRENCY_OPTIONS: SelectOption[] = [
+const CURRENCY_OPTIONS: ComboboxOption[] = [
   { value: 'usd', label: 'USD' },
   { value: 'cad', label: 'CAD' },
   { value: 'eur', label: 'EUR' },
@@ -84,6 +86,8 @@ const DEFAULT_LABELS: Record<AddressExperienceField, string> = {
   name: 'Name',
   email: 'Email',
   phone: 'Phone',
+  city: 'City',
+  state: 'State',
   status: 'Status',
   currency: 'Currency',
   address: 'Address',
@@ -95,6 +99,8 @@ const DEFAULT_PLACEHOLDERS: Partial<Record<AddressExperienceField, string>> = {
   name: 'Enter your name',
   email: 'your.email@example.com',
   phone: '+1 (555) 123-4567',
+  city: 'City',
+  state: 'State',
   address: '',
   opposingParty: 'Enter opposing party name',
   description: 'Describe your case',
@@ -122,6 +128,43 @@ const normalizeRequiredList = (
 const trimOrUndefined = (value?: string) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const normalizeAddressInitialValue = (value: unknown): Partial<Address> | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    return { address: value } as Partial<Address>;
+  }
+  
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    // Lightweight shape check: verify it has at least one common address property
+    const hasKnownKey = 
+      'address' in obj || 
+      'street' in obj || 
+      'streetAddress' in obj || 
+      'line1' in obj || 
+      'line2' in obj || 
+      'city' in obj || 
+      'state' in obj || 
+      'postalCode' in obj || 
+      'postal_code' in obj || 
+      'country' in obj;
+
+    if (hasKnownKey) {
+      // Map variants to canonical Address interface
+      return {
+        address: (obj.line1 || obj.streetAddress || obj.street || obj.address || '') as string,
+        apartment: (obj.line2 || obj.apartment) as string | undefined,
+        city: (obj.city || '') as string,
+        state: (obj.state || '') as string,
+        postalCode: (obj.postalCode || obj.postal_code || '') as string,
+        country: (obj.country || '') as string,
+      };
+    }
+  }
+  
+  return undefined;
 };
 
 const normalizeAddressInput = (value: unknown) => {
@@ -156,6 +199,16 @@ const buildSchema = (fields: AddressExperienceField[], required: AddressExperien
         break;
       case 'phone':
         shape.phone = isRequired('phone') ? commonSchemas.phone : optionalPhone;
+        break;
+      case 'city':
+        shape.city = isRequired('city')
+          ? z.string().trim().min(1, 'City is required')
+          : optionalString;
+        break;
+      case 'state':
+        shape.state = isRequired('state')
+          ? z.string().trim().min(1, 'State is required')
+          : optionalString;
         break;
       case 'status':
         shape.status = isRequired('status')
@@ -202,6 +255,7 @@ export const AddressExperienceForm = ({
   variant = 'card',
   formId,
   showSubmitButton = true,
+  submitFullWidth = false,
   submitLabel = 'Submit',
   cancelLabel = 'Cancel',
   onCancel,
@@ -210,6 +264,7 @@ export const AddressExperienceForm = ({
   placeholders = {},
   addressOptions = {},
   className = '',
+  inputClassName = '',
 }: AddressExperienceFormProps) => {
   const normalizedFields = useMemo(() => normalizeFieldList(fields), [fields]);
   const normalizedRequired = useMemo(
@@ -222,21 +277,28 @@ export const AddressExperienceForm = ({
     [normalizedFields, normalizedRequired]
   );
 
-  const normalizedInitialValues = useMemo<Partial<AddressExperienceData>>(() => ({
-    name: trimOrUndefined(initialValues?.name),
-    email: trimOrUndefined(initialValues?.email),
-    phone: trimOrUndefined(initialValues?.phone),
-    status: trimOrUndefined(initialValues?.status),
-    currency: trimOrUndefined(initialValues?.currency),
-    address: initialValues?.address,
-    opposingParty: trimOrUndefined(initialValues?.opposingParty),
-    description: trimOrUndefined(initialValues?.description),
-  }), [initialValues]);
+  const normalizedInitialValues = useMemo<Partial<AddressExperienceData>>(() => {
+    const normalizedAddress = normalizeAddressInitialValue(initialValues?.address);
+    return {
+      name: trimOrUndefined(initialValues?.name),
+      email: trimOrUndefined(initialValues?.email),
+      phone: trimOrUndefined(initialValues?.phone),
+      city: trimOrUndefined(initialValues?.city) ?? trimOrUndefined(normalizedAddress?.city),
+      state: trimOrUndefined(initialValues?.state) ?? trimOrUndefined(normalizedAddress?.state),
+      status: trimOrUndefined(initialValues?.status),
+      currency: trimOrUndefined(initialValues?.currency),
+      address: normalizedAddress,
+      opposingParty: trimOrUndefined(initialValues?.opposingParty),
+      description: trimOrUndefined(initialValues?.description),
+    };
+  }, [initialValues]);
 
   const initialData: AddressExperienceData = {
     name: normalizedInitialValues.name ?? '',
     email: normalizedInitialValues.email ?? '',
     phone: normalizedInitialValues.phone ?? '',
+    city: normalizedInitialValues.city ?? '',
+    state: normalizedInitialValues.state ?? '',
     status: normalizedInitialValues.status ?? '',
     currency: normalizedInitialValues.currency ?? '',
     address: normalizedInitialValues.address,
@@ -247,7 +309,7 @@ export const AddressExperienceForm = ({
   const containerClasses = cn(
     variant === 'plain'
       ? 'w-full'
-      : 'bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg p-6 shadow-sm',
+      : 'glass-panel rounded-lg p-6',
     className
   );
 
@@ -272,9 +334,11 @@ export const AddressExperienceForm = ({
             name: trimOrUndefined(formData.name as string),
             email: trimOrUndefined(formData.email as string),
             phone: trimOrUndefined(formData.phone as string),
+            city: trimOrUndefined(formData.city as string),
+            state: trimOrUndefined(formData.state as string),
             status: trimOrUndefined(formData.status as string),
             currency: trimOrUndefined(formData.currency as string),
-            address: normalizeAddressInput(formData.address) as Address | undefined,
+            address: normalizeAddressInput(formData.address) as Partial<Address> | undefined,
             opposingParty: trimOrUndefined(formData.opposingParty as string),
             description: trimOrUndefined(formData.description as string),
           };
@@ -308,6 +372,7 @@ export const AddressExperienceForm = ({
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
                         showValidation={true}
+                        className={inputClassName}
                       />
                     );
                   case 'phone':
@@ -324,28 +389,61 @@ export const AddressExperienceForm = ({
                         format={true}
                         showCountryCode={true}
                         countryCode="+1"
+                        className={inputClassName}
+                      />
+                    );
+                  case 'city':
+                    return (
+                      <Input
+                        value={(value as string) || ''}
+                        onChange={handleChange}
+                        label={getLabel('city')}
+                        placeholder={getPlaceholder('city')}
+                        required={isFieldRequired('city')}
+                        error={error?.message}
+                        variant={error ? 'error' : 'default'}
+                        disabled={disabled}
+                        className={inputClassName}
+                      />
+                    );
+                  case 'state':
+                    return (
+                      <Input
+                        value={(value as string) || ''}
+                        onChange={handleChange}
+                        label={getLabel('state')}
+                        placeholder={getPlaceholder('state')}
+                        required={isFieldRequired('state')}
+                        error={error?.message}
+                        variant={error ? 'error' : 'default'}
+                        disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'status':
                     return (
-                      <Select
+                      <Combobox
                         label={getLabel('status')}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         options={STATUS_OPTIONS}
                         placeholder={getPlaceholder('status')}
                         disabled={disabled}
+                        className={inputClassName}
+                        searchable={false}
                       />
                     );
                   case 'currency':
                     return (
-                      <Select
+                      <Combobox
                         label={getLabel('currency')}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         options={CURRENCY_OPTIONS}
                         placeholder={getPlaceholder('currency')}
                         disabled={disabled}
+                        className={inputClassName}
+                        searchable={false}
                       />
                     );
                   case 'address': {
@@ -375,8 +473,10 @@ export const AddressExperienceForm = ({
                         limit={addressOptions.limit}
                         country={addressOptions.country}
                         showCountry={addressOptions.showCountry ?? true}
+                        stackedFields={addressOptions.stackedFields ?? false}
                         size={addressOptions.size || 'md'}
                         disabled={disabled}
+                        inputClassName={inputClassName}
                       />
                     );
                   }
@@ -391,6 +491,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'description':
@@ -406,6 +507,7 @@ export const AddressExperienceForm = ({
                         rows={4}
                         resize="vertical"
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                   case 'name':
@@ -420,6 +522,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
+                        className={inputClassName}
                       />
                     );
                 }
@@ -429,24 +532,32 @@ export const AddressExperienceForm = ({
         ))}
 
         {showSubmitButton && (
-          <div className="flex justify-end gap-3 pt-4">
+          <div className={cn(
+            'pt-4',
+            submitFullWidth ? 'flex flex-col gap-3' : 'flex justify-end gap-3'
+          )}>
             {onCancel && (
-              <button
+              <Button
                 type="button"
                 onClick={onCancel}
                 disabled={disabled}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="secondary"
+                size="md"
+                className={submitFullWidth ? 'w-full' : undefined}
               >
                 {cancelLabel}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="submit"
+              data-testid="contact-form-submit-footer"
               disabled={disabled}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="primary"
+              size="lg"
+              className={submitFullWidth ? 'w-full' : undefined}
             >
               {submitLabel}
-            </button>
+            </Button>
           </div>
         )}
       </Form>

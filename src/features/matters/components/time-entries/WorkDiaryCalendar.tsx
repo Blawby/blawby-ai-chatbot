@@ -1,6 +1,4 @@
 import { useMemo } from 'preact/hooks';
-import { Button } from '@/shared/ui/Button';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -74,43 +72,9 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
     nowUtc.getUTCDate()
   ));
 
-  const handlePrevMonth = () => {
-    const prev = new Date(Date.UTC(
-      selectedWeekStart.getUTCFullYear(),
-      selectedWeekStart.getUTCMonth() - 1,
-      1
-    ));
-    onSelectWeek(prev);
-  };
-
-  const handleNextMonth = () => {
-    const next = new Date(Date.UTC(
-      selectedWeekStart.getUTCFullYear(),
-      selectedWeekStart.getUTCMonth() + 1,
-      1
-    ));
-    onSelectWeek(next);
-  };
-
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Previous month"
-          icon={<ChevronLeftIcon className="h-4 w-4" />}
-          onClick={handlePrevMonth}
-        />
-        <div className="text-sm font-semibold text-gray-900 dark:text-white">{monthLabel}</div>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Next month"
-          icon={<ChevronRightIcon className="h-4 w-4" />}
-          onClick={handleNextMonth}
-        />
-      </div>
+    <div className="glass-panel p-4">
+      <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
 
       <div
         className="mt-4 grid gap-2 text-center text-[11px] font-medium text-gray-500 dark:text-gray-400 justify-items-center"
@@ -136,8 +100,8 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
               onClick={() => onSelectWeek(day)}
               className={[
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
-                isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500',
-                isSelectedWeek ? 'bg-accent-500/20 text-gray-900 dark:text-white' : 'hover:bg-gray-100 dark:hover:bg-white/10',
+                isCurrentMonth ? 'text-input-text' : 'text-gray-400 dark:text-gray-500',
+                isSelectedWeek ? 'bg-accent-500/20 text-[rgb(var(--accent-foreground))]' : 'hover:bg-accent-500/10',
                 isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
               ].join(' ')}
             >

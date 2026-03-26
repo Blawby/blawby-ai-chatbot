@@ -13,6 +13,8 @@ import { useUniqueId } from '@/shared/hooks/useUniqueId';
 export interface TextareaProps {
   value?: string;
   onChange?: (value: string) => void;
+  onBlur?: (event: FocusEvent) => void;
+  onFocus?: (event: FocusEvent) => void;
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
@@ -33,11 +35,15 @@ export interface TextareaProps {
   errorKey?: string;
   namespace?: string;
   id?: string;
+  autoFocus?: boolean;
+  onKeyDown?: (event: import('preact').JSX.TargetedKeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   value = '',
   onChange,
+  onBlur,
+  onFocus,
   placeholder,
   disabled = false,
   required = false,
@@ -57,7 +63,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  id
+  id,
+  autoFocus,
+  onKeyDown
 }, ref) => {
   // Generate stable ID for accessibility
   const generatedId = useUniqueId('textarea');
@@ -117,14 +125,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2 text-sm',
+    md: 'px-3 py-2.5 text-sm',
     lg: 'px-4 py-3 text-base'
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const resizeClasses = {
@@ -135,12 +143,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const textareaClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     resizeClasses[resize],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input border-input-border' : 'bg-input-bg',
     className
   );
 
@@ -151,7 +160,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={textareaId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={textareaId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -186,10 +195,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
             onChange?.(truncatedValue);
           }
         }}
+        onBlur={onBlur}
+        onFocus={onFocus}
         placeholder={displayPlaceholder}
         disabled={disabled}
         required={required}
         rows={rows}
+        autoFocus={autoFocus}
+        onKeyDown={onKeyDown}
         maxLength={enforceMaxLength === 'soft' ? undefined : maxLength}
         className={textareaClasses}
       />

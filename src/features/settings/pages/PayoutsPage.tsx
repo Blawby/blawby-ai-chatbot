@@ -2,7 +2,8 @@ import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
+import { ContentPageLayout } from '@/shared/ui/layout';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -15,13 +16,29 @@ import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardi
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
-import { CheckCircleIcon, LockClosedIcon, ShieldCheckIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import {
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  LockClosedIcon,
+  ShieldCheckIcon,
+  UserCircleIcon
+} from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
+
+const maskStripeAccountId = (value?: string | null) => {
+  if (!value) return 'Not created';
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+};
 
 export const PayoutsPage = ({ className = '' }: { className?: string }) => {
-  const { session, activeOrganizationId } = useSessionContext();
+  const { session } = useSessionContext();
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showError } = useToastContext();
-  const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
+  const organizationId = useMemo(
+    () => currentPractice?.betterAuthOrgId ?? currentPractice?.id ?? null,
+    [currentPractice?.betterAuthOrgId, currentPractice?.id]
+  );
   const lastOrganizationIdRef = useRef<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,7 +105,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
 
   const handleSubmitDetails = useCallback(async () => {
     if (!organizationId) {
-      showError('Payouts', 'Missing active organization.');
+      showError('Payouts', 'Missing practice context.');
       return;
     }
 
@@ -137,83 +154,161 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
     }
   }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
 
+  const hasStripeAccount = Boolean(stripeStatus?.stripe_account_id);
   const detailsSubmitted = stripeStatus?.details_submitted === true;
-  return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title="Payouts" />
+  const chargesEnabled = stripeStatus?.charges_enabled === true;
+  const payoutsEnabled = stripeStatus?.payouts_enabled === true;
+  const isReady = hasStripeAccount && payoutsEnabled;
+  const needsAction = hasStripeAccount && !detailsSubmitted;
+  const isPendingVerification = hasStripeAccount && detailsSubmitted && !payoutsEnabled;
+  const statusTone = isReady ? 'ready' : needsAction ? 'action' : isPendingVerification ? 'pending' : 'not_started';
+  const statusSummary = isReady
+    ? {
+        title: 'Stripe connected and ready',
+        description: 'Your practice can receive payments and payouts through Stripe.',
+        icon: CheckCircleIcon,
+        iconClassName: 'text-emerald-600 dark:text-emerald-400'
+      }
+    : needsAction
+    ? {
+        title: 'Stripe setup needs your attention',
+        description: 'Finish submitting your business and representative details to enable payouts.',
+        icon: ExclamationTriangleIcon,
+        iconClassName: 'text-amber-600 dark:text-amber-400'
+      }
+    : isPendingVerification
+    ? {
+        title: 'Verification in progress',
+        description: 'Stripe has your details. Payouts will unlock after verification is complete.',
+        icon: ShieldCheckIcon,
+        iconClassName: 'text-sky-600 dark:text-sky-400'
+      }
+    : null;
 
-      <div className="flex-1 overflow-y-auto px-6 pb-8">
-        <SettingSection title="External payout accounts">
-          {detailsSubmitted ? (
-            <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+  const businessEmail = currentPractice?.businessEmail || session?.user?.email || '';
+  const missingBusinessEmail = !businessEmail;
+
+  return (
+    <ContentPageLayout title="Payouts" className={className} contentClassName="pb-8">
+      <SettingSection title="External payout accounts">
+        {hasStripeAccount && statusSummary ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <CheckCircleIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <statusSummary.icon className={`h-5 w-5 ${statusSummary.iconClassName}`} />
               </span>
-              <p>
-                Your Blawby payout account is set up and ready to receive payments. You can now start sending invoices and receiving payments.
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-input-text">{statusSummary.title}</p>
+                <p className="text-sm text-input-placeholder">{statusSummary.description}</p>
+              </div>
+            </div>
+
+            <div className="glass-panel p-4">
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Stripe account</span>
+                  <span className="font-medium text-input-text">{maskStripeAccountId(stripeStatus?.stripe_account_id)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Charges</span>
+                  <span className="font-medium text-input-text">{chargesEnabled ? 'Enabled' : 'Pending verification'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Payouts</span>
+                  <span className="font-medium text-input-text">{payoutsEnabled ? 'Enabled' : 'Pending verification'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-input-placeholder">Status</span>
+                  <span className="font-medium text-input-text">
+                    {statusTone === 'ready'
+                      ? 'Ready'
+                      : statusTone === 'action'
+                      ? 'Action required'
+                      : statusTone === 'pending'
+                      ? 'Verification in progress'
+                      : 'Not started'}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-input-placeholder">
+                Bank accounts and payout schedules are managed in Stripe after onboarding.
               </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <ShieldCheckIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </span>
-                <p>
-                  Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
-                </p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <UserCircleIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </span>
-                <p>
-                  It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
-                </p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <LockClosedIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </span>
-                <p>
-                  Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!detailsSubmitted && (
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSubmitDetails}
-                disabled={isSubmitting || isLoading}
-              >
-                {isSubmitting ? 'Preparing Stripe...' : 'Submit details'}
-              </Button>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                You will be prompted to complete Stripe verification.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 text-sm text-input-placeholder">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                <Icon icon={ShieldCheckIcon} className="h-5 w-5 text-input-placeholder"  />
               </span>
+              <p>
+                Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
+              </p>
             </div>
-          )}
-        </SettingSection>
-
-        {isLoading && (
-          <>
-            <SectionDivider />
-            <div className="mt-4">
-              <StripeOnboardingStep
-                status={stripeStatus}
-                loading={isLoading}
-                showIntro={false}
-                showInfoCard={false}
-              />
+            <div className="flex items-start gap-3 text-sm text-input-placeholder">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                <Icon icon={UserCircleIcon} className="h-5 w-5 text-input-placeholder"  />
+              </span>
+              <p>
+                It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
+              </p>
             </div>
-          </>
+            <div className="flex items-start gap-3 text-sm text-input-placeholder">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                <Icon icon={LockClosedIcon} className="h-5 w-5 text-input-placeholder"  />
+              </span>
+              <p>
+                Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
+              </p>
+            </div>
+            {missingBusinessEmail && (
+              <div className="flex items-start gap-3 text-sm text-input-placeholder">
+                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
+                  <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-amber-600 dark:text-amber-400"  />
+                </span>
+                <p>
+                  Add a business email in your practice contact settings before starting Stripe verification.
+                </p>
+              </div>
+            )}
+          </div>
         )}
-      </div>
-    </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          {!isReady && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSubmitDetails}
+              disabled={isSubmitting || isLoading || missingBusinessEmail}
+            >
+              {isSubmitting ? 'Preparing Stripe...' : hasStripeAccount ? 'Continue Stripe setup' : 'Start Stripe setup'}
+            </Button>
+          )}
+          {!isReady && (
+            <SettingsHelperText>
+              {missingBusinessEmail
+                ? 'Add a business email before starting Stripe verification.'
+                : 'You will be redirected to Stripe to complete or review verification.'}
+            </SettingsHelperText>
+          )}
+        </div>
+      </SettingSection>
+
+      {stripeStatus && !isReady && (
+        <>
+          <SectionDivider />
+          <div className="mt-4">
+            <StripeOnboardingStep
+              status={stripeStatus}
+              loading={isLoading}
+              showIntro={false}
+              showInfoCard={false}
+            />
+          </div>
+        </>
+      )}
+    </ContentPageLayout>
   );
 };
 

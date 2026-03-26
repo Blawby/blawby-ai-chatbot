@@ -1,14 +1,31 @@
 import { useMemo } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { useNavigation } from '@/shared/utils/navigation';
+import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
 
 const ClientHomePage = () => {
-  const { session, activeOrganizationId } = useSessionContext();
-  const { navigate } = useNavigation();
+  const { session } = useSessionContext();
+  const location = useLocation();
+  const { canAccessPractice } = useWorkspace();
+  const { currentPractice, practices } = useWorkspaceResolver();
+  const { navigate, navigateToPricing } = useNavigation();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const showUpgrade = !activeOrganizationId;
+  const showUpgrade = !canAccessPractice;
+  const settingsPath = useMemo(() => {
+    const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
+    if (routeMatch) {
+      const workspace = routeMatch[1] as 'client' | 'practice';
+      const slug = decodeURIComponent(routeMatch[2]);
+      return getWorkspaceSettingsPath(workspace, slug);
+    }
+    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    return fallbackSlug ? getWorkspaceSettingsPath('client', fallbackSlug) : null;
+  }, [currentPractice?.slug, location.path, practices]);
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [
@@ -28,7 +45,7 @@ const ClientHomePage = () => {
         status: 'pending',
         action: {
           label: 'View plans',
-          onClick: () => navigate('/pricing'),
+          onClick: () => navigateToPricing(),
           variant: 'secondary' as const,
           size: 'sm' as const
         }
@@ -36,14 +53,14 @@ const ClientHomePage = () => {
     }
 
     return items;
-  }, [navigate, showUpgrade]);
+  }, [navigateToPricing, showUpgrade]);
 
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Welcome, {name}</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl text-heading">Welcome, {name}</h1>
+          <p className="mt-2 text-sm text-secondary">
             Your client workspace is ready. Keep track of your conversations and return to active matters any time.
           </p>
         </div>
@@ -54,14 +71,14 @@ const ClientHomePage = () => {
           items={clientNextStepsItems}
         />
 
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-6 shadow-sm space-y-4">
+        <div className="glass-card p-6 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Manage your account</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <h2 className="text-lg text-heading">Manage your account</h2>
+            <p className="text-sm text-secondary">
               Update your preferences, notifications, and security settings.
             </p>
           </div>
-          <Button variant="secondary" onClick={() => navigate('/settings')}>
+          <Button variant="secondary" onClick={() => settingsPath && navigate(settingsPath)}>
             Manage account settings
           </Button>
         </div>

@@ -40,6 +40,10 @@ export const getPracticeClientIntakeStatusEndpoint = (uuid: string) => {
   return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(uuid)}/status`;
 };
 
+export const getPracticeClientIntakeCheckoutSessionEndpoint = (uuid: string) => {
+  return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(uuid)}/checkout-session`;
+};
+
 // Practice workspace endpoints (chatbot data) - still local
 export const getPracticesEndpoint = () => {
   const config = getApiConfig();
@@ -99,6 +103,11 @@ export const getConversationsEndpoint = () => {
   return `${config.baseUrl}/api/conversations`;
 };
 
+export const getPracticeConversationsEndpoint = () => {
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/practice/conversations`;
+};
+
 export const getConversationEndpoint = (conversationId: string) => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}`;
@@ -146,10 +155,4 @@ export const getConversationMessagesEndpoint = (conversationId: string) => {
 export const getConversationMessageReactionsEndpoint = (conversationId: string, messageId: string) => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`;
-};
-
-// Intake confirmation endpoint - handled by local worker
-export const getIntakeConfirmEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/intakes/confirm`;
 };

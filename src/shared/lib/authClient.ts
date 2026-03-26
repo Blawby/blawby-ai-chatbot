@@ -2,6 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
+import { useMemo } from 'preact/hooks';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
@@ -9,8 +10,19 @@ import { getWorkerApiUrl } from '@/config/urls';
 type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
-type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
-  ? { user: BetterAuthSessionUser; session: S }
+type UntrustedSessionUser = {
+  id: string;
+  email?: string;
+  name?: string;
+  image?: string;
+  isAnonymous?: boolean;
+  onboardingComplete?: boolean;
+} & Record<string, unknown>;
+type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
+  ? (
+    { user: BetterAuthSessionUser; session: S; transformError?: false }
+    | { user: UntrustedSessionUser; session: S; transformError: true }
+  ) | Extract<AuthSessionData, null | undefined>
   : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
@@ -170,30 +182,42 @@ export const useSession = () => {
 export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData | undefined } => {
   const client = getAuthClient();
   const session = client.useSession();
-  const rawUser = session.data?.user as Record<string, unknown> | undefined;
-  let typedUser: BetterAuthSessionUser | undefined;
 
-  if (rawUser) {
+  const data = useMemo(() => {
+    if (!session.data?.user) return undefined;
+    
     try {
-      typedUser = transformSessionUser(rawUser);
+      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
+      return {
+        ...session.data,
+        user: typedUser
+      } as TypedSessionData;
     } catch (error) {
       console.error('[Auth] Failed to transform session user', {
         error,
-        userId: typeof rawUser.id === 'string' ? rawUser.id : undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        userId: (session.data.user as any)?.id
       });
+      return {
+        ...session.data,
+        user: (() => {
+          const raw = session.data.user;
+          const userRecord = (raw && typeof raw === 'object')
+            ? raw as Record<string, unknown>
+            : {};
+          return {
+            ...userRecord,
+            id: typeof userRecord.id === 'string' ? userRecord.id : '',
+          } as UntrustedSessionUser;
+        })(),
+        transformError: true
+      } as TypedSessionData;
     }
-  }
-
-  if (session.data && typedUser) {
-    return {
-      ...session,
-      data: { ...session.data, user: typedUser }
-    };
-  }
+  }, [session.data]);
 
   return {
     ...session,
-    data: undefined
+    data
   };
 };
 
@@ -228,11 +252,9 @@ export type TwoFactorClient = NonNullable<AuthClientType['twoFactor']>;
 // Better Auth organization plugin methods (external API uses "organization" terminology):
 // Note: These methods wrap Better Auth's organization plugin API which uses "organization" in its interface.
 // Internally we use "practice" terminology, but the Better Auth API still requires "organizationId" parameters.
-// - authClient.organization.setActive({ organizationId: string }) - Set active practice
 // - authClient.organization.create({ name, slug, logo?, metadata? }) - Create practice
 // - authClient.organization.list() - List user's practices
 // - authClient.organization.listMembers({ organizationId?, limit?, offset? }) - List members
 // - authClient.organization.getFullOrganization({ organizationId?, organizationSlug? }) - Get full practice details
-// - authClient.useActiveOrganization() - React hook for active practice
-// - authClient.organization.getActiveMemberRole() - Get user's role in active practice
+// - authClient.organization.getActiveMemberRole() - Get user's role in active practice context
 // See: https://better-auth.com/docs/plugins/organization

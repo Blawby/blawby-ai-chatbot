@@ -39,8 +39,8 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
         tabIndex={selected === 'personal' ? 0 : -1}
         onKeyDown={onKeyDown}
         onClick={() => onSelect('personal')}
-        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          selected === 'personal' ? 'bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
+        className={`btn btn-tab px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          selected === 'personal' ? 'active bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
         }`}
       >
         {personalLabel}
@@ -53,8 +53,8 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
         tabIndex={selected === 'business' ? 0 : -1}
         onKeyDown={onKeyDown}
         onClick={() => onSelect('business')}
-        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          selected === 'business' ? 'bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
+        className={`btn btn-tab px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          selected === 'business' ? 'active bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
         }`}
       >
         {businessLabel}

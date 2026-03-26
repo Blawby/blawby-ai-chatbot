@@ -145,8 +145,8 @@ export const DropdownMenuTrigger = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={cn(
-        'flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md',
-        'hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500',
+        'flex items-center gap-2 px-3 py-1 text-sm text-input-text rounded-md',
+        'hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500',
         className
       )}
       aria-haspopup="menu"

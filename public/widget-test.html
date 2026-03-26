@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Widget Test — Mock Practice Site</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #f0f4ff 0%, #e8f5f0 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .page {
+      max-width: 760px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    p {
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 28px;
+      margin-top: 24px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .card h2 {
+      font-size: 1.25rem;
+      color: #1a1a2e;
+      margin-bottom: 12px;
+    }
+
+    code {
+      background: #f4f4f8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+
+    pre {
+      background: #1a1a2e;
+      color: #a8ff78;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin: 16px 0;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1.5px solid #10B981;
+      background: transparent;
+      color: #10B981;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: #10B981;
+      color: white;
+    }
+
+    .notice {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.875rem;
+      color: #78350f;
+      margin-top: 12px;
+    }
+
+    .events {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      max-height: 220px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #0f172a;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <script>
+    // Forcibly remove any lingering PWA Service Workers from previous dev sessions
+    // that might intercept this HTML file and route it to the SPA.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+          console.log('Unregistered stale service worker.');
+        }
+      });
+    }
+  </script>
+  <div class="page">
+    <h1>⚖️ Park & Associates</h1>
+    <p>Expert legal counsel in employment law, corporate litigation, and estate planning. Serving the greater
+      metropolitan area for over 20 years.</p>
+    <p>Have a legal question? Chat with our AI assistant below — click the green button in the bottom-right corner to
+      get started.</p>
+
+    <div class="card">
+      <h2>Widget Integration Code</h2>
+      <p>Paste this snippet into your website to activate the Blawby Messenger:</p>
+      <pre id="snippet-preview"></pre>
+      <p class="notice">
+        ⚠️ This test page loads the widget against <code>localhost:5173</code>. Update <code>baseUrl</code> to
+        <code>https://ai.blawby.com</code> for production.
+      </p>
+      <div class="controls">
+        <button onclick="window.BlawbyWidget.open()">Open Widget</button>
+        <button onclick="window.BlawbyWidget.close()">Close Widget</button>
+        <button onclick="window.BlawbyWidget.toggle()">Toggle Widget</button>
+      </div>
+      <div id="event-log" class="events">Widget events will appear here…</div>
+    </div>
+  </div>
+
+  <script>
+    // ── Widget configuration ──────────────────────────────────────────────
+    // In a real website, replace this with your actual practice slug.
+    // The practiceSlug is shown in Settings → Practice → Workspace URL.
+    var PRACTICE_SLUG = 'paul-yahoo'; // <-- replace with your slug
+    var eventLogEl = document.getElementById('event-log');
+    window.dataLayer = window.dataLayer || [];
+    var originalDataLayerPush = window.dataLayer.push.bind(window.dataLayer);
+
+    function appendEvent(prefix, payload) {
+      var line = '[' + new Date().toISOString() + '] ' + prefix + ': ' + JSON.stringify(payload);
+      console.log(line);
+      if (eventLogEl) {
+        eventLogEl.textContent = line + '\n' + eventLogEl.textContent;
+      }
+    }
+
+    window.dataLayer.push = function (payload) {
+      appendEvent('dataLayer', payload);
+      return originalDataLayerPush(payload);
+    };
+
+    window.BlawbyWidget = {
+      practiceSlug: PRACTICE_SLUG,
+      // Override baseUrl to point at local dev server for testing.
+      // Remove this line (or set to 'https://ai.blawby.com') in production.
+      baseUrl: window.location.origin,
+      position: 'bottom-right',
+      pushDataLayerOnChatStart: true,
+      onEvent: function (eventPayload) {
+        appendEvent('onEvent', eventPayload);
+      },
+      onChatStart: function (eventPayload) {
+        appendEvent('onChatStart', eventPayload);
+      }
+    };
+
+    window.addEventListener('blawby:widget-event', function (event) {
+      appendEvent('dom-event', event.detail);
+    });
+
+    // Show the snippet in the card
+    var snippetEl = document.getElementById('snippet-preview');
+    snippetEl.textContent = [
+      '<script>',
+      '  window.BlawbyWidget = {',
+      '    practiceSlug: \'' + PRACTICE_SLUG + '\'',
+      '  };',
+      '<\/script>',
+      '<script src="https://ai.blawby.com/widget-loader.js" defer><\/script>',
+    ].join('\n');
+  </script>
+  <!-- Widget loader — in production use src="https://ai.blawby.com/widget-loader.js" -->
+  <script src="/widget-loader.js?v=2" defer></script>
+</body>
+
+</html>

@@ -1,0 +1,494 @@
+/**
+ * widget-embed.spec.ts
+ *
+ * Tests the widget via the real cross-origin iframe embed path — identical to
+ * how northcarolinalegalservices.org embeds it.
+ *
+ * Architecture:
+ *   Playwright → GET /mock-embed.html (the "customer" page)
+ *     → loads /widget-loader.js from same origin
+ *       → widget-loader creates <iframe src="/public/:slug?v=widget&...">
+ *         → /api/widget/bootstrap (actual worker)
+ *         → WidgetApp mounts inside the iframe
+ *
+ * This is the ONLY test suite that exercises:
+ *   - widget-loader.js postMessage bridge
+ *   - iframe session isolation (no shared cookies between harness + iframe by default)
+ *   - blawby:ready / blawby:open / blawby:new-message events
+ *   - The full bootstrap → anon-session → conversation → composer flow
+ *
+ * Run locally:
+ *   E2E_BASE_URL=http://localhost:5137 npx playwright test tests/e2e/widget-embed.spec.ts --reporter=line
+ */
+
+import { test, expect } from './fixtures';
+import { randomUUID } from 'crypto';
+
+const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
+const EMBED_TIMEOUT_MS = 30_000;
+const WIDGET_READY_TIMEOUT_MS = 20_000;
+const INTERACTIVE_TIMEOUT_MS = 30_000;
+const AI_RESPONSE_TIMEOUT_MS = 45_000;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+/** Wait until window.__blawbyLastEvent.type === targetType inside the harness page. */
+async function waitForWidgetEvent(
+  page: import('@playwright/test').Page,
+  targetType: string,
+  timeoutMs = WIDGET_READY_TIMEOUT_MS
+) {
+  await expect.poll(
+    async () => {
+      // Events are stored via two paths:
+      // 1. postMessage from iframe → window.addEventListener('message') → type stored directly
+      // 2. CustomEvent 'blawby:widget-event' → type stored in .detail.type
+      // We check the events array for either path.
+      const found = await page.evaluate((t) => {
+        const events: Array<{ type: string; detail?: { type: string } }> = window.__blawbyEvents ?? [];
+        return events.some((e) => e.type === t || e.detail?.type === t);
+      }, targetType);
+      return found;
+    },
+    {
+      timeout: timeoutMs,
+      message: `Expected widget event "${targetType}" but never received it`,
+    }
+  ).toBe(true);
+}
+
+/** Return all blawby postMessage events received so far. */
+async function getWidgetEvents(page: import('@playwright/test').Page) {
+  return page.evaluate(() => window.__blawbyEvents ?? []);
+}
+
+// ── types the harness exposes on window ──────────────────────────────────────
+declare global {
+  interface Window {
+    __blawbyLastEvent?: { type: string; [key: string]: unknown };
+    __blawbyEvents?: Array<{ type: string; [key: string]: unknown }>;
+    __blawbyOnEvents?: Array<{ eventName: string; data?: unknown }>;
+    __blawbyHarnessConfig?: { baseUrl: string; slug: string };
+    BlawbyWidgetAPI?: {
+      open: () => void;
+      close: () => void;
+      newConversation?: () => void;
+    };
+  }
+}
+
+// ── test suite ───────────────────────────────────────────────────────────────
+
+test.describe('Widget embed (cross-origin iframe flow)', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('bootstrap returns 200 and widget emits blawby:ready', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const consoleErrors: string[] = [];
+    const apiErrors: Array<{ url: string; status: number }> = [];
+
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('response', (response) => {
+      if (response.url().includes('/api/') && response.status() >= 500) {
+        apiErrors.push({ url: response.url(), status: response.status() });
+      }
+    });
+
+    // Bootstrap request watcher — set up before navigation.
+    const bootstrapResponsePromise = page.waitForResponse(
+      (r) => r.request().method() === 'GET' && r.url().includes('/api/widget/bootstrap'),
+      { timeout: EMBED_TIMEOUT_MS }
+    );
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Verify the harness loaded.
+    await expect(page.locator('#slug-display')).toContainText(slug, { timeout: 5_000 });
+
+    // Bootstrap must succeed.
+    const bootstrapResponse = await bootstrapResponsePromise;
+    expect(
+      bootstrapResponse.ok(),
+      `bootstrap returned ${bootstrapResponse.status()} — 5xx from /api/widget/bootstrap. URL: ${bootstrapResponse.url()}`
+    ).toBeTruthy();
+
+    const bootstrapBody = await bootstrapResponse.json().catch(() => null) as {
+      practiceId?: string | null;
+      conversationId?: string | null;
+      widgetAuthToken?: string | null;
+      session?: { user?: unknown } | null;
+    } | null;
+
+    // Practice ID must be resolved.
+    expect(
+      bootstrapBody?.practiceId ?? null,
+      'bootstrap must return a practiceId — slug lookup likely failed'
+    ).not.toBeNull();
+
+    // Session must be created (anonymous user).
+    expect(
+      bootstrapBody?.session?.user ?? null,
+      'bootstrap must return a session.user (anonymous sign-in failed)'
+    ).not.toBeNull();
+
+    // Widget auth token must be issued.
+    expect(
+      bootstrapBody?.widgetAuthToken ?? null,
+      'bootstrap must return widgetAuthToken for cookie-free iframe auth'
+    ).not.toBeNull();
+
+    // Widget must emit blawby:ready via postMessage.
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+    const widgetStatusBadge = page.locator('#widget-status');
+    await expect(widgetStatusBadge).toContainText('ready', { timeout: 2_000 });
+
+    // No 5xx errors from any API call during load.
+    expect(
+      apiErrors,
+      `API 5xx errors during widget load: ${JSON.stringify(apiErrors)}`
+    ).toHaveLength(0);
+
+    if (consoleErrors.length) {
+      await testInfo.attach('embed-console-errors', { body: consoleErrors.join('\n'), contentType: 'text/plain' });
+    }
+  });
+
+  test('launcher opens widget and iframe becomes interactive', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const apiErrors: Array<{ url: string; status: number }> = [];
+
+    page.on('response', (response) => {
+      if (response.url().includes('/api/') && response.status() >= 500) {
+        apiErrors.push({ url: response.url(), status: response.status() });
+      }
+    });
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Wait for widget to be ready before clicking launcher.
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+
+    // The launcher button is rendered in the harness page's DOM by widget-loader.js.
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    await expect(launcher).toBeVisible({ timeout: 10_000 });
+    await launcher.click();
+
+    // Widget should emit blawby:open.
+    await waitForWidgetEvent(page, 'widget_opened', 10_000);
+
+    // The iframe src should now be set — find the widget iframe.
+    const iframeLocator = page.frameLocator('iframe[src*="/public/"]').first();
+
+    // Inside the iframe, the message input or consultation CTA should appear.
+    const messageInputInIframe = iframeLocator.locator('[data-testid="message-input"]');
+    const consultationCtaInIframe = iframeLocator.locator('button').filter({ hasText: /request consultation/i }).first();
+
+    let reachedInteractive = false;
+    try {
+      await expect.poll(
+        async () => {
+          const inputEnabled = await messageInputInIframe.isEnabled({ timeout: 500 }).catch(() => false);
+          const ctaVisible = await consultationCtaInIframe.isVisible({ timeout: 500 }).catch(() => false);
+          return inputEnabled || ctaVisible;
+        },
+        {
+          timeout: INTERACTIVE_TIMEOUT_MS,
+          message: 'Widget iframe never became interactive (no message input or CTA found)',
+        }
+      ).toBe(true);
+      reachedInteractive = true;
+    } catch (err) {
+      const snapshot = await page.evaluate(() => ({
+        events: window.__blawbyEvents ?? [],
+        iframes: Array.from(document.querySelectorAll('iframe')).map((f) => ({
+          src: f.src,
+          style: f.getAttribute('style') ?? '',
+        })),
+      }));
+      await testInfo.attach('embed-interactive-failure.json', {
+        body: JSON.stringify(snapshot, null, 2),
+        contentType: 'application/json',
+      });
+      throw err;
+    }
+
+    expect(reachedInteractive, 'widget iframe must become interactive').toBe(true);
+
+    // No 5xx errors during the entire open flow.
+    expect(
+      apiErrors,
+      `5xx errors during widget open: ${JSON.stringify(apiErrors)}`
+    ).toHaveLength(0);
+
+    // Widget events must include ready + open lifecycle.
+    // 'blawby:ready' comes from the iframe postMessage (intercepted by harness message listener).
+    // 'widget_opened' comes from the loader's emitEvent() dispatched as a blawby:widget-event CustomEvent.
+    const events = await getWidgetEvents(page);
+    const types = events.map((e) => e.type);
+    expect(types).toContain('blawby:ready');
+    expect(types).toContain('widget_opened');
+  });
+
+  test('widget auth token survives cookie clear and re-bootstrap succeeds', async ({ anonPage: page }) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const firstBootstrapResponsePromise = page.waitForResponse(
+      (r) => r.request().method() === 'GET' && r.url().includes('/api/widget/bootstrap') && r.ok(),
+      { timeout: EMBED_TIMEOUT_MS }
+    );
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Wait for first bootstrap + ready.
+    await firstBootstrapResponsePromise;
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+
+    // Confirm token was persisted into sessionStorage by the iframe.
+    const iframeLocator = page.frameLocator('iframe[src*="/public/"]');
+    const tokenInIframe = await iframeLocator.locator('body').evaluate(() => {
+      try { return sessionStorage.getItem('blawby_widget_auth_token'); } catch { return null; }
+    }).catch(() => null);
+
+    // If token is present (requires iframe to be same-origin accessible in Playwright — only works in non-cross-origin mode),
+    // assert it's non-empty. If the frame is cross-origin, this will be null; that's fine.
+    if (tokenInIframe !== null) {
+      expect(tokenInIframe.length, 'widget auth token should be non-empty in sessionStorage').toBeGreaterThan(10);
+    }
+
+    // Clear all cookies to simulate ITP/third-party cookie block.
+    await page.context().clearCookies();
+
+    // Re-navigate — bootstrap should still succeed by sending the Bearer token.
+    const secondBootstrapResponsePromise = page.waitForResponse(
+      (r) => r.request().method() === 'GET' && r.url().includes('/api/widget/bootstrap'),
+      { timeout: EMBED_TIMEOUT_MS }
+    );
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const secondBootstrapResponse = await secondBootstrapResponsePromise;
+
+    expect(
+      secondBootstrapResponse.ok(),
+      `Re-bootstrap after cookie clear returned ${secondBootstrapResponse.status()}`
+    ).toBeTruthy();
+  });
+
+  test('widget in iframe sees no 5xx on conversation active endpoint', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const allApiResponses: Array<{ method: string; url: string; status: number }> = [];
+
+    page.on('response', (response) => {
+      if (response.url().includes('/api/')) {
+        allApiResponses.push({
+          method: response.request().method(),
+          url: response.url(),
+          status: response.status(),
+        });
+      }
+    });
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Open widget. In this assertion-focused test we accept either the explicit
+    // iframe_ready event or a concrete loaded iframe as readiness signal.
+    await expect.poll(
+      async () => {
+        const hasReadyEvent = await page.evaluate(() => {
+          const events = (window.__blawbyEvents ?? []) as Array<{ type?: string; detail?: { type?: string } }>;
+          return events.some((e) => e.type === 'iframe_ready' || e.type === 'blawby:ready' || e.detail?.type === 'iframe_ready');
+        });
+        const iframeCount = await page.locator('iframe[src*="/public/"]').count();
+        return hasReadyEvent || iframeCount > 0;
+      },
+      {
+        timeout: WIDGET_READY_TIMEOUT_MS,
+        message: 'Expected widget iframe to be present or ready event to be emitted',
+      }
+    ).toBe(true);
+
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    if (await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await launcher.click();
+      await waitForWidgetEvent(page, 'widget_opened', 8_000);
+    }
+
+    // Give the widget time to settle (fetch conversation, connect WS, etc).
+    await page.waitForTimeout(4_000);
+
+    const serverErrors = allApiResponses.filter((r) => r.status >= 500);
+    if (serverErrors.length > 0) {
+      await testInfo.attach('embed-5xx-responses.json', {
+        body: JSON.stringify(serverErrors, null, 2),
+        contentType: 'application/json',
+      });
+    }
+
+    expect(
+      serverErrors,
+      `Got 5xx responses during embed flow:\n${serverErrors.map((r) => `  ${r.status} ${r.method} ${r.url}`).join('\n')}`
+    ).toHaveLength(0);
+  });
+
+  test('slim contact form submit works via widget iframe', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const uid = randomUUID().slice(0, 8);
+    const testEmail = `embed-e2e-${uid}@example.com`;
+    const apiErrors: Array<{ url: string; status: number }> = [];
+
+    page.on('response', (response) => {
+      if (response.url().includes('/api/') && response.status() >= 500) {
+        apiErrors.push({ url: response.url(), status: response.status() });
+      }
+    });
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+
+    // Open via launcher or harness button.
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    if (await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await launcher.click();
+    } else {
+      await page.locator('button[data-action="open"]').click();
+    }
+    await waitForWidgetEvent(page, 'widget_opened', 8_000);
+
+    const iframe = page.frameLocator('iframe[src*="/public/"]').first();
+
+    // Click Request Consultation CTA.
+    const ctaBtn = iframe.locator('button').filter({ hasText: /request consultation/i }).first();
+    if (await ctaBtn.isVisible({ timeout: INTERACTIVE_TIMEOUT_MS }).catch(() => false)) {
+      await ctaBtn.click();
+    }
+
+    // Fill slim contact form when present.
+    const nameInput = iframe.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
+    const emailInput = iframe.locator('input[type="email"]').first();
+    const phoneInput = iframe.locator('input[type="tel"]').first();
+    const continueBtn = iframe.locator('button').filter({ hasText: /^continue$/i }).first();
+    const formVisible = await nameInput.isVisible({ timeout: 8_000 }).catch(() => false);
+    if (formVisible) {
+      await nameInput.fill(`Embed E2E ${uid}`);
+      if (await emailInput.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await emailInput.fill(testEmail);
+      }
+      if (await phoneInput.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await phoneInput.fill('5555550199');
+      }
+      await continueBtn.click();
+    }
+
+    // After submit, expect either message input to unlock or an info message.
+    const messageInput = iframe.locator('[data-testid="message-input"]');
+    const bodyLocator = iframe.locator('body');
+
+    await expect.poll(
+      async () => {
+        const enabled = await messageInput.isEnabled({ timeout: 500 }).catch(() => false);
+        const hasContactInfo = await bodyLocator.innerText().then((t) => /contact info received|we received your/i.test(t)).catch(() => false);
+        return enabled || hasContactInfo;
+      },
+      {
+        timeout: 30_000,
+        message: 'Expected message input to unlock or contact-info confirmation after form flow',
+      }
+    ).toBe(true);
+
+    if (apiErrors.length > 0) {
+      await testInfo.attach('embed-form-5xx.json', {
+        body: JSON.stringify(apiErrors, null, 2),
+        contentType: 'application/json',
+      });
+    }
+    expect(apiErrors, `5xx errors during form submit: ${JSON.stringify(apiErrors)}`).toHaveLength(0);
+  });
+
+  test('AI responds to a message sent from the embedded widget', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const apiErrors: Array<{ url: string; status: number }> = [];
+
+    page.on('response', (response) => {
+      if (response.url().includes('/api/') && response.status() >= 500) {
+        apiErrors.push({ url: response.url(), status: response.status() });
+      }
+    });
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    if (await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await launcher.click();
+      await waitForWidgetEvent(page, 'widget_opened', 8_000);
+    }
+
+    const iframe = page.frameLocator('iframe[src*="/public/"]').first();
+
+    const askQuestionButton = iframe.getByRole('button', { name: /ask a question/i }).first();
+    if (await askQuestionButton.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      await askQuestionButton.click();
+    }
+
+    // Wait for composer to be interactive.
+    const messageInput = iframe.locator('[data-testid="message-input"]');
+    await expect(messageInput).toBeEnabled({ timeout: INTERACTIVE_TIMEOUT_MS });
+
+    // Wait for AI chat response.
+    const aiResponsePromise = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat'),
+      { timeout: AI_RESPONSE_TIMEOUT_MS }
+    ).catch(() => null);
+
+    await messageInput.fill('What services does your firm offer?');
+    await iframe.locator('button[aria-label*="Send"], button[type="submit"]').first().click();
+
+    const aiResponse = await aiResponsePromise;
+    if (aiResponse && aiResponse.status() >= 500) {
+      throw new Error(`AI response failed with ${aiResponse.status()} from ${aiResponse.url()}`);
+    }
+
+    // AI message should appear in the iframe DOM regardless of transport details.
+    const aiMessages = iframe.locator('[data-testid="ai-message"]');
+    try {
+      await expect.poll(
+        async () => await aiMessages.count(),
+        { timeout: 25_000, message: 'Expected at least one AI message in the iframe DOM' }
+      ).toBeGreaterThan(0);
+    } catch {
+      const bodySnapshot = await iframe.locator('body').innerText().catch(() => '');
+      await testInfo.attach('embed-ai-no-response-body.txt', {
+        body: bodySnapshot,
+        contentType: 'text/plain',
+      });
+      throw new Error('AI response was not rendered in the iframe');
+    }
+
+    expect(apiErrors, `5xx errors during AI message flow: ${JSON.stringify(apiErrors)}`).toHaveLength(0);
+
+    // Emit of blawby:new-message from the iframe is a bonus check.
+    const events = await getWidgetEvents(page);
+    const hasNewMsg = events.some((e) => e.type === 'blawby:new-message');
+    if (!hasNewMsg) {
+      await testInfo.attach('embed-events.json', {
+        body: JSON.stringify(events, null, 2),
+        contentType: 'application/json',
+      });
+      // Non-fatal: blawby:new-message may not fire if the widget is already open.
+    }
+  });
+});

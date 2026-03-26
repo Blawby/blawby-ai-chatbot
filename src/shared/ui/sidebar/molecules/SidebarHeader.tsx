@@ -28,7 +28,7 @@ export const SidebarHeader = ({
 }: SidebarHeaderProps) => {
   if (isCollapsed) {
     return (
-      <div className="flex items-center justify-center border-b border-gray-200 dark:border-dark-border px-3 py-2">
+      <div className="flex items-center justify-center border-b border-line-glass/30 px-3 py-2">
         <div className="relative group w-full h-10 flex items-center justify-center">
           {practiceConfig?.profileImage ? (
             <button
@@ -47,7 +47,8 @@ export const SidebarHeader = ({
           ) : (
             // Visible, focusable fallback when no profile image
             <CollapsibleToggle
-              icon={<Bars3Icon className="w-4 h-4" />}
+              icon={Bars3Icon}
+              iconClassName="w-4 h-4"
               onClick={() => onToggleCollapse()}
               ariaLabel="Expand sidebar"
             />
@@ -56,7 +57,8 @@ export const SidebarHeader = ({
           {practiceConfig?.profileImage && (
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
               <CollapsibleToggle
-                icon={<Bars3Icon className="w-4 h-4" />}
+                icon={Bars3Icon}
+                iconClassName="w-4 h-4"
                 onClick={() => onToggleCollapse()}
                 ariaLabel="Expand sidebar"
               />
@@ -68,7 +70,7 @@ export const SidebarHeader = ({
   }
 
   return (
-    <div className="flex items-center justify-between border-b border-gray-200 dark:border-dark-border px-3 py-2">
+    <div className="flex items-center justify-between border-b border-line-glass/30 px-3 py-2">
       {practiceConfig?.profileImage && (
         <PracticeLogo 
           src={practiceConfig.profileImage} 
@@ -78,13 +80,15 @@ export const SidebarHeader = ({
       )}
       {onClose ? (
         <CollapsibleToggle
-          icon={<XMarkIcon className="w-5 h-5" />}
+          icon={XMarkIcon}
+          iconClassName="w-5 h-5"
           onClick={onClose}
           ariaLabel="Close sidebar"
         />
       ) : (
         <CollapsibleToggle
-          icon={<Bars3Icon className="w-5 h-5" />}
+          icon={Bars3Icon}
+          iconClassName="w-5 h-5"
           onClick={onToggleCollapse}
           ariaLabel="Collapse sidebar"
         />

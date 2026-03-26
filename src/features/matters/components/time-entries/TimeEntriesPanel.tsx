@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'preact/hooks';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
-import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 import { WorkDiaryCalendar } from './WorkDiaryCalendar';
@@ -137,6 +137,12 @@ export const TimeEntriesPanel = ({
   };
 
   const showEntries = !error && !(loading && entries.length === 0);
+  const handlePreviousWeek = () => {
+    setSelectedWeekStart((prev) => addDays(prev, -7));
+  };
+  const handleNextWeek = () => {
+    setSelectedWeekStart((prev) => addDays(prev, 7));
+  };
 
   return (
     <div className="space-y-6">
@@ -145,14 +151,30 @@ export const TimeEntriesPanel = ({
           selectedWeekStart={selectedWeekStart}
           onSelectWeek={(date) => setSelectedWeekStart(getStartOfWeek(date))}
         />
-        <div className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+        <div className="glass-panel overflow-hidden">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Previous week"
+                icon={ChevronLeftIcon}
+                iconClassName="h-4 w-4"
+                onClick={handlePreviousWeek}
+              />
               <div className="min-w-[220px] text-center">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{weekRangeLabel}</p>
+                <p className="text-sm font-semibold text-input-text">{weekRangeLabel}</p>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Next week"
+                icon={ChevronRightIcon}
+                iconClassName="h-4 w-4"
+                onClick={handleNextWeek}
+              />
             </div>
-            <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => openNewEntry()}>
+            <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
               Add time entry
             </Button>
           </header>
@@ -168,7 +190,7 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-white/[0.04] transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
                   <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">
@@ -176,13 +198,13 @@ export const TimeEntriesPanel = ({
                   </div>
                   <div className="sm:col-span-9">
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 rounded-full bg-gray-200 dark:bg-white/10">
+                      <div className="flex-1 h-2 rounded-full bg-line-glass/60">
                         <div
                           className="h-2 rounded-full bg-accent-500"
                           style={{ width: `${day.progressPercentage}%` }}
                         />
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white min-w-[96px] text-right">
+                      <div className="text-sm font-semibold text-input-text min-w-[96px] text-right">
                         {formatDuration(day.totalSeconds)}
                       </div>
                     </div>

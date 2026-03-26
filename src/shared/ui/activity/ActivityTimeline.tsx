@@ -1,8 +1,17 @@
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
-import { FaceSmileIcon, PaperClipIcon } from '@heroicons/react/20/solid';
+import type { JSX } from 'preact';
+import { CheckCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+import {
+  EyeIcon,
+  PencilSquareIcon,
+  PlusCircleIcon,
+  PaperAirplaneIcon
+} from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile';
+import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { useCallback, useState } from 'preact/hooks';
+import { MarkdownUploadTextarea } from '@/shared/ui/input';
 
 export type TimelinePerson = {
   name: string;
@@ -17,6 +26,14 @@ export type TimelineItem = {
   dateTime?: string;
   comment?: string;
   action?: string;
+  actionMeta?: {
+    type: 'status_change';
+    from: string;
+    to: string;
+  } | {
+    type: 'task_event';
+    taskId: string;
+  };
 };
 
 export interface ActivityTimelineProps {
@@ -28,10 +45,14 @@ export interface ActivityTimelineProps {
   composerPlaceholder?: string;
   composerLabel?: string;
   composerValue?: string;
+  composerPerson?: TimelinePerson;
+  composerPracticeId?: string | null;
+  composerConversationId?: string;
   onComposerChange?: (value: string) => void;
   onComposerSubmit?: (value: string) => void | Promise<void>;
   onEditComment?: (id: string, value: string) => void | Promise<void>;
   onDeleteComment?: (id: string) => void | Promise<void>;
+  onTaskClick?: (taskId: string) => void;
   commentActionsDisabled?: boolean;
 }
 
@@ -44,6 +65,13 @@ const DEFAULT_ACTIONS: Record<TimelineItem['type'], string> = {
   paid: 'paid the invoice.'
 };
 
+const TYPE_ICONS: Partial<Record<TimelineItem['type'], (props: { className?: string }) => JSX.Element>> = {
+  created: (props) => <Icon icon={PlusCircleIcon} {...props}  />,
+  edited: (props) => <Icon icon={PencilSquareIcon} {...props}  />,
+  sent: (props) => <Icon icon={PaperAirplaneIcon} {...props}  />,
+  viewed: (props) => <Icon icon={EyeIcon} {...props}  />
+};
+
 export const ActivityTimeline = ({
   items,
   className = '',
@@ -53,10 +81,14 @@ export const ActivityTimeline = ({
   composerPlaceholder = 'Add your comment...',
   composerLabel = 'Comment',
   composerValue,
+  composerPerson,
+  composerPracticeId,
+  composerConversationId,
   onComposerChange,
   onComposerSubmit,
   onEditComment,
   onDeleteComment,
+  onTaskClick,
   commentActionsDisabled = false
 }: ActivityTimelineProps) => {
   const isControlled = typeof composerValue === 'string';
@@ -64,9 +96,7 @@ export const ActivityTimeline = ({
   const resolvedValue = isControlled ? composerValue : draft;
   const isSubmitDisabled = composerDisabled || composerSubmitting || resolvedValue.trim().length === 0;
 
-  const handleChange = useCallback((event: Event) => {
-    const target = event.currentTarget as HTMLTextAreaElement;
-    const nextValue = target?.value ?? '';
+  const handleChange = useCallback((nextValue: string) => {
     if (!isControlled) {
       setDraft(nextValue);
     }
@@ -130,76 +160,90 @@ export const ActivityTimeline = ({
 
         return (
           <li key={item.id} className="relative flex gap-x-4">
-            <div
-              className={cn(
-                isLast ? 'h-6' : '-bottom-6',
-                'absolute top-0 left-0 flex w-6 justify-center'
+            <div className="relative flex w-10 flex-none justify-center pt-0.5">
+              <div
+                className={cn(
+                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-line-default',
+                  isLast ? 'h-6' : '-bottom-6',
+                  'top-0'
+                )}
+              />
+              {item.type === 'commented' ? (
+                <div className="relative z-10 flex h-10 w-10 items-center justify-center">
+                  <Avatar
+                    name={item.person.name}
+                    src={item.person.imageUrl}
+                    size="md"
+                    className="ring-1 ring-black/10 bg-white/10 text-input-text dark:ring-white/20"
+                  />
+                  <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
+                    <Icon icon={ChatBubbleLeftRightIcon} className="h-3 w-3" aria-hidden="true"  />
+                  </span>
+                </div>
+              ) : (
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
+                  {item.type === 'paid' ? (
+                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-emerald-500"  />
+                  ) : TYPE_ICONS[item.type] ? (
+                    (() => {
+                      const Icon = TYPE_ICONS[item.type];
+                      return Icon ? (
+                        <Icon className="h-4 w-4 text-input-placeholder dark:text-gray-200" />
+                      ) : null;
+                    })()
+                  ) : (
+                    <div className="h-1.5 w-1.5 rounded-full bg-input-placeholder/80" />
+                  )}
+                </div>
               )}
-            >
-              <div className="w-px bg-gray-200 dark:bg-white/15" />
             </div>
 
             {item.type === 'commented' ? (
               <>
-                <Avatar
-                  name={item.person.name}
-                  src={item.person.imageUrl}
-                  size="sm"
-                  className="mt-3 ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-gray-800 dark:outline-white/10"
-                />
-                <div className="flex-auto rounded-md p-3 ring-1 ring-gray-200 ring-inset dark:ring-white/15">
-                  <div className="flex justify-between gap-x-4">
-                    <div className="py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                      <span className="font-medium text-gray-900 dark:text-white">{item.person.name}</span> commented
-                    </div>
-                    <time
-                      dateTime={item.dateTime ?? item.date}
-                      className="flex-none py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400"
-                    >
-                      {item.date}
-                    </time>
+                <div className="flex-auto">
+                  <div className="text-sm leading-5 text-gray-500 dark:text-gray-400">
+                    <div className="font-semibold text-input-text">{item.person.name}</div>
+                    <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
                   {editingId === item.id ? (
                     <div className="mt-2 space-y-2">
-                      <textarea
-                        rows={3}
+                      <MarkdownUploadTextarea
+                        showLabel={false}
+                        showTabs={false}
                         value={editValue}
-                        onInput={(event) => {
-                          const target = event.currentTarget as HTMLTextAreaElement;
-                          setEditValue(target?.value ?? '');
-                        }}
-                        className="block w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-accent-500 dark:border-white/15 dark:bg-dark-card-bg dark:text-white"
+                        onChange={(next) => setEditValue(next)}
+                        placeholder="Edit comment..."
+                        rows={3}
+                        maxLength={5000}
+                        practiceId={composerPracticeId}
+                        conversationId={composerConversationId}
                         disabled={commentActionsDisabled || actionInFlightId === item.id}
                       />
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           type="button"
+                          size="xs"
+                          variant="primary"
                           onClick={submitEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id || editValue.trim().length === 0}
-                          className={cn(
-                            'rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white',
-                            'hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed'
-                          )}
                         >
                           Save
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="xs"
+                          variant="secondary"
                           onClick={cancelEdit}
                           disabled={commentActionsDisabled || actionInFlightId === item.id}
-                          className={cn(
-                            'rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700',
-                            'hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/15 dark:text-gray-200 dark:hover:bg-white/10'
-                          )}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
                     <>
                       {item.comment && (
-                        <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
+                        <p className="mt-2 text-sm leading-6 text-input-text">
                           {item.comment}
                         </p>
                       )}
@@ -211,7 +255,7 @@ export const ActivityTimeline = ({
                               onClick={() => startEdit(item.id, item.comment)}
                               disabled={commentActionsDisabled || actionInFlightId === item.id}
                               className={cn(
-                                'hover:text-gray-900 dark:hover:text-white',
+                                'hover:text-input-text',
                                 (commentActionsDisabled || actionInFlightId === item.id) && 'opacity-50 cursor-not-allowed'
                               )}
                             >
@@ -239,15 +283,54 @@ export const ActivityTimeline = ({
               </>
             ) : (
               <>
-                <div className="relative flex h-6 w-6 flex-none items-center justify-center bg-white dark:bg-gray-900">
-                  {item.type === 'paid' ? (
-                    <CheckCircleIcon aria-hidden="true" className="h-6 w-6 text-accent-500" />
+                <p className="flex-auto py-0.5 text-sm leading-5 text-input-text">
+                  <span className="font-semibold">{item.person.name}</span>{' '}
+                  {item.actionMeta?.type === 'status_change' ? (
+                    <>
+                      <span className="text-gray-500 dark:text-gray-400">updated the status</span>{' '}
+                      <span className="text-gray-500 dark:text-gray-400">from</span>{' '}
+                      <span className="font-semibold text-input-text">{item.actionMeta.from}</span>{' '}
+                      <span className="text-gray-500 dark:text-gray-400">to</span>{' '}
+                      <span className="font-semibold text-input-text">{item.actionMeta.to}</span>
+                    </>
                   ) : (
-                    <div className="h-1.5 w-1.5 rounded-full bg-gray-100 ring ring-gray-300 dark:bg-white/10 dark:ring-white/20" />
+                    (() => {
+                      const trimmed = actionText.trim();
+                      const match = trimmed.match(/^([\w-]+)\s+(.*)$/);
+                      const actionMeta = item.actionMeta;
+                      if (!match) {
+                        if (actionMeta?.type === 'task_event' && onTaskClick) {
+                          return (
+                            <button
+                              type="button"
+                              className="font-semibold text-input-text hover:text-accent-300"
+                              onClick={() => onTaskClick(actionMeta.taskId)}
+                            >
+                              {trimmed}
+                            </button>
+                          );
+                        }
+                        return <span className="text-input-text">{trimmed}</span>;
+                      }
+                      const [, verb, rest] = match;
+                      return (
+                        <>
+                          <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
+                          {actionMeta?.type === 'task_event' && onTaskClick ? (
+                            <button
+                              type="button"
+                              className="font-semibold text-input-text hover:text-accent-300"
+                              onClick={() => onTaskClick(actionMeta.taskId)}
+                            >
+                              {rest}
+                            </button>
+                          ) : (
+                            <span className="text-input-text">{rest}</span>
+                          )}
+                        </>
+                      );
+                    })()
                   )}
-                </div>
-                <p className="flex-auto py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-900 dark:text-white">{item.person.name}</span> {actionText}
                 </p>
                 <time
                   dateTime={item.dateTime ?? item.date}
@@ -265,64 +348,33 @@ export const ActivityTimeline = ({
     {showComposer && (
       <div className="flex gap-x-3">
         <Avatar
-          name="You"
+          name={composerPerson?.name ?? 'You'}
+          src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="mt-1 ring-0 outline -outline-offset-1 outline-black/5 bg-gray-50 text-gray-700 dark:bg-gray-800 dark:outline-white/10"
+          className="mt-1 ring-1 ring-white/15 bg-white/10 text-input-text dark:ring-white/10"
         />
-        <form className="relative flex-auto" onSubmit={handleSubmit}>
-          <div className="overflow-hidden rounded-lg pb-12 outline outline-1 -outline-offset-1 outline-gray-300 dark:bg-white/5 dark:outline-white/10 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent-500">
-            <label htmlFor="timeline-comment" className="sr-only">
-              Add your comment
-            </label>
-            <textarea
-              id="timeline-comment"
-              name="comment"
-              rows={2}
-              placeholder={composerPlaceholder}
-              disabled={composerDisabled || composerSubmitting}
-              className="block w-full resize-none bg-transparent px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm leading-6 dark:text-white dark:placeholder:text-gray-500"
-              value={resolvedValue}
-              onInput={handleChange}
-            />
-          </div>
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between py-2 pr-2 pl-3">
-            <div className="flex items-center space-x-3">
-              <button
-                type="button"
-                disabled={composerDisabled || composerSubmitting}
-                className={cn(
-                  '-m-2.5 flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-500',
-                  'dark:text-gray-500 dark:hover:text-white',
-                  (composerDisabled || composerSubmitting) && 'opacity-60 cursor-not-allowed'
-                )}
-                aria-label="Attach a file"
-              >
-                <PaperClipIcon aria-hidden="true" className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                disabled={composerDisabled || composerSubmitting}
-                className={cn(
-                  '-m-2.5 flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-500',
-                  'dark:text-gray-500 dark:hover:text-white',
-                  (composerDisabled || composerSubmitting) && 'opacity-60 cursor-not-allowed'
-                )}
-                aria-label="Add a mood"
-              >
-                <FaceSmileIcon aria-hidden="true" className="h-5 w-5" />
-              </button>
-            </div>
-            <button
+        <form className="flex-auto space-y-2" onSubmit={handleSubmit}>
+          <MarkdownUploadTextarea
+            showLabel={false}
+            value={resolvedValue}
+            onChange={handleChange}
+            placeholder={composerPlaceholder}
+            rows={3}
+            maxLength={5000}
+            practiceId={composerPracticeId}
+            conversationId={composerConversationId}
+            disabled={composerDisabled || composerSubmitting}
+          />
+          <div className="flex items-center justify-end">
+            <Button
               type="submit"
+              variant="primary"
+              size="sm"
+              className="rounded-full px-4 py-1.5"
               disabled={isSubmitDisabled}
-              className={cn(
-                'rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300',
-                'hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:shadow-none dark:ring-white/10 dark:hover:bg-white/20',
-                isSubmitDisabled && 'opacity-60 cursor-not-allowed'
-              )}
             >
               {composerLabel}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

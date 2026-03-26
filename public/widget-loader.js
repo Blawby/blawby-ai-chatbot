@@ -1,0 +1,597 @@
+/**
+ * Blawby Website Messenger — Widget Loader
+ *
+ * Paste this snippet into your website's <head> or before </body>.
+ * Replace PRACTICE_SLUG with your practice slug from Settings → Practice.
+ *
+ * @example
+ *   <script>
+ *     window.BlawbyWidget = { practiceSlug: 'my-law-firm' };
+ *   </script>
+ *   <script src="https://ai.blawby.com/widget-loader.js" defer></script>
+ *
+ * Optional configuration (set on window.BlawbyWidget before the script loads):
+ *   practiceSlug  – (required) Your practice slug
+ *   baseUrl       – Override the Blawby app URL (default: https://ai.blawby.com)
+ *   position      – 'bottom-right' (default) | 'bottom-left'
+ *   primaryColor  – Optional launcher color override; if omitted, uses practice accent_color from /api/widget/practice-details/:slug
+ *   launcherSize  – Size in pixels of the circular button (default: 56)
+ *   zIndex        – CSS z-index for the widget layer      (default: 2147483647)
+ *   label         – Accessible label for the launcher     (default: 'Chat with us')
+ *   onEvent       – Optional callback for all widget events
+ *   onChatStart   – Optional callback for first open ('chat_start')
+ *   pushDataLayerOnChatStart – Push dataLayer event on chat_start (default: false)
+ *   dataLayerEventName – chat start event name            (default: 'blawby_chat_start')
+ *   pushDataLayerOnLeadSubmit – Push dataLayer event on lead submit (default: false)
+ *   leadSubmitEventName – lead submit event name           (default: 'blawby_lead_submitted')
+ */
+
+(function (w, d) {
+  'use strict';
+
+  /* ── Config ─────────────────────────────────────────────────────────── */
+  var cfg = Object.assign({
+    baseUrl: 'https://ai.blawby.com',
+    position: 'bottom-right',
+    primaryColor: null,
+    launcherSize: 56,
+    zIndex: 2147483647,
+    label: 'Chat with us',
+    pushDataLayerOnChatStart: false,
+    dataLayerEventName: 'blawby_chat_start',
+    pushDataLayerOnLeadSubmit: false,
+    leadSubmitEventName: 'blawby_lead_submitted',
+  }, w.BlawbyWidget || {});
+
+  if (!cfg.practiceSlug) {
+    console.warn('[BlawbyWidget] window.BlawbyWidget.practiceSlug is required.');
+    return;
+  }
+
+  /* ── Derived values ──────────────────────────────────────────────────── */
+  var ATTRIBUTION_PARAM_NAMES = {
+    gclid: true,
+    fbclid: true,
+    msclkid: true,
+    ttclid: true,
+    twclid: true,
+    li_fat_id: true,
+    gbraid: true,
+    wbraid: true
+  };
+
+  function isAttributionParam(name) {
+    if (!name) return false;
+    var lowered = String(name).toLowerCase();
+    return lowered.indexOf('utm_') === 0 || ATTRIBUTION_PARAM_NAMES[lowered] === true;
+  }
+
+  function collectAttributionParams() {
+    var out = {};
+    try {
+      var params = new URLSearchParams(w.location.search || '');
+      params.forEach(function (value, key) {
+        if (!isAttributionParam(key)) return;
+        if (typeof value !== 'string') return;
+        var trimmed = value.trim();
+        if (!trimmed) return;
+        out[key] = trimmed;
+      });
+    } catch (_) { /* ignore malformed query params */ }
+    return out;
+  }
+
+  var attributionParams = collectAttributionParams();
+  var hasAttributionParams = Object.keys(attributionParams).length > 0;
+  var ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
+  var widgetUrlObj = new URL(
+    '/public/' + encodeURIComponent(cfg.practiceSlug),
+    cfg.baseUrl
+  );
+  widgetUrlObj.searchParams.set('v', 'widget');
+  // Firefox does not support window.location.ancestorOrigins.
+  // Pass parent origin explicitly so iframe can target postMessage safely.
+  if (w.location && typeof w.location.origin === 'string' && w.location.origin) {
+    widgetUrlObj.searchParams.set('trusted_parent_origin', w.location.origin);
+  }
+  var WIDGET_URL = widgetUrlObj.toString();
+  var BASE_ORIGIN = new URL(cfg.baseUrl).origin;
+  var isRight = cfg.position !== 'bottom-left';
+  var SIZE = cfg.launcherSize;
+  var Z = cfg.zIndex;
+  var GAP = 20; // px gap from edge of viewport
+  var DEFAULT_PRIMARY_COLOR = '#d4af37';
+
+  function normalizeHexColor(hex) {
+    if (typeof hex !== 'string') return null;
+    var value = hex.trim();
+    if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value)) return null;
+    if (value.length === 4) {
+      return '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
+    }
+    return value;
+  }
+
+  // Compute contrasting foreground color for the launcher (white or black)
+  function getForegroundColor(hex) {
+    hex = hex.replace('#', '');
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+  }
+
+  var configuredPrimaryColor = normalizeHexColor(cfg.primaryColor);
+  var activePrimaryColor = configuredPrimaryColor || DEFAULT_PRIMARY_COLOR;
+  var foregroundColor = getForegroundColor(activePrimaryColor);
+
+  // A unique ID prefix so multiple widgets can coexist on a page safely
+  var ID = 'blawby-widget-' + cfg.practiceSlug.replace(/[^a-z0-9]/gi, '-');
+
+  /* ── State ───────────────────────────────────────────────────────────── */
+  var isOpen = false;
+  var unreadCount = 0;
+  var hasStartedChat = false;
+  var iframeReady = false;
+  var listeners = {};
+
+  /* ── Build DOM ───────────────────────────────────────────────────────── */
+
+  // Inject all styles once
+  var styleEl = d.createElement('style');
+  styleEl.textContent = [
+    '#' + ID + '-container {',
+    '  position: fixed;',
+    '  bottom: ' + GAP + 'px;',
+    (isRight ? 'right' : 'left') + ': ' + GAP + 'px;',
+    '  z-index: ' + Z + ';',
+    '  display: flex;',
+    '  flex-direction: column;',
+    '  align-items: ' + (isRight ? 'flex-end' : 'flex-start') + ';',
+    '  gap: 12px;',
+    '  font-family: system-ui, -apple-system, sans-serif;',
+    '}',
+
+    // Launcher button
+    '#' + ID + '-launcher {',
+    '  width: ' + SIZE + 'px;',
+    '  height: ' + SIZE + 'px;',
+    '  border-radius: 50%;',
+    '  border: none;',
+    '  cursor: pointer;',
+    '  background: var(--blawby-widget-primary-color);',
+    '  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 1px 4px rgba(0,0,0,0.12);',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  transition: transform 0.2s ease, box-shadow 0.2s ease;',
+    '  outline: none;',
+    '  flex-shrink: 0;',
+    '}',
+    '#' + ID + '-launcher:hover {',
+    '  transform: scale(1.08);',
+    '  box-shadow: 0 6px 24px rgba(0,0,0,0.24), 0 2px 6px rgba(0,0,0,0.16);',
+    '}',
+    '#' + ID + '-launcher:focus-visible {',
+    '  outline: 3px solid var(--blawby-widget-primary-color);',
+    '  outline-offset: 3px;',
+    '}',
+
+    // Unread badge
+    '#' + ID + '-badge {',
+    '  position: absolute;',
+    '  top: 0; right: 0;',
+    '  width: 18px; height: 18px;',
+    '  background: #EF4444;',
+    '  border-radius: 50%;',
+    '  border: 2px solid #fff;',
+    '  display: flex; align-items: center; justify-content: center;',
+    '  font-size: 10px; font-weight: 700; color: #fff;',
+    '  pointer-events: none;',
+    '}',
+
+    // Iframe popup
+    '#' + ID + '-frame-wrap {',
+    '  width: min(380px, calc(100vw - ' + (GAP * 2) + 'px));',
+    '  height: var(--blawby-widget-frame-height, 640px);',
+    '  border-radius: 16px;',
+    '  border: none;',
+    '  outline: none;',
+    '  overflow: hidden;',
+    '  box-shadow: 0 16px 36px rgba(0,0,0,0.28);',
+    '  transition: opacity 0.18s ease, transform 0.18s ease;',
+    '  transform-origin: bottom ' + (isRight ? 'right' : 'left') + ';',
+    '}',
+    '#' + ID + '-frame-wrap[data-state="closed"] {',
+    '  opacity: 0;',
+    '  transform: scale(0.92) translateY(8px);',
+    '  pointer-events: none;',
+    '}',
+    '#' + ID + '-frame-wrap[data-state="open"] {',
+    '  opacity: 1;',
+    '  transform: scale(1) translateY(0);',
+    '}',
+    '#' + ID + '-iframe {',
+    '  width: 100%; height: 100%;',
+    '  border: none; background: transparent;',
+    '  border-radius: 16px;',
+    '  display: block;',
+    '}',
+  ].join('\n');
+  d.head.appendChild(styleEl);
+
+  // Container
+  var container = d.createElement('div');
+  container.id = ID + '-container';
+
+  // Iframe wrapper (rendered first in DOM so it appears above launcher visually)
+  var frameWrap = d.createElement('div');
+  frameWrap.id = ID + '-frame-wrap';
+  frameWrap.setAttribute('data-state', 'closed');
+  frameWrap.setAttribute('aria-live', 'polite');
+
+  var iframe = d.createElement('iframe');
+  iframe.id = ID + '-iframe';
+  iframe.title = 'Blawby Messenger';
+  iframe.allow = 'microphone; camera';
+  // Allow same-origin cookies when the practice uses a link domain
+  iframe.setAttribute('allow', 'microphone; camera');
+  iframe.setAttribute('loading', 'eager');
+  frameWrap.appendChild(iframe);
+
+  // Launcher button
+  var launcher = d.createElement('button');
+  launcher.id = ID + '-launcher';
+  launcher.setAttribute('type', 'button');
+  launcher.setAttribute('aria-label', cfg.label);
+  launcher.setAttribute('aria-expanded', 'false');
+  launcher.setAttribute('aria-controls', ID + '-frame-wrap');
+  launcher.style.position = 'relative'; // for badge positioning
+
+  // Chat icon (open state)
+  var chatIcon = d.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  chatIcon.setAttribute('width', '28');
+  chatIcon.setAttribute('height', '28');
+  chatIcon.setAttribute('viewBox', '0 0 24 24');
+  chatIcon.setAttribute('fill', 'none');
+  chatIcon.setAttribute('stroke', 'currentColor');
+  chatIcon.setAttribute('stroke-width', '2.2');
+  chatIcon.setAttribute('stroke-linecap', 'round');
+  chatIcon.setAttribute('stroke-linejoin', 'round');
+  chatIcon.setAttribute('aria-hidden', 'true');
+  chatIcon.innerHTML =
+    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>';
+
+  // Close icon
+  var closeIcon = d.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  closeIcon.setAttribute('width', '28');
+  closeIcon.setAttribute('height', '28');
+  closeIcon.setAttribute('viewBox', '0 0 24 24');
+  closeIcon.setAttribute('fill', 'none');
+  closeIcon.setAttribute('stroke', 'currentColor');
+  closeIcon.setAttribute('stroke-width', '3');
+  closeIcon.setAttribute('stroke-linecap', 'round');
+  closeIcon.setAttribute('stroke-linejoin', 'round');
+  closeIcon.setAttribute('aria-hidden', 'true');
+  closeIcon.style.display = 'none';
+  closeIcon.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
+
+  // Unread badge (hidden by default)
+  var badge = d.createElement('div');
+  badge.id = ID + '-badge';
+  badge.style.display = 'none';
+  badge.setAttribute('aria-label', 'new messages');
+
+  launcher.appendChild(chatIcon);
+  launcher.appendChild(closeIcon);
+  launcher.appendChild(badge);
+
+  container.appendChild(frameWrap);
+  container.appendChild(launcher);
+  
+  // Set initial primary color variable on container to avoid a flash
+  container.style.setProperty('--blawby-widget-primary-color', activePrimaryColor);
+  launcher.style.color = foregroundColor;
+
+  d.body.appendChild(container);
+
+  /* ── Helpers ─────────────────────────────────────────────────────────── */
+
+  function persistAttribution() {
+    if (!hasAttributionParams) return;
+    try {
+      w.sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(attributionParams));
+    } catch (_) { /* storage may be unavailable in privacy contexts */ }
+  }
+
+  function getAttributionPayload() {
+    if (hasAttributionParams) return attributionParams;
+    try {
+      var raw = w.sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function sendAttributionToIframe() {
+    var payload = getAttributionPayload();
+    if (!payload) return;
+    postToIframe({
+      type: 'blawby:attribution',
+      attribution: payload,
+    });
+  }
+
+  function ensureIframeLoaded() {
+    if (iframe.src) return;
+    iframe.src = WIDGET_URL;
+  }
+
+  function updateFrameSize() {
+    var viewportHeight = w.innerHeight || 0;
+    if (w.visualViewport && typeof w.visualViewport.height === 'number') {
+      viewportHeight = Math.min(viewportHeight || w.visualViewport.height, w.visualViewport.height);
+    }
+    if (!viewportHeight) viewportHeight = 640;
+    var maxHeight = viewportHeight - 92;
+    var clamped = Math.max(360, Math.min(780, maxHeight));
+    frameWrap.style.setProperty('--blawby-widget-frame-height', clamped + 'px');
+  }
+
+  function applyPrimaryColor(primaryColor, source) {
+    var normalized = normalizeHexColor(primaryColor);
+    if (!normalized) return false;
+    activePrimaryColor = normalized;
+    foregroundColor = getForegroundColor(normalized);
+    container.style.setProperty('--blawby-widget-primary-color', normalized);
+    launcher.style.color = foregroundColor;
+    emitEvent('theme_applied', {
+      primaryColor: normalized,
+      source: source || 'unknown',
+    });
+    return true;
+  }
+
+  function loadPracticeAccentColor() {
+    if (configuredPrimaryColor) {
+      applyPrimaryColor(configuredPrimaryColor, 'config');
+      return;
+    }
+
+    applyPrimaryColor(DEFAULT_PRIMARY_COLOR, 'default');
+
+    var detailsUrl = cfg.baseUrl + '/api/widget/practice-details/' + encodeURIComponent(cfg.practiceSlug);
+    fetch(detailsUrl)
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('Failed to load practice details: ' + response.status + ' ' + response.statusText);
+        }
+        return response.json();
+      })
+      .then(function (practiceDetails) {
+        var accentColor = null;
+        if (practiceDetails && typeof practiceDetails.accentColor === 'string') {
+          accentColor = practiceDetails.accentColor;
+        } else if (practiceDetails && typeof practiceDetails.accent_color === 'string') {
+          accentColor = practiceDetails.accent_color;
+        }
+        if (!accentColor) return;
+        applyPrimaryColor(accentColor, 'practice_accent');
+      })
+      .catch(function (error) {
+        console.warn('[BlawbyWidget] Failed to resolve practice accent color', error);
+      });
+  }
+
+  function setOpen(next) {
+    var previousOpenState = isOpen;
+    isOpen = next;
+    ensureIframeLoaded();
+
+    frameWrap.setAttribute('data-state', next ? 'open' : 'closed');
+    chatIcon.style.display = next ? 'none' : 'block';
+    closeIcon.style.display = next ? 'block' : 'none';
+    launcher.setAttribute('aria-expanded', String(next));
+
+    if (next) {
+      // Clear badge when opening
+      setUnread(0);
+      // Post open event so the iframe app knows it is visible
+      if (iframeReady) {
+        postToIframe({ type: 'blawby:open' });
+        sendAttributionToIframe();
+      }
+      emitEvent('widget_opened', { wasOpen: previousOpenState });
+      if (!hasStartedChat) {
+        hasStartedChat = true;
+        emitEvent('chat_start', { conversationStarted: true });
+      }
+    } else {
+      if (iframeReady) {
+        postToIframe({ type: 'blawby:close' });
+      }
+      emitEvent('widget_closed', { wasOpen: previousOpenState });
+    }
+  }
+
+  function setUnread(count) {
+    var previousUnreadCount = unreadCount;
+    unreadCount = count;
+    badge.textContent = count > 9 ? '9+' : String(count);
+    badge.style.display = count > 0 && !isOpen ? 'flex' : 'none';
+    emitEvent('unread_changed', {
+      previousUnreadCount: previousUnreadCount,
+      unreadCount: unreadCount,
+    });
+  }
+
+  function postToIframe(msg) {
+    // iframe.src must be set before posting. Without it, contentWindow has the
+    // parent page's origin (about:blank inherits it), so specifying BASE_ORIGIN
+    // as target throws a SecurityError: "target origin does not match recipient".
+    if (!iframe.src) return;
+    try {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify(msg), BASE_ORIGIN);
+      }
+    } catch (_) { /* cross-origin post may fail; safe to ignore */ }
+  }
+
+  function addListener(eventName, callback) {
+    if (typeof callback !== 'function') return;
+    var key = String(eventName || '*');
+    if (!Array.isArray(listeners[key])) listeners[key] = [];
+    listeners[key].push(callback);
+  }
+
+  function removeListener(eventName, callback) {
+    var key = String(eventName || '*');
+    var bucket = listeners[key];
+    if (!Array.isArray(bucket)) return;
+    listeners[key] = bucket.filter(function (fn) { return fn !== callback; });
+  }
+
+  function notifyListeners(eventName, payload) {
+    var all = (listeners['*'] || []).concat(listeners[eventName] || []);
+    for (var i = 0; i < all.length; i++) {
+      try { all[i](payload); } catch (err) {
+        console.warn('[BlawbyWidget] Event listener failed', err);
+      }
+    }
+  }
+
+  function maybePushDataLayer(payload) {
+    if (payload.type === 'chat_start') {
+      if (!cfg.pushDataLayerOnChatStart) return;
+      if (!w.dataLayer || typeof w.dataLayer.push !== 'function') return;
+      try {
+        w.dataLayer.push({
+          event: cfg.dataLayerEventName || 'blawby_chat_start',
+          blawby: payload,
+        });
+      } catch (err) {
+        console.warn('[BlawbyWidget] dataLayer push failed', err);
+      }
+      return;
+    }
+
+    if (payload.type !== 'lead_submitted') return;
+    if (!cfg.pushDataLayerOnLeadSubmit) return;
+    if (!w.dataLayer || typeof w.dataLayer.push !== 'function') return;
+    try {
+      w.dataLayer.push({
+        event: cfg.leadSubmitEventName || 'blawby_lead_submitted',
+        blawby: payload,
+      });
+    } catch (err) {
+      console.warn('[BlawbyWidget] dataLayer push failed', err);
+    }
+  }
+
+  function emitEvent(eventName, detail) {
+    var persistedAttribution = getAttributionPayload();
+    var payload = Object.assign({
+      type: eventName,
+      practiceSlug: cfg.practiceSlug,
+      isOpen: isOpen,
+      unreadCount: unreadCount,
+      timestamp: new Date().toISOString(),
+    }, detail || {});
+    if (!payload.attribution && persistedAttribution) {
+      payload.attribution = persistedAttribution;
+    }
+
+    if (typeof cfg.onEvent === 'function') {
+      try { cfg.onEvent(payload); } catch (err) {
+        console.warn('[BlawbyWidget] onEvent callback failed', err);
+      }
+    }
+
+    if (eventName === 'chat_start' && typeof cfg.onChatStart === 'function') {
+      try { cfg.onChatStart(payload); } catch (err) {
+        console.warn('[BlawbyWidget] onChatStart callback failed', err);
+      }
+    }
+
+    maybePushDataLayer(payload);
+    notifyListeners(eventName, payload);
+
+    try {
+      w.dispatchEvent(new CustomEvent('blawby:widget-event', { detail: payload }));
+    } catch (_) { /* CustomEvent may fail in legacy contexts; ignore */ }
+  }
+
+  /* ── postMessage bridge ──────────────────────────────────────────────── */
+  w.addEventListener('message', function (event) {
+    // Only accept messages from the Blawby origin
+    if (event.origin !== BASE_ORIGIN) return;
+
+    var data;
+    try {
+      data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    } catch (_) { return; }
+
+    if (!data || typeof data.type !== 'string') return;
+
+    switch (data.type) {
+      case 'blawby:new-message':
+        if (!isOpen) setUnread(unreadCount + 1);
+        emitEvent('iframe_new_message', {});
+        break;
+      case 'blawby:close-request':
+        setOpen(false);
+        emitEvent('iframe_close_request', {});
+        break;
+      case 'blawby:ready':
+        // Iframe signals it has mounted; send current visibility state
+        iframeReady = true;
+        postToIframe({ type: isOpen ? 'blawby:open' : 'blawby:close' });
+        sendAttributionToIframe();
+        emitEvent('iframe_ready', {});
+        break;
+      case 'blawby:lead-submitted':
+        emitEvent('lead_submitted', {
+          intakeUuid: typeof data.intakeUuid === 'string' ? data.intakeUuid : null,
+          status: typeof data.status === 'string' ? data.status : null,
+          requiresPayment: data.requiresPayment === true,
+          attribution: getAttributionPayload() || undefined,
+        });
+        break;
+    }
+  });
+
+  /* ── Launcher click ──────────────────────────────────────────────────── */
+  launcher.addEventListener('click', function () {
+    setOpen(!isOpen);
+  });
+
+  /* ── Public API ──────────────────────────────────────────────────────── */
+  // Merge into existing BlawbyWidget object so callers can use:
+  //   window.BlawbyWidget.open()  /  window.BlawbyWidget.close()
+  var api = {
+    open:  function () { setOpen(true); },
+    close: function () { setOpen(false); },
+    toggle: function () { setOpen(!isOpen); },
+    on: function (eventName, callback) { addListener(eventName, callback); },
+    off: function (eventName, callback) { removeListener(eventName, callback); },
+  };
+  w.BlawbyWidget = Object.assign(w.BlawbyWidget || {}, api);
+  persistAttribution();
+  updateFrameSize();
+  w.addEventListener('resize', updateFrameSize);
+  if (w.visualViewport && typeof w.visualViewport.addEventListener === 'function') {
+    w.visualViewport.addEventListener('resize', updateFrameSize);
+  }
+  if (typeof w.requestIdleCallback === 'function') {
+    w.requestIdleCallback(function () { ensureIframeLoaded(); }, { timeout: 2000 });
+  } else {
+    setTimeout(function () { ensureIframeLoaded(); }, 2000);
+  }
+  loadPracticeAccentColor();
+
+})(window, document);

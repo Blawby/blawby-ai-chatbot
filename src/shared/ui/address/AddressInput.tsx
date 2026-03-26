@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks'
 import { AddressFields } from './AddressFields';
 import { cn } from '@/shared/utils/cn';
 import type { Address, AddressSuggestion } from '@/shared/types/address';
+import type { ComboboxOption } from '@/shared/ui/input/Combobox';
 
 export interface AddressInputProps {
   value: Partial<Address>;
@@ -16,13 +17,15 @@ export interface AddressInputProps {
   label?: string;
   placeholder?: string;
   showCountry?: boolean;
-  countryOptions?: Array<{ value: string; label: string }>;
+  stackedFields?: boolean;
+  countryOptions?: ComboboxOption[];
   minChars?: number;
   debounceMs?: number;
   enableAutocomplete?: boolean;
   autocompleteUrl?: string;
   limit?: number;
   country?: string;
+  inputClassName?: string;
 }
 
 interface AutocompleteState {
@@ -47,13 +50,15 @@ export const AddressInput = ({
   label,
   placeholder,
   showCountry = true,
+  stackedFields = false,
   countryOptions,
   minChars = 3,
   debounceMs = 300,
   enableAutocomplete = true,
   autocompleteUrl = '/api/geo/autocomplete',
   limit = 5, // Back to 5 results like Shopify
-  country = 'US' // Default to USA to favor US addresses,
+  country = 'US', // Default to USA to favor US addresses,
+  inputClassName
 }: AddressInputProps) => {
   const [autocompleteState, setAutocompleteState] = useState<AutocompleteState>({
     suggestions: [],
@@ -253,6 +258,7 @@ export const AddressInput = ({
           size={size}
           variant={variant}
           showCountry={showCountry}
+          stackedFields={stackedFields}
           countryOptions={countryOptions}
           label={label}
           placeholder={placeholder}
@@ -268,6 +274,7 @@ export const AddressInput = ({
             onSuggestionSelect: handleSuggestionSelect,
             limit,
           }}
+          inputClassName={inputClassName}
         />
       </div>
 

@@ -118,7 +118,9 @@ const workerEndpoints = [
 	'preferences',
 	'subscriptions',
 	'subscription',
+	'matters',
 	'uploads',
+	'widget',
 ];
 
 // Proxy configuration types from http-proxy-middleware
@@ -140,6 +142,8 @@ const createWorkerProxyConfig = (): ProxyOptions => ({
 	},
 });
 
+import { createRequire } from 'module';
+
 const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	const entries: Record<string, ProxyOptions> = {};
 
@@ -151,12 +155,95 @@ const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	return entries;
 };
 
+// Plugin to fix decode-named-character-reference during prerendering
+const fixDecodeNamedCharacterReference = (): Plugin => {
+	return {
+		name: 'fix-decode-named-character-reference',
+		configResolved(config) {
+			// Override the conditions to force non-DOM version during build
+			config.build.rollupOptions = {
+				...config.build.rollupOptions,
+				onwarn(warning, warn) {
+					// Suppress warnings about this specific package
+					if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+					warn(warning);
+				}
+			};
+		},
+		resolveId(id, importer) {
+			if (id === 'decode-named-character-reference') {
+				// Dynamically resolve the package entry instead of hardcoding a pnpm path.
+				// We want the non-DOM build (default export) so use Node resolution with
+				// appropriate conditions. If resolution fails, log and return null so
+				// Vite can fall back or surface an error.
+				try {
+					const req = createRequire(import.meta.url);
+					// require.resolve will respect "exports" and choose the default
+					// entry, which in this package is the non-DOM index.js.
+					const resolved = req.resolve('decode-named-character-reference', { paths: [__dirname] });
+					return resolved;
+				} catch (err) {
+					console.error('[vite] failed to resolve decode-named-character-reference:', err);
+					return null;
+				}
+			}
+			return null;
+		},
+		load(id) {
+			if (id.includes('decode-named-character-reference') && id.endsWith('index.js')) {
+				// Return the content of the non-DOM version
+				return null; // Let Vite handle loading the file
+			}
+			return null;
+		}
+	};
+};
+
+// Plugin to force Vite to serve static HTML files from public/ instead of SPA fallback
+const serveStaticHtmlPlugin = (): Plugin => {
+	return {
+		name: 'serve-static-html',
+		enforce: 'pre',
+		configureServer(server) {
+			server.middlewares.use(async (req, res, next) => {
+					if (req.url) {
+						// Strip query string FIRST so .html/.js detection works even when
+						// query params are present (e.g. /mock-embed.html?slug=paul-yahoo).
+						const urlPath = req.url.split('?')[0];
+						if ((urlPath.endsWith('.html') || urlPath.endsWith('.js')) && urlPath !== '/index.html') {
+							const publicDir = resolve(process.cwd(), 'public');
+							// Path traversal protection: resolve full path and ensure it's within publicDir
+							const requestedPath = resolve(publicDir, urlPath.replace(/^\/+/, ''));
+
+							if (!requestedPath.startsWith(publicDir)) {
+								next();
+								return;
+							}
+
+							try {
+								const content = await fs.readFile(requestedPath, 'utf-8');
+								res.setHeader('Content-Type', urlPath.endsWith('.js') ? 'application/javascript' : 'text/html');
+								res.end(content);
+								return;
+							} catch (e) {
+								// File not found in public/, let Vite handle it (SPA fallback or 404)
+							}
+						}
+					}
+					next();
+				});
+		}
+	};
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
 		envPrefix: ['VITE_'],
 		plugins: [
+			serveStaticHtmlPlugin(),
+			fixDecodeNamedCharacterReference(),
 			preact({
 				prerender: {
 					enabled: true,
@@ -173,9 +260,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				open: false, // Set to true to auto-open visualization after build
 				filename: 'dist/stats.html',
 			}),
-			// PWA support
+			// PWA support — disabled in dev so the service worker never intercepts
+			// static files (widget-test.html, widget-loader.js) during local development.
+			// In production, Cloudflare Pages + _headers/_redirects handle routing.
 			VitePWA({
 				registerType: 'autoUpdate',
+				// ↓ KEY: disable the SW in dev mode entirely
+				devOptions: {
+					enabled: false,
+				},
 				includeAssets: ['favicon.svg'],
 				manifest: {
 					name: 'Blawby Chat',
@@ -200,11 +293,22 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					]
 				},
 				workbox: {
-					// Workbox options
-					globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
+					// Precache app shell assets only — exclude static standalone pages
+					// and the widget script (they are served directly by Cloudflare Pages).
+					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp,html}'],
+					globIgnores: [
+						'widget-loader.js',
+						'widget-test.html',
+						'mock-embed.html',
+						'stats.html',
+					],
 					navigateFallbackDenylist: [
+						// Never route API or auth requests through the SPA
 						/^\/api\//,
 						/^\/__better-auth__/,
+						// Never intercept standalone static pages or widget assets
+						/\/widget-[^/]+$/,
+						/\.html$/,
 					],
 					runtimeCaching: [
 						{
@@ -297,9 +401,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			}
 		},
 		server: {
+			host: true,
 			port: 5137,      // Matches your current setup
 			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
 			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
+			hmr: {
+				protocol: 'wss',
+				host: 'local.blawby.com',
+				clientPort: 443
+			},
 			proxy: {
 				...buildProxyEntries(),
 

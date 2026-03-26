@@ -9,7 +9,7 @@ import { NavigationIcon } from '../atoms/NavigationIcon';
 import { StatusDot } from '../atoms/StatusDot';
 import { NotificationDot } from '../atoms/NotificationDot';
 import { MatterStatus } from '@/shared/types/matter';
-import type { ComponentChildren } from 'preact';
+import type { IconComponent } from '@/shared/ui/Icon';
 
 /**
  * Translates matter status to user-friendly screen reader text
@@ -30,7 +30,7 @@ const translateMatterStatus = (status: MatterStatus | null | undefined): string 
 };
 
 interface NavigationItemProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   label: string;
   isActive: boolean;
   onClick: () => void;
@@ -54,9 +54,9 @@ export const NavigationItem = ({
 }: NavigationItemProps) => {
   const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
   const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
-  const activeClasses = isActive 
-    ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' 
-    : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-dark-hover';
+  const activeClasses = isActive
+    ? 'glass-input text-input-text'
+    : 'text-input-text hover:bg-white/[0.04]';
   const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
   return (

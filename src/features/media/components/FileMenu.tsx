@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import { PlusIcon, PhotoIcon, CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import CameraModal from '@/features/modals/components/CameraModal';
 import { THEME } from '@/shared/utils/constants';
@@ -25,8 +26,6 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const firstMenuItemRef = useRef<HTMLButtonElement>(null);
-  const focusAnimationFrameRef = useRef<number | null>(null);
 
   useEffect(() => setIsBrowser(true), []);
 
@@ -50,28 +49,19 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
     handleClose();
   };
 
+  const preventPointerFocus = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
   useEffect(() => {
     if (!isBrowser) return;
 
     if (isOpen) {
       document.addEventListener('click', handleClickOutside);
-      
-      // Replace setTimeout with requestAnimationFrame for more reliable focus scheduling
-      focusAnimationFrameRef.current = requestAnimationFrame(() => {
-        // Use a second requestAnimationFrame for extra reliability on slow devices
-        focusAnimationFrameRef.current = requestAnimationFrame(() => {
-          firstMenuItemRef.current?.focus?.();
-        });
-      });
     }
     
     return () => {
       document.removeEventListener('click', handleClickOutside);
-      // Clean up any scheduled animation frame if component unmounts
-      if (focusAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(focusAnimationFrameRef.current);
-        focusAnimationFrameRef.current = null;
-      }
     };
   }, [isOpen, isBrowser, handleClickOutside]);
 
@@ -142,7 +132,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       <Button
         type="button"
         variant="icon"
-        size="md"
+        size="icon-sm"
         ref={triggerRef}
         disabled={!isReadyToUpload}
         onClick={() => isReadyToUpload && setIsOpen(!isOpen)}
@@ -152,15 +142,12 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-haspopup="menu"
         aria-controls="attachment-menu"
         aria-expanded={isOpen}
-        className="
-          w-8 h-8 rounded-full shadow
-          bg-light-message-bg-user border border-light-border text-light-text
-          hover:bg-light-hover
-          disabled:opacity-60 disabled:cursor-not-allowed
-          dark:bg-dark-message-bg-user dark:border-dark-border dark:text-dark-text
-          dark:hover:bg-dark-hover
-        "
-        icon={<PlusIcon className="w-4 h-4" aria-hidden="true" />}
+        className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 active:scale-100 ${
+          isOpen
+            ? 'bg-white/20 border-white/35'
+            : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30 hover:scale-105'
+        }`}
+        icon={PlusIcon} iconClassName="w-5 h-5"
       />
 
       {(isOpen || isClosing) && (
@@ -170,45 +157,33 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           aria-labelledby="attachment-menu-button"
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
-            rounded-lg border p-1 shadow-lg transition-all duration-200
-            bg-light-input-bg border-light-border
-            dark:bg-dark-input-bg dark:border-dark-border
+            p-1 rounded-xl border border-line-glass/30 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass transition-all duration-200
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}
         >
           <Button
             type="button"
-            variant="ghost"
+            variant="menu-item"
             role="menuitem"
-            ref={firstMenuItemRef}
             onClick={handleFileClick}
-            className="
-              file-menu-item w-full px-3 py-3 rounded flex items-center justify-between
-              text-light-text hover:bg-light-hover
-              dark:text-dark-text dark:hover:bg-dark-hover
-              text-xs sm:text-sm
-            "
+            onMouseDown={preventPointerFocus}
+            className="file-menu-item py-3 text-xs sm:text-sm"
           >
             <span>Add photos &amp; files</span>
-            <PhotoIcon className="w-5 h-5" aria-hidden="true" />
+            <Icon icon={PhotoIcon} className="w-5 h-5" aria-hidden="true"  />
           </Button>
 
           <Button
             type="button"
-            variant="ghost"
+            variant="menu-item"
             role="menuitem"
             onClick={openCamera}
-            className="
-              file-menu-item w-full px-3 py-3 rounded flex items-center justify-between
-              text-light-text hover:bg-light-hover
-              dark:text-dark-text dark:hover:bg-dark-hover
-              border-t border-light-border dark:border-dark-border
-              text-xs sm:text-sm
-            "
+            onMouseDown={preventPointerFocus}
+            className="file-menu-item py-3 border-t border-white/10 text-xs sm:text-sm"
           >
             <span>Take Photo</span>
-            <CameraIcon className="w-5 h-5" aria-hidden="true" />
+            <Icon icon={CameraIcon} className="w-5 h-5" aria-hidden="true"  />
           </Button>
         </div>
       )}
@@ -217,19 +192,17 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       {errorMessage && (
         <div
           role="alert" aria-live="polite"
-          className="absolute bottom-full left-0 mb-2 min-w-[250px] rounded-lg p-3 shadow-lg
-                     bg-red-50 border border-red-200 text-red-700
-                     dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
+          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-red-500/30 bg-red-500/10"
           style={{ zIndex: THEME.zIndex.fileMenu + 1 }}
         >
           <div className="flex items-start gap-2">
-            <div className="flex-1 text-sm">{errorMessage}</div>
+            <div className="flex-1 text-sm text-red-200">{errorMessage}</div>
             <button
               onClick={() => setErrorMessage(null)}
               className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 transition-colors"
               aria-label="Dismiss error message"
             >
-              <XMarkIcon className="w-4 h-4" />
+              <Icon icon={XMarkIcon} className="w-4 h-4"  />
             </button>
           </div>
         </div>

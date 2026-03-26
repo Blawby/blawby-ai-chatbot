@@ -1,5 +1,6 @@
 import { forwardRef, useCallback } from 'preact/compat';
 import { PlusIcon, MinusIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -71,7 +72,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2 text-sm',
+    md: 'px-3 py-2.5 text-sm',
     lg: 'px-4 py-3 text-base'
   };
 
@@ -82,18 +83,19 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
+    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     showControls && 'pr-20',
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -151,7 +153,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -183,28 +185,28 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               onClick={handleIncrement}
               disabled={disabled || !canIncrement}
               className={cn(
-                'flex items-center justify-center border-l border-gray-300 dark:border-gray-600 rounded-r-lg',
-                'hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'flex items-center justify-center border-l border-input-border rounded-r-lg',
+                'glass-input hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-tr-lg'
               )}
             >
-              <PlusIcon className="w-3 h-3" />
+              <Icon icon={PlusIcon} className="w-3 h-3"  />
             </button>
             <button
               type="button"
               onClick={handleDecrement}
               disabled={disabled || !canDecrement}
               className={cn(
-                'flex items-center justify-center border-l border-t border-gray-300 dark:border-gray-600',
-                'hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'flex items-center justify-center border-l border-t border-input-border',
+                'glass-input hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-br-lg'
               )}
             >
-              <MinusIcon className="w-3 h-3" />
+              <Icon icon={MinusIcon} className="w-3 h-3"  />
             </button>
           </div>
         )}

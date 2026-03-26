@@ -1,5 +1,7 @@
-import { CheckIcon } from '@heroicons/react/24/outline';
+
 import type { ComponentChildren, ComponentType, JSX } from 'preact';
+import { Icon } from '@/shared/ui/Icon';
+import { cn } from '@/shared/utils/cn';
 
 interface ServiceCardProps {
   title: string;
@@ -22,27 +24,26 @@ export function ServiceCard({
   headerActions,
   className = ''
 }: ServiceCardProps) {
-  const Icon = icon;
   const rightContent = headerActions ? (
     <div className="flex items-center gap-2">
       {headerActions}
-      {selected && <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />}
     </div>
-  ) : (
-    selected && <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />
-  );
+  ) : null;
   const content = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-start gap-3">
-        {Icon && (
-          <span className={`mt-0.5 ${selected ? 'text-accent-600 dark:text-accent-400' : 'text-gray-400 dark:text-gray-500'}`}>
-            <Icon className="h-5 w-5" />
+        {icon && (
+          <span className={cn(
+            'mt-0.5 transition-colors',
+            selected ? 'text-accent-500' : 'text-input-text/70'
+          )}>
+            <Icon icon={icon} className="h-5 w-5" />
           </span>
         )}
         <div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</p>
+          <p className="text-sm font-semibold text-input-text">{title}</p>
           {description && (
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{description}</p>
+            <p className="mt-1 text-xs text-input-text/70">{description}</p>
           )}
         </div>
       </div>
@@ -52,12 +53,14 @@ export function ServiceCard({
 
   return (
     <div
-      className={`border rounded-lg p-4 transition ${
-        onSelect ? 'cursor-pointer focus-within:ring-2 focus-within:ring-accent-500' : ''
-      } ${selected
-        ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-        : 'border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg'
-      } ${className}`}
+      className={cn(
+        'rounded-3xl border transition-all duration-300 p-4',
+        onSelect ? 'cursor-pointer' : '',
+        selected
+          ? 'bg-accent-500/10 border-accent-500/40 shadow-lg shadow-accent-500/5'
+          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20',
+        className
+      )}
     >
       {onSelect ? (
         <button

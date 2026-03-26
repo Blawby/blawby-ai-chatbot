@@ -204,8 +204,13 @@
     "billedAnnually": "年次請求",
     "currency": {
       "usd": "米ドル"
-    }
+    },
+    "noPracticeSelected": "事務所が選択されていません",
+    "selectPracticeToManage": "請求を管理するには事務所を選択してください。",
+    "unableOpenPortal": "請求ポータルを開けませんでした",
+    "unknownError": "請求ポータルを開くときに不明なエラーが発生しました。"
   },
+  "loading": "読み込み中…",
   "comparison": {
     "title": "プランを比較",
     "feature": "機能",
@@ -215,5 +220,10 @@
   "sections": {
     "benefits": "メリット:",
     "limitations": "制限:"
-  }
+  },
+  "upgradeFailed": "アップグレードに失敗しました",
+  "noFeatures": "このプランには機能がありません。",
+  "upgradeButton": "{{price}} でアップグレード",
+  "autoRenewsDisclaimer": "毎月自動更新されます。いつでもキャンセル可能です。",
+  "errorGeneric": "料金情報を読み込めませんでした。後でもう一度お試しください。"
 }

@@ -1,22 +1,22 @@
 import { Input } from '@/shared/ui/input/Input';
 import { EmailInput } from '@/shared/ui/input/EmailInput';
 import { PhoneInput } from '@/shared/ui/input/PhoneInput';
-import { Select, type SelectOption } from '@/shared/ui/input/Select';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import type { Address } from '@/shared/types/ui';
 import type { FunctionalComponent } from 'preact';
 
-// Status options for client forms
-const STATUS_OPTIONS: SelectOption[] = [
+// Relationship status options for people forms
+export const STATUS_OPTIONS: ComboboxOption[] = [
   { value: 'lead', label: 'Lead' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
+  { value: 'active', label: 'Client' },
+  { value: 'inactive', label: 'Former client' },
   { value: 'archived', label: 'Archived' },
 ];
 
 // Currency options for client forms
-const CURRENCY_OPTIONS: SelectOption[] = [
+const CURRENCY_OPTIONS: ComboboxOption[] = [
   { value: 'usd', label: 'USD' },
   { value: 'cad', label: 'CAD' },
   { value: 'eur', label: 'EUR' },
@@ -41,7 +41,7 @@ export interface FieldRegistryEntry {
     gridSpan?: number;
     section?: string;
   };
-  options?: SelectOption[];
+  options?: ComboboxOption[];
 }
 
 const asComponentFactory = <P,>(component: FunctionalComponent<P>): ComponentFactory =>
@@ -107,18 +107,18 @@ export const FIELD_REGISTRY: Record<string, FieldRegistryEntry> = {
     ui: { gridSpan: 1, section: 'contact' },
   },
   
-  // Client-specific fields
+  // People relationship fields
   status: {
-    component: asComponentFactory(Select),
-    label: 'Status',
-    placeholder: 'Select status',
+    component: asComponentFactory(Combobox),
+    label: 'Relationship status',
+    placeholder: 'Select relationship status',
     defaultValue: 'lead',
     options: STATUS_OPTIONS,
     ui: { gridSpan: 1, section: 'client' },
   },
   
   currency: {
-    component: asComponentFactory(Select),
+    component: asComponentFactory(Combobox),
     label: 'Currency',
     placeholder: 'Select currency',
     defaultValue: 'usd',

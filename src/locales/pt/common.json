@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Voltar",
+    "errors": {
+      "tryAgainLater": "Por favor, tente novamente mais tarde."
+    }
+  },
   "app": {
     "loading": "Carregando…"
   },
@@ -188,7 +194,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Olá 👋",
       "helpPrompt": "Como podemos ajudar?",
@@ -196,14 +202,17 @@
       "sendMessage": "Envie uma mensagem",
       "consultation": {
         "title": "Precisa falar com um advogado?",
-        "description": "Compartilhe alguns detalhes e nós conectaremos você com o advogado certo para sua situação.",
-        "button": "Solicitar consulta"
+        "description": "Compartilhe alguns detalhes e nós conectaremos você com o advogado certo para sua situação."
       },
       "poweredBy": "Desenvolvido por"
     },
     "navigation": {
       "home": "Início",
-      "messages": "Mensagens"
+      "messages": "Mensagens",
+      "matters": "Casos",
+      "clients": "Clientes",
+      "settings": "Configurações",
+      "invoices": "Faturas"
     },
     "conversationList": {
       "title": "Mensagens",
@@ -214,12 +223,15 @@
     },
     "error": {
       "title": "Detalhes da prática indisponíveis",
-      "description": "Não conseguimos carregar o nome e o logotipo da prática {{slug}}. Atualize ou entre em contato com a prática para confirmar suas configurações públicas.",
+      "description": "Não conseguimos carregar o nome e o logotipo da prática \"{{slug}}\". Atualize ou entre em contato com a prática para confirmar suas configurações públicas.",
       "retry": "Tentar novamente"
     },
     "header": {
       "activeNow": "Ativo agora",
-      "back": "Voltar"
+      "back": "Voltar",
+      "inactive": "Inativo",
+      "away": "Ausente",
+      "unknown": "Status desconhecido"
     }
   },
   "businessWelcome": {
@@ -244,5 +256,49 @@
       }
     },
     "goToSettings": "Ir para configurações do escritório"
+  },
+  "chat": {
+    "publicIntro": "Pergunte-nos qualquer coisa ou compartilhe seu feedback.",
+    "continue": "Continuar",
+    "submitRequest": "Enviar solicitação",
+    "submitNow": "Enviar agora",
+    "buildStrongerBrief": "Criar um resumo mais completo",
+    "askQuestion": "Fazer uma pergunta",
+    "requestConsultation": "Solicitar consulta",
+    "retry": "Tentar novamente",
+    "retrying": "Tentando novamente...",
+    "replyingTo": "Respondendo a <name>{{name}}</name>",
+    "cta": {
+      "submit": "Enviar solicitação",
+      "submitConsultationRequest": "Enviar pedido de consulta",
+      "reviewSubmit": "Revisar e enviar",
+      "keepAnswering": "Continuar respondendo",
+      "continue": "Continuar",
+      "addMore": "Adicionar mais",
+      "notYet": "Ainda não"
+    }
+  },
+  "intake": {
+    "authTitle": "Você quase terminou",
+    "authDescription": "Crie uma conta gratuita para continuar sua inscrição e receber atualizações de {{practice}}. Enviaremos um link de confirmação por e-mail.",
+    "authDescriptionFallback": "Crie uma conta gratuita para continuar sua inscrição e receber atualizações. Enviaremos um link de confirmação por e-mail."
+  },
+  "leadReview": {
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "convert": "Converter para caso",
+    "noPermission": "Você não tem permissão para revisar este lead"
+  },
+  "leadIntake": {
+    "newIntake": "Novo registro",
+    "urgency": "Urgência",
+    "payment": "Pagamento",
+    "triage": "Triagem",
+    "fee": "Taxa",
+    "opposingParty": "Parte adversa",
+    "reason": "Motivo"
+  },
+  "widget": {
+    "persistIntakePathError": "Não foi possível salvar o caminho de retorno."
   }
 }

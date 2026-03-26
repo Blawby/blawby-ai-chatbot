@@ -100,7 +100,7 @@ CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
 AI_PROVIDER = "cloudflare_gateway"
 BACKEND_API_URL = "https://staging-api.blawby.com"
-ALLOWED_WS_ORIGINS = "https://local.blawby.com"
+ALLOWED_WS_ORIGINS = "https://local.blawby.com,http://local.blawby.com,http://localhost:5173,https://localhost:5173,http://localhost:5137,https://localhost:5137"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
 ENABLE_PUSH_NOTIFICATIONS = true
@@ -144,12 +144,12 @@ name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
 [[env.staging.migrations]]
-tag = "v2"
-new_classes = ["ChatRoom"]
+tag = "v6"
+new_classes = ["MatterDiffStore"]
 
 [[env.staging.migrations]]
-tag = "v5"
-new_classes = ["MatterProgressRoom"]
+tag = "v7"
+deleted_classes = ["MatterDiffStore"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -245,4 +245,4 @@ zone_name = "blawby.com"
 [observability.logs]
 enabled = false
 head_sampling_rate = 1
-invocation_logs = true
+invocation_logs = false

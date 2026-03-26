@@ -22,6 +22,44 @@ export interface App {
 
 export const mockApps: App[] = [
   {
+    id: 'blawby-messenger',
+    name: 'Website Messenger',
+    description: 'Embed the Blawby AI chatbot directly on your law firm\'s website to capture leads and answer client questions instantly.',
+    category: 'Client Intake',
+    developer: 'Blawby',
+    website: 'https://ai.blawby.com',
+    privacyPolicy: 'https://ai.blawby.com/privacy',
+    logo: '/blawby-favicon-iframe.png',
+    connected: true,      // Natively enabled, no OAuth flow needed
+    comingSoon: false,
+    actions: [
+      {
+        name: 'INSTALL widget-loader.js',
+        description: 'Embed the widget loader script and initialize window.BlawbyWidget with your practiceSlug.',
+        hasMetadata: false,
+        visibility: 'public'
+      },
+      {
+        name: 'EVENT lead_submitted',
+        description: 'Emits after successful intake submission with intakeUuid, status, requiresPayment, and attribution params (utm_*, gclid, fbclid, etc.).',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'DATALAYER blawby_lead_submitted',
+        description: 'Optional GTM/GA conversion event when pushDataLayerOnLeadSubmit is enabled in the snippet config.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'DATALAYER blawby_chat_start',
+        description: 'Optional engagement event when pushDataLayerOnChatStart is enabled in the snippet config.',
+        hasMetadata: true,
+        visibility: 'public'
+      }
+    ],
+  },
+  {
     id: 'clio',
     name: 'Clio',
     description: 'Connect your Clio account to sync matters, contacts, and calendar events.',

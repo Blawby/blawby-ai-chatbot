@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'preact/hooks';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import Modal from '@/shared/components/Modal';
-import { Button } from '@/shared/ui/Button';
+import { FormActions } from '@/shared/ui/form';
 import { handleError } from '@/shared/utils/errorHandler';
 
 interface ConfirmationDialogProps {
@@ -114,20 +115,20 @@ export default function ConfirmationDialog({
           {/* Warning Content */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
+              <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-sm text-input-text mb-4">
                 {description}
               </p>
               
               {/* Warning Items List */}
               {warningItems.length > 0 && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="glass-card p-3 mb-4 border-red-500/20">
+                  <p className="text-sm text-input-text">
                     <strong>This will permanently delete:</strong>
                   </p>
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 mt-2 space-y-1">
+                  <ul className="text-sm text-input-placeholder mt-2 space-y-1">
                     {warningItems.map((item, idx) => (
                       <li key={idx}>• {item}</li>
                     ))}
@@ -137,9 +138,9 @@ export default function ConfirmationDialog({
               
               {/* Confirmation Input */}
               <div className="space-y-2">
-                <label htmlFor="confirmation-input" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                <label htmlFor="confirmation-input" className="block text-sm font-medium text-input-text">
                   {confirmationLabel}
-                  <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded ml-2">
+                  <span className="font-mono text-sm bg-white/5 border border-line-glass/30 px-2 py-1 rounded ml-2">
                     {confirmationValue}
                   </span>
                 </label>
@@ -152,7 +153,7 @@ export default function ConfirmationDialog({
                   onFocus={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   placeholder={`Type "${confirmationValue}" to confirm`}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                     error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
                   }`}
                   disabled={isLoading}
@@ -165,8 +166,13 @@ export default function ConfirmationDialog({
 
                 {/* Success Message */}
                 {showSuccessMessage && successMessage && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <div className="mt-4 rounded-lg status-success p-3">
+                    {successMessage.title && (
+                      <p className="text-sm font-medium text-input-text mb-2">
+                        {successMessage.title}
+                      </p>
+                    )}
+                    <p className="text-sm text-input-text">
                       {successMessage.body}
                     </p>
                   </div>
@@ -175,7 +181,7 @@ export default function ConfirmationDialog({
                 {/* Password Input */}
                 {requirePassword && (
                   <div className="space-y-2 pt-4">
-                    <label htmlFor="confirmation-password" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <label htmlFor="confirmation-password" className="block text-sm font-medium text-input-text">
                       {passwordLabel}
                     </label>
                     <input
@@ -187,7 +193,7 @@ export default function ConfirmationDialog({
                       onFocus={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       placeholder={passwordPlaceholder}
-                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         passwordError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
                       }`}
                       disabled={isLoading}
@@ -206,35 +212,21 @@ export default function ConfirmationDialog({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="min-w-[80px]"
-            disabled={isLoading}
-          >
-            {cancelText}
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={
-              isLoading ||
-              inputValue.trim() !== confirmationValue.trim() ||
-              (requirePassword && !passwordValue)
-            }
-            className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500 min-w-[80px] disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {isLoading ? 'Processing...' : confirmText}
-          </Button>
-        </div>
+        <FormActions
+          className="justify-end border-t border-line-glass/30"
+          size="sm"
+          onCancel={onClose}
+          cancelText={cancelText}
+          submitText={isLoading ? 'Processing...' : confirmText}
+          submitType="submit"
+          submitVariant="danger"
+          submitDisabled={
+            isLoading ||
+            inputValue.trim() !== confirmationValue.trim() ||
+            (requirePassword && !passwordValue)
+          }
+          cancelDisabled={isLoading}
+        />
       </form>
     </Modal>
   );

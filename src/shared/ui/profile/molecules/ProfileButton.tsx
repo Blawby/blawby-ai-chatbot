@@ -1,38 +1,27 @@
-/**
- * ProfileButton - Molecule Component
- * Main profile trigger combining avatar, name, and tier.
- * Styled to match original main look/feel.
- */
-
 import { Avatar } from '../atoms/Avatar';
-import { TierBadge } from '../atoms/TierBadge';
-import { UpgradeButton } from '../atoms/UpgradeButton';
-import { type SubscriptionTier } from '@/shared/types/user';
 
 interface ProfileButtonProps {
   name: string;
   image?: string | null;
-  tier: SubscriptionTier;
+  secondaryText?: string | null;
   isCollapsed: boolean;
   onClick: () => void;
-  onUpgrade?: () => void;
   className?: string;
 }
 
 export const ProfileButton = ({
   name,
   image,
-  tier,
+  secondaryText,
   isCollapsed,
   onClick,
-  onUpgrade,
   className = ''
 }: ProfileButtonProps) => {
   if (isCollapsed) {
     return (
       <button
         onClick={onClick}
-        className={`w-8 h-8 rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mx-auto ${className}`}
+        className={`glass-input w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mx-auto ${className}`}
         title={name}
         aria-label={`User profile for ${name}`}
       >
@@ -50,21 +39,18 @@ export const ProfileButton = ({
       >
         <Avatar src={image} name={name} size="md" />
         <div className="flex-1 min-w-0 overflow-hidden text-left">
-          <p className="text-sm font-medium leading-none text-gray-900 dark:text-white truncate" title={name}>
+          <p className="text-sm font-medium leading-none text-input-text truncate" title={name}>
             {name}
           </p>
-          <div className="-mt-0.5">
-            {tier !== 'enterprise' && <TierBadge tier={tier} />}
-          </div>
+          {secondaryText && (
+            <div className="-mt-0.5">
+              <p className="text-xs leading-none text-input-placeholder truncate">
+                {secondaryText}
+              </p>
+            </div>
+          )}
         </div>
       </button>
-
-      {/* Upgrade Button - only for free tier */}
-      {tier === 'free' && onUpgrade && (
-        <UpgradeButton onClick={onUpgrade} variant="short" />
-      )}
-
-      {tier === 'enterprise' && <TierBadge tier={tier} variant="enterprise" />}
     </div>
   );
 };

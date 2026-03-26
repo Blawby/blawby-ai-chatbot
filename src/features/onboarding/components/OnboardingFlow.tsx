@@ -3,21 +3,15 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import { updateUser, getClient, getSession } from '@/shared/lib/authClient';
+import { updateUser, getSession } from '@/shared/lib/authClient';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { sanitizeOnboardingPersonalInfo } from '@/shared/types/onboarding';
 import type { OnboardingPreferences, ProductUsage } from '@/shared/types/preferences';
 import PersonalInfoStep from './PersonalInfoStep';
-import UseCaseStep from './UseCaseStep';
-
-type OnboardingStep = 'personal' | 'useCase';
-
-const createDefaultFormData = (): OnboardingFormData => ({
+const createDefaultFormData = (fullName = ''): OnboardingFormData => ({
   personalInfo: {
-    fullName: '',
+    fullName,
     birthday: '',
-    password: '',
-    confirmPassword: '',
     agreedToTerms: false
   },
   useCase: {
@@ -96,11 +90,8 @@ export const OnboardingFlow = ({
   const { t } = useTranslation('common');
   const { showError, showSuccess } = useToastContext();
   const { session } = useSessionContext();
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
-  const [onboardingData, setOnboardingData] = useState<OnboardingFormData>(() => createDefaultFormData());
-  const hasLoadedRef = useRef(false);
-  const sessionUserId = session?.user?.id;
   const sessionUserSnapshotRef = useRef<{ id?: string; name?: string }>({});
+  const sessionUserId = session?.user?.id;
   if (sessionUserId && sessionUserSnapshotRef.current.id !== sessionUserId) {
     sessionUserSnapshotRef.current = {
       id: sessionUserId,
@@ -108,6 +99,9 @@ export const OnboardingFlow = ({
     };
   }
   const sessionUserName = sessionUserSnapshotRef.current.name ?? '';
+  const requiresNameCollection = sessionUserName.trim().length === 0;
+  const [onboardingData, setOnboardingData] = useState<OnboardingFormData>(() => createDefaultFormData(sessionUserName));
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     if (active && sessionUserId && !hasLoadedRef.current) {
@@ -119,8 +113,6 @@ export const OnboardingFlow = ({
               ...prev.personalInfo,
               fullName: sessionUserName || prev.personalInfo.fullName,
               birthday: prefs?.birthday ?? '',
-              password: '',
-              confirmPassword: '',
               agreedToTerms: prev.personalInfo.agreedToTerms
             },
             useCase: {
@@ -153,25 +145,14 @@ export const OnboardingFlow = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleStepComplete = async (
-    step: OnboardingStep,
-    data: Partial<OnboardingFormData>
-  ) => {
+  const handleStepComplete = async (data: Partial<OnboardingFormData>) => {
     const mergedData = {
       ...onboardingData,
       ...data
     };
 
     setOnboardingData(mergedData);
-
-    if (step === 'personal') {
-      setCurrentStep('useCase');
-      return;
-    }
-
-    if (step === 'useCase') {
-      await handleComplete(mergedData);
-    }
+    await handleComplete(mergedData);
   };
 
   const handleComplete = async (data?: OnboardingFormData) => {
@@ -187,7 +168,7 @@ export const OnboardingFlow = ({
         });
       }
 
-      const trimmedName = sourceData.personalInfo.fullName.trim();
+      const trimmedName = sourceData.personalInfo.fullName?.trim() ?? '';
       const updatePayload: Record<string, unknown> = {
         onboardingComplete: true
       };
@@ -196,16 +177,6 @@ export const OnboardingFlow = ({
       }
       if (sourceData.personalInfo.birthday) {
         updatePayload.dob = sourceData.personalInfo.birthday;
-      }
-
-      const client = getClient();
-      if (sourceData.personalInfo.password) {
-        try {
-          await client.setPassword({ newPassword: sourceData.personalInfo.password });
-        } catch (error) {
-          console.warn('[ONBOARDING][PASSWORD] Failed to set password', error);
-          throw error;
-        }
       }
 
       await updateUser(updatePayload);
@@ -225,7 +196,7 @@ export const OnboardingFlow = ({
         t('onboarding.completed.message', 'Welcome to Blawby AI.')
       );
 
-      setOnboardingData(createDefaultFormData());
+      setOnboardingData(createDefaultFormData(sessionUserName));
       onComplete(sourceData);
       onClose();
     } catch (error) {
@@ -242,37 +213,19 @@ export const OnboardingFlow = ({
     }
   };
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'personal':
-        return (
-          <PersonalInfoStep
-            data={onboardingData.personalInfo}
-            isSubmitting={isSubmitting}
-            onComplete={async (data) => await handleStepComplete('personal', { personalInfo: data })}
-          />
-        );
-      case 'useCase':
-        return (
-          <UseCaseStep
-            data={onboardingData.useCase}
-            isSubmitting={isSubmitting}
-            onComplete={async (data) => await handleStepComplete('useCase', { useCase: data })}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   const resolvedTestId = testId ?? 'onboarding-flow';
 
   return (
     <div
-      className={`h-full bg-white dark:bg-dark-bg flex flex-col ${className}`}
+      className={`h-full bg-transparent flex flex-col ${className}`}
       data-testid={resolvedTestId}
     >
-      {renderStep()}
+      <PersonalInfoStep
+        data={onboardingData.personalInfo}
+        isSubmitting={isSubmitting}
+        requireName={requiresNameCollection}
+        onComplete={async (data) => await handleStepComplete({ personalInfo: data })}
+      />
     </div>
   );
 };

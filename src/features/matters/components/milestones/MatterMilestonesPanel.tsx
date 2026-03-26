@@ -2,14 +2,14 @@ import { useMemo, useState } from 'preact/hooks';
 import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { Input } from '@/shared/ui/input/Input';
-import { Select } from '@/shared/ui/input/Select';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
-import type { MatterDetail, MatterMilestone } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterMilestone } from '@/features/matters/data/matterTypes';
 
 type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
 
@@ -178,15 +178,15 @@ export const MatterMilestonesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Milestones</h3>
+          <h3 className="text-sm font-semibold text-input-text">Milestones</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {resolvedMilestones.length} milestones tracked
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openForm} disabled={!canCreate}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openForm} disabled={!canCreate}>
           Add milestone
         </Button>
       </header>
@@ -204,12 +204,12 @@ export const MatterMilestonesPanel = ({
           No milestones yet. Add milestones to track key deliverables for this matter.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-white/10">
+        <ul className="divide-y divide-line-default">
           {resolvedMilestones.map((milestone, index) => (
             <li key={milestone.id ?? `${milestone.description}-${index}`} className="px-6 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <p className="text-sm font-semibold text-input-text">
                     {milestone.description}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -223,7 +223,7 @@ export const MatterMilestonesPanel = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <div className="text-sm font-semibold text-input-text">
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
                   <div className="flex items-center gap-1">
@@ -231,7 +231,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<PencilIcon className="h-4 w-4" />}
+                        icon={PencilIcon} iconClassName="h-4 w-4"
                         onClick={() => openEditForm(milestone)}
                         aria-label="Edit milestone"
                       />
@@ -240,7 +240,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<TrashIcon className="h-4 w-4" />}
+                        icon={TrashIcon} iconClassName="h-4 w-4"
                         onClick={() => confirmDelete(milestone)}
                         aria-label="Delete milestone"
                       />
@@ -251,14 +251,14 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<ArrowUpIcon className="h-4 w-4" />}
+                        icon={ArrowUpIcon} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, -1)}
                         aria-label="Move milestone up"
                       />
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={<ArrowDownIcon className="h-4 w-4" />}
+                        icon={ArrowDownIcon} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, 1)}
                         aria-label="Move milestone down"
                       />
@@ -307,12 +307,13 @@ export const MatterMilestonesPanel = ({
               required
             />
             <div>
-              <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Status</span>
-              <Select
+              <span className="block text-sm font-medium text-input-text mb-1">Status</span>
+              <Combobox
                 value={formState.status}
                 options={statusOptions}
                 onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MilestoneStatus }))}
-                className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                searchable={false}
               />
             </div>
             {submitError && (

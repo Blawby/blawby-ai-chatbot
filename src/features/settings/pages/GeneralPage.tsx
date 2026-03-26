@@ -4,8 +4,8 @@ import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/shared/i18n/hooks';
 import type { Language } from '@/shared/types/user';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingSelect } from '@/features/settings/components/SettingSelect';
+import { ContentPageLayout } from '@/shared/ui/layout';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 
@@ -24,7 +24,6 @@ export const GeneralPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const [settings, setSettings] = useState({
     theme: 'system' as 'light' | 'dark' | 'system',
-    accentColor: 'default' as 'default' | 'blue' | 'green' | 'purple' | 'red',
     language: 'auto-detect' as 'auto-detect' | Language,
     spokenLanguage: 'auto-detect' as 'auto-detect' | Language
   });
@@ -46,10 +45,9 @@ export const GeneralPage = ({
         setIsLoading(true);
         const prefs = await getPreferencesCategory<GeneralPreferences>('general');
         if (!isMounted) return;
-
+        
         setSettings({
           theme: (prefs?.theme as 'light' | 'dark' | 'system') || 'system',
-          accentColor: (prefs?.accent_color as 'default' | 'blue' | 'green' | 'purple' | 'red') || 'default',
           language: getValidLanguage(prefs?.language),
           spokenLanguage: getValidLanguage(prefs?.spoken_language)
         });
@@ -113,8 +111,6 @@ export const GeneralPage = ({
       const updatePayload: GeneralPreferences = {};
       if (key === 'theme') {
         updatePayload.theme = value as GeneralPreferences['theme'];
-      } else if (key === 'accentColor') {
-        updatePayload.accent_color = value as string;
       } else if (key === 'language') {
         updatePayload.language = value as string;
       } else if (key === 'spokenLanguage') {
@@ -176,65 +172,43 @@ export const GeneralPage = ({
 
   // Use same layout for both mobile and desktop
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <SettingHeader title={t('settings:general.title')} />
+    <ContentPageLayout title={t('settings:general.title')} className={className}>
+      <SettingSelect
+        label={t('settings:general.theme.label')}
+        value={settings.theme}
+        options={[
+          { value: 'light', label: t('settings:general.theme.options.light') },
+          { value: 'dark', label: t('settings:general.theme.options.dark') },
+          { value: 'system', label: t('settings:general.theme.options.system') }
+        ]}
+        onChange={(value) => handleSettingChange('theme', value)}
+      />
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          <SettingSelect
-            label={t('settings:general.theme.label')}
-            value={settings.theme}
-            options={[
-              { value: 'light', label: t('settings:general.theme.options.light') },
-              { value: 'dark', label: t('settings:general.theme.options.dark') },
-              { value: 'system', label: t('settings:general.theme.options.system') }
-            ]}
-            onChange={(value) => handleSettingChange('theme', value)}
-          />
-          
-          <SectionDivider />
-          
-          <SettingSelect
-            label={t('settings:general.accent.label')}
-            value={settings.accentColor}
-            options={[
-              { value: 'default', label: t('settings:general.accent.options.default') },
-              { value: 'blue', label: t('settings:general.accent.options.blue') },
-              { value: 'green', label: t('settings:general.accent.options.green') },
-              { value: 'purple', label: t('settings:general.accent.options.purple') },
-              { value: 'red', label: t('settings:general.accent.options.red') }
-            ]}
-            onChange={(value) => handleSettingChange('accentColor', value)}
-          />
-          
-          <SectionDivider />
-          
-          <SettingSelect
-            label={t('settings:general.language.label')}
-            description={t('settings:general.language.description')}
-            value={settings.language}
-            options={languageOptions}
-            onChange={(value) => handleSettingChange('language', value)}
-          />
-          
-          <SectionDivider />
-          
-          <SettingSelect
-            label={t('settings:general.spokenLanguage.label')}
-            description={t('settings:general.spokenLanguage.description')}
-            value={settings.spokenLanguage}
-            options={[
-              { value: 'auto-detect', label: t('common:language.auto') },
-              ...SUPPORTED_LOCALES.map(locale => ({
-                value: locale,
-                label: t(`common:language.${locale}`)
-              }))
-            ]}
-            onChange={(value) => handleSettingChange('spokenLanguage', value)}
-          />
-        </div>
-      </div>
-    </div>
+      <SectionDivider />
+
+      <SettingSelect
+        label={t('settings:general.language.label')}
+        description={t('settings:general.language.description')}
+        value={settings.language}
+        options={languageOptions}
+        onChange={(value) => handleSettingChange('language', value)}
+      />
+
+      <SectionDivider />
+
+      <SettingSelect
+        label={t('settings:general.spokenLanguage.label')}
+        description={t('settings:general.spokenLanguage.description')}
+        value={settings.spokenLanguage}
+        options={[
+          { value: 'auto-detect', label: t('common:language.auto') },
+          ...SUPPORTED_LOCALES.map(locale => ({
+            value: locale,
+            label: t(`common:language.${locale}`)
+          }))
+        ]}
+        onChange={(value) => handleSettingChange('spokenLanguage', value)}
+      />
+    </ContentPageLayout>
   );
 };

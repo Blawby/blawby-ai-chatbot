@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { format, parseISO } from 'date-fns';
 import { ulid } from 'ulid';
 import Modal from '@/shared/components/Modal';
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
-import type { MatterDetail, MatterNote } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterNote } from '@/features/matters/data/matterTypes';
 import { NoteForm, type NoteFormValues } from './NoteForm';
 
 const formatNoteDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy h:mm a');
@@ -23,6 +24,7 @@ const defaultAuthor: MatterNote['author'] = {
 
 interface MatterNotesPanelProps {
   matter: MatterDetail;
+  practiceId?: string | null;
   notes?: MatterNote[];
   loading?: boolean;
   error?: string | null;
@@ -34,6 +36,7 @@ interface MatterNotesPanelProps {
 
 export const MatterNotesPanel = ({
   matter,
+  practiceId,
   notes,
   loading = false,
   error = null,
@@ -158,15 +161,15 @@ export const MatterNotesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notes</h3>
+          <h3 className="text-sm font-semibold text-input-text">Notes</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {sortedNotes.length} notes recorded
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote} disabled={!canCreate}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
           Add note
         </Button>
       </header>
@@ -184,11 +187,11 @@ export const MatterNotesPanel = ({
           No notes yet. Capture internal updates, decisions, or next steps tied to this matter.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-white/10">
+        <ul className="divide-y divide-line-default">
           {sortedNotes.map((note) => (
             <li
               key={note.id}
-              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-white/[0.04] transition-colors"
             >
               <button
                 type="button"
@@ -199,11 +202,11 @@ export const MatterNotesPanel = ({
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm font-semibold text-input-text">
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                      <span className="glass-input rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
                         {note.author.role}
                       </span>
                     )}
@@ -227,7 +230,7 @@ export const MatterNotesPanel = ({
                       variant="ghost"
                       size="sm"
                       aria-label="Open note actions"
-                      icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                      icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
                     />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
@@ -235,7 +238,7 @@ export const MatterNotesPanel = ({
                       {canEdit ? (
                         <DropdownMenuItem onSelect={() => openEditNote(note)}>
                           <span className="flex items-center gap-2">
-                            <PencilIcon className="h-4 w-4" />
+                            <Icon icon={PencilIcon} className="h-4 w-4"  />
                             Edit
                           </span>
                         </DropdownMenuItem>
@@ -243,7 +246,7 @@ export const MatterNotesPanel = ({
                       {canDelete ? (
                         <DropdownMenuItem onSelect={() => confirmDelete(note)}>
                           <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                            <TrashIcon className="h-4 w-4" />
+                            <Icon icon={TrashIcon} className="h-4 w-4"  />
                             Delete
                           </span>
                         </DropdownMenuItem>
@@ -268,6 +271,7 @@ export const MatterNotesPanel = ({
           <NoteForm
             key={`${editingNote?.id ?? 'new'}-${formKey}`}
             initialNote={editingNote ?? undefined}
+            practiceId={practiceId}
             onSubmit={handleSave}
             onCancel={closeForm}
             onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}

@@ -1,6 +1,7 @@
 import { FunctionComponent, ComponentChildren, createContext } from "preact"
 import { useState, useContext } from "preact/hooks"
 import { ChevronDownIcon } from "@heroicons/react/24/outline"
+import { Icon } from '@/shared/ui/Icon'
 
 // Utility function for className merging (following codebase pattern)
 function cn(...classes: (string | undefined | null | false)[]): string {
@@ -104,7 +105,7 @@ const Accordion: FunctionComponent<AccordionProps> = ({
     <AccordionContext.Provider value={contextValue}>
       <div 
         data-slot="accordion" 
-        className={cn("w-full border border-gray-200 dark:border-gray-700 rounded-lg", className)}
+        className={cn("w-full border border-line-glass/30 rounded-lg", className)}
       >
         {children}
       </div>
@@ -178,7 +179,7 @@ const AccordionTrigger: FunctionComponent<AccordionTriggerProps> = ({
         type="button"
       >
         {children}
-        <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4 shrink-0 transition-transform duration-200" />
+        <Icon icon={ChevronDownIcon} className="text-muted-foreground pointer-events-none size-4 shrink-0 transition-transform duration-200" />
       </button>
     </div>
   )

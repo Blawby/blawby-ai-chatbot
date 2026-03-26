@@ -1,10 +1,10 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { atom } from 'nanostores';
 import { useStore } from '@nanostores/preact';
-import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
-import { getBackendApiUrl } from '@/config/urls';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import {
   listPractices,
   createPractice as apiCreatePractice,
@@ -16,17 +16,17 @@ import {
   getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
-  listPracticeInvitations,
-  createPracticeInvitation,
-  respondToPracticeInvitation,
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
-  deletePracticeMember as apiDeletePracticeMember
+  deletePracticeMember as apiDeletePracticeMember,
+  clearPublicPracticeDetailsCache
 } from '@/shared/lib/apiClient';
-import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
+import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
+
+const ENABLE_PAYOUT_STATUS = import.meta.env.VITE_ENABLE_PAYOUTS === 'true';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -40,12 +40,16 @@ let sharedPracticeSnapshot: SharedPracticeSnapshot | null = null;
 let sharedPracticePromise: Promise<SharedPracticeSnapshot> | null = null;
 let sharedPracticeUserId: string | null = null;
 let sharedPracticeIncludesDetails = false;
+let practicesLoaded = false;
+let practicesInFlight: Promise<void> | null = null;
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
   sharedPracticePromise = null;
   sharedPracticeUserId = null;
   sharedPracticeIncludesDetails = false;
+  practicesLoaded = false;
+  practicesInFlight = null;
 };
 
 const membersStore = atom<Record<string, Member[]>>({});
@@ -69,18 +73,6 @@ const setMembersForPractice = (practiceId: string, nextMembers: Member[]) => {
 // Types
 export type Role = PracticeRole;
 export type BusinessOnboardingStatus = 'not_required' | 'pending' | 'completed' | 'skipped';
-export type MatterWorkflowStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
-
-export interface MatterTransitionResult {
-  matterId: string;
-  status: MatterWorkflowStatus;
-  previousStatus: MatterWorkflowStatus;
-  updatedAt: string;
-  acceptedBy?: {
-    userId: string;
-    acceptedAt: string | null;
-  } | null;
-}
 
 // Practice interface - matches apiClient.ts but kept here for backward compatibility
 // and to include additional properties specific to practice management
@@ -91,9 +83,9 @@ export interface Practice {
   description?: string;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
+  currency?: string | null;
   consultationFee: MajorAmount | null;
   paymentUrl: string | null;
-  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   subscriptionPeriodEnd?: number | null;
@@ -127,7 +119,6 @@ export interface Practice {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  introMessage?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 }
@@ -157,6 +148,7 @@ export interface CreatePracticeData {
   name: string;
   slug?: string;
   description?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdatePracticeData {
@@ -168,6 +160,8 @@ export interface UpdatePracticeData {
   consultationFee?: MajorAmount | null;
   logo?: string;
   metadata?: Record<string, unknown>;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  businessOnboardingHasDraft?: boolean;
 }
 
 interface UsePracticeManagementOptions {
@@ -178,16 +172,22 @@ interface UsePracticeManagementOptions {
    */
   autoFetchPractices?: boolean;
   /**
-   * When true (default), the hook will fetch pending invitations for the
-   * current user. Disable this if you don't need invitations for a given
-   * screen or test.
-   */
-  fetchInvitations?: boolean;
-  /**
    * When true, fetches practice details for the active practice and merges
    * them into the practice list snapshot.
    */
   fetchPracticeDetails?: boolean;
+  /**
+   * Optional practice slug to resolve as the active practice.
+   * If provided, will search for a matching practice in the list.
+   * Falls back to the first practice if not found or not provided.
+   */
+  practiceSlug?: string | null;
+  /**
+   * When true, fetches onboarding status for the active practice so payout UI
+   * can show accurate Stripe onboarding banners. Defaults to false to avoid
+   * extra network calls on pages that don't need this information.
+   */
+  fetchOnboardingStatus?: boolean;
 }
 
 interface UsePracticeManagementReturn {
@@ -209,20 +209,9 @@ interface UsePracticeManagementReturn {
   updateMemberRole: (practiceId: string, userId: string, role: Role) => Promise<void>;
   removeMember: (practiceId: string, userId: string) => Promise<void>;
   
-  // Invitations
-  invitations: Invitation[];
-  sendInvitation: (practiceId: string, email: string, role: Role) => Promise<void>;
-  acceptInvitation: (invitationId: string) => Promise<void>;
-  declineInvitation: (invitationId: string) => Promise<void>;
-  
   // Workspace data
   getWorkspaceData: (practiceId: string, resource: string) => Record<string, unknown>[];
   fetchWorkspaceData: (practiceId: string, resource: string) => Promise<void>;
-  
-  // Matter workflows
-  acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
-  rejectMatter: (practiceId: string, matterId: string, reason?: string) => Promise<MatterTransitionResult>;
-  updateMatterStatus: (practiceId: string, matterId: string, status: MatterWorkflowStatus, reason?: string) => Promise<MatterTransitionResult>;
   
   refetch: () => Promise<void>;
 }
@@ -232,31 +221,15 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const slug = typeof raw.slug === 'string' ? raw.slug : id;
   const name = typeof raw.name === 'string' ? raw.name : 'Practice';
 
-  const rawIsPersonal = typeof raw.isPersonal === 'boolean'
-    ? raw.isPersonal
-    : typeof raw.is_personal === 'number'
-      ? raw.is_personal === 1
-      : undefined;
+  const rawIsPersonal = typeof raw.isPersonal === 'boolean' ? raw.isPersonal : undefined;
 
-  const rawStatus = typeof raw.subscriptionStatus === 'string'
-    ? raw.subscriptionStatus
-    : typeof raw.subscription_status === 'string'
-      ? raw.subscription_status
-      : undefined;
+  const rawStatus = typeof raw.subscriptionStatus === 'string' ? raw.subscriptionStatus : undefined;
 
-  const resolvedKind = resolvePracticeKind(typeof raw.kind === 'string' ? raw.kind : undefined, rawIsPersonal);
-  const normalizedStatus = normalizePracticeStatus(rawStatus, resolvedKind);
-
-  const subscriptionTier = typeof raw.subscriptionTier === 'string'
-    ? raw.subscriptionTier
-    : typeof raw.subscription_tier === 'string'
-      ? raw.subscription_tier
-      : null;
-
-  const allowedTiers = new Set(['free', 'plus', 'business', 'enterprise']);
-  const normalizedTier = (typeof subscriptionTier === 'string' && allowedTiers.has(subscriptionTier))
-    ? (subscriptionTier as Practice['subscriptionTier'])
-    : null;
+  const rawKind = typeof raw.kind === 'string' ? raw.kind : undefined;
+  const resolvedKind = rawKind === 'business' || rawKind === 'personal' || rawKind === 'practice'
+    ? rawKind
+    : undefined;
+  const normalizedStatus = normalizePracticeStatus(rawStatus);
 
   const seats = typeof raw.seats === 'number'
     ? raw.seats
@@ -443,6 +416,9 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
       }
       return null;
     })(),
+    currency: (typeof raw.currency === 'string' && raw.currency.trim().length > 0)
+      ? raw.currency.trim()
+      : null,
     paymentUrl: (() => {
       const val = raw.paymentUrl ?? raw.payment_url ?? null;
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
@@ -451,7 +427,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessEmail: getDetailString('businessEmail', 'business_email') ?? null,
     calendlyUrl: getDetailString('calendlyUrl', 'calendly_url') ?? null,
     logo: getDetailString('logo', 'logo') ?? null,
-    subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
@@ -474,7 +449,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     country: getDetailString('country', 'country'),
     primaryColor: getDetailString('primaryColor', 'primary_color'),
     accentColor: getDetailString('accentColor', 'accent_color'),
-    introMessage: getDetailString('introMessage', 'intro_message'),
     isPublic: getDetailBoolean('isPublic', 'is_public'),
     services
   };
@@ -484,12 +458,15 @@ const fetchPracticeDetailsFor = async (
   practice: Practice,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<PracticeDetails | null> => {
+  const byId = await getPracticeDetails(practice.id, config);
+  if (byId) {
+    return byId;
+  }
   const slug = practice.slug?.trim();
   if (slug) {
-    const bySlug = await getPracticeDetailsBySlug(slug, config);
-    if (bySlug) return bySlug;
+    return getPracticeDetailsBySlug(slug, config);
   }
-  return getPracticeDetails(practice.id, config);
+  return null;
 };
 
 function mergePracticeDetails(practice: Practice, details: PracticeDetails | null): Practice {
@@ -523,70 +500,12 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfNonNull('country', details.country as Practice['country'] | undefined | null);
   setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
   setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
-  setIfNonNull('introMessage', details.introMessage as Practice['introMessage'] | undefined | null);
   setIfNonNull('description', details.description as Practice['description'] | undefined | null);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);
   return {
     ...practice,
     ...patch
-  };
-}
-
-function normalizeWorkflowStatus(value: unknown): MatterWorkflowStatus {
-  const str = typeof value === 'string' ? value.toLowerCase() : '';
-  switch (str) {
-    case 'lead':
-    case 'open':
-    case 'in_progress':
-    case 'completed':
-    case 'archived':
-      return str;
-    default:
-      try {
-        // Use app logger if available; fallback to console
-        const maybeLogger = (globalThis as unknown as { appLogger?: { warn: (msg: string, data?: unknown) => void } }).appLogger;
-        if (maybeLogger && typeof maybeLogger.warn === 'function') {
-          maybeLogger.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
-        } else {
-          console.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
-        }
-      } catch (e) { void e; }
-      return 'lead';
-  }
-}
-
-function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
-  if (!raw || typeof raw !== 'object' || raw === null) {
-    throw new Error('Invalid matter transition response');
-  }
-
-  const record = raw as Record<string, unknown>;
-  const acceptedByRaw = record.acceptedBy as Record<string, unknown> | null | undefined;
-  const acceptedBy = acceptedByRaw && typeof acceptedByRaw === 'object'
-    ? {
-        userId: typeof acceptedByRaw.userId === 'string'
-          ? acceptedByRaw.userId
-          : String(acceptedByRaw.userId ?? ''),
-        acceptedAt: typeof acceptedByRaw.acceptedAt === 'string'
-          ? acceptedByRaw.acceptedAt
-          : null
-      }
-    : null;
-
-  return {
-    matterId: typeof record.matterId === 'string'
-      ? record.matterId
-      : String(record.matterId ?? ''),
-    status: normalizeWorkflowStatus(record.status),
-    previousStatus: normalizeWorkflowStatus(record.previousStatus),
-    updatedAt: (() => {
-      if (typeof record.updatedAt !== 'string' || record.updatedAt.trim().length === 0) {
-        throw new Error('Missing or invalid updatedAt in matter transition response');
-      }
-      return record.updatedAt;
-    })(),
-    acceptedBy
   };
 }
 
@@ -624,19 +543,29 @@ function _generateIdempotencyKey(): string {
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
   const {
     autoFetchPractices = true,
-    fetchInvitations: shouldFetchInvitations = true,
     fetchPracticeDetails = false,
+    practiceSlug,
+    fetchOnboardingStatus = false,
   } = options;
-  const { session, isPending: sessionLoading, isAnonymous, activeOrganizationId } = useSessionContext();
+  const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
+  const routePractice = useContext(RoutePracticeContext);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const members = useStore(membersStore);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   // Initialize loading to true when autoFetchPractices is enabled
   // This ensures the UI shows a loading state during the first render before the fetch effect runs
   const [loading, setLoading] = useState(autoFetchPractices);
   const [error, setError] = useState<string | null>(null);
+  const requestedPracticeSlug = (() => {
+    const explicit = typeof practiceSlug === 'string' ? practiceSlug.trim() : '';
+    if (explicit.length > 0) return explicit;
+    const routeScopedSlug = routePractice?.practiceSlug?.trim() ?? '';
+    if (routeScopedSlug.length > 0 && (routePractice?.workspace === 'practice' || routePractice?.workspace === 'client')) {
+      return routeScopedSlug;
+    }
+    return null;
+  })();
   
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
@@ -704,12 +633,43 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     return workspaceData[practiceId]?.[resource] || [];
   }, [workspaceData]);
 
+  // Track the last practice slug we selected to detect when it changes
+  const lastSelectedSlugRef = useRef<string | undefined>();
+
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
-      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails)) {
-        return;
+      // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
+      const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
+      const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
+        setPractices(snapshot.practices);
+        setCurrentPractice(snapshot.currentPractice);
+        setLoading(false);
+        practicesFetchedRef.current = true;
+        // Track that we've selected this slug
+        lastSelectedSlugRef.current = requestedPracticeSlug ?? undefined;
+      };
+      
+      if (practicesLoaded && sharedPracticeSnapshot && !slugChanged) {
+        let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+        if (requestedPracticeSlug) {
+          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === requestedPracticeSlug);
+          selectedCurrentPractice = foundBySlug || null;
+        }
+        applySnapshot({
+          ...sharedPracticeSnapshot,
+          currentPractice: selectedCurrentPractice
+        });
+
+        // Only early-return if no extra data is requested
+        if (!fetchPracticeDetails && !fetchOnboardingStatus) {
+          return;
+        }
+      }
+
+      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
+        if (!fetchOnboardingStatus) return;
       }
 
       const userId = session?.user?.id ?? null;
@@ -720,19 +680,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         practicesFetchedRef.current = false;
         resetSharedPracticeCache();
         resetPracticeDetailsStore();
+        clearPublicPracticeDetailsCache();
         return;
       }
 
       if (sharedPracticeUserId && sharedPracticeUserId !== userId) {
         resetSharedPracticeCache();
       }
-
-      const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
-        setPractices(snapshot.practices);
-        setCurrentPractice(snapshot.currentPractice);
-        setLoading(false);
-        practicesFetchedRef.current = true;
-      };
 
       const hydrateSnapshotDetails = async (snapshot: SharedPracticeSnapshot) => {
         if (!fetchPracticeDetails) return snapshot;
@@ -773,32 +727,81 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         return updatedSnapshot;
       };
 
+      if (practicesInFlight) {
+        try {
+          await practicesInFlight;
+        } catch (inFlightError) {
+          console.warn('[usePracticeManagement] Shared practices fetch failed', inFlightError);
+        }
+        if (sharedPracticeSnapshot) {
+          let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+          if (requestedPracticeSlug) {
+            const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === requestedPracticeSlug);
+            selectedCurrentPractice = foundBySlug || null;
+          }
+          applySnapshot({
+            ...sharedPracticeSnapshot,
+            currentPractice: selectedCurrentPractice
+          });
+          
+          if (!fetchPracticeDetails && !fetchOnboardingStatus) {
+            return;
+          }
+        }
+      }
+
       if (sharedPracticeSnapshot) {
-        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !sharedPracticeSnapshot.currentPractice) {
-          applySnapshot(sharedPracticeSnapshot);
-          return;
+        // Re-select currentPractice based on practiceSlug even when using cached snapshot
+        let selectedCurrentPractice = sharedPracticeSnapshot.currentPractice;
+        if (requestedPracticeSlug) {
+          const foundBySlug = sharedPracticeSnapshot.practices.find((p) => p.slug === requestedPracticeSlug);
+          selectedCurrentPractice = foundBySlug || null;
         }
 
-        setLoading(true);
-        setError(null);
-        const hydrated = await hydrateSnapshotDetails(sharedPracticeSnapshot);
-        applySnapshot(hydrated);
-        return;
+        const snapshotToApply = {
+          ...sharedPracticeSnapshot,
+          currentPractice: selectedCurrentPractice
+        };
+
+        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !snapshotToApply.currentPractice) {
+          applySnapshot(snapshotToApply);
+          if (!fetchOnboardingStatus) return;
+        } else {
+          setLoading(true);
+          setError(null);
+          const hydrated = await hydrateSnapshotDetails(snapshotToApply);
+          applySnapshot(hydrated);
+          if (!fetchOnboardingStatus) return;
+        }
       }
 
       if (sharedPracticePromise) {
         const cachedPromise = sharedPracticePromise;
         try {
           const cached = await sharedPracticePromise;
-          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cached.currentPractice) {
+          
+          // Re-select currentPractice based on practiceSlug even when using cached promise
+          let selectedCurrentPractice = cached.currentPractice;
+          if (requestedPracticeSlug) {
+            const foundBySlug = cached.practices.find((p) => p.slug === requestedPracticeSlug);
+            selectedCurrentPractice = foundBySlug || null;
+          }
+
+          const cachedToApply = {
+            ...cached,
+            currentPractice: selectedCurrentPractice
+          };
+
+          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cachedToApply.currentPractice) {
             setLoading(true);
             setError(null);
-            const hydrated = await hydrateSnapshotDetails(cached);
+            const hydrated = await hydrateSnapshotDetails(cachedToApply);
             applySnapshot(hydrated);
-            return;
+            if (!fetchOnboardingStatus) return;
+          } else {
+            applySnapshot(cachedToApply);
+            if (!fetchOnboardingStatus) return;
           }
-          applySnapshot(cached);
-          return;
         } catch (_err) {
           console.warn('Cached practice promise failed, retrying with fresh fetch.');
           if (sharedPracticePromise === cachedPromise) {
@@ -825,15 +828,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
           .filter((practice) => practice.id.length > 0);
 
-        const activeOrgId = activeOrganizationId ?? null;
-        const activePractice = activeOrgId
-          ? normalizedList.find(practice =>
-            practice.betterAuthOrgId === activeOrgId || practice.id === activeOrgId
-          )
-          : undefined;
-        const currentPracticeNext = activePractice || normalizedList[0] || null;
+        let currentPracticeNext: Practice | null = null;
+        if (requestedPracticeSlug) {
+          const foundBySlug = normalizedList.find((p) => p.slug === requestedPracticeSlug);
+          currentPracticeNext = foundBySlug || null;
+        }
+        if (!currentPracticeNext && !requestedPracticeSlug) {
+          currentPracticeNext = normalizedList[0] || null;
+        }
         let details: PracticeDetails | null = null;
-        let stripeDetailsSubmitted: boolean | null = null;
+        const shouldFetchStripeStatus = ENABLE_PAYOUT_STATUS && fetchOnboardingStatus;
+        let stripeDetailsSubmitted: boolean | null = shouldFetchStripeStatus ? null : false;
         if (currentPracticeNext) {
           if (fetchPracticeDetails) {
             try {
@@ -843,23 +848,25 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
               console.warn('Failed to fetch practice details:', detailsError);
             }
           }
-          try {
-            const payload = await getOnboardingStatusPayload(
-              currentPracticeNext.betterAuthOrgId ?? currentPracticeNext.id,
-              { signal: controller.signal }
-            );
-            stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
-          } catch (stripeError) {
-            if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
-              stripeDetailsSubmitted = false;
-            } else {
-              console.warn('Failed to fetch onboarding status:', stripeError);
+          if (shouldFetchStripeStatus) {
+            try {
+              const payload = await getOnboardingStatusPayload(
+                currentPracticeNext.betterAuthOrgId ?? currentPracticeNext.id,
+                { signal: controller.signal }
+              );
+              stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
+            } catch (stripeError) {
+              if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
+                stripeDetailsSubmitted = false;
+              } else {
+                console.warn('Failed to fetch onboarding status:', stripeError);
+              }
             }
           }
         }
 
         const applyStripeOverride = (practice: Practice): Practice => {
-          if (stripeDetailsSubmitted === null || practice.id !== currentPracticeNext?.id) {
+          if (!shouldFetchStripeStatus || stripeDetailsSubmitted === null || practice.id !== currentPracticeNext?.id) {
             return practice;
           }
           return {
@@ -890,6 +897,12 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
         return { practices: mergedPractices, currentPractice: mergedCurrentPractice };
       })();
+      practicesInFlight = sharedPracticePromise
+        .then(() => undefined)
+        .finally(() => {
+          practicesInFlight = null;
+          practicesLoaded = true;
+        });
       currentFetchPromise = sharedPracticePromise;
 
       const snapshot = await sharedPracticePromise;
@@ -914,82 +927,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [activeOrganizationId, fetchPracticeDetails, isAnonymous, session]);
-
-  // Fetch practice invitations
-  const fetchInvitations = useCallback(async () => {
-    if (!session?.user?.id || isAnonymous) return;
-
-    if (getBackendApiUrl().includes('staging')) {
-      console.debug('Skipping fetchInvitations on staging because invitations are not available');
-      return;
-    }
-
-    try {
-      // Use imported function directly
-      const rawInvitations = await listPracticeInvitations();
-
-      // Define valid role and status values
-      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
-      const validStatuses: Array<'pending' | 'accepted' | 'declined'> = ['pending', 'accepted', 'declined'];
-
-      const validatedInvitations = rawInvitations
-        .map(invitation => {
-          // Validate invitation structure manually
-          if (!invitation || typeof invitation !== 'object') {
-            return null;
-          }
-          const inv = invitation as Record<string, unknown>;
-          if (
-            typeof inv.id === 'string' &&
-            typeof inv.practiceId === 'string' &&
-            typeof inv.email === 'string' &&
-            typeof inv.role === 'string' &&
-            typeof inv.status === 'string' &&
-            typeof inv.invitedBy === 'string' &&
-            typeof inv.expiresAt === 'number' &&
-            typeof inv.createdAt === 'number'
-          ) {
-            const normalizedRole = normalizePracticeRole(inv.role);
-            if (!normalizedRole || !validRoles.includes(normalizedRole)) {
-              console.error('Invalid invitation role:', inv.role, 'Expected one of:', validRoles, 'Invitation:', invitation);
-              return null;
-            }
-            // Validate status is one of the allowed values
-            if (!validStatuses.includes(inv.status as 'pending' | 'accepted' | 'declined')) {
-              console.error('Invalid invitation status:', inv.status, 'Expected one of:', validStatuses, 'Invitation:', invitation);
-              return null;
-            }
-            return {
-              id: inv.id,
-              practiceId: inv.practiceId,
-              practiceName: typeof inv.practiceName === 'string' ? inv.practiceName : undefined,
-              email: inv.email,
-              role: normalizedRole,
-              status: inv.status as 'pending' | 'accepted' | 'declined',
-              invitedBy: inv.invitedBy,
-              expiresAt: inv.expiresAt,
-              createdAt: inv.createdAt,
-            } as Invitation;
-          }
-          console.error('Invalid invitation data:', invitation);
-          return null;
-        })
-        .filter((invitation): invitation is Invitation => invitation !== null);
-
-      setInvitations(validatedInvitations);
-    } catch (err: unknown) {
-      // Don't set global error for invitation failures as it blocks the main UI
-      const axiosError = err as { response?: { status: number, data: unknown }, message?: string };
-      if (axiosError.response) {
-        // Use debug for expected API errors (like 400 Invalid Practice UUID) to avoid console noise
-        console.debug('Failed to fetch invitations:', axiosError.response.status, axiosError.response.data);
-      } else {
-        console.debug('Failed to fetch invitations:', axiosError.message || err);
-      }
-      setInvitations([]);
-    }
-  }, [isAnonymous, session]);
+  }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
 
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {
@@ -999,9 +937,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     // Only include slug if user explicitly provided one - API will auto-generate otherwise
     const slug = data.slug && data.slug.trim().length > 0 ? data.slug.trim() : undefined;
-    const metadata = data.description
+    const baseMetadata = data.description
       ? { description: data.description }
       : undefined;
+    const metadata = data.metadata
+      ? {
+          ...(baseMetadata ?? {}),
+          ...data.metadata
+        }
+      : baseMetadata;
 
     const practice = await apiCreatePractice({
       name: data.name,
@@ -1009,14 +953,20 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       ...(metadata ? { metadata } : {})
     });
 
+    if (practice?.id) {
+      try {
+        await apiUpdatePracticeDetails(practice.id, { isPublic: true });
+        practice.isPublic = true;
+      } catch (err) {
+        console.warn('[usePracticeManagement] Failed to enable public visibility by default', err);
+      }
+    }
+
     const normalized = normalizePracticeRecord(practice as unknown as Record<string, unknown>);
     practicesFetchedRef.current = false;
     await fetchPractices();
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
     return normalized;
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchPractices]);
 
   // Update practice
   const updatePractice = useCallback(async (id: string, data: UpdatePracticeData): Promise<void> => {
@@ -1041,6 +991,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     if (typeof data.businessEmail === 'string' && data.businessEmail.trim().length > 0) {
       payload.businessEmail = data.businessEmail.trim();
+    }
+
+    if (data.businessOnboardingStatus) {
+      payload.businessOnboardingStatus = data.businessOnboardingStatus;
+    }
+    
+    if (data.businessOnboardingHasDraft !== undefined) {
+      payload.businessOnboardingHasDraft = data.businessOnboardingHasDraft;
     }
 
     if (data.consultationFee === null) {
@@ -1096,9 +1054,32 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       return;
     }
 
-    const updatedPractice = normalizePracticeRecord(
-      await apiUpdatePractice(id, payload) as unknown as Record<string, unknown>
-    );
+    const response = await apiUpdatePractice(id, payload);
+    const mergedResponse: Record<string, unknown> = {
+      ...(existingPractice ?? {}),
+      ...(response as unknown as Record<string, unknown>)
+    };
+    if (
+      existingPractice?.slug &&
+      mergedResponse.slug === mergedResponse.id &&
+      existingPractice.slug !== mergedResponse.slug
+    ) {
+      mergedResponse.slug = existingPractice.slug;
+    }
+    if (
+      existingPractice?.name &&
+      (mergedResponse.name === 'Practice' || !mergedResponse.name)
+    ) {
+      mergedResponse.name = existingPractice.name;
+    }
+    const updatedPractice = normalizePracticeRecord(mergedResponse);
+
+    if (payload.businessOnboardingStatus !== undefined) {
+      updatedPractice.businessOnboardingStatus = payload.businessOnboardingStatus;
+    }
+    if (payload.businessOnboardingHasDraft !== undefined) {
+      updatedPractice.businessOnboardingHasDraft = payload.businessOnboardingHasDraft;
+    }
 
     if (sharedPracticeSnapshot) {
       const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
@@ -1118,10 +1099,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       prev.map((practice) => (practice.id === id ? updatedPractice : practice))
     );
 
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
-  }, [fetchInvitations, practices, shouldFetchInvitations]);
+  }, [practices]);
 
   const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
     if (!id) {
@@ -1166,10 +1144,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await apiDeletePractice(id);
     practicesFetchedRef.current = false;
     await fetchPractices();
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchPractices]);
 
   // Fetch members
   const fetchMembers = useCallback(async (
@@ -1215,6 +1190,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             : (typeof (member.user as Record<string, unknown> | undefined)?.email === 'string'
               ? (member.user as Record<string, unknown>).email as string
               : '');
+          const userRecord = (member.user && typeof member.user === 'object')
+            ? (member.user as Record<string, unknown>)
+            : null;
+          const normalizedName = typeof member.name === 'string'
+            ? member.name
+            : (typeof userRecord?.name === 'string' ? userRecord.name : undefined);
+          const normalizedImage = typeof member.image === 'string'
+            ? member.image
+            : (typeof userRecord?.image === 'string' ? userRecord.image : undefined);
 
           if (!userId) {
             console.error('Invalid or missing member userId:', member);
@@ -1235,8 +1219,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             userId,
             role: normalizedRole,
             email,
-            name: typeof member.name === 'string' ? member.name : undefined,
-            image: typeof member.image === 'string' ? member.image : undefined,
+            name: normalizedName,
+            image: normalizedImage,
             createdAt: Number.isFinite(createdAt ?? NaN) ? (createdAt as number) : Date.now(),
           } as Member;
         })
@@ -1270,27 +1254,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await fetchMembers(practiceId, { force: true });
   }, [fetchMembers]);
 
-  // Send invitation
-  const sendInvitation = useCallback(async (practiceId: string, email: string, role: Role): Promise<void> => {
-    await createPracticeInvitation(practiceId, { email, role });
-    await fetchInvitations();
-  }, [fetchInvitations]);
-
-  // Accept invitation
-  const acceptInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await respondToPracticeInvitation(invitationId, 'accept');
-    practicesFetchedRef.current = false;
-    await fetchPractices();
-    if (shouldFetchInvitations) {
-      await fetchInvitations();
-    }
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
-
-  const declineInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await respondToPracticeInvitation(invitationId, 'decline');
-    await fetchInvitations();
-  }, [fetchInvitations]);
-
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (practiceId: string, resource: string): Promise<void> => {
     try {
@@ -1307,97 +1270,22 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [workspaceCall]);
 
-  const acceptMatter = useCallback(async (practiceId: string, matterId: string): Promise<MatterTransitionResult> => {
-    if (!practiceId || !matterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-
-    // Deterministic idempotency key derived from operation params
-    const idempotencyKey = `matter:${practiceId}:${matterId}:accept`;
-    const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}/accept`;
-    const response = await workspaceCall(endpoint, {
-      method: 'POST',
-      headers: {
-        'Idempotency-Key': idempotencyKey
-      }
-    });
-
-    return normalizeMatterTransitionResult(response);
-  }, [workspaceCall]);
-
-  const rejectMatter = useCallback(async (practiceId: string, matterId: string, reason?: string): Promise<MatterTransitionResult> => {
-    if (!practiceId || !matterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-
-    const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}/reject`;
-    const payload: Record<string, unknown> = {};
-    if (typeof reason === 'string' && reason.trim().length > 0) {
-      payload.reason = reason.trim();
-    }
-
-    const response = await workspaceCall(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: {
-        // Deterministic idempotency key derived from operation params
-        'Idempotency-Key': `matter:${practiceId}:${matterId}:reject:${payload.reason ?? ''}`
-      }
-    });
-
-    return normalizeMatterTransitionResult(response);
-  }, [workspaceCall]);
-
-  const updateMatterStatus = useCallback(async (practiceId: string, matterId: string, status: MatterWorkflowStatus, reason?: string): Promise<MatterTransitionResult> => {
-    if (!practiceId || !matterId) {
-      throw new Error('Practice ID and matter ID are required');
-    }
-
-    const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}/status`;
-    const payload: Record<string, unknown> = { status };
-    if (typeof reason === 'string' && reason.trim().length > 0) {
-      payload.reason = reason.trim();
-    }
-
-    const response = await workspaceCall(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-      headers: {
-        // Deterministic idempotency key derived from operation params
-        'Idempotency-Key': `matter:${practiceId}:${matterId}:status:${status}:${payload.reason ?? ''}`
-      }
-    });
-
-    return normalizeMatterTransitionResult(response);
-  }, [workspaceCall]);
-
   // Refetch all data
   const refetch = useCallback(async () => {
     // Reset the fetched flag to ensure we actually refetch
     practicesFetchedRef.current = false;
     resetSharedPracticeCache();
     
-    const promises = [fetchPractices()];
-    
-    // Only fetch invitations if explicitly requested
-    if (shouldFetchInvitations) {
-      promises.push(fetchInvitations());
-    }
-    
-    await Promise.all(promises);
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
+    await fetchPractices();
+  }, [fetchPractices]);
 
   // Refetch when session changes
   useEffect(() => {
-    if (!autoFetchPractices || sessionLoading || isAnonymous) {
+    if (!autoFetchPractices || sessionLoading) {
       return;
     }
 
-    void fetchPractices().then(() => {
-      if (shouldFetchInvitations) {
-        void fetchInvitations();
-      }
-    });
+    void fetchPractices();
 
     return () => {
       currentRequestRef.current?.abort();
@@ -1407,9 +1295,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     sessionLoading,
     session?.user?.id,
     isAnonymous,
-    fetchPractices,
-    fetchInvitations,
-    shouldFetchInvitations
+    fetchPractices
   ]);
 
   return {
@@ -1425,15 +1311,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     fetchMembers,
     updateMemberRole,
     removeMember,
-    invitations,
-    sendInvitation,
-    acceptInvitation,
-    declineInvitation,
     getWorkspaceData,
     fetchWorkspaceData,
-    acceptMatter,
-    rejectMatter,
-    updateMatterStatus,
     refetch,
   };
 }

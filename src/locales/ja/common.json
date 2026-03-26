@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "戻る",
+    "errors": {
+      "tryAgainLater": "後でもう一度お試しください。"
+    }
+  },
   "app": {
     "loading": "読み込み中…"
   },
@@ -211,7 +217,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "こんにちは 👋",
       "helpPrompt": "どのようなご用件でしょうか？",
@@ -219,14 +225,17 @@
       "sendMessage": "メッセージを送信",
       "consultation": {
         "title": "弁護士に相談しますか？",
-        "description": "詳細をお知らせいただければ、あなたの状況に適した弁護士にお繋ぎします。",
-        "button": "相談をリクエスト"
+        "description": "詳細をお知らせいただければ、あなたの状況に適した弁護士にお繋ぎします。"
       },
       "poweredBy": "Powered by"
     },
     "navigation": {
       "home": "ホーム",
-      "messages": "メッセージ"
+      "messages": "メッセージ",
+      "matters": "案件",
+      "clients": "クライアント",
+      "settings": "設定",
+      "invoices": "請求書"
     },
     "conversationList": {
       "title": "メッセージ",
@@ -237,12 +246,59 @@
     },
     "error": {
       "title": "事務所の詳細が利用できません",
-      "description": "事務所の名前とロゴ {{slug}}を読み込めませんでした。ページを更新するか、事務所に連絡して公開設定を確認してください。",
+      "description": "事務所の名前とロゴ 「{{slug}}」を読み込めませんでした。ページを更新するか、事務所に連絡して公開設定を確認してください。",
       "retry": "再試行"
     },
     "header": {
       "activeNow": "オンライン",
-      "back": "戻る"
+      "back": "戻る",
+      "inactive": "非アクティブ",
+      "away": "離席中",
+      "unknown": "状態不明"
     }
+  },
+  "chat": {
+    "publicIntro": "何でもお聞きください。また、フィードバックもお待ちしております。",
+    "continue": "続ける",
+    "submitRequest": "リクエストを送信",
+    "submitNow": "今すぐ送信",
+    "buildStrongerBrief": "より詳細な報告を作成",
+    "askQuestion": "質問する",
+    "requestConsultation": "相談をリクエスト",
+    "retry": "再試行",
+    "retrying": "再試行中...",
+    "replyingTo": "<name>{{name}}</name> への返信",
+    "cta": {
+      "submit": "リクエストを送信",
+      "submitConsultationRequest": "相談リクエストを送信",
+      "reviewSubmit": "確認して送信",
+      "keepAnswering": "回答を続ける",
+      "continue": "続ける",
+      "addMore": "追加する",
+      "notYet": "まだです"
+    }
+  },
+  "intake": {
+    "authTitle": "もうすぐ完了です",
+    "authDescription": "無料アカウントを作成して、インテークを続行し、{{practice}}からの更新を受け取ります。確認リンクをメールで送信します。",
+    "authDescriptionFallback": "無料アカウントを作成して、インテークを続行し、更新を受け取ります。確認リンクをメールで送信します。"
+  },
+  "leadReview": {
+    "accept": "承認",
+    "decline": "却下",
+    "convert": "案件に変換",
+    "noPermission": "このリードをレビューする権限がありません"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

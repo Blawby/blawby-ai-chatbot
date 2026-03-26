@@ -1,8 +1,13 @@
-import type { Env } from '../types.js';
+import type { Env, MessageReaction } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from './SessionAuditService.js';
+import {
+  applyConsultationPatchToMetadata,
+  normalizeSlimContactDraft as normalizeSharedSlimContactDraft,
+  resolveConsultationState,
+} from '../../src/shared/utils/consultationState';
 
 export interface Conversation {
   id: string;
@@ -15,6 +20,7 @@ export interface Conversation {
     slug: string;
   } | null;
   user_id: string | null;
+  is_anonymous?: boolean;
   matter_id: string | null;
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
@@ -24,12 +30,20 @@ export interface Conversation {
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // Timestamp of last message
+  last_message_content?: string | null; // Content of last message for preview
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // Timestamp of first practice member response
   closed_at?: string | null; // Timestamp when conversation was closed
   created_at: string;
   updated_at: string;
+  lead?: {
+    is_lead: boolean;
+    lead_id?: string;
+    matter_id?: string;
+    lead_source?: string | null;
+    created_at?: string | null;
+  };
 }
 
 export interface ConversationMessage {
@@ -46,11 +60,13 @@ export interface ConversationMessage {
   server_ts: string;
   token_count: number | null;
   created_at: string;
+  reactions?: MessageReaction[];
 }
 
 export interface CreateConversationOptions {
   practiceId: string;
-  userId: string | null; // Null for anonymous users
+  userId: string;
+  isAnonymous?: boolean;
   matterId?: string | null;
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
@@ -61,6 +77,13 @@ export interface GetMessagesOptions {
   limit?: number;
   cursor?: string;
   fromSeq?: number;
+  traceId?: string;
+  requestSource?: string;
+  viewerId?: string | null;
+}
+
+export interface GetConversationOptions {
+  repair?: boolean;
 }
 
 export interface GetMessagesResult {
@@ -79,6 +102,231 @@ export class ConversationService {
   private static readonly MAX_SYSTEM_MESSAGE_LENGTH = 4000;
   private static readonly MAX_METADATA_BYTES = 8 * 1024;
   private static readonly MAX_REACTION_EMOJI_LENGTH = 64;
+
+  private normalizeParticipantIds(userIds: string[]): string[] {
+    return Array.from(
+      new Set(
+        userIds
+          .map((id) => (typeof id === 'string' ? id.trim() : ''))
+          .filter((id) => id.length > 0)
+      )
+    );
+  }
+
+  private parseJsonRecord(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value !== 'string') return null;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private readTrimmedString(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeSlimContactDraft(value: unknown): { name: string; email: string; phone: string } | null {
+    return normalizeSharedSlimContactDraft(value);
+  }
+
+  private extractSlimContactDraftFromContent(content: string | null | undefined): { name: string; email: string; phone: string } | null {
+    if (!content) return null;
+    const nameMatch = content.match(/(?:^|\n)Name:\s*([^\n]+)/i);
+    const emailMatch = content.match(/(?:^|\n)Email:\s*([^\n]+)/i);
+    const phoneMatch = content.match(/(?:^|\n)Phone:\s*([^\n]+)/i);
+    const name = this.readTrimmedString(nameMatch?.[1]) ?? '';
+    const email = this.readTrimmedString(emailMatch?.[1]) ?? '';
+    const phone = this.readTrimmedString(phoneMatch?.[1]) ?? '';
+    if (!name && !email && !phone) return null;
+    return { name, email, phone };
+  }
+
+  private mergeSlimContactDraft(
+    existing: { name: string; email: string; phone: string } | null,
+    recovered: { name: string; email: string; phone: string } | null
+  ): { name: string; email: string; phone: string } | null {
+    if (!existing && !recovered) return null;
+    return {
+      name: existing?.name || recovered?.name || '',
+      email: existing?.email || recovered?.email || '',
+      phone: existing?.phone || recovered?.phone || '',
+    };
+  }
+
+  private async repairConsultationMetadata(
+    conversationId: string,
+    practiceId: string,
+    currentUserInfo: Record<string, unknown> | null,
+    currentUpdatedAt: string | null,
+    attempt = 0
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await this.env.DB.prepare(`
+      SELECT client_id, content, metadata
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND practice_id = ?
+        AND (
+          client_id = 'system-intake-contact-ack'
+          OR client_id = 'system-intake-opening'
+          OR client_id LIKE 'system-intake-submit-%'
+          OR json_extract(metadata, '$.isContactFormSubmission') = 1
+          OR json_extract(metadata, '$.contactDetails.name') IS NOT NULL
+          OR json_extract(metadata, '$.contactDetails.email') IS NOT NULL
+          OR json_extract(metadata, '$.contactDetails.phone') IS NOT NULL
+          OR json_extract(metadata, '$.intakeSubmitted') = 1
+          OR json_extract(metadata, '$.intakeUuid') IS NOT NULL
+        )
+      ORDER BY seq DESC
+      LIMIT 50
+    `).bind(conversationId, practiceId).all<Record<string, unknown>>();
+
+    const results = rows.results ?? [];
+    if (results.length === 0) return currentUserInfo;
+
+    const existing = currentUserInfo ? { ...currentUserInfo } : {};
+    const existingSlimDraft = this.normalizeSlimContactDraft(
+      resolveConsultationState(existing)?.contact ?? existing.intakeSlimContactDraft
+    );
+
+    let recoveredSlimDraft: { name: string; email: string; phone: string } | null = null;
+    let sawConsultationSignal = false;
+    let recoveredIntakeSubmitted = false;
+    let recoveredIntakeUuid: string | null = null;
+
+    for (const row of results) {
+      const clientId = this.readTrimmedString(row.client_id) ?? '';
+      const metadata = this.parseJsonRecord(row.metadata);
+      const content = typeof row.content === 'string' ? row.content : null;
+
+      if (
+        clientId === 'system-intake-contact-ack'
+        || clientId === 'system-intake-opening'
+        || clientId.startsWith('system-intake-submit-')
+        || metadata?.isContactFormSubmission === true
+      ) {
+        sawConsultationSignal = true;
+      }
+
+      if (!recoveredSlimDraft) {
+        recoveredSlimDraft = this.normalizeSlimContactDraft(metadata?.contactDetails)
+          ?? this.extractSlimContactDraftFromContent(content);
+      }
+
+      if (metadata?.intakeSubmitted === true || clientId.startsWith('system-intake-submit-')) {
+        recoveredIntakeSubmitted = true;
+      }
+
+      if (!recoveredIntakeUuid) {
+        recoveredIntakeUuid = this.readTrimmedString(metadata?.intakeUuid) ?? null;
+      }
+    }
+
+    const mergedSlimDraft = this.mergeSlimContactDraft(existingSlimDraft, recoveredSlimDraft);
+    const nextMetadata = sawConsultationSignal || mergedSlimDraft || recoveredIntakeSubmitted || recoveredIntakeUuid
+      ? applyConsultationPatchToMetadata(
+          existing,
+          {
+            contact: mergedSlimDraft ?? undefined,
+            status: recoveredIntakeSubmitted ? 'submitted' : undefined,
+            submission: recoveredIntakeSubmitted
+              ? (recoveredIntakeUuid ? { intakeUuid: recoveredIntakeUuid } : {})
+              : undefined,
+          },
+          { mirrorLegacyFields: true }
+        )
+      : existing;
+
+    const changed = JSON.stringify(existing) !== JSON.stringify(nextMetadata);
+
+    if (!changed) return currentUserInfo;
+
+    if (!currentUpdatedAt) return currentUserInfo;
+
+    const updateResult = await this.env.DB.prepare(`
+      UPDATE conversations
+      SET user_info = ?
+      WHERE id = ? AND practice_id = ? AND updated_at = ?
+    `).bind(JSON.stringify(nextMetadata), conversationId, practiceId, currentUpdatedAt).run();
+
+    const updatedRows = typeof updateResult.meta?.changes === 'number' ? updateResult.meta.changes : 0;
+    if (updatedRows === 0) {
+      if (attempt >= 1) {
+        return currentUserInfo;
+      }
+
+      Logger.warn('Consultation metadata repair hit a concurrent update; retrying once', {
+        conversationId,
+        practiceId,
+      });
+
+      const latestRecord = await this.env.DB.prepare(`
+        SELECT user_info, updated_at
+        FROM conversations
+        WHERE id = ? AND practice_id = ?
+      `).bind(conversationId, practiceId).first<Record<string, unknown>>();
+
+      if (!latestRecord) {
+        return currentUserInfo;
+      }
+
+      return this.repairConsultationMetadata(
+        conversationId,
+        practiceId,
+        this.parseJsonRecord(latestRecord.user_info),
+        typeof latestRecord.updated_at === 'string' ? latestRecord.updated_at : null,
+        attempt + 1
+      );
+    }
+
+    Logger.info('Repaired consultation metadata from message history', {
+      conversationId,
+      practiceId,
+      repairedSlimDraft: Boolean(mergedSlimDraft),
+      repairedMode: nextMetadata.mode === 'REQUEST_CONSULTATION',
+      repairedSubmitted: resolveConsultationState(nextMetadata)?.status === 'submitted',
+      repairedIntakeUuid: resolveConsultationState(nextMetadata)?.submission.intakeUuid ?? null,
+    });
+
+    return nextMetadata;
+  }
+
+  async mergeConsultationMetadata(
+    conversationId: string,
+    practiceId: string,
+    patch: Parameters<typeof applyConsultationPatchToMetadata>[1],
+    options?: { allowReset?: boolean; repair?: boolean }
+  ): Promise<Conversation> {
+    const currentConversation = await this.getConversation(
+      conversationId,
+      practiceId,
+      options?.repair ? { repair: true } : undefined
+    );
+    const currentMetadata = (currentConversation.user_info ?? {}) as Record<string, unknown>;
+    const nextMetadata = applyConsultationPatchToMetadata(
+      currentMetadata,
+      patch,
+      {
+        allowReset: options?.allowReset,
+        mirrorLegacyFields: true,
+      }
+    );
+    return this.updateConversation(
+      conversationId,
+      practiceId,
+      { metadata: nextMetadata },
+      { repair: options?.repair }
+    );
+  }
 
   /**
    * Create a new conversation
@@ -101,29 +349,27 @@ export class ConversationService {
     }
 
     // Validate that we have at least one participant
-    if (!options.userId && options.participantUserIds.length === 0) {
-      throw HttpErrors.badRequest('At least one participant is required for anonymous conversations');
-    }
-
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    // Ensure creator is in participants (only if userId is not null)
-    const participants = options.userId 
-      ? Array.from(new Set([options.userId, ...options.participantUserIds]))
-      : options.participantUserIds;
+    // Always include the creator in participants.
+    const participants = this.normalizeParticipantIds([options.userId, ...options.participantUserIds]);
+    if (participants.length === 0) {
+      throw HttpErrors.badRequest('At least one valid participant is required');
+    }
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
     const statements = [
       this.env.DB.prepare(`
         INSERT INTO conversations (
-          id, practice_id, user_id, matter_id, participants, user_info, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+          id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
       `).bind(
         conversationId,
         options.practiceId,
-        options.userId, // Can be null for anonymous users
+        options.userId,
+        options.isAnonymous ? 1 : 0,
         options.matterId || null,
         participantsJson,
         userInfoJson,
@@ -146,115 +392,161 @@ export class ConversationService {
     return this.getConversation(conversationId, options.practiceId);
   }
 
+  private mapRecordToConversation(record: Record<string, unknown> | null): Conversation {
+    if (!record) {
+      throw new Error('[ConversationService] Cannot map null record to conversation');
+    }
+    
+    // Parse JSON fields if they are strings
+    const safeParse = <T>(label: string, value: unknown, fallback: T): T => {
+      if (typeof value !== 'string') {
+        if (fallback === null || fallback === undefined) {
+          return (value !== null && value !== undefined) ? (value as T) : fallback;
+        }
+        if (value === null || value === undefined) return fallback;
+        if (Array.isArray(fallback)) {
+          if (Array.isArray(value)) return value as T;
+          console.error(`[ConversationService] Type mismatch [${label}]`, {
+            expected: 'array',
+            actual: Array.isArray(value) ? 'array' : typeof value,
+            value
+          });
+          return fallback;
+        }
+        if (fallback !== null && typeof fallback !== 'object') {
+          if (typeof value === typeof fallback) return value as T;
+          console.error(`[ConversationService] Type mismatch [${label}]`, {
+            expected: typeof fallback,
+            actual: typeof value,
+            value
+          });
+          return fallback;
+        }
+        if (fallback !== null && typeof fallback === 'object') {
+          if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+          console.error(`[ConversationService] Type mismatch [${label}]`, {
+            expected: 'object',
+            actual: Array.isArray(value) ? 'array' : typeof value,
+            value
+          });
+          return fallback;
+        }
+        console.error(`[ConversationService] Type mismatch [${label}]`, {
+          expected: 'null',
+          actual: Array.isArray(value) ? 'array' : typeof value,
+          value
+        });
+        return fallback;
+      }
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.error(`[ConversationService] JSON parse error [${label}]`, { 
+          error: err instanceof Error ? err.message : String(err),
+          type: typeof value,
+          length: typeof value === 'string' ? value.length : undefined
+        });
+        return fallback;
+      }
+    };
+
+    const getString = (value: unknown): string => (
+      typeof value === 'string' ? value : value != null ? String(value) : ''
+    );
+    const getNullableString = (value: unknown): string | null => (
+      typeof value === 'string' ? value : value == null ? null : String(value)
+    );
+
+    const participants = safeParse<string[]>('participants', record.participants, []);
+    const user_info = safeParse<Record<string, unknown> | null>('user_info', record.user_info, null);
+    const tags = safeParse<string[] | undefined>('tags', record.tags, undefined);
+    const practiceName = getNullableString(record.practice_name);
+    const practiceId = getString(record.practice_id);
+    
+    const conversation: Conversation = {
+      id: getString(record.id),
+      practice_id: practiceId,
+      practice: practiceName ? {
+        id: practiceId,
+        name: practiceName,
+        slug: getString(record.practice_slug) || practiceId
+      } : null,
+      user_id: getNullableString(record.user_id),
+      is_anonymous: Boolean(Number(record.is_anonymous ?? 0)),
+      matter_id: getNullableString(record.matter_id),
+      participants,
+      user_info,
+      status: getString(record.status) as Conversation['status'],
+      assigned_to: getNullableString(record.assigned_to),
+      priority: (getString(record.priority) || 'normal') as Conversation['priority'],
+      tags,
+      internal_notes: getNullableString(record.internal_notes),
+      last_message_at: getNullableString(record.last_message_at),
+      last_message_content: getNullableString(record.last_message_content),
+      first_response_at: getNullableString(record.first_response_at),
+      closed_at: getNullableString(record.closed_at),
+      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
+      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
+      created_at: getString(record.created_at),
+      updated_at: getString(record.updated_at)
+    };
+
+    return conversation;
+  }
+
   /**
    * Get a single conversation by ID
    */
-  async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
+  async getConversation(
+    conversationId: string,
+    practiceId: string,
+    options?: GetConversationOptions
+  ): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at
-      FROM conversations
-      WHERE id = ? AND practice_id = ?
-    `).bind(conversationId, practiceId).first<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-    } | null>();
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
+      FROM conversations c
+      WHERE c.id = ? AND c.practice_id = ?
+    `).bind(conversationId, practiceId).first<Record<string, unknown>>();
 
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
     }
 
-    return {
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
-      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    };
+    const parsedUserInfo = this.parseJsonRecord(record.user_info);
+    const currentUpdatedAt = typeof record.updated_at === 'string' ? record.updated_at : null;
+    record.user_info = options?.repair
+      ? await this.repairConsultationMetadata(conversationId, practiceId, parsedUserInfo, currentUpdatedAt)
+      : parsedUserInfo;
+
+    return this.mapRecordToConversation(record);
   }
 
   /**
    * Get a single conversation by ID without scoping to a practice.
    * Use with participant checks before returning sensitive data.
    */
-  async getConversationById(conversationId: string): Promise<Conversation> {
+  async getConversationById(
+    conversationId: string,
+    options?: GetConversationOptions
+  ): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
-      SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at
-      FROM conversations
-      WHERE id = ?
-    `).bind(conversationId).first<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-    } | null>();
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
+      FROM conversations c
+      WHERE c.id = ?
+    `).bind(conversationId).first<Record<string, unknown>>();
 
     if (!record) {
       throw HttpErrors.notFound('Conversation not found');
     }
 
-    return {
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
-      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    };
+    const practiceId = typeof record.practice_id === 'string' ? record.practice_id : String(record.practice_id ?? '');
+    const parsedUserInfo = this.parseJsonRecord(record.user_info);
+    const currentUpdatedAt = typeof record.updated_at === 'string' ? record.updated_at : null;
+    record.user_info = options?.repair
+      ? await this.repairConsultationMetadata(conversationId, practiceId, parsedUserInfo, currentUpdatedAt)
+      : parsedUserInfo;
+
+    return this.mapRecordToConversation(record);
   }
 
   /**
@@ -273,7 +565,12 @@ export class ConversationService {
       FROM conversations
       WHERE practice_id = ?
         AND json_extract(user_info, '$.system_conversation') = 1
-        AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_participants cp
+          WHERE cp.conversation_id = conversations.id
+            AND cp.user_id = ?
+        )
       ORDER BY created_at ASC
       LIMIT 1
     `).bind(practiceId, userId).first<{ id: string } | null>();
@@ -317,67 +614,36 @@ export class ConversationService {
 
     // Try to get most recent conversation (prefer active if present)
     // Build WHERE clause conditionally to avoid SQL keyword interpolation
-    const userIdCondition = isAnonymous ? 'AND user_id IS NULL' : 'AND user_id IS NOT NULL';
+    const anonymousCondition = isAnonymous
+      ? "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 1"
+      : "AND COALESCE(c.is_anonymous, CASE WHEN c.user_id IS NULL THEN 1 ELSE 0 END) = 0";
     const query = `
-      SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at
-      FROM conversations
-      WHERE practice_id = ? 
-        AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
-        ${userIdCondition}
-      ORDER BY (status = 'active') DESC, updated_at DESC
+      SELECT c.*, (SELECT content FROM chat_messages m WHERE m.conversation_id = c.id AND m.role != 'system' AND TRIM(COALESCE(m.content, '')) <> '' ORDER BY seq DESC LIMIT 1) as last_message_content
+      FROM conversations c
+      WHERE c.practice_id = ? 
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_participants cp
+          WHERE cp.conversation_id = c.id
+            AND cp.user_id = ?
+        )
+        ${anonymousCondition}
+      ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
-    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-    } | null>();
+    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<Record<string, unknown>>();
 
     if (existing) {
-      return {
-        id: existing.id,
-        practice_id: existing.practice_id,
-        practice: null,
-        user_id: existing.user_id,
-        matter_id: existing.matter_id,
-        participants: JSON.parse(existing.participants || '[]') as string[],
-        user_info: existing.user_info ? JSON.parse(existing.user_info) : null,
-        status: existing.status as Conversation['status'],
-        assigned_to: existing.assigned_to || null,
-        priority: (existing.priority || 'normal') as Conversation['priority'],
-        tags: existing.tags ? JSON.parse(existing.tags) as string[] : undefined,
-        internal_notes: existing.internal_notes || null,
-        last_message_at: existing.last_message_at || null,
-        first_response_at: existing.first_response_at || null,
-        closed_at: existing.closed_at || null,
-        created_at: existing.created_at,
-        updated_at: existing.updated_at
-      };
+      return this.mapRecordToConversation(existing);
     }
 
-    // No existing conversation, create new one
-    // For anonymous users, user_id will be null but they still have a userId for participants
+    // No existing conversation, create new one.
     return this.createConversation({
       practiceId,
-      userId: isAnonymous ? null : userId, // Store actual userId for authenticated users, null for anonymous
+      userId,
+      isAnonymous: Boolean(isAnonymous),
       matterId: null,
-      participantUserIds: isAnonymous ? [userId] : [], // userId will be added automatically by createConversation for authenticated users
+      participantUserIds: [],
       metadata: null,
       skipPracticeValidation: options?.skipPracticeValidation
     }, request);
@@ -390,7 +656,9 @@ export class ConversationService {
     practiceId: string;
     matterId?: string | null;
     userId?: string | null;
+    bypassParticipantFilter?: boolean;
     status?: 'active' | 'archived' | 'closed';
+    assignedTo?: 'none';
     limit?: number;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100); // Max 100
@@ -398,17 +666,7 @@ export class ConversationService {
     let query = includeReadState
       ? `
       SELECT 
-        conversations.id,
-        conversations.practice_id,
-        conversations.user_id,
-        conversations.matter_id,
-        conversations.participants,
-        conversations.user_info,
-        conversations.status,
-        conversations.closed_at,
-        conversations.created_at,
-        conversations.updated_at,
-        conversations.latest_seq,
+        conversations.*,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -421,64 +679,47 @@ export class ConversationService {
       WHERE conversations.practice_id = ?
     `
       : `
-      SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status, closed_at, created_at, updated_at, latest_seq
+      SELECT conversations.*
       FROM conversations
-      WHERE practice_id = ?
+      WHERE conversations.practice_id = ?
     `;
     const bindings: unknown[] = includeReadState
       ? [options.userId, options.practiceId]
       : [options.practiceId];
 
     if (options.matterId) {
-      query += ' AND matter_id = ?';
+      query += ' AND conversations.matter_id = ?';
       bindings.push(options.matterId);
     }
 
-    if (options.userId) {
-      // User must be in participants array
-      query += ' AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)';
+    if (options.userId && !options.bypassParticipantFilter) {
+      // User must be a participant.
+      query += `
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_participants cp
+          WHERE cp.conversation_id = conversations.id
+            AND cp.user_id = ?
+        )
+      `;
       bindings.push(options.userId);
     }
 
     if (options.status) {
-      query += ' AND status = ?';
+      query += ' AND conversations.status = ?';
       bindings.push(options.status);
+    }
+
+    if (options.assignedTo === 'none') {
+      query += " AND (conversations.assigned_to IS NULL OR conversations.assigned_to = '')";
     }
 
     query += ' ORDER BY conversations.updated_at DESC LIMIT ?';
     bindings.push(limit);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-      latest_seq?: number | null;
-      unread_count?: number | null;
-    }>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
 
-    return records.results.map(record => ({
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      closed_at: record.closed_at || null,
-      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
-      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    }));
+    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   /**
@@ -493,18 +734,9 @@ export class ConversationService {
     const limit = Math.min(options.limit || 50, 100);
     const offset = Math.max(options.offset || 0, 0);
     let query = `
-      SELECT 
-        conversations.id,
-        conversations.practice_id,
-        conversations.user_id,
-        conversations.matter_id,
-        conversations.participants,
-        conversations.user_info,
-        conversations.status,
-        conversations.closed_at,
-        conversations.created_at,
-        conversations.updated_at,
-        conversations.latest_seq,
+      SELECT
+        conversations.*,
+        conversations.last_message_content,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
@@ -514,7 +746,12 @@ export class ConversationService {
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
-      WHERE EXISTS (SELECT 1 FROM json_each(conversations.participants) WHERE json_each.value = ?)
+      WHERE EXISTS (
+        SELECT 1
+        FROM conversation_participants cp
+        WHERE cp.conversation_id = conversations.id
+          AND cp.user_id = ?
+      )
     `;
     const bindings: unknown[] = [options.userId, options.userId];
 
@@ -526,36 +763,9 @@ export class ConversationService {
     query += ' ORDER BY conversations.updated_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-      latest_seq?: number | null;
-      unread_count?: number | null;
-    }>();
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
 
-    return records.results.map(record => ({
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      closed_at: record.closed_at || null,
-      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
-      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    }));
+    return records.results.map(record => this.mapRecordToConversation(record));
   }
 
   /**
@@ -567,10 +777,20 @@ export class ConversationService {
     updates: {
       status?: 'active' | 'archived' | 'closed';
       metadata?: Record<string, unknown>;
-    }
+      tags?: string[];
+      assignedTo?: string | null;
+      priority?: 'low' | 'normal' | 'high' | 'urgent';
+      internalNotes?: string | null;
+      metadataMergeMode?: 'patch' | 'replace';
+    },
+    options?: { request?: Request; repair?: boolean }
   ): Promise<Conversation> {
     // Verify conversation exists and belongs to practice
-    const currentConversation = await this.getConversation(conversationId, practiceId);
+    const currentConversation = await this.getConversation(
+      conversationId,
+      practiceId,
+      options?.repair ? { repair: true } : undefined
+    );
 
     const now = new Date().toISOString();
     const updatesList: string[] = [];
@@ -592,8 +812,56 @@ export class ConversationService {
     }
 
     if (updates.metadata !== undefined) {
-      updatesList.push('user_info = ?');
-      bindings.push(JSON.stringify(updates.metadata));
+      if (updates.metadataMergeMode === 'replace') {
+        // Replace mode: clear and set new metadata
+        updatesList.push('user_info = ?');
+        bindings.push(JSON.stringify(updates.metadata));
+      } else {
+        // Patch mode (default): merge with existing metadata
+        const mergedMetadata = {
+          ...((currentConversation.user_info ?? {}) as Record<string, unknown>),
+        };
+        for (const [key, value] of Object.entries(updates.metadata)) {
+          if (value === null) {
+            delete mergedMetadata[key];
+            continue;
+          }
+          mergedMetadata[key] = value;
+        }
+        updatesList.push('user_info = ?');
+        bindings.push(JSON.stringify(mergedMetadata));
+      }
+    }
+
+    if (updates.tags !== undefined) {
+      updatesList.push('tags = ?');
+      bindings.push(JSON.stringify(updates.tags));
+    }
+
+    if (updates.assignedTo !== undefined) {
+      if (updates.assignedTo && updates.assignedTo.trim()) {
+        const trimmedId = updates.assignedTo.trim();
+        // Verify user is a member of the practice
+        const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
+        const isMember = members.some(m => m.user_id === trimmedId);
+        if (!isMember) {
+          throw HttpErrors.badRequest(`User ${trimmedId} is not a member of practice ${practiceId}`);
+        }
+        updatesList.push('assigned_to = ?');
+        bindings.push(trimmedId);
+      } else {
+        updatesList.push('assigned_to = NULL');
+      }
+    }
+
+    if (updates.priority !== undefined) {
+      updatesList.push('priority = ?');
+      bindings.push(updates.priority);
+    }
+
+    if (updates.internalNotes !== undefined) {
+      updatesList.push('internal_notes = ?');
+      bindings.push(updates.internalNotes?.trim() || null);
     }
 
     if (updatesList.length === 0) {
@@ -611,6 +879,95 @@ export class ConversationService {
     `).bind(...bindings).run();
 
     return this.getConversation(conversationId, practiceId);
+  }
+
+  async setConversationTags(
+    conversationId: string,
+    practiceId: string,
+    tags: string[]
+  ): Promise<Conversation> {
+    const normalized = Array.from(
+      new Set(
+        tags
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0)
+      )
+    );
+    // updateConversation will only update provided fields
+    return this.updateConversation(conversationId, practiceId, {
+      tags: normalized
+    });
+  }
+
+  async addConversationTag(
+    conversationId: string,
+    practiceId: string,
+    tag: string
+  ): Promise<Conversation> {
+    const normalizedTag = tag.trim();
+    if (!normalizedTag) {
+      throw HttpErrors.badRequest('tag is required');
+    }
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const existingTags = Array.isArray(conversation.tags) ? conversation.tags : [];
+    return this.setConversationTags(conversationId, practiceId, [...existingTags, normalizedTag]);
+  }
+
+  async removeConversationTag(
+    conversationId: string,
+    practiceId: string,
+    tag: string
+  ): Promise<Conversation> {
+    const normalizedTag = tag.trim();
+    if (!normalizedTag) {
+      throw HttpErrors.badRequest('tag is required');
+    }
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const existingTags = Array.isArray(conversation.tags) ? conversation.tags : [];
+    const nextTags = existingTags.filter((value) => value !== normalizedTag);
+    return this.setConversationTags(conversationId, practiceId, nextTags);
+  }
+
+  async setConversationMentions(
+    conversationId: string,
+    practiceId: string,
+    mentionUserIds: string[],
+    options?: { request?: Request }
+  ): Promise<Conversation> {
+    const rawMentionUserIds = Array.from(
+      new Set(
+        mentionUserIds
+          .map((userId) => userId.trim())
+          .filter((userId) => userId.length > 0)
+      )
+    );
+
+    // Fetch practice members to validate mentions
+    const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
+    const memberIds = new Set(members.map(m => m.user_id));
+    
+    // Filter to only include valid members
+    const normalizedMentionUserIds = rawMentionUserIds.filter(id => memberIds.has(id));
+
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const metadata = { ...(conversation.user_info ?? {}) } as Record<string, unknown>;
+    
+    if (normalizedMentionUserIds.length > 0) {
+      metadata.mentioned_user_ids = normalizedMentionUserIds;
+    } else {
+      delete metadata.mentioned_user_ids;
+    }
+
+    const existingTags = Array.isArray(conversation.tags) ? conversation.tags : [];
+    const withoutMentionTag = existingTags.filter((tag) => tag !== 'mention');
+    const nextTags = normalizedMentionUserIds.length > 0
+      ? [...withoutMentionTag, 'mention']
+      : withoutMentionTag;
+
+    return this.updateConversation(conversationId, practiceId, {
+      metadata,
+      tags: nextTags
+    });
   }
 
   /**
@@ -637,6 +994,28 @@ export class ConversationService {
   }
 
   /**
+   * Detach a matter from a conversation
+   */
+  async detachMatter(
+    conversationId: string,
+    practiceId: string
+  ): Promise<Conversation> {
+    const conversation = await this.getConversation(conversationId, practiceId);
+    if (!conversation.matter_id) {
+      return conversation;
+    }
+
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET matter_id = NULL, updated_at = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(now, conversationId, practiceId).run();
+
+    return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
    * Add one or more participants to a conversation
    *
    * Ensures uniqueness, preserves existing participants, and updates the
@@ -654,9 +1033,10 @@ export class ConversationService {
     const conversation = await this.getConversation(conversationId, practiceId);
 
     // Merge and de-duplicate participants
-    const mergedParticipants = Array.from(
-      new Set([...conversation.participants, ...userIds.filter(Boolean)])
-    );
+    const mergedParticipants = this.normalizeParticipantIds([
+      ...conversation.participants,
+      ...userIds
+    ]);
 
     // If no changes, return existing conversation
     if (mergedParticipants.length === conversation.participants.length) {
@@ -714,7 +1094,8 @@ export class ConversationService {
   async linkConversationToUser(
     conversationId: string,
     practiceId: string,
-    userId: string
+    userId: string,
+    options?: { previousParticipantId?: string | null }
   ): Promise<Conversation> {
     const conversation = await this.getConversation(conversationId, practiceId);
 
@@ -722,7 +1103,16 @@ export class ConversationService {
       throw HttpErrors.forbidden('Conversation does not belong to this practice');
     }
 
-    if (conversation.user_id && conversation.user_id !== userId) {
+    const previousParticipantId =
+      typeof options?.previousParticipantId === 'string' && options.previousParticipantId.trim()
+        ? options.previousParticipantId.trim()
+        : null;
+
+    if (
+      conversation.user_id &&
+      conversation.user_id !== userId &&
+      conversation.user_id !== previousParticipantId
+    ) {
       throw HttpErrors.conflict('Conversation already linked to a different user');
     }
 
@@ -733,21 +1123,25 @@ export class ConversationService {
       return conversation;
     }
 
+    if (previousParticipantId && previousParticipantId !== userId) {
+      participantSet.delete(previousParticipantId);
+    }
     participantSet.add(userId);
-    const updatedParticipants = Array.from(participantSet);
+    const updatedParticipants = this.normalizeParticipantIds(Array.from(participantSet));
     const now = new Date().toISOString();
 
     const updateResult = await this.env.DB.prepare(`
       UPDATE conversations
-      SET user_id = ?, participants = ?, updated_at = ?, membership_version = membership_version + 1
-      WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ?)
+      SET user_id = ?, is_anonymous = 0, participants = ?, updated_at = ?, membership_version = membership_version + 1
+      WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ? OR user_id = ?)
     `).bind(
       userId,
       JSON.stringify(updatedParticipants),
       now,
       conversationId,
       practiceId,
-      userId
+      userId,
+      previousParticipantId
     ).run();
 
     const changes = updateResult.meta?.changes ?? updateResult.meta?.rows_written ?? 0;
@@ -765,30 +1159,61 @@ export class ConversationService {
       VALUES (?, ?)
     `).bind(conversationId, userId).run();
 
-    await this.notifyMembershipChanged(conversationId);
+    if (previousParticipantId && previousParticipantId !== userId) {
+      await this.env.DB.prepare(`
+        DELETE FROM conversation_participants
+        WHERE conversation_id = ? AND user_id = ?
+      `).bind(conversationId, previousParticipantId).run();
+      
+      // Notify about individual membership revocation
+      await this.notifyMembershipChanged(conversationId, previousParticipantId);
+    } else {
+      await this.notifyMembershipChanged(conversationId);
+    }
 
     return this.getConversation(conversationId, practiceId);
   }
 
   /**
-   * Validate that a user has access to a conversation
+   * Validate that a user has access to a conversation.
+   *
+   * Accepts an optional `previousAnonUserId` to handle the anon→auth race window:
+   * after Better Auth upgrades an anonymous session the session carries
+   * `previousAnonUserId`, but the `/link` PATCH may not have run yet.
+   * We treat the previous anon identity as valid for read access so concurrent
+   * GET /messages and PATCH /link requests don't race to produce a 403.
    */
   async validateParticipantAccess(
     conversationId: string,
     practiceId: string,
-    userId: string
+    userId: string,
+    options?: { previousAnonUserId?: string | null }
   ): Promise<void> {
     await this.getConversation(conversationId, practiceId);
 
+    const previousAnonUserId = options?.previousAnonUserId ?? null;
+
+    // Check current user first (most common case).
     const record = await this.env.DB.prepare(`
       SELECT 1
       FROM conversation_participants
       WHERE conversation_id = ? AND user_id = ?
     `).bind(conversationId, userId).first();
 
-    if (!record) {
-      throw HttpErrors.forbidden('User is not a participant in this conversation');
+    if (record) return;
+
+    // Grace window: accept the previous anonymous identity so GET requests that
+    // race against PATCH /link don't 403 during the handoff.
+    if (previousAnonUserId && previousAnonUserId !== userId) {
+      const anonRecord = await this.env.DB.prepare(`
+        SELECT 1
+        FROM conversation_participants
+        WHERE conversation_id = ? AND user_id = ?
+      `).bind(conversationId, previousAnonUserId).first();
+      if (anonRecord) return;
     }
+
+    throw HttpErrors.forbidden('User is not a participant in this conversation');
   }
 
   /**
@@ -976,6 +1401,44 @@ export class ConversationService {
           LIMIT -1 OFFSET ?
         )
     `).bind(options.conversationId, options.conversationId, options.maxMessages).run();
+
+    await this.repairConversationPreview(options.conversationId);
+  }
+
+  /**
+   * Repair the conversation preview content and timestamps after messages are deleted or pruned.
+   * This recomputes the latest sequence and last message content/at from the remaining visible messages.
+   */
+  async repairConversationPreview(conversationId: string): Promise<void> {
+    const latest = await this.env.DB.prepare(`
+      SELECT content, seq, created_at
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND role != 'system'
+        AND TRIM(COALESCE(content, '')) <> ''
+      ORDER BY seq DESC
+      LIMIT 1
+    `).bind(conversationId).first<{ content: string; seq: number; created_at: string } | null>();
+
+    const updated_at = new Date().toISOString();
+    if (latest) {
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET last_message_content = ?, latest_seq = ?, last_message_at = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(latest.content, latest.seq, latest.created_at, updated_at, conversationId).run();
+    } else {
+      // If no qualifying message remains, clear the preview but recompute latest_seq 
+      // from any remaining messages (e.g. system messages) to avoid stale sequence
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET last_message_content = NULL, 
+            last_message_at = created_at, 
+            latest_seq = (SELECT COALESCE(MAX(seq), 0) FROM chat_messages WHERE conversation_id = ?),
+            updated_at = ?
+        WHERE id = ?
+      `).bind(conversationId, updated_at, conversationId).run();
+    }
   }
 
   private async postChatRoomMessage(options: {
@@ -1084,7 +1547,8 @@ export class ConversationService {
       seq: record.seq,
       server_ts: record.server_ts,
       token_count: record.token_count,
-      created_at: record.created_at
+      created_at: record.created_at,
+      reactions: []
     };
   }
 
@@ -1247,6 +1711,8 @@ export class ConversationService {
         created_at: record.created_at
       }));
 
+      await this.attachReactionsToMessages(messages, options.viewerId ?? null);
+
       const latestSeq = Number(latestRecord.latest_seq);
       let nextFromSeq: number | null = null;
       if (messages.length > 0) {
@@ -1325,13 +1791,32 @@ export class ConversationService {
       created_at: record.created_at
     }));
 
+    await this.attachReactionsToMessages(messages, options.viewerId ?? null);
+
     // Reverse to return oldest first (for display)
     messages.reverse();
 
-    // Generate cursor from last message's created_at if there are more
-    const cursor = hasMore && messages.length > 0 
-      ? messages[messages.length - 1].created_at 
+    // Generate cursor from the oldest displayed message so the next page is strictly older.
+    const cursor = hasMore && messages.length > 0
+      ? messages[0].created_at
       : undefined;
+
+    Logger.info('[ConversationService][pagination] getMessages result', {
+      traceId: options.traceId ?? null,
+      requestSource: options.requestSource ?? null,
+      conversationId,
+      practiceId,
+      request: {
+        limit,
+        cursor: options.cursor ?? null
+      },
+      recordsCount: records.results.length,
+      returnedMessagesCount: messages.length,
+      hasMore,
+      nextCursor: cursor ?? null,
+      oldestReturnedCreatedAt: messages[0]?.created_at ?? null,
+      newestReturnedCreatedAt: messages[messages.length - 1]?.created_at ?? null
+    });
 
     return {
       messages,
@@ -1358,127 +1843,6 @@ export class ConversationService {
         read_status: readStatus
       }
     });
-  }
-
-  /**
-   * List conversations for a practice workspace (all practice conversations).
-   */
-  async getPracticeConversations(options: {
-    practiceId: string;
-    userId?: string;
-    status?: 'active' | 'archived' | 'closed';
-    limit?: number;
-    offset?: number;
-    sortBy?: 'last_message_at' | 'created_at' | 'priority';
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<Conversation[]> {
-    const limit = Math.min(options.limit || 50, 100);
-    const offset = options.offset || 0;
-    const sortBy = options.sortBy || 'last_message_at';
-    const sortOrder = options.sortOrder || 'desc';
-
-    const includeReadState = Boolean(options.userId);
-    let query = includeReadState
-      ? `
-      SELECT 
-        conversations.id,
-        conversations.practice_id,
-        conversations.user_id,
-        conversations.matter_id,
-        conversations.participants,
-        conversations.user_info,
-        conversations.status,
-        conversations.assigned_to,
-        conversations.priority,
-        conversations.tags,
-        conversations.internal_notes,
-        conversations.last_message_at,
-        conversations.first_response_at,
-        conversations.closed_at,
-        conversations.created_at,
-        conversations.updated_at,
-        conversations.latest_seq,
-        CASE
-          WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
-            THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
-          ELSE 0
-        END AS unread_count
-      FROM conversations
-      LEFT JOIN conversation_read_state
-        ON conversation_read_state.conversation_id = conversations.id
-       AND conversation_read_state.user_id = ?
-      WHERE conversations.practice_id = ?
-    `
-      : `
-      SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status,
-        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        closed_at, created_at, updated_at, latest_seq
-      FROM conversations
-      WHERE practice_id = ?
-    `;
-    const bindings: unknown[] = includeReadState
-      ? [options.userId, options.practiceId]
-      : [options.practiceId];
-
-    if (options.status) {
-      query += ' AND conversations.status = ?';
-      bindings.push(options.status);
-    }
-
-    const sortColumnMap: Record<string, string> = {
-      'last_message_at': 'COALESCE(last_message_at, created_at)',
-      'created_at': 'created_at',
-      'priority': 'priority'
-    };
-    const validSortColumn = sortColumnMap[sortBy] || sortColumnMap['last_message_at'];
-    const validSortOrder = (sortOrder === 'asc' || sortOrder === 'desc') ? sortOrder.toUpperCase() : 'DESC';
-
-    query += ` ORDER BY ${validSortColumn} ${validSortOrder} LIMIT ? OFFSET ?`;
-    bindings.push(limit, offset);
-
-    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
-      id: string;
-      practice_id: string;
-      user_id: string | null;
-      matter_id: string | null;
-      participants: string;
-      user_info: string | null;
-      status: string;
-      assigned_to: string | null;
-      priority: string | null;
-      tags: string | null;
-      internal_notes: string | null;
-      last_message_at: string | null;
-      first_response_at: string | null;
-      closed_at: string | null;
-      created_at: string;
-      updated_at: string;
-      latest_seq?: number | null;
-      unread_count?: number | null;
-    }>();
-
-    return records.results.map(record => ({
-      id: record.id,
-      practice_id: record.practice_id,
-      practice: null,
-      user_id: record.user_id,
-      matter_id: record.matter_id,
-      participants: JSON.parse(record.participants || '[]') as string[],
-      user_info: record.user_info ? JSON.parse(record.user_info) : null,
-      status: record.status as Conversation['status'],
-      assigned_to: record.assigned_to || null,
-      priority: (record.priority || 'normal') as Conversation['priority'],
-      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
-      internal_notes: record.internal_notes || null,
-      last_message_at: record.last_message_at || null,
-      first_response_at: record.first_response_at || null,
-      closed_at: record.closed_at || null,
-      unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
-      latest_seq: typeof record.latest_seq === 'number' ? record.latest_seq : undefined,
-      created_at: record.created_at,
-      updated_at: record.updated_at
-    }));
   }
 
   private async notifyMembershipChanged(conversationId: string, removedUserId?: string): Promise<void> {
@@ -1518,6 +1882,49 @@ export class ConversationService {
         removedUserId,
         error: error instanceof Error ? error.message : String(error)
       });
+    }
+  }
+
+  private async attachReactionsToMessages(messages: ConversationMessage[], viewerId: string | null): Promise<void> {
+    if (messages.length === 0) return;
+    const ids = messages.map((message) => message.id);
+    const placeholders = ids.map(() => '?').join(', ');
+    const viewer = viewerId ?? '';
+
+    const query = `
+      SELECT
+        message_id,
+        emoji,
+        COUNT(*) as count,
+        SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) as reacted_by_me
+      FROM chat_message_reactions
+      WHERE message_id IN (${placeholders})
+      GROUP BY message_id, emoji
+    `;
+
+    const records = await this.env.DB.prepare(query).bind(viewer, ...ids).all<{
+      message_id: string;
+      emoji: string;
+      count: number;
+      reacted_by_me: number;
+    }>();
+
+    const reactionMap = new Map<string, MessageReaction[]>();
+    for (const record of records.results) {
+      const payload: MessageReaction = {
+        emoji: record.emoji,
+        count: Number(record.count) || 0,
+        reactedByMe: Number(record.reacted_by_me) > 0,
+      };
+      if (!reactionMap.has(record.message_id)) {
+        reactionMap.set(record.message_id, [payload]);
+      } else {
+        reactionMap.get(record.message_id)?.push(payload);
+      }
+    }
+
+    for (const message of messages) {
+      message.reactions = reactionMap.get(message.id) ?? [];
     }
   }
 

@@ -1,5 +1,6 @@
 import {
   getPracticeClientIntakeCreateEndpoint,
+  getPracticeClientIntakeCheckoutSessionEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
 import { asMinor, assertMinorUnits, toMinorUnitsValue, type MinorAmount } from '@/shared/utils/money';
@@ -118,11 +119,22 @@ type IntakeCreateResponse = {
   error?: string;
 };
 
+type CheckoutSessionResponse = {
+  success?: boolean;
+  data?: {
+    url?: string;
+    session_id?: string;
+  };
+  error?: string;
+};
+
 export type IntakeSubmissionResult = IntakeCreateResponse & {
   intake?: {
     uuid?: string;
     clientSecret?: string;
     paymentLinkUrl?: string;
+    checkoutSessionUrl?: string;
+    checkoutSessionId?: string;
     amount?: MinorAmount;
     currency?: string;
     paymentLinkEnabled: boolean;
@@ -141,6 +153,122 @@ const clampAmount = (amount: number): MinorAmount => {
 
 const formatDescription = (description?: string) => {
   return description?.trim() || undefined;
+};
+
+type LoggedError = Error & { _logged?: boolean };
+
+const sanitizeErrorBody = (raw: string): string => {
+  if (!raw) return raw;
+  const maxLength = 600;
+  const redactKey = (key: string) => /token|secret|password|ssn|email|phone|address|name|clientsecret/i.test(key);
+  const redactValue = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      return 'REDACTED';
+    }
+    return 'REDACTED';
+  };
+  const sanitizeObject = (input: unknown, depth: number): unknown => {
+    if (depth <= 0) return '[Truncated]';
+    if (Array.isArray(input)) {
+      return input.slice(0, 10).map((item) => sanitizeObject(item, depth - 1));
+    }
+    if (input && typeof input === 'object') {
+      const record = input as Record<string, unknown>;
+      const output: Record<string, unknown> = {};
+      Object.keys(record).slice(0, 50).forEach((key) => {
+        output[key] = redactKey(key)
+          ? redactValue(record[key])
+          : sanitizeObject(record[key], depth - 1);
+      });
+      return output;
+    }
+    return input;
+  };
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const stringified = JSON.stringify(sanitizeObject(parsed, 3));
+    return stringified.length > maxLength
+      ? `${stringified.slice(0, maxLength)}…[truncated]`
+      : stringified;
+  } catch {
+    return raw.length > maxLength ? `${raw.slice(0, maxLength)}…[truncated]` : raw;
+  }
+};
+
+const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string }> => {
+  try {
+    const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      const errorBody = await response.text();
+      const safeErrorBody = import.meta.env.DEV ? errorBody : sanitizeErrorBody(errorBody);
+      const errorLog = {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: safeErrorBody,
+        intakeUuid
+      };
+      if (import.meta.env.DEV) {
+        console.warn('[Intake] Checkout session creation failed', errorLog);
+      } else {
+        // Production logging
+        console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
+      }
+      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`) as LoggedError;
+      error._logged = true;
+      throw error;
+    }
+    let result: CheckoutSessionResponse;
+    try {
+      result = await response.json() as CheckoutSessionResponse;
+    } catch (parseError) {
+      const errorLog = {
+        status: response.status,
+        statusText: response.statusText,
+        parseError: parseError instanceof Error ? parseError.message : String(parseError),
+        intakeUuid
+      };
+      if (import.meta.env.DEV) {
+        console.warn('[Intake] Failed to parse checkout session JSON', errorLog);
+      } else {
+        console.error('[Intake] Failed to parse checkout session JSON', JSON.stringify(errorLog));
+      }
+      const error = new Error(`Invalid server response (invalid JSON): ${response.status}`) as LoggedError;
+      error._logged = true;
+      throw error;
+    }
+
+    if (!result.success || !result.data?.url) {
+      if (import.meta.env.DEV) {
+        console.warn('[Intake] Checkout session response missing url', result);
+      } else {
+        console.error('[Intake] Checkout session response missing url', JSON.stringify({
+          success: result.success,
+          hasUrl: Boolean(result.data?.url),
+          hasSessionId: Boolean(result.data?.session_id),
+          hasError: Boolean(result.error)
+        }));
+      }
+      const error = new Error(result.error || 'Checkout session response missing URL') as LoggedError;
+      error._logged = true;
+      throw error;
+    }
+    return { url: result.data.url, sessionId: result.data.session_id };
+  } catch (error) {
+    if ((error as LoggedError)._logged) {
+      throw error;
+    }
+    if (import.meta.env.DEV) {
+      console.warn('[Intake] Checkout session request failed', error);
+    } else {
+      console.error('[Intake] Checkout session request failed', error instanceof Error ? error.message : String(error));
+    }
+    throw error;
+  }
 };
 
 async function fetchIntakeSettings(
@@ -250,6 +378,9 @@ export async function submitContactForm(
     }
 
     const description = formatDescription(formPayload.description as string | undefined);
+    const resolvedUserId = typeof formData.userId === 'string' && formData.userId.trim().length > 0
+      ? formData.userId.trim()
+      : null;
 
     const createPayload = {
       slug: formPayload.slug,
@@ -263,18 +394,14 @@ export async function submitContactForm(
       ...(description ? { description } : { description: '' }), // Always include description
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
       ...(formPayload.address ? { address: formPayload.address } : {}),
-      user_id: formData.sessionId || undefined,
+      ...(resolvedUserId ? { user_id: resolvedUserId } : {}),
       on_behalf_of: '' // Always include on_behalf_of
     };
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    
-    if (import.meta.env.DEV) {
-      console.log('[Forms] Sending payload to backend:', JSON.stringify(createPayload, null, 2));
-    }
-    
+
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
       headers,
@@ -288,7 +415,6 @@ export async function submitContactForm(
         throw new Error(result.error || 'Form submission failed');
       }
       const intakeData = resolveIntakeCreateData(result);
-      console.log('Form submitted successfully:', result);
       
       // Create confirmation message for matter vs lead first
       const baseMessage = '✅ Your lead has been submitted. The legal team will review and contact you.';
@@ -307,6 +433,21 @@ export async function submitContactForm(
       }
 
       const paymentLinkUrl = intakeData?.payment_link_url ?? intakeData?.paymentLinkUrl;
+      let checkoutSessionUrl: string | undefined;
+      let checkoutSessionId: string | undefined;
+      if (paymentLinkEnabled && intakeData?.uuid) {
+        try {
+          const checkoutSession = await createCheckoutSession(intakeData.uuid);
+          checkoutSessionUrl = checkoutSession?.url;
+          checkoutSessionId = checkoutSession?.sessionId;
+        } catch (error) {
+          if (!(error as LoggedError)._logged) {
+            console.warn('[Intake] Optional checkout session creation failed', error);
+          }
+          // Do not rethrow. Fall back to paymentLinkUrl if available, or just proceed without checkout session.
+          // The form submission was successful.
+        }
+      }
 
       return {
         ...result,
@@ -314,6 +455,8 @@ export async function submitContactForm(
           uuid: intakeData?.uuid,
           clientSecret: intakeData?.client_secret,
           paymentLinkUrl,
+          checkoutSessionUrl,
+          checkoutSessionId,
           amount: typeof intakeData?.amount === 'number' ? intakeData?.amount : amount,
           currency: intakeData?.currency ?? 'usd',
           paymentLinkEnabled,

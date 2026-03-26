@@ -204,8 +204,13 @@
     "billedAnnually": "Facturado anualmente",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Ninguna práctica seleccionada",
+    "selectPracticeToManage": "Por favor, seleccione una práctica para gestionar la facturación.",
+    "unableOpenPortal": "No se pudo abrir el portal de facturación",
+    "unknownError": "Ocurrió un error desconocido al abrir el portal de facturación."
   },
+  "loading": "Cargando…",
   "comparison": {
     "title": "Comparar Planes",
     "feature": "Función",
@@ -215,5 +220,10 @@
   "sections": {
     "benefits": "Beneficios:",
     "limitations": "Limitaciones:"
-  }
+  },
+  "upgradeFailed": "Error en la actualización",
+  "noFeatures": "Este plan no tiene características.",
+  "upgradeButton": "Actualizar por {{price}}",
+  "autoRenewsDisclaimer": "Se renueva automáticamente mensualmente. Cancelar en cualquier momento.",
+  "errorGeneric": "No se pudo cargar la información de precios, inténtelo de nuevo más tarde."
 }

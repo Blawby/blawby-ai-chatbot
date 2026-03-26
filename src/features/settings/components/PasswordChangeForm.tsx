@@ -1,5 +1,5 @@
 import { Input } from '@/shared/ui/input';
-import { Button } from '@/shared/ui/Button';
+import { FormActions } from '@/shared/ui/form';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { cn } from '@/shared/utils/cn';
 
@@ -83,25 +83,16 @@ export const PasswordChangeForm = ({
         />
       </div>
       
-      <div className="flex gap-2 pt-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => { if (!isLoading) onCancel(); }}
-          disabled={isLoading}
-        >
-          {t('settings:security.password.cancelButton')}
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => { if (!isLoading) onSubmit(); }}
-          disabled={isLoading}
-        >
-          {t('settings:security.password.submit')}
-        </Button>
-      </div>
+      <FormActions
+        className="gap-2 pt-2"
+        size="sm"
+        onCancel={() => { if (!isLoading) onCancel(); }}
+        onSubmit={() => { if (!isLoading) onSubmit(); }}
+        cancelText={t('settings:security.password.cancelButton')}
+        submitText={t('settings:security.password.submit')}
+        submitType="button"
+        isLoading={isLoading}
+      />
     </div>
   );
 };
-

@@ -15,6 +15,7 @@ import {
   DocumentIcon,
   LinkIcon
 } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { useActivity } from '@/shared/hooks/useActivity';
 
 interface ActivityTimelineProps {
@@ -119,18 +120,18 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                   <div key={event.id} className="relative flex items-start gap-3">
                     {/* Timeline line */}
                     {index < events.length - 1 && (
-                      <div className="absolute left-3 top-8 bottom-0 w-px bg-gray-200 dark:bg-gray-700" />
+                      <div className="absolute left-3 top-8 bottom-0 w-px bg-line-default" />
                     )}
                     
                     {/* Icon */}
-                    <div className="relative flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <div className="glass-input relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
                       <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                     </div>
                     
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                        <h5 className="text-xs sm:text-sm font-medium text-input-text">
                           {event.title}
                         </h5>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -153,7 +154,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
               {/* Empty state */}
               {!error && events.length === 0 && (
                 <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                  <ClockIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <Icon icon={ClockIcon} className="w-8 h-8 mx-auto mb-2 opacity-50"  />
                   <p className="text-sm">No activity yet</p>
                   <p className="text-xs mt-1">Activity will appear here as you use the system</p>
                 </div>
@@ -161,12 +162,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Load more button */}
               {hasMore && (
-                <Button
-                  variant="link"
-                  size="xs"
-                  onClick={loadMore}
-                  className="mt-3 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                >
+                <Button variant="link" size="sm" onClick={loadMore} className="mt-3">
                   Load more events
                 </Button>
               )}

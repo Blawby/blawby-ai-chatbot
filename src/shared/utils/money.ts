@@ -63,3 +63,34 @@ export const toMinorUnitsValue = (
   assertMajorUnits(value, 'toMinorUnitsValue');
   return toMinorUnits(value, fractionDigits);
 };
+
+export const getMajorAmountValue = (val: MajorAmount | number | { amount: number } | null | undefined): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'object' && 'amount' in val) {
+    return (val as { amount: number }).amount;
+  }
+  return val as number;
+};
+
+export const safeMultiply = (a: MajorAmount | number, b: number): MajorAmount => {
+  const aVal = getMajorAmountValue(a);
+  const aMinor = toMinorUnits(aVal);
+  return fromMinorUnits(Math.round(aMinor * b));
+};
+
+export const safeDivide = (a: MajorAmount | number, b: number): MajorAmount => {
+  if (typeof b !== 'number' || !Number.isFinite(b) || b === 0) {
+    throw new TypeError(`[money] safeDivide: invalid divisor ${b}. Expected a finite non-zero number.`);
+  }
+  const aVal = getMajorAmountValue(a);
+  const aMinor = toMinorUnits(aVal);
+  return fromMinorUnits(Math.round(aMinor / b));
+};
+
+export const safeAdd = (a: MajorAmount | number, b: MajorAmount | number): MajorAmount => {
+  const aVal = getMajorAmountValue(a);
+  const bVal = getMajorAmountValue(b);
+  const aMinor = toMinorUnits(aVal);
+  const bMinor = toMinorUnits(bVal);
+  return fromMinorUnits(aMinor + bMinor);
+};

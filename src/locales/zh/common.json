@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "返回",
+    "errors": {
+      "tryAgainLater": "请稍后再试。"
+    }
+  },
   "app": {
     "loading": "加载中…"
   },
@@ -211,7 +217,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "你好 👋",
       "helpPrompt": "有什么我们可以帮您的吗？",
@@ -219,14 +225,17 @@
       "sendMessage": "给我们发消息",
       "consultation": {
         "title": "需要咨询律师吗？",
-        "description": "分享一些细节，我们将为您联系适合您情况的律师。",
-        "button": "申请咨询"
+        "description": "分享一些细节，我们将为您联系适合您情况的律师。"
       },
       "poweredBy": "技术支持"
     },
     "navigation": {
       "home": "首页",
-      "messages": "消息"
+      "messages": "消息",
+      "matters": "案件",
+      "clients": "客户",
+      "settings": "设置",
+      "invoices": "发票"
     },
     "conversationList": {
       "title": "消息",
@@ -237,12 +246,59 @@
     },
     "error": {
       "title": "律所详情不可用",
-      "description": "我们无法加载律所 {{slug}} 的名称和徽标。请刷新或联系律所确认其公开设置。",
+      "description": "我们无法加载律所 「{{slug}}」 的名称和徽标。请刷新或联系律所确认其公开设置。",
       "retry": "重试"
     },
     "header": {
       "activeNow": "当前在线",
-      "back": "返回"
+      "back": "返回",
+      "inactive": "离线",
+      "away": "离开",
+      "unknown": "状态未知"
     }
+  },
+  "chat": {
+    "publicIntro": "欢迎提问或向我们提供反馈。",
+    "continue": "继续",
+    "submitRequest": "提交请求",
+    "submitNow": "立即提交",
+    "buildStrongerBrief": "创建更完善的简报",
+    "askQuestion": "提问",
+    "requestConsultation": "申请咨询",
+    "retry": "重试",
+    "retrying": "正在重试...",
+    "replyingTo": "回复 <name>{{name}}</name>",
+    "cta": {
+      "submit": "提交请求",
+      "submitConsultationRequest": "提交咨询请求",
+      "reviewSubmit": "审核并提交",
+      "keepAnswering": "继续回答",
+      "continue": "继续",
+      "addMore": "添加更多",
+      "notYet": "尚未"
+    }
+  },
+  "intake": {
+    "authTitle": "您即将完成",
+    "authDescription": "创建一个免费帐户以继续您的咨询并从 {{practice}} 获取更新。我们将通过电子邮件发送确认链接。",
+    "authDescriptionFallback": "创建一个免费帐户以继续您的咨询并获取更新。我们将通过电子邮件发送确认链接。"
+  },
+  "leadReview": {
+    "accept": "接受",
+    "decline": "拒绝",
+    "convert": "转换为案件",
+    "noPermission": "您没有权限审查此线索"
+  },
+  "leadIntake": {
+    "newIntake": "新接案",
+    "urgency": "紧急程度",
+    "payment": "付款",
+    "triage": "分诊",
+    "fee": "费用",
+    "opposingParty": "对方当事人",
+    "reason": "原因"
+  },
+  "widget": {
+    "persistIntakePathError": "无法保存您的返回路径。"
   }
 }

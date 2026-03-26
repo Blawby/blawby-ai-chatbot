@@ -180,7 +180,7 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 export interface SubscriptionUpgradeRequest {
   practiceId?: string;
   planId?: string; // UUID of the subscription plan (optional)
-  plan?: string; // Stripe price ID (required for /api/subscriptions/create)
+  plan?: string; // Subscription plan name (required for /api/auth/subscription/upgrade)
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -206,7 +206,7 @@ export const usePaymentUpgrade = () => {
       params.set('practiceId', practiceId);
     }
     const query = params.toString();
-    return `/practice/home${query ? `?${query}` : ''}`;
+    return `/${query ? `?${query}` : ''}`;
   }, []);
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
@@ -308,14 +308,14 @@ export const usePaymentUpgrade = () => {
   );
 
   const submitUpgrade = useCallback(
-    async ({ practiceId, planId, plan, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
+    async ({ practiceId, planId, plan, successUrl, cancelUrl, returnUrl, annual }: SubscriptionUpgradeRequest): Promise<void> => {
       setSubmitting(true);
       setError(null);
 
-      // Stripe price ID is required for /api/subscriptions/create
+      // Plan name is required for Better Auth Stripe subscription.upgrade endpoint
       if (!plan) {
-        setError('Stripe price ID is required');
-        showError('Invalid Request', 'Stripe price ID is required to create a subscription.');
+        setError('Subscription plan name is required');
+        showError('Invalid Request', 'Subscription plan name is required to create a subscription.');
         setSubmitting(false);
         return;
       }
@@ -323,15 +323,7 @@ export const usePaymentUpgrade = () => {
       const resolvedPracticeId = practiceId || undefined;
 
       try {
-        // Step 1: Set active practice if we have one using the Better Auth organization plugin
-        // The remote API will auto-create and set the active practice if one doesn't exist
-        if (resolvedPracticeId) {
-          // Set active practice using the Better Auth organization plugin
-          const client = getClient();
-          await client.organization.setActive({ organizationId: resolvedPracticeId });
-        }
-
-        // Step 2: Build URLs for success and cancel callbacks
+        // Step 1: Build URLs for success and cancel callbacks
         // Note: resolvedPracticeId may be undefined - the remote API will handle practice creation
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
@@ -350,11 +342,13 @@ export const usePaymentUpgrade = () => {
         );
 
 
-        // Step 3: Create subscription using remote API /api/subscriptions/create endpoint
+        // Step 2: Create subscription using Better Auth Stripe subscription.upgrade endpoint
         try {
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
-            plan, // Stripe price ID (required)
+            plan, // Plan name (required by Better Auth Stripe plugin)
+            referenceId: resolvedPracticeId,
+            annual: typeof annual === 'boolean' ? annual : undefined,
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,
             disableRedirect: false // Auto-redirect to Stripe Checkout
@@ -373,15 +367,6 @@ export const usePaymentUpgrade = () => {
             'data' in response &&
             'error' in response &&
             !hasHeaders;
-
-          // Log response for debugging
-          if (import.meta.env.DEV) {
-            const status = isResponseObject && 'status' in response
-              ? (response as { status?: number }).status
-              : undefined;
-            console.log('[UPGRADE] Response status:', status);
-            console.log('[UPGRADE] Response headers:', headersToObject(headers));
-          }
 
           // Check for Location header (in case of redirect)
           const locationHeader = headers
@@ -419,10 +404,6 @@ export const usePaymentUpgrade = () => {
             data = response;
           }
 
-          if (import.meta.env.DEV) {
-            console.log('[UPGRADE] Response data:', data);
-          }
-
           // Handle different response structures
           let checkoutUrl: string | undefined;
 
@@ -439,9 +420,6 @@ export const usePaymentUpgrade = () => {
           // Also check Location header if checkoutUrl not in body (for redirects)
           if (!checkoutUrl && locationHeader) {
             checkoutUrl = locationHeader;
-            if (import.meta.env.DEV) {
-              console.log('[UPGRADE] Using checkoutUrl from Location header:', checkoutUrl);
-            }
           }
 
           if (!checkoutUrl || typeof checkoutUrl !== 'string') {

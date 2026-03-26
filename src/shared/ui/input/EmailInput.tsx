@@ -1,5 +1,6 @@
 import { forwardRef } from 'preact/compat';
 import { EnvelopeIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -75,18 +76,19 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -116,7 +118,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -124,7 +126,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <EnvelopeIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <Icon icon={EnvelopeIcon} className="w-4 h-4 text-gray-400 dark:text-gray-500"  />
         </div>
         
         <input
@@ -146,9 +148,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
             {isEmailValid ? (
-              <CheckIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
             ) : (
-              <XMarkIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <Icon icon={XMarkIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
             )}
           </div>
         )}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { EllipsisVerticalIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { ulid } from 'ulid';
 import { format, parseISO } from 'date-fns';
 import Modal from '@/shared/components/Modal';
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import type { MatterDetail, MatterExpense } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterExpense } from '@/features/matters/data/matterTypes';
 import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 
 const formatExpenseDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy');
@@ -170,15 +171,15 @@ export const MatterExpensesPanel = ({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
+    <section className="glass-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Expenses</h3>
+          <h3 className="text-sm font-semibold text-input-text">Expenses</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense} disabled={!canCreate}>
+        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
           Add expense
         </Button>
       </header>
@@ -196,7 +197,7 @@ export const MatterExpensesPanel = ({
           No expenses yet. Add receipts, filing fees, or other costs tied to this matter.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-white/10">
+        <ul className="divide-y divide-line-default">
           {sortedExpenses.map((expense) => {
             const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
             return (
@@ -212,7 +213,7 @@ export const MatterExpensesPanel = ({
                 >
                   <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm font-semibold text-input-text">
                       {expense.description}
                     </p>
                     <span
@@ -243,20 +244,20 @@ export const MatterExpensesPanel = ({
                         variant="ghost"
                         size="sm"
                         aria-label="Open expense actions"
-                        icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                        icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
                       />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-32">
                       <div className="py-1">
                         <DropdownMenuItem onSelect={() => openEditExpense(expense)}>
                           <span className="flex items-center gap-2">
-                            <PencilIcon className="h-4 w-4" />
+                            <Icon icon={PencilIcon} className="h-4 w-4"  />
                             Edit
                           </span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => confirmDelete(expense)}>
                           <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                            <TrashIcon className="h-4 w-4" />
+                            <Icon icon={TrashIcon} className="h-4 w-4"  />
                             Delete
                           </span>
                         </DropdownMenuItem>

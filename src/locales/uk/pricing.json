@@ -204,12 +204,22 @@
     "billedAnnually": "Щорічна оплата",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Практика не вибрана",
+    "selectPracticeToManage": "Будь ласка, виберіть практику для управління рахунками.",
+    "unableOpenPortal": "Не вдалося відкрити портал рахунків",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Завантаження…",
   "comparison": {
     "title": "Порівняти плани",
     "feature": "Функція",
     "included": "Включено",
     "notIncluded": "Не включено"
-  }
+  },
+  "upgradeFailed": "Помилка оновлення",
+  "noFeatures": "Цей тарифний план не має функцій.",
+  "upgradeButton": "Оновити за {{price}}",
+  "autoRenewsDisclaimer": "Автоматичне поновлення щомісяця. Скасувати будь-коли.",
+  "errorGeneric": "Не вдалося завантажити інформацію про ціни, будь ласка, спробуйте пізніше."
 }

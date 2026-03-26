@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
@@ -7,18 +8,22 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { getClient } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
-import { getBackendApiUrl } from '@/config/urls';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
+import AuthForm from '@/shared/components/AuthForm';
+import { cn } from '@/shared/utils/cn';
+import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 
 type InvitationDetails = {
   id: string;
   email: string;
   role: string | string[];
-  organizationId: string;
+  practiceId: string;
   inviterId: string;
   status: string;
   expiresAt: string;
-  organizationName?: string;
-  organizationSlug?: string;
+  practiceName?: string;
+  practiceSlug?: string;
   inviterName?: string;
   inviterEmail?: string;
 };
@@ -29,28 +34,40 @@ type InviteFetchState =
   | { status: 'ready'; invitation: InvitationDetails; invitationId: string }
   | { status: 'error'; message: string; invitationId: string | null };
 
-type PublicInviteDetails = {
-  id: string;
+type IntakeInvitePayload = {
   email: string;
-  organizationId: string;
-  organizationName?: string;
-  organizationSlug?: string;
-  inviterName?: string;
-  role?: string | string[];
-  expiresAt?: string;
+  orgName: string;
+  orgSlug: string;
+  type: 'intake';
+  intakeId: string;
+  conversationId: string;
 };
 
-type PublicInviteState =
-  | { status: 'idle' }
-  | { status: 'loading'; invitationId: string }
-  | { status: 'ready'; invitation: PublicInviteDetails; invitationId: string }
-  | { status: 'error'; message: string; invitationId: string | null };
+type PrefillDetails = {
+  email: string;
+  practiceName: string;
+  practiceSlug: string;
+  intakeId?: string;
+  conversationId?: string;
+  payloadType?: string;
+};
 
-const LoadingScreen = ({ message = 'Loading…' }: { message?: string }) => (
-  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-    {message}
-  </div>
-);
+type PracticeSummary = {
+  id: string;
+  slug?: string | null;
+};
+
+type PayloadParseResult = {
+  data: PrefillDetails | null;
+  error: string | null;
+};
+
+
+const resolveQueryValue = (value: string | string[] | undefined) => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string') return '';
+  return raw.trim();
+};
 
 const normalizeInviteResponse = (payload: unknown): InvitationDetails | null => {
   if (!payload || typeof payload !== 'object') return null;
@@ -66,40 +83,16 @@ const normalizeInviteResponse = (payload: unknown): InvitationDetails | null => 
     id: getString(record.id),
     email: getString(record.email),
     role,
-    organizationId: getString(record.organizationId ?? record.organization_id),
+    practiceId: getString(record.organizationId ?? record.organization_id),
     inviterId: getString(record.inviterId ?? record.inviter_id),
     status: getString(record.status),
     expiresAt: getString(record.expiresAt ?? record.expires_at),
-    organizationName: getString(record.organizationName ?? record.organization_name) || undefined,
-    organizationSlug: getString(record.organizationSlug ?? record.organization_slug) || undefined,
+    practiceName: getString(record.organizationName ?? record.organization_name) || undefined,
+    practiceSlug: getString(record.organizationSlug ?? record.organization_slug) || undefined,
     inviterName: getString(record.inviterName ?? record.inviter_name) || undefined,
     inviterEmail: getString(record.inviterEmail ?? record.inviter_email) || undefined
   };
-  if (!invitation.id || !invitation.organizationId) return null;
-  return invitation;
-};
-
-const normalizePublicInviteResponse = (payload: unknown): PublicInviteDetails | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  const record = payload as Record<string, unknown>;
-  const getString = (value: unknown) => (typeof value === 'string' ? value : '');
-  const roleValue = record.role;
-  const role = Array.isArray(roleValue)
-    ? roleValue.filter((item) => typeof item === 'string')
-    : typeof roleValue === 'string'
-      ? roleValue
-      : undefined;
-  const invitation: PublicInviteDetails = {
-    id: getString(record.id),
-    email: getString(record.email),
-    organizationId: getString(record.organizationId ?? record.organization_id),
-    organizationName: getString(record.organizationName ?? record.organization_name) || undefined,
-    organizationSlug: getString(record.organizationSlug ?? record.organization_slug) || undefined,
-    inviterName: getString(record.inviterName ?? record.inviter_name) || undefined,
-    role,
-    expiresAt: getString(record.expiresAt ?? record.expires_at) || undefined
-  };
-  if (!invitation.id || !invitation.organizationId || !invitation.email) return null;
+  if (!invitation.id || !invitation.practiceId) return null;
   return invitation;
 };
 
@@ -109,41 +102,124 @@ const isValidDate = (d: unknown): d is string | number | Date => {
   return !isNaN(date.getTime());
 };
 
+const decodeBase64Url = (value: string): string => {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = (4 - (normalized.length % 4)) % 4;
+  const padded = normalized + '='.repeat(padding);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+};
+
+const parsePrefillPayload = (raw: string): PayloadParseResult => {
+  if (!raw) return { data: null, error: null };
+
+  try {
+    const decoded = decodeBase64Url(raw);
+    const payload = JSON.parse(decoded) as Partial<IntakeInvitePayload> & Record<string, unknown>;
+
+    const email = typeof payload.email === 'string' ? payload.email.trim() : '';
+    const orgName = typeof payload.orgName === 'string' ? payload.orgName.trim() : '';
+    const orgSlug = typeof payload.orgSlug === 'string' ? payload.orgSlug.trim() : '';
+    const intakeId = typeof payload.intakeId === 'string' ? payload.intakeId.trim() : '';
+    const conversationId = typeof payload.conversationId === 'string' ? payload.conversationId.trim() : '';
+    const payloadType = typeof payload.type === 'string' ? payload.type.trim() : '';
+
+    if (!email || !orgName || !orgSlug) {
+      return { data: null, error: 'Invitation data is incomplete.' };
+    }
+
+    return {
+      data: {
+        email,
+        practiceName: orgName,
+        practiceSlug: orgSlug,
+        intakeId,
+        conversationId,
+        payloadType
+      },
+      error: null
+    };
+  } catch {
+    return { data: null, error: 'Invitation data is invalid.' };
+  }
+};
+
+const buildRedirectTarget = (invitationId: string, dataParam: string) => {
+  const params = new URLSearchParams();
+  if (invitationId) params.set('invitationId', invitationId);
+  if (dataParam) params.set('data', dataParam);
+  const query = params.toString();
+  return query ? `/auth/accept-invitation?${query}` : '/auth/accept-invitation';
+};
+
+const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; children: ComponentChildren }) => (
+  <div className="min-h-screen bg-transparent px-6 py-12">
+    <div
+      className={cn(
+        "mx-auto max-w-xl rounded-2xl border p-6 text-sm",
+        tone === 'error'
+          ? "border-red-500/30 bg-red-500/5 text-red-100 backdrop-blur-xl"
+          : "glass-card text-input-text"
+      )}
+    >
+      {children}
+    </div>
+  </div>
+);
+
 export const AcceptInvitationPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { session, isPending } = useSessionContext();
+  const { session, isPending, activePracticeId } = useSessionContext();
   const { showError, showSuccess } = useToastContext();
   const [inviteState, setInviteState] = useState<InviteFetchState>({ status: 'idle' });
-  const [publicInviteState, setPublicInviteState] = useState<PublicInviteState>({ status: 'idle' });
   const [accepting, setAccepting] = useState(false);
   const [recipientMismatch, setRecipientMismatch] = useState(false);
-  const [invitedEmailFallback, setInvitedEmailFallback] = useState<string>('');
+  const [isLinkingConversation, setIsLinkingConversation] = useState(false);
 
-  const invitationId = useMemo(() => {
-    const raw = location.query?.invitationId;
-    const value = Array.isArray(raw) ? raw[0] : raw;
-    return typeof value === 'string' ? value.trim() : '';
-  }, [location.query?.invitationId]);
+  const invitationId = useMemo(() => resolveQueryValue(location.query?.invitationId), [location.query?.invitationId]);
+  const dataParam = useMemo(() => resolveQueryValue(location.query?.data), [location.query?.data]);
+  const payloadResult = useMemo(() => parsePrefillPayload(dataParam), [dataParam]);
 
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
-  const redirectTarget = useMemo(() => {
-    const query = invitationId ? `?invitationId=${encodeURIComponent(invitationId)}` : '';
-    return `/auth/accept-invitation${query}`;
-  }, [invitationId]);
+  const redirectTarget = useMemo(() => buildRedirectTarget(invitationId, dataParam), [dataParam, invitationId]);
 
-  const invitedEmail = useMemo(() => {
-    if (inviteState.status === 'ready') {
-      return inviteState.invitation.email;
+  const flowType = invitationId ? 'invite' : dataParam ? 'intake' : 'invalid';
+  const prefill = payloadResult.data;
+  const invitedEmail = prefill?.email ?? '';
+  const practiceName = prefill?.practiceName ?? '';
+  const practiceSlug = prefill?.practiceSlug ?? '';
+  const intakeConversationId = prefill?.conversationId ?? '';
+  const payloadType = prefill?.payloadType?.toLowerCase() ?? '';
+
+  const sessionEmail = typeof session?.user?.email === 'string' ? session.user.email.trim() : '';
+  const effectiveInvitedEmail = invitedEmail || (inviteState.status === 'ready' ? inviteState.invitation.email : '');
+  const hasEmailMismatch = Boolean(
+    effectiveInvitedEmail &&
+    sessionEmail &&
+    effectiveInvitedEmail.trim().toLowerCase() !== sessionEmail.toLowerCase()
+  );
+
+  const preAuthError = useMemo(() => {
+    if (flowType === 'invalid') {
+      return payloadResult.error ?? 'This link is missing required information. Please request a new invite.';
     }
-    if (publicInviteState.status === 'ready') {
-      return publicInviteState.invitation.email;
+
+    if (flowType === 'intake') {
+      if (!prefill) {
+        return payloadResult.error ?? 'This link is missing required invitation details. Please use the latest email from your practice.';
+      }
+      if (payloadType !== 'intake') {
+        return 'Invitation data is invalid.';
+      }
+      if (!prefill.intakeId || !prefill.conversationId) {
+        return 'Invitation data is incomplete.';
+      }
     }
-    if (invitedEmailFallback) {
-      return invitedEmailFallback;
-    }
-    return '';
-  }, [inviteState, invitedEmailFallback, publicInviteState]);
+
+    return null;
+  }, [flowType, payloadResult.error, payloadType, prefill]);
 
   const fetchInvitation = useCallback(async () => {
     if (!invitationId) {
@@ -185,94 +261,25 @@ export const AcceptInvitationPage = () => {
     }
   }, [invitationId]);
 
-  const fetchPublicInvitation = useCallback(async () => {
-    if (!invitationId) {
-      setPublicInviteState({ status: 'error', message: 'Invitation ID is missing.', invitationId: null });
-      return;
-    }
-
-    setPublicInviteState({ status: 'loading', invitationId });
-
-    try {
-      const url = new URL('/api/public/invitations/lookup', getBackendApiUrl());
-      url.searchParams.set('id', invitationId);
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) {
-        setPublicInviteState({
-          status: 'error',
-          message: response.status === 404 ? 'Invitation not found.' : 'Unable to load invitation.',
-          invitationId
-        });
-        return;
-      }
-      const json = await response.json() as { data?: unknown } | unknown;
-      const payload = (json && typeof json === 'object' && 'data' in json)
-        ? (json as { data?: unknown }).data
-        : json;
-      const invitation = normalizePublicInviteResponse(payload);
-      if (!invitation) {
-        setPublicInviteState({ status: 'error', message: 'Invitation could not be loaded.', invitationId });
-        return;
-      }
-      setPublicInviteState({ status: 'ready', invitation, invitationId });
-    } catch (error) {
-      console.error('[AcceptInvitation] Failed to fetch public invitation', error);
-      setPublicInviteState({ status: 'error', message: 'Unable to load invitation.', invitationId });
-    }
-  }, [invitationId]);
-
-  const inviteStateId =
-    inviteState.status === 'ready' || inviteState.status === 'error'
-      ? inviteState.invitationId
-      : null;
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (flowType !== 'invite') return;
     if (!invitationId) return;
+    if (inviteState.status === 'loading') return;
+    const inviteStateId =
+      inviteState.status === 'ready' || inviteState.status === 'error'
+        ? inviteState.invitationId
+        : null;
     if (inviteState.status === 'ready' && inviteStateId === invitationId) return;
     if (inviteState.status === 'error' && inviteStateId === invitationId) return;
-    if (inviteState.status === 'loading') return;
     void fetchInvitation();
-  }, [fetchInvitation, inviteState.status, inviteStateId, invitationId, isAuthenticated]);
-
-  const publicInviteId =
-    publicInviteState.status === 'ready' || publicInviteState.status === 'error'
-      ? publicInviteState.invitationId
-      : null;
-  useEffect(() => {
-    if (isAuthenticated) return;
-    if (!invitationId) return;
-    if (publicInviteState.status === 'ready' && publicInviteId === invitationId) return;
-    if (publicInviteState.status === 'error' && publicInviteId === invitationId) return;
-    if (publicInviteState.status === 'loading') return;
-    void fetchPublicInvitation();
-  }, [fetchPublicInvitation, invitationId, isAuthenticated, publicInviteId, publicInviteState.status]);
-
-  useEffect(() => {
-    if (!recipientMismatch) return;
-    if (!invitationId) return;
-    if (publicInviteState.status === 'ready') {
-      setInvitedEmailFallback(publicInviteState.invitation.email);
-      return;
-    }
-    if (publicInviteState.status === 'loading') return;
-    if (publicInviteState.status === 'error' && publicInviteId === invitationId) return;
-    void fetchPublicInvitation();
-  }, [fetchPublicInvitation, invitationId, publicInviteId, publicInviteState, recipientMismatch]);
+  }, [fetchInvitation, flowType, invitationId, inviteState, isAuthenticated]);
 
   const buildAuthUrl = useCallback((mode: 'signin' | 'signup') => {
     const redirect = encodeURIComponent(redirectTarget);
     const email = invitedEmail ? `&email=${encodeURIComponent(invitedEmail)}` : '';
     return `/auth?mode=${mode}&redirect=${redirect}${email}`;
   }, [invitedEmail, redirectTarget]);
-
-  const handleSignIn = useCallback(() => {
-    navigate(buildAuthUrl('signin'), true);
-  }, [buildAuthUrl, navigate]);
 
   const handleSwitchAccount = useCallback(async (mode: 'signin' | 'signup') => {
     try {
@@ -286,8 +293,8 @@ export const AcceptInvitationPage = () => {
   const handleAccept = useCallback(async () => {
     if (inviteState.status !== 'ready') return;
     const { invitation } = inviteState;
-    if (!invitation.organizationSlug) {
-      setInviteState({ status: 'error', message: 'Invitation is missing the organization slug.', invitationId });
+    if (!invitation.practiceSlug) {
+      setInviteState({ status: 'error', message: 'Invitation is missing the practice slug.', invitationId });
       setRecipientMismatch(false);
       return;
     }
@@ -298,7 +305,6 @@ export const AcceptInvitationPage = () => {
       const acceptResult = await (client as unknown as {
         organization: {
           acceptInvitation: (args: { invitationId: string }) => Promise<unknown>;
-          setActive: (args: { organizationId: string }) => Promise<unknown>;
         };
       }).organization.acceptInvitation({ invitationId: invitation.id });
 
@@ -307,14 +313,8 @@ export const AcceptInvitationPage = () => {
         throw new Error(errorMessage || 'Failed to accept invitation');
       }
 
-      await (client as unknown as {
-        organization: {
-          setActive: (args: { organizationId: string }) => Promise<unknown>;
-        };
-      }).organization.setActive({ organizationId: invitation.organizationId });
-
       showSuccess('Invitation accepted', 'You now have access to the practice.');
-      navigate(`/embed/${encodeURIComponent(invitation.organizationSlug)}`, true);
+      navigate(`/public/${encodeURIComponent(invitation.practiceSlug)}`, true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to accept invitation.';
       showError('Invitation error', message);
@@ -327,139 +327,235 @@ export const AcceptInvitationPage = () => {
     }
   }, [inviteState, invitationId, navigate, showError, showSuccess]);
 
+  const handleContinueIntake = useCallback(async () => {
+    if (!intakeConversationId) {
+      if (practiceSlug) {
+        navigate(`/public/${encodeURIComponent(practiceSlug)}`, true);
+      }
+      return;
+    }
+
+    setIsLinkingConversation(true);
+    try {
+      const client = getClient();
+      let targetPracticeId = activePracticeId;
+
+      const { data: practices } = await (client as unknown as {
+        organization: { list: () => Promise<{ data?: PracticeSummary[] }> }
+      }).organization.list();
+      const practiceList = Array.isArray(practices) ? practices : [];
+
+      let match: PracticeSummary | null = null;
+      if (practiceSlug) {
+        match = practiceList.find((p) => p.slug === practiceSlug || p.id === practiceSlug) ?? null;
+        if (!match) {
+          console.error('[AcceptInvitationPage] Practice slug not found', {
+            practiceSlug,
+            targetPracticeId,
+            practiceList
+          });
+          throw new Error('Unable to find the selected practice.');
+        }
+      } else if (targetPracticeId) {
+        match = practiceList.find((p) => p.id === targetPracticeId) ?? null;
+        if (!match) {
+          const missingPracticeId = targetPracticeId;
+          targetPracticeId = null;
+          console.error('[AcceptInvitationPage] Active practice missing from list', {
+            practiceSlug,
+            targetPracticeId,
+            missingPracticeId,
+            practiceList
+          });
+          throw new Error('You do not have access to the selected practice.');
+        }
+      }
+
+      if (match) {
+        targetPracticeId = match.id;
+      }
+
+      if (!targetPracticeId) {
+        console.error('[AcceptInvitationPage] No active practice context available', {
+          practiceSlug,
+          targetPracticeId,
+          practiceList
+        });
+        throw new Error('Unable to determine your practice for this conversation.');
+      }
+
+      const previousParticipantId = peekAnonymousUserId();
+      await linkConversationToUser(intakeConversationId, targetPracticeId, undefined, {
+        previousParticipantId: previousParticipantId ?? undefined
+      });
+      
+      const matchedSlug = match && typeof match.slug === 'string' && match.slug.trim().length > 0
+        ? match.slug.trim()
+        : '';
+      const finalSlug = practiceSlug || matchedSlug;
+      if (!finalSlug) {
+        if (match) {
+          console.error('[AcceptInvitationPage] Matched practice missing slug', {
+            targetPracticeId,
+            match
+          });
+        } else {
+          console.error('[AcceptInvitationPage] Missing practice slug for navigation', {
+            practiceSlug,
+            targetPracticeId,
+            match,
+            practiceList
+          });
+        }
+        throw new Error('Practice slug is missing. Please contact support.');
+      }
+      navigate(
+        `/public/${encodeURIComponent(finalSlug)}/conversations/${encodeURIComponent(intakeConversationId)}`,
+        true
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to link conversation.';
+      showError('Unable to open conversation', message);
+    } finally {
+      setIsLinkingConversation(false);
+    }
+  }, [activePracticeId, intakeConversationId, navigate, practiceSlug, showError]);
+
   if (isPending) {
     return <LoadingScreen />;
   }
 
-  if (!invitationId) {
+  if (preAuthError) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-        <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
-          <div className="flex justify-center mb-6">
-            <Logo size="lg" />
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Invitation not found</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            This invitation link is missing required information. Please request a new invite.
-          </p>
-          <div className="mt-4">
-            <Button variant="secondary" onClick={() => navigate('/auth', true)}>
-              Go to sign in
-            </Button>
-          </div>
+      <Card tone="error">
+        <div className="flex justify-center mb-6">
+          <Logo size="lg" />
         </div>
-      </div>
+        <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
+        <p className="mt-2 text-sm text-red-400">{preAuthError}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button variant="ghost" onClick={() => navigate('/auth', true)}>
+            Back to sign in
+          </Button>
+        </div>
+      </Card>
     );
   }
 
   if (!isAuthenticated) {
-    if (publicInviteState.status === 'loading' || publicInviteState.status === 'idle') {
-      return <LoadingScreen message="Loading invitation…" />;
-    }
+    const inviterLabel = practiceName || 'the practice';
+    const subtitle = practiceName
+      ? `Sign up to accept ${inviterLabel}'s invitation to join Blawby.`
+      : 'Sign up to accept your invitation to join Blawby.';
 
-    if (publicInviteState.status === 'error') {
-      return (
-        <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-          <div className="mx-auto max-w-xl rounded-2xl border border-red-200 dark:border-red-900/60 bg-white dark:bg-dark-bg p-6 text-sm text-red-700 dark:text-red-200">
-            <div className="flex justify-center mb-6">
-              <Logo size="lg" />
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Unable to load invitation</h1>
-            <p className="mt-2 text-sm text-red-700 dark:text-red-200">{publicInviteState.message}</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button variant="secondary" onClick={fetchPublicInvitation}>
-                Try again
-              </Button>
-              <Button variant="ghost" onClick={() => navigate('/auth', true)}>
-                Back to sign in
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const { invitation } = publicInviteState;
-    const publicRoleLabel = Array.isArray(invitation.role)
-      ? (invitation.role.length > 0 ? invitation.role.join(', ') : 'client')
-      : invitation.role || 'client';
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-        <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
-          <div className="flex justify-center mb-6">
-            <Logo size="lg" />
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Accept your invitation</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            {invitation.inviterName
-              ? `${invitation.inviterName} invited you to join ${invitation.organizationName ?? 'this practice'}.`
-              : `You’ve been invited to join ${invitation.organizationName ?? 'this practice'}.`}
-          </p>
-          <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-            {invitation.organizationSlug && (
-              <div>
-                <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {invitation.organizationSlug}
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-900 dark:text-white">Role:</span> {publicRoleLabel}
-            </div>
-            <div>
-              <span className="font-medium text-gray-900 dark:text-white">Invited email:</span> {invitation.email}
-            </div>
-            {invitation.expiresAt && (
-              <div>
-                <span className="font-medium text-gray-900 dark:text-white">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
-              </div>
-            )}
-          </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button variant="primary" onClick={() => navigate(buildAuthUrl('signup'), true)}>
-              Continue to sign up
-            </Button>
-            <Button variant="secondary" onClick={handleSignIn}>
-              I already have an account
-            </Button>
-          </div>
+      <Card>
+        <div className="flex justify-center mb-6">
+          <Logo size="lg" />
         </div>
-      </div>
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-input-text">
+            Accept your invitation to sign up{practiceName ? ` | ${practiceName}` : ''}
+          </h1>
+          <p className="mt-2 text-sm text-input-placeholder">
+            {subtitle}
+          </p>
+        </div>
+        <div className="mt-6">
+          <AuthForm
+            defaultMode="signup"
+            initialEmail={invitedEmail}
+            showHeader={false}
+            showGoogleSignIn
+            showModeToggle
+            onSuccess={() => navigate(redirectTarget, true)}
+          />
+        </div>
+      </Card>
+    );
+  }
+
+  if (flowType === 'intake') {
+    return (
+      <Card>
+        <div className="flex justify-center mb-6">
+          <Logo size="lg" />
+        </div>
+        <h1 className="text-xl font-semibold text-input-text">You’re signed in</h1>
+        <p className="mt-2 text-sm text-input-placeholder">
+          Continue to {practiceName || practiceSlug} to finish your intake.
+        </p>
+        <div className="mt-4 space-y-2 text-sm text-input-placeholder">
+          <div>
+            <span className="font-medium text-input-text">Practice:</span> {practiceName || practiceSlug}
+          </div>
+          <div>
+            <span className="font-medium text-input-text">Email:</span> {invitedEmail}
+          </div>
+          {sessionEmail && (
+            <div>
+              <span className="font-medium text-input-text">Signed in as:</span> {sessionEmail}
+            </div>
+          )}
+        </div>
+        {hasEmailMismatch && (
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
+            You’re signed in with a different email. Switch accounts to continue with the invited email.
+          </div>
+        )}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (hasEmailMismatch) return;
+              handleContinueIntake();
+            }}
+            disabled={isLinkingConversation || hasEmailMismatch}
+            aria-disabled={isLinkingConversation || hasEmailMismatch}
+            className={hasEmailMismatch ? 'opacity-50 cursor-not-allowed' : ''}
+          >
+            {isLinkingConversation ? 'Opening conversation…' : 'Continue to practice'}
+          </Button>
+          <Button variant="secondary" onClick={() => handleSwitchAccount('signin')}>
+            Switch account
+          </Button>
+        </div>
+      </Card>
     );
   }
 
   if (inviteState.status === 'loading' || inviteState.status === 'idle') {
-    return <LoadingScreen message="Loading invitation…" />;
+    return <LoadingScreen label={'Loading invitation\u2026'} showLabel={false} />;
   }
 
   if (inviteState.status === 'error') {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-        <div className="mx-auto max-w-xl rounded-2xl border border-red-200 dark:border-red-900/60 bg-white dark:bg-dark-bg p-6 text-sm text-red-700 dark:text-red-200">
-          <div className="flex justify-center mb-6">
-            <Logo size="lg" />
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Unable to load invitation</h1>
-          <p className="mt-2 text-sm text-red-700 dark:text-red-200">{inviteState.message}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={fetchInvitation}>
-              Try again
-            </Button>
-            {recipientMismatch ? (
-              <>
-                <Button variant="primary" onClick={() => handleSwitchAccount('signin')}>
-                  Sign in with invited email
-                </Button>
-                <Button variant="ghost" onClick={() => handleSwitchAccount('signup')}>
-                  Create an account
-                </Button>
-              </>
-            ) : (
-              <Button variant="ghost" onClick={() => navigate('/auth', true)}>
-                Back to sign in
-              </Button>
-            )}
-          </div>
+      <Card tone="error">
+        <div className="flex justify-center mb-6">
+          <Logo size="lg" />
         </div>
-      </div>
+        <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
+        <p className="mt-2 text-sm text-red-400">{inviteState.message}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button variant="secondary" onClick={fetchInvitation}>
+            Try again
+          </Button>
+          {recipientMismatch ? (
+            <>
+              <Button variant="primary" onClick={() => handleSwitchAccount('signin')}>
+                Sign in with invited email
+              </Button>
+              <Button variant="ghost" onClick={() => handleSwitchAccount('signup')}>
+                Create an account
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={() => navigate('/auth', true)}>
+              Back to sign in
+            </Button>
+          )}
+        </div>
+      </Card>
     );
   }
 
@@ -469,52 +565,66 @@ export const AcceptInvitationPage = () => {
     : invitation.role || 'client';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
-      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">
-        <div className="flex justify-center mb-6">
-          <Logo size="lg" />
-        </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Accept invitation</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-          You&apos;ve been invited to join {invitation.organizationName ?? 'this practice'}.
-        </p>
-        <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-          {invitation.organizationSlug && (
-            <div>
-              <span className="font-medium text-gray-900 dark:text-white">Practice:</span> {invitation.organizationSlug}
-            </div>
-          )}
-          {(invitation.inviterName || invitation.inviterEmail) && (
-            <div>
-              <span className="font-medium text-gray-900 dark:text-white">Invited by:</span> {invitation.inviterName ?? invitation.inviterEmail}
-            </div>
-          )}
-          <div>
-            <span className="font-medium text-gray-900 dark:text-white">Role:</span> {roleLabel}
-          </div>
-          {invitation.expiresAt && (
-            <div>
-              <span className="font-medium text-gray-900 dark:text-white">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
-            </div>
-          )}
-        </div>
-        <div className="mt-6">
-          <Button
-            variant="primary"
-            onClick={handleAccept}
-            disabled={accepting || invitation.status !== 'pending'}
-          >
-            {accepting ? 'Accepting…' : 'Accept invitation'}
-          </Button>
-          {invitation.status !== 'pending' && (
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              This invitation is no longer pending.
-            </p>
-          )}
-        </div>
+    <Card>
+      <div className="flex justify-center mb-6">
+        <Logo size="lg" />
       </div>
-    </div>
+      <h1 className="text-xl font-semibold text-input-text">Accept invitation</h1>
+      <p className="mt-2 text-sm text-input-placeholder">
+        You&apos;ve been invited to join {invitation.practiceName ?? 'this practice'}.
+      </p>
+      <div className="mt-4 space-y-2 text-sm text-input-placeholder">
+        {invitation.practiceSlug && (
+          <div>
+            <span className="font-medium text-input-text">Practice:</span> {invitation.practiceName || invitation.practiceSlug}
+          </div>
+        )}
+        {(invitation.inviterName || invitation.inviterEmail) && (
+          <div>
+            <span className="font-medium text-input-text">Invited by:</span> {invitation.inviterName ?? invitation.inviterEmail}
+          </div>
+        )}
+        <div>
+          <span className="font-medium text-input-text">Role:</span> {roleLabel}
+        </div>
+        {invitation.expiresAt && (
+          <div>
+            <span className="font-medium text-input-text">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
+          </div>
+        )}
+        {effectiveInvitedEmail && (
+          <div>
+            <span className="font-medium text-input-text">Invited email:</span> {effectiveInvitedEmail}
+          </div>
+        )}
+      </div>
+      {hasEmailMismatch && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
+          You’re signed in with {sessionEmail}. Switch accounts to accept with {effectiveInvitedEmail}.
+        </div>
+      )}
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button
+          variant="primary"
+          onClick={handleAccept}
+          disabled={accepting || invitation.status !== 'pending' || hasEmailMismatch}
+        >
+          {accepting ? 'Accepting…' : 'Accept invitation'}
+        </Button>
+        {hasEmailMismatch && (
+          <Button variant="secondary" onClick={() => handleSwitchAccount('signin')}>
+            Switch account
+          </Button>
+        )}
+      </div>
+      {invitation.status !== 'pending' && (
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          This invitation is no longer pending.
+        </p>
+      )}
+    </Card>
   );
 };
 
 export default AcceptInvitationPage;
+

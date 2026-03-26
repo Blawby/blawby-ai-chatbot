@@ -13,31 +13,41 @@ interface AuthFormProps {
   mode?: AuthMode;
   defaultMode?: AuthMode;
   initialEmail?: string;
+  initialName?: string;
+  signupVariant?: 'full' | 'minimal';
+  callbackURL?: string;
   onSuccess?: (user: unknown) => void | Promise<void>;
   onError?: (error: string) => void;
   onModeChange?: (mode: AuthMode) => void;
   showHeader?: boolean;
   showGoogleSignIn?: boolean;
+  showModeToggle?: boolean;
   className?: string;
+  variant?: 'card' | 'plain';
 }
 
 const AuthForm = ({
   mode,
   defaultMode = 'signin',
   initialEmail,
+  initialName,
+  signupVariant = 'full',
+  callbackURL,
   onSuccess,
   onError,
   onModeChange,
   showHeader = true,
   showGoogleSignIn = true,
-  className = ''
+  showModeToggle = true,
+  className = '',
+  variant = 'card'
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
   const [internalMode, setInternalMode] = useState<AuthMode>(mode ?? defaultMode);
   const resolvedMode = mode ?? internalMode;
   const isControlled = typeof mode !== 'undefined';
   const [formData, setFormData] = useState({
-    name: '',
+    name: initialName ?? '',
     email: initialEmail ?? '',
     password: '',
     confirmPassword: ''
@@ -74,7 +84,7 @@ const AuthForm = ({
 
     try {
       if (resolvedMode === 'signup') {
-        if (formData.password !== formData.confirmPassword) {
+        if (signupVariant === 'full' && formData.password !== formData.confirmPassword) {
           setError(t('errors.passwordsDoNotMatch'));
           setLoading(false);
           return;
@@ -161,21 +171,30 @@ const AuthForm = ({
       const client = getClient();
       const currentUrl = new URL(window.location.href);
       const redirectParam = currentUrl.searchParams.get('redirect');
-      let callbackURL = window.location.origin;
-      if (redirectParam) {
-        const decodedRedirect = decodeURIComponent(redirectParam);
+      let resolvedCallbackURL = window.location.origin;
+      if (typeof callbackURL === 'string' && callbackURL.trim().length > 0) {
+        const trimmed = callbackURL.trim();
         try {
-          const redirectUrl = new URL(decodedRedirect, window.location.origin);
-          if (redirectUrl.origin === window.location.origin) {
-            callbackURL = redirectUrl.href;
+          const url = new URL(trimmed, window.location.origin);
+          if (url.origin === window.location.origin) {
+            resolvedCallbackURL = url.href;
           }
         } catch {
-          callbackURL = window.location.origin;
+          // Fall back to origin
+        }
+      } else if (redirectParam) {
+        try {
+          const redirectUrl = new URL(redirectParam, window.location.origin);
+          if (redirectUrl.origin === window.location.origin) {
+            resolvedCallbackURL = redirectUrl.href;
+          }
+        } catch {
+          // Fall back to origin
         }
       }
       const result = await client.signIn.social({
         provider: 'google',
-        callbackURL,
+        callbackURL: resolvedCallbackURL,
       });
 
       if (result.error) {
@@ -216,23 +235,28 @@ const AuthForm = ({
     }
     setError('');
     setMessage('');
-    setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+    setFormData({
+      name: initialName ?? '',
+      email: initialEmail ?? '',
+      password: '',
+      confirmPassword: ''
+    });
   };
 
   return (
     <div className={`w-full ${className}`}>
       {showHeader && (
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-input-text">
             {resolvedMode === 'signup' ? t('signup.title') : t('signin.title')}
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-sm text-input-placeholder">
             {resolvedMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
           </p>
         </div>
       )}
 
-      <div className="bg-light-card-bg dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className={variant === 'card' ? "glass-card py-8 px-4 sm:px-10" : "w-full"}>
         {showGoogleSignIn && (
           <div className="mb-6">
             <Button
@@ -241,7 +265,7 @@ const AuthForm = ({
               size="md"
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full justify-center border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover focus:ring-accent-500"
+              className="w-full justify-center"
               icon={
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -260,17 +284,17 @@ const AuthForm = ({
         {showGoogleSignIn && (
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+              <div className="w-full border-t border-line-glass/30" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-light-card-bg dark:bg-dark-card-bg text-gray-500 dark:text-gray-400">{t('common.orContinueWithEmail')}</span>
+              <span className="px-2 bg-[rgb(var(--surface-overlay))] text-input-placeholder font-medium">{t('common.orContinueWithEmail')}</span>
             </div>
           </div>
         )}
 
         <Form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {resolvedMode === 'signup' && (
+            {resolvedMode === 'signup' && signupVariant === 'full' && (
               <FormField name="name">
                 {({ error: fieldError, onChange }) => (
                   <FormItem>
@@ -286,7 +310,7 @@ const AuthForm = ({
                           setFormData(prev => ({ ...prev, name: String(value) }));
                         }}
                         placeholder={t('signup.fullNamePlaceholder')}
-                        icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                        icon={UserIcon} iconClassName="h-5 w-5 text-input-placeholder"
                         error={fieldError?.message}
                         data-testid="signup-name-input"
                       />
@@ -342,7 +366,7 @@ const AuthForm = ({
               )}
             </FormField>
 
-            {resolvedMode === 'signup' && (
+            {resolvedMode === 'signup' && signupVariant === 'full' && (
               <FormField name="confirmPassword">
                 {({ error: fieldError, onChange }) => (
                   <FormItem>
@@ -369,14 +393,14 @@ const AuthForm = ({
           </div>
 
           {error && (
-            <div className="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="mt-4 rounded-xl glass-panel border-red-500/20 p-3">
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
           {message && (
-            <div className="mt-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3">
-              <p className="text-sm text-green-600 dark:text-green-400">{message}</p>
+            <div className="mt-4 rounded-xl glass-panel border-emerald-500/20 p-3">
+              <p className="text-sm text-emerald-400">{message}</p>
             </div>
           )}
 
@@ -401,20 +425,22 @@ const AuthForm = ({
             </Button>
           </div>
 
-          <div className="mt-2 text-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={handleToggleMode}
-              disabled={loading}
-              className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300"
-            >
-              {resolvedMode === 'signup' 
-                ? t('signup.hasAccount', { signInLink: t('signup.signInLink') })
-                : t('signin.noAccount', { signUpLink: t('signin.signUpLink') })}
-            </Button>
-          </div>
+          {showModeToggle && (
+            <div className="mt-2 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={handleToggleMode}
+                disabled={loading}
+                className="text-accent-500 hover:text-accent-400"
+              >
+                {resolvedMode === 'signup' 
+                  ? t('signup.hasAccount', { signInLink: t('signup.signInLink') })
+                  : t('signin.noAccount', { signUpLink: t('signin.signUpLink') })}
+              </Button>
+            </div>
+          )}
         </Form>
       </div>
     </div>

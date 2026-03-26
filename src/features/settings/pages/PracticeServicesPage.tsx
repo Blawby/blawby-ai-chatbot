@@ -1,67 +1,34 @@
 import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ServicesEditor } from '@/features/services/components/ServicesEditor';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
-import { createServiceId, type Service } from '@/features/services/types';
-import { getServiceDetailsForSave, normalizeServices } from '@/features/services/utils';
+import type { Service } from '@/features/services/types';
+import { getServiceDetailsForSave } from '@/features/services/utils';
+import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const coerceServiceDetails = (value: unknown): Service[] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!isPlainObject(item)) return null;
-      const title = typeof item.name === 'string'
-        ? item.name
-        : (typeof item.title === 'string' ? item.title : '');
-      if (!title.trim()) return null;
-      const rawId = typeof item.id === 'string' ? item.id.trim() : '';
-      return {
-        id: rawId || createServiceId(),
-        title,
-        description: typeof item.description === 'string' ? item.description : ''
-      } as Service;
-    })
-    .filter((item): item is Service => item !== null);
-};
-
-const resolveServiceDetails = (
-  details: { services?: Array<Record<string, unknown>> | null } | null,
-  practice: Practice | null
-): Service[] => {
-  if (Array.isArray(details?.services)) {
-    const fromDetails = coerceServiceDetails(details.services);
-    return normalizeServices(fromDetails, SERVICE_CATALOG);
-  }
-  if (details?.services === null) {
-    return [];
-  }
-  if (practice?.services) {
-    const fromPractice = coerceServiceDetails(practice.services);
-    if (fromPractice.length > 0) {
-      return normalizeServices(fromPractice, SERVICE_CATALOG);
-    }
-  }
-  return [];
-};
+import { Button } from '@/shared/ui/Button';
+import { ContentPageLayout } from '@/shared/ui/layout';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface PracticeServicesPageProps {
   onNavigate?: (path: string) => void;
+  className?: string;
 }
 
-export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) => {
+export const PracticeServicesPage = ({ onNavigate, className }: PracticeServicesPageProps) => {
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
-  const { details, updateDetails } = usePracticeDetails(currentPractice?.id);
+  const { details, updateDetails } = usePracticeDetails(currentPractice?.id, null, false);
   const { showError, showSuccess } = useToastContext();
   const { navigate: baseNavigate } = useNavigation();
   const navigate = onNavigate ?? baseNavigate;
+  const location = useLocation();
   const [servicesError, setServicesError] = useState<string | null>(null);
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const lastSavedKeyRef = useRef<string>('');
   const lastToastAtRef = useRef(0);
   const toastCooldownMs = 4000;
@@ -108,47 +75,44 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">No practice selected.</p>
+        <p className="text-sm text-input-placeholder">No practice selected.</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="pt-4 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/settings/practice')}
-            className="flex items-center gap-2 mb-4 text-gray-600 dark:text-gray-300"
-            aria-label="Back to practice settings"
-          >
-            <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
-            <span className="text-sm font-medium">Back to Practice</span>
-          </button>
-
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Services</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Manage the legal services shown to clients during intake.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {servicesError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
-            {servicesError}
-          </p>
-        )}
-
-        <ServicesEditor
-          services={initialServiceDetails}
-          onChange={(nextServices) => void saveServices(nextServices)}
-          catalog={SERVICE_CATALOG}
+    <ContentPageLayout
+      title="Services"
+      className={className}
+      wrapChildren={false}
+      contentClassName="pb-6"
+      headerLeading={(
+        <Button
+          variant="icon"
+          size="icon"
+          onClick={() => navigate(toSettingsPath('practice'))}
+          aria-label="Back to practice settings"
+          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
         />
+      )}
+    >
+      <div className="pt-2 pb-6">
+        <p className="text-sm text-input-placeholder">
+          Manage the legal services shown to clients during intake.
+        </p>
       </div>
-    </div>
+
+      {servicesError && (
+        <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+          {servicesError}
+        </p>
+      )}
+
+      <ServicesEditor
+        services={initialServiceDetails}
+        onChange={(nextServices) => void saveServices(nextServices)}
+        catalog={SERVICE_CATALOG}
+      />
+    </ContentPageLayout>
   );
 };

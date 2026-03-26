@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Retour",
+    "errors": {
+      "tryAgainLater": "Veuillez réessayer plus tard."
+    }
+  },
   "app": {
     "loading": "Chargement…"
   },
@@ -211,7 +217,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Bonjour 👋",
       "helpPrompt": "Comment pouvons-nous vous aider ?",
@@ -219,14 +225,17 @@
       "sendMessage": "Envoyez-nous un message",
       "consultation": {
         "title": "Besoin de parler à un avocat ?",
-        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation.",
-        "button": "Demander une consultation"
+        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation."
       },
       "poweredBy": "Propulsé par"
     },
     "navigation": {
       "home": "Accueil",
-      "messages": "Messages"
+      "messages": "Messages",
+      "matters": "Dossiers",
+      "clients": "Personnes",
+      "settings": "Paramètres",
+      "invoices": "Factures"
     },
     "conversationList": {
       "title": "Messages",
@@ -237,12 +246,59 @@
     },
     "error": {
       "title": "Détails du cabinet indisponibles",
-      "description": "Nous n'avons pas pu charger le nom et le logo du cabinet {{slug}}. Veuillez rafraîchir ou contacter le cabinet pour confirmer leurs paramètres publics.",
+      "description": "Nous n'avons pas pu charger le nom et le logo du cabinet «{{slug}}». Veuillez rafraîchir ou contacter le cabinet pour confirmer leurs paramètres publics.",
       "retry": "Réessayer"
     },
     "header": {
       "activeNow": "Actif maintenant",
-      "back": "Retour"
+      "back": "Retour",
+      "inactive": "Inactif",
+      "away": "Absent",
+      "unknown": "Statut inconnu"
     }
+  },
+  "chat": {
+    "publicIntro": "Posez-nous vos questions ou partagez vos commentaires.",
+    "continue": "Continuer",
+    "submitRequest": "Soumettre la demande",
+    "submitNow": "Envoyer maintenant",
+    "buildStrongerBrief": "Créer un meilleur dossier",
+    "askQuestion": "Poser une question",
+    "requestConsultation": "Demander une consultation",
+    "retry": "Réessayer",
+    "retrying": "Nouvelle tentative...",
+    "replyingTo": "En réponse à <name>{{name}}</name>",
+    "cta": {
+      "submit": "Envoyer la demande",
+      "submitConsultationRequest": "Envoyer la demande de consultation",
+      "reviewSubmit": "Vérifier et envoyer",
+      "keepAnswering": "Continuer de répondre",
+      "continue": "Continuer",
+      "addMore": "Ajouter plus",
+      "notYet": "Pas encore"
+    }
+  },
+  "intake": {
+    "authTitle": "Vous êtes presque prêt",
+    "authDescription": "Créez un compte gratuit pour continuer votre demande et recevoir des mises à jour de {{practice}}. Nous vous enverrons un lien de confirmation par courrier électronique.",
+    "authDescriptionFallback": "Créez un compte gratuit pour continuer votre demande et recevoir des mises à jour. Nous vous enverrons un lien de confirmation par courrier électronique."
+  },
+  "leadReview": {
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "convert": "Convertir en dossier",
+    "noPermission": "Vous n'avez pas la permission d'examiner cette piste"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

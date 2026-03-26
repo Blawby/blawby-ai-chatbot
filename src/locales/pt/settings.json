@@ -37,7 +37,11 @@
         "blue": "Azul",
         "green": "Verde",
         "purple": "Roxo",
-        "red": "Vermelho"
+        "red": "Vermelho",
+        "gold": "Ouro",
+        "yellow": "Amarelo",
+        "pink": "Rosa",
+        "orange": "Laranja"
       }
     },
     "language": {

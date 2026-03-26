@@ -46,12 +46,12 @@ export const InfoCard = ({
     lg: 'w-10 h-10'
   };
 
-  const variantClasses = {
-    default: 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 text-gray-800 dark:text-gray-200',
-    blue: 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
-    amber: 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200',
-    green: 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20 text-green-800 dark:text-green-200',
-    red: 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+  const variantClasses: Record<InfoCardVariant, string> = {
+    default: 'glass-panel text-input-text',
+    blue: 'status-info',
+    amber: 'status-warning',
+    green: 'status-success',
+    red: 'status-error'
   };
 
   return (

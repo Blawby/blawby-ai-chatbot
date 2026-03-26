@@ -23,21 +23,24 @@
   "general": {
     "title": "การตั้งค่าทั่วไป",
     "theme": {
-      "label": "[NEEDS TRANSLATION] Theme",
+      "label": "ธีม",
       "options": {
-        "light": "[NEEDS TRANSLATION] Light",
-        "dark": "[NEEDS TRANSLATION] Dark",
-        "system": "[NEEDS TRANSLATION] System"
+        "light": "สว่าง",
+        "dark": "มืด",
+        "system": "ระบบ"
       }
     },
     "accent": {
-      "label": "[NEEDS TRANSLATION] Accent color",
+      "label": "สีเน้น",
       "options": {
-        "default": "[NEEDS TRANSLATION] Default",
-        "blue": "[NEEDS TRANSLATION] Blue",
-        "green": "[NEEDS TRANSLATION] Green",
-        "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red"
+        "grey": "ค่าเริ่มต้น",
+        "gold": "ทอง",
+        "blue": "น้ำเงิน",
+        "green": "เขียว",
+        "yellow": "เหลือง",
+        "pink": "ชมพู",
+        "orange": "ส้ม",
+        "purple": "ม่วง"
       }
     },
     "language": {

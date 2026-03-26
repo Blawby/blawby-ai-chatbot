@@ -29,12 +29,12 @@ export const Breadcrumbs = ({
             <button
               type="button"
               onClick={() => onNavigate?.(item.href as string)}
-              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-gray-600 hover:text-input-text dark:text-gray-400 dark:hover:text-gray-200"
             >
               {item.label}
             </button>
           ) : (
-            <span className={cn(isLast ? 'text-gray-900 dark:text-gray-100' : '')}>{item.label}</span>
+            <span className={cn(isLast ? 'text-input-text' : '')}>{item.label}</span>
           );
           return (
             <li key={`${item.label}-${index}`} className="flex items-center gap-2">

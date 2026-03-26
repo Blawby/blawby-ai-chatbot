@@ -39,6 +39,54 @@
 
 import { isDevelopment } from '@/shared/utils/environment';
 
+export const encodeSegment = (value: string): string => encodeURIComponent(value);
+
+const appendQuery = (path: string, query?: Record<string, string | undefined>): string => {
+	if (!query) return path;
+	const params = new URLSearchParams();
+	Object.entries(query).forEach(([key, value]) => {
+		if (value !== undefined) {
+			params.set(key, value);
+		}
+	});
+	const queryString = params.toString();
+	return queryString ? `${path}?${queryString}` : path;
+};
+
+export const clientIntakes = (
+	practiceId: string,
+	query?: Record<string, string | undefined>
+): string => appendQuery(`/api/practice/client-intakes/${encodeSegment(practiceId)}`, query);
+
+export const clientIntake = (
+	practiceId: string,
+	intakeId: string,
+	query?: Record<string, string | undefined>
+): string => appendQuery(
+	`/api/practice/client-intakes/${encodeSegment(practiceId)}/${encodeSegment(intakeId)}`,
+	query
+);
+
+export const clientIntakeStatus = (intakeId: string): string =>
+	`/api/practice/client-intakes/${encodeSegment(intakeId)}/status`;
+
+export const clientIntakeClaim = (): string => '/api/practice/client-intakes/claim';
+
+export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
+
+export const matterItemPath = (practiceId: string, matterId: string): string =>
+	`${matterCollectionPath(practiceId)}/${encodeSegment(matterId)}`;
+
+export const matterNestedPath = (practiceId: string, matterId: string, resource: string): string =>
+	`${matterItemPath(practiceId, matterId)}/${resource}`;
+
+export const matterNestedItemPath = (
+	practiceId: string,
+	matterId: string,
+	resource: string,
+	itemId: string
+): string => `${matterNestedPath(practiceId, matterId, resource)}/${encodeSegment(itemId)}`;
+
 /**
  * Get URL for Cloudflare Worker API
  * 
@@ -60,13 +108,12 @@ export function getWorkerApiUrl(): string {
 
 	let baseUrl: string;
 
-	// Prefer explicit override when provided.
-	if (import.meta.env.VITE_WORKER_API_URL) {
-		// ENV VAR: VITE_WORKER_API_URL (primary override)
-		baseUrl = import.meta.env.VITE_WORKER_API_URL;
-	} else if (typeof window !== 'undefined' && window.location?.origin) {
-		// Browser: same-origin to support session cookies.
+	// Browser: prefer same-origin to preserve auth/session cookies and avoid CORS in local dev.
+	if (typeof window !== 'undefined' && window.location?.origin) {
 		baseUrl = window.location.origin;
+	} else if (import.meta.env.VITE_WORKER_API_URL) {
+		// ENV VAR: VITE_WORKER_API_URL (primary override outside browser/runtime)
+		baseUrl = import.meta.env.VITE_WORKER_API_URL;
 	} else if (isDevelopment()) {
 		// Development: use localhost
 		baseUrl = 'http://localhost:8787';
@@ -202,3 +249,64 @@ export function getTrustedHosts(): string[] {
 
 	return Array.from(new Set(hosts));
 }
+/**
+ * Centralized API endpoint helpers
+ */
+export const urls = {
+	clientIntakes,
+	clientIntake,
+	clientIntakeStatus,
+	clientIntakeClaim,
+	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
+	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
+	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
+	updateInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
+	deleteInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
+	sendInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/send`,
+	voidInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/void`,
+	syncInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/sync`,
+	invoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/refund-requests`,
+	clientInvoicesList: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client`,
+	clientInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/${encodeURIComponent(invoiceId)}`,
+	clientInvoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/${encodeURIComponent(invoiceId)}/refund-requests`,
+	clientRefundRequests: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/refund-requests`,
+	cancelClientRefundRequest: (practiceId: string, refundRequestId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/refund-requests/${encodeURIComponent(refundRequestId)}/cancel`,
+	matterUnbilled: (practiceId: string, matterId: string) => `${matterItemPath(practiceId, matterId)}/unbilled`,
+	matterCollectionPath,
+	matterItemPath,
+	matterNestedPath,
+	matterNestedItemPath
+};
+
+const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [
+	/^\/api\/conversations(?:\/|$)/,
+	/^\/api\/ai(?:\/|$)/,
+	/^\/api\/widget\/bootstrap(?:\/|$)/,
+	/^\/api\/widget\/practice-details(?:\/|$)/
+];
+
+const WIDGET_TOKEN_DENYLIST_PATTERNS: RegExp[] = [
+	/^\/api\/conversations\/[^/]+\/link(?:\/|$)/
+];
+
+const extractPathname = (requestUrl: string): string | null => {
+	const trimmed = requestUrl.trim();
+	if (!trimmed) return null;
+	try {
+		if (trimmed.startsWith('/')) {
+			return new URL(trimmed, 'http://localhost').pathname;
+		}
+		return new URL(trimmed).pathname;
+	} catch {
+		return null;
+	}
+};
+
+export const isWidgetTokenEligibleRequestUrl = (requestUrl: string): boolean => {
+	const pathname = extractPathname(requestUrl);
+	if (!pathname) return false;
+	if (WIDGET_TOKEN_DENYLIST_PATTERNS.some((pattern) => pattern.test(pathname))) {
+		return false;
+	}
+	return WIDGET_TOKEN_ALLOWLIST_PATTERNS.some((pattern) => pattern.test(pathname));
+};

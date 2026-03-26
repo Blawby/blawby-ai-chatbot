@@ -47,7 +47,7 @@ export function StripeOnboardingStep({
     <div className="space-y-6">
       {showIntro && (
         <div className="text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-input-placeholder">
             Start Stripe onboarding to verify your trust account and enable payouts.
           </p>
         </div>
@@ -66,11 +66,11 @@ export function StripeOnboardingStep({
       )}
 
       {showStatus && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2 bg-white dark:bg-gray-900/40">
+        <div className="glass-card p-4 space-y-2">
           {statusItems.map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-              <span className="font-semibold text-gray-900 dark:text-gray-100">
+              <span className="text-input-placeholder">{item.label}</span>
+              <span className="font-semibold text-input-text">
                 {item.value}
               </span>
             </div>

@@ -1,8 +1,8 @@
 import { FunctionalComponent } from 'preact';
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { Icon } from '@/shared/ui/Icon';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
-import { MatterStatusBadge } from './StatusBadge';
-import { MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
+import { MatterStatusBadge, type MatterWorkflowStatus } from './StatusBadge';
 
 interface MatterCanvasProps {
   matterId?: string;
@@ -60,7 +60,7 @@ const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
         {missingInfo.length > 0 && (
           <div className="missing-info-section">
             <div className="missing-info-header">
-              <ExclamationTriangleIcon className="w-4 h-4" />
+              <Icon icon={ExclamationTriangleIcon} className="w-4 h-4"  />
               <span>Missing Information</span>
             </div>
             <div className="missing-info-list">

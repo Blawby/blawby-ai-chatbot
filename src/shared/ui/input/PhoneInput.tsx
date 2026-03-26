@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useState, useEffect, useRef } from 'preact/compat';
 import { PhoneIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -200,9 +201,9 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const formatPhoneNumber = useCallback((phone: string) => {
@@ -229,19 +230,20 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   }, [onChange, formatPhoneNumber]);
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
+    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -259,18 +261,18 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="menu"
               aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
               className={cn(
-                "inline-flex items-center border border-gray-300 dark:border-gray-600 rounded-l-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors",
+                "inline-flex items-center border border-input-border rounded-l-lg text-input-text hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors glass-input",
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
             >
               <span className="text-base mr-1">{currentCountry.emoji}</span>
               <span className="text-sm">{currentCountry.code}</span>
-              <ChevronDownIcon className="w-3 h-3 ml-1" />
+              <Icon icon={ChevronDownIcon} className="w-3 h-3 ml-1"  />
             </button>
             
             {isDropdownOpen && (
-              <div className="absolute z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg w-52 top-full left-0 mt-1">
+              <div className="absolute z-10 glass-panel border border-line-glass/30 rounded-lg shadow-glass w-52 top-full left-0 mt-1">
                 <div 
                   ref={listRef}
                   role="listbox"
@@ -283,8 +285,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                         type="button"
                         onClick={() => handleCountrySelect(country)}
                         className={cn(
-                          "inline-flex w-full px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-700",
-                          index === focusedIndex && "bg-gray-100 dark:bg-gray-700"
+                          "inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-white/[0.04] focus:outline-none focus:bg-white/[0.08]",
+                          index === focusedIndex && "bg-white/[0.08]"
                         )}
                         tabIndex={-1}
                       >
@@ -303,7 +305,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <PhoneIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+            <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder"  />
           </div>
           
           <input
@@ -334,7 +336,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "رجوع",
+    "errors": {
+      "tryAgainLater": "يرجى المحاولة مرة أخرى لاحقاً."
+    }
+  },
   "app": {
     "loading": "جارٍ التحميل…"
   },
@@ -188,7 +194,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "مرحباً 👋",
       "helpPrompt": "كيف يمكننا المساعدة؟",
@@ -196,14 +202,17 @@
       "sendMessage": "أرسل لنا رسالة",
       "consultation": {
         "title": "هل تحتاج للتحدث مع محام؟",
-        "description": "شارك بعض التفاصيل وسنقوم بربطك بالمحامي المناسب لحالتك.",
-        "button": "طلب استشارة"
+        "description": "شارك بعض التفاصيل وسنقوم بربطك بالمحامي المناسب لحالتك."
       },
       "poweredBy": "مشغل بواسطة"
     },
     "navigation": {
       "home": "الرئيسية",
-      "messages": "الرسائل"
+      "messages": "الرسائل",
+      "matters": "القضايا",
+      "clients": "العملاء",
+      "settings": "الإعدادات",
+      "invoices": "الفواتير"
     },
     "conversationList": {
       "title": "الرسائل",
@@ -214,12 +223,15 @@
     },
     "error": {
       "title": "تفاصيل المكتب غير متوفرة",
-      "description": "لم نتمكن من تحميل اسم وشعار المكتب {{slug}}. يرجى التحديث أو الاتصال بالمكتب لتأكيد إعداداتهم العامة.",
+      "description": "لم نتمكن من تحميل اسم وشعار المكتب \"{{slug}}\". يرجى التحديث أو الاتصال بالمكتب لتأكيد إعداداتهم العامة.",
       "retry": "حاول مرة أخرى"
     },
     "header": {
       "activeNow": "نشط الآن",
-      "back": "رجوع"
+      "back": "رجوع",
+      "inactive": "غير نشط",
+      "away": "بالخارج",
+      "unknown": "حالة غير معروفة"
     }
   },
   "businessWelcome": {
@@ -244,5 +256,49 @@
       }
     },
     "goToSettings": "الذهاب إلى إعدادات المكتب"
+  },
+  "chat": {
+    "publicIntro": "اسألنا عن أي شيء، أو شاركنا ملاحظاتك.",
+    "continue": "متابعة",
+    "submitRequest": "إرسال الطلب",
+    "submitNow": "الإرسال الآن",
+    "buildStrongerBrief": "إنشاء موجز أقوى",
+    "askQuestion": "اطرح سؤالاً",
+    "requestConsultation": "طلب استشارة",
+    "retry": "أعد المحاولة",
+    "retrying": "جارٍ إعادة المحاولة...",
+    "replyingTo": "رداً على <name>{{name}}</name>",
+    "cta": {
+      "submit": "إرسال الطلب",
+      "submitConsultationRequest": "إرسال طلب الاستشارة",
+      "reviewSubmit": "المراجعة والإرسال",
+      "keepAnswering": "مواصلة الإجابة",
+      "continue": "متابعة",
+      "addMore": "إضافة المزيد",
+      "notYet": "ليس بعد"
+    }
+  },
+  "intake": {
+    "authTitle": "أنت على وشك الانتهاء",
+    "authDescription": "أنشئ حساباً مجانياً لمتابعة طلبك والحصول على تحديثات من {{practice}}. سنرسل إليك رابط تأكيد عبر البريد الإلكتروني.",
+    "authDescriptionFallback": "أنشئ حساباً مجانياً لمتابعة طلبك والحصول على تحديثات. سنرسل إليك رابط تأكيد عبر البريد الإلكتروني."
+  },
+  "leadReview": {
+    "accept": "قبول",
+    "decline": "رفض",
+    "convert": "تحويل إلى ملف",
+    "noPermission": "ليس لديك إذن لمراجعة هذا العميل المحتمل"
+  },
+  "leadIntake": {
+    "newIntake": "إدخال جديد",
+    "urgency": "الأولوية",
+    "payment": "الدفع",
+    "triage": "تقييم الحالة",
+    "fee": "الرسوم",
+    "opposingParty": "الطرف الآخر",
+    "reason": "السبب"
+  },
+  "widget": {
+    "persistIntakePathError": "تعذّر حفظ مسار العودة."
   }
 }

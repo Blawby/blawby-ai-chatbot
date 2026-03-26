@@ -17,7 +17,7 @@ export const SettingSection = ({
 }: SettingSectionProps) => {
   return (
     <div className={cn('py-3', className)}>
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+      <h3 className="text-sm font-semibold text-input-text">
         {title}
       </h3>
       {description && <SettingDescription text={description} className="mb-4" />}

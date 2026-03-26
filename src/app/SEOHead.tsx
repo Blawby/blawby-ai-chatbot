@@ -58,12 +58,6 @@ function generatePageTitle(
     return `${practiceName} - AI Legal Assistant`;
   }
   
-  // Priority 2: Use introMessage with word-aware truncation
-  if (practiceConfig?.introMessage) {
-    const truncated = truncateToWordBoundary(practiceConfig.introMessage, 50);
-    return `${truncated} - AI Legal Assistant`;
-  }
-  
   // Fallback: Default title
   return 'Blawby AI - Intelligent Legal Assistant & Chat Interface';
 }

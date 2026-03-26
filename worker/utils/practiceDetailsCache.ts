@@ -1,4 +1,5 @@
 import type { Env } from '../types.js';
+import { HttpError } from '../types.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 const CACHE_TTL_SECONDS = 600;
 
@@ -16,11 +17,24 @@ const extractDetailsContainer = (payload: unknown): Record<string, unknown> | nu
   return payload;
 };
 
+export const invalidatePracticeDetailsCache = async (
+  env: Env,
+  practiceId: string | null | undefined
+): Promise<void> => {
+  const trimmed = typeof practiceId === 'string' ? practiceId.trim() : '';
+  if (!trimmed || !env.CHAT_SESSIONS) return;
+  await env.CHAT_SESSIONS.delete(`practice_details:${trimmed}`);
+};
+
 export const fetchPracticeDetailsWithCache = async (
   env: Env,
   request: Request,
   practiceId: string,
-  practiceSlug?: string | null
+  practiceSlug?: string | null,
+  options?: {
+    bypassCache?: boolean;
+    preferPracticeIdLookup?: boolean;
+  }
 ): Promise<{
   details: Record<string, unknown> | null;
   isPublic: boolean;
@@ -29,13 +43,40 @@ export const fetchPracticeDetailsWithCache = async (
     return { details: null, isPublic: false };
   }
   const cacheKey = `practice_details:${practiceId}`;
-  if (env.CHAT_SESSIONS) {
+  if (!options?.bypassCache && env.CHAT_SESSIONS) {
     const cached = await env.CHAT_SESSIONS.get(cacheKey, 'json') as { payload?: unknown } | null;
     if (cached?.payload) {
       const details = extractDetailsContainer(cached.payload);
-      const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-      return { details, isPublic };
+      if (details) {
+        const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+        return { details, isPublic };
+      }
+      // Cached shape is stale/corrupt for current parser; evict and fetch fresh.
+      await env.CHAT_SESSIONS.delete(cacheKey);
     }
+  }
+
+  if (options?.preferPracticeIdLookup) {
+    try {
+      const response = await RemoteApiService.getPracticeDetailsById(env, practiceId, request);
+      const payload = await response.json().catch(() => null);
+      const details = extractDetailsContainer(payload);
+      const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+
+      if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
+        await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
+          expirationTtl: CACHE_TTL_SECONDS
+        });
+      }
+
+      return { details, isPublic };
+    } catch (error) {
+      // fall through to slug lookup when ID lookup fails with auth/not-found errors
+      if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 401 && error.status !== 403)) {
+        throw error;
+      }
+    }
+    // fall through to slug lookup
   }
 
   const isUuid = (value: string): boolean =>
@@ -53,36 +94,22 @@ export const fetchPracticeDetailsWithCache = async (
     }
   }
 
-  const baseUrl = new URL(request.url);
-  baseUrl.pathname = `/api/practice/details/${encodeURIComponent(resolvedSlug)}`;
-  baseUrl.search = '';
-
-  let response = await fetch(baseUrl.toString(), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json'
+  let response: Response;
+  try {
+    response = await RemoteApiService.getPublicPracticeDetails(env, resolvedSlug, request);
+  } catch (error) {
+    if (error instanceof HttpError && resolvedSlug !== practiceId) {
+      response = await RemoteApiService.getPublicPracticeDetails(env, practiceId, request);
+    } else {
+      throw error;
     }
-  });
-
-  if (!response.ok && resolvedSlug !== practiceId) {
-    baseUrl.pathname = `/api/practice/details/${encodeURIComponent(practiceId)}`;
-    response = await fetch(baseUrl.toString(), {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json'
-      }
-    });
-  }
-
-  if (!response.ok) {
-    return { details: null, isPublic: false };
   }
 
   const payload = await response.json().catch(() => null);
   const details = extractDetailsContainer(payload);
   const isPublic = Boolean(details?.is_public ?? details?.isPublic);
 
-  if (env.CHAT_SESSIONS && payload) {
+  if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
     await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
       expirationTtl: CACHE_TTL_SECONDS
     });

@@ -6,10 +6,10 @@
  */
 
 import { ProfileIcon } from '../atoms/ProfileIcon';
-import type { ComponentChildren } from 'preact';
+import type { IconComponent } from '@/shared/ui/Icon';
 
 interface ProfileMenuItemProps {
-  icon: ComponentChildren;
+  icon: IconComponent;
   label: string;
   onClick: () => void;
   isActive?: boolean;
@@ -29,7 +29,7 @@ export const ProfileMenuItem = ({
       role="menuitem"
       onClick={onClick}
       aria-current={isActive ? 'page' : undefined}
-      className={`w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 flex items-center gap-2 ${isActive ? 'font-semibold text-gray-900 dark:text-white' : ''} ${className}`}
+      className={`w-full px-3 py-2 text-left text-sm text-input-text hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent-500 flex items-center gap-2 ${isActive ? 'font-semibold text-input-text' : ''} ${className}`}
     >
       <ProfileIcon icon={icon} />
       {label}

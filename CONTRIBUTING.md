@@ -77,6 +77,32 @@ This project uses:
 - ESLint for code linting
 - Prettier for code formatting
 
+### Design System Rules
+
+Use shared visual tokens and component classes first. Do not introduce ad-hoc color utilities when an existing token exists.
+
+- Surfaces:
+  - `glass-card` for prominent containers
+  - `glass-panel` for sections
+  - `glass-input` for input-like surfaces
+- Buttons:
+  - Use `<Button>` variants (`primary`, `secondary`, `ghost`, `danger`, `warning`, `danger-ghost`, `accent-ghost`, `menu-item`, `tab`, `icon`, `link`)
+  - Do not hardcode brand colors like `bg-blue-*`; use accent tokens/variants
+- Text handling:
+  - Single-line labels/titles in constrained rows should use `truncate`
+  - User-generated or long-form content should use `break-words`
+  - Preserve authored line breaks only when needed (for example message/markdown blocks) using `whitespace-pre-wrap`
+- Dynamic foreground (contrast-aware):
+  - On accent-colored surfaces, use `text-[rgb(var(--accent-foreground))]` for foreground text/icons
+  - Do not hardcode `text-white`, `text-gray-*`, or `text-input-text` on accent surfaces
+- Navigation:
+  - Use shared nav state classes: `nav-item-active`, `nav-item-inactive`
+  - `WorkspaceNav` is primary app chrome; `SidebarNavigation` is secondary configurable nav
+- Form actions:
+  - Use `FormActions` for cancel/submit rows instead of custom button pairs
+- Style reference:
+  - In development, use `/debug/styles` to inspect available style primitives before creating new ones
+
 Before submitting a PR, please run:
 
 ```bash

@@ -1,4 +1,10 @@
 import axios from 'axios';
+import {
+  matterCollectionPath,
+  matterItemPath,
+  matterNestedItemPath,
+  matterNestedPath
+} from '@/config/urls';
 import { apiClient } from '@/shared/lib/apiClient';
 import {
   toMajorUnits,
@@ -12,10 +18,11 @@ import {
 export type BackendMatter = {
   id: string;
   organization_id?: string | null;
+  // Backend contract: single linked client/person reference for the matter.
   client_id?: string | null;
   title?: string | null;
   description?: string | null;
-  billing_type?: 'hourly' | 'fixed' | 'contingency' | string | null;
+  billing_type?: 'hourly' | 'fixed' | 'contingency' | 'pro_bono' | string | null;
   total_fixed_price?: MajorAmount | null;
   contingency_percentage?: number | null;
   settlement_amount?: MajorAmount | null;
@@ -23,6 +30,17 @@ export type BackendMatter = {
   admin_hourly_rate?: MajorAmount | null;
   attorney_hourly_rate?: MajorAmount | null;
   payment_frequency?: 'project' | 'milestone' | string | null;
+  case_number?: string | null;
+  matter_type?: string | null;
+  urgency?: 'routine' | 'time_sensitive' | 'emergency' | string | null;
+  responsible_attorney_id?: string | null;
+  originating_attorney_id?: string | null;
+  court?: string | null;
+  judge?: string | null;
+  opposing_party?: string | null;
+  opposing_counsel?: string | null;
+  open_date?: string | null;
+  close_date?: string | null;
   status?: string | null;
   deleted_at?: string | null;
   deleted_by?: string | null;
@@ -95,53 +113,94 @@ export type BackendMatterMilestone = {
   updated_at?: string | null;
 };
 
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export type BackendMatterTask = {
+  id: string;
+  matter_id: string;
+  name: string;
+  description?: string | null;
+  assignee_id?: string | null;
+  due_date?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  stage: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ListMatterTaskFilters = {
+  task_id?: string;
+  assignee_id?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  stage?: string;
+};
+
+export type CreateMatterTaskPayload = {
+  name: string;
+  description?: string;
+  assignee_id?: string | null;
+  due_date?: string | null;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  stage: string;
+};
+
+export type UpdateMatterTaskPayload = Partial<{
+  name: string;
+  description: string | null;
+  assignee_id: string | null;
+  due_date: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  stage: string;
+}>;
+
+export type GenerateMatterTasksPayload = {
+  template_name?: string;
+  tasks: CreateMatterTaskPayload[];
+};
+
 type FetchOptions = {
   signal?: AbortSignal;
 };
 
-const normalizeMatter = (matter: BackendMatter): BackendMatter => ({
-  ...matter,
-  total_fixed_price: (() => {
-    if (typeof matter.total_fixed_price === 'number') {
-      assertMinorUnits(matter.total_fixed_price, 'matter.total_fixed_price');
-    }
-    return toMajorUnits(matter.total_fixed_price ?? null);
-  })(),
-  settlement_amount: (() => {
-    if (typeof matter.settlement_amount === 'number') {
-      assertMinorUnits(matter.settlement_amount, 'matter.settlement_amount');
-    }
-    return toMajorUnits(matter.settlement_amount ?? null);
-  })(),
-  admin_hourly_rate: (() => {
-    if (typeof matter.admin_hourly_rate === 'number') {
-      assertMinorUnits(matter.admin_hourly_rate, 'matter.admin_hourly_rate');
-    }
-    return toMajorUnits(matter.admin_hourly_rate ?? null);
-  })(),
-  attorney_hourly_rate: (() => {
-    if (typeof matter.attorney_hourly_rate === 'number') {
-      assertMinorUnits(matter.attorney_hourly_rate, 'matter.attorney_hourly_rate');
-    }
-    return toMajorUnits(matter.attorney_hourly_rate ?? null);
-  })(),
-  milestones: Array.isArray(matter.milestones)
-    ? matter.milestones.map((item) => {
-      if (!item || typeof item !== 'object') return item;
-      const record = item as Record<string, unknown>;
-      return {
-        ...record,
-        amount: (() => {
-          if (typeof record.amount === 'number') {
-            assertMinorUnits(record.amount, 'matter.milestone.amount');
-            return toMajorUnits(record.amount);
-          }
-          return record.amount;
-        })()
-      };
-    })
-    : matter.milestones
-});
+const normalizeMatter = (matter: BackendMatter): BackendMatter => {
+  try {
+    return {
+      ...matter,
+      total_fixed_price: typeof matter.total_fixed_price === 'number' && Number.isFinite(matter.total_fixed_price) && Number.isInteger(matter.total_fixed_price)
+        ? toMajorUnits(matter.total_fixed_price) 
+        : matter.total_fixed_price,
+      settlement_amount: typeof matter.settlement_amount === 'number' && Number.isFinite(matter.settlement_amount) && Number.isInteger(matter.settlement_amount)
+        ? toMajorUnits(matter.settlement_amount)
+        : matter.settlement_amount,
+      admin_hourly_rate: typeof matter.admin_hourly_rate === 'number' && Number.isFinite(matter.admin_hourly_rate) && Number.isInteger(matter.admin_hourly_rate)
+        ? toMajorUnits(matter.admin_hourly_rate)
+        : matter.admin_hourly_rate,
+      attorney_hourly_rate: typeof matter.attorney_hourly_rate === 'number' && Number.isFinite(matter.attorney_hourly_rate) && Number.isInteger(matter.attorney_hourly_rate)
+        ? toMajorUnits(matter.attorney_hourly_rate)
+        : matter.attorney_hourly_rate,
+      milestones: Array.isArray(matter.milestones)
+        ? matter.milestones.map((item) => {
+          if (!item || typeof item !== 'object') return item;
+          const record = item as Record<string, unknown>;
+          return {
+            ...record,
+            amount: typeof record.amount === 'number' && Number.isFinite(record.amount) && Number.isInteger(record.amount)
+              ? toMajorUnits(record.amount)
+              : record.amount,
+          };
+        })
+        : matter.milestones,
+    };
+  } catch (err) {
+    console.warn('[mattersApi] Failed to normalize matter money fields', err instanceof Error ? err.message : String(err), { matterId: matter?.id });
+    return matter;
+  }
+};
 
 const normalizeMatterPayload = (payload: Record<string, unknown>) => {
   const normalized = { ...payload };
@@ -250,18 +309,33 @@ const extractMatterArray = (payload: unknown): BackendMatter[] => {
   if (!payload || typeof payload !== 'object') return [];
 
   const record = payload as Record<string, unknown>;
+  
+  // Try 'matters' key first (standard paginated response)
   if (Array.isArray(record.matters)) {
     return record.matters.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
+  
+  // Try 'items' key (alternative paginated response)
   if (Array.isArray(record.items)) {
     return record.items.filter((item): item is BackendMatter => !!item && typeof item === 'object');
   }
+
+  // Handle nested 'data' key (standard worker wrapping)
   if (record.data) {
     return extractMatterArray(record.data);
   }
-  if (record.matter && typeof record.matter === 'object') {
+
+  // Handle single matter object returned as 'matter'
+  if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
     return [record.matter as BackendMatter];
   }
+  
+  // Handle flat objects that have an 'id' - fallback if not in known keys
+  if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
+    return [record as BackendMatter];
+  }
+
+  console.warn('[mattersApi] extractMatterArray: could not extract array from payload', payload);
   return [];
 };
 
@@ -286,6 +360,10 @@ const extractActivityArray = (payload: unknown): BackendMatterActivity[] => {
   }
   if (!payload || typeof payload !== 'object') return [];
   const record = payload as Record<string, unknown>;
+  // New: backend now wraps activity in 'activities' key
+  if (Array.isArray(record.activities)) {
+    return record.activities.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
+  }
   if (Array.isArray(record.activity)) {
     return record.activity.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
   }
@@ -355,6 +433,36 @@ const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] => {
   return [];
 };
 
+const extractTasksArray = (payload: unknown): BackendMatterTask[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
+  }
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.tasks)) {
+    return record.tasks.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
+  }
+  if (record.data) {
+    return extractTasksArray(record.data);
+  }
+  return [];
+};
+
+const extractTask = (payload: unknown): BackendMatterTask | null => {
+  if (!payload || typeof payload !== 'object') return null;
+  if (Array.isArray(payload)) {
+    return (payload.find((item) => item && typeof item === 'object') ?? null) as BackendMatterTask | null;
+  }
+  const record = payload as Record<string, unknown>;
+  if (record.task && typeof record.task === 'object') {
+    return record.task as BackendMatterTask;
+  }
+  if (record.data) {
+    return extractTask(record.data);
+  }
+  return record as BackendMatterTask;
+};
+
 
 export const listMatters = async (
   practiceId: string,
@@ -366,16 +474,18 @@ export const listMatters = async (
 
   const params = new URLSearchParams();
   params.set('page', String(options.page ?? 1));
-  params.set('limit', String(options.limit ?? 100));
+  params.set('limit', String(options.limit ?? 20));
 
   const payload = await requestData(
-    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {
+    apiClient.get(matterCollectionPath(practiceId), {
       params: Object.fromEntries(params.entries()),
       signal: options.signal
     }),
     'Failed to load matters'
   );
-  return extractMatterArray(payload).map(normalizeMatter);
+  
+  const matters = extractMatterArray(payload);
+  return matters.map(normalizeMatter);
 };
 
 export const getMatter = async (
@@ -387,17 +497,18 @@ export const getMatter = async (
     return null;
   }
 
-  const params = new URLSearchParams();
-  params.set('matter_uuid', matterId);
   const payload = await requestData(
-    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {
-      params: Object.fromEntries(params.entries()),
+    apiClient.get(matterItemPath(practiceId, matterId), {
       signal: options.signal
     }),
     'Failed to load matter'
   );
-  const matter = extractMatter(payload);
-  return matter ? normalizeMatter(matter) : null;
+
+  const singleMatter = extractMatter(payload);
+  if (singleMatter) {
+    return normalizeMatter(singleMatter);
+  }
+  return null;
 };
 
 export const createMatter = async (
@@ -410,7 +521,7 @@ export const createMatter = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/create`,
+      matterCollectionPath(practiceId),
       normalizeMatterPayload(payload),
       { signal: options.signal }
     ),
@@ -431,7 +542,7 @@ export const updateMatter = async (
   }
   const json = await requestData(
     apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(matterId)}`,
+      matterItemPath(practiceId, matterId),
       normalizeMatterPayload(payload),
       { signal: options.signal }
     ),
@@ -450,7 +561,7 @@ export const deleteMatter = async (
     throw new Error('practiceId and matterId are required');
   }
   await requestData(
-    apiClient.delete(`/api/matters/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(matterId)}`, {
+    apiClient.delete(matterItemPath(practiceId, matterId), {
       signal: options.signal
     }),
     'Failed to delete matter'
@@ -468,7 +579,7 @@ export const getMatterActivity = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/activity`,
+      matterNestedPath(practiceId, matterId, 'activity'),
       { signal: options.signal }
     ),
     'Failed to load activity'
@@ -487,7 +598,7 @@ export const listMatterNotes = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`,
+      matterNestedPath(practiceId, matterId, 'notes'),
       { signal: options.signal }
     ),
     'Failed to load notes'
@@ -509,7 +620,7 @@ export const createMatterNote = async (
   }
   const payload = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`,
+      matterNestedPath(practiceId, matterId, 'notes'),
       { content },
       { signal: options.signal }
     ),
@@ -539,7 +650,7 @@ export const updateMatterNote = async (
   }
   const payload = await requestData(
     apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`,
+      matterNestedItemPath(practiceId, matterId, 'notes', noteId),
       { content },
       { signal: options.signal }
     ),
@@ -565,7 +676,7 @@ export const deleteMatterNote = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`,
+      matterNestedItemPath(practiceId, matterId, 'notes', noteId),
       { signal: options.signal }
     ),
     'Failed to delete note'
@@ -583,7 +694,7 @@ export const listMatterTimeEntries = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`,
+      matterNestedPath(practiceId, matterId, 'time-entries'),
       { signal: options.signal }
     ),
     'Failed to load time entries'
@@ -610,7 +721,7 @@ export const createMatterTimeEntry = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`,
+      matterNestedPath(practiceId, matterId, 'time-entries'),
       payload,
       { signal: options.signal }
     ),
@@ -645,7 +756,7 @@ export const updateMatterTimeEntry = async (
   }
   const json = await requestData(
     apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`,
+      matterNestedItemPath(practiceId, matterId, 'time-entries', timeEntryId),
       payload,
       { signal: options.signal }
     ),
@@ -671,7 +782,7 @@ export const deleteMatterTimeEntry = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`,
+      matterNestedItemPath(practiceId, matterId, 'time-entries', timeEntryId),
       { signal: options.signal }
     ),
     'Failed to delete time entry'
@@ -689,7 +800,7 @@ export const getMatterTimeEntryStats = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/stats`,
+      matterNestedPath(practiceId, matterId, 'time-entries/stats'),
       { signal: options.signal }
     ),
     'Failed to load time stats'
@@ -711,7 +822,7 @@ export const listMatterExpenses = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`,
+      matterNestedPath(practiceId, matterId, 'expenses'),
       { signal: options.signal }
     ),
     'Failed to load expenses'
@@ -744,7 +855,7 @@ export const createMatterExpense = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`,
+      matterNestedPath(practiceId, matterId, 'expenses'),
       normalizeExpensePayload(payload),
       { signal: options.signal }
     ),
@@ -786,7 +897,7 @@ export const updateMatterExpense = async (
   }
   const json = await requestData(
     apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`,
+      matterNestedItemPath(practiceId, matterId, 'expenses', expenseId),
       normalizeExpensePayload(payload),
       { signal: options.signal }
     ),
@@ -813,7 +924,7 @@ export const deleteMatterExpense = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`,
+      matterNestedItemPath(practiceId, matterId, 'expenses', expenseId),
       { signal: options.signal }
     ),
     'Failed to delete expense'
@@ -831,7 +942,7 @@ export const listMatterMilestones = async (
 
   const payload = await requestData(
     apiClient.get(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`,
+      matterNestedPath(practiceId, matterId, 'milestones'),
       { signal: options.signal }
     ),
     'Failed to load milestones'
@@ -865,7 +976,7 @@ export const createMatterMilestone = async (
   }
   const json = await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`,
+      matterNestedPath(practiceId, matterId, 'milestones'),
       normalizeMilestonePayload(payload),
       { signal: options.signal }
     ),
@@ -908,7 +1019,7 @@ export const updateMatterMilestone = async (
   }
   const json = await requestData(
     apiClient.put(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`,
+      matterNestedItemPath(practiceId, matterId, 'milestones', milestoneId),
       normalizeMilestonePayload(payload),
       { signal: options.signal }
     ),
@@ -935,7 +1046,7 @@ export const deleteMatterMilestone = async (
   }
   await requestData(
     apiClient.delete(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`,
+      matterNestedItemPath(practiceId, matterId, 'milestones', milestoneId),
       { signal: options.signal }
     ),
     'Failed to delete milestone'
@@ -950,11 +1061,140 @@ export const reorderMatterMilestones = async (
 ): Promise<boolean> => {
   await requestData(
     apiClient.post(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/reorder`,
+      matterNestedPath(practiceId, matterId, 'milestones/reorder'),
       { milestones },
       { signal: options.signal }
     ),
     'Failed to reorder milestones'
   );
   return true;
+};
+
+export const listMatterTasks = async (
+  practiceId: string,
+  matterId: string,
+  filters: ListMatterTaskFilters = {},
+  options: FetchOptions = {}
+): Promise<BackendMatterTask[]> => {
+  if (!practiceId || !matterId) {
+    return [];
+  }
+
+  const params = new URLSearchParams();
+  if (filters.task_id) params.set('task_id', filters.task_id);
+  if (filters.assignee_id) params.set('assignee_id', filters.assignee_id);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.stage) params.set('stage', filters.stage);
+
+  const payload = await requestData(
+    apiClient.get(
+      matterNestedPath(practiceId, matterId, 'tasks'),
+      {
+        params: Object.fromEntries(params.entries()),
+        signal: options.signal
+      }
+    ),
+    'Failed to load tasks'
+  );
+  return extractTasksArray(payload);
+};
+
+export const createMatterTask = async (
+  practiceId: string,
+  matterId: string,
+  payload: CreateMatterTaskPayload,
+  options: FetchOptions = {}
+): Promise<BackendMatterTask | null> => {
+  // Legacy/undocumented: the supplied backend contract only documents GET /tasks.
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!payload?.name?.trim()) {
+    throw new Error('name is required');
+  }
+  if (!payload?.stage?.trim()) {
+    throw new Error('stage is required');
+  }
+  const json = await requestData(
+    apiClient.post(
+      matterNestedPath(practiceId, matterId, 'tasks'),
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to create task'
+  );
+  return extractTask(json);
+};
+
+export const updateMatterTask = async (
+  practiceId: string,
+  matterId: string,
+  taskId: string,
+  payload: UpdateMatterTaskPayload,
+  options: FetchOptions = {}
+): Promise<BackendMatterTask | null> => {
+  // Legacy/undocumented: the supplied backend contract does not document task mutation routes.
+  if (!practiceId || !matterId || !taskId) {
+    throw new Error('practiceId, matterId, and taskId are required');
+  }
+  if (!payload || Object.keys(payload).length === 0) {
+    throw new Error('At least one field must be provided');
+  }
+  const json = await requestData(
+    apiClient.patch(
+      matterNestedItemPath(practiceId, matterId, 'tasks', taskId),
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to update task'
+  );
+  return extractTask(json);
+};
+
+export const deleteMatterTask = async (
+  practiceId: string,
+  matterId: string,
+  taskId: string,
+  options: FetchOptions = {}
+): Promise<boolean> => {
+  // Legacy/undocumented: the supplied backend contract does not document task mutation routes.
+  if (!practiceId || !matterId || !taskId) {
+    throw new Error('practiceId, matterId, and taskId are required');
+  }
+  const payload = await requestData(
+    apiClient.delete(
+      matterNestedItemPath(practiceId, matterId, 'tasks', taskId),
+      { signal: options.signal }
+    ),
+    'Failed to delete task'
+  );
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    return Boolean((payload as Record<string, unknown>).success);
+  }
+  return true;
+};
+
+export const generateMatterTasks = async (
+  practiceId: string,
+  matterId: string,
+  payload: GenerateMatterTasksPayload,
+  options: FetchOptions = {}
+): Promise<BackendMatterTask[]> => {
+  // Legacy/undocumented: task generation is not part of the supplied backend contract.
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!Array.isArray(payload.tasks) || payload.tasks.length === 0) {
+    throw new Error('tasks must include at least one entry');
+  }
+  const json = await requestData(
+    apiClient.post(
+      matterNestedPath(practiceId, matterId, 'tasks/generate'),
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to generate tasks'
+  );
+  return extractTasksArray(json);
 };

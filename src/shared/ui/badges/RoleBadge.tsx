@@ -1,14 +1,15 @@
 import type { ComponentChildren } from 'preact';
 import type { Role } from '@/shared/hooks/usePracticeManagement';
 import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
+import { cn } from '@/shared/utils/cn';
 
-const ROLE_STYLES = {
-  owner: 'bg-accent-500 text-gray-900',
-  admin: 'bg-primary-500 text-white',
-  attorney: 'bg-blue-500 text-white',
-  paralegal: 'bg-indigo-500 text-white',
-  member: 'bg-emerald-500 text-white',
-  client: 'bg-gray-500 text-white'
+const ROLE_STYLES: Record<Role, string> = {
+  owner: 'status-success',
+  admin: 'status-info',
+  attorney: 'status-info',
+  paralegal: 'status-info',
+  member: 'status-info',
+  client: 'status-warning'
 };
 
 interface RoleBadgeProps {
@@ -18,12 +19,14 @@ interface RoleBadgeProps {
 }
 
 export const RoleBadge = ({ roleType, children, className }: RoleBadgeProps) => {
-  const roleStyles = ROLE_STYLES[roleType] || '';
-  const baseClasses = 'px-2 py-1 text-xs font-medium rounded';
-  const combinedClasses = className ? `${baseClasses} ${roleStyles} ${className}` : `${baseClasses} ${roleStyles}`;
-  
   return (
-    <span className={combinedClasses}>
+    <span
+      className={cn(
+        'inline-flex items-center px-2 py-1 text-xs font-medium rounded-full',
+        ROLE_STYLES[roleType] ?? 'status-info',
+        className
+      )}
+    >
       {children || getPracticeRoleLabel(roleType)}
     </span>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { ulid } from 'ulid';
-import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import type { TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 
 type UseTimeEntriesOptions = {
@@ -20,7 +20,13 @@ export const useTimeEntries = ({ initialEntries = [], resetKey }: UseTimeEntries
       if (existing) {
         return prev.map((entry) => (
           entry.id === existing.id
-            ? { ...entry, startTime: values.startTime, endTime: values.endTime, description: values.description }
+            ? {
+              ...entry,
+              startTime: values.startTime,
+              endTime: values.endTime,
+              description: values.description,
+              billable: values.billable
+            }
             : entry
         ));
       }
@@ -28,7 +34,8 @@ export const useTimeEntries = ({ initialEntries = [], resetKey }: UseTimeEntries
         id: ulid(),
         startTime: values.startTime,
         endTime: values.endTime,
-        description: values.description
+        description: values.description,
+        billable: values.billable
       };
       return [newEntry, ...prev];
     });

@@ -20,12 +20,11 @@ export const RadioGroupWithDescriptions = ({
   className
 }: RadioGroupWithDescriptionsProps) => (
   <fieldset className={className}>
-    <legend className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{label}</legend>
-    <div className="-space-y-px rounded-md bg-white dark:bg-dark-card-bg">
+    <legend className="mb-1 block text-sm font-medium text-input-text">{label}</legend>
+    <div className="glass-card overflow-hidden rounded-2xl">
       {options.map((option, index) => {
         const isSelected = value === option.value;
         const isFirst = index === 0;
-        const isLast = index === options.length - 1;
         const inputId = `${name}-${option.value}`;
         return (
           <label
@@ -33,12 +32,12 @@ export const RadioGroupWithDescriptions = ({
             htmlFor={inputId}
             aria-label={option.label}
             className={cn(
-              'relative flex cursor-pointer items-start gap-3 border p-4 text-left transition focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-500',
-              isFirst && 'rounded-t-md',
-              isLast && 'rounded-b-md',
+              'relative flex cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors',
+              !isFirst && 'border-t border-line-glass/20',
+              'focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-500/50 focus-within:ring-inset',
               isSelected
-                ? 'z-10 border-accent-200 bg-accent-50 text-gray-900 dark:border-accent-500/50 dark:bg-accent-500/10'
-                : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
+                ? 'bg-white/[0.10] ring-1 ring-inset ring-accent-500/45 text-input-text'
+                : 'text-input-text hover:bg-white/[0.04]'
             )}
           >
             <input
@@ -53,18 +52,20 @@ export const RadioGroupWithDescriptions = ({
             <span
               className={cn(
                 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-                isSelected ? 'border-transparent bg-accent-500' : 'border-gray-300 bg-white dark:border-white/30 dark:bg-dark-card-bg'
+                isSelected
+                  ? 'border-accent-500/50 bg-accent-500/20'
+                  : 'border-line-glass/40 bg-white/[0.10]'
               )}
               aria-hidden="true"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />}
             </span>
             <span className="flex flex-col">
-              <span className={cn('block text-sm font-medium', isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-gray-100')}>
+              <span className="block text-sm font-medium text-input-text">
                 {option.label}
               </span>
               {option.description && (
-                <span className={cn('block text-sm', isSelected ? 'text-accent-700 dark:text-accent-300' : 'text-gray-500 dark:text-gray-400')}>
+                <span className="block text-xs text-input-placeholder">
                   {option.description}
                 </span>
               )}

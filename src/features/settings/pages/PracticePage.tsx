@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useCallback, useEffect } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -6,11 +6,13 @@ import {
   PhoneIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
+import { FormActions } from '@/shared/ui/form';
 import type { Address } from '@/shared/types/address';
 import Modal from '@/shared/components/Modal';
-import { FileInput, Input, Switch } from '@/shared/ui/input';
+import { Input, LogoUploadInput, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -20,7 +22,6 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { StackedAvatars } from '@/shared/ui/profile';
-import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
@@ -28,19 +29,27 @@ import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { getFrontendHost } from '@/config/urls';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { FormGrid, SectionDivider } from '@/shared/ui/layout';
+import { ContentPageLayout } from '@/shared/ui/layout';
+import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
+import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingRow } from '@/features/settings/components/SettingRow';
 import {
   usePracticeMembersSync,
   usePracticeSyncParamRefetch,
   type EditPracticeFormState
 } from '@/features/settings/hooks/usePracticePageEffects';
+import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface OnboardingDetails {
   contactPhone?: string;
   businessEmail?: string;
   website?: string;
   address?: Address;
-  introMessage?: string;
   description?: string;
+  accentColor?: string;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>>;
 }
@@ -81,8 +90,8 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
     };
     setIfDefined('website', details.website ?? undefined);
     setIfDefined('address', buildAddress(details));
-    setIfDefined('introMessage', details.introMessage ?? undefined);
     setIfDefined('description', details.description ?? undefined);
+    setIfDefined('accentColor', details.accentColor ?? undefined);
     setIfDefined('isPublic', details.isPublic ?? undefined);
     setIfDefined('services', details.services ?? undefined);
     setIfDefined('contactPhone', details.businessPhone ?? undefined);
@@ -91,8 +100,8 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
     address: buildAddress(practice),
-    introMessage: practice.introMessage ?? undefined,
     description: practice.description ?? undefined,
+    accentColor: practice.accentColor ?? undefined,
     isPublic: practice.isPublic ?? undefined,
     services: practice.services ?? undefined,
     contactPhone: practice.businessPhone ?? undefined,
@@ -139,7 +148,7 @@ interface PracticePageProps {
 }
 
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { session, isPending: sessionPending, activeMemberRole, activeOrganizationId } = useSessionContext();
+  const { session, isPending: sessionPending, activeMemberRole } = useSessionContext();
   const { 
     currentPractice,
     getMembers,
@@ -152,12 +161,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     refetch,
   } = usePracticeManagement({ fetchPracticeDetails: true });
   const activePracticeId = currentPractice?.id ?? null;
-  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug);
+  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug, false);
   
   const { showSuccess, showError, showWarning } = useToastContext();
   const { navigate } = useNavigation();
   const navigateTo = onNavigate ?? navigate;
   const location = useLocation();
+  const settingsBasePath = resolveSettingsBasePath(location.path);
+  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { t } = useTranslation(['settings']);
   
@@ -174,17 +185,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: '',
-    slug: '',
     description: ''
   });
   
   const [isEditPracticeModalOpen, setIsEditPracticeModalOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
-  const [isLogoEditing, setIsLogoEditing] = useState(false);
 
   const practice = currentPractice ?? null;
   const hasPractice = !!practice;
@@ -242,12 +251,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const phoneValue = (typeof onboardingData.contactPhone === 'string'
     ? onboardingData.contactPhone
     : (practice?.businessPhone || '')).trim();
-  const introMessageValue = typeof onboardingData.introMessage === 'string'
-    ? onboardingData.introMessage.trim()
-    : '';
-  const descriptionValue = typeof onboardingData.description === 'string'
-    ? onboardingData.description.trim()
-    : '';
+  const accentColorValue = normalizeAccentColor(onboardingData.accentColor) ?? '#D4AF37';
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
     : false;
@@ -261,7 +265,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       return '';
     }
   }, []);
-  const practicePath = `/embed/${practice?.slug ?? 'your-practice'}`;
+  const practicePath = `/public/${practice?.slug ?? 'your-practice'}`;
   const practiceUrlValue = practiceHost
     ? `${practiceHost}${practicePath}`
     : practicePath;
@@ -275,8 +279,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return `${protocol}//${practiceHost}${practicePath}`;
   }, [practiceHost, practicePath]);
   const hasSavedLogo = editPracticeForm.logo.trim().length > 0;
-  const showLogoUploader = isLogoEditing || !hasSavedLogo;
-  const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
     () => members.map((member) => ({
       id: member.userId,
@@ -294,8 +296,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     phone: '',
     address: undefined,
   });
-  const [introDraft, setIntroDraft] = useState('');
-  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
+  const modalContentClassName = 'glass-panel';
+  const modalHeaderClassName = 'glass-panel';
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -337,39 +340,39 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
 
   const handleCreatePractice = async () => {
+    if (isSettingsSaving) return;
     if (!createForm.name.trim()) {
       showError('Practice name is required');
       return;
     }
 
+    setIsSettingsSaving(true);
     try {
       await createPractice({
         name: createForm.name,
-        slug: createForm.slug || undefined,
         description: createForm.description || undefined,
       });
       
       showSuccess('Practice created successfully!');
       setShowCreateModal(false);
-      setCreateForm({ name: '', slug: '', description: '' });
-		} catch (err) {
+      setCreateForm({ name: '', description: '' });
+    } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to create practice');
+    } finally {
+      setIsSettingsSaving(false);
     }
   };
 
   const openEditPracticeModal = () => {
     if (!practice) return;
-    setLogoFiles([]);
     setLogoUploadProgress(null);
     setLogoUploading(false);
-    setIsLogoEditing(false);
     setEditPracticeForm({
       name: practice.name,
       slug: practice.slug || '',
       logo: practice.logo || ''
     });
-    setDescriptionDraft(descriptionValue);
-    setIntroDraft(introMessageValue);
+    setAccentColorDraft(accentColorValue);
     setIsEditPracticeModalOpen(true);
   };
 
@@ -377,11 +380,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!practice) return;
     const [file] = Array.isArray(files) ? files : Array.from(files);
     if (!file) {
-      setLogoFiles([]);
       return;
     }
 
-    setLogoFiles([file]);
     setLogoUploading(true);
     setLogoUploadProgress(0);
     try {
@@ -389,12 +390,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         setLogoUploadProgress(percentage);
       });
       setEditPracticeForm(prev => ({ ...prev, logo: logoUrl }));
-      setIsLogoEditing(false);
-      showSuccess('Logo uploaded', 'Logo ready to save. Click Save Changes to persist.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Logo upload failed';
       showError('Logo upload failed', message);
-      setLogoFiles([]);
     } finally {
       setLogoUploading(false);
       setLogoUploadProgress(null);
@@ -415,21 +413,20 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
     setIsSettingsSaving(true);
     try {
-      const trimmedDescription = descriptionDraft.trim();
-      const trimmedIntro = introDraft.trim();
+      const normalizedAccentColor = normalizeAccentColor(accentColorDraft);
+      if (!normalizedAccentColor) {
+        throw new Error('Accent color must be a valid hex value (for example #3B82F6).');
+      }
       const comparison = {
         name: practice.name,
         slug: practice.slug ?? null,
         logo: practice.logo ?? null,
-        description: practiceDetails?.description ?? practice.description ?? null,
-        introMessage: practiceDetails?.introMessage ?? practice.introMessage ?? null
+        accentColor: normalizeAccentColor(practiceDetails?.accentColor ?? practice.accentColor)
       };
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
         name: editPracticeForm.name,
-        slug: editPracticeForm.slug,
         logo: trimmedLogo ? trimmedLogo : undefined,
-        description: trimmedDescription ? trimmedDescription : undefined,
-        introMessage: trimmedIntro ? trimmedIntro : undefined
+        accentColor: normalizedAccentColor
       }, { compareTo: comparison });
 
       if (Object.keys(practicePayload).length > 0) {
@@ -473,7 +470,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         state: updates.address?.state || null,
         postalCode: updates.address?.postalCode || null,
         country: updates.address?.country || null,
-        introMessage: updates.introMessage,
         description: updates.description,
         isPublic: updates.isPublic,
         services: updates.services
@@ -494,15 +490,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     }
   };
 
-  const openContactModal = () => {
+  const openContactModal = useCallback(() => {
     setContactDraft({
       website: websiteValue,
       businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
       phone: phoneValue,
-      address: onboardingData.address,  // Address object
+      address: onboardingData.address,
     });
     setIsContactModalOpen(true);
-  };
+  }, [onboardingData.address, phoneValue, practice?.businessEmail, practiceDetails?.businessEmail, websiteValue]);
 
   const handleSaveContact = async () => {
     const success = await saveOnboardingSettings(
@@ -518,6 +514,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       setIsContactModalOpen(false);
     }
   };
+
+  useEffect(() => {
+    if (location.query?.setup === 'contact' && !isContactModalOpen) {
+      openContactModal();
+      navigate(buildSettingsPath(settingsBasePath, 'practice'), true);
+    }
+  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal, settingsBasePath]);
 
   const handleTogglePublic = async (nextValue: boolean) => {
     await saveOnboardingSettings(
@@ -536,14 +539,17 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       return;
     }
 
+    setIsDeleting(true);
     try {
       await deletePractice(practice.id);
       showSuccess('Practice deleted successfully!');
       setShowDeleteModal(false);
       setDeleteConfirmText('');
       navigate('/');
-		} catch (err) {
+    } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to delete practice');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -558,8 +564,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">Loading practice...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500 mx-auto mb-4" />
+          <p className="text-sm text-input-placeholder">Loading practice...</p>
         </div>
       </div>
     );
@@ -582,16 +588,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center space-y-3">
-          <p className="text-sm text-gray-500">No practice data is available yet.</p>
+          <p className="text-sm text-input-placeholder">No practice data is available yet.</p>
           <div className="flex items-center justify-center gap-2">
             <Button size="sm" variant="secondary" onClick={refetch}>
               Reload
             </Button>
-            {!activeOrganizationId && (
-              <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                Create Practice
-              </Button>
-            )}
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>
+              Create Practice
+            </Button>
           </div>
         </div>
       </div>
@@ -599,147 +603,197 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <div className="px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Practice
-        </h1>
-        <div className="border-t border-gray-200 dark:border-dark-border mt-4" />
-      </div>
-      
-      <div className="flex-1 overflow-y-auto px-6">
-        <div className="space-y-0">
-          {hasPractice && (
-            <>
-              {/* Practice Details Row */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {practice.name || 'Practice'}
-                  </h3>
-                  <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-start gap-3">
-                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        URL
-                      </span>
-                      <a
-                        href={practiceUrlHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-brand-600 hover:text-brand-700 hover:underline"
-                      >
-                        {practiceUrlValue}
-                      </a>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        Description
-                      </span>
-                      <span>{descriptionPreview}</span>
+    <ContentPageLayout title="Practice" className={className}>
+      {hasPractice && (
+        <>
+              <SettingRow
+                label="Practice details"
+                labelNode={(
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-input-text">
+                      {practice.name || 'Practice'}
+                    </h3>
+                    <div className="mt-2 space-y-2" />
+                  </div>
+                )}
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={openEditPracticeModal}
+                >
+                  Edit
+                </Button>
+              </SettingRow>
+
+              <SectionDivider />
+
+              <SettingRow
+                label="Brand accent"
+                labelNode={(
+                  <div>
+                    <h3 className="text-sm font-semibold text-input-text">Brand accent</h3>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div
+                        className="h-5 w-5 rounded-full"
+                        style={{ backgroundColor: accentColorValue }}
+                        aria-label={`Current accent color ${accentColorValue}`}
+                      />
+                      <SettingsHelperText>{accentColorValue}</SettingsHelperText>
                     </div>
                   </div>
-                </div>
-                <div className="ml-4">
+                )}
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={openEditPracticeModal}
+                >
+                  Edit
+                </Button>
+              </SettingRow>
+
+              <SectionDivider />
+
+              <SettingRow
+                label="Workspace URL"
+                description={practice?.slug ? 'Share with clients to view your public profile.' : 'Slug will be generated automatically after saving.'}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open(practiceUrlHref, '_blank', 'noopener,noreferrer')}
+                  className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                >
+                  {practiceUrlValue}
+                </Button>
+              </SettingRow>
+
+              <SectionDivider />
+
+              <SettingRow
+                label="Contact"
+                labelNode={(
+                  <div>
+                    <h3 className="text-sm font-semibold text-input-text">Contact</h3>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <Icon icon={GlobeAltIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
+                        <SettingsHelperText>{websiteValue || 'Not set'}</SettingsHelperText>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
+                        <SettingsHelperText>{phoneValue || 'Not set'}</SettingsHelperText>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Icon icon={MapPinIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
+                        <SettingsHelperText>{addressSummary || 'Not set'}</SettingsHelperText>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={openEditPracticeModal}
+                    onClick={openContactModal}
+                    className="hidden sm:inline-flex"
                   >
-                    Edit
+                    Manage
                   </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={openContactModal}
+                    className="sm:hidden"
+                    aria-label="Manage contact details"
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
-              {/* Contact Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
+              <SettingRow
+                label="Services"
+                labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Contact</h3>
-                    <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
-                      <div className="flex items-start gap-2">
-                        <GlobeAltIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
-                        <span>{websiteValue || 'Not set'}</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <PhoneIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
-                        <span>{phoneValue || 'Not set'}</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <MapPinIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
-                        <span>{addressSummary || 'Not set'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={openContactModal}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={openContactModal}
-                      className="sm:hidden"
-                      aria-label="Manage contact details"
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Services Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
+                    <h3 className="text-sm font-semibold text-input-text">Services</h3>
                     {servicesList.length > 0 ? (
-                      <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="mt-2 space-y-1">
                         {servicesList.map((service) => (
-                          <p key={service}>{service}</p>
+                          <SettingsHelperText key={service}>{service}</SettingsHelperText>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <SettingsHelperText className="mt-1">
                         No services configured yet
-                      </p>
+                      </SettingsHelperText>
                     )}
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo('/settings/practice/services')}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={() => navigateTo('/settings/practice/services')}
-                      className="sm:hidden"
-                      aria-label="Manage services"
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateTo(toSettingsPath('practice/services'))}
+                    className="hidden sm:inline-flex"
+                  >
+                    Manage
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={() => navigateTo(toSettingsPath('practice/services'))}
+                    className="sm:hidden"
+                    aria-label="Manage services"
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
-              {/* Team Row */}
-              <div className="py-3">
-                <div className="flex items-start justify-between">
+              <SettingRow
+                label="Pricing"
+                labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <h3 className="text-sm font-semibold text-input-text">Pricing &amp; Fees</h3>
+                    <SettingsHelperText className="mt-1">
+                      Configure consultation fees and billing increments.
+                    </SettingsHelperText>
+                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
+                    className="hidden sm:inline-flex"
+                  >
+                    Manage
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
+                    className="sm:hidden"
+                    aria-label="Manage pricing"
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
+                  />
+                </div>
+              </SettingRow>
+
+              <SectionDivider />
+
+              <SettingRow
+                label="Team"
+                labelNode={(
+                  <div>
+                    <h3 className="text-sm font-semibold text-input-text">
                       Team Members
                     </h3>
                     {members.length > 0 ? (
@@ -747,37 +801,38 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                         <StackedAvatars users={teamAvatars} size="sm" />
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <SettingsHelperText className="mt-1">
                         No team members yet
-                      </p>
+                      </SettingsHelperText>
                     )}
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo(members.length === 0
-                        ? '/settings/practice/team?invite=1'
-                        : '/settings/practice/team')}
-                      className="hidden sm:inline-flex"
-                    >
-                      {members.length === 0 ? 'Invite' : 'Manage'}
-                    </Button>
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      onClick={() => navigateTo(members.length === 0
-                        ? '/settings/practice/team?invite=1'
-                        : '/settings/practice/team')}
-                      className="sm:hidden"
-                      aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
-                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
-                    />
-                  </div>
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateTo(members.length === 0
+                      ? `${toSettingsPath('practice/team')}?invite=1`
+                      : toSettingsPath('practice/team'))}
+                    className="hidden sm:inline-flex"
+                  >
+                    {members.length === 0 ? 'Invite' : 'Manage'}
+                  </Button>
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    onClick={() => navigateTo(members.length === 0
+                      ? `${toSettingsPath('practice/team')}?invite=1`
+                      : toSettingsPath('practice/team'))}
+                    className="sm:hidden"
+                    aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
+                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
+                  />
                 </div>
-              </div>
+              </SettingRow>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
               {/* Visibility Toggle */}
               <div className="py-3">
@@ -792,172 +847,148 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 />
               </div>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
+              <SectionDivider />
 
               {/* Delete Practice Section (Owner only) */}
               {isOwner && (
                 <>
-                  <div className="flex items-center justify-between py-3" data-testid="practice-delete-section">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Permanently delete this practice and all its data
-                      </p>
-                    </div>
-                    <div className="ml-4">
-                      {deletionBlockedBySubscription ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (!practice?.id) return;
-                            openBillingPortal({ 
-                              practiceId: practice.id, 
-                              returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
-                            });
-                          }}
-                          disabled={submitting}
-                          data-testid="practice-delete-action"
-                        >
-                          {t('settings:account.plan.manage')}
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowDeleteModal(true)}
-                          className="text-red-600 hover:text-red-700"
-                          data-testid="practice-delete-action"
-                        >
-                          <TrashIcon className="w-4 h-4 mr-2" />
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  <SettingRow
+                    label="Delete Practice"
+                    labelNode={(
+                      <div>
+                        <h3 className="text-sm font-semibold text-input-text">Delete Practice</h3>
+                        <SettingsHelperText className="mt-1">
+                          Permanently delete this practice and all its data
+                        </SettingsHelperText>
+                      </div>
+                    )}
+                    className="py-3"
+                  >
+                    {deletionBlockedBySubscription ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (!practice?.id) return;
+                          openBillingPortal({ 
+                            practiceId: practice.id, 
+                            returnUrl: origin
+                              ? `${origin}${toSettingsPath('practice')}?sync=1`
+                              : `${toSettingsPath('practice')}?sync=1`
+                          });
+                        }}
+                        disabled={submitting}
+                        data-testid="practice-delete-action"
+                      >
+                        {t('settings:account.plan.manage')}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="danger-ghost"
+                        size="sm"
+                        onClick={() => setShowDeleteModal(true)}
+                        data-testid="practice-delete-action"
+                      >
+                        <Icon icon={TrashIcon} className="w-4 h-4 mr-2"  />
+                        Delete
+                      </Button>
+                    )}
+                  </SettingRow>
                   {deletionBlockedBySubscription && deletionBlockedMessage && (
-                    <div role="status" aria-live="polite" className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
-                      <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    <SettingsNotice variant="warning" className="mt-2" role="status" aria-live="polite">
+                      <p className="text-xs">
                         {deletionBlockedMessage}
                       </p>
-                    </div>
+                    </SettingsNotice>
                   )}
                 </>
               )}
             </>
           )}
-          
-        </div>
-      </div>
 
       {/* Edit Practice Modal */}
       <Modal
         isOpen={isEditPracticeModalOpen}
         onClose={() => setIsEditPracticeModalOpen(false)}
         title="Edit Practice"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
+          <FormGrid>
+            <div>
+              <FormLabel htmlFor="edit-practice-name">Practice Name *</FormLabel>
+              <Input
+                id="edit-practice-name"
+                value={editPracticeForm.name}
+                onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
+                placeholder="Your Law Firm Name"
+                required
+              />
+            </div>
+
+            <div>
+              <FormLabel>Workspace URL</FormLabel>
+              <SettingsHelperText className="mt-1">
+                {practice?.slug ? practiceUrlValue : 'Slug will be generated automatically'}
+              </SettingsHelperText>
+            </div>
+          </FormGrid>
+
           <div>
-            <FormLabel htmlFor="edit-practice-name">Practice Name *</FormLabel>
-            <Input
-              id="edit-practice-name"
-              value={editPracticeForm.name}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
-              placeholder="Your Law Firm Name"
-              required
+            <LogoUploadInput
+              imageUrl={hasSavedLogo ? editPracticeForm.logo : null}
+              name={editPracticeForm.name || 'Practice'}
+              label="Upload logo (optional)"
+              description="Upload a square logo. Maximum 5 MB."
+              accept="image/*"
+              multiple={false}
+              onChange={handleLogoChange}
+              disabled={isSettingsSaving || logoUploading}
+              progress={logoUploading ? logoUploadProgress : null}
             />
           </div>
 
-          <div>
-            <FormLabel htmlFor="edit-practice-slug">Slug (optional)</FormLabel>
-            <Input
-              id="edit-practice-slug"
-              value={editPracticeForm.slug}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, slug: value }))}
-              placeholder="your-law-firm"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Used in URLs. Leave empty to keep the current slug.
-            </p>
-          </div>
 
-          <div>
-            {showLogoUploader ? (
-              <>
-                <FileInput
-                  label="Upload logo (optional)"
-                  description="Upload a square logo. Maximum 5 MB."
-                  accept="image/*"
-                  multiple={false}
-                  maxFileSize={5 * 1024 * 1024}
-                  value={logoFiles}
-                  onChange={handleLogoChange}
-                  disabled={isSettingsSaving || logoUploading}
-                />
-                {(logoUploading || logoUploadProgress !== null) && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    {logoUploading ? 'Uploading logo' : 'Upload progress'}
-                    {logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center gap-4 rounded-lg border border-gray-200 p-3 dark:border-dark-border">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={editPracticeForm.logo}
-                    alt={`${editPracticeForm.name} logo`}
-                    className="h-12 w-12 rounded-lg border border-gray-200 object-cover dark:border-dark-border"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Saved logo</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Upload a new image to replace it.</p>
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => {
-                    setLogoFiles([]);
-                    setLogoUploadProgress(null);
-                    setLogoUploading(false);
-                    setIsLogoEditing(true);
+          <div className="space-y-2">
+            <FormLabel htmlFor="practice-accent-color">Accent Color</FormLabel>
+            <div className="flex items-center gap-2">
+              <div
+                className="relative h-10 w-10 min-h-10 min-w-10 max-h-10 max-w-10 shrink-0 overflow-hidden rounded-full aspect-square"
+                style={{ backgroundColor: normalizeAccentColor(accentColorDraft) ?? '#D4AF37' }}
+              >
+                <input
+                  id="practice-accent-color"
+                  type="color"
+                  value={normalizeAccentColor(accentColorDraft) ?? '#D4AF37'}
+                  onChange={(event) => {
+                    const value = (event.target as HTMLInputElement).value;
+                    setAccentColorDraft(normalizeAccentColor(value) ?? '#D4AF37');
                   }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   disabled={isSettingsSaving}
-                >
-                  Change
-                </Button>
+                />
               </div>
-            )}
+              <Input
+                id="practice-accent-color-text"
+                aria-label="Accent color (hex)"
+                value={accentColorDraft}
+                onChange={(value) => setAccentColorDraft(normalizeAccentColor(value) ?? value.toUpperCase())}
+                placeholder="#3B82F6"
+                disabled={isSettingsSaving}
+              />
+            </div>
           </div>
 
-          <div>
-            <PracticeProfileTextFields
-              description={descriptionDraft}
-              onDescriptionChange={setDescriptionDraft}
-              introMessage={introDraft}
-              onIntroChange={setIntroDraft}
-              showIntro
-              descriptionRows={4}
-              descriptionLabel="Business description"
-              descriptionPlaceholder="Tell us about your business..."
-              disabled={isSettingsSaving}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setIsEditPracticeModalOpen(false)}
-              disabled={isSettingsSaving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving || logoUploading}>
-              Save Changes
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setIsEditPracticeModalOpen(false)}
+            onSubmit={handleUpdatePractice}
+            submitType="button"
+            submitText="Save Changes"
+            submitDisabled={isSettingsSaving || logoUploading}
+            cancelDisabled={isSettingsSaving}
+          />
         </div>
       </Modal>
 
@@ -966,10 +997,12 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
         title="Contact"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           {/* Contact Information Fields */}
-          <div className="space-y-4">
+          <FormGrid>
             <Input
               label="Website"
               value={contactDraft.website || ''}
@@ -995,11 +1028,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               type="tel"
               placeholder="+1 (555) 123-4567"
             />
-          </div>
+          </FormGrid>
 
           {/* Address Fields */}
           <div className="space-y-4">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Address</h4>
+            <h4 className="text-sm font-medium text-input-text">Address</h4>
             <AddressExperienceForm
               initialValues={{ address: contactDraft.address }}
               fields={['address']}
@@ -1018,18 +1051,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setIsContactModalOpen(false)}
-              disabled={isSettingsSaving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveContact} disabled={isSettingsSaving}>
-              Save
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setIsContactModalOpen(false)}
+            onSubmit={handleSaveContact}
+            submitType="button"
+            submitText="Save"
+            disabled={isSettingsSaving}
+          />
         </div>
       </Modal>
 
@@ -1038,53 +1067,41 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Create Practice"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
-          <div>
-            <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
-            <Input
-              id="practice-name"
-              value={createForm.name}
-              onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
-              placeholder="Your Law Firm Name"
-              required
-            />
-          </div>
+          <FormGrid>
+            <div>
+              <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
+              <Input
+                id="practice-name"
+                value={createForm.name}
+                onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
+                placeholder="Your Law Firm Name"
+                required
+              />
+            </div>
+
+            <div className="@md:col-span-2">
+              <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
+              <Input
+                id="practice-description"
+                value={createForm.description}
+                onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
+                placeholder="Brief description of your practice"
+              />
+            </div>
+          </FormGrid>
           
-          <div>
-            <FormLabel htmlFor="practice-slug">Slug (optional)</FormLabel>
-            <Input
-              id="practice-slug"
-              value={createForm.slug}
-              onChange={(value) => setCreateForm(prev => ({ ...prev, slug: value }))}
-              placeholder="your-law-firm"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Used in URLs. Leave empty to auto-generate.
-            </p>
-          </div>
-          
-          <div>
-            <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
-            <Input
-              id="practice-description"
-              value={createForm.description}
-              onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
-              placeholder="Brief description of your practice"
-            />
-          </div>
-          
-          <div className="flex justify-end gap-3 pt-4">
-            <Button 
-              variant="secondary" 
-              onClick={() => setShowCreateModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreatePractice}>
-              Create Practice
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => setShowCreateModal(false)}
+            onSubmit={handleCreatePractice}
+            submitType="button"
+            submitText="Create Practice"
+            isLoading={isSettingsSaving}
+          />
         </div>
       </Modal>
 
@@ -1094,13 +1111,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         title="Delete Practice"
+        contentClassName={modalContentClassName}
+        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-            <p className="text-sm text-red-800 dark:text-red-200">
+          <SettingsNotice variant="danger" className="p-4">
+            <p className="text-sm">
               ⚠️ This action cannot be undone. This will permanently delete the practice and all its data.
             </p>
-          </div>
+          </SettingsNotice>
           
           <div>
             <FormLabel htmlFor="delete-confirm">
@@ -1114,22 +1133,19 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             />
           </div>
           
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="ghost"
-              onClick={handleDeletePractice}
-              disabled={deleteConfirmText.trim() !== practice?.name}
-              className="text-red-600 hover:text-red-700"
-            >
-              Delete Practice
-            </Button>
-          </div>
+          <FormActions
+            className="justify-end"
+            onCancel={() => !isDeleting && setShowDeleteModal(false)}
+            onSubmit={handleDeletePractice}
+            submitType="button"
+            submitVariant="danger-ghost"
+            submitText="Delete Practice"
+            isLoading={isDeleting}
+            submitDisabled={deleteConfirmText.trim() !== practice?.name}
+          />
         </div>
       </Modal>
 
-    </div>
+    </ContentPageLayout>
   );
 };

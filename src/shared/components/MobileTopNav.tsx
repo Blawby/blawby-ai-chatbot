@@ -18,7 +18,7 @@ const MobileTopNav = ({
     <AnimatePresence>
       {isVisible && (
         <motion.div 
-          className="fixed top-0 left-0 right-0 bg-white dark:bg-dark-bg border-b border-gray-200 dark:border-dark-border lg:hidden z-50 pt-safe"
+          className="fixed top-0 left-0 right-0 glass-panel rounded-none border-b border-line-glass/30 lg:hidden z-50 pt-safe"
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -100, opacity: 0 }}
@@ -35,7 +35,7 @@ const MobileTopNav = ({
                 variant="ghost"
                 size="md"
                 onClick={onOpenSidebar}
-                icon={<Bars3Icon className="w-5 h-5" aria-hidden="true" focusable="false" />}
+                icon={Bars3Icon} iconClassName="w-5 h-5"
                 aria-label="Open menu"
               />
               
@@ -45,7 +45,7 @@ const MobileTopNav = ({
                   variant="primary"
                   size="md"
                   onClick={onPlusClick}
-                  icon={<SparklesIcon className="w-4 h-4" />}
+                  icon={SparklesIcon} iconClassName="w-4 h-4"
                   aria-label="Get Plus"
                 >
                   Get Plus

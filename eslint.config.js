@@ -127,6 +127,10 @@ export default [
         {
           selector: "JSXAttribute[name.name='href'] Literal[value=/^\\u002f/]",
           message: 'Use Link or navigate() for internal routes; <a href> should be external or full reload only.'
+        },
+        {
+          selector: "Literal[value=/\\b(?:bg|text|border)-blue-(?:400|500|600|700)\\b/]",
+          message: 'Use accent/button/nav tokens instead of hardcoded blue utility classes.'
         }
       ]
     },

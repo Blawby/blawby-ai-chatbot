@@ -1,5 +1,7 @@
 import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
+import { Logger } from "../utils/logger";
+import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -19,11 +21,18 @@ export interface AuthContext {
   cookie: string;
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
   activeOrganizationId?: string | null;
+  previousAnonUserId?: string | null;
 }
 
 type CachedSession = {
-  value: { user: AuthenticatedUser; session: { id: string; expiresAt: Date } };
+  value: {
+    user: AuthenticatedUser;
+    session: { id: string; expiresAt: Date };
+    activeOrganizationId?: string | null;
+    previousAnonUserId?: string | null;
+  };
   expiresAt: number;
+  staleExpiresAt: number;
 };
 
 type CachedMembership = {
@@ -32,6 +41,7 @@ type CachedMembership = {
 };
 
 const SESSION_CACHE_TTL_MS = 30 * 1000;
+const SESSION_STALE_TTL_MS = 5 * 60 * 1000;
 const SESSION_CACHE_MAX_ENTRIES = 200;
 const sessionCache = new Map<string, CachedSession>();
 const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
@@ -87,7 +97,7 @@ function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
 
 export function parseAuthSessionPayload(
   rawResponse: unknown
-): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null } {
+): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null; previousAnonUserId?: string | null } {
   if (!rawResponse || typeof rawResponse !== 'object') {
     console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
     throw HttpErrors.unauthorized('Invalid session data - empty response');
@@ -159,6 +169,14 @@ export function parseAuthSessionPayload(
       : typeof sessionRecord?.active_organization_id === 'string'
         ? sessionRecord.active_organization_id
         : null;
+  const previousAnonUserId =
+    typeof sessionRecord?.previous_anon_user_id === 'string'
+      ? sessionRecord.previous_anon_user_id
+      : typeof sessionRecord?.previousAnonUserId === 'string'
+        ? sessionRecord.previousAnonUserId
+        : typeof (responseRecord as Record<string, unknown>).previous_anon_user_id === 'string'
+          ? (responseRecord as Record<string, unknown>).previous_anon_user_id as string
+          : null;
 
   return {
     user: {
@@ -182,14 +200,25 @@ export function parseAuthSessionPayload(
     },
     activeOrganizationId: typeof activeOrganizationId === 'string' && activeOrganizationId.trim().length > 0
       ? activeOrganizationId.trim()
+      : null,
+    previousAnonUserId: typeof previousAnonUserId === 'string' && previousAnonUserId.trim().length > 0
+      ? previousAnonUserId.trim()
       : null
   };
 }
 
 export async function validateSessionWithRemoteServer(
   cookie: string,
-  env: Env
-): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null }> {
+  env: Env,
+  options?: {
+    allowStaleOnTimeout?: boolean;
+  }
+): Promise<{
+  user: AuthenticatedUser;
+  session: { id: string; expiresAt: Date };
+  activeOrganizationId?: string | null;
+  previousAnonUserId?: string | null;
+}> {
   const cacheKey = getSessionCacheKey(cookie);
   const cached = sessionCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -235,10 +264,13 @@ export async function validateSessionWithRemoteServer(
 
         const ttlFromSession = parsed.session.expiresAt.getTime() - Date.now();
         const ttl = Math.min(SESSION_CACHE_TTL_MS, ttlFromSession);
-        if (ttl > 0) {
+        const staleTtl = Math.min(SESSION_STALE_TTL_MS, ttlFromSession);
+        if (ttl > 0 || staleTtl > 0) {
+          const now = Date.now();
           sessionCache.set(cacheKey, {
             value: parsed,
-            expiresAt: Date.now() + ttl
+            expiresAt: now + Math.max(0, ttl),
+            staleExpiresAt: now + Math.max(0, staleTtl)
           });
           if (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
             for (const [key, entry] of sessionCache) {
@@ -261,6 +293,15 @@ export async function validateSessionWithRemoteServer(
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
+          if (options?.allowStaleOnTimeout) {
+            const staleCached = sessionCache.get(cacheKey);
+            if (staleCached && staleCached.staleExpiresAt > Date.now()) {
+              Logger.warn('Using stale cached auth session after auth timeout', {
+                cacheKeyPrefix: cacheKey.slice(0, 24)
+              });
+              return staleCached.value;
+            }
+          }
           throw HttpErrors.gatewayTimeout('Authentication server timeout - please try again');
         }
         if (error instanceof HttpError) {
@@ -290,18 +331,87 @@ export async function validateSessionWithRemoteServer(
   return validationPromise;
 }
 
+const isHotChatPath = (request: Request): boolean => {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method.toUpperCase();
+
+  if (path === '/api/ai/chat' && method === 'POST') return true;
+  if (path === '/api/ai/intent' && method === 'POST') return true;
+
+  if (!path.startsWith('/api/conversations/')) return false;
+  if (method === 'GET') return true;
+
+  // Reaction toggles are chat UX hot-path writes; permit stale auth on timeout.
+  if ((method === 'POST' || method === 'DELETE') && path.includes('/messages/') && path.endsWith('/reactions')) {
+    return true;
+  }
+
+  return false;
+};
+
 export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<AuthContext> {
-  const cookieHeader = request.headers.get('Cookie');
+  const extractedWidgetToken = extractWidgetTokenFromRequest(request);
+  const widgetToken = extractedWidgetToken?.token ?? null;
+  const widgetTokenSource = extractedWidgetToken?.tokenSource ?? null;
+  const requestPath = new URL(request.url).pathname;
 
-  let authResult: { user: AuthenticatedUser; session: { id: string; expiresAt: Date } };
-  if (!cookieHeader || !cookieHeader.trim()) {
-    throw HttpErrors.unauthorized('Authentication required - session cookie missing');
+  const cookieHeader = request.headers.get('Cookie');
+  const normalizedCookie = cookieHeader?.trim() ?? '';
+
+  let authResult: {
+    user: AuthenticatedUser;
+    session: { id: string; expiresAt: Date };
+    activeOrganizationId?: string | null;
+    previousAnonUserId?: string | null;
+  };
+
+  const buildWidgetTokenContext = async (): Promise<AuthContext> => {
+    if (!widgetToken) {
+      throw HttpErrors.unauthorized('Authentication required - session cookie missing');
+    }
+    // Query tokens are only accepted for WS handshakes where custom headers
+    // are unavailable in browser WebSocket APIs.
+    if (widgetTokenSource === 'query' && !requestPath.endsWith('/ws')) {
+      throw HttpErrors.unauthorized('Widget query token is only allowed for WebSocket authentication');
+    }
+    const validated = await validateWidgetAuthToken(widgetToken, env);
+    return {
+      user: {
+        id: validated.userId,
+        name: 'Anonymous User',
+        emailVerified: false,
+        isAnonymous: true,
+      },
+      session: {
+        id: validated.sessionId,
+        expiresAt: new Date(validated.expiresAt * 1000),
+      },
+      cookie: '',
+      isAnonymous: true,
+      activeOrganizationId: null,
+      previousAnonUserId: null
+    };
+  };
+
+  if (!normalizedCookie) {
+    return buildWidgetTokenContext();
   }
 
-  authResult = await validateSessionWithRemoteServer(cookieHeader, env);
+  try {
+    authResult = await validateSessionWithRemoteServer(normalizedCookie, env, {
+      allowStaleOnTimeout: isHotChatPath(request)
+    });
+  } catch (error) {
+    // Only fallback to widget token when cookie auth is truly unauthenticated.
+    if (error instanceof HttpError && error.status === 401 && widgetToken) {
+      return buildWidgetTokenContext();
+    }
+    throw error;
+  }
 
   // Detect anonymous users (Better Auth anonymous plugin)
   // Anonymous users typically have:
@@ -316,10 +426,25 @@ export async function requireAuth(
       authResult.user.name?.toLowerCase().includes('anonymous') ||
       authResult.user.name === 'Anonymous User';
 
+  let previousAnonUserId = authResult.previousAnonUserId ?? null;
+  // If Better Auth session omitted previous_anon_user_id, recover it from a
+  // valid widget token that was minted for the same browser session.
+  if (!isAnonymous && !previousAnonUserId && widgetToken && !(widgetTokenSource === 'query' && !requestPath.endsWith('/ws'))) {
+    try {
+      const widgetAuth = await validateWidgetAuthToken(widgetToken, env);
+      if (widgetAuth.userId !== authResult.user.id) {
+        previousAnonUserId = widgetAuth.userId;
+      }
+    } catch {
+      // Ignore malformed/expired widget token when cookie auth already succeeded.
+    }
+  }
+
   return {
     ...authResult,
-    cookie: cookieHeader,
-    isAnonymous
+    cookie: normalizedCookie,
+    isAnonymous,
+    previousAnonUserId
   };
 }
 
@@ -333,8 +458,14 @@ function extractMembersPayload(payload: unknown): RemoteMemberRecord[] {
     return payload.filter(isRecord);
   }
   if (isRecord(payload)) {
+    if (isRecord(payload.practice) && Array.isArray(payload.practice.members)) {
+      return payload.practice.members.filter(isRecord);
+    }
     if (Array.isArray(payload.members)) {
       return payload.members.filter(isRecord);
+    }
+    if (isRecord(payload.data) && isRecord(payload.data.practice) && Array.isArray(payload.data.practice.members)) {
+      return payload.data.practice.members.filter(isRecord);
     }
     if (isRecord(payload.data) && Array.isArray(payload.data.members)) {
       return payload.data.members.filter(isRecord);
@@ -357,6 +488,8 @@ function extractMemberIdentifiers(member: RemoteMemberRecord): {
   const email =
     typeof member.email === 'string'
       ? member.email.toLowerCase()
+      : isRecord(member.user) && typeof member.user.email === 'string'
+        ? member.user.email.toLowerCase()
       : undefined;
   const role =
     typeof member.role === 'string'
@@ -406,7 +539,7 @@ async function fetchMemberRoleFromRemote(
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       try {
         const response = await fetch(
-          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}/members`,
+          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}`,
           {
             method: 'GET',
             headers,
@@ -481,6 +614,15 @@ export async function requirePracticeMember(
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
   const authContext = await requireAuth(request, env);
+  return requirePracticeMemberWithAuthContext(authContext, env, practiceId, minimumRole);
+}
+
+async function requirePracticeMemberWithAuthContext(
+  authContext: AuthContext,
+  env: Env,
+  practiceId: string,
+  minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
+): Promise<AuthContext & { memberRole: string }> {
 
   // 1. Validate practiceId
   if (!practiceId || typeof practiceId !== 'string' || practiceId.trim() === '') {
@@ -543,8 +685,12 @@ export async function optionalAuth(
 ): Promise<AuthContext | null> {
   try {
     return await requireAuth(request, env);
-  } catch (_error) {
-    // Silently return null for optional auth - errors are expected when no session is provided
+  } catch (error) {
+    // Optional auth should only suppress expected unauthenticated cases.
+    // Surface timeouts/backend failures so callers don't misreport them as "not logged in".
+    if (error instanceof HttpError && error.status !== 401) {
+      throw error;
+    }
     return null;
   }
 }
@@ -581,10 +727,13 @@ export async function requirePracticeOwner(
 export async function checkPracticeAccess(
   request: Request,
   env: Env,
-  practiceId: string
+  practiceId: string,
+  options?: { authContext?: AuthContext }
 ): Promise<{ hasAccess: boolean; memberRole?: string }> {
   try {
-    const result = await requirePracticeMemberRole(request, env, practiceId);
+    const result = options?.authContext
+      ? await requirePracticeMemberWithAuthContext(options.authContext, env, practiceId)
+      : await requirePracticeMemberRole(request, env, practiceId);
     return {
       hasAccess: true,
       memberRole: result.memberRole,
@@ -602,10 +751,13 @@ export async function checkPracticeAccess(
 export async function checkPracticeMembership(
   request: Request,
   env: Env,
-  practiceId: string
+  practiceId: string,
+  options?: { authContext?: AuthContext }
 ): Promise<{ isMember: boolean; memberRole?: string }> {
   try {
-    const result = await requirePracticeMemberRole(request, env, practiceId);
+    const result = options?.authContext
+      ? await requirePracticeMemberWithAuthContext(options.authContext, env, practiceId)
+      : await requirePracticeMemberRole(request, env, practiceId);
     return {
       isMember: true,
       memberRole: result.memberRole,

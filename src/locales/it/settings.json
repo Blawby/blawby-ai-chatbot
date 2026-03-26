@@ -37,7 +37,11 @@
         "blue": "[NEEDS TRANSLATION] Blue",
         "green": "[NEEDS TRANSLATION] Green",
         "purple": "[NEEDS TRANSLATION] Purple",
-        "red": "[NEEDS TRANSLATION] Red"
+        "red": "[NEEDS TRANSLATION] Red",
+        "gold": "Oro",
+        "yellow": "Giallo",
+        "pink": "Rosa",
+        "orange": "Arancione"
       }
     },
     "language": {

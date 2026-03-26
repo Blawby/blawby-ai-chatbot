@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Per favore riprova più tardi."
+    }
+  },
   "app": {
     "loading": "Caricamento…"
   },
@@ -188,7 +194,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Ciao 👋",
       "helpPrompt": "Come possiamo aiutarti?",
@@ -196,14 +202,17 @@
       "sendMessage": "Inviaci un messaggio",
       "consultation": {
         "title": "Hai bisogno di parlare con un avvocato?",
-        "description": "Condividi alcuni dettagli e ti metteremo in contatto con l'avvocato giusto per la tua situazione.",
-        "button": "Richiedi consulenza"
+        "description": "Condividi alcuni dettagli e ti metteremo in contatto con l'avvocato giusto per la tua situazione."
       },
       "poweredBy": "Offerto da"
     },
     "navigation": {
       "home": "Home",
-      "messages": "Messaggi"
+      "messages": "Messaggi",
+      "matters": "Pratiche",
+      "clients": "Clienti",
+      "settings": "Impostazioni",
+      "invoices": "Fatture"
     },
     "conversationList": {
       "title": "Messaggi",
@@ -214,12 +223,15 @@
     },
     "error": {
       "title": "Dettagli studio non disponibili",
-      "description": "Non è stato possibile caricare il nome e il logo dello studio {{slug}}. Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
+      "description": "Non è stato possibile caricare il nome e il logo dello studio \"{{slug}}\". Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
       "retry": "Riprova"
     },
     "header": {
       "activeNow": "Attivo ora",
-      "back": "Indietro"
+      "back": "Indietro",
+      "inactive": "Inattivo",
+      "away": "Assente",
+      "unknown": "Stato sconosciuto"
     }
   },
   "businessWelcome": {
@@ -244,5 +256,49 @@
       }
     },
     "goToSettings": "Vai alle impostazioni dello studio"
+  },
+  "chat": {
+    "publicIntro": "Chiedici qualsiasi cosa o condividi il tuo feedback.",
+    "continue": "Continua",
+    "submitRequest": "Invia richiesta",
+    "submitNow": "Invia ora",
+    "buildStrongerBrief": "Crea una sintesi più completa",
+    "askQuestion": "Fai una domanda",
+    "requestConsultation": "Richiedi consulenza",
+    "retry": "Riprova",
+    "retrying": "Nuovo tentativo...",
+    "replyingTo": "In risposta a <name>{{name}}</name>",
+    "cta": {
+      "submit": "Invia richiesta",
+      "submitConsultationRequest": "Invia richiesta di consulenza",
+      "reviewSubmit": "Controlla e invia",
+      "keepAnswering": "Continua a rispondere",
+      "continue": "Continua",
+      "addMore": "Aggiungi altro",
+      "notYet": "Non ancora"
+    }
+  },
+  "intake": {
+    "authTitle": "Hai quasi finito",
+    "authDescription": "Crea un account gratuito per continuare la tua pratica e ricevere aggiornamenti da {{practice}}. Ti invieremo un link di conferma via email.",
+    "authDescriptionFallback": "Crea un account gratuito per continuare la tua pratica e ricevere aggiornamenti. Ti invieremo un link di conferma via email."
+  },
+  "leadReview": {
+    "accept": "Accetta",
+    "decline": "Rifiuta",
+    "convert": "Converti in fascicolo",
+    "noPermission": "Non hai il permesso di rivedere questo lead"
+  },
+  "leadIntake": {
+    "newIntake": "Nuova richiesta",
+    "urgency": "Urgenza",
+    "payment": "Pagamento",
+    "triage": "Triage",
+    "fee": "Tariffa",
+    "opposingParty": "Parte avversa",
+    "reason": "Motivo"
+  },
+  "widget": {
+    "persistIntakePathError": "Impossibile salvare il percorso di ritorno."
   }
 }

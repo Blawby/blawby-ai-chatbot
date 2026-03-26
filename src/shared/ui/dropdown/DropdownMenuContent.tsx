@@ -29,7 +29,7 @@ export const DropdownMenuContent = ({
   const { isOpen } = context;
   const open = controlledOpen !== undefined ? controlledOpen : isOpen;
   const getPositionClasses = () => {
-    const baseClasses = 'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg';
+    const baseClasses = 'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-line-glass/30 bg-surface-overlay/90 backdrop-blur-xl shadow-glass text-input-text';
     
     const sideClasses = {
       top: 'bottom-full',

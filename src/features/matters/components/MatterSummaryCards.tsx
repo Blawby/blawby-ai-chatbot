@@ -1,12 +1,13 @@
 import { Button } from '@/shared/ui/Button';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { getMajorAmountValue, type MajorAmount } from '@/shared/utils/money';
 
 type SummaryTab = 'overview' | 'time' | 'messages';
 
 interface MatterSummaryCardsProps {
   activeTab: SummaryTab;
-  onAddTime?: () => void;
+  onCreateInvoice?: () => void;
   onViewTimesheet?: () => void;
-  onChangeRate?: () => void;
   onLearnMore?: () => void;
   timeStats?: {
     totalBillableSeconds?: number | null;
@@ -14,9 +15,27 @@ interface MatterSummaryCardsProps {
     totalBillableHours?: number | null;
     totalHours?: number | null;
   } | null;
+  billingType?: 'hourly' | 'fixed' | 'contingency' | 'pro_bono';
+  attorneyHourlyRate?: MajorAmount | null;
+  adminHourlyRate?: MajorAmount | null;
+  totalFixedPrice?: MajorAmount | null;
+  contingencyPercent?: number | null;
+  paymentFrequency?: 'project' | 'milestone' | null;
+  fixedMetrics?: {
+    projectPrice?: MajorAmount | null;
+    projectFunds?: MajorAmount | null;
+    totalEarnings?: MajorAmount | null;
+    milestonesPaidCount?: number;
+    milestonesPaidAmount?: MajorAmount | null;
+    milestonesRemainingCount?: number;
+    milestonesRemainingAmount?: MajorAmount | null;
+    hasMilestones?: boolean;
+  } | null;
 }
 
-const cardBase = 'rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4';
+const summaryItemBase = 'min-w-0 py-1 flex flex-col gap-1';
+const gridBase = 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4';
+const wrapperBase = 'glass-panel p-4 sm:p-5';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
   if (!totalSeconds || totalSeconds <= 0) return '0:00 hrs';
@@ -36,12 +55,21 @@ const formatDurationFromHours = (totalHours?: number | null) => {
 
 export const MatterSummaryCards = ({
   activeTab,
-  onAddTime,
+  onCreateInvoice,
   onViewTimesheet,
-  onChangeRate,
   onLearnMore,
-  timeStats
+  timeStats,
+  billingType,
+  attorneyHourlyRate,
+  adminHourlyRate,
+  totalFixedPrice,
+  contingencyPercent,
+  paymentFrequency,
+  fixedMetrics
 }: MatterSummaryCardsProps) => {
+  const resolveMajorAmount = (amount: MajorAmount | null | undefined): number | null =>
+    amount === null || amount === undefined ? null : getMajorAmountValue(amount);
+
   const totalBillableSeconds = timeStats?.totalBillableSeconds ?? null;
   const totalSeconds = timeStats?.totalSeconds ?? null;
   const totalBillableHours = timeStats?.totalBillableHours ?? null;
@@ -53,59 +81,142 @@ export const MatterSummaryCards = ({
     ? formatDurationFromSeconds(totalSeconds)
     : formatDurationFromHours(totalHours);
 
+  const billingTypeLabel = billingType
+    ? billingType.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase())
+    : 'Not set';
+  const billingRateLines = (() => {
+    if (!billingType) return 'Rate not set';
+    if (billingType === 'pro_bono') return 'No charge';
+    if (billingType === 'hourly') {
+      const attorneyRateValue = resolveMajorAmount(attorneyHourlyRate);
+      const adminRateValue = resolveMajorAmount(adminHourlyRate);
+      if (attorneyRateValue === null && adminRateValue === null) return 'Rate not set';
+      const lines: string[] = [];
+      if (attorneyRateValue !== null) lines.push(`Attorney: ${formatCurrency(attorneyRateValue)}/hr`);
+      if (adminRateValue !== null) lines.push(`Admin: ${formatCurrency(adminRateValue)}/hr`);
+      return lines;
+    }
+    if (billingType === 'fixed') {
+      if (paymentFrequency === 'milestone') return 'Milestone schedule';
+      const value = resolveMajorAmount(totalFixedPrice);
+      return value !== null ? `${formatCurrency(value)} total` : 'Rate not set';
+    }
+    const percent = typeof contingencyPercent === 'number' ? contingencyPercent : null;
+    return percent !== null ? `${percent}% contingency` : 'Rate not set';
+  })();
+
+  const fixedProjectPrice = resolveMajorAmount(fixedMetrics?.projectPrice ?? totalFixedPrice ?? null) ?? 0;
+  const fixedProjectFunds = resolveMajorAmount(fixedMetrics?.projectFunds ?? null) ?? 0;
+  const fixedTotalEarnings = resolveMajorAmount(fixedMetrics?.totalEarnings ?? null) ?? 0;
+  const milestonesPaidCount = Math.max(0, fixedMetrics?.milestonesPaidCount ?? 0);
+  const milestonesPaidAmount = resolveMajorAmount(fixedMetrics?.milestonesPaidAmount ?? null) ?? 0;
+  const milestonesRemainingCount = Math.max(0, fixedMetrics?.milestonesRemainingCount ?? 0);
+  const milestonesRemainingAmount = resolveMajorAmount(fixedMetrics?.milestonesRemainingAmount ?? null) ?? 0;
+  const hasMilestones = Boolean(fixedMetrics?.hasMilestones ?? (milestonesPaidCount + milestonesRemainingCount > 0));
+
   if (activeTab === 'overview') {
+    if (billingType === 'fixed') {
+      const fixedCards = [
+        { label: 'Project price', value: formatCurrency(fixedProjectPrice), helper: 'Fixed-price' },
+        { label: 'Project funds', value: formatCurrency(fixedProjectFunds) },
+        ...(hasMilestones ? [
+          {
+            label: `Milestones paid (${milestonesPaidCount})`,
+            value: formatCurrency(milestonesPaidAmount)
+          },
+          {
+            label: `Milestones remaining (${milestonesRemainingCount})`,
+            value: formatCurrency(milestonesRemainingAmount)
+          }
+        ] : []),
+        { label: 'Total earnings', value: formatCurrency(fixedTotalEarnings) }
+      ];
+
+      const fixedGridClass = hasMilestones
+        ? 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-5'
+        : 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3';
+
+      return (
+        <section className={wrapperBase}>
+          <div className={fixedGridClass}>
+            {fixedCards.map((card) => (
+              <div key={card.label} className={`${summaryItemBase} text-center`}>
+                <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
+                <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{card.value}</p>
+                {card.helper ? (
+                  <p className="mt-1 text-xs text-input-placeholder leading-tight">{card.helper}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
     return (
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Billable time</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{billableDisplay}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Based on recorded billable entries.
+      <section className={wrapperBase}>
+        <div className={gridBase}>
+          <div className={summaryItemBase}>
+          <p className="text-xs font-medium text-input-placeholder leading-tight">Billable time this week</p>
+          <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{billableDisplay}</p>
+          <p className="mt-1 text-xs text-input-placeholder leading-tight">
+            Based on recorded billable entries this week.
           </p>
           {onLearnMore ? (
             <button
               type="button"
-              className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400"
+              className="mt-2 text-xs font-medium text-accent-500 hover:underline"
               onClick={onLearnMore}
             >
               Learn more
             </button>
           ) : (
-            <span className="mt-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+            <span className="mt-2 text-xs font-medium text-input-placeholder/60">
               Learn more (coming soon)
             </span>
           )}
-        </div>
-        <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Contract&apos;s rate</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">$125.00 /hr</p>
-          <button
-            type="button"
-            className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => onChangeRate?.()}
-            disabled={!onChangeRate}
-          >
-            Change rate
-          </button>
-        </div>
-        <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total time tracked</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{totalDisplay}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Across all logged entries</p>
-        </div>
-        <div className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Quick actions</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">Time</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Add new entries or open the full timesheet.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="xs" onClick={() => onAddTime?.()} disabled={!onAddTime}>
-              Add time
-            </Button>
-            <Button variant="secondary" size="xs" onClick={() => onViewTimesheet?.()} disabled={!onViewTimesheet}>
-              View timesheet
-            </Button>
+          </div>
+          <div className={summaryItemBase}>
+            <p className="text-xs font-medium text-input-placeholder leading-tight">{billingTypeLabel}</p>
+            {Array.isArray(billingRateLines) ? (
+              <div className="mt-2 space-y-1 text-sm text-input-text">
+                {billingRateLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-lg font-semibold text-input-text">{billingRateLines}</p>
+            )}
+          </div>
+          <div className={summaryItemBase}>
+            <p className="text-xs font-medium text-input-placeholder leading-tight">This week&apos;s tracked</p>
+            <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{totalDisplay}</p>
+            <p className="mt-1 text-xs text-input-placeholder leading-tight">Across all logged entries this week</p>
+          </div>
+          <div className={`${summaryItemBase} items-center text-center`}>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <Button
+                size="xs"
+                onClick={() => onCreateInvoice?.()}
+                disabled={!onCreateInvoice}
+                className="w-auto"
+              >
+                Invoice
+              </Button>
+            </div>
+            <div className="mt-2 flex justify-center">
+              {onViewTimesheet ? (
+                <button
+                  type="button"
+                  onClick={() => onViewTimesheet()}
+                  className="text-xs font-medium text-accent-500 hover:underline"
+                >
+                  View timesheet
+                </button>
+              ) : (
+                <span className="text-xs font-medium text-input-placeholder/60">View timesheet</span>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -114,23 +225,23 @@ export const MatterSummaryCards = ({
 
   if (activeTab === 'time') {
     const cards = [
-      { label: 'Billable total', value: billableDisplay, helper: 'All billable time logged' },
-      { label: 'Total tracked', value: totalDisplay, helper: 'All time entries' },
-      { label: 'Billable hours', value: billableDisplay },
-      { label: 'Since start', value: totalDisplay }
+      { label: 'Billable hours', value: billableDisplay, helper: 'All billable time logged' },
+      { label: 'Total time tracked', value: totalDisplay, helper: 'All time entries' }
     ];
 
     return (
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => (
-          <div key={card.label} className={cardBase}>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-            <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
-            {card.helper ? (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{card.helper}</p>
-            ) : null}
-          </div>
-        ))}
+      <section className={wrapperBase}>
+        <div className={gridBase}>
+          {cards.map((card) => (
+            <div key={card.label} className={summaryItemBase}>
+              <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
+              <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{card.value}</p>
+              {card.helper ? (
+                <p className="mt-1 text-xs text-input-placeholder leading-tight">{card.helper}</p>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </section>
     );
   }
@@ -143,13 +254,15 @@ export const MatterSummaryCards = ({
   ];
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {messageCards.map((card) => (
-        <div key={card.label} className={cardBase}>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
-        </div>
-      ))}
+    <section className={wrapperBase}>
+      <div className={gridBase}>
+        {messageCards.map((card) => (
+          <div key={card.label} className={summaryItemBase}>
+            <p className="text-xs font-medium text-input-placeholder">{card.label}</p>
+            <p className="mt-2 text-lg font-semibold text-input-text">{card.value}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 };

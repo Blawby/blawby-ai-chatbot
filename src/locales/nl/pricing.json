@@ -204,12 +204,22 @@
     "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
     "currency": {
       "usd": "[NEEDS TRANSLATION] USD"
-    }
+    },
+    "noPracticeSelected": "Geen praktijk geselecteerd",
+    "selectPracticeToManage": "Selecteer een praktijk om facturering te beheren.",
+    "unableOpenPortal": "Kan factureringsportaal niet openen",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Laden…",
   "comparison": {
     "title": "Gedetailleerde planvergelijking",
     "feature": "[NEEDS TRANSLATION] Feature",
     "included": "[NEEDS TRANSLATION] Included",
     "notIncluded": "[NEEDS TRANSLATION] Not included"
-  }
+  },
+  "upgradeFailed": "Upgrade mislukt",
+  "noFeatures": "Dit plan heeft geen functies.",
+  "upgradeButton": "Upgrade naar {{price}}",
+  "autoRenewsDisclaimer": "Vernieuwt automatisch maandelijks. Op elk moment opzeggen.",
+  "errorGeneric": "Kan prijsinformatie niet laden, probeer het later opnieuw."
 }

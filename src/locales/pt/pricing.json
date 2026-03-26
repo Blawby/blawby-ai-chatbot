@@ -204,8 +204,13 @@
     "billedAnnually": "Cobrado anualmente",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Nenhum escritório selecionado",
+    "selectPracticeToManage": "Por favor, selecione um escritório para gerenciar a faturação.",
+    "unableOpenPortal": "Não foi possível abrir o portal de faturação",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Carregando…",
   "comparison": {
     "title": "Comparar Planos",
     "feature": "Recurso",
@@ -215,5 +220,10 @@
   "sections": {
     "benefits": "Benefícios:",
     "limitations": "Limitações:"
-  }
+  },
+  "upgradeFailed": "Falha na atualização",
+  "noFeatures": "Este plano não possui recursos.",
+  "upgradeButton": "Atualizar por {{price}}",
+  "autoRenewsDisclaimer": "Renova automaticamente mensalmente. Cancele a qualquer momento.",
+  "errorGeneric": "Não foi possível carregar as informações de preços. Tente novamente mais tarde."
 }

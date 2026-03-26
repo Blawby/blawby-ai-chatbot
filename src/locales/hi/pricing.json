@@ -204,12 +204,22 @@
     "billedAnnually": "वार्षिक बिल किया गया",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "No practice selected",
+    "selectPracticeToManage": "Please select a practice to manage billing.",
+    "unableOpenPortal": "बिलिंग पोर्टल खोलने में असमर्थ",
+    "unknownError": "बिलिंग पोर्टल खोलते समय एक अज्ञात त्रुटि हुई।"
   },
+  "loading": "लोड हो रहा है…",
   "comparison": {
     "title": "योजनाओं की तुलना करें",
     "feature": "सुविधा",
     "included": "शामिल",
     "notIncluded": "शामिल नहीं"
-  }
+  },
+  "upgradeFailed": "अपग्रेड विफल",
+  "noFeatures": "इस योजना में कोई सुविधा नहीं है।",
+  "upgradeButton": "{{price}} के लिए अपग्रेड करें",
+  "autoRenewsDisclaimer": "मासिक स्वतः नवीनीकरण। किसी भी समय रद्द करें।",
+  "errorGeneric": "मूल्य निर्धारण जानकारी लोड करने में असमर्थ, कृपया बाद में पुनः प्रयास करें।"
 }

@@ -89,9 +89,9 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus:ring-green-500 focus:border-green-500'
+    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const handleFileChange = useCallback((e: Event) => {
@@ -147,7 +147,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -161,7 +161,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         className={cn(
           'relative border-2 border-dashed rounded-lg transition-colors',
           'hover:border-accent-400 dark:hover:border-accent-500',
-          isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-gray-300 dark:border-gray-600',
+          isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-input-border',
           variantClasses[variant],
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -218,9 +218,9 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       {showFileList && files.length > 0 && (
         <div className="mt-3 space-y-2">
           {files.map((file, index) => (
-            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div key={index} className="glass-input flex items-center justify-between p-2 rounded">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                <p className="text-sm font-medium text-input-text truncate">
                   {file.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">

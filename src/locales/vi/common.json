@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Quay lại",
+    "errors": {
+      "tryAgainLater": "Vui lòng thử lại sau."
+    }
+  },
   "app": {
     "loading": "Đang tải…"
   },
@@ -211,7 +217,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Xin chào 👋",
       "helpPrompt": "Chúng tôi có thể giúp gì cho bạn?",
@@ -219,14 +225,17 @@
       "sendMessage": "Gửi tin nhắn cho chúng tôi",
       "consultation": {
         "title": "Cần nói chuyện với luật sư?",
-        "description": "Chia sẻ một vài chi tiết và chúng tôi sẽ kết nối bạn với luật sư phù hợp cho trường hợp của bạn.",
-        "button": "Yêu cầu tư vấn"
+        "description": "Chia sẻ một vài chi tiết và chúng tôi sẽ kết nối bạn với luật sư phù hợp cho trường hợp của bạn."
       },
       "poweredBy": "Được cung cấp bởi"
     },
     "navigation": {
       "home": "Trang chủ",
-      "messages": "Tin nhắn"
+      "messages": "Tin nhắn",
+      "matters": "Vụ việc",
+      "clients": "Khách hàng",
+      "settings": "Cài đặt",
+      "invoices": "Hóa đơn"
     },
     "conversationList": {
       "title": "Tin nhắn",
@@ -237,12 +246,59 @@
     },
     "error": {
       "title": "Không có thông tin văn phòng",
-      "description": "Chúng tôi không thể tải tên và logo của văn phòng {{slug}}. Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
+      "description": "Chúng tôi không thể tải tên và logo của văn phòng \"{{slug}}\". Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
       "retry": "Thử lại"
     },
     "header": {
       "activeNow": "Đang hoạt động",
-      "back": "Quay lại"
+      "back": "Quay lại",
+      "inactive": "Không hoạt động",
+      "away": "Vắng mặt",
+      "unknown": "Không rõ trạng thái"
     }
+  },
+  "chat": {
+    "publicIntro": "Hãy hỏi chúng tôi bất kỳ điều gì hoặc chia sẻ ý kiến của bạn.",
+    "continue": "Tiếp tục",
+    "submitRequest": "Gửi yêu cầu",
+    "submitNow": "Gửi ngay",
+    "buildStrongerBrief": "Xây dựng bản tóm tắt chi tiết hơn",
+    "askQuestion": "Đặt câu hỏi",
+    "requestConsultation": "Yêu cầu tư vấn",
+    "retry": "Thử lại",
+    "retrying": "Đang thử lại...",
+    "replyingTo": "Đang trả lời <name>{{name}}</name>",
+    "cta": {
+      "submit": "Gửi yêu cầu",
+      "submitConsultationRequest": "Gửi yêu cầu tư vấn",
+      "reviewSubmit": "Xem lại & gửi",
+      "keepAnswering": "Tiếp tục trả lời",
+      "continue": "Tiếp tục",
+      "addMore": "Thêm",
+      "notYet": "Chưa phải lúc này"
+    }
+  },
+  "intake": {
+    "authTitle": "Bạn sắp hoàn tất",
+    "authDescription": "Tạo tài khoản miễn phí để tiếp tục nhập thông tin của bạn và nhận cập nhật từ {{practice}}. Chúng tôi sẽ gửi cho bạn một liên kết xác nhận qua email.",
+    "authDescriptionFallback": "Tạo tài khoản miễn phí để tiếp tục nhập thông tin của bạn và nhận cập nhật. Chúng tôi sẽ gửi cho bạn một liên kết xác nhận qua email."
+  },
+  "leadReview": {
+    "accept": "Chấp nhận",
+    "decline": "Từ chối",
+    "convert": "Chuyển đổi thành vụ án",
+    "noPermission": "Bạn không có quyền xem xét khách hàng tiềm năng này"
+  },
+  "leadIntake": {
+    "newIntake": "New intake",
+    "urgency": "Urgency",
+    "payment": "Payment",
+    "triage": "Triage",
+    "fee": "Fee",
+    "opposingParty": "Opposing party",
+    "reason": "Reason"
+  },
+  "widget": {
+    "persistIntakePathError": "Unable to save your return path."
   }
 }

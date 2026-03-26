@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Zurück",
+    "errors": {
+      "tryAgainLater": "Bitte versuchen Sie es später noch einmal."
+    }
+  },
   "app": {
     "loading": "Lädt…"
   },
@@ -211,7 +217,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Hallo 👋",
       "helpPrompt": "Wie können wir helfen?",
@@ -219,14 +225,17 @@
       "sendMessage": "Senden Sie uns eine Nachricht",
       "consultation": {
         "title": "Müssen Sie mit einem Anwalt sprechen?",
-        "description": "Teilen Sie uns ein paar Details mit und wir verbinden Sie mit dem richtigen Anwalt für Ihre Situation.",
-        "button": "Beratung anfordern"
+        "description": "Teilen Sie uns ein paar Details mit und wir verbinden Sie mit dem richtigen Anwalt für Ihre Situation."
       },
       "poweredBy": "Unterstützt von"
     },
     "navigation": {
       "home": "Startseite",
-      "messages": "Nachrichten"
+      "messages": "Nachrichten",
+      "matters": "Angelegenheiten",
+      "clients": "Mandanten",
+      "settings": "Einstellungen",
+      "invoices": "Rechnungen"
     },
     "conversationList": {
       "title": "Nachrichten",
@@ -237,12 +246,59 @@
     },
     "error": {
       "title": "Kanzleidetails nicht verfügbar",
-      "description": "Wir konnten den Namen und das Logo der Kanzlei {{slug}} nicht laden. Bitte aktualisieren Sie die Seite oder kontaktieren Sie die Kanzlei, um deren öffentliche Einstellungen zu bestätigen.",
+      "description": "Wir konnten den Namen und das Logo der Kanzlei „{{slug}}“ nicht laden. Bitte aktualisieren Sie die Seite oder kontaktieren Sie die Kanzlei, um deren öffentliche Einstellungen zu bestätigen.",
       "retry": "Erneut versuchen"
     },
     "header": {
       "activeNow": "Jetzt aktiv",
-      "back": "Zurück"
+      "back": "Zurück",
+      "inactive": "Inaktiv",
+      "away": "Abwesend",
+      "unknown": "Status unbekannt"
     }
+  },
+  "chat": {
+    "buildStrongerBrief": "Detaillierteren Bericht erstellen",
+    "continue": "Fortfahren",
+    "publicIntro": "Stellen Sie uns Ihre Fragen oder teilen Sie uns Ihr Feedback mit.",
+    "submitNow": "Jetzt absenden",
+    "submitRequest": "Anfrage absenden",
+    "askQuestion": "Eine Frage stellen",
+    "requestConsultation": "Beratung anfordern",
+    "retry": "Erneut versuchen",
+    "retrying": "Wird erneut versucht...",
+    "replyingTo": "Antwort auf <name>{{name}}</name>",
+    "cta": {
+      "addMore": "Mehr hinzufügen",
+      "continue": "Weiter",
+      "keepAnswering": "Weiter antworten",
+      "notYet": "Noch nicht",
+      "reviewSubmit": "Überprüfen & absenden",
+      "submit": "Anfrage absenden",
+      "submitConsultationRequest": "Beratungsanfrage absenden"
+    }
+  },
+  "intake": {
+    "authTitle": "Sie sind fast fertig",
+    "authDescription": "Erstellen Sie ein kostenloses Konto, um mit Ihrem Antrag fortzufahren und Updates von {{practice}} zu erhalten. Wir werden Ihnen einen Bestätigungslink per E-Mail senden.",
+    "authDescriptionFallback": "Erstellen Sie ein kostenloses Konto, um mit Ihrem Antrag fortzufahren und Updates zu erhalten. Wir werden Ihnen einen Bestätigungslink per E-Mail senden."
+  },
+  "leadReview": {
+    "accept": "Akzeptieren",
+    "decline": "Ablehnen",
+    "convert": "In Akte umwandeln",
+    "noPermission": "Sie haben keine Berechtigung, diesen Lead zu überprüfen"
+  },
+  "leadIntake": {
+    "newIntake": "Neue Aufnahme",
+    "urgency": "Dringlichkeit",
+    "payment": "Zahlung",
+    "triage": "Triage",
+    "fee": "Gebühr",
+    "opposingParty": "Gegenpartei",
+    "reason": "Grund"
+  },
+  "widget": {
+    "persistIntakePathError": "Ihr Rückweg konnte nicht gespeichert werden."
   }
 }

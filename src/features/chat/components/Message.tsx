@@ -1,8 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
-import type { Address } from '@/shared/types/address';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
 import { MessageBubble } from './MessageBubble';
@@ -12,6 +10,10 @@ import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
 import type { ReplyTarget } from '@/features/chat/types';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { chatTypography } from '@/features/chat/styles/chatTypography';
+import type { IntakeConversationState } from '@/shared/types/intake';
 
 interface MessageProps {
 	content: string;
@@ -36,21 +38,6 @@ interface MessageProps {
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
 	};
-	contactForm?: {
-		fields: string[];
-		required: string[];
-		message?: string;
-		initialValues?: {
-			name?: string;
-			email?: string;
-			phone?: string;
-			address?: Address;
-			opposingParty?: string;
-		};
-	};
-	contactFormVariant?: 'card' | 'plain';
-	contactFormFormId?: string;
-	showContactFormSubmit?: boolean;
 	paymentRequest?: IntakePaymentRequest;
 	documentChecklist?: {
 		matterType: string;
@@ -81,6 +68,31 @@ interface MessageProps {
 		status?: 'error' | 'retrying';
 		onRetry?: () => void;
 	};
+	authCta?: {
+		label: string;
+	};
+	onAuthPromptRequest?: () => void;
+	leadReview?: {
+		canReview: boolean;
+		isSubmitting?: boolean;
+		intake?: {
+			name?: string;
+			email?: string;
+			phone?: string;
+			description?: string;
+			opposingParty?: string;
+			urgency?: string;
+			paymentStatus?: string;
+			triageStatus?: string;
+			triageReason?: string;
+			amount?: number;
+			currency?: string;
+			submittedAt?: string;
+		};
+		onAccept: () => void;
+		onReject: () => void;
+		onConvert?: () => void;
+	};
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
@@ -92,15 +104,47 @@ interface MessageProps {
 		practiceId: string;
 	};
 	onOpenSidebar?: () => void;
-	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
+	isStreaming?: boolean;
 	isLoading?: boolean;
 	toolMessage?: string;
 	id?: string;
 	practiceId?: string;
 	intakeStatus?: {
 		step?: string;
+		decision?: string;
+		intakeUuid?: string | null;
+		paymentRequired?: boolean;
+		paymentReceived?: boolean;
 	};
+	intakeConversationState?: IntakeConversationState | null;
+	showIntakeCta?: boolean;
+	onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
+	onSubmitNow?: () => void | Promise<void>;
+	showIntakeDecisionPrompt?: boolean;
+	onBuildBrief?: () => void;
+	quickReplies?: string[];
+	onQuickReply?: (text: string) => void;
+	onboardingProfile?: {
+		completionScore?: number;
+		missingFields?: string[];
+		summaryFields?: Array<{ label: string; value: string }>;
+		serviceNames?: string[];
+		canSave?: boolean;
+		isSaving?: boolean;
+		saveError?: string | null;
+		onSaveAll?: () => void | Promise<void>;
+		onEditBasics?: () => void;
+		onEditContact?: () => void;
+		logo?: {
+			imageUrl: string | null;
+			name: string;
+			uploading: boolean;
+			progress: number | null;
+			onChange: (files: FileList | File[]) => void;
+		};
+	};
+	isLast?: boolean;
 	// Styling
 	className?: string;
 }
@@ -115,33 +159,41 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	variant = 'default',
 	size = 'md',
 	matterCanvas,
-	contactForm,
-	contactFormVariant,
-	contactFormFormId,
-	showContactFormSubmit,
 	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
 	practiceConfig: _practiceConfig,
 	onOpenSidebar: _onOpenSidebar,
-	onContactFormSubmit,
 	onOpenPayment,
 	modeSelector,
 	assistantRetry,
+	authCta,
+	onAuthPromptRequest,
+	leadReview,
 	replyPreview,
 	reactions = [],
 	onReplyPreviewClick,
 	onReply,
 	onToggleReaction,
+	isStreaming = false,
 	isLoading,
 	toolMessage,
 	id: _id,
 	practiceId: _practiceId,
-	className = ''
+	className = '',
+	intakeConversationState,
+	showIntakeCta,
+	onIntakeCtaResponse,
+	onSubmitNow,
+	showIntakeDecisionPrompt,
+	onBuildBrief,
+	quickReplies,
+	onQuickReply,
+	onboardingProfile,
+	isLast
 }) => {
 	const hasContent = Boolean(content);
-	const isStreaming = false; // No streaming for user-to-user chat
 	const shouldShowIndicator = isLoading && !hasContent;
 	
 	const hasOnlyMedia = files.length > 0 && !content && files.every(file => 
@@ -150,24 +202,21 @@ const Message: FunctionComponent<MessageProps> = memo(({
 		file.type.startsWith('audio/')
 	);
 
-	const isContactFormMessage = Boolean(contactForm);
-	// Avatar is resolved by the message list to keep sender rules in one place.
-	const messageAvatar = isContactFormMessage ? undefined : avatar;
-	const showHeader = !isContactFormMessage && Boolean(authorName || timestamp);
+	const messageAvatar = avatar;
+	const showHeader = Boolean(authorName || timestamp);
 	const contentClassName = showHeader ? 'mt-1' : '';
 	const formattedTime = timestamp
-		? new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+		? formatRelativeTime(new Date(timestamp))
 		: null;
 
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const showActions = !isContactFormMessage && Boolean(onReply || onToggleReaction);
-	const hasReactions = !isContactFormMessage && reactions.length > 0;
-	const hasReplyPreview = !isContactFormMessage && Boolean(replyPreview);
+	const showActions = Boolean(onReply || onToggleReaction);
+	const hasReactions = reactions.length > 0;
+	const hasReplyPreview = Boolean(replyPreview);
 	const wrapperClassName = [
-		'relative flex items-start gap-3 mb-2 last:mb-0',
-		isContactFormMessage ? 'px-0 py-0' : 'px-3 py-2 rounded-md group transition-colors duration-150 hover:bg-white/5',
+		'relative flex items-start gap-3 px-4 py-3 group message-list-item',
 		className
 	].filter(Boolean).join(' ');
 
@@ -188,12 +237,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 			)}
 
 			{showActions && (
-				<div className="absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100">
+				<div className="message-action-popover">
 					{onToggleReaction && quickReactions.map((emoji) => (
 						<button
 							key={emoji}
 							type="button"
-							className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-200 transition hover:bg-white/10"
+							className="message-action-btn text-sm"
 							aria-label={`React with ${emoji}`}
 							onClick={() => onToggleReaction(emoji)}
 						>
@@ -203,11 +252,11 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					{onReply && (
 						<button
 							type="button"
-							className="flex h-6 w-6 items-center justify-center rounded text-gray-200 transition hover:bg-white/10"
+							className="message-action-btn"
 							aria-label="Reply to message"
 							onClick={onReply}
 						>
-							<ArrowUturnLeftIcon className="h-4 w-4" />
+							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4"  />
 						</button>
 					)}
 				</div>
@@ -222,12 +271,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{hasReplyPreview && replyPreview && (
 					<button
 						type="button"
-						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-gray-400 ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-gray-300' : 'cursor-default pointer-events-none'}`}
+						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-input-text' : 'cursor-default pointer-events-none'}`}
 						onClick={onReplyPreviewClick}
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
-						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t border-gray-600/70" />
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t border-line-glass/40" />
 						{replyPreview.avatar && (
 							<MessageAvatar
 								src={replyPreview.avatar.src}
@@ -236,20 +285,24 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								className="flex-shrink-0 mt-0.5 relative z-10"
 							/>
 						)}
-						<span className="font-semibold text-gray-200">{replyPreview.authorName}</span>
-						<span className="truncate text-gray-500">
+						<span className="font-semibold text-input-text">{replyPreview.authorName}</span>
+						<span className="truncate text-input-placeholder">
 							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
 						</span>
 					</button>
 				)}
 				{showHeader && (
-					<div className="mt-1 flex items-baseline gap-2 justify-start text-left">
+					<div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-left">
 						{(authorName || messageAvatar?.name) && (
-							<span className="text-base font-semibold text-gray-100 leading-none">
+							<span className={`min-w-0 truncate leading-none ${chatTypography.headerName}`}>
 								{authorName || messageAvatar?.name}
 							</span>
 						)}
-						{formattedTime && <span className="text-xs font-normal text-gray-500">{formattedTime}</span>}
+						{formattedTime && (
+							<span className={`flex-shrink-0 ${chatTypography.headerTime}`}>
+								{formattedTime}
+							</span>
+						)}
 					</div>
 				)}
 
@@ -274,21 +327,29 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				)}
 				
 				{/* Actions (matter canvas, forms, etc.) */}
-				<MessageActions
+			<MessageActions
 					matterCanvas={matterCanvas}
-					contactForm={contactForm}
-					contactFormVariant={contactFormVariant}
-					contactFormFormId={contactFormFormId}
-					showContactFormSubmit={showContactFormSubmit}
 					intakeStatus={intakeStatus}
 					documentChecklist={documentChecklist}
 					generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
 					onOpenPayment={onOpenPayment}
-					onContactFormSubmit={onContactFormSubmit}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
-				/>
+					authCta={authCta}
+					onAuthPromptRequest={onAuthPromptRequest}
+					leadReview={leadReview}
+				intakeConversationState={intakeConversationState}
+				quickReplies={quickReplies}
+				onQuickReply={onQuickReply}
+				showIntakeCta={showIntakeCta}
+				onIntakeCtaResponse={onIntakeCtaResponse}
+				onSubmitNow={onSubmitNow}
+				showIntakeDecisionPrompt={showIntakeDecisionPrompt}
+				onBuildBrief={onBuildBrief}
+				onboardingProfile={onboardingProfile}
+				isLast={isLast}
+			/>
 				
 				{/* Attachments */}
 				{files.length > 0 && (
@@ -303,16 +364,12 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							<button
 								key={reaction.emoji}
 								type="button"
-								className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
-									reaction.reactedByMe
-										? 'border-blue-400/40 bg-blue-500/20 text-blue-100'
-										: 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
-								}`}
+								className={`message-reaction-chip ${reaction.reactedByMe ? 'message-reaction-chip-active' : ''}`}
 								aria-label={`React with ${reaction.emoji}`}
 								onClick={() => onToggleReaction?.(reaction.emoji)}
 							>
 								<span className="text-sm">{reaction.emoji}</span>
-								<span className="text-xs text-gray-300">{reaction.count}</span>
+								<span className="message-reaction-count">{reaction.count}</span>
 							</button>
 						))}
 					</div>

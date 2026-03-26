@@ -139,6 +139,7 @@ export interface Env {
   ADOBE_SCOPE?: string;
   ENABLE_ADOBE_EXTRACT?: string | boolean;
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
+  ALLOW_DEBUG?: string;
 
   // ENV VAR: BACKEND_API_URL (worker/.dev.vars or wrangler.toml)
   // Points to Better Auth backend for session validation (e.g., http://localhost:3000 or https://staging-api.blawby.com)
@@ -152,13 +153,10 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
-  CF_AIG_GATEWAY_NAME?: string;
   CF_AIG_TOKEN?: string;
-  OPENAI_TOKEN?: string;
-  AI_PROVIDER?: string;
-  AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
+  WIDGET_AUTH_TOKEN_SECRET?: string;
 
   // Environment flags
   NODE_ENV?: string;
@@ -215,11 +213,8 @@ export interface ChatMessage {
   metadata?: Record<string, unknown>;
 }
 
-export interface MessageReaction {
-  emoji: string;
-  count: number;
-  reactedByMe: boolean;
-}
+import type { MessageReaction } from '../src/shared/types/conversation.js';
+export type { MessageReaction };
 
 export interface ChatSession {
   id: string;
@@ -262,7 +257,6 @@ export interface ConversationConfig {
   description: string;
   brandColor: string;
   accentColor: string;
-  introMessage: string;
   profileImage?: string;
   voice: {
     enabled: boolean;
@@ -308,11 +302,11 @@ export interface Practice {
   name: string;
   slug: string;
   domain?: string;
+  accentColor?: string;
   metadata?: Record<string, unknown>;
   conversationConfig: ConversationConfig; // Extracted from practice.metadata.conversationConfig in remote API
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
-  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   kind: 'practice';
   subscriptionStatus: SubscriptionLifecycleStatus;
@@ -330,11 +324,11 @@ export interface Workspace {
   name: string;
   slug: string;
   domain?: string;
+  accentColor?: string;
   metadata?: Record<string, unknown>;
   conversationConfig: ConversationConfig; // Hardcoded defaults
   betterAuthOrgId?: string;
   stripeCustomerId: null;
-  subscriptionTier: 'free';
   seats: 1;
   kind: 'workspace';
   subscriptionStatus: 'none';
@@ -510,18 +504,6 @@ export interface UIMessageExtras {
     matterType: string;
     storageKey?: string;
   };
-  contactForm?: {
-    fields: string[];
-    required: string[];
-    message?: string;
-    initialValues?: {
-      name?: string;
-      email?: string;
-      phone?: string;
-      location?: string;
-      opposingParty?: string;
-    };
-  };
   paymentRequest?: {
     intakeUuid?: string;
     clientSecret?: string;
@@ -550,4 +532,5 @@ export interface UIMessageExtras {
 // isUser reflects the current session user, not the message role alone.
 export interface ChatMessageUI extends ChatMessage, UIMessageExtras {
   isUser: boolean;
+  seq?: number;
 }

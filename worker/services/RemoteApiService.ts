@@ -45,6 +45,47 @@ export class RemoteApiService {
     return cookieHeader && cookieHeader.trim() ? cookieHeader : null;
   }
 
+  private static getAuthorizationHeader(request?: Request): string | null {
+    if (!request) return null;
+    const authHeader = request.headers.get('Authorization');
+    return authHeader && authHeader.trim() ? authHeader.trim() : null;
+  }
+
+  private static redactSensitiveFields(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.redactSensitiveFields(item));
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    const redacted: Record<string, unknown> = {};
+    const sensitiveKeys = new Set([
+      'password',
+      'token',
+      'access_token',
+      'authorization',
+      'email',
+      'ssn',
+      'secret',
+      'refresh_token',
+      'api_key',
+      'client_secret',
+    ]);
+
+    for (const [key, fieldValue] of Object.entries(record)) {
+      if (sensitiveKeys.has(key.toLowerCase())) {
+        redacted[key] = '[redacted]';
+        continue;
+      }
+      redacted[key] = this.redactSensitiveFields(fieldValue);
+    }
+
+    return redacted;
+  }
+
   /**
    * Fetch data from remote API with error handling
    */
@@ -55,22 +96,36 @@ export class RemoteApiService {
     options?: {
       method?: string;
       body?: string;
+      forwardAuthCookie?: boolean;
     }
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
     const url = `${baseUrl}${endpoint}`;
+    const shouldDebugIntakeEndpoint = endpoint.includes('/api/practice-client-intakes/');
     
     const headers = new Headers({
       'Content-Type': 'application/json',
     });
 
-    // Forward session cookies when available
-    const cookie = this.getAuthCookie(request);
-    if (cookie) {
-      headers.set('Cookie', cookie);
+    // Forward session cookies when available unless explicitly disabled.
+    if (options?.forwardAuthCookie !== false) {
+      const cookie = this.getAuthCookie(request);
+      if (cookie) {
+        headers.set('Cookie', cookie);
+      }
     }
     const method = options?.method || 'GET';
     const body = options?.body;
+
+    if (shouldDebugIntakeEndpoint) {
+      Logger.info('[RemoteApiService] Upstream request', {
+        endpoint,
+        method,
+        forwardAuthCookie: options?.forwardAuthCookie !== false,
+        hasCookieHeader: headers.has('Cookie'),
+        hasAuthorizationHeader: Boolean(this.getAuthorizationHeader(request)),
+      });
+    }
 
     try {
       const controller = new AbortController();
@@ -85,14 +140,74 @@ export class RemoteApiService {
         });
         clearTimeout(timeoutId);
 
-      if (!response.ok) {
+        if (!response.ok) {
+        let parsedBody: unknown = null;
+        let rawBody = '';
+        try {
+          rawBody = await response.text();
+          if (rawBody.trim()) {
+            parsedBody = JSON.parse(rawBody);
+          }
+        } catch {
+          parsedBody = rawBody || null;
+        }
+
+        const parsedRecord = parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)
+          ? parsedBody as Record<string, unknown>
+          : null;
+        const upstreamMessage =
+          (parsedRecord && typeof parsedRecord.error === 'string' && parsedRecord.error.trim()) ||
+          (parsedRecord && typeof parsedRecord.message === 'string' && parsedRecord.message.trim()) ||
+          '';
+        const message = upstreamMessage || `Remote API error: ${response.statusText}`;
+
+        if (shouldDebugIntakeEndpoint) {
+          let upstreamBodyPreview: string | null = null;
+          if (rawBody) {
+            try {
+              const parsedPreview = JSON.parse(rawBody);
+              upstreamBodyPreview = JSON.stringify(this.redactSensitiveFields(parsedPreview)).slice(0, 500);
+            } catch {
+              upstreamBodyPreview = '[non-json body omitted]';
+            }
+          }
+          Logger.warn('[RemoteApiService] Upstream request failed', {
+            endpoint,
+            method,
+            status: response.status,
+            statusText: response.statusText,
+            hasCookieHeader: headers.has('Cookie'),
+            hasAuthorizationHeader: Boolean(this.getAuthorizationHeader(request)),
+            upstreamMessage: upstreamMessage || null,
+            upstreamBodyPreview,
+          });
+        }
+
         if (response.status === 404) {
-          throw HttpErrors.notFound(`Practice not found: ${endpoint}`);
+          throw HttpErrors.notFound(message, { endpoint, upstream: parsedBody });
         }
         if (response.status === 401) {
-          throw HttpErrors.unauthorized('Authentication required');
+          throw HttpErrors.unauthorized(message, { endpoint, upstream: parsedBody });
         }
-        throw HttpErrors.internalServerError(`Remote API error: ${response.statusText}`);
+        if (response.status === 400) {
+          throw HttpErrors.badRequest(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 402) {
+          throw HttpErrors.paymentRequired(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 403) {
+          throw HttpErrors.forbidden(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 409) {
+          throw HttpErrors.conflict(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 422) {
+          throw HttpErrors.unprocessableEntity(message, { endpoint, upstream: parsedBody });
+        }
+        if (response.status === 429) {
+          throw HttpErrors.tooManyRequests(message, { endpoint, upstream: parsedBody });
+        }
+        throw new HttpError(response.status, message, { endpoint, upstream: parsedBody });
       }
 
       return response;
@@ -190,6 +305,17 @@ export class RemoteApiService {
   }
 
   /**
+   * Get practice details by ID from remote API
+   */
+  static async getPracticeDetailsById(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(env, `/api/practice/${encodeURIComponent(practiceId)}/details`, request);
+  }
+
+  /**
    * Get conversation config from remote API
    * Extracts conversation config from practice.metadata.conversationConfig
    */
@@ -229,7 +355,10 @@ export class RemoteApiService {
     return this.fetchFromRemoteApi(
       env,
       `/api/practice/details/${encodeURIComponent(slug)}`,
-      request
+      request,
+      // This is a public, unauthenticated endpoint. Never forward session cookies —
+      // the backend may 500 if it sees an org-scoped cookie on a public slug lookup.
+      { forwardAuthCookie: false }
     );
   }
 
@@ -240,15 +369,55 @@ export class RemoteApiService {
     env: Env,
     practiceId: string,
     request?: Request
-  ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null }>> {
-    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}/members`, request);
-    const data = await response.json() as { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+  ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null; name?: string | null; image?: string | null }>> {
+    type PracticeMemberPayload = {
+      user_id?: string;
+      userId?: string;
+      email?: string | null;
+      role?: string | null;
+      name?: string | null;
+      image?: string | null;
+      user?: {
+        name?: string | null;
+        image?: string | null;
+        email?: string | null;
+      };
+    };
+    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
+    const data = await response.json() as {
+      practice?: { members?: PracticeMemberPayload[] };
+      data?: {
+        members?: PracticeMemberPayload[];
+        practice?: { members?: PracticeMemberPayload[] };
+      };
+      members?: PracticeMemberPayload[];
+    };
 
-    if (!Array.isArray(data.members)) {
+    const members =
+      data.practice?.members ??
+      data.data?.practice?.members ??
+      data.data?.members ??
+      data.members;
+
+    if (!Array.isArray(members)) {
       return [];
     }
 
-    return data.members;
+    return members
+      .filter((m): m is PracticeMemberPayload => typeof m.userId === 'string' || typeof m.user_id === 'string')
+      .map((m) => ({
+        user_id: (typeof m.userId === 'string' ? m.userId : m.user_id) as string,
+        email: typeof m.email === 'string'
+          ? m.email
+          : (typeof m.user?.email === 'string' ? m.user.email : undefined),
+        role: m.role,
+        name: typeof m.name === 'string'
+          ? m.name
+          : (typeof m.user?.name === 'string' ? m.user.name : undefined),
+        image: typeof m.image === 'string'
+          ? m.image
+          : (typeof m.user?.image === 'string' ? m.user.image : undefined),
+      }));
   }
 
   /**
@@ -372,7 +541,6 @@ export class RemoteApiService {
       description: typeof config.description === 'string' ? config.description : '',
       brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
       accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
-      introMessage: typeof config.introMessage === 'string' ? config.introMessage : '',
       profileImage: typeof config.profileImage === 'string' ? config.profileImage : undefined,
       voice,
       blawbyApi: (() => {
@@ -464,8 +632,8 @@ export class RemoteApiService {
   }
 
   /**
-   * Get practice metadata (tier, kind, subscription status) for usage/quota purposes
-   * 
+   * Get practice metadata (kind and subscription status) for usage/quota purposes
+   *
    * @throws {HttpError} If practice is not found or remote API is unavailable
    * @throws {Error} If practice data is invalid
    */
@@ -476,7 +644,6 @@ export class RemoteApiService {
   ): Promise<{
     id: string;
     slug: string | null;
-    tier: 'free' | 'plus' | 'business' | 'enterprise';
     kind: 'practice' | 'workspace';
     subscriptionStatus: SubscriptionLifecycleStatus;
   }> {
@@ -490,7 +657,6 @@ export class RemoteApiService {
     return {
       id: practice.id,
       slug: practice.slug || null,
-      tier: practice.subscriptionTier || 'free',
       kind: practice.kind,
       subscriptionStatus: practice.subscriptionStatus || 'none',
     };
@@ -530,8 +696,15 @@ export class RemoteApiService {
 
         return false;
       } catch (error) {
-        if (error instanceof HttpError && error.status === 404) {
-          return false;
+        if (error instanceof HttpError) {
+          if (error.status === 404) {
+            return false;
+          }
+          if (error.status === 401 || error.status === 403) {
+            // Public/widget flows may not have an authenticated backend session.
+            // Treat authorization failures as "exists" so anonymous validations don't block.
+            return true;
+          }
         }
         throw error;
       }
@@ -552,6 +725,78 @@ export class RemoteApiService {
     }
   }
 
+  /**
+   * Create a client intake in the remote API.
+   */
+  static async createIntake(
+    env: Env,
+    payload: Record<string, unknown>,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(
+      env,
+      '/api/practice-client-intakes/create',
+      request,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        // Public slug-based intake create endpoint. Pass the resolved visitor
+        // identity in the payload and avoid org-scoped session cookies.
+        forwardAuthCookie: false,
+      }
+    );
+  }
+
+  /**
+   * Convert a paid intake into a matter in the remote API.
+   */
+  static async convertIntake(
+    env: Env,
+    intakeUuid: string,
+    payload: {
+      responsible_attorney_id?: string;
+      billing_type?: string;
+      description?: string;
+    },
+    request?: Request
+  ): Promise<{
+    matter_id: string;
+    matter_status?: string;
+    conversation_id?: string;
+    invite_sent?: boolean;
+  }> {
+    const response = await this.fetchFromRemoteApi(
+      env,
+      `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/convert`,
+      request,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const parsed = await response.json().catch(() => null) as {
+      success?: boolean;
+      data?: Record<string, unknown>;
+    } | null;
+
+    if (!parsed || typeof parsed !== 'object' || parsed.success !== true || !parsed.data || typeof parsed.data !== 'object') {
+      throw HttpErrors.badGateway('Invalid convert intake response from remote API');
+    }
+
+    const matterId = typeof parsed.data.matter_id === 'string' ? parsed.data.matter_id : '';
+    if (!matterId) {
+      throw HttpErrors.badGateway('Remote API convert response missing matter_id');
+    }
+
+    return {
+      matter_id: matterId,
+      matter_status: typeof parsed.data.matter_status === 'string' ? parsed.data.matter_status : undefined,
+      conversation_id: typeof parsed.data.conversation_id === 'string' ? parsed.data.conversation_id : undefined,
+      invite_sent: typeof parsed.data.invite_sent === 'boolean' ? parsed.data.invite_sent : undefined
+    };
+  }
+
   static async getPracticeClientIntakeStatus(
     env: Env,
     intakeUuid: string,
@@ -569,7 +814,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/status`,
         request
       );
 
@@ -613,6 +858,47 @@ export class RemoteApiService {
     }
   }
 
+  static async triggerPracticeClientIntakeInvite(
+    env: Env,
+    intakeUuid: string,
+    request?: Request
+  ): Promise<{ success: boolean; message?: string }> {
+    if (!intakeUuid) {
+      return { success: false };
+    }
+
+    try {
+      const response = await this.fetchFromRemoteApi(
+        env,
+        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/invite`,
+        request,
+        {
+          method: 'POST',
+          body: JSON.stringify({})
+        }
+      );
+
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+      } | null;
+
+      if (payload && typeof payload === 'object') {
+        return {
+          success: payload.success !== false,
+          message: typeof payload.message === 'string' ? payload.message : undefined
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 403 || error.status === 404)) {
+        return { success: false };
+      }
+      throw error;
+    }
+  }
+
   static async getPracticeClientIntakeSettings(
     env: Env,
     practiceSlug: string,
@@ -631,7 +917,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice/client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
+        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
         request
       );
       const payload = await response.json().catch(() => null) as Record<string, unknown> | null;

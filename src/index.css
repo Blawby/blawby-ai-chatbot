@@ -5,18 +5,81 @@
 @layer base {
   :root {
     color-scheme: light dark;
+    --surface-base: 255 255 255;
+    --surface-overlay: 255 255 255;
+    --surface-nav-rail: 244 246 251;
+    --surface-nav-secondary: 240 242 249;
+    --surface-list-panel: 236 239 247;
+    --surface-glass: 255 255 255;
+    --line-glass: 255 255 255;
+    --input-text: 17 24 39;
+    --input-placeholder: 107 114 128;
+    --accent-foreground: 255 255 255;
+    --success-foreground: 74 222 128;
+    --warning-foreground: 249 115 22;
+    --error-foreground: 248 113 113;
+
+    /* Navigation Tokens - Manage all nav colors here */
+    --nav-surface: var(--surface-nav-rail);
+    --nav-active-text: var(--accent-500);
+    --nav-active-bg: var(--nav-active-text) / 0.18;
+
+    /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
+    --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
+      inset 0 0 3px 1px rgba(255, 255, 255, 0.25);
+    --glass-rim-medium: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.50),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.15);
+    --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.30),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.08);
+
+    --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
+  }
+
+  .dark {
+    --surface-base: 3 7 18;
+    --surface-overlay: 10 15 26;
+    --surface-nav-rail: 18 22 34;
+    --surface-nav-secondary: 14 18 30;
+    --surface-list-panel: 11 15 25;
+    --surface-glass: 255 255 255;
+    --line-glass: 255 255 255;
+    --input-text: 249 250 251;
+    --input-placeholder: 156 163 175;
+
+    /* Navigation Tokens (Dark Mode) */
+    --nav-surface: var(--surface-nav-rail);
+    --nav-active-text: var(--accent-500);
+    --nav-active-bg: var(--nav-active-text) / 0.18;
+    --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
+
+    /* Slightly brighter rims in dark mode — more contrast against dark bg */
+    --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.78),
+      inset 0 0 3px 1px rgba(255, 255, 255, 0.28);
+    --glass-rim-medium: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.60),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.18);
+    --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.36),
+      inset 0 0 2px 1px rgba(255, 255, 255, 0.10);
   }
 
   body {
     @apply min-h-screen m-0;
+    background-color: rgb(var(--surface-base));
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500, 212 175 55) / 8%), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600, 202 138 4) / 5%), transparent 50%);
+    background-attachment: fixed;
   }
 
-  /* Hide scrollbars globally to prevent overlay on content */
+  .widget-shell-gradient {
+    background-color: rgb(var(--surface-base));
+    background-image:
+      radial-gradient(ellipse 125% 95% at 18% 0%, rgb(var(--accent-500, 212 175 55) / 42%), transparent 68%);
+  }
+
+  /* Hide scrollbars globally */
   * {
     scrollbar-width: none;
-    /* Firefox */
     -ms-overflow-style: none;
-    /* Internet Explorer 10+ */
   }
 
   *::-webkit-scrollbar {
@@ -29,12 +92,10 @@
     @apply text-accent-500 hover:text-accent-600 transition-colors duration-200;
   }
 
-  /* Dark mode link styles */
   .dark a {
     @apply text-accent-400 hover:text-accent-300;
   }
 
-  /* Utility classes for specific link styles */
   .link-plain {
     @apply no-underline font-normal;
   }
@@ -47,15 +108,12 @@
   body.modal-open .overflow-y-auto,
   body.modal-open .overflow-auto {
     scrollbar-width: none;
-    /* Firefox */
     -ms-overflow-style: none;
-    /* Internet Explorer 10+ */
   }
 
   body.modal-open .overflow-y-auto::-webkit-scrollbar,
   body.modal-open .overflow-auto::-webkit-scrollbar {
     display: none;
-    /* Safari and Chrome */
   }
 
   .settings-panel .overflow-y-auto {
@@ -66,15 +124,11 @@
   @media (max-width: 768px) {
     .h-screen {
       height: 100vh;
-      /* Fallback */
       height: 100dvh;
-      /* Dynamic viewport height for mobile */
     }
 
-    /* Safe area handling for mobile devices with notches */
     .pt-16 {
       padding-top: 4rem;
-      /* Fallback */
       padding-top: max(4rem, env(safe-area-inset-top, 0px));
     }
 
@@ -85,40 +139,735 @@
 }
 
 @layer components {
-  .chat-markdown {
-    @apply text-base leading-relaxed text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words;
+
+  /* ============================================================
+     GLASS SURFACE SYSTEM
+     Border strategy: inset box-shadow rim lighting instead of
+     a flat border — creates a directional highlight that reads
+     as physical glass thickness catching light from top-left.
+     Three tiers of visual weight: card > panel > input/subtle
+     ============================================================ */
+
+  /* Cards — most prominent surface, heaviest rim */
+  .glass-card {
+    @apply rounded-3xl bg-white/5 backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300;
+
+    border: none;
+    box-shadow: var(--glass-rim-strong), var(--shadow-glass);
   }
 
+  .glass-card-hover {
+    @apply transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    @apply bg-white/10 -translate-y-0.5;
+
+    box-shadow: var(--glass-rim-strong), 0 24px 48px rgb(15 23 42 / 18%), 0 0 1px rgb(15 23 42 / 12%);
+  }
+
+  /* Panels — secondary surface, medium rim */
+  .glass-panel {
+    @apply rounded-2xl backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300;
+
+    border: none;
+    background: rgb(var(--surface-overlay) / 0.6);
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .dark .glass-panel {
+    background: rgb(255 255 255 / 0.12);
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .list-panel-card-gradient {
+    /* Set to transparent at the bottom so it adopts the container's base color */
+    background-image:
+      linear-gradient(to bottom,
+        rgb(var(--accent-500) / 0.12) 0%,
+        rgb(var(--accent-600) / 0.04) 10%,
+        transparent 20%);
+  }
+
+  .dark .list-panel-card-gradient {
+    background-image:
+      linear-gradient(to bottom,
+        rgb(var(--accent-500) / 0.15) 0%,
+        rgb(var(--accent-600) / 0.05) 10%,
+        transparent 20%);
+  }
+
+  /* Inputs — tertiary surface, subtle rim */
+  .glass-input {
+    @apply bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 backdrop-blur-xl;
+
+    border: none;
+    box-shadow: var(--glass-rim-subtle), var(--shadow-glass);
+  }
+
+  .glass-input:focus {
+    outline: none;
+    box-shadow: var(--glass-rim-medium),
+      0 0 0 2px rgb(var(--accent-500) / 0.3);
+  }
+
+
+
+  .workspace-header {
+    @apply relative flex min-h-[56px] items-center gap-3 px-4 py-3 text-input-text bg-surface-base border-b border-line-glass/15;
+  }
+
+  .workspace-header__icon {
+    @apply text-input-placeholder hover:text-input-text;
+  }
+
+  .workspace-header__avatar-ring {
+    box-shadow: 0 0 0 2px rgb(var(--line-glass) / 0.24);
+  }
+
+  .workspace-header__identity {
+    @apply min-w-0;
+  }
+
+  .workspace-header__title {
+    @apply truncate text-sm font-bold text-input-text;
+  }
+
+  .workspace-header__subtitle {
+    @apply truncate text-xs text-input-placeholder;
+  }
+
+  .workspace-header__right {
+    @apply ml-auto flex shrink-0 items-center gap-2;
+  }
+
+  .workspace-header__loading {
+    @apply pointer-events-none absolute bottom-[-1px] left-0 h-0.5 w-full;
+
+    background: linear-gradient(90deg,
+        rgb(var(--accent-500) / 0) 0%,
+        rgb(var(--accent-500) / 0.95) 20%,
+        rgb(var(--accent-500) / 1) 45%,
+        rgb(var(--accent-500) / 0.95) 70%,
+        rgb(var(--accent-500) / 0) 100%);
+    transform: translateX(-100%);
+    animation: workspace-header-progress 1.15s linear infinite;
+  }
+
+
+
+  /* Semantic surface helpers */
+  .surface-subtle {
+    @apply bg-black/5 dark:bg-white/5 backdrop-blur-xl;
+
+    border: none;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .surface-hover {
+    @apply transition-all duration-200;
+  }
+
+  .surface-hover:hover {
+    @apply bg-black/10 dark:bg-white/10;
+
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .ai-thinking-indicator__dot {
+    @apply inline-flex h-3 w-3 rounded-full bg-accent-500;
+    transform-origin: 50% center;
+    backface-visibility: hidden;
+    will-change: transform;
+    transform: translateZ(0);
+    animation: ai-thinking-dot-pulse 1.25s ease-in-out infinite;
+  }
+
+  /* ============================================================
+     BUTTON SYSTEM
+     All button visual styles are defined here as component
+     classes so ad-hoc Tailwind buttons across the codebase
+     can be migrated to these tokens incrementally.
+     Reference preview in dev: /debug/styles
+
+     Variants:  btn-primary | btn-secondary | btn-ghost |
+                btn-icon    | btn-danger    | btn-warning |
+                btn-danger-ghost | btn-accent-ghost |
+                btn-outline | btn-inverted | btn-link |
+                btn-menu-item | btn-tab
+     Sizes:     btn-xs | btn-sm | btn-md (default) | btn-lg
+     ============================================================ */
+  /* stylelint-disable declaration-empty-line-before */
+
+  /* Base shared across all button variants */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-xl active:scale-[0.98] select-none px-4 py-2 text-sm;
+    border: none;
+  }
+
+  /* Sizes */
+  .btn-xs {
+    @apply px-2.5 py-1 text-xs;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-md {
+    @apply px-4 py-2 text-sm;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* Icon-only size helpers (pair with a variant) */
+  .btn-icon-xs {
+    @apply w-9 h-9 p-0 text-xs;
+  }
+
+  .btn-icon-sm {
+    @apply w-11 h-11 p-0 text-xs;
+  }
+
+  .btn-icon-md {
+    @apply w-10 h-10 p-0 text-sm;
+  }
+
+  .btn-icon-lg {
+    @apply w-12 h-12 p-0 text-base;
+  }
+
+  /* Primary — solid accent */
+  .btn-primary {
+    background-color: rgb(var(--accent-500));
+    color: rgb(var(--accent-foreground));
+    box-shadow: var(--glass-rim-medium),
+      0 4px 16px rgb(var(--accent-500) / 0.3);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: rgb(var(--accent-600));
+    box-shadow: var(--glass-rim-strong),
+      0 6px 20px rgb(var(--accent-500) / 0.4);
+  }
+
+  .btn-primary:focus {
+    @apply ring-accent-500/50;
+  }
+
+  /* Secondary — neutral glass */
+  .btn-secondary {
+    @apply bg-white/5 backdrop-blur-xl text-input-text;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-white/15;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .btn-secondary:focus {
+    @apply ring-white/20;
+  }
+
+  /* Ghost — no bg until hover */
+  .btn-ghost {
+    @apply bg-transparent text-input-text;
+    box-shadow: none;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-white/10;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-ghost:focus {
+    @apply ring-white/20;
+  }
+
+  /* Icon — same as ghost, used for icon-only controls */
+  .btn-icon {
+    @apply bg-transparent text-input-text;
+    box-shadow: none;
+  }
+
+  .btn-icon:hover:not(:disabled) {
+    @apply bg-white/10;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-icon:focus {
+    @apply ring-white/20;
+  }
+
+  /* Inverted — for use on dark surfaces */
+  .btn-inverted {
+    @apply bg-white/20 backdrop-blur-2xl text-white;
+    box-shadow: var(--glass-rim-medium), 0 4px 12px rgb(0 0 0 / 0.2);
+  }
+
+  .btn-inverted:hover:not(:disabled) {
+    @apply bg-white/30;
+    box-shadow: var(--glass-rim-strong), 0 6px 16px rgb(0 0 0 / 0.3);
+  }
+
+  .btn-inverted:focus {
+    @apply ring-white/30;
+  }
+
+  /* Danger — red glass */
+  .btn-danger {
+    @apply bg-red-500/10 backdrop-blur-xl text-red-400;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    @apply bg-red-500/20 text-red-300;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .btn-danger:focus {
+    @apply ring-red-500/50;
+  }
+
+  /* Warning — orange destructive */
+  .btn-warning {
+    @apply bg-orange-500/10 backdrop-blur-xl text-orange-400;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-warning:hover:not(:disabled) {
+    @apply bg-orange-500/20 text-orange-300;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .btn-warning:focus {
+    @apply ring-orange-500/50;
+  }
+
+  /* Danger ghost — red text, no bg until hover */
+  .btn-danger-ghost {
+    @apply bg-transparent text-red-500 dark:text-red-400;
+    box-shadow: none;
+  }
+
+  .btn-danger-ghost:hover:not(:disabled) {
+    @apply bg-red-500/10 text-red-400 dark:text-red-300;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-danger-ghost:focus {
+    @apply ring-red-500/50;
+  }
+
+  /* Accent ghost — accent text, no bg until hover */
+  .btn-accent-ghost {
+    @apply bg-transparent text-accent-500;
+    box-shadow: none;
+  }
+
+  .btn-accent-ghost:hover:not(:disabled) {
+    @apply bg-accent-500/10 text-accent-400;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-accent-ghost:focus {
+    @apply ring-accent-500/50;
+  }
+
+  /* Outline — clear bg, defined rim */
+  .btn-outline {
+    @apply bg-transparent backdrop-blur-sm text-input-text;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    @apply bg-white/5;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .btn-outline:focus {
+    @apply ring-white/20;
+  }
+
+  /* Link — text only, no glass */
+  .btn-link {
+    @apply bg-transparent text-accent-500 shadow-none rounded-none;
+    box-shadow: none;
+  }
+
+  .btn-link:hover:not(:disabled) {
+    @apply text-accent-400 underline;
+  }
+
+  .btn-link:focus {
+    @apply ring-accent-500/50;
+  }
+
+  /* Menu item — full width, left-aligned, used in dropdowns/nav */
+  .btn-menu-item {
+    @apply w-full rounded-xl px-3 py-2.5 text-left text-sm text-input-text bg-transparent justify-between;
+    box-shadow: none;
+  }
+
+  .btn-menu-item:hover:not(:disabled) {
+    @apply bg-white/10;
+  }
+
+  .btn-menu-item:focus:not(:focus-visible) {
+    @apply ring-0 ring-offset-0;
+  }
+
+  .btn-menu-item:focus-visible {
+    @apply outline-none ring-2 ring-accent-500/50 ring-offset-0 bg-white/15;
+  }
+
+  .file-menu-item,
+  .file-menu-item:active {
+    outline: none;
+    box-shadow: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .file-menu-item:focus-visible {
+    @apply ring-2 ring-accent-500/60 ring-offset-0 bg-white/15;
+    box-shadow: 0 0 0 2px rgb(var(--accent-500) / 0.35);
+  }
+
+  /* Tab — for segmented navigation */
+  .btn-tab {
+    @apply bg-transparent text-input-placeholder rounded-lg px-3 py-1.5 text-sm;
+    box-shadow: none;
+  }
+
+  .btn-tab:hover:not(:disabled) {
+    @apply bg-white/5 text-input-text;
+  }
+
+  .btn-tab[aria-selected="true"],
+  .btn-tab.active {
+    @apply bg-white/10 text-input-text;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  /* stylelint-enable declaration-empty-line-before */
+
+  /* Shared nav item active/inactive state (Subtle/Sidebar) */
+  .nav-item-active {
+    color: rgb(var(--nav-active-text));
+    background-color: rgb(var(--nav-active-bg));
+    box-shadow: none;
+  }
+
+  .dark .nav-item-active {
+    background-color: rgb(var(--nav-active-bg));
+    color: rgb(var(--nav-active-text));
+  }
+
+  .nav-item-inactive {
+    color: rgb(var(--input-text) / 0.75);
+    background-color: transparent;
+  }
+
+  .nav-item-inactive:hover {
+    color: rgb(var(--input-text) / 0.85);
+    background-color: rgb(255 255 255 / 0.06);
+  }
+
+  .dark .nav-item-inactive:hover {
+    background-color: rgb(255 255 255 / 0.08);
+  }
+
+  /* Semantic status surfaces */
+  .status-info {
+    @apply border border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .status-success {
+    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .status-warning {
+    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  .status-error {
+    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
+    box-shadow: var(--glass-rim-medium);
+  }
+
+  /* Segmented toggle */
+  .segmented-toggle {
+    @apply relative inline-flex items-center rounded-full p-1 bg-transparent backdrop-blur-xl;
+    box-shadow: var(--glass-rim-subtle);
+  }
+
+  .segmented-toggle-thumb {
+    @apply pointer-events-none absolute top-1 bottom-1 rounded-full bg-accent-500;
+
+    transition: left 300ms ease-out, width 300ms ease-out;
+    box-shadow: var(--glass-rim-subtle),
+      0 2px 8px rgb(var(--accent-500) / 0.25);
+  }
+
+  .segmented-toggle-item {
+    @apply relative z-10 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200;
+  }
+
+  .segmented-toggle-item-active {
+    @apply text-[rgb(var(--accent-foreground))];
+  }
+
+  .segmented-toggle-item-inactive {
+    @apply text-input-placeholder;
+  }
+
+  .segmented-toggle-item-inactive:hover:not(:disabled) {
+    @apply text-input-text;
+  }
+
+  .segmented-toggle--compact {
+    @apply p-0.5;
+  }
+
+  .segmented-toggle--compact .segmented-toggle-thumb {
+    @apply top-0.5 bottom-0.5;
+  }
+
+  .segmented-toggle--compact .segmented-toggle-item {
+    @apply px-3 py-1 text-xs;
+  }
+
+  /* ============================================================
+     MARKDOWN / CHAT
+     
+     ARCHITECTURE NOTE
+     ─────────────────
+     Structural fixes (li > p wrapping, link attributes, table
+     scroll) are handled in ChatMarkdown.tsx via the `components`
+     prop — that's the right layer for DOM-level concerns.
+
+     This CSS handles ONLY visual styling: spacing rhythm,
+     typography scale, and color. Keep it that way.
+
+     We do NOT use @tailwindcss/typography (prose) here because
+     our surface is dark glass with CSS-variable-driven accent
+     colors — prose's opinionated color assumptions would need
+     so many overrides that hand-rolling is cleaner.
+     ============================================================ */
+
+  .chat-markdown {
+    @apply leading-relaxed break-words;
+    /* Prevent pre/code from blowing out narrow containers */
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* Support truncation in previews by making inner paragraphs inline */
+  .chat-markdown.truncate p {
+    display: inline;
+    margin: 0;
+  }
+
+  .chat-markdown.truncate p+p::before {
+    content: " ";
+  }
+
+  .chat-markdown.truncate .mention-token {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+
+  .chat-markdown.truncate .mention-token__label {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* General pill styling for non-truncated messages */
+  .chat-markdown .inline-flex {
+    display: inline-flex;
+    vertical-align: middle;
+    margin: 0.1em 0.25em;
+  }
+
+  /* ── Headings ──────────────────────────────────────────── */
+
+  .chat-markdown h1,
+  .chat-markdown h2,
+  .chat-markdown h3,
+  .chat-markdown h4,
+  .chat-markdown h5,
+  .chat-markdown h6 {
+    @apply font-semibold leading-snug text-input-text;
+    margin-top: 1.25em;
+    margin-bottom: 0.35em;
+  }
+
+  /* No top margin when a heading opens the block */
+  .chat-markdown :is(h1, h2, h3, h4, h5, h6):first-child {
+    margin-top: 0;
+  }
+
+  .chat-markdown h1 {
+    font-size: 1.45em;
+  }
+
+  .chat-markdown h2 {
+    font-size: 1.2em;
+  }
+
+  .chat-markdown h3 {
+    font-size: 1.05em;
+  }
+
+  .chat-markdown h4 {
+    font-size: 1em;
+    @apply font-medium;
+  }
+
+  .chat-markdown h5 {
+    font-size: 0.9em;
+    @apply font-medium text-input-placeholder;
+  }
+
+  .chat-markdown h6 {
+    font-size: 0.85em;
+    @apply font-medium text-input-placeholder;
+  }
+
+  /* ── Paragraphs ────────────────────────────────────────── */
+
   .chat-markdown p {
-    @apply mt-0 mb-3;
+    margin-top: 0;
+    margin-bottom: 0.7em;
   }
 
   .chat-markdown p:last-child {
-    @apply mb-0;
+    margin-bottom: 0;
   }
 
+  .chat-markdown li>p {
+    margin: 0;
+    display: inline;
+  }
+
+  .chat-markdown li>p+p {
+    display: block;
+    margin-top: 0.35em;
+  }
+
+  /* ── Lists ─────────────────────────────────────────────── */
+
+  .chat-markdown ul,
+  .chat-markdown ol {
+    margin-top: 0;
+    margin-bottom: 0.7em;
+    padding-left: 1.4em;
+  }
+
+  .chat-markdown ul:last-child,
+  .chat-markdown ol:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Nested lists — tighter, no extra bottom margin */
+  .chat-markdown li>ul,
+  .chat-markdown li>ol {
+    margin-top: 0.2em;
+    margin-bottom: 0;
+  }
+
+  .chat-markdown ul {
+    list-style-type: disc;
+  }
+
+  .chat-markdown ol {
+    list-style-type: decimal;
+  }
+
+  .chat-markdown ul ul {
+    list-style-type: circle;
+  }
+
+  .chat-markdown ul ul ul {
+    list-style-type: square;
+  }
+
+  .chat-markdown li {
+    /* Tight but not cramped — adjust to taste */
+    margin-bottom: 0.25em;
+    @apply text-input-text;
+  }
+
+  .chat-markdown li:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Task list checkboxes (GFM) */
+  .chat-markdown li input[type="checkbox"] {
+    @apply mr-1.5 accent-accent-500;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+  }
+
+  /* ── Inline elements ───────────────────────────────────── */
+
   .chat-markdown strong {
-    @apply font-semibold;
+    @apply font-semibold text-input-text;
   }
 
   .chat-markdown em {
     @apply italic;
   }
 
-  .chat-markdown a {
-    @apply underline text-accent-500 hover:text-accent-600 transition-colors duration-200;
+  .chat-markdown del,
+  .chat-markdown s {
+    @apply line-through text-input-placeholder;
   }
 
-  .dark .chat-markdown a {
-    @apply text-accent-300 hover:text-accent-200;
+  /* ── Horizontal rule ───────────────────────────────────── */
+  /* Styled in ChatMarkdown.tsx components.hr via Tailwind classes */
+
+  /* ── Blockquote ────────────────────────────────────────── */
+  /* Styled in ChatMarkdown.tsx components.blockquote */
+
+  /* ── Code ──────────────────────────────────────────────── */
+  /* Inline and block code styled in ChatMarkdown.tsx components.code / pre */
+
+  /* ── Tables ────────────────────────────────────────────── */
+  /* Scroll wrapper + cell styles in ChatMarkdown.tsx components.table */
+
+  /* ── Spacing resets at boundaries ─────────────────────── */
+
+  /* When markdown is the only child of a tight container,
+     remove the trailing margin on whatever element closes it */
+  .chat-markdown> :last-child {
+    margin-bottom: 0 !important;
   }
 
-  /* File display styling */
+  /* ── Streaming cursor ──────────────────────────────────── */
+
+  .chat-markdown .chat-cursor {
+    @apply inline-block align-middle ml-1 h-2 w-2 rounded-full bg-accent-500/80 animate-pulse;
+  }
+
+  /* ============================================================
+     FILE DISPLAY
+     ============================================================ */
+
   .file-display {
-    @apply flex items-center gap-2 p-2 rounded-2xl;
-    @apply bg-light-file-bg dark:bg-dark-file-bg;
-    @apply border border-light-file-border dark:border-dark-file-border;
-    @apply transition-all duration-200;
+    @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200;
   }
 
   .file-display-icon {
@@ -130,111 +879,118 @@
   }
 
   .file-display-name {
-    @apply text-sm font-medium text-light-file-text dark:text-dark-file-text truncate;
+    @apply text-sm font-medium text-input-text truncate;
   }
 
   .file-display-type {
-    @apply text-xs text-light-file-text-secondary dark:text-dark-file-text-secondary;
+    @apply text-xs text-input-placeholder;
   }
 
   .file-display-remove {
-    @apply flex-shrink-0 w-6 h-6 rounded-full;
-    @apply flex items-center justify-center;
-    @apply bg-light-file-remove-bg dark:bg-dark-file-remove-bg;
-    @apply hover:bg-light-file-remove-hover dark:hover:bg-dark-file-remove-hover;
-    @apply transition-colors;
+    @apply flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-red-500/20 hover:bg-red-500/30 transition-colors;
   }
 
   .file-display-remove-icon {
     @apply w-3.5 h-3.5 text-white;
   }
 
-  /* Message composer styling */
+  /* ============================================================
+     MESSAGE COMPOSER
+     ============================================================ */
+
   .message-composer-container {
-    @apply flex flex-col w-full relative;
-    @apply bg-gray-200 dark:bg-gray-900;
-    @apply border border-gray-300 dark:border-gray-700;
-    @apply rounded-2xl p-2 min-h-[48px] gap-2 h-auto overflow-visible;
+    @apply flex flex-col w-full relative p-2 min-h-[48px] gap-2 h-auto overflow-visible bg-transparent;
+    border: none;
+    box-shadow: none;
   }
 
   .message-composer-preview-container {
-    @apply flex gap-2 overflow-x-auto scrollbar-hide;
+    @apply flex gap-2 scrollbar-hide;
   }
 
   .message-composer-input-row {
-    @apply flex items-center gap-3 w-full;
+    @apply grid w-full items-end gap-3;
+
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  /* Standardized input styling */
-  .input-base {
-    @apply w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors;
+  /* ============================================================
+     MESSAGE LIST
+     ============================================================ */
+
+  .message-list {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
-  .input-base.error {
-    @apply border-red-500 focus:ring-red-500 focus:border-red-500;
+  .message-list-item {
+    border: 0;
+    background-color: transparent;
+    box-shadow: none;
   }
 
-  .input-with-icon {
-    @apply pl-10;
+  .message-list-item+.message-list-item {
+    margin-top: 0;
   }
 
-  .chat-markdown ul,
-  .chat-markdown ol {
-    @apply my-3 pl-6;
+  .message-action-popover {
+    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
   }
 
-  .chat-markdown ul {
-    @apply list-disc;
+  .message-action-btn {
+    @apply flex h-6 w-6 items-center justify-center rounded text-xs text-input-text/90 transition;
+    box-shadow: none;
   }
 
-  .chat-markdown ol {
-    @apply list-decimal;
+  .message-action-btn:hover:not(:disabled) {
+    @apply bg-white/10 text-input-text;
   }
 
-  .chat-markdown li {
-    @apply mb-1.5;
+  .message-reaction-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-input-text transition;
+    box-shadow: none;
   }
 
-  .chat-markdown li:last-child {
-    @apply mb-0;
+  .message-reaction-chip:hover:not(:disabled) {
+    @apply bg-white/10;
   }
 
-  .chat-markdown ul li {
-    @apply list-disc;
+  .message-reaction-chip-active {
+    @apply border-accent-500/30 bg-accent-500/20 text-accent-300;
+    box-shadow: var(--glass-rim-subtle);
   }
 
-  .chat-markdown ol li {
-    @apply list-decimal;
+  .message-reaction-count {
+    @apply text-xs text-input-placeholder;
   }
 
-  .chat-markdown blockquote {
-    @apply pl-4 border-l-4 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 italic mb-3;
+  /* ============================================================
+     TYPOGRAPHY TOKENS
+     ============================================================ */
+
+  .text-heading {
+    @apply text-input-text font-bold;
   }
 
-  .chat-markdown code {
-    @apply px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-sm font-mono;
+  .text-body-primary {
+    @apply text-input-text;
   }
 
-  .chat-markdown pre {
-    @apply bg-gray-900/90 text-gray-100 rounded-md p-4 overflow-x-auto text-sm leading-relaxed mb-4;
+  .text-secondary {
+    @apply text-input-placeholder;
   }
 
-  .chat-markdown pre code {
-    @apply bg-transparent p-0 text-inherit;
-  }
-
-  .chat-markdown hr {
-    @apply border-gray-200 dark:border-gray-700 my-6;
-  }
-
-  .chat-markdown .chat-cursor {
-    @apply inline-block align-middle ml-2 h-2.5 w-2.5 rounded-full bg-accent-500/80 animate-pulse;
+  .text-body {
+    @apply text-input-text;
   }
 }
 
 @layer utilities {
 
-  /* Simple accordion styles */
+  /* Accordion */
   [data-state="open"] [data-slot="accordion-trigger"] svg {
     transform: rotate(180deg);
   }
@@ -247,21 +1003,20 @@
     display: block;
   }
 
-  /* Hide scrollbar */
+  /* Scrollbar hide */
   .scrollbar-hide {
     -ms-overflow-style: none;
-    /* Internet Explorer 10+ */
     scrollbar-width: none;
-    /* Firefox */
   }
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
-    /* Safari and Chrome */
   }
 
-  /* RTL (Right-to-Left) Support */
-  /* Automatically flip margins and paddings for RTL languages */
+  /* ============================================================
+     RTL SUPPORT
+     ============================================================ */
+
   [dir="rtl"] .ml-auto {
     margin-left: unset;
     margin-right: auto;
@@ -280,14 +1035,12 @@
     text-align: left;
   }
 
-  /* Flip list markers in RTL */
   [dir="rtl"] .chat-markdown ul,
   [dir="rtl"] .chat-markdown ol {
     margin-left: 0;
-    margin-right: 1.25rem;
+    margin-right: 1.4em;
   }
 
-  /* Flip border-left to border-right for blockquotes in RTL */
   [dir="rtl"] .chat-markdown blockquote {
     padding-left: 0;
     padding-right: 1rem;
@@ -296,19 +1049,12 @@
     @apply border-gray-200 dark:border-gray-700;
   }
 
-  /* Flip cursor animation position in RTL */
   [dir="rtl"] .chat-markdown .chat-cursor {
     margin-left: 0;
     margin-right: 0.5rem;
   }
 
-  /* Flip icon positions in inputs for RTL */
-  [dir="rtl"] .input-with-icon {
-    padding-left: 0.75rem;
-    padding-right: 2.5rem;
-  }
-
-  /* Comprehensive margin RTL rules */
+  /* Margins */
   [dir="rtl"] .ml-1 {
     margin-left: unset;
     margin-right: 0.25rem;
@@ -399,7 +1145,7 @@
     margin-left: 3rem;
   }
 
-  /* Comprehensive padding RTL rules */
+  /* Paddings */
   [dir="rtl"] .pl-1 {
     padding-left: unset;
     padding-right: 0.25rem;
@@ -490,7 +1236,7 @@
     padding-left: 3rem;
   }
 
-  /* Comprehensive positioning RTL rules */
+  /* Positioning */
   [dir="rtl"] .left-0 {
     left: unset;
     right: 0;
@@ -590,14 +1336,17 @@
     right: unset;
     left: 3rem;
   }
-}
 
-@layer utilities {
+  /* ============================================================
+     ANIMATIONS
+     ============================================================ */
+
   @keyframes float-in {
     from {
       opacity: 0;
       transform: translateY(12px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -607,4 +1356,26 @@
   .animate-float-in {
     animation: float-in 600ms ease-out both;
   }
+
+  @keyframes ai-thinking-dot-pulse {
+    0%,
+    100% {
+      transform: translateZ(0) scale(1);
+    }
+
+    50% {
+      transform: translateZ(0) scale(1.25);
+    }
+  }
+
+  @keyframes workspace-header-progress {
+    from {
+      transform: translateX(-100%);
+    }
+
+    to {
+      transform: translateX(100%);
+    }
+  }
+
 }

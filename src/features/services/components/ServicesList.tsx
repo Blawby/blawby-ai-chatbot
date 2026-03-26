@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { TrashIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import type { Service } from '../types';
@@ -45,7 +46,7 @@ export function ServicesList({
   return (
     <div className="space-y-4">
       {services.length === 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400">{emptyMessage}</p>
+        <p className="text-xs text-input-placeholder">{emptyMessage}</p>
       )}
 
       {services.map((service) => (
@@ -60,13 +61,12 @@ export function ServicesList({
                   Edit
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="danger-ghost"
                   size="sm"
                   onClick={() => onRemoveService(service.id)}
-                  className="text-red-600 hover:text-red-700"
                   aria-label={`Remove ${service.title}`}
                 >
-                  <TrashIcon className="w-4 h-4" />
+                  <Icon icon={TrashIcon} className="w-4 h-4"  />
                 </Button>
               </>
             )}

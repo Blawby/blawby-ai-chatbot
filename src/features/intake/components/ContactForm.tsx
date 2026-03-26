@@ -12,6 +12,8 @@ export const ALLOWED_FIELDS = [
   'name',
   'email',
   'phone',
+  'city',
+  'state',
   'address',
   'opposingParty',
   'description',
@@ -28,13 +30,17 @@ export interface ContactFormProps {
   variant?: 'card' | 'plain';
   formId?: string;
   showSubmitButton?: boolean;
+  submitFullWidth?: boolean;
+  submitLabel?: string;
 }
 
 export interface ContactData {
   name?: string;
   email?: string;
   phone?: string;
-  address?: Address;
+  city?: string;
+  state?: string;
+  address?: Partial<Address>;
   opposingParty?: string;
   description?: string;
 }
@@ -63,7 +69,7 @@ const normalizeRequired = (fields: AddressExperienceField[], required?: string[]
     return filtered;
   }
 
-  const safeDefault = fields.filter(f => (['name', 'email', 'phone', 'address'] as string[]).includes(f));
+  const safeDefault = fields.filter(f => (['name', 'email', 'phone', 'city', 'state', 'address'] as string[]).includes(f));
   return safeDefault.length > 0 
     ? safeDefault 
     : fields.slice(0, Math.min(2, fields.length));
@@ -77,7 +83,9 @@ export function ContactForm({
   initialValues,
   variant = 'card',
   formId,
-  showSubmitButton = true
+  showSubmitButton = true,
+  submitFullWidth = false,
+  submitLabel
 }: ContactFormProps) {
   const { t } = useTranslation('common');
   const { currentPractice } = usePracticeManagement();
@@ -90,11 +98,17 @@ export function ContactForm({
 
   const handleAddressSubmit = async (data: AddressExperienceData) => {
     // Transform AddressExperienceData to ContactData
+    const nextAddress: Partial<Address> = { ...(data.address ?? {}) };
+    if (data.city) nextAddress.city = data.city;
+    if (data.state) nextAddress.state = data.state;
+    const hasAddress = Object.values(nextAddress).some((value) => Boolean(value));
     const contact: ContactData = {
       name: data.name,
       email: data.email,
       phone: data.phone,
-      address: data.address,
+      city: data.city,
+      state: data.state,
+      address: hasAddress ? nextAddress : undefined,
       opposingParty: data.opposingParty,
       description: data.description,
     };
@@ -105,6 +119,8 @@ export function ContactForm({
     name: t('forms.labels.name'),
     email: t('forms.labels.email'),
     phone: t('forms.labels.phone'),
+    city: t('contact.city'),
+    state: t('contact.state'),
     address: t('forms.contactForm.location'),
     opposingParty: t('forms.contactForm.opposingParty'),
     description: t('forms.contactForm.description'),
@@ -114,6 +130,8 @@ export function ContactForm({
     name: t('forms.placeholders.name'),
     email: t('forms.placeholders.email'),
     phone: t('forms.placeholders.phone'),
+    city: t('contact.city'),
+    state: t('contact.state'),
     address: t('forms.contactForm.placeholders.location'),
     opposingParty: t('forms.contactForm.placeholders.opposingParty'),
     description: t('forms.contactForm.placeholders.description'),
@@ -129,7 +147,8 @@ export function ContactForm({
       variant={variant}
       formId={formId}
       showSubmitButton={showSubmitButton}
-      submitLabel={t('forms.contactForm.submit')}
+      submitFullWidth={submitFullWidth}
+      submitLabel={submitLabel ?? t('forms.contactForm.submit')}
       labels={labels}
       placeholders={placeholders}
       addressOptions={{

@@ -204,8 +204,13 @@
     "billedAnnually": "按年计费",
     "currency": {
       "usd": "美元"
-    }
+    },
+    "noPracticeSelected": "未选择事务所",
+    "selectPracticeToManage": "请选择一家事务所来管理账单。",
+    "unableOpenPortal": "无法打开账单门户",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "加载中…",
   "comparison": {
     "title": "比较计划",
     "feature": "功能",
@@ -215,5 +220,10 @@
   "sections": {
     "benefits": "优势:",
     "limitations": "限制:"
-  }
+  },
+  "upgradeFailed": "升级失败",
+  "noFeatures": "此计划没有功能。",
+  "upgradeButton": "升级需 {{price}}",
+  "autoRenewsDisclaimer": "每月自动续订。随时取消。",
+  "errorGeneric": "无法加载价格信息，请稍后再试。"
 }

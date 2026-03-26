@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
   user_id TEXT,
-  matter_id TEXT, -- Optional: link to specific matter for tighter integration
+  is_anonymous INTEGER NOT NULL DEFAULT 0,
+  matter_id TEXT, -- Optional remote matter reference
   participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,
   status TEXT DEFAULT 'active',
@@ -58,9 +59,10 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- D1 migrations table (bootstrap marker)
+-- D1 migrations table (wrangler expects an id column)
 CREATE TABLE IF NOT EXISTS d1_migrations (
-  name TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
   applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -96,37 +98,7 @@ CREATE TABLE IF NOT EXISTS contact_forms (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Matters table to represent legal matters
-CREATE TABLE IF NOT EXISTS matters (
-  id TEXT PRIMARY KEY,
-  practice_id TEXT NOT NULL,
-  user_id TEXT,
-  client_name TEXT NOT NULL,
-  client_email TEXT,
-  client_phone TEXT,
-  matter_type TEXT NOT NULL, -- e.g., 'Family Law', 'Employment Law', etc.
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'lead', -- 'lead', 'open', 'in_progress', 'completed', 'archived'
-  priority TEXT NOT NULL DEFAULT 'normal', -- 'low', 'normal', 'high' - maps from urgency
-  assigned_lawyer_id TEXT,
-  lead_source TEXT, -- 'website', 'referral', 'advertising', etc.
-  estimated_value INTEGER, -- in cents
-  billable_hours REAL DEFAULT 0,
-  flat_fee INTEGER, -- in cents, if applicable
-  retainer_amount INTEGER, -- in cents
-  retainer_balance INTEGER DEFAULT 0, -- in cents
-  statute_of_limitations DATE,
-  court_jurisdiction TEXT,
-  opposing_party TEXT,
-  matter_number TEXT, -- Changed from case_number to matter_number
-  tags JSON, -- Array of tags for categorization
-  internal_notes TEXT, -- Internal notes for practice members
-  custom_fields JSON, -- Flexible metadata storage
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  closed_at DATETIME
-);
+
 
 -- Counters table for atomic sequences per practice
 CREATE TABLE IF NOT EXISTS counters (
@@ -139,7 +111,8 @@ CREATE TABLE IF NOT EXISTS counters (
 -- Matter events table for matter activity logs
 CREATE TABLE IF NOT EXISTS matter_events (
   id TEXT PRIMARY KEY,
-  matter_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
+  matter_id TEXT,
   event_type TEXT NOT NULL, -- 'note', 'call', 'email', 'meeting', 'filing', 'payment', 'status_change'
   title TEXT NOT NULL,
   description TEXT,
@@ -159,7 +132,7 @@ CREATE TABLE IF NOT EXISTS files (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
   user_id TEXT,
-  matter_id TEXT, -- Optional: link to specific matter
+  matter_id TEXT, -- Optional remote matter reference
   conversation_id TEXT, -- Optional: link to conversation
   original_name TEXT NOT NULL,
   file_name TEXT NOT NULL, -- Storage filename
@@ -180,17 +153,6 @@ CREATE TABLE IF NOT EXISTS files (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted_at DATETIME
-);
-
--- Matter questions table for Q&A pairs from intake
-CREATE TABLE IF NOT EXISTS matter_questions (
-  id TEXT PRIMARY KEY,
-  matter_id TEXT,
-  practice_id TEXT NOT NULL, -- Aligned with other tables: practice scoping required
-  question TEXT NOT NULL,
-  answer TEXT NOT NULL,
-  source TEXT DEFAULT 'ai-form', -- 'ai-form' | 'human-entry' | 'followup'
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- AI feedback table for user quality ratings and intent tags
@@ -298,14 +260,6 @@ CREATE TABLE IF NOT EXISTS session_audit_events (
 CREATE INDEX IF NOT EXISTS idx_session_audit_events_conversation ON session_audit_events(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_session_audit_events_practice ON session_audit_events(practice_id, created_at);
 
--- Create indexes for matters
-CREATE INDEX IF NOT EXISTS idx_matters_practice ON matters(practice_id);
-CREATE INDEX IF NOT EXISTS idx_matters_user ON matters(user_id);
-CREATE INDEX IF NOT EXISTS idx_matters_status ON matters(status);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_matters_practice_matter_number_unique
-  ON matters(practice_id, matter_number)
-  WHERE matter_number IS NOT NULL;
-
 -- Create indexes for files
 CREATE INDEX IF NOT EXISTS idx_files_practice ON files(practice_id);
 CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
@@ -316,9 +270,9 @@ CREATE INDEX IF NOT EXISTS idx_files_conversation ON files(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_contact_forms_practice ON contact_forms(practice_id);
 CREATE INDEX IF NOT EXISTS idx_contact_forms_conversation ON contact_forms(conversation_id);
 
--- Create indexes for matter_questions
-CREATE INDEX IF NOT EXISTS idx_matter_questions_practice ON matter_questions(practice_id);
-CREATE INDEX IF NOT EXISTS idx_matter_questions_matter ON matter_questions(matter_id);
+-- Create indexes for matter_events
+CREATE INDEX IF NOT EXISTS idx_matter_events_practice ON matter_events(practice_id, event_date DESC);
+CREATE INDEX IF NOT EXISTS idx_matter_events_matter ON matter_events(matter_id, event_date DESC);
 
 -- Create indexes for ai_feedback
 CREATE INDEX IF NOT EXISTS idx_ai_feedback_practice ON ai_feedback(practice_id);

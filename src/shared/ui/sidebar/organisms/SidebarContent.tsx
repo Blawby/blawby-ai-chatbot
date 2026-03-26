@@ -9,14 +9,13 @@ import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
 import UserProfile from '@/shared/components/UserProfile';
-import type { ComponentChildren } from 'preact';
-import type { SubscriptionTier } from '@/shared/types/user';
+import type { IconComponent } from '@/shared/ui/Icon';
 import type { MatterStatus } from '@/shared/types/matter';
 
 export interface SidebarNavItem {
   id: string;
   label: string;
-  icon: ComponentChildren;
+  icon: IconComponent;
   isActive: boolean;
   onClick: () => void;
   matterStatus?: MatterStatus;
@@ -32,11 +31,6 @@ interface SidebarContentProps {
   };
   navItems: SidebarNavItem[];
   onClose?: () => void;
-  conversationContent?: ComponentChildren;
-  currentPractice?: {
-    id: string;
-    subscriptionTier?: SubscriptionTier;
-  } | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -45,14 +39,12 @@ export const SidebarContent = ({
   practiceConfig,
   navItems,
   onClose,
-  conversationContent,
-  currentPractice,
   isCollapsed,
   onToggleCollapse
 }: SidebarContentProps) => {
 
   return (
-    <div className={`flex flex-col h-full bg-light-card-bg dark:bg-dark-card-bg transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
+    <div className={`flex flex-col h-full glass-panel rounded-none transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
       {/* Header Section */}
       <SidebarHeader
         practiceConfig={practiceConfig}
@@ -80,18 +72,11 @@ export const SidebarContent = ({
             ))}
           </NavigationList>
         </div>
-
-        {!isCollapsed && conversationContent && (
-          <div className="mt-auto flex-1 overflow-y-auto border-t border-gray-200 dark:border-dark-border px-1 pb-2">
-            {conversationContent}
-          </div>
-        )}
       </div>
 
       {/* User Profile Section */}
       <UserProfile 
-        isCollapsed={isCollapsed} 
-        currentPractice={currentPractice} 
+        isCollapsed={isCollapsed}
       />
     </div>
   );

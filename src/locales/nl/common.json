@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Probeer het later opnieuw."
+    }
+  },
   "app": {
     "loading": "Laden…"
   },
@@ -188,7 +194,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Hallo daar 👋",
       "helpPrompt": "Hoe kunnen we helpen?",
@@ -196,14 +202,17 @@
       "sendMessage": "Stuur ons een bericht",
       "consultation": {
         "title": "Moet u een advocaat spreken?",
-        "description": "Deel enkele details en we brengen u in contact met de juiste advocaat voor uw situatie.",
-        "button": "Consultatie aanvragen"
+        "description": "Deel enkele details en we brengen u in contact met de juiste advocaat voor uw situatie."
       },
       "poweredBy": "Mede mogelijk gemaakt door"
     },
     "navigation": {
       "home": "Home",
-      "messages": "Berichten"
+      "messages": "Berichten",
+      "matters": "Dossiers",
+      "clients": "Cliënten",
+      "settings": "Instellingen",
+      "invoices": "Facturen"
     },
     "conversationList": {
       "title": "Berichten",
@@ -214,12 +223,15 @@
     },
     "error": {
       "title": "Praktijkgegevens niet beschikbaar",
-      "description": "We konden de praktijknaam en het logo van {{slug}} niet laden. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
+      "description": "We konden de praktijknaam en het logo van \"{{slug}}\" niet laden. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
       "retry": "Opnieuw proberen"
     },
     "header": {
       "activeNow": "Nu actief",
-      "back": "Terug"
+      "back": "Terug",
+      "inactive": "Inactief",
+      "away": "Afwezig",
+      "unknown": "Status onbekend"
     }
   },
   "businessWelcome": {
@@ -244,5 +256,49 @@
       }
     },
     "goToSettings": "Ga naar kantoorinstellingen"
+  },
+  "chat": {
+    "publicIntro": "Stel ons uw vragen of deel uw feedback.",
+    "continue": "Doorgaan",
+    "submitRequest": "Indienen",
+    "submitNow": "Nu indienen",
+    "buildStrongerBrief": "Bouw een sterker dossier op",
+    "askQuestion": "Een vraag stellen",
+    "requestConsultation": "Consultatie aanvragen",
+    "retry": "Opnieuw proberen",
+    "retrying": "Opnieuw proberen...",
+    "replyingTo": "Antwoord op <name>{{name}}</name>",
+    "cta": {
+      "submit": "Indienen",
+      "submitConsultationRequest": "Consultatieaanvraag indienen",
+      "reviewSubmit": "Bekijken & indienen",
+      "keepAnswering": "Blijven antwoorden",
+      "continue": "Doorgaan",
+      "addMore": "Meer toevoegen",
+      "notYet": "Nog niet"
+    }
+  },
+  "intake": {
+    "authTitle": "U bent bijna klaar",
+    "authDescription": "Maak een gratis account aan om uw inname voort te zetten en updates van {{practice}} te ontvangen. We sturen u een bevestigingslink per e-mail.",
+    "authDescriptionFallback": "Maak een gratis account aan om uw inname voort te zetten en updates te ontvangen. We sturen u een bevestigingslink per e-mail."
+  },
+  "leadReview": {
+    "accept": "Accepteren",
+    "decline": "Weigeren",
+    "convert": "Converteren naar zaak",
+    "noPermission": "U hebt geen toestemming om deze lead te beoordelen"
+  },
+  "leadIntake": {
+    "newIntake": "Nieuwe intake",
+    "urgency": "Urgentie",
+    "payment": "Betaling",
+    "triage": "Triage",
+    "fee": "Kosten",
+    "opposingParty": "Wederpartij",
+    "reason": "Reden"
+  },
+  "widget": {
+    "persistIntakePathError": "Kan uw terugkeerpad niet opslaan."
   }
 }

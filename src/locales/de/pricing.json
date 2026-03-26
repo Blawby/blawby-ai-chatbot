@@ -204,8 +204,13 @@
     "billedAnnually": "Jährlich abgerechnet",
     "currency": {
       "usd": "USD"
-    }
+    },
+    "noPracticeSelected": "Keine Kanzlei ausgewählt",
+    "selectPracticeToManage": "Bitte wählen Sie eine Kanzlei aus, um die Abrechnung zu verwalten.",
+    "unableOpenPortal": "Abrechnungsportal konnte nicht geöffnet werden",
+    "unknownError": "An unknown error occurred while opening the billing portal."
   },
+  "loading": "Wird geladen…",
   "comparison": {
     "title": "Pläne vergleichen",
     "feature": "Funktion",
@@ -215,5 +220,10 @@
   "sections": {
     "benefits": "Vorteile:",
     "limitations": "Einschränkungen:"
-  }
+  },
+  "upgradeFailed": "Upgrade fehlgeschlagen",
+  "noFeatures": "Dieser Plan hat keine Funktionen.",
+  "upgradeButton": "Upgrade für {{price}}",
+  "autoRenewsDisclaimer": "Erneuert sich automatisch monatlich. Jederzeit kündbar.",
+  "errorGeneric": "Preisinformationen konnten nicht geladen werden, bitte versuchen Sie es später noch einmal."
 }

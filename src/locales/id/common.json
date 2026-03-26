@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Silakan coba lagi nanti."
+    }
+  },
   "app": {
     "loading": "Memuat…"
   },
@@ -188,7 +194,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Halo 👋",
       "helpPrompt": "Ada yang bisa kami bantu?",
@@ -196,14 +202,17 @@
       "sendMessage": "Kirim pesan kepada kami",
       "consultation": {
         "title": "Perlu berbicara dengan pengacara?",
-        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda.",
-        "button": "Minta Konsultasi"
+        "description": "Bagikan beberapa detail dan kami akan menghubungkan Anda dengan pengacara yang tepat untuk situasi Anda."
       },
       "poweredBy": "Didukung oleh"
     },
     "navigation": {
       "home": "Beranda",
-      "messages": "Pesan"
+      "messages": "Pesan",
+      "matters": "Perkara",
+      "clients": "Klien",
+      "settings": "Pengaturan",
+      "invoices": "Faktur"
     },
     "conversationList": {
       "title": "Pesan",
@@ -214,12 +223,15 @@
     },
     "error": {
       "title": "Detail praktik tidak tersedia",
-      "description": "Kami tidak dapat memuat nama dan logo praktik {{slug}}. Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
+      "description": "Kami tidak dapat memuat nama dan logo praktik \"{{slug}}\". Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
       "retry": "Coba lagi"
     },
     "header": {
       "activeNow": "Aktif sekarang",
-      "back": "Kembali"
+      "back": "Kembali",
+      "inactive": "Tidak aktif",
+      "away": "Tidak di tempat",
+      "unknown": "Status tidak diketahui"
     }
   },
   "businessWelcome": {
@@ -244,5 +256,49 @@
       }
     },
     "goToSettings": "Buka Pengaturan Kantor Hukum"
+  },
+  "chat": {
+    "publicIntro": "Tanyakan apa saja kepada kami, atau bagikan masukan Anda.",
+    "continue": "Lanjutkan",
+    "submitRequest": "Kirim permintaan",
+    "submitNow": "Kirim sekarang",
+    "buildStrongerBrief": "Buat ringkasan yang lebih kuat",
+    "askQuestion": "Ajukan pertanyaan",
+    "requestConsultation": "Minta Konsultasi",
+    "retry": "Coba lagi",
+    "retrying": "Mencoba lagi...",
+    "replyingTo": "Membalas kepada <name>{{name}}</name>",
+    "cta": {
+      "submit": "Kirim permintaan",
+      "submitConsultationRequest": "Kirim permintaan konsultasi",
+      "reviewSubmit": "Tinjau & kirim",
+      "keepAnswering": "Lanjutkan menjawab",
+      "continue": "Lanjutkan",
+      "addMore": "Tambah lagi",
+      "notYet": "Belum saatnya"
+    }
+  },
+  "intake": {
+    "authTitle": "Anda hampir selesai",
+    "authDescription": "Buat akun gratis untuk melanjutkan intake Anda dan mendapatkan pembaruan dari {{practice}}. Kami akan mengirimkan tautan konfirmasi melalui email.",
+    "authDescriptionFallback": "Buat akun gratis untuk melanjutkan intake Anda dan mendapatkan pembaruan. Kami akan mengirimkan tautan konfirmasi melalui email."
+  },
+  "leadReview": {
+    "accept": "Terima",
+    "decline": "Tolak",
+    "convert": "Konversi ke perkara",
+    "noPermission": "Anda tidak memiliki izin untuk meninjau prospek ini"
+  },
+  "leadIntake": {
+    "newIntake": "Intake baru",
+    "urgency": "Urgensi",
+    "payment": "Pembayaran",
+    "triage": "Triage",
+    "fee": "Biaya",
+    "opposingParty": "Pihak Lawan",
+    "reason": "Alasan"
+  },
+  "widget": {
+    "persistIntakePathError": "Tidak dapat menyimpan jalur kembalian Anda."
   }
 }

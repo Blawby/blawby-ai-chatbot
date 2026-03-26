@@ -1,15 +1,35 @@
 import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
-import PracticeProfile from '@/features/practice/components/PracticeProfile';
 import { memo } from 'preact/compat';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import { postSystemMessage } from '@/shared/lib/conversationApi';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
+import type { IntakeConversationState } from '@/shared/types/intake';
+import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
+import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
+import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
+
+export interface OnboardingActions {
+    onSaveAll?: () => void | Promise<void>;
+    onEditBasics?: () => void;
+    onEditContact?: () => void;
+    onLogoChange?: (files: FileList | File[]) => void;
+    logoUploading?: boolean;
+    logoUploadProgress?: number | null;
+    logoUrl?: string | null;
+    practiceName?: string;
+    isSaving?: boolean;
+    saveError?: string | null;
+}
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
@@ -21,71 +41,144 @@ interface VirtualMessageListProps {
         description?: string | null;
         slug?: string | null;
     };
-    showPracticeHeader?: boolean;
     isPublicWorkspace?: boolean;
     onOpenSidebar?: () => void;
-    onContactFormSubmit?: (data: ContactData) => void;
     onOpenPayment?: (request: IntakePaymentRequest) => void;
-    contactFormVariant?: 'card' | 'plain';
-    contactFormFormId?: string;
-    showContactFormSubmit?: boolean;
     practiceId?: string;
     onReply?: (target: ReplyTarget) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
-    onRequestReactions?: (messageId: string) => void;
+    onRequestReactions?: (messageId: string) => Promise<void> | void;
+    onAuthPromptRequest?: () => void;
     intakeStatus?: {
         step: string;
+        decision?: string;
+        intakeUuid?: string | null;
+        paymentRequired?: boolean;
+        paymentReceived?: boolean;
     };
+    intakeConversationState?: IntakeConversationState | null;
+    hasSlimContactDraft?: boolean;
+    onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
+    onSubmitNow?: () => void | Promise<void>;
+    onBuildBrief?: () => void;
+    onQuickReply?: (text: string) => void;
     modeSelectorActions?: {
         onAskQuestion: () => void;
         onRequestConsultation: () => void;
+    };
+    leadReviewActions?: {
+        practiceId: string;
+        practiceName: string;
+        conversationId: string;
+        canReviewLeads: boolean;
+        mattersBasePath: string;
+        navigateTo: (path: string) => void;
     };
     hasMoreMessages?: boolean;
     isLoadingMoreMessages?: boolean;
     onLoadMoreMessages?: () => void | Promise<void>;
     showSkeleton?: boolean;
+    compactLayout?: boolean;
+    onboardingActions?: OnboardingActions;
+    bottomInsetPx?: number;
 }
 
 const BATCH_SIZE = 20;
 const SCROLL_THRESHOLD = 100;
+const STICKY_BOTTOM_THRESHOLD = 72;
 const DEBOUNCE_DELAY = 50;
-
+const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
     conversationTitle,
     practiceConfig,
-    showPracticeHeader = true,
     isPublicWorkspace = false,
     onOpenSidebar,
-    onContactFormSubmit,
     onOpenPayment,
-    contactFormVariant,
-    contactFormFormId,
-    showContactFormSubmit,
     practiceId,
     onReply,
     onToggleReaction,
     onRequestReactions,
+    onAuthPromptRequest,
     intakeStatus: _intakeStatus,
+    intakeConversationState,
+    hasSlimContactDraft = false,
+    onIntakeCtaResponse,
+    onSubmitNow,
+    onBuildBrief,
+    onQuickReply,
     modeSelectorActions,
+    leadReviewActions,
     hasMoreMessages,
     isLoadingMoreMessages,
     onLoadMoreMessages,
-    showSkeleton = false
+    showSkeleton = false,
+    compactLayout = false,
+    onboardingActions,
+    bottomInsetPx
 }) => {
+    useEffect(() => {
+        if (DEBUG_PAGINATION) {
+            console.info('[VirtualMessageList][pagination] instrumentation active');
+        }
+    }, []);
+
     const { session, activeMemberRole } = useSessionContext();
+    const { showError, showSuccess } = useToastContext();
+    const dedupedMessages = useMemo(() => {
+        const seenPaymentConfirm = new Set<string>();
+        return messages.filter((message) => {
+            const intakePaymentUuid = typeof message.metadata?.intakePaymentUuid === 'string'
+                ? message.metadata.intakePaymentUuid
+                : null;
+            if (!intakePaymentUuid) {
+                return true;
+            }
+            const key = `${intakePaymentUuid}:${message.role}`;
+            if (seenPaymentConfirm.has(key)) {
+                return false;
+            }
+            seenPaymentConfirm.add(key);
+            return true;
+        });
+    }, [messages]);
     const listRef = useRef<HTMLDivElement>(null);
-    const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
-    const [endIndex, setEndIndex] = useState(messages.length);
+    const submittingRef = useRef<Record<string, boolean>>({});
+    const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
+    const [endIndex, setEndIndex] = useState(dedupedMessages.length);
+    const [showScrollToBottom, setShowScrollToBottom] = useState(false);
     const isScrolledToBottomRef = useRef(true);
     const isUserScrollingRef = useRef(false);
+    const hasUserScrolledUpRef = useRef(false);
     const isLoadingRef = useRef(false);
-    const currentUserName = session?.user?.name || session?.user?.email || 'You';
+    const loggedNoServerPaginationRef = useRef(false);
+    const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
+    const sessionUserName = session?.user?.name || session?.user?.email || '';
+    const resolvedConversationName = conversationTitle?.trim() || '';
+    const currentUserName = (
+        isPublicWorkspace
+        && (session?.user?.isAnonymous === true || !sessionUserName)
+        && resolvedConversationName
+    ) ? resolvedConversationName : (sessionUserName || 'You');
+    const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;
+    const isNearTail = virtualizationEnabled && endIndex >= Math.max(0, dedupedMessages.length - 2);
+    const useTailWindow = virtualizationEnabled && (isScrolledToBottomRef.current || isNearTail);
+
+    const derivedStart = virtualizationEnabled
+        ? (hasMoreMessages === false
+            ? 0
+            : (useTailWindow ? Math.max(0, dedupedMessages.length - BATCH_SIZE) : startIndex))
+        : 0;
+    const derivedEnd = virtualizationEnabled
+        ? (hasMoreMessages === false || useTailWindow ? dedupedMessages.length : endIndex)
+        : dedupedMessages.length;
+
     const currentUserAvatar = session?.user?.image || null;
     const currentUserProfile = {
         src: currentUserAvatar,
         name: currentUserName
     };
+
     const practiceProfile = practiceConfig ? {
         src: practiceConfig.profileImage,
         name: practiceConfig.name
@@ -95,13 +188,91 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     };
     const clientProfile = {
         src: null,
-        name: conversationTitle?.trim() || 'Client'
+        name: conversationTitle?.trim() || 'Person'
     };
     const blawbyProfile = {
         src: '/blawby-favicon-iframe.png',
         name: 'Blawby'
     };
     const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
+    const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
+    const [leadTriageStatus, setLeadTriageStatus] = useState<Record<string, string>>({});
+    const [leadIntakeDetails, setLeadIntakeDetails] = useState<Record<string, PracticeIntakeDetail>>({});
+    const triageStatusRequestedRef = useRef(new Set<string>());
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!DEBUG_PAGINATION) return;
+        if (startIndex !== 0) {
+            loggedNoServerPaginationRef.current = false;
+            return;
+        }
+        if (hasMoreMessages) {
+            loggedNoServerPaginationRef.current = false;
+            return;
+        }
+        if (loggedNoServerPaginationRef.current) return;
+        loggedNoServerPaginationRef.current = true;
+        console.info('[VirtualMessageList][pagination] server pagination disabled for current state', {
+            startIndex,
+            hasMoreMessages: Boolean(hasMoreMessages),
+            isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
+            hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
+        });
+    }, [startIndex, hasMoreMessages, isLoadingMoreMessages, onLoadMoreMessages]);
+
+    useEffect(() => {
+        if (!leadReviewActions || !isPracticeViewer) {
+            return;
+        }
+        const intakeUuids = dedupedMessages
+            .map((message) => {
+                const metadata = message.metadata;
+                if (!metadata || typeof metadata !== 'object') return null;
+                const meta = metadata as Record<string, unknown>;
+                if (meta.intakeSubmitted !== true) return null;
+                return typeof meta.intakeUuid === 'string' ? meta.intakeUuid : null;
+            })
+            .filter((value): value is string => Boolean(value));
+
+        const controllers = new Map<string, AbortController>();
+
+        intakeUuids.forEach((intakeUuid) => {
+            if (leadTriageStatus[intakeUuid]) return;
+            if (triageStatusRequestedRef.current.has(intakeUuid)) return;
+            triageStatusRequestedRef.current.add(intakeUuid);
+
+            const controller = new AbortController();
+            controllers.set(intakeUuid, controller);
+
+            void getPracticeIntake(leadReviewActions.practiceId, intakeUuid, { signal: controller.signal })
+                .then((intake) => {
+                    if (!isMountedRef.current) return;
+                    setLeadIntakeDetails((prev) => ({ ...prev, [intakeUuid]: intake }));
+                    const triageStatus = intake.triage_status;
+                    if (typeof triageStatus === 'string' && triageStatus.length > 0) {
+                        setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
+                    }
+                })
+                .catch((error) => {
+                    if (error instanceof Error && error.name === 'AbortError') return;
+                    console.warn('[VirtualMessageList] Failed to hydrate intake details', { intakeUuid, error });
+                    if (isMountedRef.current) {
+                        triageStatusRequestedRef.current.delete(intakeUuid);
+                    }
+                });
+        });
+
+        return () => {
+            controllers.forEach((controller) => controller.abort());
+        };
+    }, [dedupedMessages, isPracticeViewer, leadReviewActions, leadTriageStatus]);
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -115,6 +286,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             return mockAvatar;
         }
         if (isBotMessage) {
+            if (onboardingActions) {
+                return blawbyProfile;
+            }
             return practiceProfile.src || practiceProfile.name !== 'Practice'
                 ? practiceProfile
                 : blawbyProfile;
@@ -136,7 +310,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (meta === true) {
             return {
                 onAskQuestion: modeSelectorActions.onAskQuestion,
-                onRequestConsultation: modeSelectorActions.onRequestConsultation
+                onRequestConsultation: modeSelectorActions.onRequestConsultation,
+                showRequestConsultation: !hasSlimContactDraft,
             };
         }
         if (typeof meta === 'object') {
@@ -145,26 +320,230 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 onAskQuestion: modeSelectorActions.onAskQuestion,
                 onRequestConsultation: modeSelectorActions.onRequestConsultation,
                 showAskQuestion: metaConfig.showAskQuestion,
-                showRequestConsultation: metaConfig.showRequestConsultation
+                showRequestConsultation: hasSlimContactDraft ? false : metaConfig.showRequestConsultation
             };
         }
         return undefined;
     };
 
+    const resolveLeadReview = (message: ChatMessageUI) => {
+        if (!leadReviewActions || !isPracticeViewer) {
+            return undefined;
+        }
+        const metadata = message.metadata;
+        if (!metadata || typeof metadata !== 'object') {
+            return undefined;
+        }
+        const meta = metadata as Record<string, unknown>;
+
+        // New trigger: system message written by handleSubmitNow
+        if (meta.intakeSubmitted !== true) {
+            return undefined;
+        }
+        const intakeUuid = typeof meta.intakeUuid === 'string' ? meta.intakeUuid : null;
+        if (!intakeUuid || !leadReviewActions.practiceId || !leadReviewActions.conversationId) {
+            return undefined;
+        }
+        const intakeDetail = leadIntakeDetails[intakeUuid];
+        const intakeMetadata = intakeDetail?.metadata;
+        const triageStatus = typeof meta.triageStatus === 'string'
+            ? meta.triageStatus
+            : (typeof meta.triage_status === 'string' ? meta.triage_status : null);
+
+        const isSubmittingState = Boolean(leadActionState[intakeUuid]);
+        const resolvedTriageStatus = triageStatus ?? leadTriageStatus[intakeUuid] ?? null;
+        const isAccepted = resolvedTriageStatus === 'accepted';
+
+        const runLeadAction = async (action: 'accept' | 'reject') => {
+            if (!leadReviewActions.canReviewLeads || isSubmittingState || submittingRef.current[intakeUuid]) {
+                return;
+            }
+            submittingRef.current[intakeUuid] = true;
+            setLeadActionState((prev) => ({ ...prev, [intakeUuid]: action }));
+            try {
+                const triagePayload = await updateIntakeTriageStatus(
+                    intakeUuid,
+                    {
+                        status: action === 'accept' ? 'accepted' : 'declined',
+                        ...(action === 'reject' ? { reason: 'Declined by practice.' } : {}),
+                    }
+                );
+                let participantAdded = true;
+                if (action === 'accept' && session?.user?.id) {
+                    const responseConversationId =
+                        triagePayload?.conversation_id
+                        ?? triagePayload?.conversationId
+                        ?? leadReviewActions.conversationId;
+                    if (responseConversationId) {
+                        try {
+                            const addParticipantRes = await fetch(
+                                `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(leadReviewActions.practiceId)}`,
+                                {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ participantUserIds: [session.user.id] }),
+                                }
+                            );
+                            if (!addParticipantRes.ok) {
+                                const participantErr = await addParticipantRes.json().catch(() => ({})) as { error?: string; message?: string };
+                                participantAdded = false;
+                                console.error(
+                                    '[VirtualMessageList] Failed to add participant after intake acceptance',
+                                    participantErr.message ?? participantErr.error ?? `HTTP ${addParticipantRes.status}`
+                                );
+                            }
+                        } catch (participantErr) {
+                            participantAdded = false;
+                            const participantMessage = participantErr instanceof Error
+                                ? participantErr.message
+                                : String(participantErr);
+                            console.error('[VirtualMessageList] Failed to add participant after intake acceptance', participantMessage);
+                        }
+                    }
+                }
+                setLeadTriageStatus((prev) => ({
+                    ...prev,
+                    [intakeUuid]: action === 'accept' ? 'accepted' : 'declined',
+                }));
+                setLeadIntakeDetails((prev) => {
+                    const current = prev[intakeUuid];
+                    if (!current) return prev;
+                    return {
+                        ...prev,
+                        [intakeUuid]: {
+                            ...current,
+                            triage_status: action === 'accept' ? 'accepted' : 'declined',
+                            triage_reason: action === 'reject' ? 'Declined by practice.' : current.triage_reason ?? null,
+                        }
+                    };
+                });
+
+                const practiceName = leadReviewActions.practiceName || 'The practice';
+                const content = action === 'accept'
+                    ? `${practiceName} has accepted your consultation request.`
+                    : `${practiceName} was unable to take your request at this time.`;
+
+                let systemMessageFailed = false;
+                try {
+                    await postSystemMessage(
+                        leadReviewActions.conversationId,
+                        leadReviewActions.practiceId,
+                        {
+                            clientId: action === 'accept' ? 'system-lead-accepted' : 'system-lead-declined',
+                            content,
+                            metadata: {
+                                systemMessageKey: action === 'accept' ? 'lead_accepted' : 'lead_declined',
+                                intakeUuid,
+                                triageStatus: action === 'accept' ? 'accepted' : 'declined',
+                                triage_status: action === 'accept' ? 'accepted' : 'declined',
+                            }
+                        }
+                    );
+                } catch (msgErr) {
+                    console.error('[VirtualMessageList] Failed to post system message', msgErr);
+                    systemMessageFailed = true;
+                }
+
+                showSuccess(
+                    action === 'accept' ? 'Intake accepted' : 'Intake declined',
+                    systemMessageFailed
+                            ? 'Status updated; person notification failed.'
+                        : (action === 'accept' && !participantAdded)
+                            ? 'Intake updated; failed to add participant.'
+                            : (action === 'accept' ? 'Person has been notified.' : 'Person has been notified of the decline.')
+                );
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Failed to update intake';
+                showError('Action failed', message);
+            } finally {
+                if (isMountedRef.current) {
+                    setLeadActionState((prev) => {
+                        const next = { ...prev };
+                        delete next[intakeUuid];
+                        return next;
+                    });
+                    delete submittingRef.current[intakeUuid];
+                }
+            }
+        };
+
+        return {
+            canReview: leadReviewActions.canReviewLeads,
+            isSubmitting: isSubmittingState,
+            intake: intakeDetail ? {
+                name: typeof intakeMetadata?.name === 'string' ? intakeMetadata.name : undefined,
+                email: typeof intakeMetadata?.email === 'string' ? intakeMetadata.email : undefined,
+                phone: typeof intakeMetadata?.phone === 'string' ? intakeMetadata.phone : undefined,
+                description: typeof intakeMetadata?.description === 'string' ? intakeMetadata.description : undefined,
+                opposingParty: typeof intakeMetadata?.opposing_party === 'string' ? intakeMetadata.opposing_party : undefined,
+                urgency: typeof intakeDetail.urgency === 'string' ? intakeDetail.urgency : undefined,
+                paymentStatus: typeof intakeDetail.status === 'string' ? intakeDetail.status : undefined,
+                triageStatus: resolvedTriageStatus ?? undefined,
+                triageReason: typeof intakeDetail.triage_reason === 'string' ? intakeDetail.triage_reason : undefined,
+                amount: typeof intakeDetail.amount === 'number' ? intakeDetail.amount : undefined,
+                currency: typeof intakeDetail.currency === 'string' ? intakeDetail.currency : undefined,
+                submittedAt: typeof intakeDetail.created_at === 'string' ? intakeDetail.created_at : undefined,
+            } : undefined,
+            onAccept: () => void runLeadAction('accept'),
+            onReject: () => void runLeadAction('reject'),
+            onConvert: isAccepted ? () => {
+                const params = new URLSearchParams({ convertIntake: intakeUuid });
+                leadReviewActions.navigateTo(`${leadReviewActions.mattersBasePath}/new?${params.toString()}`);
+            } : undefined,
+        };
+    };
+
+    const resolveAuthCta = useCallback((message: ChatMessageUI) => {
+        const metadata = message.metadata;
+        if (!metadata || typeof metadata !== 'object') {
+            return undefined;
+        }
+        const authCta = (metadata as Record<string, unknown>).authCta;
+        if (!authCta || typeof authCta !== 'object' || Array.isArray(authCta)) {
+            return undefined;
+        }
+        const label = typeof (authCta as Record<string, unknown>).label === 'string'
+            ? String((authCta as Record<string, unknown>).label)
+            : '';
+        const trimmedLabel = label.trim();
+        if (!trimmedLabel) return undefined;
+        return { label: trimmedLabel };
+    }, []);
+
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
-        return Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+        return Math.abs(scrollHeight - scrollTop - clientHeight) < STICKY_BOTTOM_THRESHOLD;
     }, []);
 
     const handleScrollLoadMore = useCallback(() => {
         if (!listRef.current) return;
 
         const element = listRef.current;
+        if (DEBUG_PAGINATION) {
+            console.info('[VirtualMessageList][pagination] scroll check', {
+                scrollTop: element.scrollTop,
+                threshold: SCROLL_THRESHOLD,
+                startIndex,
+                hasMoreMessages: Boolean(hasMoreMessages),
+                isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
+                internalLoading: Boolean(isLoadingRef.current),
+                hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
+            });
+        }
 
         // Load more messages when scrolling up (client-side)
-        if (element.scrollTop < SCROLL_THRESHOLD && startIndex > 0) {
-            const newStartIndex = Math.max(0, startIndex - BATCH_SIZE);
+        if (element.scrollTop < SCROLL_THRESHOLD && derivedStart > 0) {
+            const newStartIndex = Math.max(0, derivedStart - BATCH_SIZE);
+            if (DEBUG_PAGINATION) {
+                console.info('[VirtualMessageList][pagination] revealing buffered messages', {
+                    previousStartIndex: derivedStart,
+                    nextStartIndex: newStartIndex
+                });
+            }
             setStartIndex(newStartIndex);
+            setEndIndex(derivedEnd); // Lock current end into state when starting manual scroll
+
 
             // Maintain scroll position when loading more messages
             requestAnimationFrame(() => {
@@ -178,12 +557,15 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
         if (
             element.scrollTop < SCROLL_THRESHOLD &&
-            startIndex === 0 &&
+            derivedStart === 0 &&
             hasMoreMessages &&
             !isLoadingMoreMessages &&
             !isLoadingRef.current &&
             onLoadMoreMessages
         ) {
+            if (DEBUG_PAGINATION) {
+                console.info('[VirtualMessageList][pagination] requesting older messages from server');
+            }
             isLoadingRef.current = true;
             const previousScrollHeight = element.scrollHeight;
             const previousScrollTop = element.scrollTop;
@@ -200,16 +582,30 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 })
                 .catch((error) => {
                     console.error('[VirtualMessageList] Failed to load more messages', error);
+                    showError('Failed to load more messages', 'Please try again.');
                 })
                 .finally(() => {
                     isLoadingRef.current = false;
+                    if (DEBUG_PAGINATION) {
+                        console.info('[VirtualMessageList][pagination] server request finished');
+                    }
                 });
+        } else if (DEBUG_PAGINATION && element.scrollTop < SCROLL_THRESHOLD && derivedStart === 0) {
+            console.info('[VirtualMessageList][pagination] at top but not loading from server', {
+                hasMoreMessages: Boolean(hasMoreMessages),
+                isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
+                internalLoading: Boolean(isLoadingRef.current),
+                hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
+            });
         }
     }, [
-        startIndex,
+        derivedStart,
+        derivedEnd,
         hasMoreMessages,
         isLoadingMoreMessages,
-        onLoadMoreMessages
+        onLoadMoreMessages,
+        showError,
+        startIndex
     ]);
 
     const debouncedHandleScroll = useMemo(() => {
@@ -220,14 +616,21 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (!listRef.current) return;
 
         const element = listRef.current;
+        const previousScrollTop = (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop || 0;
+        const currentScrollTop = element.scrollTop;
+        const isScrollingUp = currentScrollTop < previousScrollTop;
         const isBottom = checkIfScrolledToBottom(element);
         isScrolledToBottomRef.current = isBottom;
         isUserScrollingRef.current = !isBottom;
+        if (isBottom) {
+            hasUserScrolledUpRef.current = false;
+        } else if (isScrollingUp) {
+            hasUserScrolledUpRef.current = true;
+        }
+        setShowScrollToBottom(hasUserScrolledUpRef.current && !isBottom);
 
         // Dispatch scroll event for navbar visibility
-        const currentScrollTop = element.scrollTop;
-        const lastScrollTop = (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop || 0;
-        const scrollDelta = Math.abs(currentScrollTop - lastScrollTop);
+        const scrollDelta = Math.abs(currentScrollTop - previousScrollTop);
         
         if (scrollDelta > 0) {
             window.dispatchEvent(new CustomEvent('chat-scroll', {
@@ -254,51 +657,60 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
     }, [debouncedHandleScroll, handleScrollImmediate]);
 
-    useEffect(() => {
-        // Update indices when new messages are added
-        if (isScrolledToBottomRef.current) {
-            setEndIndex(messages.length);
-            setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
-        }
-    }, [messages.length]);
 
-    useEffect(() => {
-        const lastMessage = messages[messages.length - 1];
-        if (!lastMessage?.paymentRequest) return;
-        setEndIndex(messages.length);
-        setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
-        if (listRef.current) {
-            listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
-        }
-    }, [messages]);
 
     useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
+            setShowScrollToBottom(false);
         }
-    }, [messages, endIndex]);
+    }, [dedupedMessages, derivedEnd]);
+
+    // Preserve sticky-to-bottom behavior when composer height changes.
+    useLayoutEffect(() => {
+        if (!listRef.current || compactLayout) return;
+        if (!isScrolledToBottomRef.current || isUserScrollingRef.current) return;
+        listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
+        setShowScrollToBottom(false);
+    }, [bottomInsetPx, compactLayout]);
+
+    const scrollToBottom = useCallback(() => {
+        if (!listRef.current) return;
+        listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+        isScrolledToBottomRef.current = true;
+        isUserScrollingRef.current = false;
+        hasUserScrolledUpRef.current = false;
+        setShowScrollToBottom(false);
+    }, []);
 
 
     const visibleMessages = useMemo(
-        () => messages.slice(startIndex, endIndex),
-        [messages, startIndex, endIndex]
+        () => dedupedMessages.slice(derivedStart, derivedEnd),
+        [dedupedMessages, derivedStart, derivedEnd]
     );
+    const visibleMessageIdsKey = useMemo(
+        () => visibleMessages.map((message) => message.id).join(','),
+        [visibleMessages]
+    );
+    const quickActionDebugSnapshotRef = useRef('');
+    const visibleMessagesRef = useRef<ChatMessageUI[]>(visibleMessages);
     const messageMap = useMemo(() => {
-        return new Map(messages.map((message) => [message.id, message]));
-    }, [messages]);
+        return new Map(dedupedMessages.map((message) => [message.id, message]));
+    }, [dedupedMessages]);
+    const olderMessagesButtonClassName = 'text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60';
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
             return;
         }
-        const targetIndex = messages.findIndex((message) => message.id === messageId);
+        const targetIndex = dedupedMessages.findIndex((message) => message.id === messageId);
         if (targetIndex === -1) {
             return;
         }
 
         const nextStart = Math.max(0, targetIndex - Math.floor(BATCH_SIZE / 2));
-        const nextEnd = Math.min(messages.length, nextStart + BATCH_SIZE);
+        const nextEnd = Math.min(dedupedMessages.length, nextStart + BATCH_SIZE);
         setStartIndex(nextStart);
         setEndIndex(nextEnd);
         isScrolledToBottomRef.current = false;
@@ -312,77 +724,152 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 }
             });
         });
-    }, [messages]);
+    }, [dedupedMessages]);
+
+    // Track which message IDs we've already dispatched a reactions request for.
+    // This is separate from the reactionLoadedRef in useMessageHandling — it prevents
+    // the effect below from firing duplicate requests during the window between calling
+    // onRequestReactions and the reactions state update propagating back to this component.
+    const reactionRequestedRef = useRef(new Set<string>());
 
     useEffect(() => {
-        if (!onRequestReactions || visibleMessages.length === 0) {
+        visibleMessagesRef.current = visibleMessages;
+    }, [visibleMessages]);
+
+    useEffect(() => {
+        if (!onRequestReactions || visibleMessagesRef.current.length === 0) {
             return;
         }
-        visibleMessages.forEach((message) => {
-            if (!message.id) return;
-            if (message.reactions !== undefined) return;
-            void onRequestReactions(message.id);
+        
+        const requestVisibleReactions = () => {
+            const messagesToRequest = visibleMessagesRef.current.filter(message => {
+                if (!message.id) return false;
+                // Skip if reactions are already loaded on the message object.
+                if (message.reactions !== undefined) return false;
+                // Skip if we've already dispatched a request for this message ID.
+                if (reactionRequestedRef.current.has(message.id)) return false;
+                return true;
+            });
+            
+            if (messagesToRequest.length === 0) return;
+            
+            messagesToRequest.forEach((message) => {
+                if (!message.id) return;
+                reactionRequestedRef.current.add(message.id);
+                // Fire and forget with error handling cleanup
+                // Wrap in Promise.resolve to handle both async and sync returns, though void returns won't trigger catch
+                Promise.resolve(onRequestReactions(message.id)).catch((error) => {
+                    // Only log if really needed, to avoid noise. The user asked to remove message.id on failure.
+                    // We'll log a warning to be helpful for debugging but keep it minimal.
+                    console.warn('[VirtualMessageList] Failed to load reactions, allowing retry', { id: message.id, error });
+                    reactionRequestedRef.current.delete(message.id);
+                });
+            });
+        };
+        
+        requestVisibleReactions();
+    }, [onRequestReactions, visibleMessageIdsKey]); // Only re-run when message IDs change, not on every render
+
+    useEffect(() => {
+        if (!isQuickActionDebugEnabled()) return;
+
+        const actionableMessages = visibleMessages
+            .map((message, index) => {
+                const isLast = (index + derivedStart) === (dedupedMessages.length - 1);
+                const rawQuickReplies = Array.isArray(message.metadata?.quickReplies)
+                    ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
+                    : [];
+                const derivedQuickReplies = isLast ? rawQuickReplies : [];
+                const hasSubmitQuickReply = derivedQuickReplies.includes('__submit__');
+                const showSharedIntakeCta =
+                    !message.isUser &&
+                    isLast &&
+                    Boolean(intakeConversationState?.intakeReady) &&
+                    !hasSubmitQuickReply &&
+                    intakeConversationState?.ctaResponse !== 'ready' &&
+                    _intakeStatus?.step !== 'pending_review' &&
+                    _intakeStatus?.step !== 'completed';
+
+                const isActionable = isLast || rawQuickReplies.length > 0 || Boolean(message.paymentRequest) || showSharedIntakeCta;
+                if (!isActionable) return null;
+
+                return {
+                    messageId: message.id ?? null,
+                    role: message.role,
+                    isLast,
+                    rawQuickReplies,
+                    derivedQuickReplies,
+                    hasSubmitQuickReply,
+                    showSharedIntakeCta,
+                    hasPaymentRequest: Boolean(message.paymentRequest),
+                };
+            })
+            .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+        const snapshot = JSON.stringify({
+            intakeReady: Boolean(intakeConversationState?.intakeReady),
+            intakeStep: _intakeStatus?.step ?? null,
+            ctaResponse: intakeConversationState?.ctaResponse ?? null,
+            actionableMessages,
         });
-    }, [onRequestReactions, visibleMessages]);
+
+        if (snapshot === quickActionDebugSnapshotRef.current) {
+            return;
+        }
+        quickActionDebugSnapshotRef.current = snapshot;
+
+        quickActionDebugLog('VirtualMessageList action gating snapshot', {
+            intakeReady: Boolean(intakeConversationState?.intakeReady),
+            intakeStep: _intakeStatus?.step ?? null,
+            ctaResponse: intakeConversationState?.ctaResponse ?? null,
+            actionableMessages,
+        });
+    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeConversationState?.intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.step]);
 
     return (
+        <div className="relative min-h-0 flex flex-1 flex-col">
         <div
-            className={`flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
+            className={`message-list min-h-0 ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
+            style={!compactLayout ? { paddingBottom: `${Math.max(80, bottomInsetPx ?? 80)}px` } : undefined}
         >
-            {/* Practice Profile Header - Fixed at top of scrollable area */}
-            {practiceConfig && showPracticeHeader && (
-                <div className="flex flex-col items-center py-3 px-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-2">
-                    <PracticeProfile
-                        name={practiceConfig.name}
-                        profileImage={practiceConfig.profileImage}
-                        practiceSlug={practiceConfig.slug ?? practiceConfig.practiceId}
-                        description={practiceConfig.description}
-                        showVerified={true}
-                    />
-                </div>
-            )}
-
-            {startIndex > 0 && (
-                <div className="flex justify-center items-center py-4">
-                    <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm lg:text-base">Loading more messages...</div>
-                </div>
-            )}
-            {startIndex === 0 && hasMoreMessages && (
-                <div className="flex justify-center items-center py-4">
-                    <button
-                        type="button"
-                        className="text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60"
-                        onClick={() => onLoadMoreMessages?.()}
-                        disabled={isLoadingMoreMessages}
-                    >
-                        {isLoadingMoreMessages ? 'Loading older messages...' : 'Load older messages'}
-                    </button>
+            {hasMoreMessages && (
+                <div
+                    className="flex justify-center items-center py-4"
+                    data-testid={derivedStart > 0 ? 'pagination-spacer' : undefined}
+                    aria-hidden={derivedStart > 0 ? 'true' : undefined}
+                >
+                    {derivedStart === 0 ? (
+                        <button
+                            type="button"
+                            className={olderMessagesButtonClassName}
+                            onClick={() => onLoadMoreMessages?.()}
+                            disabled={isLoadingMoreMessages}
+                        >
+                            {isLoadingMoreMessages ? (
+                                <span className="inline-flex items-center">
+                                    <LoadingSpinner size="sm" className="mr-2" ariaLabel="Loading older messages…" />
+                                    Load older messages
+                                </span>
+                            ) : 'Load older messages'}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className={`${olderMessagesButtonClassName} invisible pointer-events-none`}
+                            disabled
+                            tabIndex={-1}
+                        >
+                            Load older messages
+                        </button>
+                    )}
                 </div>
             )}
             {showSkeleton && (
                 <div className="mt-4 space-y-5">
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
-                        <div className="space-y-2">
-                            <div className="h-3 w-36 rounded bg-gray-200 dark:bg-white/10" />
-                            <div className="h-3 w-60 rounded bg-gray-200 dark:bg-white/10" />
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
-                        <div className="space-y-2">
-                            <div className="h-3 w-44 rounded bg-gray-200 dark:bg-white/10" />
-                            <div className="h-3 w-72 rounded bg-gray-200 dark:bg-white/10" />
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
-                        <div className="space-y-2">
-                            <div className="h-3 w-32 rounded bg-gray-200 dark:bg-white/10" />
-                            <div className="h-3 w-56 rounded bg-gray-200 dark:bg-white/10" />
-                        </div>
-                    </div>
+                    <MessageRowSkeleton lineWidths={['w-36', 'w-60']} />
+                    <MessageRowSkeleton lineWidths={['w-44', 'w-72']} />
+                    <MessageRowSkeleton lineWidths={['w-32']} />
                 </div>
             )}
             <ErrorBoundary>
@@ -401,18 +888,79 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         isMissing: !replySource
                     } : null;
                     const canReply = Boolean(onReply && message.id);
+                    const isLast = (_index + derivedStart) === (dedupedMessages.length - 1);
 
                     const modeSelector = resolveModeSelector(message);
+                    const leadReview = resolveLeadReview(message);
+                    const authCta = resolveAuthCta(message);
+
+                    const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies)
+                        ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
+                        : undefined;
+                    const hasSubmitQuickReply = Array.isArray(quickReplies) && quickReplies.includes('__submit__');
+                    const onboardingMetaFromMessage = (
+                        message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
+                    ) ? (message.metadata.onboardingProfile as Record<string, unknown>) : null;
+                    const onboardingMeta = onboardingMetaFromMessage;
+                    const onboardingProfile = onboardingMeta ? {
+                        completionScore: typeof onboardingMeta.completionScore === 'number' ? onboardingMeta.completionScore : undefined,
+                        missingFields: Array.isArray(onboardingMeta.missingFields)
+                            ? onboardingMeta.missingFields.filter((v): v is string => typeof v === 'string')
+                            : undefined,
+                        summaryFields: Array.isArray(onboardingMeta.summaryFields)
+                            ? onboardingMeta.summaryFields
+                                .filter((item): item is { label: string; value: string } => (
+                                    Boolean(item) &&
+                                    typeof item === 'object' &&
+                                    typeof (item as { label?: unknown }).label === 'string' &&
+                                    typeof (item as { value?: unknown }).value === 'string'
+                                ))
+                            : undefined,
+                        serviceNames: Array.isArray(onboardingMeta.serviceNames)
+                            ? onboardingMeta.serviceNames.filter((v): v is string => typeof v === 'string')
+                            : undefined,
+                        canSave: onboardingMeta.canSave === true || Boolean(onboardingActions?.onSaveAll),
+                        isSaving: onboardingActions?.isSaving,
+                        saveError: onboardingActions?.saveError ?? null,
+                        onSaveAll: onboardingActions?.onSaveAll,
+                        onEditBasics: onboardingActions?.onEditBasics,
+                        onEditContact: onboardingActions?.onEditContact,
+                        logo: onboardingActions?.onLogoChange ? {
+                            imageUrl: onboardingActions.logoUrl ?? null,
+                            name: onboardingActions.practiceName ?? 'Practice',
+                            uploading: onboardingActions.logoUploading === true,
+                            progress: onboardingActions.logoUploadProgress ?? null,
+                            onChange: onboardingActions.onLogoChange,
+                        } : undefined,
+                    } : undefined;
+                    const showSharedIntakeCta =
+                        !message.isUser &&
+                        isLast &&
+                        Boolean(intakeConversationState?.intakeReady) &&
+                        !hasSubmitQuickReply &&
+                        intakeConversationState?.ctaResponse !== 'ready' &&
+                        _intakeStatus?.step !== 'pending_review' &&
+                        _intakeStatus?.step !== 'completed';
+                    const stableClientId = typeof message.metadata?.__client_id === 'string'
+                        ? message.metadata.__client_id
+                        : null;
+                    // Provide a guaranteed fallback key when both stableClientId and message.id are missing.
+                    // Use the visible list index + startIndex so the fallback is stable across re-renders
+                    // as long as the slice window doesn't change. This avoids undefined/null keys.
+                    const fallbackIndexKey = `idx-${derivedStart + _index}`;
+                    const renderKey = stableClientId
+                        ? `client-${stableClientId}`
+                        : (message.id ? `message-${message.id}` : fallbackIndexKey);
 
                     return (
-                        <Message
-                            key={message.id}
-                            content={message.content}
-                            isUser={message.isUser}
-                            files={message.files}
-                            avatar={avatar}
-                            authorName={avatar?.name}
-                            timestamp={message.timestamp}
+                            <Message
+                                key={renderKey}
+                                content={message.content}
+                                isUser={message.isUser}
+                                files={message.files}
+                                avatar={avatar}
+                                authorName={avatar?.name}
+                                timestamp={message.timestamp}
                             replyPreview={replyPreview ?? undefined}
                             onReplyPreviewClick={replyPreview ? () => scrollToMessage(replyPreview.messageId) : undefined}
                             reactions={message.reactions}
@@ -430,15 +978,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onToggleReaction(message.id, emoji);
                             } : undefined}
                             matterCanvas={message.matterCanvas}
-                            contactForm={message.contactForm}
-                            contactFormVariant={contactFormVariant}
-                            contactFormFormId={contactFormFormId}
-                            showContactFormSubmit={showContactFormSubmit}
                             generatedPDF={message.generatedPDF}
                             paymentRequest={message.paymentRequest}
                             practiceConfig={practiceConfig}
                             onOpenSidebar={onOpenSidebar}
-                            onContactFormSubmit={onContactFormSubmit}
                             onOpenPayment={onOpenPayment}
                             isLoading={message.isLoading}
                             // REMOVED: aiState - AI functionality removed
@@ -447,11 +990,35 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             practiceId={practiceId}
                             assistantRetry={message.assistantRetry}
                             modeSelector={modeSelector}
-                            intakeStatus={_intakeStatus}
-                        />
-                    );
-                })}
+                            leadReview={leadReview}
+                            authCta={authCta}
+                                onAuthPromptRequest={onAuthPromptRequest}
+                                intakeStatus={_intakeStatus}
+                                intakeConversationState={intakeConversationState}
+                                quickReplies={quickReplies}
+                                onQuickReply={onQuickReply}
+                                showIntakeCta={showSharedIntakeCta}
+                                showIntakeDecisionPrompt={message.metadata?.intakeDecisionPrompt === true}
+                                onIntakeCtaResponse={onIntakeCtaResponse}
+                                onSubmitNow={onSubmitNow}
+                                onBuildBrief={onBuildBrief}
+                                onboardingProfile={onboardingProfile}
+                                isLast={isLast}
+                            />
+                        );
+                    })}
             </ErrorBoundary>
+        </div>
+        {showScrollToBottom && (
+            <button
+                type="button"
+                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] shadow-lg transition hover:bg-accent-500/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                onClick={scrollToBottom}
+                aria-label="Scroll to latest message"
+            >
+                <Icon icon={ChevronDownIcon} className="h-5 w-5"  />
+            </button>
+        )}
         </div>
     );
 };

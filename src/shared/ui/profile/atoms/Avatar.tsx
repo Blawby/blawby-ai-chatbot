@@ -9,7 +9,7 @@ import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 interface AvatarProps {
   src?: string | null;
   name: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   status?: 'active' | 'inactive';
 }
@@ -26,14 +26,16 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
     xs: 'w-4 h-4',
     sm: 'w-6 h-6',
     md: 'w-9 h-9', // 36px to match original main look
-    lg: 'w-10 h-10'
+    lg: 'w-10 h-10',
+    xl: 'w-36 h-36'
   } as const;
 
   const textSizeClasses = {
     xs: 'text-[10px]',
     sm: 'text-xs',
     md: 'text-sm',
-    lg: 'text-base'
+    lg: 'text-base',
+    xl: 'text-6xl'
   } as const;
 
   const getInitials = (fullName: string) => {
@@ -69,12 +71,13 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
     xs: 'h-1.5 w-1.5',
     sm: 'h-2 w-2',
     md: 'h-2.5 w-2.5',
-    lg: 'h-3 w-3'
+    lg: 'h-3 w-3',
+    xl: 'h-3.5 w-3.5'
   } as const;
 
   return (
     <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className="h-full w-full rounded-full bg-gray-600 dark:bg-gray-700 ring-2 ring-white/20 flex items-center justify-center overflow-hidden">
+      <div className="glass-input h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden">
         {sanitizedImageUrl && !hasImgError ? (
           <img 
             src={sanitizedImageUrl} 
@@ -83,7 +86,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
             onError={() => setHasImgError(true)}
           />
         ) : (
-          <span className={`text-white font-medium ${textSizeClasses[size]}`}>{getInitials(name)}</span>
+          <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{getInitials(name)}</span>
         )}
       </div>
       {status && (

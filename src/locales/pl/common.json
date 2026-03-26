@@ -1,4 +1,10 @@
 {
+  "common": {
+    "back": "Back",
+    "errors": {
+      "tryAgainLater": "Spróbuj ponownie później."
+    }
+  },
   "app": {
     "loading": "Ładowanie…"
   },
@@ -188,7 +194,7 @@
       }
     }
   },
-  "embed": {
+  "workspace": {
     "home": {
       "greeting": "Cześć 👋",
       "helpPrompt": "W czym możemy pomóc?",
@@ -196,14 +202,17 @@
       "sendMessage": "Wyślij do nas wiadomość",
       "consultation": {
         "title": "Potrzebujesz rozmowy z prawnikiem?",
-        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji.",
-        "button": "Poproś o konsultację"
+        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji."
       },
       "poweredBy": "Obsługiwane przez"
     },
     "navigation": {
       "home": "Strona główna",
-      "messages": "Wiadomości"
+      "messages": "Wiadomości",
+      "matters": "Sprawy",
+      "clients": "Klienci",
+      "settings": "Ustawienia",
+      "invoices": "Faktury"
     },
     "conversationList": {
       "title": "Wiadomości",
@@ -214,12 +223,15 @@
     },
     "error": {
       "title": "Dane kancelarii niedostępne",
-      "description": "Nie udało się załadować nazwy i logo kancelarii {{slug}}. Odśwież stronę lub skontaktuj się z kancelarią, aby potwierdzić ich ustawienia publiczne.",
+      "description": "Nie udało się załadować nazwy i logo kancelarii \"{{slug}}\". Odśwież stronę lub skontaktuj się z kancelarią, aby potwierdzić ich ustawienia publiczne.",
       "retry": "Spróbuj ponownie"
     },
     "header": {
       "activeNow": "Aktywny teraz",
-      "back": "Wstecz"
+      "back": "Wstecz",
+      "inactive": "Nieaktywny",
+      "away": "Nieobecny",
+      "unknown": "Status nieznany"
     }
   },
   "businessWelcome": {
@@ -244,5 +256,49 @@
       }
     },
     "goToSettings": "Przejdź do ustawień kancelarii"
+  },
+  "chat": {
+    "publicIntro": "Zadaj nam dowolne pytanie lub podziel się swoją opinią.",
+    "continue": "Kontynuuj",
+    "submitRequest": "Prześlij prośbę",
+    "submitNow": "Prześlij teraz",
+    "buildStrongerBrief": "Stwórz mocniejszy opis",
+    "askQuestion": "Zadaj pytanie",
+    "requestConsultation": "Poproś o konsultację",
+    "retry": "Spróbuj ponownie",
+    "retrying": "Ponawianie...",
+    "replyingTo": "Odpowiedź na <name>{{name}}</name>",
+    "cta": {
+      "submit": "Prześlij prośbę",
+      "submitConsultationRequest": "Prześlij prośbę o konsultację",
+      "reviewSubmit": "Sprawdź i prześlij",
+      "keepAnswering": "Kontynuuj odpowiadanie",
+      "continue": "Kontynuuj",
+      "addMore": "Dodaj więcej",
+      "notYet": "Jeszcze nie"
+    }
+  },
+  "intake": {
+    "authTitle": "Jesteś prawie gotowy",
+    "authDescription": "Utwórz bezpłatne konto, aby kontynuować rejestrację i otrzymywać aktualizacje od {{practice}}. Wyślemy Ci link potwierdzający pocztą e-mail.",
+    "authDescriptionFallback": "Utwórz bezpłatne konto, aby kontynuować rejestrację i otrzymywać aktualizacje. Wyślemy Ci link potwierdzający pocztą e-mail."
+  },
+  "leadReview": {
+    "accept": "Zaakceptuj",
+    "decline": "Odrzuć",
+    "convert": "Konwertuj na sprawę",
+    "noPermission": "Nie masz uprawnień do przeglądania tego potencjalnego klienta"
+  },
+  "leadIntake": {
+    "newIntake": "Nowe zgłoszenie",
+    "urgency": "Pilność",
+    "payment": "Płatność",
+    "triage": "Segregacja",
+    "fee": "Opłata",
+    "opposingParty": "Strona przeciwna",
+    "reason": "Powód"
+  },
+  "widget": {
+    "persistIntakePathError": "Nie udało się zapisać ścieżki powrotu."
   }
 }

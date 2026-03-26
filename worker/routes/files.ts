@@ -531,7 +531,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         throw HttpErrors.badRequest('File ID is required');
       }
 
-      console.log('File download request:', { fileId, path });
 
       // Try to get file metadata from database first
       let fileRecord = null;
@@ -540,7 +539,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           SELECT * FROM files WHERE id = ? AND is_deleted = FALSE
         `);
         fileRecord = await stmt.bind(fileId).first();
-        console.log('Database file record:', fileRecord);
       } catch (dbError) {
         console.warn('Failed to get file metadata from database:', dbError);
         // Continue without database metadata
@@ -554,23 +552,14 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       // Try to construct the file path from the fileId if we don't have database metadata
       let filePath = fileRecord?.file_path;
       if (!filePath) {
-        console.log('No file path found for fileId:', fileId);
         throw HttpErrors.notFound('File not found');
       }
 
-      if (!filePath) {
-        console.log('No file path found for fileId:', fileId);
-        throw HttpErrors.notFound('File not found');
-      }
-
-      console.log('Attempting to get file from R2:', filePath);
       const fileObject = await env.FILES_BUCKET.get(filePath);
       if (!fileObject) {
-        console.log('File not found in R2 storage:', filePath);
         throw HttpErrors.notFound('File not found in storage');
       }
 
-      console.log('File found in R2, returning response');
 
       // Guard against nullable fileObject.body
       if (!fileObject.body) {
@@ -583,24 +572,57 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const contentType = fileRecord?.mime_type || fileObject.httpMetadata?.contentType || 'application/octet-stream';
       headers.set('Content-Type', contentType);
       
-      // Handle Content-Disposition based on mime type
+      // Handle Content-Disposition based on mime type.
+      // Browser Fetch implementations may throw on non-ASCII header values, so always
+      // emit an ASCII fallback for filename= and carry Unicode in filename*=.
       const filename = fileRecord?.original_name || fileId;
-      const sanitizedFilename = filename.replace(/["\r\n]/g, ''); // Strip quotes and newlines
-      
-      if (contentType === 'image/svg+xml') {
-        // Force attachment for SVG files to prevent XSS
-        headers.set('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
-      } else {
-        headers.set('Content-Disposition', `inline; filename="${sanitizedFilename}"`);
-      }
+      const baseFilename = filename.replace(/["\r\n]/g, '');
+      const asciiFilename = baseFilename
+        .normalize('NFKD')
+        .replace(/[^\x20-\x7E]/g, '_')
+        .replace(/[;\\]/g, '_')
+        .trim() || 'file';
+      const encodedFilename = encodeURIComponent(baseFilename);
+      const dispositionType = contentType === 'image/svg+xml' ? 'attachment' : 'inline';
+      const contentDisposition = `${dispositionType}; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
+      headers.set('Content-Disposition', contentDisposition);
       
       if (fileRecord?.file_size) {
         headers.set('Content-Length', fileRecord.file_size.toString());
       }
       
-      // Propagate cache control from stored object if present
-      if (fileObject.httpMetadata?.cacheControl) {
-        headers.set('Cache-Control', fileObject.httpMetadata.cacheControl);
+      // Propagate cache control from stored object if present, otherwise set sensible defaults
+      const existingCacheControl =
+        fileObject.httpMetadata?.cacheControl ||
+        headers.get('Cache-Control');
+      if (existingCacheControl) {
+        headers.set('Cache-Control', existingCacheControl);
+      } else {
+        const isImmutableUpload = filePath.startsWith('uploads/');
+        headers.set(
+          'Cache-Control',
+          isImmutableUpload ? 'public, max-age=86400, immutable' : 'public, max-age=120'
+        );
+      }
+
+      // Attach ETag and honor conditional requests
+      const etag =
+        fileObject.httpEtag ??
+        (fileRecord?.file_size
+          ? `"${fileRecord.file_size}-${fileRecord.updated_at ?? fileRecord.created_at ?? ''}"`
+          : null);
+      if (etag) {
+        headers.set('ETag', etag);
+        const ifNoneMatch = request.headers.get('If-None-Match');
+        if (ifNoneMatch) {
+          const tags = ifNoneMatch
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+          if (tags.includes(etag) || tags.includes('*')) {
+            return new Response(null, { status: 304, headers });
+          }
+        }
       }
 
       // Use non-null assertion after explicit null check

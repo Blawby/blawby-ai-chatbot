@@ -395,15 +395,15 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-gray-300 dark:border-gray-600 focus-within:ring-accent-500 focus-within:border-accent-500',
-    error: 'border-red-300 dark:border-red-600 focus-within:ring-red-500 focus-within:border-red-500',
-    success: 'border-green-300 dark:border-green-600 focus-within:ring-green-500 focus-within:border-green-500'
+    default: 'border-input-border focus-within:ring-accent-500 focus-within:border-accent-500',
+    error: 'border-red-500 dark:border-red-400 focus-within:ring-red-500 focus-within:border-red-500',
+    success: 'border-green-500 dark:border-green-400 focus-within:ring-green-500 focus-within:border-green-400'
   };
 
   return (
     <div className={cn('w-full', className)} ref={containerRef}>
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
         </label>
       )}
@@ -413,7 +413,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
         <div
           className={cn(
             'flex flex-wrap items-center w-full border rounded-lg',
-            'bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+            'bg-input-bg text-input-text',
             'focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-0 transition-colors',
             containerPaddingClasses[size],
             variantClasses[variant],
@@ -457,8 +457,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             className={cn(
               'flex-1 min-w-[120px] border-0 bg-transparent outline-none',
               sizeClasses[size],
-              'text-gray-900 dark:text-white',
-              'placeholder:text-gray-500 dark:placeholder:text-gray-400',
+              'text-input-text',
+              'placeholder:text-input-placeholder',
               disabled && 'cursor-not-allowed'
             )}
             id={inputId}
@@ -486,18 +486,18 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             id={listboxId}
             role="listbox"
             className={cn(
-              'absolute z-50 w-full mt-1 bg-white dark:bg-gray-800',
-              'border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg',
+              'absolute z-50 w-full mt-1 glass-panel',
+              'border border-line-glass/30 rounded-lg shadow-glass',
               'max-h-60 overflow-y-auto'
             )}
           >
             {isLoadingSuggestions && (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-3 py-2 text-sm text-input-placeholder">
                 Loading suggestions...
               </div>
             )}
             {!isLoadingSuggestions && filteredSuggestions.length === 0 && inputValue.trim() && (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-3 py-2 text-sm text-input-placeholder">
                 No suggestions found
               </div>
             )}
@@ -510,9 +510,9 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
                 aria-selected={focusedSuggestionIndex === index}
                 onClick={() => addTag(suggestion)}
                 className={cn(
-                  'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-                  'hover:bg-gray-50 dark:hover:bg-gray-700',
-                  'focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700',
+                  'w-full text-left px-3 py-2 text-sm text-input-text',
+                  'hover:bg-white/[0.12]',
+                  'focus:outline-none focus:bg-white/[0.12]',
                   focusedSuggestionIndex === index && 'bg-accent-50 dark:bg-accent-900/20'
                 )}
               >
@@ -539,11 +539,10 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
       )}
 
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
           {displayDescription}
         </p>
       )}
     </div>
   );
 });
-

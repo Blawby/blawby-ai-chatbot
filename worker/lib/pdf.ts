@@ -6,16 +6,10 @@ export async function extractPdfText(buf: ArrayBuffer) {
   // Enhanced PDF processing using Cloudflare AI vision model for better text extraction
   // This approach is more reliable than regex-based text extraction for complex PDFs
   
-  console.log('PDF buffer size:', buf.byteLength);
-  console.log('First 100 bytes as hex:', Array.from(new Uint8Array(buf.slice(0, 100))).map(b => b.toString(16).padStart(2, '0')).join(' '));
-  
   // For now, fall back to basic text extraction as a foundation
   // Note: Could integrate with Cloudflare AI vision model for enhanced PDF processing
   const textDecoder = new TextDecoder('utf-8');
   const pdfContent = textDecoder.decode(buf);
-  
-  console.log('Raw PDF content length:', pdfContent.length);
-  console.log('Raw PDF content preview:', pdfContent.substring(0, 500));
   
   const pages: string[] = [];
   let extractedText = '';
@@ -24,7 +18,6 @@ export async function extractPdfText(buf: ArrayBuffer) {
   const textStreamMatches = pdfContent.match(/BT[\s\S]*?ET/g);
   if (textStreamMatches && textStreamMatches.length > 0) {
     extractedText = textStreamMatches.join(' ').replace(/BT|ET/g, ' ').trim();
-    console.log('Found text streams, length:', extractedText.length);
   }
   
   // Look for text between parentheses (common in PDFs)
@@ -32,7 +25,6 @@ export async function extractPdfText(buf: ArrayBuffer) {
   if (parenMatches && parenMatches.length > 0) {
     const parenText = parenMatches.join(' ').replace(/[()]/g, ' ').trim();
     extractedText += ' ' + parenText;
-    console.log('Found parentheses text, length:', parenText.length);
   }
   
   // Look for text between quotes
@@ -40,7 +32,6 @@ export async function extractPdfText(buf: ArrayBuffer) {
   if (quoteMatches && quoteMatches.length > 0) {
     const quoteText = quoteMatches.join(' ').replace(/"/g, ' ').trim();
     extractedText += ' ' + quoteText;
-    console.log('Found quote text, length:', quoteText.length);
   }
   
   // Look for text after /Text operators
@@ -48,16 +39,13 @@ export async function extractPdfText(buf: ArrayBuffer) {
   if (textOperatorMatches && textOperatorMatches.length > 0) {
     const textOpText = textOperatorMatches.join(' ').replace(/\/Text/g, ' ').trim();
     extractedText += ' ' + textOpText;
-    console.log('Found text operators, length:', textOpText.length);
   }
   
   // If we found structured text, use it
   if (extractedText.length > 10) {
-    console.log('Using structured text extraction, length:', extractedText.length);
     pages.push(normalize(extractedText));
   } else {
     // Fallback: extract readable ASCII text
-    console.log('Using fallback text extraction');
     const fallbackText = pdfContent.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
     
     // Remove any [object Object] artifacts
@@ -81,25 +69,14 @@ export async function extractPdfText(buf: ArrayBuffer) {
     fullText: pages.join("\n\n---\n\n"),
     pageCount: pages.length
   };
-  console.log('Final extracted text length:', result.fullText.length);
-  console.log('Final text preview:', result.fullText.substring(0, 200));
 
   // Check text quality and clean if needed
   const printableChars = result.fullText.replace(/[^\x20-\x7E\n\r\t]/g, '').length;
   const totalChars = result.fullText.length;
   const printableRatio = totalChars > 0 ? printableChars / totalChars : 0;
   
-  console.log('Text quality check:', {
-    totalChars,
-    printableChars,
-    printableRatio,
-    isGarbled: printableRatio < 0.7
-  });
-
   // If text is mostly garbled, try to clean it up
   if (printableRatio < 0.7 && totalChars > 100) {
-    console.log('PDF text appears to be garbled, attempting to clean it up');
-    
     // Try to extract only the cleanest parts
     const cleanText = result.fullText
       .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Replace non-printable with spaces
@@ -108,15 +85,7 @@ export async function extractPdfText(buf: ArrayBuffer) {
     
     const cleanRatio = cleanText.length > 0 ? cleanText.replace(/[^\x20-\x7E]/g, '').length / cleanText.length : 0;
     
-    console.log('Cleaned text quality:', {
-      originalLength: result.fullText.length,
-      cleanedLength: cleanText.length,
-      cleanRatio,
-      isClean: cleanRatio > 0.8
-    });
-    
     if (cleanRatio > 0.8 && cleanText.length > 50) {
-      console.log('Using cleaned text instead of garbled text');
       result.fullText = cleanText;
       
       // Update pages to stay consistent with cleaned fullText
@@ -131,20 +100,13 @@ export async function extractPdfText(buf: ArrayBuffer) {
       
       // Update page count metadata
       result.pageCount = result.pages.length;
-      
-      console.log('Updated pages after cleaning:', {
-        pageCount: result.pageCount,
-        pagesLength: result.pages.length
-      });
     } else {
-      console.log('Cleaned text still too garbled, will throw error for fallback');
       throw new Error('PDF text extraction produced garbled content, using fallback strategy');
     }
   }
 
   // Extract key information for legal intake
   const keyInfo = extractKeyLegalInfo(result.fullText);
-  console.log('Key legal info extracted:', keyInfo);
 
   return { ...result, keyInfo };
 }

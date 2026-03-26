@@ -83,9 +83,9 @@ export function formatTimeSlot(time: string | Date): string {
   return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
 }
 
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
   if (typeof date === 'string' && DATE_ONLY_PATTERN.test(date)) {
-    return formatDateOnlyUtc(date);
+    return formatDateOnlyUtc(date, 'en-US', options);
   }
 
   const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -93,7 +93,7 @@ export function formatDate(date: string | Date): string {
     return '';
   }
 
-  return dateObj.toLocaleDateString('en-US', {
+  return dateObj.toLocaleDateString('en-US', options || {
     year: 'numeric',
     month: 'short',
     day: 'numeric'

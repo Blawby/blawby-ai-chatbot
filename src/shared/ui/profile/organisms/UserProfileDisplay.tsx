@@ -6,7 +6,9 @@
  */
 
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { UserIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -14,78 +16,46 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { type SubscriptionTier } from '@/shared/types/user';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { getCurrentSubscription } from '@/shared/lib/apiClient';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
-  currentPractice?: {
-    id: string;
-    subscriptionTier?: SubscriptionTier;
-  } | null;
 }
 
 export const UserProfileDisplay = ({ 
-  isCollapsed = false, 
-  currentPractice 
+  isCollapsed = false
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { session, isPending, error, activeOrganizationId } = useSessionContext();
+  const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
-  const { currentPractice: managedPractice } = usePracticeManagement();
+  const location = useLocation();
+  const { currentPractice, practices } = useWorkspaceResolver();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
-  const practiceForTier = currentPractice ?? managedPractice ?? null;
-  const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean>(false);
-  const sessionUserId = session?.user?.id ?? null;
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-
-    if (!sessionUserId || !activeOrganizationId) {
-      setHasActiveSubscription(false);
-      return () => {
-        isMounted = false;
-        controller.abort();
-      };
-    }
-
-    (async () => {
-      try {
-        const subscription = await getCurrentSubscription({ signal: controller.signal });
-        if (!isMounted) return;
-        setHasActiveSubscription(Boolean(subscription));
-      } catch (fetchError) {
-        if (!isMounted) return;
-        console.warn('[Profile] Failed to fetch current subscription', fetchError);
-        setHasActiveSubscription(false);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, [activeOrganizationId, sessionUserId]);
-
-  const resolvedSubscriptionTier: SubscriptionTier =
-    practiceForTier?.subscriptionTier ?? (hasActiveSubscription ? 'business' : 'free');
+  const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
+  const settingsBasePath = routeMatch
+    ? getWorkspaceSettingsPath(routeMatch[1] as 'client' | 'practice', decodeURIComponent(routeMatch[2]))
+    : (() => {
+        const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+        if (!fallbackSlug) return null;
+        return getWorkspaceSettingsPath('client', fallbackSlug);
+      })();
+  const isOnSettingsRoute = Boolean(
+    settingsBasePath &&
+    (location.path === settingsBasePath || location.path.startsWith(`${settingsBasePath}/`))
+  );
 
   // Derive user data from session and practice
   const user = session?.user ? {
     id: session.user.id,
     name: session.user.name || session.user.email || 'User',
     email: session.user.email,
-    image: session.user.image,
-    practiceId: practiceForTier?.id || null,
-    role: 'user',
-    phone: null,
-    subscriptionTier: resolvedSubscriptionTier
+    image: session.user.image
   } : null;
 
 
@@ -120,17 +90,13 @@ export const UserProfileDisplay = ({
     navigateToAuth('signin');
   };
 
-  const handleUpgrade = () => {
-    window.location.hash = '#pricing';
-  };
-
   const handleProfileClick = () => {
     if (isMobile) {
       // On mobile, directly navigate to settings
-      if (window.location.pathname.startsWith('/settings')) {
+      if (isOnSettingsRoute || !settingsBasePath) {
         return;
       }
-      navigate('/settings');
+      navigate(settingsBasePath);
     } else {
       // On desktop, show dropdown
       setShowDropdown(!showDropdown);
@@ -139,20 +105,16 @@ export const UserProfileDisplay = ({
 
   const handleSettingsClick = () => {
     setShowDropdown(false);
-    if (window.location.pathname.startsWith('/settings')) {
+    if (isOnSettingsRoute || !settingsBasePath) {
       return;
     }
-    navigate('/settings');
-  };
-
-  const handleUpgradeClick = () => {
-    setShowDropdown(false);
-    window.location.hash = '#pricing';
+    navigate(settingsBasePath);
   };
 
   const handleHelpClick = () => {
     setShowDropdown(false);
-    navigate('/settings/help');
+    if (!settingsBasePath) return;
+    navigate(`${settingsBasePath}/help`);
   };
 
 
@@ -183,8 +145,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />}
+        <div className="glass-input w-8 h-8 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="glass-input w-20 h-4 rounded animate-pulse" />}
       </div>
     );
   }
@@ -192,17 +154,17 @@ export const UserProfileDisplay = ({
   // Handle session fetch errors
   if (error) {
     return (
-      <div className={`p-2 border-t border-gray-200 dark:border-dark-border`}>
+      <div className={`p-2 border-t border-line-glass/30`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
           <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
-            <UserIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <Icon icon={UserIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-red-600 dark:text-red-400">
                 Failed to load session
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-input-placeholder">
                 Please try refreshing the page
               </p>
             </div>
@@ -214,10 +176,10 @@ export const UserProfileDisplay = ({
 
   if (!user) {
     return (
-      <div className={`p-2 border-t border-gray-200 dark:border-dark-border`}>
+      <div className={`p-2 border-t border-line-glass/30`}>
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-white/[0.08] ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'
@@ -225,7 +187,7 @@ export const UserProfileDisplay = ({
           title={isCollapsed ? t('profile:menu.signIn') : undefined}
           aria-label={t('profile:aria.signInButton')}
         >
-          <UserIcon className="w-5 h-5 flex-shrink-0" />
+          <Icon icon={UserIcon} className="w-5 h-5 flex-shrink-0"  />
           {!isCollapsed && <span className="text-sm font-medium">{t('profile:menu.signIn')}</span>}
         </button>
       </div>
@@ -233,22 +195,19 @@ export const UserProfileDisplay = ({
   }
 
   return (
-    <div className={`p-2 border-t border-gray-200 dark:border-dark-border w-full overflow-visible`}>
+    <div className={`p-2 border-t border-line-glass/30 w-full overflow-visible`}>
       <div className="relative w-full max-w-full" ref={dropdownRef}>
         <ProfileButton
           name={user.name}
           image={user.image}
-          tier={user.subscriptionTier}
+          secondaryText={user.email ?? null}
           isCollapsed={isCollapsed}
           onClick={handleProfileClick}
-          onUpgrade={handleUpgrade}
         />
         
         {/* Dropdown - only show on desktop */}
         {showDropdown && !isMobile && (
           <ProfileDropdown
-            tier={user.subscriptionTier}
-            onUpgrade={handleUpgradeClick}
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}
             onLogout={handleLogoutClick}

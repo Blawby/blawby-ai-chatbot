@@ -1,0 +1,123 @@
+flowchart TB
+  classDef current fill:#e8f3ff,stroke:#2563eb,color:#0f172a,stroke-width:1px;
+  classDef backend fill:#ecfeef,stroke:#16a34a,color:#0f172a,stroke-width:1px;
+  classDef worker fill:#fff7ed,stroke:#ea580c,color:#0f172a,stroke-width:1px;
+  classDef external fill:#f5f3ff,stroke:#7c3aed,color:#0f172a,stroke-width:1px;
+  classDef goal fill:#fef3c7,stroke:#d97706,color:#0f172a,stroke-width:1px;
+  classDef gap fill:#fee2e2,stroke:#dc2626,color:#0f172a,stroke-width:1px;
+
+  subgraph CURRENT["Current System Today"]
+    direction TB
+
+    subgraph USERS["Users"]
+      Prospect["Prospect / Client"]
+      Practice["Practice Owner / Team Member"]
+    end
+
+    subgraph FRONTEND["Cloudflare Pages + Preact App"]
+      Widget["Public widget + intake/chat UI"]
+      App["Practice/client app UI"]
+    end
+
+    subgraph EDGE["Cloudflare Worker"]
+      Conversations["Local conversations + messages + WebSockets"]
+      AI["AI chat / intent / search / website extract"]
+      Files["R2 / PDF / file analysis routes"]
+      Notifications["Notification queue + OneSignal delivery"]
+      Proxy["Proxy routes for auth, matters, intakes, subscriptions, uploads, practice data"]
+    end
+
+    subgraph BACKEND["Railway / Node Hono Backend"]
+      Auth["Auth + org/practice management"]
+      Intakes["Practice client intakes"]
+      Matters["Matters + notes + milestones + tasks + time + expenses"]
+      Invoices["Invoices + fund routing + trust-aware billing rules"]
+      Subs["Subscriptions + Better Auth Stripe plugin + metered items support"]
+      Onboarding["Stripe Connect onboarding + connected accounts"]
+      Email["Resend email templates + Graphile Worker jobs"]
+    end
+
+    subgraph DATA["Primary Data Stores"]
+      D1["Cloudflare D1 / Durable Objects for conversation runtime"]
+      PG["Postgres for core business data"]
+      R2["R2 for files / generated PDFs"]
+    end
+
+    subgraph EXTERNALS["External Services"]
+      Stripe["Stripe / Stripe Connect"]
+      Resend["Resend"]
+      OneSignal["OneSignal"]
+    end
+
+    Prospect --> Widget
+    Practice --> App
+    Widget --> Conversations
+    Widget --> AI
+    Widget --> Files
+    App --> Proxy
+    App --> Conversations
+
+    Conversations --> D1
+    Files --> R2
+    Notifications --> OneSignal
+
+    Proxy --> Auth
+    Proxy --> Intakes
+    Proxy --> Matters
+    Proxy --> Invoices
+    Proxy --> Subs
+    Proxy --> Onboarding
+
+    Auth --> PG
+    Intakes --> PG
+    Matters --> PG
+    Invoices --> PG
+    Subs --> PG
+    Onboarding --> PG
+    Email --> PG
+
+    Intakes --> Stripe
+    Invoices --> Stripe
+    Subs --> Stripe
+    Onboarding --> Stripe
+    Email --> Resend
+  end
+
+  subgraph FLOW["Lead / Intake / Matter Flow Today"]
+    direction LR
+    ChatLead["Conversation started in worker"] --> IntakeRecord["Backend intake created<br/>payment + triage fields captured"]
+    IntakeRecord --> Payment["Stripe payment link / checkout session"]
+    Payment --> Review["Practice reviews intake<br/>triage_status = pending_review / accepted / declined"]
+    Review --> Convert["Accepted intake can be converted to a matter"]
+    Convert --> MatterRecord["Matter stores billing, attorney, court, opposing-party, intake + conversation linkage"]
+  end
+
+  subgraph GOAL["Goal State We Want"]
+    direction TB
+    Goal1["Blawby acts like Intercom for lawyers"]
+    Goal2["Automated lead qualification, intake capture, and matter creation"]
+    Goal3["Automated billing lifecycle: invoice/payment request, reminders, retainer/deposit handling, receipts, payout visibility"]
+    Goal4["Stripe Connect platform economics with 1.337 fee captured consistently across payment volume and reconciled cleanly"]
+    Goal5["Unified notifications for conversations, leads, matters, billing, and payments across prospects, clients, practices, and team members"]
+    Goal6["Worker stays focused on edge chat/realtime/orchestration while backend owns durable business truth"]
+  end
+
+  subgraph GAPS["Missing / Incomplete Pieces"]
+    direction TB
+    Gap1["Auto-convert conversation lead -> accepted intake -> matter is not yet fully event-driven"]
+    Gap2["Lead, intake, matter, and payment lifecycle is still spread across worker and backend and needs one clearer operating matrix"]
+    Gap3["Billing reminders / dunning / follow-up automation are not yet clearly wired end-to-end"]
+    Gap4["Conversation and business notifications exist in parts, but there is no single unified notification matrix across all audiences and events"]
+    Gap5["Worker/backend ownership is clear in code, but the product flow is still split across repos and not documented in one place"]
+    Gap6["Rolling deposit / payout visibility / reconciliation story needs explicit product and implementation definition"]
+  end
+
+  CURRENT:::current
+  FRONTEND:::current
+  EDGE:::worker
+  BACKEND:::backend
+  EXTERNALS:::external
+  DATA:::current
+  FLOW:::current
+  GOAL:::goal
+  GAPS:::gap
