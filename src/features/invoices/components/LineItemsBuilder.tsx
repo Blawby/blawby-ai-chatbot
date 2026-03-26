@@ -31,7 +31,7 @@ interface LineItemDialogProps {
 }
 
 const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes }: LineItemDialogProps) => {
-  const step = billingIncrementMinutes ? billingIncrementMinutes / 60 : 0.1;
+  const step = (billingIncrementMinutes && billingIncrementMinutes > 0) ? billingIncrementMinutes / 60 : 0.1;
   const [formData, setFormData] = useState<InvoiceLineItem>(() => item || newLineItem());
 
   const handleSave = () => {
@@ -61,7 +61,6 @@ const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes
           placeholder="e.g. Professional Services"
           value={formData.description}
           onChange={(val) => updateField({ description: val })}
-          autoFocus
         />
         
         <div className="grid grid-cols-2 gap-4">

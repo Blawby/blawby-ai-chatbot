@@ -76,7 +76,7 @@ export const SendInvoiceDialog = ({
             <InvoicePreview
               title={previewTitle ?? 'Invoice'}
               referenceLabel={previewReferenceLabel}
-              lineItems={lineItems!}
+              lineItems={lineItems || []}
               issueDate={previewIssueDate}
               dueDate={dueDate}
               practiceName={practiceName}
@@ -96,10 +96,8 @@ export const SendInvoiceDialog = ({
           <Button
             onClick={() => {
               const result = onConfirm();
-              if (result && typeof (result as Promise<void>).catch === 'function') {
-                void (result as Promise<void>).catch((error) => {
-                  console.error('[SendInvoiceDialog] Failed to confirm invoice send', error);
-                });
+              if (result && typeof (result as Promise<void>).then === 'function') {
+                return result as Promise<void>;
               }
             }}
             disabled={loading}

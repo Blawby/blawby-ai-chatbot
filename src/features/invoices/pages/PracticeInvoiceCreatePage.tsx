@@ -271,7 +271,7 @@ export function PracticeInvoiceCreatePage({
             closeAfterSuccess={false}
             practiceName={currentPractice?.name ?? undefined}
             practiceLogoUrl={currentPractice?.logo ?? undefined}
-            practiceEmail={cachedDetails?.businessEmail ?? currentPractice?.businessEmail ?? undefined}
+            practiceEmail={currentPractice?.businessEmail ?? cachedDetails?.businessEmail ?? undefined}
             billingIncrementMinutes={currentPractice?.billingIncrementMinutes ?? undefined}
           />
         )}
