@@ -435,9 +435,26 @@ export async function handleSubmitIntake(
     );
   }
 
-  // Build backend payload
+  // Build backend payload.
+  // When intakeSettings is null (fetch failed) and payment IS required, sending
+  // amount: 0 causes the backend to reject the submission. Use 50 minor units
+  // (i.e. $0.50) as a safe non-zero floor so the record is created; the actual
+  // charge will be determined by the Stripe payment-link amount, not this field.
+  const resolvedAmountMinor = typeof intakeSettings?.prefillAmount === 'number'
+    ? intakeSettings.prefillAmount
+    : (() => {
+        if (paymentRequiredBeforeSubmit) {
+          Logger.warn('[submitIntake] intakeSettings unavailable but payment is required; using safe fallback amount=50', {
+            conversationId,
+            practiceId,
+            slug,
+          });
+          return 50;
+        }
+        return undefined;
+      })();
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
-    amountMinor: typeof intakeSettings?.prefillAmount === 'number' ? intakeSettings.prefillAmount : undefined,
+    amountMinor: resolvedAmountMinor,
     userId,
   });
 

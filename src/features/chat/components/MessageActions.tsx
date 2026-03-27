@@ -154,6 +154,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		if (reply === '__submit__') {
 			return Boolean(onSubmitNow || onIntakeCtaResponse);
 		}
+		if (reply.startsWith('__pay__:')) {
+			return true;
+		}
 		return Boolean(onQuickReply);
 	}));
 	const leadIntake = leadReview?.intake;
@@ -329,6 +332,21 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{t('chat.submitRequest')}
 								</Button>
 							) : null
+						) : reply.startsWith('__pay__:') ? (
+							(() => {
+								const payUrl = reply.slice('__pay__:'.length);
+								return payUrl ? (
+									<Button
+										key="__pay__"
+										variant="primary"
+										size="sm"
+										className="shrink-0"
+										onClick={() => window.open(payUrl, '_blank', 'noopener,noreferrer')}
+									>
+										{t('chat.payAndSubmit')}
+									</Button>
+								) : null;
+							})()
 						) : (
 							onQuickReply ? (
 								<Button
