@@ -436,6 +436,13 @@ export const useChatComposer = ({
         if (message.id === bubbleIdToHandle) return false;
         if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
         if (message.role !== 'assistant') return false;
+        
+        // Only consider messages explicitly tied to this streaming bubble
+        const isLinked = 
+          message.reply_to_message_id === bubbleIdToHandle ||
+          (message.metadata && message.metadata.sourceBubbleId === bubbleIdToHandle);
+        if (!isLinked) return false;
+
         if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
         const normalizedAssistant = normalizeMessage(message.content);
         return isSufficientlySimilar(normalizedAssistant, normalizedBubble);

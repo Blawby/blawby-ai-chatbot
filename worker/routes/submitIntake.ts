@@ -405,8 +405,9 @@ export async function handleSubmitIntake(
   });
   const paymentRequiredBeforeSubmit = Boolean((intakeSettings?.prefillAmount ?? 0) > 0);
   const paymentReceived = consultation?.submission?.paymentReceived === true;
+  const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';
   const caseInfoComplete = isCaseInfoComplete(intake, draft);
-  const submitEligibility = caseInfoComplete && (!paymentRequiredBeforeSubmit || paymentReceived);
+  const submitEligibility = caseInfoComplete && (generatePaymentLinkOnly || !paymentRequiredBeforeSubmit || paymentReceived);
   Logger.info('[submitIntake] Submit eligibility evaluated', {
     conversationId,
     practiceId,

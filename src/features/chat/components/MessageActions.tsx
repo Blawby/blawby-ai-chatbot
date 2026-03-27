@@ -357,7 +357,13 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										variant="primary"
 										size="sm"
 										className="shrink-0"
-										onClick={() => window.open(payUrl, '_blank', 'noopener,noreferrer')}
+										onClick={() => {
+											if (onOpenPayment) {
+												onOpenPayment({ paymentLinkUrl: payUrl });
+											} else {
+												window.open(payUrl, '_blank', 'noopener,noreferrer');
+											}
+										}}
 									>
 										{t('chat.payAndSubmit')}
 									</Button>

@@ -171,7 +171,7 @@ interface UseIntakeFlowResult {
    * Phase 2: call the submit-intake API and post the success/payment-prompt message.
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
-  handleFinalizeSubmit: () => Promise<{ paymentLinkUrl: string | null }>;
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
   /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
   handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
@@ -198,7 +198,7 @@ export function useIntakeFlow({
   const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
   const phase1InFlightRef = useRef(false);
-  const finalizeRef = useRef<() => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
+  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
   const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -518,7 +518,7 @@ export function useIntakeFlow({
         // paymentLinkUrl directly — reading it from conversation metadata was
         // always wrong because handleFinalizeSubmit stores it in the system
         // *message* metadata, not in the conversation metadata object.
-        const finalizeResult = await finalizeRef.current();
+        const finalizeResult = await finalizeRef.current({ generatePaymentLinkOnly: true });
         const paymentLinkUrl = finalizeResult?.paymentLinkUrl ?? null;
 
         // Step 2: Read the intakeUuid that handleFinalizeSubmit just persisted
@@ -655,7 +655,7 @@ export function useIntakeFlow({
    *   - directly by handleConfirmSubmit when no payment is required, OR
    *   - by the payment UI's onSuccess callback after payment completes.
    */
-  const handleFinalizeSubmit = useCallback(async (): Promise<{ paymentLinkUrl: string | null }> => {
+  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null }> => {
     if (!conversationId || !practiceId) return { paymentLinkUrl: null };
 
     const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
@@ -680,8 +680,9 @@ export function useIntakeFlow({
     }
     submitInFlightRef.current = true;
     try {
+      const generatePaymentLinkParam = options?.generatePaymentLinkOnly ? '&generatePaymentLinkOnly=true' : '';
       const response = await fetch(
-        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
+        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}${generatePaymentLinkParam}`,
         { method: 'POST', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' },
       );
       if (!response.ok) {
@@ -767,7 +768,7 @@ export function useIntakeFlow({
   ]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  finalizeRef.current = handleFinalizeSubmit as () => Promise<{ paymentLinkUrl: string | null }>;
+  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
 
   // Cancel any in-flight payment polling when the hook unmounts.
   useEffect(() => {
