@@ -1,28 +1,28 @@
 import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { getMajorAmountValue } from '@/shared/utils/money';
-import { LineItemsBuilder } from '@/features/invoices/components/LineItemsBuilder';
+import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
+import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
 import {
-  deleteInvoice,
   getInvoice,
-  sendInvoice,
   syncInvoice,
-  updateInvoice,
   voidInvoice,
 } from '@/features/invoices/services/invoicesService';
-import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import type { InvoiceDetail } from '@/features/invoices/types';
-import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
+import { resolveInvoicePageMode } from '@/features/invoices/utils/invoicePageConfig';
 
 const isActionableOpenStatus = (status: string): boolean => {
   return ['sent', 'pending', 'open', 'overdue'].includes(status);
+};
+
+const isRefundEligibleStatus = (status: string): boolean => {
+  return !['draft', 'void', 'cancelled'].includes(status);
 };
 
 const renderEventDate = (value: string | null): string => {
@@ -47,16 +47,16 @@ export function PracticeInvoiceDetailPage({
   showBack?: boolean;
 }) {
   const { navigate } = useNavigation();
-  const { showError, showSuccess, showInfo } = useToastContext();
+  const { showError, showInfo, showSuccess } = useToastContext();
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
-  const [notes, setNotes] = useState('');
-  const [memo, setMemo] = useState('');
-  const [dueDate, setDueDate] = useState('');
+
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [submittingMockRefund, setSubmittingMockRefund] = useState(false);
+  const formRef = useRef<InvoiceFormHandle | null>(null);
 
   const loadDetail = useCallback((signal?: AbortSignal) => {
     if (!practiceId || !invoiceId) return Promise.resolve();
@@ -71,10 +71,6 @@ export function PracticeInvoiceDetailPage({
           return;
         }
         setDetail(result);
-        setLineItems(result.lineItems);
-        setNotes(result.notes ?? '');
-        setMemo(result.memo ?? '');
-        setDueDate(result.dueDate ? result.dueDate.slice(0, 10) : '');
       })
       .catch((err) => {
         if (err.name === 'AbortError') return;
@@ -91,8 +87,22 @@ export function PracticeInvoiceDetailPage({
   }, [loadDetail]);
 
   const status = useMemo(() => (detail?.status ?? 'draft').toLowerCase(), [detail?.status]);
-
+  const mode = useMemo(() => resolveInvoicePageMode(status), [status]);
+  const isDraft = mode === 'edit';
   const hasHostedUrl = Boolean(detail?.stripeHostedInvoiceUrl);
+  const canMockRefund = Boolean(detail && isRefundEligibleStatus(status) && detail.amountPaid > 0);
+
+  const builderClientOptions = useMemo(() => {
+    if (!detail) return [];
+    const label = detail.clientName?.trim() || 'Person';
+    return [{ value: detail.sourceInvoice.client_id, label }];
+  }, [detail]);
+
+  const builderMatterOptions = useMemo(() => {
+    if (!detail?.sourceInvoice.matter_id) return [];
+    const label = detail.matterTitle?.trim() || 'Matter';
+    return [{ value: detail.sourceInvoice.matter_id, label, meta: detail.sourceInvoice.client_id }];
+  }, [detail]);
 
   const handleOpenHostedInvoice = useCallback(() => {
     if (!detail?.stripeHostedInvoiceUrl) {
@@ -107,16 +117,14 @@ export function PracticeInvoiceDetailPage({
     navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices`);
   }, [navigate, practiceSlug]);
 
-  const handleSend = useCallback(async () => {
-    if (!practiceId || !invoiceId) return;
-    try {
-      await sendInvoice(practiceId, invoiceId);
-      showSuccess('Invoice sent', 'The invoice was sent successfully.');
-      await loadDetail();
-    } catch (err) {
-      showError('Invoice send failed', err instanceof Error ? err.message : 'Failed to send invoice');
+  const handleBuilderSuccess = useCallback(async (updatedInvoiceId?: string | null) => {
+    const safeInvoiceId = updatedInvoiceId?.trim();
+    if (safeInvoiceId && safeInvoiceId !== detail?.id && practiceSlug) {
+      navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(safeInvoiceId)}`);
+      return;
     }
-  }, [invoiceId, loadDetail, practiceId, showError, showSuccess]);
+    await loadDetail();
+  }, [detail?.id, loadDetail, navigate, practiceSlug]);
 
   const handleSync = useCallback(async () => {
     if (!practiceId || !invoiceId) return;
@@ -143,59 +151,35 @@ export function PracticeInvoiceDetailPage({
     }
   }, [invoiceId, loadDetail, practiceId, showError, showSuccess]);
 
-  const handleDelete = useCallback(async () => {
-    if (!practiceId || !invoiceId) return;
-    const confirmed = window.confirm('Delete this draft invoice?');
-    if (!confirmed) return;
-
-    try {
-      await deleteInvoice(practiceId, invoiceId);
-      showSuccess('Invoice deleted', 'Draft invoice deleted.');
-      handleBackToList();
-    } catch (err) {
-      showError('Invoice delete failed', err instanceof Error ? err.message : 'Failed to delete invoice');
+  const handleSubmitMockRefund = useCallback(async () => {
+    if (!detail) return;
+    if (!refundReason.trim()) {
+      showError('Refund request', 'Please provide a reason.');
+      return;
     }
-  }, [handleBackToList, invoiceId, practiceId, showError, showSuccess]);
-  const handleCancelEdit = useCallback(() => {
-    if (detail) {
-      setLineItems(detail.lineItems);
-      setNotes(detail.notes ?? '');
-      setMemo(detail.memo ?? '');
-      setDueDate(detail.dueDate ? detail.dueDate.slice(0, 10) : '');
+
+    const parsedAmount = refundAmount.trim().length > 0 ? Number(refundAmount) : undefined;
+    if (parsedAmount !== undefined && (!Number.isFinite(parsedAmount) || parsedAmount <= 0)) {
+      showError('Refund request', 'Amount must be a positive number.');
+      return;
     }
-    setEditing(false);
-  }, [detail]);
 
-  const handleSaveEdit = useCallback(async () => {
-    if (!practiceId || !invoiceId || !detail) return;
-    setSavingEdit(true);
+    if (parsedAmount !== undefined && parsedAmount > detail.amountPaid) {
+      showError('Refund request', 'Amount cannot be greater than the amount paid.');
+      return;
+    }
+
+    setSubmittingMockRefund(true);
     try {
-      let localDueDate: string | undefined;
-      const dueDateTrimmed = dueDate.trim();
-      if (dueDateTrimmed) {
-        const parts = dueDateTrimmed.split('-').map(Number);
-        if (parts.length === 3 && parts.every((p) => !Number.isNaN(p))) {
-          const [year, month, day] = parts;
-          localDueDate = new Date(year, month - 1, day).toISOString();
-        }
-      }
-
-      await updateInvoice(practiceId, invoiceId, {
-        line_items: lineItems,
-        notes: notes.trim() || undefined,
-        memo: memo.trim() || undefined,
-        due_date: localDueDate,
-        invoice_type: detail.sourceInvoice.invoice_type,
-      });
-      showSuccess('Invoice updated', 'Draft invoice has been updated.');
-      setEditing(false);
-      await loadDetail();
-    } catch (err) {
-      showError('Invoice update failed', err instanceof Error ? err.message : 'Failed to update invoice');
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      showSuccess('Refund request queued', 'Mock refund flow: request captured locally while backend endpoints are in progress.');
+      setRefundReason('');
+      setRefundAmount('');
+      setRefundModalOpen(false);
     } finally {
-      setSavingEdit(false);
+      setSubmittingMockRefund(false);
     }
-  }, [detail, dueDate, invoiceId, lineItems, loadDetail, memo, notes, practiceId, showError, showSuccess]);
+  }, [detail, refundAmount, refundReason, showError, showSuccess]);
 
   if (loading) {
     return <div className="p-6 text-sm text-input-placeholder">Loading invoice...</div>;
@@ -207,6 +191,10 @@ export function PracticeInvoiceDetailPage({
 
   if (!detail) {
     return <div className="p-6 text-sm text-input-placeholder">Invoice not found.</div>;
+  }
+
+  if (!practiceId) {
+    return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;
   }
 
   return (
@@ -221,11 +209,11 @@ export function PracticeInvoiceDetailPage({
         inspectorOpen={inspectorOpen}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
-            {status === 'draft' ? (
+            {isDraft ? (
               <>
-                <Button variant="secondary" onClick={() => setEditing((prev) => !prev)}>{editing ? 'Close edit' : 'Edit'}</Button>
-                <Button onClick={() => void handleSend()}>Send</Button>
-                <Button variant="danger-ghost" onClick={() => void handleDelete()}>Delete</Button>
+                <Button onClick={() => formRef.current?.requestSend()}>
+                  Send invoice
+                </Button>
               </>
             ) : null}
             {isActionableOpenStatus(status) ? (
@@ -238,128 +226,72 @@ export function PracticeInvoiceDetailPage({
             {status === 'paid' ? (
               <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
             ) : null}
+            {canMockRefund ? (
+              <Button variant="secondary" onClick={() => setRefundModalOpen(true)}>Issue refund (Mock)</Button>
+            ) : null}
           </div>
         )}
       />
-      <div className="mt-1">
-        <InvoiceStatusBadge status={detail.status} />
-      </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="glass-panel p-4">
-          <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Total</p>
-          <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.total)}</p>
-        </div>
-        <div className="glass-panel p-4">
-          <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount paid</p>
-          <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountPaid)}</p>
-        </div>
-        <div className="glass-panel p-4">
-          <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount due</p>
-          <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountDue)}</p>
-        </div>
-      </div>
+      <InvoiceForm
+        ref={formRef}
+        mode={mode}
+        practiceId={practiceId}
+        connectedAccountId={detail.sourceInvoice.connected_account_id}
+        clientOptions={builderClientOptions}
+        matterOptions={builderMatterOptions}
+        initialClientId={detail.sourceInvoice.client_id}
+        initialMatterId={detail.sourceInvoice.matter_id ?? undefined}
+        initialLineItems={detail.lineItems}
+        initialDueDate={detail.dueDate ? detail.dueDate.slice(0, 10) : undefined}
+        initialNotes={detail.notes ?? undefined}
+        initialMemo={detail.memo ?? undefined}
+        initialInvoiceType={detail.sourceInvoice.invoice_type}
+        existingInvoiceId={detail.id}
+        closeAfterSuccess={false}
+        hideFooterActions
+        onClose={handleBackToList}
+        onSuccess={handleBuilderSuccess}
+      />
 
-      {editing ? (
-        <div className="glass-panel p-4">
-          <h2 className="text-base font-semibold text-input-text">Edit draft invoice</h2>
-          <p className="mt-1 text-sm text-input-placeholder">Inline editing for draft invoices.</p>
-          <div className="mt-4 space-y-4">
-            <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
-            <Input type="date" label="Due date" value={dueDate} onChange={setDueDate} />
-            <Textarea label="Notes" value={notes} onChange={setNotes} rows={3} />
-            <Textarea label="Memo" value={memo} onChange={setMemo} rows={2} />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={handleCancelEdit}>Cancel</Button>
-              <Button onClick={() => void handleSaveEdit()} disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Save changes'}</Button>
-            </div>
+      <Modal
+        isOpen={refundModalOpen}
+        onClose={() => setRefundModalOpen(false)}
+        title="Issue refund (Mock)"
+        contentClassName="max-w-xl"
+        disableBackdropClick={submittingMockRefund}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-input-placeholder">
+            This flow is currently mocked and does not execute a real backend refund.
+          </p>
+          <Input
+            type="number"
+            label="Amount"
+            value={refundAmount}
+            onChange={setRefundAmount}
+            min={0}
+            step={0.01}
+            placeholder={`Up to ${detail.amountPaid}`}
+            disabled={submittingMockRefund}
+          />
+          <Textarea
+            label="Reason"
+            value={refundReason}
+            onChange={setRefundReason}
+            rows={3}
+            disabled={submittingMockRefund}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setRefundModalOpen(false)} disabled={submittingMockRefund}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleSubmitMockRefund()} disabled={submittingMockRefund}>
+              {submittingMockRefund ? 'Submitting...' : 'Queue refund request'}
+            </Button>
           </div>
         </div>
-      ) : null}
-
-      <div className="glass-panel overflow-hidden">
-        <div className="border-b border-line-glass/30 px-4 py-3">
-          <h2 className="text-base font-semibold text-input-text">Line items</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="border-b border-line-glass/30 text-xs uppercase tracking-[0.08em] text-input-placeholder">
-              <tr>
-                <th className="px-4 py-3 text-left">Description</th>
-                <th className="px-4 py-3 text-left">Type</th>
-                <th className="px-4 py-3 text-right">Qty</th>
-                <th className="px-4 py-3 text-right">Unit</th>
-                <th className="px-4 py-3 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail.lineItems.map((item) => (
-                <tr key={item.id} className="border-b border-line-glass/20 last:border-b-0">
-                  <td className="px-4 py-3 text-input-text">{item.description || '—'}</td>
-                  <td className="px-4 py-3 text-input-text">{item.type}</td>
-                  <td className="px-4 py-3 text-right text-input-text">{item.quantity}</td>
-                  <td className="px-4 py-3 text-right text-input-text">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-input-text">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="glass-panel p-4">
-          <h3 className="text-sm font-semibold text-input-text">Activity & payments</h3>
-          {detail.payments.length === 0 ? (
-            <p className="mt-2 text-sm text-input-placeholder">No payment history.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {detail.payments.map((payment) => (
-                <li key={payment.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
-                  <p className="font-medium text-input-text">{formatCurrency(payment.amount)} • {payment.status}</p>
-                  <p className="text-xs text-input-placeholder">{renderEventDate(payment.paidAt)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="glass-panel p-4">
-          <h3 className="text-sm font-semibold text-input-text">Refund history</h3>
-          {detail.refunds.length === 0 ? (
-            <p className="mt-2 text-sm text-input-placeholder">No refunds on this invoice.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {detail.refunds.map((refund) => (
-                <li key={refund.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
-                  <p className="font-medium text-input-text">{formatCurrency(refund.amount)} • {refund.status}</p>
-                  <p className="text-xs text-input-placeholder">{renderEventDate(refund.createdAt)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="glass-panel p-4">
-          <h3 className="text-sm font-semibold text-input-text">Refund tooling</h3>
-          <p className="mt-2 text-sm text-input-placeholder">
-            Direct refund actions are disabled until backend refund execution endpoints are available.
-          </p>
-          <Button variant="secondary" size="sm" className="mt-3" disabled>
-            Issue refund (Unavailable)
-          </Button>
-          {detail.refundRequests.length > 0 ? (
-            <ul className="mt-3 space-y-2 text-sm">
-              {detail.refundRequests.map((request) => (
-                <li key={request.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
-                  <p className="font-medium text-input-text">{request.status}</p>
-                  <p className="text-xs text-input-placeholder">{renderEventDate(request.createdAt)}</p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      </div>
+      </Modal>
     </div>
   );
 }

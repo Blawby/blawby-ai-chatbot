@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import axios from 'axios';
-import { Bars3Icon } from '@heroicons/react/24/outline';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
@@ -194,7 +194,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
-  routeInvoiceId,
+  routeInvoiceId: _routeInvoiceId,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -479,11 +479,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'clients' && selectedClientIdFromPath) {
       return { entityType: 'client' as const, entityId: selectedClientIdFromPath };
     }
-    if (view === 'invoiceDetail' && routeInvoiceId) {
-      return { entityType: 'invoice' as const, entityId: routeInvoiceId };
-    }
     return null;
-  }, [activeConversationId, routeInvoiceId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
+  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleOpenInspector = () => {
@@ -1528,7 +1525,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       size="icon-sm"
       onClick={primaryCreateAction.onClick}
       aria-label={primaryCreateAction.label}
-      icon={PlusIcon} iconClassName="h-5 w-5"
+      icon={primaryCreateAction.icon ?? PlusIcon}
+      iconClassName="h-5 w-5"
     />
   ) : null;
   const desktopCreateButton = primaryCreateAction ? (
@@ -1538,7 +1536,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       size="icon-sm"
       onClick={primaryCreateAction.onClick}
       aria-label={primaryCreateAction.label}
-      icon={PlusIcon} iconClassName="h-5 w-5"
+      icon={primaryCreateAction.icon ?? PlusIcon}
+      iconClassName="h-5 w-5"
     />
   ) : null;
   const detailInspectorOpen = Boolean(inspectorTarget) && isInspectorOpen;
@@ -1728,6 +1727,43 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : undefined;
+  const invoiceCreateTopBar = view === 'invoiceCreate' ? (
+    <WorkspaceListHeader
+      leftControls={(
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="icon"
+            size="icon-sm"
+            aria-label="Close invoice composer"
+            onClick={() => {
+              if (workspace === 'practice' && practiceSlug) {
+                navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices`);
+                return;
+              }
+              if (workspace === 'client' && practiceSlug) {
+                navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices`);
+              }
+            }}
+            icon={XMarkIcon}
+            iconClassName="h-5 w-5"
+          />
+          <div className="h-5 w-px bg-line-glass/30" aria-hidden="true" />
+        </div>
+      )}
+      title={<h1 className="workspace-header__title">Create Invoice</h1>}
+      controls={primaryCreateAction ? (
+        <Button
+          type="button"
+          size="sm"
+          onClick={primaryCreateAction.onClick}
+        >
+          {primaryCreateAction.label}
+        </Button>
+      ) : undefined}
+      className={layoutMode === 'desktop' ? 'px-4 py-2' : 'px-1 py-1'}
+    />
+  ) : undefined;
   const sectionContent = (() => {
     switch (view) {
       case 'setup':
@@ -1765,7 +1801,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       invoiceListIsEmpty={invoiceListIsEmpty}
       chatView={chatView}
       content={sectionContent}
-      topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
+      topBar={invoiceCreateTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
       bottomNav={bottomNav}
       sectionPlaceholderAction={
         layoutMode === 'desktop' && (view === 'matters' || view === 'invoices') ? primaryCreateAction ?? undefined : undefined
