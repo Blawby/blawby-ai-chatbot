@@ -172,7 +172,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     const initial = initialDueDate ?? defaultDueDate;
     return initial === defaultDueDate ? 'tomorrow' : 'custom';
   });
-  const isSaving = false;
+  const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(
@@ -235,10 +235,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     () => serializeInvoiceUpdatePayload(currentUpdatePayload),
     [currentUpdatePayload]
   );
-  const previewIssueDate = useMemo(() => {
-    const explicitIssueDate = (currentUpdatePayload as { issue_date?: string | Date | null }).issue_date;
-    return explicitIssueDate ?? new Date();
-  }, [currentUpdatePayload]);
+  const previewIssueDate = useMemo(() => new Date(), []);
 
   const isValidConnectedAccount = useMemo(
     () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
@@ -294,6 +291,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       return;
     }
     if (disableActions || !connectedAccountId) return;
+    setIsSaving(true);
     setIsSending(true);
     setSendError(null);
     let invoiceId = createdInvoiceId;
@@ -346,6 +344,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       );
     } finally {
       setIsSending(false);
+      setIsSaving(false);
       setShowSendDialog(false);
     }
   };

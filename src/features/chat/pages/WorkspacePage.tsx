@@ -1743,7 +1743,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
               }
               if (workspace === 'client' && practiceSlug) {
                 navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices`);
+                return;
               }
+              navigate('/dashboard');
             }}
             icon={XMarkIcon}
             iconClassName="h-5 w-5"
