@@ -511,6 +511,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     intakeSubmitted?: boolean;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
     additionalContext?: string;
+    sourceBubbleId?: string;
   };
   Logger.info('AI chat timing: request body parsed', {
     conversationId: body.conversationId ?? null,
@@ -863,12 +864,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
     const startedAt = Date.now();
     let responseClosed = false;
-
-      // Add timeout for the initial AI request
-      const controller = new AbortController();
-      let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-        controller.abort();
-      }, AI_TIMEOUT_MS);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
       if (isIntakeMode || isOnboardingMode) {
@@ -987,6 +983,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const conversationRequestStartedAt = Date.now();
       let conversationTTFTMs: number | null = null;
+      // Conversation timeout should start only when the conversation request starts,
+      // not during intake pre-processing/extraction work.
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, AI_TIMEOUT_MS);
       const streamWrite = (payload: Record<string, unknown>) => {
         if (conversationTTFTMs === null && typeof payload.token === 'string' && payload.token.length > 0) {
           conversationTTFTMs = Date.now() - conversationRequestStartedAt;
@@ -1208,6 +1210,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           metadata: {
             source: 'ai',
             model: model,
+            ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
             ...(aigStep ? { aigStep } : {}),
             ...(intakeFields ? { intakeFields } : {}),
             ...(onboardingFields ? { onboardingFields } : {}),

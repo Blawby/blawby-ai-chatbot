@@ -348,8 +348,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								
 								if (!isValidUrl) return null;
 								
-								// Generate unique React key
-								const uniqueKey = `pay-${payUrl.slice(0, 20)}-${payUrl.length}`;
+								// Generate unique React key based on full URL
+								const uniqueKey = `pay-${encodeURIComponent(payUrl)}`;
 								
 								return (
 									<Button

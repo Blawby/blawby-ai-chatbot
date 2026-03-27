@@ -542,7 +542,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     // Phase 2: now that payment is confirmed, create the intake record.
     if (onFinalizeSubmit) {
       try {
-        await onFinalizeSubmit();
+        const result = await onFinalizeSubmit();
+        if (result && typeof result === 'object' && 'paymentLinkUrl' in result && result.paymentLinkUrl) {
+          openPayment({
+            intakeUuid: paymentRequest?.intakeUuid ?? '',
+            paymentLinkUrl: result.paymentLinkUrl,
+            practiceId: paymentRequest?.practiceId ?? '',
+            conversationId: paymentRequest?.conversationId ?? '',
+          });
+        }
       } catch (finalizeError) {
         console.error('[ChatContainer] handleFinalizeSubmit failed after payment success', finalizeError);
       }

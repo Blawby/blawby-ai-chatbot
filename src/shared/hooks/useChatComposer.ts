@@ -419,6 +419,11 @@ export const useChatComposer = ({
     const isSufficientlySimilar = (str1: string, str2: string): boolean => {
       if (str1 === str2) return true;
       
+      // Normalized fallback for short, identical responses like "Hello." vs "hello"
+      const norm1 = str1.trim().toLowerCase().replace(/[.,!?;:]+$/, '');
+      const norm2 = str2.trim().toLowerCase().replace(/[.,!?;:]+$/, '');
+      if (norm1 === norm2) return true;
+      
       const minLength = 20; // minimum length for similarity check
       if (str1.length < minLength || str2.length < minLength) return false;
       
@@ -657,6 +662,7 @@ export const useChatComposer = ({
             ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
             mode: effectiveMode, intakeSubmitted, messages: aiMessages,
             additionalContext: options?.additionalContext,
+            sourceBubbleId: bubbleId,
           }),
         });
 
