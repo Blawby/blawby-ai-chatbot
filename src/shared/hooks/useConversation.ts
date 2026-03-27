@@ -526,45 +526,50 @@ export const useConversation = ({
 
       if (additions.length > 0) {
         const pendingId = pendingStreamMessageIdRef.current;
-        const streamingBubble = next.find(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-        if (pendingId) {
-          const matchIndex = additions.findIndex(m => m.id === pendingId);
-          if (matchIndex !== -1 && streamingBubble) {
-            const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
-              ? streamingBubble.metadata.__client_id
-              : streamingBubble.id;
-            const persisted = additions[matchIndex];
-            additions[matchIndex] = {
-              ...persisted,
-              timestamp: streamingBubble.timestamp,
-              metadata: {
-                ...(persisted.metadata ?? {}),
-                __client_id: streamingClientId,
-              },
-            } as ChatMessageUI;
-            pendingStreamMessageIdRef.current = null;
-            if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
-            next = next.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-          }
-        } else if (streamingBubble) {
-          const messageCandidate = additions.find(m => m.role === 'assistant' || m.role === 'system');
-          if (messageCandidate) {
-            const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
-              ? streamingBubble.metadata.__client_id
-              : streamingBubble.id;
-            const targetIndex = additions.findIndex(m => m.id === messageCandidate.id);
-            const persisted = additions[targetIndex];
-            additions[targetIndex] = {
-              ...persisted,
-              timestamp: streamingBubble.timestamp,
-              metadata: {
-                ...(persisted.metadata ?? {}),
-                __client_id: streamingClientId,
-              },
-            } as ChatMessageUI;
-            pendingStreamMessageIdRef.current = null;
-            if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
-            next = next.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+        const streamingBubbles = next.filter(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+        if (streamingBubbles.length === 1) {
+          const streamingBubble = streamingBubbles[0];
+          if (pendingId) {
+            const matchingAdditions = additions.filter(m => m.id === pendingId);
+            if (matchingAdditions.length === 1) {
+              const matchIndex = additions.findIndex(m => m.id === pendingId);
+              const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
+                ? streamingBubble.metadata.__client_id
+                : streamingBubble.id;
+              const persisted = additions[matchIndex];
+              additions[matchIndex] = {
+                ...persisted,
+                timestamp: streamingBubble.timestamp,
+                metadata: {
+                  ...(persisted.metadata ?? {}),
+                  __client_id: streamingClientId,
+                },
+              } as ChatMessageUI;
+              pendingStreamMessageIdRef.current = null;
+              if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
+              next = next.filter(m => m.id !== streamingBubble.id);
+            }
+          } else {
+            const candidateAdditions = additions.filter(m => m.role === 'assistant' || m.role === 'system');
+            if (candidateAdditions.length === 1) {
+              const messageCandidate = candidateAdditions[0];
+              const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
+                ? streamingBubble.metadata.__client_id
+                : streamingBubble.id;
+              const targetIndex = additions.findIndex(m => m.id === messageCandidate.id);
+              const persisted = additions[targetIndex];
+              additions[targetIndex] = {
+                ...persisted,
+                timestamp: streamingBubble.timestamp,
+                metadata: {
+                  ...(persisted.metadata ?? {}),
+                  __client_id: streamingClientId,
+                },
+              } as ChatMessageUI;
+              pendingStreamMessageIdRef.current = null;
+              if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
+              next = next.filter(m => m.id !== streamingBubble.id);
+            }
           }
         }
         next = [...next, ...additions];
