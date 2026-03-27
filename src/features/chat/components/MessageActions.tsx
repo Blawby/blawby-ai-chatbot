@@ -335,9 +335,25 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						) : reply.startsWith('__pay__:') ? (
 							(() => {
 								const payUrl = reply.slice('__pay__:'.length);
-								return payUrl ? (
+								if (!payUrl) return null;
+								
+								// Validate URL protocol
+								let isValidUrl = false;
+								try {
+									const url = new URL(payUrl);
+									isValidUrl = url.protocol === 'http:' || url.protocol === 'https:';
+								} catch {
+									isValidUrl = false;
+								}
+								
+								if (!isValidUrl) return null;
+								
+								// Generate unique React key
+								const uniqueKey = `pay-${payUrl.slice(0, 20)}-${payUrl.length}`;
+								
+								return (
 									<Button
-										key="__pay__"
+										key={uniqueKey}
 										variant="primary"
 										size="sm"
 										className="shrink-0"
@@ -345,7 +361,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									>
 										{t('chat.payAndSubmit')}
 									</Button>
-								) : null;
+								);
 							})()
 						) : (
 							onQuickReply ? (

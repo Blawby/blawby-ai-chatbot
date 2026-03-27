@@ -443,8 +443,9 @@ export async function handleSubmitIntake(
   const resolvedAmountMinor = typeof intakeSettings?.prefillAmount === 'number'
     ? intakeSettings.prefillAmount
     : (() => {
-        if (paymentRequiredBeforeSubmit) {
-          Logger.warn('[submitIntake] intakeSettings unavailable but payment is required; using safe fallback amount=50', {
+        // Only use fallback when intakeSettings fetch failed (null), not when it's available but payment isn't required
+        if (intakeSettings === null) {
+          Logger.warn('[submitIntake] intakeSettings unavailable (fetch failed); using safe fallback amount=50', {
             conversationId,
             practiceId,
             slug,

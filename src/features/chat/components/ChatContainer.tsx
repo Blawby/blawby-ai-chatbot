@@ -80,7 +80,7 @@ export interface ChatContainerProps {
   onBuildBrief?: () => void;
   onSubmitNow?: () => void | Promise<void>;
   /** Phase 2: called after payment is confirmed; creates the intake record */
-  onFinalizeSubmit?: () => void | Promise<void>;
+  onFinalizeSubmit?: () => void | Promise<{ paymentLinkUrl: string | null }>;
   slimContactDraft?: {
     name: string;
     email: string;

@@ -551,7 +551,13 @@ export const useConversation = ({
           );
           const assistantAdditionIndexes = additions
             .map((message, index) => ({ message, index }))
-            .filter(({ message }) => message.role === 'assistant');
+            .filter(({ message }) => (
+              message.role === 'assistant'
+              || (
+                message.role === 'system'
+                && message.metadata?.source === 'ai'
+              )
+            ));
 
           const bubbleIdsToRemove = new Set<string>();
           const usedAdditionIndexes = new Set<number>();
@@ -608,7 +614,7 @@ export const useConversation = ({
           // Safety fallback: if a single assistant message arrived and only stream bubbles are pending,
           // collapse the newest stream bubble to avoid duplicate assistant bubbles.
           if (bubbleIdsToRemove.size === 0 && assistantAdditionIndexes.length === 1 && streamingBubbles.length > 0) {
-            const newestBubble = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp)[0];
+            const newestBubble = streamingBubblesNewestFirst[0];
             const newestBubbleContent = typeof newestBubble.content === 'string' ? normalizeMessage(newestBubble.content) : '';
             const assistantContent = typeof assistantAdditionIndexes[0].message.content === 'string'
               ? normalizeMessage(assistantAdditionIndexes[0].message.content)
@@ -620,7 +626,18 @@ export const useConversation = ({
                 || assistantContent.includes(newestBubbleContent)
                 || newestBubbleContent.includes(assistantContent)
                 || hasMeaningfulTokenOverlap(assistantContent, newestBubbleContent));
-            if (bubbleIsRecent || bubbleHasSimilarity) {
+            
+            // Context guard: prefer same request context when present, but still allow
+            // strong content matches to collapse duplicate UI bubbles.
+            const bubbleClientId = typeof newestBubble.metadata?.__client_id === 'string'
+              ? newestBubble.metadata.__client_id
+              : newestBubble.id;
+            const assistantClientId = typeof assistantAdditionIndexes[0].message.metadata?.__client_id === 'string'
+              ? assistantAdditionIndexes[0].message.metadata.__client_id
+              : assistantAdditionIndexes[0].message.id;
+            const contextsMatch = bubbleClientId === assistantClientId;
+            
+            if (bubbleIsRecent && (contextsMatch || bubbleHasSimilarity)) {
               bubbleIdsToRemove.add(newestBubble.id);
               carryBubbleTimestampToAddition(newestBubble, assistantAdditionIndexes[0].index);
             }
