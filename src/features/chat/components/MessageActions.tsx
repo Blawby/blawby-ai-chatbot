@@ -149,9 +149,11 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
 	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
 	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
-	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
 	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
 		if (reply === '__submit__') {
+			return Boolean(onSubmitNow || onIntakeCtaResponse);
+		}
+		if (reply === '__continue_payment__') {
 			return Boolean(onSubmitNow || onIntakeCtaResponse);
 		}
 		if (reply.startsWith('__pay__:')) {
@@ -159,6 +161,12 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		}
 		return Boolean(onQuickReply);
 	}));
+	const showCtaButtons = Boolean(
+		showIntakeCta
+		&& (onIntakeCtaResponse || onSubmitNow)
+		&& intakeConversationState?.ctaResponse !== 'ready'
+		&& !hasRenderableQuickReply
+	);
 	const leadIntake = leadReview?.intake;
 	const formatLeadAmount = (amount?: number, currency?: string) => {
 		if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
@@ -314,6 +322,25 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{isLast && quickReplies && quickReplies.length > 0 && hasRenderableQuickReply && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
+						reply === '__continue_payment__' ? (
+							(onSubmitNow || onIntakeCtaResponse) ? (
+								<Button
+									key="__continue_payment__"
+									variant="primary"
+									size="sm"
+									className="shrink-0"
+									onClick={() => {
+										if (onSubmitNow) {
+											void onSubmitNow();
+										} else {
+											onIntakeCtaResponse?.('ready');
+										}
+									}}
+								>
+									{t('chat.continue')}
+								</Button>
+							) : null
+						) : (
 						reply === '__submit__' ? (
 							(onSubmitNow || onIntakeCtaResponse) ? (
 								<Button
@@ -365,9 +392,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 											}
 										}}
 									>
-										{t('chat.payAndSubmit')}
-									</Button>
-								);
+									{t('chat.payAndSubmit')}
+								</Button>
+							);
 							})()
 						) : (
 							onQuickReply ? (
@@ -381,6 +408,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{reply}
 								</Button>
 							) : null
+						)
 						)
 					))}
 				</div>

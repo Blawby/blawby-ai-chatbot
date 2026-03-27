@@ -155,10 +155,11 @@ const readStringField = (record: Record<string, unknown> | null | undefined, key
 
 const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
   if (!state) return false;
-  const hasDescription = Boolean(state.description?.trim());
-  const hasLocation = Boolean(state.city?.trim() || draft?.city?.trim())
-    && Boolean(state.state?.trim() || draft?.state?.trim());
-  const hasOpposingParty = Boolean(state.opposingParty?.trim());
+  const draftRecord = draft as unknown as Record<string, string | undefined> | null | undefined;
+  const hasDescription = Boolean(state.description?.trim() || draftRecord?.description?.trim());
+  const hasLocation = Boolean(state.city?.trim() || draftRecord?.city?.trim())
+    && Boolean(state.state?.trim() || draftRecord?.state?.trim());
+  const hasOpposingParty = Boolean(state.opposingParty?.trim() || draftRecord?.opposing_party?.trim());
   const hasUrgency = Boolean(state.urgency?.trim());
   const hasDesiredOutcome = Boolean(state.desiredOutcome?.trim());
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';

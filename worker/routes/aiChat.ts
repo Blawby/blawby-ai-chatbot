@@ -431,7 +431,7 @@ const deriveQuickActionState = (params: {
 }) => {
   let onboardingFields = params.onboardingFields;
   let quickReplies: string[] | null = null;
-  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_submit' | 'onboardingFields' = 'none';
+  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'onboardingFields' = 'none';
   let onboardingProfile: Record<string, unknown> | null = null;
   let triggerEditModal: string | null = null;
   let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
@@ -465,7 +465,13 @@ const deriveQuickActionState = (params: {
       quickRepliesSource = 'planner_submit';
     } else if (plannerStep.chips.length > 0) {
       quickReplies = plannerStep.chips;
-      quickRepliesSource = plannerStep.chipSource === 'urgency' ? 'planner_urgency' : 'planner_hasDocuments';
+      quickRepliesSource = plannerStep.chipSource === 'urgency'
+        ? 'planner_urgency'
+        : plannerStep.chipSource === 'hasDocuments'
+          ? 'planner_hasDocuments'
+          : plannerStep.chipSource === 'payment'
+            ? 'planner_payment'
+            : 'planner_hasDocuments';
     }
   }
 

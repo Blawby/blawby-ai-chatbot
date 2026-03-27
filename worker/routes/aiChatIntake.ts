@@ -97,7 +97,7 @@ const buildIntakeConversationCtaInstruction = (
     return `\nYou have all the required details to proceed. Briefly offer a recap to confirm readiness and prepare the user to submit. Do NOT ask any new questions.`;
   }
   if (hasCaseInfo && paymentRequiredBeforeSubmit && !paymentCompleted) {
-    return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to continue to payment.';
+    return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to tap Continue to payment. Do NOT include raw URLs or placeholders like [Insert Payment Link].';
   }
   return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
 };
@@ -210,6 +210,7 @@ const isIntakeSubmittable = (
  *   description, city/state, opposingParty, desiredOutcome → open-text → no chips
  *   urgency   → closed enum  → fixed chips
  *   hasDocuments → boolean    → yes/no chips
+ *   payment pending → continue-to-payment chip
  *   all fields present + submittable → emit __submit__ chip (done in aiChat.ts)
  */
 export interface IntakeNextStep {
@@ -217,7 +218,7 @@ export interface IntakeNextStep {
   nextField: string | null;
   /** Pre-computed UI chips; empty array means render no chips for this field */
   chips: string[];
-  chipSource: 'none' | 'urgency' | 'hasDocuments' | 'submit';
+  chipSource: 'none' | 'urgency' | 'hasDocuments' | 'payment' | 'submit';
 }
 
 type DeterministicIntakePatch = Partial<Pick<Record<string, unknown>, 'urgency' | 'hasDocuments' | 'city' | 'state' | 'opposingParty' | 'desiredOutcome'>>;
@@ -256,7 +257,7 @@ export const planNextIntakeStep = (
     };
   }
   if (submissionGate?.paymentRequiredBeforeSubmit === true && submissionGate.paymentCompleted !== true) {
-    return { nextField: 'payment', chips: [], chipSource: 'none' };
+    return { nextField: 'payment', chips: ['__continue_payment__'], chipSource: 'payment' };
   }
   return { nextField: null, chips: [], chipSource: 'none' };
 };

@@ -440,16 +440,21 @@ export const useChatComposer = ({
       normalizedBubble && currentMessages.some(message => {
         if (message.id === bubbleIdToHandle) return false;
         if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
-        if (message.role !== 'assistant') return false;
-        
-        // Only consider messages explicitly tied to this streaming bubble
-        const isLinked = 
+        const isAiMessage = message.role === 'assistant' || (message.role === 'system' && message.metadata?.source === 'ai');
+        if (!isAiMessage) return false;
+        // Prefer explicit linkage when present, but allow strong text similarity
+        // as fallback to avoid temporary duplicate bubbles in delayed SSE handoffs.
+        const isLinked =
           message.reply_to_message_id === bubbleIdToHandle ||
           (message.metadata && message.metadata.sourceBubbleId === bubbleIdToHandle);
-        if (!isLinked) return false;
 
         if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
         const normalizedAssistant = normalizeMessage(message.content);
+        if (isLinked) return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
+
+        const messageAgeMs = Math.abs(Date.now() - message.timestamp);
+        const RECENT_PERSISTED_ASSISTANT_WINDOW_MS = 15_000;
+        if (messageAgeMs > RECENT_PERSISTED_ASSISTANT_WINDOW_MS) return false;
         return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
       })
     );

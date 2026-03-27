@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
-import { fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
+import { fetchIntakePaymentStatus, isPaidIntakeStatus, isTerminalUnpaidStatus } from '@/shared/utils/intakePayments';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
@@ -611,6 +611,24 @@ export function useIntakeFlow({
                     paymentPollingTimerRef.current = null;
                   }
                   await postPaymentConfirmedMessage();
+                } else if (isTerminalUnpaidStatus(status)) {
+                  if (paymentPollingTimerRef.current !== null) {
+                    clearTimeout(paymentPollingTimerRef.current);
+                    paymentPollingTimerRef.current = null;
+                  }
+                  const name =
+                    (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
+                    ?? 'the practice';
+                  try {
+                    const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
+                      clientId: `system-intake-pay-failed-${intakeUuid}`,
+                      content: `Payment failed or was canceled. Please try again when you're ready, or reach out to ${name} directly.`,
+                      metadata: { intakeUuid, paymentStatus: status },
+                    });
+                    if (msg) applyServerMessages([msg]);
+                  } catch (msgError) {
+                    console.warn('[handleConfirmSubmit] Failed to post payment failed message', msgError);
+                  }
                 } else {
                   paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
                 }

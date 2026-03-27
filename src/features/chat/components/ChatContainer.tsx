@@ -388,7 +388,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       return;
     }
     try {
-      onIntakeCtaResponse?.('ready');
+      if (onIntakeCtaResponse) {
+        await Promise.resolve(onIntakeCtaResponse('ready'));
+      }
     } finally {
       submitActionInFlightRef.current = false;
     }

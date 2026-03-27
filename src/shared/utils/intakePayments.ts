@@ -51,6 +51,13 @@ export const isPaidIntakeStatus = (status?: unknown, succeededAt?: unknown): boo
   return normalized ? PAID_STATUSES.has(normalized) : false;
 };
 
+const TERMINAL_UNPAID_STATUSES = new Set(['failed', 'canceled', 'expired', 'declined']);
+export const isTerminalUnpaidStatus = (status?: unknown): boolean => {
+  if (typeof status !== 'string') return false;
+  const normalized = normalizeStatus(status);
+  return normalized ? TERMINAL_UNPAID_STATUSES.has(normalized) : false;
+};
+
 export const isValidStripePaymentLink = (url: string): boolean => {
   try {
     const parsed = new URL(url);
