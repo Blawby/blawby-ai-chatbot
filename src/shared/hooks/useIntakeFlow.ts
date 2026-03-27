@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef } from 'preact/hooks';
 import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
+import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
-import type { FileAttachment } from '../../../worker/types';
+import type { FileAttachment, MinorAmount } from '../../../worker/types';
 import {
   initialIntakeState,
   type IntakeConversationState,
@@ -26,6 +27,7 @@ import {
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
+import { getPracticeClientIntakeSettingsEndpoint } from '@/config/api';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -139,6 +141,11 @@ interface UseIntakeFlowOptions {
     conversationId?: string | null
   ) => Promise<unknown>;
   onError?: (error: unknown) => void;
+  /**
+   * Called when payment is required before intake creation.
+   * The host renders the payment UI; after payment succeeds it calls handleFinalizeSubmit.
+   */
+  onOpenPayment?: (request: IntakePaymentRequest) => void;
 }
 
 interface UseIntakeFlowResult {
@@ -185,6 +192,7 @@ export function useIntakeFlow({
   sendMessage,
   sendMessageOverWs,
   onError,
+  onOpenPayment,
 }: UseIntakeFlowOptions): UseIntakeFlowResult {
   const { session, isAnonymous } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
@@ -472,7 +480,74 @@ export function useIntakeFlow({
         }
       }
 
-      // No payment gate: go straight to finalize.
+      // ── Payment gate ──────────────────────────────────────────────────────
+      // Fetch intake settings to determine whether a consultation fee is required
+      // BEFORE creating the intake record. The API call (finalizeRef.current) must
+      // only happen after payment is confirmed.
+      let prefillAmount = 0;
+      try {
+        const settingsUrl = getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug);
+        const settingsRes = await fetch(settingsUrl, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (settingsRes.ok) {
+          const settingsPayload = await settingsRes.json() as {
+            success?: boolean;
+            data?: {
+              settings?: { prefillAmount?: number; prefill_amount?: number };
+            };
+          };
+          const settings = settingsPayload.data?.settings;
+          prefillAmount =
+            (typeof settings?.prefillAmount === 'number' ? settings.prefillAmount : 0) ||
+            (typeof settings?.prefill_amount === 'number' ? settings.prefill_amount : 0);
+        }
+      } catch (settingsError) {
+        // Fail open: if we can't fetch settings, proceed without payment gate.
+        // This prevents a settings API outage from blocking intake submissions entirely.
+        console.warn('[handleConfirmSubmit] Failed to fetch intake settings, proceeding without payment gate', settingsError);
+        prefillAmount = 0;
+      }
+
+      const paymentRequired = prefillAmount > 0;
+      quickActionDebugLog('payment gate evaluated', { prefillAmount, paymentRequired, effectivePracticeSlug });
+
+      if (paymentRequired) {
+        // Open the payment UI directly (imperative, not via metadata parsing).
+        // ChatContainer's handleOpenPayment sets isPaymentModalOpen + paymentRequest state,
+        // which renders ChatActionCard. After payment succeeds, handlePaymentSuccess calls
+        // onFinalizeSubmit → finalizeRef.current() to create the intake record.
+        if (onOpenPayment) {
+          const paymentGateRequest: IntakePaymentRequest = {
+            practiceId: practiceId ?? undefined,
+            conversationId: conversationId ?? undefined,
+            // prefillAmount is in minor units (cents) as returned by the backend.
+            amount: prefillAmount as MinorAmount,
+            practiceSlug: effectivePracticeSlug,
+            returnTo:
+              typeof window !== 'undefined'
+                ? `${window.location.pathname}${window.location.search}`
+                : undefined,
+          };
+          onOpenPayment(paymentGateRequest);
+        } else {
+          // Fallback: post a system message so payment context survives page reload.
+          // parsePaymentRequestMetadata requires a paymentLinkUrl to be present to
+          // activate the payment card, so we cannot pre-populate it here without
+          // a checkout session. This path is only reached if the host does not
+          // provide onOpenPayment — surface an error instead of blocking silently.
+          console.warn(
+            '[handleConfirmSubmit] Payment is required but no onOpenPayment callback was provided. ' +
+            'The intake cannot be created until payment is confirmed.'
+          );
+          onError?.('Payment is required before submitting. Please refresh and try again.');
+        }
+        // Do NOT call finalizeRef.current() — the intake record must not be created yet.
+        return;
+      }
+
+      // No payment required — create the intake record immediately.
       await finalizeRef.current();
     } catch (error) {
       console.error('[handleConfirmSubmit] Intake submission failed', error);
@@ -481,11 +556,13 @@ export function useIntakeFlow({
       phase1InFlightRef.current = false;
     }
   }, [
+    applyServerMessages,
     conversationId,
     conversationMetadataRef,
     currentUserId,
     isAnonymous,
     onError,
+    onOpenPayment,
     practiceId,
     resolvedSlimContactDraft,
     updateConversationMetadata,

@@ -7,6 +7,8 @@ import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 
+import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
+
 export interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
@@ -17,6 +19,8 @@ export interface UseMessageHandlingOptions {
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
+  /** Called when payment is required before intake creation. ChatContainer wires this to its handleOpenPayment. */
+  onOpenPayment?: (request: IntakePaymentRequest) => void;
 }
 
 export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
@@ -34,6 +38,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     mode,
     onConversationMetadataUpdated,
     onError,
+    onOpenPayment,
     linkAnonymousConversationOnLoad = false
   } = options;
 
@@ -67,6 +72,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
     sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
     onError,
+    onOpenPayment,
   });
 
   // 3. User Actions & AI (Streaming, Intent, etc)

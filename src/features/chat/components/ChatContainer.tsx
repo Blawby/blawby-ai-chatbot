@@ -115,6 +115,12 @@ export interface ChatContainerProps {
     name: string;
     email?: string;
   }>;
+  /**
+   * Called once (after first render) with ChatContainer's handleOpenPayment function.
+   * Allows ancestors to imperatively open the payment card from outside the component,
+   * e.g. from useIntakeFlow's payment gate in handleConfirmSubmit.
+   */
+  onRegisterOpenPayment?: (open: (request: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -172,7 +178,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAuthPromptClose,
   onAuthPromptSuccess,
   onboardingActions,
-  mentionCandidates = []
+  mentionCandidates = [],
+  onRegisterOpenPayment,
 }) => {
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
@@ -206,6 +213,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     !hasContactInfoSubmitted &&
     typeof onSlimFormContinue === 'function';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
+  // Register handleOpenPayment with the parent once it is stable.
+  // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
+  // to useMessageHandling → useIntakeFlow so the payment gate can open the card
+  // without going through message metadata parsing.
+  useEffect(() => {
+    onRegisterOpenPayment?.(handleOpenPayment);
+    // handleOpenPayment identity is stable across renders; run once after mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRegisterOpenPayment]);
+
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {

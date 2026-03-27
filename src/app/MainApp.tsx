@@ -298,6 +298,14 @@ export function MainApp({
     }
   }, []);
 
+  // Bridge for payment gate: useIntakeFlow calls onOpenPayment imperatively;
+  // ChatContainer registers its handleOpenPayment here on mount.
+  const openPaymentRef = useRef<((req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) | null>(null);
+  const handleOpenPaymentBridge = useCallback(
+    (req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => openPaymentRef.current?.(req),
+    []
+  );
+
   const messageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
@@ -307,6 +315,7 @@ export function MainApp({
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
+    onOpenPayment: handleOpenPaymentBridge,
   });
 
   const {
@@ -843,6 +852,7 @@ export function MainApp({
             onBuildBrief={handleBuildBrief}
             onSubmitNow={handleSubmitNow}
             onFinalizeSubmit={handleFinalizeSubmit}
+            onRegisterOpenPayment={(fn) => { openPaymentRef.current = fn; }}
             isAnonymousUser={isAnonymous}
             canChat={canChat}
             hasMoreMessages={hasMoreMessages}
