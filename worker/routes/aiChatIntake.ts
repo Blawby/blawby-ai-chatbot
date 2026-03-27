@@ -36,12 +36,6 @@ const INTAKE_TOOL = {
         desiredOutcome: { type: 'string', description: 'What the user wants to achieve, max 150 chars' },
         courtDate: { type: 'string', description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated as a specific date.' },
         hasDocuments: { type: 'boolean', description: 'Whether the user has mentioned having relevant documents' },
-        quickReplies: {
-          type: 'array',
-          maxItems: 3,
-          items: { type: 'string' },
-          description: '2-3 short suggested answers for predictable questions. Omit for open-ended questions.'
-        }
       },
       required: []
     }
@@ -121,6 +115,58 @@ const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null)
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
   return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+};
+
+/**
+ * Deterministic next-step planner. Inspects merged intake state and returns
+ * the canonical next missing field along with any chip-eligible choices.
+ *
+ * Chip eligibility rules (derived from field semantics, never from the model):
+ *   description, city/state, opposingParty, desiredOutcome → open-text → no chips
+ *   urgency   → closed enum  → fixed chips
+ *   hasDocuments → boolean    → yes/no chips
+ *   all fields present → emit __submit__ chip (overridden by intakeReady path in aiChat.ts)
+ */
+export interface IntakeNextStep {
+  /** The field being asked about, or null when submit-ready */
+  nextField: string | null;
+  /** Pre-computed UI chips; empty array means render no chips for this field */
+  chips: string[];
+  chipSource: 'none' | 'urgency' | 'hasDocuments' | 'submit';
+}
+
+export const planNextIntakeStep = (state: Record<string, unknown> | null): IntakeNextStep => {
+  if (!state) {
+    return { nextField: 'description', chips: [], chipSource: 'none' };
+  }
+  if (!hasNonEmptyStringField(state, 'description')) {
+    return { nextField: 'description', chips: [], chipSource: 'none' };
+  }
+  if (!hasNonEmptyStringField(state, 'city') || !hasNonEmptyStringField(state, 'state')) {
+    return { nextField: 'location', chips: [], chipSource: 'none' };
+  }
+  if (!hasNonEmptyStringField(state, 'opposingParty')) {
+    return { nextField: 'opposingParty', chips: [], chipSource: 'none' };
+  }
+  if (typeof state.urgency !== 'string' || !state.urgency.trim()) {
+    return {
+      nextField: 'urgency',
+      chips: ['Routine (no deadline)', 'Time-sensitive', 'Emergency'],
+      chipSource: 'urgency',
+    };
+  }
+  if (!hasNonEmptyStringField(state, 'desiredOutcome')) {
+    return { nextField: 'desiredOutcome', chips: [], chipSource: 'none' };
+  }
+  if (typeof state.hasDocuments !== 'boolean') {
+    return {
+      nextField: 'hasDocuments',
+      chips: ['Yes, I have documents', 'No, not yet'],
+      chipSource: 'hasDocuments',
+    };
+  }
+  // All required fields present — the intakeReady path in aiChat.ts will override with __submit__.
+  return { nextField: null, chips: [], chipSource: 'none' };
 };
 
 const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): string => {

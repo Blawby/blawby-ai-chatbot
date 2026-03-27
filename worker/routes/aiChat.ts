@@ -40,6 +40,7 @@ import {
   buildIntakeConversationPrompt,
   mergeIntakeState,
   shouldShowDeterministicIntakeCta,
+  planNextIntakeStep,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
@@ -79,23 +80,6 @@ const summarizeIntakeCoreFields = (
   intakeReady: typeof state?.intakeReady === 'boolean' ? state.intakeReady : null,
 });
 
-const extractReplyOptionCandidates = (reply: string): string[] => {
-  const trimmed = reply.trim();
-  if (!trimmed) return [];
-  const forExampleMatch = trimmed.match(/for example,\s*(.+?)\?/i);
-  const clause = forExampleMatch?.[1]?.trim();
-  if (!clause) return [];
-  const normalized = clause
-    .replace(/^are you looking to\s+/i, '')
-    .replace(/^are you trying to\s+/i, '')
-    .replace(/^are you hoping to\s+/i, '')
-    .replace(/\s+or\s+/gi, ', ');
-  return normalized
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
-    .slice(0, 3);
-};
 
 const summarizeQuickReplyQuality = (values: string[] | null): Record<string, unknown> => {
   const replies = values ?? [];
@@ -810,9 +794,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         emittedAnyToken = true;
       }
 
-      const fieldsForQuickReplies = isIntakeMode ? intakeFields : (isOnboardingMode ? onboardingFields : null);
-      let quickRepliesSource: 'none' | 'fieldsForQuickReplies' | 'intakeReadySubmit' | 'intakeFieldsQuickReplies' = 'none';
-      // Extract quickReplies from structured tool fields before persisting
+      // ── Deterministic chip planner ─────────────────────────────────────────
+      // Chips are NEVER derived from model output. The planner exclusively
+      // inspects merged state and maps to closed-choice fields (urgency, hasDocuments)
+      // or emits nothing for open-text fields (description, location, etc.).
+      // The model-authored quickReplies field no longer exists in INTAKE_TOOL.
+      // ─────────────────────────────────────────────────────────────────────────
+
+      const fieldsForQuickReplies = isOnboardingMode ? onboardingFields : null;
+      let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'intakeReadySubmit' | 'onboardingFields' = 'none';
+
+      // Onboarding quick replies (unchanged — these come from the onboarding tool, not intake extractor)
       if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
         quickReplies = (fieldsForQuickReplies.quickReplies as unknown[])
           .filter((v): v is string => typeof v === 'string')
@@ -820,14 +812,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           .filter((v) => v.length > 0)
           .slice(0, 3);
         if (quickReplies.length === 0) quickReplies = null;
-        if (quickReplies) {
-          quickRepliesSource = 'fieldsForQuickReplies';
-        }
+        if (quickReplies) quickRepliesSource = 'onboardingFields';
       }
       if (onboardingFields && 'quickReplies' in onboardingFields) {
         const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
         onboardingFields = rest;
       }
+
       let triggerEditModal: string | null = null;
       if (onboardingFields && 'triggerEditModal' in onboardingFields) {
         triggerEditModal = onboardingFields.triggerEditModal as string;
@@ -841,26 +832,24 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const matched = servicesForPrompt.find((s) => s.key === intakeFields?.practiceArea);
         if (matched) intakeFields.practiceAreaName = matched.name;
       }
+
       let intakeReady = false;
       if (isIntakeMode) {
         const mergedForReady = mergeIntakeState(storedIntakeState, intakeFields);
         intakeReady = shouldShowDeterministicIntakeCta(mergedForReady);
 
         if (intakeReady) {
-          // Submit is ready - replace quick replies with a single submit action
+          // Submit override: all fields present — show the single submit chip.
           quickReplies = ['__submit__'];
           quickRepliesSource = 'intakeReadySubmit';
-        } else if (intakeFields && Array.isArray(intakeFields.quickReplies)) {
-          quickReplies = (intakeFields.quickReplies as unknown[])
-            .filter((v): v is string => typeof v === 'string')
-            .filter((v) => v !== '__submit__')
-            .map((v) => v.trim())
-            .filter((v) => v.length > 0)
-            .slice(0, 3);
-          if (quickReplies.length === 0) quickReplies = null;
-          if (quickReplies) {
-            quickRepliesSource = 'intakeFieldsQuickReplies';
+        } else {
+          // Planner: derive chips deterministically from the next missing field.
+          const step = planNextIntakeStep(mergedForReady);
+          if (step.chips.length > 0) {
+            quickReplies = step.chips;
+            quickRepliesSource = step.chipSource === 'urgency' ? 'planner_urgency' : 'planner_hasDocuments';
           }
+          // No chips for open-text fields (description, location, opposingParty, desiredOutcome).
         }
 
         intakeFields = {
@@ -901,14 +890,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const includeQuickRepliesInMetadata = Boolean(quickReplies);
 
       if (debugEnabled) {
+        const plannerStep = isIntakeMode
+          ? planNextIntakeStep(mergeIntakeState(storedIntakeState, intakeFields))
+          : null;
         Logger.info('[QuickActionDebug] aiChat computed action payload', {
           conversationId: body.conversationId,
           intakeReady,
+          nextField: plannerStep?.nextField ?? null,
           quickReplies,
           quickRepliesSource,
+          chipSource: plannerStep?.chipSource ?? null,
           quickRepliesQuality: summarizeQuickReplyQuality(quickReplies),
-          intakeFieldsQuickReplies: Array.isArray(intakeFields?.quickReplies) ? intakeFields?.quickReplies : null,
-          replyOptionCandidates: extractReplyOptionCandidates(accumulatedReply),
           replyPreview: accumulatedReply.slice(0, 240),
           includeQuickRepliesInMetadata,
           isIntakeMode,
