@@ -214,15 +214,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     !hasContactInfoSubmitted &&
     typeof onSlimFormContinue === 'function';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
-  // Register handleOpenPayment with the parent once it is stable.
-  // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
-  // to useMessageHandling → useIntakeFlow so the payment gate can open the card
-  // without going through message metadata parsing.
-  useEffect(() => {
-    onRegisterOpenPayment?.(handleOpenPayment);
-    // handleOpenPayment identity is stable across renders; run once after mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onRegisterOpenPayment]);
+
 
   // Simple resize handler for window size changes
   useEffect(() => {
@@ -368,10 +360,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     });
   }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
 
-  const emitAuthPromptRequest = () => {
+  const emitAuthPromptRequest = useCallback(() => {
     rememberPostAuthContext();
     onAuthPromptRequest?.();
-  };
+  }, [rememberPostAuthContext, onAuthPromptRequest]);
 
   useEffect(() => {
     if (!showAuthPrompt) return;
@@ -434,7 +426,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = (request: IntakePaymentRequest): boolean => {
+  const openPayment = useCallback((request: IntakePaymentRequest): boolean => {
     const hasClientSecret = typeof request.clientSecret === 'string' &&
       request.clientSecret.trim().length > 0;
     if (!hasClientSecret &&
@@ -447,7 +439,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setPaymentRequest(request);
     setIsPaymentModalOpen(true);
     return true;
-  };
+  }, []);
 
   const handleAuthPromptClose = () => {
     setPendingPaymentRequest(null);
@@ -478,14 +470,24 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
-  const handleOpenPayment = (request: IntakePaymentRequest) => {
+  const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
     if (isAnonymousUser) {
       setPendingPaymentRequest(request);
       emitAuthPromptRequest();
       return;
     }
     openPayment(request);
-  };
+  }, [isAnonymousUser, emitAuthPromptRequest, openPayment, setPendingPaymentRequest]);
+
+  // Register handleOpenPayment with the parent once it is stable.
+  // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
+  // to useMessageHandling → useIntakeFlow so the payment gate can open the card
+  // without going through message metadata parsing.
+  useEffect(() => {
+    if (onRegisterOpenPayment) {
+      onRegisterOpenPayment(handleOpenPayment);
+    }
+  }, [onRegisterOpenPayment, handleOpenPayment]);
 
   const handleClosePayment = () => {
     setIsPaymentModalOpen(false);
