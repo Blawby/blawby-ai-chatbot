@@ -20,7 +20,7 @@ import {
   InspectorHeaderPerson,
   InspectorHeaderHero,
 } from './InspectorPrimitives';
-import { XMarkIcon, PhoneIcon, EnvelopeIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { PERSON_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/people';
 import type { Address } from '@/shared/types/address';
@@ -327,7 +327,7 @@ export const InspectorPanel = ({
             try {
               const practiceDetail = await getPracticeDetails(practiceId, { signal: controller.signal });
               setPracticeDetail(practiceDetail);
-            } catch (error) {
+            } catch {
               setPracticeDetail(null);
             }
           } else {
@@ -874,7 +874,7 @@ export const InspectorPanel = ({
                                       options={intakeServiceOptions}
                                       placeholder="Select Practice Area"
                                       searchable
-                                      autoFocus
+                                      
                                     />
                                   </InspectorEditableRow>
                                 </InspectorGroup>
@@ -895,7 +895,7 @@ export const InspectorPanel = ({
                                   value={localIntakeDraft ?? intakeConversationState.city ?? ''}
                                   onChange={setLocalIntakeDraft}
                                   placeholder="City"
-                                  autoFocus
+                                  
                                   className="w-full"
                                   onBlur={() => {
                                     if (skipBlurRef.current) {
@@ -937,7 +937,7 @@ export const InspectorPanel = ({
                                   options={STATE_OPTIONS}
                                   placeholder="Select State"
                                   searchable
-                                  autoFocus
+                                  
                                 />
                               </InspectorEditableRow>
                             </InspectorGroup>
@@ -957,7 +957,7 @@ export const InspectorPanel = ({
                                   value={localIntakeDraft ?? intakeConversationState.opposingParty ?? ''}
                                   onChange={setLocalIntakeDraft}
                                   placeholder="Opposing party"
-                                  autoFocus
+                                  
                                   className="w-full"
                                   onBlur={() => {
                                     if (skipBlurRef.current) {
@@ -997,7 +997,7 @@ export const InspectorPanel = ({
                                   value={localIntakeDraft ?? intakeConversationState.desiredOutcome ?? ''}
                                   onChange={setLocalIntakeDraft}
                                   placeholder="Desired outcome"
-                                  autoFocus
+                                  
                                   className="w-full"
                                   rows={3}
                                   onBlur={() => {
@@ -1038,7 +1038,7 @@ export const InspectorPanel = ({
                                   value={localIntakeDraft ?? intakeConversationState.description ?? ''}
                                   onChange={setLocalIntakeDraft}
                                   placeholder="Summary of the situation"
-                                  autoFocus
+                                  
                                   className="w-full"
                                   rows={4}
                                   onBlur={() => {
@@ -1104,7 +1104,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleConversationMatterChange(value); }}
                       options={matterOptions}
                       searchable
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Search matters"
@@ -1133,7 +1133,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleConversationAssignmentChange(value); }}
                       options={assignedToOptions}
                       searchable
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Assign owner"
@@ -1161,7 +1161,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleConversationPriorityChange(value); }}
                       options={priorityOptions}
                       searchable={false}
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       disabled={isSavingPriority}
@@ -1191,7 +1191,7 @@ export const InspectorPanel = ({
                       onChange={(values) => { void handleConversationTagsChange(values); }}
                       options={tagOptions}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Add tags"
@@ -1235,7 +1235,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterStatusChange(value); }}
                       options={matterStatusOptions}
                       searchable={false}
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Select status"
@@ -1264,7 +1264,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ clientId: value === '' ? null : value }); }}
                       options={matterClientOptionsWithNone}
                       searchable
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Select client"
@@ -1293,7 +1293,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ responsibleAttorneyId: value === '' ? null : value }); }}
                       options={[{ value: '', label: 'Not set' }, ...matterAssigneeOptions]}
                       searchable
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Select attorney"
@@ -1322,7 +1322,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ originatingAttorneyId: value === '' ? null : value }); }}
                       options={[{ value: '', label: 'Not set' }, ...matterAssigneeOptions]}
                       searchable
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       placeholder="Select attorney"
@@ -1351,7 +1351,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ urgency: value === '' ? null : value }); }}
                       options={urgencyOptions}
                       searchable={false}
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       disabled={isSavingMatterField || !canEditMatterFields}
@@ -1379,7 +1379,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ caseNumber: value }); }}
                       options={[]}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       addNewLabel="Set case number"
@@ -1409,7 +1409,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ matterType: value }); }}
                       options={[]}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       addNewLabel="Set matter type"
@@ -1439,7 +1439,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ court: value }); }}
                       options={[]}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       addNewLabel="Set court"
@@ -1469,7 +1469,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ judge: value }); }}
                       options={[]}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       addNewLabel="Set judge"
@@ -1499,7 +1499,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ opposingParty: value }); }}
                       options={[]}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       addNewLabel="Set opposing party"
@@ -1529,7 +1529,7 @@ export const InspectorPanel = ({
                       onChange={(value) => { void handleMatterPatchChange({ opposingCounsel: value }); }}
                       options={[]}
                       allowCustomValues
-                      autoFocus
+                      
                       defaultOpen
                       hideTrigger
                       addNewLabel="Set opposing counsel"

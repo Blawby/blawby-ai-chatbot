@@ -1,3 +1,4 @@
+/* global window, document, console, fetch, URL, URLSearchParams, CustomEvent, setTimeout */
 /**
  * Blawby Website Messenger — Widget Loader
  *
@@ -77,7 +78,7 @@
         if (!trimmed) return;
         out[key] = trimmed;
       });
-    } catch (_) { /* ignore malformed query params */ }
+    } catch { /* ignore malformed query params */ }
     return out;
   }
 
@@ -302,7 +303,7 @@
     if (!hasAttributionParams) return;
     try {
       w.sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(attributionParams));
-    } catch (_) { /* storage may be unavailable in privacy contexts */ }
+    } catch { /* storage may be unavailable in privacy contexts */ }
   }
 
   function getAttributionPayload() {
@@ -313,7 +314,7 @@
       var parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
       return parsed;
-    } catch (_) {
+    } catch {
       return null;
     }
   }
@@ -439,7 +440,7 @@
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage(JSON.stringify(msg), BASE_ORIGIN);
       }
-    } catch (_) { /* cross-origin post may fail; safe to ignore */ }
+    } catch { /* cross-origin post may fail; safe to ignore */ }
   }
 
   function addListener(eventName, callback) {
@@ -523,7 +524,7 @@
 
     try {
       w.dispatchEvent(new CustomEvent('blawby:widget-event', { detail: payload }));
-    } catch (_) { /* CustomEvent may fail in legacy contexts; ignore */ }
+    } catch { /* CustomEvent may fail in legacy contexts; ignore */ }
   }
 
   /* ── postMessage bridge ──────────────────────────────────────────────── */
@@ -534,7 +535,7 @@
     var data;
     try {
       data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    } catch (_) { return; }
+    } catch { return; }
 
     if (!data || typeof data.type !== 'string') return;
 

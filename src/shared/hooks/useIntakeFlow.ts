@@ -785,7 +785,7 @@ export function useIntakeFlow({
     intakeConversationState,
   ]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
 
   // Cancel any in-flight payment polling when the hook unmounts.
@@ -796,7 +796,7 @@ export function useIntakeFlow({
         paymentPollingTimerRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   /** Backward-compat alias for callers that don't have a payment UI wired */

@@ -32,7 +32,7 @@ At a high level:
 - The frontend talks same-origin to the worker.
 - The worker handles conversations, realtime chat, AI routes, file/media helpers, and notification queueing.
 - The worker proxies most business endpoints to the backend.
-- The backend is the source of truth for auth, practices, intakes, matters, subscriptions, uploads, invoices, onboarding, user details, and most Stripe-backed business logic.
+- The backend is the source of truth for auth, practices, intakes, matters, subscriptions, uploads, invoices, onboarding, clients, and most Stripe-backed business logic.
 
 ### Repo Roles
 
