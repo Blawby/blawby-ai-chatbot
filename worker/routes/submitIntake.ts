@@ -138,6 +138,32 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
   return Object.keys(state).length > 0 ? state : null;
 };
 
+const readStringField = (record: Record<string, unknown> | null | undefined, keys: string[]): string | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const isCaseInfoComplete = (state: IntakeConversationState | null | undefined): boolean => {
+  if (!state) return false;
+  const hasDescription = typeof state.description === 'string' && state.description.trim().length > 0;
+  const hasLocation = Boolean(
+    typeof (state as Record<string, unknown>).city === 'string'
+    && (state as Record<string, unknown>).city && String((state as Record<string, unknown>).city).trim().length > 0
+    && typeof (state as Record<string, unknown>).state === 'string'
+    && (state as Record<string, unknown>).state && String((state as Record<string, unknown>).state).trim().length > 0
+  );
+  const hasOpposingParty = typeof state.opposingParty === 'string' && state.opposingParty.trim().length > 0;
+  const hasDesiredOutcome = typeof state.desiredOutcome === 'string' && state.desiredOutcome.trim().length > 0;
+  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
+  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+};
+
 const buildIntakePayload = (
   conversationId: string,
   slug: string,
@@ -212,6 +238,13 @@ export async function handleSubmitIntake(
     throw HttpErrors.unauthorized('Authentication required');
   }
   const userId = authContext.user.id;
+  Logger.info('[submitIntake] Request received', {
+    conversationId,
+    authUserId: userId,
+    authEmail: authContext.user.email ?? null,
+    isAnonymous: authContext.isAnonymous === true,
+    previousAnonUserId: authContext.previousAnonUserId ?? null,
+  });
 
   // Practice context: preserve the public-widget practiceId during anon -> auth handoff.
   const requestWithContext = await withPracticeContext(request, env, {
@@ -220,8 +253,36 @@ export async function handleSubmitIntake(
     allowAuthenticatedUrlPracticeId: true,
   });
   const practiceId = getPracticeId(requestWithContext);
+  Logger.info('[submitIntake] Practice context resolved', {
+    conversationId,
+    practiceId,
+    authUserId: userId,
+  });
   const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+  Logger.info('[submitIntake] Membership check evaluated', {
+    conversationId,
+    practiceId,
+    authUserId: userId,
+    authEmail: authContext.user.email ?? null,
+    membershipInput: {
+      practiceId,
+      userId,
+      hasAuthCookie: Boolean(authContext.cookie?.trim()),
+      activeOrganizationId: authContext.activeOrganizationId ?? null,
+    },
+    membershipResult: {
+      isMember: membership.isMember,
+      memberRole: membership.memberRole ?? null,
+    },
+  });
   if (membership.isMember) {
+    Logger.warn('[submitIntake] Rejecting submit-intake because user is classified as practice member', {
+      conversationId,
+      practiceId,
+      authUserId: userId,
+      reason: 'practice_member_blocked',
+      memberRole: membership.memberRole ?? null,
+    });
     throw HttpErrors.forbidden('Practice members cannot submit visitor intake');
   }
 
@@ -236,6 +297,24 @@ export async function handleSubmitIntake(
   const conversation = await conversationService.getConversation(conversationId, practiceId, { repair: true });
   const userInfo = (conversation.user_info ?? {}) as ConversationUserInfo;
   const consultation = resolveConsultationState(userInfo);
+  const linkedContactId = readStringField(userInfo as Record<string, unknown>, [
+    'linkedContactId',
+    'linked_contact_id',
+    'contactId',
+    'contact_id',
+    'clientId',
+    'client_id',
+  ]);
+  Logger.info('[submitIntake] Conversation loaded for submission', {
+    conversationId,
+    practiceId,
+    authUserId: userId,
+    linkedContactId: linkedContactId ?? null,
+    consultationStatus: consultation?.status ?? null,
+    hasConsultationContact: Boolean(consultation?.contact),
+    hasConsultationCase: Boolean(consultation?.case),
+    hasExistingIntakeUuid: Boolean(consultation?.submission.intakeUuid || userInfo.intakeUuid),
+  });
 
   // Early exit if already submitted (best-effort check before lock)
   if (consultation?.submission.intakeUuid || userInfo.intakeUuid) {
@@ -265,12 +344,24 @@ export async function handleSubmitIntake(
   // Resolve slug — stored during handleSlimFormContinue
   const slug = typeof userInfo.practiceSlug === 'string' ? userInfo.practiceSlug.trim() : '';
   if (!slug) {
+    Logger.warn('[submitIntake] Rejecting submit-intake due to missing practice slug', {
+      conversationId,
+      practiceId,
+      authUserId: userId,
+      reason: 'missing_practice_slug',
+    });
     throw HttpErrors.badRequest('Practice slug not found on conversation — cannot submit intake');
   }
 
   // Validate draft
   const draft = normalizeSlimContactDraft(consultation?.contact ?? userInfo.intakeSlimContactDraft);
   if (!draft) {
+    Logger.warn('[submitIntake] Rejecting submit-intake due to incomplete contact draft', {
+      conversationId,
+      practiceId,
+      authUserId: userId,
+      reason: 'missing_contact_details',
+    });
     throw HttpErrors.badRequest('Contact details are incomplete — name and email are required');
   }
 
@@ -311,6 +402,22 @@ export async function handleSubmitIntake(
     });
     return null;
   });
+  const paymentRequiredBeforeSubmit = Boolean((intakeSettings?.prefillAmount ?? 0) > 0);
+  const paymentReceived = consultation?.submission?.paymentReceived === true;
+  const caseInfoComplete = isCaseInfoComplete(intake);
+  const submitEligibility = caseInfoComplete && (!paymentRequiredBeforeSubmit || paymentReceived);
+  Logger.info('[submitIntake] Submit eligibility evaluated', {
+    conversationId,
+    practiceId,
+    practiceSlug: slug,
+    authUserId: userId,
+    linkedContactId: linkedContactId ?? null,
+    caseInfoComplete,
+    paymentRequiredBeforeSubmit,
+    paymentReceived,
+    submitEligibility,
+    intakeStateKeys: intake ? Object.keys(intake) : [],
+  });
 
   // Build backend payload
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
@@ -322,6 +429,7 @@ export async function handleSubmitIntake(
     conversationId,
     practiceId,
     slug,
+    payloadKeys: Object.keys(intakePayload),
     hasIntakeFields: Boolean(intake),
     amountMinor: intakePayload.amount,
     hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
@@ -337,17 +445,24 @@ export async function handleSubmitIntake(
       request
     );
   } catch (error) {
+    const httpStatus = typeof (error as { status?: unknown })?.status === 'number'
+      ? (error as { status: number }).status
+      : null;
+    const errorContext = typeof (error as { context?: unknown })?.context === 'object'
+      ? (error as { context: unknown }).context
+      : null;
+    const isRemoteBadRequest = httpStatus === 400;
     Logger.error('[submitIntake] Backend intake create request failed before response handling', {
       conversationId,
       practiceId,
+      practiceSlug: slug,
+      authUserId: userId,
+      linkedContactId: linkedContactId ?? null,
       slug,
       error: error instanceof Error ? error.message : String(error),
-      status: typeof (error as { status?: unknown })?.status === 'number'
-        ? (error as { status: number }).status
-        : null,
-      context: typeof (error as { context?: unknown })?.context === 'object'
-        ? (error as { context: unknown }).context
-        : null,
+      status: httpStatus,
+      context: errorContext,
+      returnPathReason: isRemoteBadRequest ? 'remote_create_intake_400' : 'remote_create_intake_error',
     });
     throw error;
   }

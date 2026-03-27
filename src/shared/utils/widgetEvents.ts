@@ -54,9 +54,20 @@ export const resolveAllowedParentOrigins = (): string[] => {
   return Array.from(origins);
 };
 
-export const postToParentFrame = (message: unknown) => {
+export const postToParentFrame = (message: unknown, allowAnyOrigin = false) => {
   if (typeof window === 'undefined') return;
   if (window.parent === window) return;
+
+  // For close requests, allow communication with any parent origin
+  // since closing has minimal security risk
+  if (allowAnyOrigin || (message && typeof message === 'object' && 'type' in message && message.type === 'blawby:close-request')) {
+    try {
+      window.parent.postMessage(message, '*');
+    } catch (error) {
+      console.warn('[WidgetEvents] Failed to notify parent frame', error);
+    }
+    return;
+  }
 
   const allowedOrigins = resolveAllowedParentOrigins();
   if (allowedOrigins.length === 0) {

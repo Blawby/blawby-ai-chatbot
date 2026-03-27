@@ -14,7 +14,7 @@ import { postSystemMessage } from '@/shared/lib/conversationApi';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
-import { isIntakeReadyForSubmission } from '@/shared/utils/consultationState';
+import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
@@ -700,7 +700,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         return new Map(dedupedMessages.map((message) => [message.id, message]));
     }, [dedupedMessages]);
     const olderMessagesButtonClassName = 'text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60';
-    const intakeReady = isIntakeReadyForSubmission(intakeConversationState);
+    const intakeReady = isIntakeSubmittable(intakeConversationState, {
+        paymentRequired: _intakeStatus?.paymentRequired ?? null,
+        paymentReceived: _intakeStatus?.paymentReceived ?? null,
+    });
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {

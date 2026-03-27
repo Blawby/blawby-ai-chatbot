@@ -527,49 +527,76 @@ export const useConversation = ({
       if (additions.length > 0) {
         const pendingId = pendingStreamMessageIdRef.current;
         const streamingBubbles = next.filter(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-        if (streamingBubbles.length === 1) {
-          const streamingBubble = streamingBubbles[0];
+        if (streamingBubbles.length > 0) {
+          const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
+          const assistantAdditionIndexes = additions
+            .map((message, index) => ({ message, index }))
+            .filter(({ message }) => message.role === 'assistant');
+
+          const bubbleIdsToRemove = new Set<string>();
+          const usedAdditionIndexes = new Set<number>();
+          const carryBubbleTimestampToAddition = (bubble: ChatMessageUI, additionIndex: number) => {
+            const persisted = additions[additionIndex];
+            const streamingClientId = typeof bubble.metadata?.__client_id === 'string'
+              ? bubble.metadata.__client_id
+              : bubble.id;
+            additions[additionIndex] = {
+              ...persisted,
+              timestamp: bubble.timestamp,
+              metadata: {
+                ...(persisted.metadata ?? {}),
+                __client_id: streamingClientId,
+              },
+            } as ChatMessageUI;
+          };
+
+          // Preferred path: explicit message-id handoff.
           if (pendingId) {
-            const matchingAdditions = additions.filter(m => m.id === pendingId);
-            if (matchingAdditions.length === 1) {
-              const matchIndex = additions.findIndex(m => m.id === pendingId);
-              const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
-                ? streamingBubble.metadata.__client_id
-                : streamingBubble.id;
-              const persisted = additions[matchIndex];
-              additions[matchIndex] = {
-                ...persisted,
-                timestamp: streamingBubble.timestamp,
-                metadata: {
-                  ...(persisted.metadata ?? {}),
-                  __client_id: streamingClientId,
-                },
-              } as ChatMessageUI;
-              pendingStreamMessageIdRef.current = null;
-              if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
-              next = next.filter(m => m.id !== streamingBubble.id);
+            const pendingMatchIndex = additions.findIndex((message) => message.id === pendingId);
+            if (pendingMatchIndex >= 0 && streamingBubbles.length >= 1) {
+              const bubble = streamingBubbles[streamingBubbles.length - 1];
+              bubbleIdsToRemove.add(bubble.id);
+              carryBubbleTimestampToAddition(bubble, pendingMatchIndex);
+              usedAdditionIndexes.add(pendingMatchIndex);
             }
-          } else {
-            const candidateAdditions = additions.filter(m => m.role === 'assistant');
-            if (candidateAdditions.length === 1) {
-              const messageCandidate = candidateAdditions[0];
-              const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
-                ? streamingBubble.metadata.__client_id
-                : streamingBubble.id;
-              const targetIndex = additions.findIndex(m => m.id === messageCandidate.id);
-              const persisted = additions[targetIndex];
-              additions[targetIndex] = {
-                ...persisted,
-                timestamp: streamingBubble.timestamp,
-                metadata: {
-                  ...(persisted.metadata ?? {}),
-                  __client_id: streamingClientId,
-                },
-              } as ChatMessageUI;
-              pendingStreamMessageIdRef.current = null;
-              if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
-              next = next.filter(m => m.id !== streamingBubble.id);
+          }
+
+          // Content-based fallback: collapse temporary stream bubble when persisted assistant text arrives.
+          if (assistantAdditionIndexes.length > 0) {
+            for (const bubble of streamingBubbles) {
+              if (bubbleIdsToRemove.has(bubble.id)) continue;
+              if (typeof bubble.content !== 'string' || bubble.content.trim().length === 0) continue;
+              const normalizedBubble = normalizeMessage(bubble.content);
+              const matchingAssistant = assistantAdditionIndexes.find(({ message, index }) => {
+                if (usedAdditionIndexes.has(index)) return false;
+                if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
+                const normalizedAssistant = normalizeMessage(message.content);
+                return normalizedAssistant === normalizedBubble
+                  || normalizedAssistant.includes(normalizedBubble)
+                  || normalizedBubble.includes(normalizedAssistant);
+              });
+              if (!matchingAssistant) continue;
+              bubbleIdsToRemove.add(bubble.id);
+              carryBubbleTimestampToAddition(bubble, matchingAssistant.index);
+              usedAdditionIndexes.add(matchingAssistant.index);
             }
+          }
+
+          // Safety fallback: if a single assistant message arrived and only stream bubbles are pending,
+          // collapse the newest stream bubble to avoid duplicate assistant bubbles.
+          if (bubbleIdsToRemove.size === 0 && assistantAdditionIndexes.length === 1 && streamingBubbles.length > 0) {
+            const newestBubble = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp)[0];
+            bubbleIdsToRemove.add(newestBubble.id);
+            carryBubbleTimestampToAddition(newestBubble, assistantAdditionIndexes[0].index);
+          }
+
+          if (bubbleIdsToRemove.size > 0) {
+            pendingStreamMessageIdRef.current = null;
+            if (orphanTimerRef.current !== null) {
+              clearTimeout(orphanTimerRef.current);
+              orphanTimerRef.current = null;
+            }
+            next = next.filter(m => !bubbleIdsToRemove.has(m.id));
           }
         }
         next = [...next, ...additions];

@@ -41,6 +41,7 @@ import {
   buildIntakeConversationStatePrompt,
   mergeIntakeState,
   planNextIntakeStep,
+  type IntakeSubmissionGate,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
@@ -57,6 +58,46 @@ import {
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const readBooleanField = (record: Record<string, unknown> | null, keys: string[]): boolean | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    if (typeof record[key] === 'boolean') return record[key] as boolean;
+  }
+  return null;
+};
+
+const readFiniteNumberField = (record: Record<string, unknown> | null, keys: string[]): number | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return null;
+};
+
+const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, unknown> | null): boolean => {
+  if (!details) return false;
+  const prefillAmount = readFiniteNumberField(details, [
+    'paymentLinkPrefillAmount',
+    'payment_link_prefill_amount',
+    'prefillAmount',
+    'prefill_amount',
+  ]);
+  if (prefillAmount !== null && prefillAmount > 0) return true;
+
+  const consultationFee = readFiniteNumberField(details, [
+    'consultationFee',
+    'consultation_fee',
+  ]);
+  if (consultationFee !== null && consultationFee > 0) return true;
+
+  const paymentLinkEnabled = readBooleanField(details, [
+    'paymentLinkEnabled',
+    'payment_link_enabled',
+  ]);
+  return paymentLinkEnabled === true;
+};
 
 const buildCompactIntakeContextForExtraction = (
   state: Record<string, unknown> | null
@@ -386,6 +427,7 @@ const deriveQuickActionState = (params: {
   onboardingFields: Record<string, unknown> | null;
   details: Record<string, unknown> | null;
   promptMergedIntakeState: Record<string, unknown> | null;
+  submissionGate?: IntakeSubmissionGate | null;
 }) => {
   let onboardingFields = params.onboardingFields;
   let quickReplies: string[] | null = null;
@@ -417,7 +459,7 @@ const deriveQuickActionState = (params: {
     onboardingProfile = buildOnboardingProfileMetadata(params.details, onboardingFields);
   }
   if (params.isIntakeMode) {
-    plannerStep = planNextIntakeStep(params.promptMergedIntakeState);
+    plannerStep = planNextIntakeStep(params.promptMergedIntakeState, params.submissionGate);
     if (plannerStep.nextField === null) {
       quickReplies = ['__submit__'];
       quickRepliesSource = 'planner_submit';
@@ -861,9 +903,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const deterministicIntakePatch = isIntakeMode
-        ? deriveDeterministicIntakePatchFromLatestMessage(lastUserMessage?.content, storedIntakeState)
+        ? deriveDeterministicIntakePatchFromLatestMessage(lastUserMessage?.content, storedIntakeState, {
+            paymentRequiredBeforeSubmit:
+              (consultation?.submission?.paymentRequired === true)
+              || resolvePracticeRequiresPaymentBeforeSubmission(details),
+            paymentCompleted: consultation?.submission?.paymentReceived === true,
+          })
         : null;
-      const extractionPlannerStep = planNextIntakeStep(storedIntakeState);
+      const intakeSubmissionGate: IntakeSubmissionGate = {
+        paymentRequiredBeforeSubmit:
+          (consultation?.submission?.paymentRequired === true)
+          || resolvePracticeRequiresPaymentBeforeSubmission(details),
+        paymentCompleted: consultation?.submission?.paymentReceived === true,
+      };
+      const extractionPlannerStep = planNextIntakeStep(storedIntakeState, intakeSubmissionGate);
       const intakeTurnMetrics = isIntakeMode
         ? {
             extractionRan: false,
@@ -916,7 +969,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
         ].join('\n\n');
         const intakeDynamicPrompt = [
-          buildIntakeConversationStatePrompt(servicesForPrompt, promptMergedIntakeState, body.messages.length),
+          buildIntakeConversationStatePrompt(servicesForPrompt, promptMergedIntakeState, body.messages.length, intakeSubmissionGate),
           body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
         ].filter(Boolean).join('\n\n');
 
@@ -1072,6 +1125,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingFields,
         details,
         promptMergedIntakeState,
+        submissionGate: intakeSubmissionGate,
       });
       onboardingFields = quickActionState.onboardingFields;
       onboardingProfile = quickActionState.onboardingProfile;

@@ -151,6 +151,19 @@ export const isIntakeReadyForSubmission = (
   return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
 };
 
+export const isIntakeSubmittable = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined,
+  submission?: {
+    paymentRequired?: boolean | null;
+    paymentReceived?: boolean | null;
+  } | null
+): boolean => {
+  if (!isIntakeReadyForSubmission(state)) return false;
+  const paymentRequired = submission?.paymentRequired === true;
+  const paymentReceived = submission?.paymentReceived === true;
+  return !paymentRequired || paymentReceived;
+};
+
 export const normalizeIntakeConversationState = (value: unknown): IntakeConversationState => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ...initialIntakeState };

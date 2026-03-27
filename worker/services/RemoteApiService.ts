@@ -733,18 +733,44 @@ export class RemoteApiService {
     payload: Record<string, unknown>,
     request?: Request
   ): Promise<Response> {
-    return this.fetchFromRemoteApi(
-      env,
-      '/api/practice-client-intakes/create',
-      request,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        // Public slug-based intake create endpoint. Pass the resolved visitor
-        // identity in the payload and avoid org-scoped session cookies.
-        forwardAuthCookie: false,
-      }
-    );
+    const endpoint = '/api/practice-client-intakes/create';
+    const payloadKeys = Object.keys(payload);
+    Logger.info('[RemoteApiService] createIntake outbound payload', {
+      endpoint,
+      payloadKeys,
+    });
+    try {
+      return await this.fetchFromRemoteApi(
+        env,
+        endpoint,
+        request,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          // Public slug-based intake create endpoint. Pass the resolved visitor
+          // identity in the payload and avoid org-scoped session cookies.
+          forwardAuthCookie: false,
+        }
+      );
+    } catch (error) {
+      const status = typeof (error as { status?: unknown })?.status === 'number'
+        ? (error as { status: number }).status
+        : null;
+      const context = typeof (error as { context?: unknown })?.context === 'object'
+        ? (error as { context: Record<string, unknown> }).context
+        : null;
+      const upstream = context && typeof context.upstream === 'object'
+        ? this.redactSensitiveFields(context.upstream)
+        : null;
+      Logger.error('[RemoteApiService] createIntake failed', {
+        endpoint,
+        status,
+        payloadKeys,
+        upstream,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**

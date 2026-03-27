@@ -84,13 +84,20 @@ Rules:
 const buildIntakeConversationCtaInstruction = (
   mergedState: Record<string, unknown> | null,
   messageCount: number,
+  submissionGate?: IntakeSubmissionGate | null,
 ): string => {
-  const isSubmissionReady = isIntakeStateReadyForSubmission(mergedState);
+  const hasCaseInfo = isCaseInfoComplete(mergedState);
+  const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
+  const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
+  const paymentCompleted = submissionGate?.paymentCompleted === true;
   if (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady) {
     return `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`;
   }
   if (isSubmissionReady && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
     return `\nYou have all the required details to proceed. Briefly offer a recap to confirm readiness and prepare the user to submit. Do NOT ask any new questions.`;
+  }
+  if (hasCaseInfo && paymentRequiredBeforeSubmit && !paymentCompleted) {
+    return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to continue to payment.';
   }
   return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
 };
@@ -118,7 +125,8 @@ Conversation rules:
 const buildIntakeConversationStatePrompt = (
   services: Array<{ name: string; key: string }>,
   mergedState: Record<string, unknown> | null,
-  messageCount: number
+  messageCount: number,
+  submissionGate?: IntakeSubmissionGate | null,
 ): string => {
   const serviceNameByKey = new Map(services.map((service) => [service.key, service.name]));
   const resolvePracticeAreaLabel = (): string | null => {
@@ -146,16 +154,17 @@ const buildIntakeConversationStatePrompt = (
   const knownSection = compactKnownFields.length > 0
     ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}${omittedKnownCount > 0 ? `\n- ...and ${omittedKnownCount} more known fields omitted` : ''}`
     : '';
-  return `${knownSection}${buildIntakeConversationCtaInstruction(mergedState, messageCount)}`.trim();
+  return `${knownSection}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate)}`.trim();
 };
 
 export const buildIntakeConversationPrompt = (
   services: Array<{ name: string; key: string }>,
   mergedState: Record<string, unknown> | null,
-  messageCount: number
+  messageCount: number,
+  submissionGate?: IntakeSubmissionGate | null,
 ): string => {
   const stable = buildIntakeConversationStablePrompt(services);
-  const dynamic = buildIntakeConversationStatePrompt(services, mergedState, messageCount);
+  const dynamic = buildIntakeConversationStatePrompt(services, mergedState, messageCount, submissionGate);
   return [stable, dynamic].filter(Boolean).join('\n\n');
 };
 
@@ -167,7 +176,7 @@ const mergeIntakeState = (
   return { ...(base ?? {}), ...(patch ?? {}) };
 };
 
-const isIntakeStateReadyForSubmission = (state: Record<string, unknown> | null): boolean => {
+const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
   if (!state) return false;
   const hasDescription = hasNonEmptyStringField(state, 'description');
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
@@ -175,6 +184,21 @@ const isIntakeStateReadyForSubmission = (state: Record<string, unknown> | null):
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
   return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+};
+
+export interface IntakeSubmissionGate {
+  paymentRequiredBeforeSubmit: boolean;
+  paymentCompleted: boolean;
+}
+
+const isIntakeSubmittable = (
+  state: Record<string, unknown> | null,
+  submissionGate?: IntakeSubmissionGate | null,
+): boolean => {
+  if (!isCaseInfoComplete(state)) return false;
+  const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
+  const paymentCompleted = submissionGate?.paymentCompleted === true;
+  return !paymentRequiredBeforeSubmit || paymentCompleted;
 };
 
 /**
@@ -185,7 +209,7 @@ const isIntakeStateReadyForSubmission = (state: Record<string, unknown> | null):
  *   description, city/state, opposingParty, desiredOutcome → open-text → no chips
  *   urgency   → closed enum  → fixed chips
  *   hasDocuments → boolean    → yes/no chips
- *   all fields present → emit __submit__ chip (overridden by deterministic submit path in aiChat.ts)
+ *   all fields present + submittable → emit __submit__ chip (done in aiChat.ts)
  */
 export interface IntakeNextStep {
   /** The field being asked about, or null when submit-ready */
@@ -197,7 +221,10 @@ export interface IntakeNextStep {
 
 type DeterministicIntakePatch = Partial<Pick<Record<string, unknown>, 'urgency' | 'hasDocuments' | 'city' | 'state' | 'opposingParty' | 'desiredOutcome'>>;
 
-export const planNextIntakeStep = (state: Record<string, unknown> | null): IntakeNextStep => {
+export const planNextIntakeStep = (
+  state: Record<string, unknown> | null,
+  submissionGate?: IntakeSubmissionGate | null,
+): IntakeNextStep => {
   if (!state) {
     return { nextField: 'description', chips: [], chipSource: 'none' };
   }
@@ -227,7 +254,9 @@ export const planNextIntakeStep = (state: Record<string, unknown> | null): Intak
       chipSource: 'hasDocuments',
     };
   }
-  // All required fields present — aiChat.ts will override with __submit__.
+  if (submissionGate?.paymentRequiredBeforeSubmit === true && submissionGate.paymentCompleted !== true) {
+    return { nextField: 'payment', chips: [], chipSource: 'none' };
+  }
   return { nextField: null, chips: [], chipSource: 'none' };
 };
 
@@ -454,11 +483,12 @@ const parseDesiredOutcomeFromLatestMessage = (content: string): string | null =>
 
 const deriveDeterministicIntakePatchFromLatestMessage = (
   latestUserMessage: string | null | undefined,
-  mergedState: Record<string, unknown> | null
+  mergedState: Record<string, unknown> | null,
+  submissionGate?: IntakeSubmissionGate | null,
 ): DeterministicIntakePatch | null => {
   if (!latestUserMessage || latestUserMessage.trim().length === 0) return null;
 
-  const nextStep = planNextIntakeStep(mergedState);
+  const nextStep = planNextIntakeStep(mergedState, submissionGate);
   if (nextStep.nextField === 'urgency') {
     const urgency = parseUrgencyFromLatestMessage(latestUserMessage);
     return urgency ? { urgency } : null;
@@ -624,7 +654,8 @@ export {
   buildIntakeConversationStablePrompt,
   buildIntakeConversationStatePrompt,
   mergeIntakeState,
-  isIntakeStateReadyForSubmission,
+  isCaseInfoComplete,
+  isIntakeSubmittable,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
