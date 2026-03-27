@@ -23,7 +23,6 @@ import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
   applyConsultationPatchToMetadata,
   deriveIntakeStatusFromConsultation,
-  isIntakeReadyForSubmission,
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
@@ -39,7 +38,7 @@ const sanitizeName = (name: string): string =>
     .replace(/'/g, '&#039;');
 
 const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = {
-  practiceAreaName: 'Practice area',
+  practiceArea: 'Practice area',
   description: 'Case summary',
   urgency: 'Urgency',
   opposingParty: 'Opposing party',
@@ -244,8 +243,6 @@ export function useIntakeFlow({
         (next as unknown as Record<string, unknown>)[key] = val;
       }
     });
-    next.intakeReady = isIntakeReadyForSubmission(next);
-
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
         conversationMetadataRef.current,

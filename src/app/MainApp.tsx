@@ -38,7 +38,7 @@ const PracticeReportsPage = lazy(() => import('@/features/reports/pages/Practice
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
-import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
 import {
   peekAnonymousSessionId,
   peekAnonymousUserId,
@@ -686,7 +686,7 @@ export function MainApp({
         || intakeStatus?.step !== 'contact_form_slim'
         || intakeConversationState?.turnCount
         || intakeConversationState?.ctaShown
-        || intakeConversationState?.intakeReady
+        || isIntakeReadyForSubmission(intakeConversationState)
         || intakeConversationState?.description
         || intakeConversationState?.opposingParty
         || intakeConversationState?.city

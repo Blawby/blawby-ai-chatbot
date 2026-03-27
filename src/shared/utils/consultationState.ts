@@ -71,7 +71,6 @@ const mergeIntakeState = (
   const fallback = source ?? initialIntakeState;
   return {
     practiceArea: normalized.practiceArea ?? fallback.practiceArea,
-    practiceAreaName: normalized.practiceAreaName ?? fallback.practiceAreaName,
     description: normalized.description ?? fallback.description,
     urgency: normalized.urgency ?? fallback.urgency,
     opposingParty: normalized.opposingParty ?? fallback.opposingParty,
@@ -87,11 +86,6 @@ const mergeIntakeState = (
     householdSize: normalized.householdSize ?? fallback.householdSize,
     hasDocuments: normalized.hasDocuments ?? fallback.hasDocuments,
     eligibilitySignals: normalized.eligibilitySignals?.length ? normalized.eligibilitySignals : fallback.eligibilitySignals,
-    quickReplies: normalized.quickReplies?.length ? normalized.quickReplies : fallback.quickReplies,
-    intakeReady:
-      typeof normalized.intakeReady === 'boolean'
-        ? normalized.intakeReady
-        : (fallback.intakeReady ?? false),
     turnCount: normalized.turnCount > 0 ? normalized.turnCount : fallback.turnCount,
     ctaShown: normalized.ctaShown || fallback.ctaShown || false,
     ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
@@ -165,7 +159,6 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
   const urgency = trimString(record.urgency);
   const nextState: IntakeConversationState = {
     practiceArea: trimString(record.practiceArea) || null,
-    practiceAreaName: trimString(record.practiceAreaName) || null,
     description: trimString(record.description) || null,
     urgency: (urgency || null) as IntakeConversationState['urgency'],
     opposingParty: trimString(record.opposingParty) || null,
@@ -181,8 +174,6 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
     householdSize: normalizeNumberOrNull(record.householdSize),
     hasDocuments: typeof record.hasDocuments === 'boolean' ? record.hasDocuments : null,
     eligibilitySignals: normalizeStringArrayOrNull(record.eligibilitySignals),
-    quickReplies: normalizeStringArrayOrNull(record.quickReplies),
-    intakeReady: typeof record.intakeReady === 'boolean' ? record.intakeReady : false,
     turnCount: normalizeNumberOrNull(record.turnCount) ?? 0,
     ctaShown: typeof record.ctaShown === 'boolean' ? record.ctaShown : false,
     ctaResponse:
@@ -191,7 +182,7 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
         : null,
     notYetCount: normalizeNumberOrNull(record.notYetCount) ?? 0,
   };
-  return { ...nextState, intakeReady: isIntakeReadyForSubmission(nextState) };
+  return nextState;
 };
 
 const normalizeConsultationSubmission = (value: unknown): ConsultationState['submission'] => {

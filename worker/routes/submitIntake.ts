@@ -43,7 +43,6 @@ interface IntakeConversationState {
   income?: string | null;
   householdSize?: number | null;
   practiceArea?: string | null;
-  intakeReady?: boolean | null;
 }
 
 interface ConversationUserInfo {
@@ -267,7 +266,6 @@ export async function handleSubmitIntake(
     practiceId,
     slug,
     hasIntakeFields: Boolean(intake),
-    intakeReady: intake?.intakeReady ?? null,
     amountMinor: intakePayload.amount,
     hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
     hasAuthorization: Boolean(request.headers.get('Authorization')?.trim()),

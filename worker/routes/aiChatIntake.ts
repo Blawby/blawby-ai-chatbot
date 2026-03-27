@@ -8,6 +8,8 @@ import {
 // 5 user turns before we pivot to closing language. This is a UX default and may
 // need tuning per firm/intake context in future configuration.
 const INTAKE_CLOSING_MESSAGE_THRESHOLD = 6;
+const MAX_SERVICES_IN_PROMPT = 20;
+const MAX_KNOWN_FIELDS_IN_PROMPT = 7;
 
 const INTAKE_TOOL = {
   type: 'function',
@@ -43,14 +45,17 @@ const INTAKE_TOOL = {
 } as const;
 
 const buildIntakeSystemPrompt = (services: Array<{ name: string; key: string }>): string => {
-  const serviceList = services.length > 0
-    ? services.map((service) => `- ${service.name} (key: ${service.key})`).join('\n')
+  const cappedServices = services.slice(0, MAX_SERVICES_IN_PROMPT);
+  const serviceList = cappedServices.length > 0
+    ? cappedServices.map((service) => `- ${service.name} (key: ${service.key})`).join('\n')
     : '- General intake (no service list provided)';
+  const omittedCount = Math.max(0, services.length - cappedServices.length);
+  const overflowNote = omittedCount > 0 ? `\n- ...and ${omittedCount} more practice areas` : '';
 
   return `You are a legal intake data extractor for a law firm. Extract structured information from the conversation and save it using the update_intake_fields tool.
 
 This firm handles the following practice areas only:
-${serviceList}
+${serviceList}${overflowNote}
 
 Rules:
 - Extract only what the user has explicitly stated. Do not infer or guess.
@@ -67,10 +72,19 @@ export const buildIntakeConversationPrompt = (
   mergedState: Record<string, unknown> | null,
   messageCount: number
 ): string => {
+  const serviceNameByKey = new Map(services.map((service) => [service.key, service.name]));
+  const resolvePracticeAreaLabel = (): string | null => {
+    if (!mergedState || typeof mergedState.practiceArea !== 'string') return null;
+    const key = mergedState.practiceArea.trim();
+    if (!key) return null;
+    return serviceNameByKey.get(key) ?? key;
+  };
+
   const knownFields: string[] = [];
   if (mergedState) {
     if (typeof mergedState.description === 'string' && mergedState.description.trim()) knownFields.push(`Situation: ${mergedState.description.trim()}`);
-    if (typeof mergedState.practiceArea === 'string' && mergedState.practiceArea.trim()) knownFields.push(`Practice area: ${mergedState.practiceAreaName ?? mergedState.practiceArea}`);
+    const practiceAreaLabel = resolvePracticeAreaLabel();
+    if (practiceAreaLabel) knownFields.push(`Practice area: ${practiceAreaLabel}`);
     if (typeof mergedState.city === 'string' && mergedState.city.trim()) knownFields.push(`City: ${mergedState.city.trim()}`);
     if (typeof mergedState.state === 'string' && mergedState.state.trim()) knownFields.push(`State: ${mergedState.state.trim()}`);
     if (typeof mergedState.opposingParty === 'string' && mergedState.opposingParty.trim()) knownFields.push(`Opposing party: ${mergedState.opposingParty.trim()}`);
@@ -79,11 +93,12 @@ export const buildIntakeConversationPrompt = (
     if (typeof mergedState.hasDocuments === 'boolean') knownFields.push(`Has documents: ${mergedState.hasDocuments}`);
   }
 
-  const knownSection = knownFields.length > 0
-    ? `\nKNOWN SO FAR (do not ask for these again):\n${knownFields.map(f => `- ${f}`).join('\n')}`
+  const compactKnownFields = knownFields.slice(0, MAX_KNOWN_FIELDS_IN_PROMPT);
+  const knownSection = compactKnownFields.length > 0
+    ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}`
     : '';
 
-  const isSubmissionReady = shouldShowDeterministicIntakeCta(mergedState);
+  const isSubmissionReady = isIntakeStateReadyForSubmission(mergedState);
   const ctaInstruction = (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady)
     ? `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`
     : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
@@ -107,7 +122,7 @@ const mergeIntakeState = (
   return { ...(base ?? {}), ...(patch ?? {}) };
 };
 
-const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null): boolean => {
+const isIntakeStateReadyForSubmission = (state: Record<string, unknown> | null): boolean => {
   if (!state) return false;
   const hasDescription = hasNonEmptyStringField(state, 'description');
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
@@ -125,7 +140,7 @@ const shouldShowDeterministicIntakeCta = (state: Record<string, unknown> | null)
  *   description, city/state, opposingParty, desiredOutcome → open-text → no chips
  *   urgency   → closed enum  → fixed chips
  *   hasDocuments → boolean    → yes/no chips
- *   all fields present → emit __submit__ chip (overridden by intakeReady path in aiChat.ts)
+ *   all fields present → emit __submit__ chip (overridden by deterministic submit path in aiChat.ts)
  */
 export interface IntakeNextStep {
   /** The field being asked about, or null when submit-ready */
@@ -134,6 +149,8 @@ export interface IntakeNextStep {
   chips: string[];
   chipSource: 'none' | 'urgency' | 'hasDocuments' | 'submit';
 }
+
+type DeterministicIntakePatch = Partial<Pick<Record<string, unknown>, 'urgency' | 'hasDocuments'>>;
 
 export const planNextIntakeStep = (state: Record<string, unknown> | null): IntakeNextStep => {
   if (!state) {
@@ -165,43 +182,120 @@ export const planNextIntakeStep = (state: Record<string, unknown> | null): Intak
       chipSource: 'hasDocuments',
     };
   }
-  // All required fields present — the intakeReady path in aiChat.ts will override with __submit__.
+  // All required fields present — aiChat.ts will override with __submit__.
   return { nextField: null, chips: [], chipSource: 'none' };
 };
 
-const buildIntakeSummaryFromState = (state: Record<string, unknown> | null): string => {
-  if (!state) {
-    return 'Here is the summary of what we have so far. Are you ready for me to submit this information to connect you with the right attorney?';
+const normalizeIntentText = (value: string): string => (
+  value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+);
+
+const parseUrgencyFromLatestMessage = (content: string): 'routine' | 'time_sensitive' | 'emergency' | null => {
+  const normalized = normalizeIntentText(content);
+  if (!normalized) return null;
+
+  const bareEmergency = /^(emergency|urgent|asap|right away|immediately)$/i.test(normalized);
+  const bareTimeSensitive = /^(time sensitive|time-sensitive|soon|deadline)$/i.test(normalized);
+  const bareRoutine = /^(routine|standard|normal|not urgent|no rush|no deadline)$/i.test(normalized);
+  if (bareEmergency) return 'emergency';
+  if (bareTimeSensitive) return 'time_sensitive';
+  if (bareRoutine) return 'routine';
+
+  if (
+    /\bemergency\b/.test(normalized)
+    || /\bimmediately\b/.test(normalized)
+    || /\basap\b/.test(normalized)
+    || /\bright away\b/.test(normalized)
+    || /\burgent\b/.test(normalized)
+  ) {
+    return 'emergency';
   }
 
-  const read = (key: string): string => {
-    const value = state[key];
-    return typeof value === 'string' ? value.trim() : '';
-  };
-
-  const description = read('description');
-  const city = read('city');
-  const st = read('state');
-  const opposingParty = read('opposingParty');
-  const desiredOutcome = read('desiredOutcome');
-  const urgency = read('urgency');
-  const hasDocuments = typeof state.hasDocuments === 'boolean' ? state.hasDocuments : null;
-
-  const parts: string[] = [];
-  if (description) parts.push(`Situation: ${description}.`);
-  if (city || st) {
-    const location = city && st ? `${city}, ${st}` : city || st;
-    if (location) parts.push(`Location: ${location}.`);
-  }
-  if (opposingParty) parts.push(`Opposing party: ${opposingParty}.`);
-  if (desiredOutcome) parts.push(`Desired outcome: ${desiredOutcome}.`);
-  if (urgency) parts.push(`Timing: ${urgency}.`);
-  if (hasDocuments !== null) {
-    parts.push(hasDocuments ? 'They already have supporting documents.' : 'They have not gathered documents yet.');
+  if (
+    /\btime sensitive\b/.test(normalized)
+    || /\btime-sensitive\b/.test(content.toLowerCase())
+    || /\bsoon\b/.test(normalized)
+    || /\bquickly\b/.test(normalized)
+    || /\bdeadline\b/.test(normalized)
+  ) {
+    return 'time_sensitive';
   }
 
-  const opening = 'Here is what I have gathered so far.';
-  return `${opening} ${parts.join(' ')}`.trim() + ' Are you ready for me to submit this information to connect you with the right attorney?';
+  if (
+    /\broutine\b/.test(normalized)
+    || /\bstandard\b/.test(normalized)
+    || /\bnormal\b/.test(normalized)
+    || /\bno deadline\b/.test(normalized)
+    || /\bnon urgent\b/.test(normalized)
+    || /\bnot urgent\b/.test(normalized)
+    || /\bno rush\b/.test(normalized)
+  ) {
+    return 'routine';
+  }
+
+  return null;
+};
+
+const parseHasDocumentsFromLatestMessage = (content: string): boolean | null => {
+  const normalized = normalizeIntentText(content);
+  if (!normalized) return null;
+
+  const bareYes = /^(yes|yep|yeah|y|affirmative)$/i.test(normalized);
+  const bareNo = /^(no|nope|nah|n|negative|not yet|false)$/i.test(normalized);
+  if (/^(true)$/.test(normalized)) return true;
+  if (bareYes) return true;
+  if (bareNo) return false;
+
+  const mentionsDocuments = /\b(doc|docs|document|documents|paperwork|files|records|evidence)\b/.test(normalized);
+
+  if (
+    mentionsDocuments
+    && (
+      /\byes\b/.test(normalized)
+    || /\bi have documents\b/.test(normalized)
+    || /\bi have them\b/.test(normalized)
+    || /\bi do\b/.test(normalized)
+    || /\bi can upload\b/.test(normalized)
+    || /\bi have paperwork\b/.test(normalized)
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    mentionsDocuments
+    && (
+      /\bno\b/.test(normalized)
+    || /\bnot yet\b/.test(normalized)
+    || /\bno documents\b/.test(normalized)
+    || /\bdon t have\b/.test(normalized)
+    || /\bi don t\b/.test(normalized)
+    || /\bno paperwork\b/.test(normalized)
+    )
+  ) {
+    return false;
+  }
+
+  return null;
+};
+
+const deriveDeterministicIntakePatchFromLatestMessage = (
+  latestUserMessage: string | null | undefined,
+  mergedState: Record<string, unknown> | null
+): DeterministicIntakePatch | null => {
+  if (!latestUserMessage || latestUserMessage.trim().length === 0) return null;
+
+  const nextStep = planNextIntakeStep(mergedState);
+  if (nextStep.nextField === 'urgency') {
+    const urgency = parseUrgencyFromLatestMessage(latestUserMessage);
+    return urgency ? { urgency } : null;
+  }
+  if (nextStep.nextField === 'hasDocuments') {
+    const hasDocuments = parseHasDocumentsFromLatestMessage(latestUserMessage);
+    return typeof hasDocuments === 'boolean' ? { hasDocuments } : null;
+  }
+
+  return null;
 };
 
 const normalizeServicesForPrompt = (
@@ -251,15 +345,11 @@ const formatServiceList = (names: string[]): string => {
   return `${names.slice(0, 3).join(', ')}, and ${names.length - 3} more`;
 };
 
-const normalizeApostrophes = (text: string): string => text.replace(/['']/g, '\'');
-
 const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; content: string }>): boolean => {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
   if (!lastUserMessage) return false;
   return LEGAL_INTENT_REGEX.test(lastUserMessage.content);
 };
-
-const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
 
 const buildPracticeContactErrorReply = (
   practiceName: string,
@@ -311,18 +401,49 @@ const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null):
   return normalized;
 };
 
+const buildCompactPracticeContextForPrompt = (
+  details: Record<string, unknown> | null
+): Record<string, unknown> | null => {
+  const normalized = normalizePracticeDetailsForAi(details);
+  if (!normalized) return null;
+
+  const compact: Record<string, unknown> = {};
+  const copyIfPresent = (targetKey: string, sourceKeys: string[]) => {
+    for (const key of sourceKeys) {
+      if (!(key in normalized)) continue;
+      const value = normalized[key];
+      if (value === undefined || value === null || value === '') continue;
+      compact[targetKey] = value;
+      return;
+    }
+  };
+
+  copyIfPresent('practiceName', ['practice_name', 'practiceName', 'name']);
+  copyIfPresent('description', ['description', 'about', 'summary']);
+  copyIfPresent('businessPhone', ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
+  copyIfPresent('businessEmail', ['businessEmail', 'business_email', 'email']);
+  copyIfPresent('website', ['website']);
+  copyIfPresent('consultationFee', ['consultationFee', 'consultation_fee']);
+  copyIfPresent('paymentLinkPrefillAmount', ['paymentLinkPrefillAmount', 'payment_link_prefill_amount']);
+
+  if (Array.isArray(normalized.services)) {
+    compact.services = normalizeServicesForPrompt(normalized);
+  }
+
+  return compact;
+};
+
 export {
   INTAKE_TOOL,
   buildIntakeSystemPrompt,
   mergeIntakeState,
-  shouldShowDeterministicIntakeCta,
-  buildIntakeSummaryFromState,
+  isIntakeStateReadyForSubmission,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
-  normalizeApostrophes,
   shouldRequireDisclaimer,
-  countQuestions,
+  deriveDeterministicIntakePatchFromLatestMessage,
   buildPracticeContactErrorReply,
   normalizePracticeDetailsForAi,
+  buildCompactPracticeContextForPrompt,
 };

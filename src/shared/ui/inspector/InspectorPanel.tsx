@@ -855,19 +855,14 @@ export const InspectorPanel = ({
                             >
                               <InspectorEditableRow
                                 label=""
-                                summary={intakeConversationState.practiceAreaName || intakeConversationState.practiceArea || 'Not set'}
-                                summaryMuted={!intakeConversationState.practiceArea && !intakeConversationState.practiceAreaName}
+                                summary={intakeConversationState.practiceArea || 'Not set'}
+                                summaryMuted={!intakeConversationState.practiceArea}
                                 isOpen={activeConversationEditor === 'intakePracticeArea'}
                               >
                                 <Combobox
                                   value={intakeConversationState.practiceArea ?? ''}
                                   onChange={(v) => {
-                                    const option = intakeServiceOptions.find(o => o.value === v);
-                                    const patch: Partial<IntakeConversationState> = { practiceArea: v };
-                                    if (option) {
-                                      patch.practiceAreaName = option.label;
-                                    }
-                                    void handleIntakeFieldChange(patch, true);
+                                    void handleIntakeFieldChange({ practiceArea: v }, true);
                                   }}
                                   options={intakeServiceOptions}
                                   placeholder="Select Practice Area"
