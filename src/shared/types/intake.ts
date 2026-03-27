@@ -25,7 +25,6 @@ export type ConsultationStatus =
 
 export interface IntakeConversationState {
   practiceArea: string | null;
-  practiceAreaName: string | null;
   description: string | null;
   urgency: IntakeUrgency | null;
   opposingParty: string | null;
@@ -41,8 +40,6 @@ export interface IntakeConversationState {
   householdSize: number | null;
   hasDocuments: boolean | null;
   eligibilitySignals: string[] | null;
-  quickReplies: string[] | null;
-  intakeReady: boolean;
   turnCount: number;
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
@@ -67,7 +64,6 @@ export interface ConsultationState {
 
 export const initialIntakeState: IntakeConversationState = {
   practiceArea: null,
-  practiceAreaName: null,
   description: null,
   urgency: null,
   opposingParty: null,
@@ -83,8 +79,6 @@ export const initialIntakeState: IntakeConversationState = {
   householdSize: null,
   hasDocuments: null,
   eligibilitySignals: null,
-  quickReplies: null,
-  intakeReady: false,
   turnCount: 0,
   ctaShown: false,
   ctaResponse: null,
@@ -102,7 +96,6 @@ export const CONSULTATION_STATE_VERSION = 1;
 
 export type IntakeFieldsPayload = {
   practiceArea?: string;
-  practiceAreaName?: string;
   description?: string;
   urgency?: IntakeUrgency;
   opposingParty?: string;
@@ -118,8 +111,6 @@ export type IntakeFieldsPayload = {
   householdSize?: number;
   hasDocuments?: boolean;
   eligibilitySignals?: string[];
-  quickReplies?: string[] | null;
-  intakeReady?: boolean;
   ctaShown?: boolean;
 };
 

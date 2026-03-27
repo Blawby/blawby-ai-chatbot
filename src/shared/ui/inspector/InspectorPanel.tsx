@@ -848,34 +848,38 @@ export const InspectorPanel = ({
                               </InspectorEditableRow>
                             </InspectorGroup>
 
-                            <InspectorGroup 
-                              label="Practice Area" 
-                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakePracticeArea' ? null : 'intakePracticeArea') : undefined}
-                              isOpen={activeConversationEditor === 'intakePracticeArea'}
-                            >
-                              <InspectorEditableRow
-                                label=""
-                                summary={intakeConversationState.practiceAreaName || intakeConversationState.practiceArea || 'Not set'}
-                                summaryMuted={!intakeConversationState.practiceArea && !intakeConversationState.practiceAreaName}
-                                isOpen={activeConversationEditor === 'intakePracticeArea'}
-                              >
-                                <Combobox
-                                  value={intakeConversationState.practiceArea ?? ''}
-                                  onChange={(v) => {
-                                    const option = intakeServiceOptions.find(o => o.value === v);
-                                    const patch: Partial<IntakeConversationState> = { practiceArea: v };
-                                    if (option) {
-                                      patch.practiceAreaName = option.label;
-                                    }
-                                    void handleIntakeFieldChange(patch, true);
-                                  }}
-                                  options={intakeServiceOptions}
-                                  placeholder="Select Practice Area"
-                                  searchable
-                                  autoFocus
-                                />
-                              </InspectorEditableRow>
-                            </InspectorGroup>
+                            {(() => {
+                              const rawPracticeArea = intakeConversationState.practiceArea;
+                              const resolvedOpt = rawPracticeArea 
+                                ? intakeServiceOptions.find((opt) => opt.value === rawPracticeArea || (opt as { key?: string }).key === rawPracticeArea) 
+                                : null;
+                              const resolvedLabel = resolvedOpt ? resolvedOpt.label : rawPracticeArea;
+                              return (
+                                <InspectorGroup 
+                                  label="Practice Area" 
+                                  onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakePracticeArea' ? null : 'intakePracticeArea') : undefined}
+                                  isOpen={activeConversationEditor === 'intakePracticeArea'}
+                                >
+                                  <InspectorEditableRow
+                                    label=""
+                                    summary={resolvedLabel || 'Not set'}
+                                    summaryMuted={!resolvedLabel}
+                                    isOpen={activeConversationEditor === 'intakePracticeArea'}
+                                  >
+                                    <Combobox
+                                      value={rawPracticeArea ?? ''}
+                                      onChange={(v) => {
+                                        void handleIntakeFieldChange({ practiceArea: v }, true);
+                                      }}
+                                      options={intakeServiceOptions}
+                                      placeholder="Select Practice Area"
+                                      searchable
+                                      autoFocus
+                                    />
+                                  </InspectorEditableRow>
+                                </InspectorGroup>
+                              );
+                            })()}
                             <InspectorGroup 
                               label="City" 
                               onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeCity' ? null : 'intakeCity') : undefined}

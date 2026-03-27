@@ -43,7 +43,6 @@ interface IntakeConversationState {
   income?: string | null;
   householdSize?: number | null;
   practiceArea?: string | null;
-  intakeReady?: boolean | null;
 }
 
 interface ConversationUserInfo {
@@ -105,6 +104,38 @@ const normalizeSlimContactDraft = (value: unknown): SlimContactDraft | null => {
     opposingParty: typeof draft.opposingParty === 'string' ? draft.opposingParty.trim() : undefined,
     description: typeof draft.description === 'string' ? draft.description.trim() : undefined,
   };
+};
+
+const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+
+  const parseStr = (val: unknown) => typeof val === 'string' && val.trim().length > 0 ? val.trim() : null;
+
+  const urgencyRaw = typeof raw.urgency === 'string' ? raw.urgency.trim().toLowerCase() : null;
+  const urgency = urgencyRaw === 'routine' || urgencyRaw === 'time_sensitive' || urgencyRaw === 'emergency' 
+    ? urgencyRaw 
+    : null;
+
+  const state: IntakeConversationState = {
+    description: parseStr(raw.description),
+    urgency,
+    opposingParty: parseStr(raw.opposingParty),
+    desiredOutcome: parseStr(raw.desiredOutcome),
+    courtDate: parseStr(raw.courtDate),
+    hasDocuments: typeof raw.hasDocuments === 'boolean' ? raw.hasDocuments : null,
+    income: parseStr(raw.income),
+    householdSize: typeof raw.householdSize === 'number' ? raw.householdSize : null,
+    practiceArea: parseStr(raw.practiceArea),
+  };
+
+  for (const key of Object.keys(state) as Array<keyof IntakeConversationState>) {
+    if (state[key] === null || state[key] === undefined) {
+      delete state[key];
+    }
+  }
+
+  return Object.keys(state).length > 0 ? state : null;
 };
 
 const buildIntakePayload = (
@@ -243,8 +274,33 @@ export async function handleSubmitIntake(
     throw HttpErrors.badRequest('Contact details are incomplete — name and email are required');
   }
 
-  const intake = (consultation?.case as IntakeConversationState | null | undefined)
+  let clientMergedIntakeState: IntakeConversationState | null = null;
+  if (request.body) {
+    try {
+      const clonedRequest = request.clone();
+      const bodyText = await clonedRequest.text();
+      if (bodyText) {
+        const body = JSON.parse(bodyText);
+        if (body && typeof body === 'object' && 'mergedIntakeState' in body) {
+          clientMergedIntakeState = sanitizeMergedIntakeState(body.mergedIntakeState);
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors, fallback to DB only
+    }
+  }
+
+  let intake = (consultation?.case as IntakeConversationState | null | undefined)
     ?? userInfo.intakeConversationState as IntakeConversationState | null | undefined;
+
+  if (clientMergedIntakeState) {
+    intake = { ...(intake ?? {}), ...clientMergedIntakeState };
+    Logger.info('[submitIntake] Merged client-provided mergedIntakeState into case to avoid stale reads', {
+      conversationId,
+      practiceId,
+      clientKeys: Object.keys(clientMergedIntakeState),
+    });
+  }
 
   const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request).catch((error) => {
     Logger.warn('[submitIntake] Failed to load intake settings; using fallback amount', {
@@ -267,7 +323,6 @@ export async function handleSubmitIntake(
     practiceId,
     slug,
     hasIntakeFields: Boolean(intake),
-    intakeReady: intake?.intakeReady ?? null,
     amountMinor: intakePayload.amount,
     hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
     hasAuthorization: Boolean(request.headers.get('Authorization')?.trim()),

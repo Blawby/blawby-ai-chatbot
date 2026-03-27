@@ -38,7 +38,7 @@ const PracticeReportsPage = lazy(() => import('@/features/reports/pages/Practice
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
-import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
 import {
   peekAnonymousSessionId,
   peekAnonymousUserId,
@@ -298,6 +298,14 @@ export function MainApp({
     }
   }, []);
 
+  // Bridge for payment gate: useIntakeFlow calls onOpenPayment imperatively;
+  // ChatContainer registers its handleOpenPayment here on mount.
+  const openPaymentRef = useRef<((req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) | null>(null);
+  const handleOpenPaymentBridge = useCallback(
+    (req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => openPaymentRef.current?.(req),
+    []
+  );
+
   const messageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
@@ -307,6 +315,7 @@ export function MainApp({
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
+    onOpenPayment: handleOpenPaymentBridge,
   });
 
   const {
@@ -677,7 +686,7 @@ export function MainApp({
         || intakeStatus?.step !== 'contact_form_slim'
         || intakeConversationState?.turnCount
         || intakeConversationState?.ctaShown
-        || intakeConversationState?.intakeReady
+        || isIntakeReadyForSubmission(intakeConversationState)
         || intakeConversationState?.description
         || intakeConversationState?.opposingParty
         || intakeConversationState?.city
@@ -843,6 +852,7 @@ export function MainApp({
             onBuildBrief={handleBuildBrief}
             onSubmitNow={handleSubmitNow}
             onFinalizeSubmit={handleFinalizeSubmit}
+            onRegisterOpenPayment={(fn) => { openPaymentRef.current = fn; }}
             isAnonymousUser={isAnonymous}
             canChat={canChat}
             hasMoreMessages={hasMoreMessages}

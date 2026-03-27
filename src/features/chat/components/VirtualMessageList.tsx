@@ -14,6 +14,7 @@ import { postSystemMessage } from '@/shared/lib/conversationApi';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
+import { isIntakeReadyForSubmission } from '@/shared/utils/consultationState';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
@@ -699,6 +700,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         return new Map(dedupedMessages.map((message) => [message.id, message]));
     }, [dedupedMessages]);
     const olderMessagesButtonClassName = 'text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60';
+    const intakeReady = isIntakeReadyForSubmission(intakeConversationState);
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
@@ -784,7 +786,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 const showSharedIntakeCta =
                     !message.isUser &&
                     isLast &&
-                    Boolean(intakeConversationState?.intakeReady) &&
+                    intakeReady &&
                     !hasSubmitQuickReply &&
                     intakeConversationState?.ctaResponse !== 'ready' &&
                     _intakeStatus?.step !== 'pending_review' &&
@@ -807,7 +809,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
         const snapshot = JSON.stringify({
-            intakeReady: Boolean(intakeConversationState?.intakeReady),
+            intakeReady,
             intakeStep: _intakeStatus?.step ?? null,
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
@@ -819,12 +821,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         quickActionDebugSnapshotRef.current = snapshot;
 
         quickActionDebugLog('VirtualMessageList action gating snapshot', {
-            intakeReady: Boolean(intakeConversationState?.intakeReady),
+            intakeReady,
             intakeStep: _intakeStatus?.step ?? null,
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
         });
-    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeConversationState?.intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.step]);
+    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.step]);
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">
@@ -940,7 +942,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const showSharedIntakeCta =
                         !message.isUser &&
                         isLast &&
-                        Boolean(intakeConversationState?.intakeReady) &&
+                        intakeReady &&
                         !hasSubmitQuickReply &&
                         intakeConversationState?.ctaResponse !== 'ready' &&
                         _intakeStatus?.step !== 'pending_review' &&

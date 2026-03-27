@@ -14,6 +14,7 @@ import type { ReplyTarget } from '@/features/chat/types';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
+import { isIntakeReadyForSubmission } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
@@ -115,6 +116,12 @@ export interface ChatContainerProps {
     name: string;
     email?: string;
   }>;
+  /**
+   * Called once (after first render) with ChatContainer's handleOpenPayment function.
+   * Allows ancestors to imperatively open the payment card from outside the component,
+   * e.g. from useIntakeFlow's payment gate in handleConfirmSubmit.
+   */
+  onRegisterOpenPayment?: (open: (request: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -172,7 +179,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAuthPromptClose,
   onAuthPromptSuccess,
   onboardingActions,
-  mentionCandidates = []
+  mentionCandidates = [],
+  onRegisterOpenPayment,
 }) => {
   const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
@@ -206,6 +214,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     !hasContactInfoSubmitted &&
     typeof onSlimFormContinue === 'function';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
+
+
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -281,7 +291,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
-    const canHandleCta = Boolean(intakeConversationState?.intakeReady) && intakeConversationState?.ctaResponse !== 'ready';
+    const canHandleCta = isIntakeReadyForSubmission(intakeConversationState) && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
     const isAffirmative = affirmative.test(normalized);
@@ -350,10 +360,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     });
   }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
 
-  const emitAuthPromptRequest = () => {
+  const emitAuthPromptRequest = useCallback(() => {
     rememberPostAuthContext();
     onAuthPromptRequest?.();
-  };
+  }, [rememberPostAuthContext, onAuthPromptRequest]);
 
   useEffect(() => {
     if (!showAuthPrompt) return;
@@ -416,7 +426,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = (request: IntakePaymentRequest): boolean => {
+  const openPayment = useCallback((request: IntakePaymentRequest): boolean => {
     const hasClientSecret = typeof request.clientSecret === 'string' &&
       request.clientSecret.trim().length > 0;
     if (!hasClientSecret &&
@@ -429,7 +439,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setPaymentRequest(request);
     setIsPaymentModalOpen(true);
     return true;
-  };
+  }, []);
 
   const handleAuthPromptClose = () => {
     setPendingPaymentRequest(null);
@@ -460,14 +470,24 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
-  const handleOpenPayment = (request: IntakePaymentRequest) => {
+  const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
     if (isAnonymousUser) {
       setPendingPaymentRequest(request);
       emitAuthPromptRequest();
       return;
     }
     openPayment(request);
-  };
+  }, [isAnonymousUser, emitAuthPromptRequest, openPayment, setPendingPaymentRequest]);
+
+  // Register handleOpenPayment with the parent once it is stable.
+  // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
+  // to useMessageHandling → useIntakeFlow so the payment gate can open the card
+  // without going through message metadata parsing.
+  useEffect(() => {
+    if (onRegisterOpenPayment) {
+      onRegisterOpenPayment(handleOpenPayment);
+    }
+  }, [onRegisterOpenPayment, handleOpenPayment]);
 
   const handleClosePayment = () => {
     setIsPaymentModalOpen(false);
