@@ -51,11 +51,14 @@ const buildIntakeSystemPrompt = (services: Array<{ name: string; key: string }>)
     : '- General intake (no service list provided)';
   const omittedCount = Math.max(0, services.length - cappedServices.length);
   const overflowNote = omittedCount > 0 ? `\n- ...and ${omittedCount} more practice areas` : '';
+  const fullServiceMapping = services.length > 0
+    ? `\nFull service mapping: ${services.map(s => `${s.key}:${s.name}`).join(', ')}`
+    : '';
 
   return `You are a legal intake data extractor for a law firm. Extract structured information from the conversation and save it using the update_intake_fields tool.
 
 This firm handles the following practice areas only:
-${serviceList}${overflowNote}
+${serviceList}${overflowNote}${fullServiceMapping}
 
 Rules:
 - Extract only what the user has explicitly stated. Do not infer or guess.
@@ -100,9 +103,14 @@ export const buildIntakeConversationPrompt = (
     : '';
 
   const isSubmissionReady = isIntakeStateReadyForSubmission(mergedState);
-  const ctaInstruction = (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady)
-    ? `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`
-    : `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
+  let ctaInstruction = '';
+  if (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady) {
+    ctaInstruction = `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`;
+  } else if (isSubmissionReady && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
+    ctaInstruction = `\nYou have all the required details to proceed. Briefly offer a recap to confirm readiness and prepare the user to submit. Do NOT ask any new questions.`;
+  } else {
+    ctaInstruction = `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
+  }
 
   return `You are a warm, helpful legal intake assistant for a law firm. The structured intake fields have already been saved by a separate process. Your only job is to respond naturally to the user.
 

@@ -129,6 +129,7 @@ const schedulePostStreamTasks = (
   context: ExecutionContext | undefined,
   conversationId: string,
   tasks: Promise<unknown>[],
+  onSettled?: () => void,
 ) => {
   const persistAfterStream = Promise.allSettled(tasks).then((results) => {
     for (const result of results) {
@@ -139,6 +140,8 @@ const schedulePostStreamTasks = (
         });
       }
     }
+  }).finally(() => {
+    onSettled?.();
   });
 
   if (context) {
@@ -315,12 +318,10 @@ const deriveQuickActionState = (params: {
 }) => {
   let onboardingFields = params.onboardingFields;
   let quickReplies: string[] | null = null;
-  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'intakeReadySubmit' | 'onboardingFields' = 'none';
+  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_submit' | 'onboardingFields' = 'none';
   let onboardingProfile: Record<string, unknown> | null = null;
   let triggerEditModal: string | null = null;
-  let intakeReady = false;
   let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
-  let mergedIntakeState = params.promptMergedIntakeState;
 
   const fieldsForQuickReplies = params.isOnboardingMode ? onboardingFields : null;
   if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
@@ -345,11 +346,10 @@ const deriveQuickActionState = (params: {
     onboardingProfile = buildOnboardingProfileMetadata(params.details, onboardingFields);
   }
   if (params.isIntakeMode) {
-    intakeReady = isIntakeStateReadyForSubmission(mergedIntakeState);
-    plannerStep = planNextIntakeStep(mergedIntakeState);
-    if (intakeReady) {
+    plannerStep = planNextIntakeStep(params.promptMergedIntakeState);
+    if (plannerStep.nextField === null) {
       quickReplies = ['__submit__'];
-      quickRepliesSource = 'intakeReadySubmit';
+      quickRepliesSource = 'planner_submit';
     } else if (plannerStep.chips.length > 0) {
       quickReplies = plannerStep.chips;
       quickRepliesSource = plannerStep.chipSource === 'urgency' ? 'planner_urgency' : 'planner_hasDocuments';
@@ -362,9 +362,7 @@ const deriveQuickActionState = (params: {
     triggerEditModal,
     quickReplies,
     quickRepliesSource,
-    intakeReady,
     plannerStep,
-    mergedIntakeState,
   };
 };
 
@@ -748,6 +746,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const debugEnabled = isDebugEnabled(env.DEBUG);
 
     const startedAt = Date.now();
+    let responseClosed = false;
 
       // Add timeout for the initial AI request
       const controller = new AbortController();
@@ -979,9 +978,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const triggerEditModal = quickActionState.triggerEditModal;
       quickReplies = quickActionState.quickReplies;
       const quickRepliesSource = quickActionState.quickRepliesSource;
-      const intakeReady = quickActionState.intakeReady;
       const plannerStep = quickActionState.plannerStep;
-      const mergedIntakeState = quickActionState.mergedIntakeState;
+      const mergedIntakeState = promptMergedIntakeState;
       if (isIntakeMode && debugEnabled) {
         const mergedCity = typeof mergedIntakeState?.city === 'string' ? mergedIntakeState.city.trim().toLowerCase() : '';
         const replyLower = accumulatedReply.trim().toLowerCase();
@@ -1015,8 +1013,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (debugEnabled) {
         Logger.info('[QuickActionDebug] aiChat computed action payload', {
           conversationId: body.conversationId,
-          intakeReady,
           nextField: plannerStep?.nextField ?? null,
+          isSubmitReady: plannerStep?.nextField === null,
           quickReplies,
           quickRepliesSource,
           chipSource: plannerStep?.chipSource ?? null,
@@ -1029,7 +1027,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       // Emit the done event before persisting — client can act on intakeFields
-      // immediately without waiting for the DB write
+      // immediately without waiting for the DB write.
       write({
         done: true,
         intakeFields: intakeFields ?? null,
@@ -1038,36 +1036,36 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         quickReplies: quickReplies ?? null,
         triggerEditModal: triggerEditModal ?? null,
       });
-
-      // Persist and audit — runs inside waitUntil so the worker stays alive
-      // until this completes even after the SSE stream is closed
-      const storedMessage = await conversationService.sendSystemMessage({
-        conversationId: body.conversationId,
-        practiceId: conversation.practice_id,
-        content: accumulatedReply,
-        metadata: {
-          source: 'ai',
-          model: model,
-          ...(aigStep ? { aigStep } : {}),
-          ...(intakeFields ? { intakeFields } : {}),
-          ...(onboardingFields ? { onboardingFields } : {}),
-          ...(onboardingProfile ? { onboardingProfile } : {}),
-          ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
-          ...(triggerEditModal ? { triggerEditModal } : {}),
-          ...(shouldPromptConsultation
-            ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-            : {})
-        },
-        recipientUserId: authContext.user.id,
-        skipPracticeValidation: shouldSkipPracticeValidation,
-        request
-      });
+      close();
+      responseClosed = true;
 
       const postStreamTasks: Promise<unknown>[] = [];
 
-      if (storedMessage) {
+      postStreamTasks.push((async () => {
+        const storedMessage = await conversationService.sendSystemMessage({
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          content: accumulatedReply,
+          metadata: {
+            source: 'ai',
+            model: model,
+            ...(aigStep ? { aigStep } : {}),
+            ...(intakeFields ? { intakeFields } : {}),
+            ...(onboardingFields ? { onboardingFields } : {}),
+            ...(onboardingProfile ? { onboardingProfile } : {}),
+            ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
+            ...(triggerEditModal ? { triggerEditModal } : {}),
+            ...(shouldPromptConsultation
+              ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+              : {})
+          },
+          recipientUserId: authContext.user.id,
+          skipPracticeValidation: shouldSkipPracticeValidation,
+          request
+        });
+
         if (debugEnabled) {
-          Logger.info('[QuickActionDebug] aiChat persisted message metadata', {
+          Logger.info('[QuickActionDebug] aiChat stored message metadata', {
             conversationId: body.conversationId,
             messageId: storedMessage.id,
             quickReplies,
@@ -1079,23 +1077,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               : [],
           });
         }
+      })());
 
-        // Send the persisted message ID so the client can reconcile the
-        // temporary streaming bubble with the real message when it arrives
-        // via WebSocket message.new
-        write({ persisted: true, messageId: storedMessage.id });
-
-        // Persist intake metadata off the stream-critical path.
-        if (isIntakeMode && mergedIntakeState) {
-          postStreamTasks.push(
-            persistMergedIntakeState(conversationService, {
-              conversationId: body.conversationId,
-              practiceId: conversation.practice_id,
-              consultationStatus: consultation?.status,
-              mergedIntakeState,
-            })
-          );
-        }
+      // Persist intake metadata off the stream-critical path.
+      if (isIntakeMode && mergedIntakeState) {
+        postStreamTasks.push(
+          persistMergedIntakeState(conversationService, {
+            conversationId: body.conversationId,
+            practiceId: conversation.practice_id,
+            consultationStatus: consultation?.status,
+            mergedIntakeState,
+          })
+        );
       }
 
       postStreamTasks.push(auditService.createEvent({
@@ -1137,7 +1130,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         });
       }
     } finally {
-      close();
+      if (!responseClosed) {
+        close();
+      }
     }
   };
 

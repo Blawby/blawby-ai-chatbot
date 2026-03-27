@@ -359,12 +359,6 @@ export const useChatComposer = ({
         }
         return;
       }
-      if (parsed.persisted === true && typeof parsed.messageId === 'string') {
-        const messageExists = messagesRef.current?.some(m => m.id === parsed.messageId);
-        if (messageExists) { removeStreamingBubble(bubbleId); return; }
-        pendingStreamMessageIdRef.current = parsed.messageId;
-        return;
-      }
       if (parsed.error === true) {
         console.error('[useChatComposer] AI stream error', {
           code: typeof parsed.code === 'string' ? parsed.code : null,
@@ -402,7 +396,7 @@ export const useChatComposer = ({
       if (dataLine) await processEvent(dataLine.slice(6));
     }
 
-    // Handle orphan bubble (no persisted event arrived)
+    // Handle orphan bubble (no realtime reconciliation arrived)
     if (pendingStreamMessageIdRef.current === null) {
       const bubbleIdToHandle = bubbleId;
       let orphanedBubble: ChatMessageUI | null = null;
@@ -676,11 +670,11 @@ export const useChatComposer = ({
                 : msg
             ));
           }
-          // Let WebSocket deliver the persisted message — no local insertion needed
+          // Let the stored message arrive through realtime delivery — no local insertion needed
           if (aiData.message) return;
           const reply = (aiData.reply ?? '').trim();
           if (!reply) throw new Error('AI response missing');
-          if (import.meta.env.DEV) console.warn('[useChatComposer] AI returned reply without persisted message');
+          if (import.meta.env.DEV) console.warn('[useChatComposer] AI returned reply without stored message');
           onError?.('Something went wrong. Please try again.');
           return;
         }
