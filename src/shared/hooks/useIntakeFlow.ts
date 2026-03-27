@@ -5,7 +5,7 @@ import { fetchIntakePaymentStatus, isPaidIntakeStatus, isTerminalUnpaidStatus } 
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
-import type { FileAttachment, MinorAmount } from '../../../worker/types';
+import type { FileAttachment } from '../../../worker/types';
 import {
   initialIntakeState,
   type IntakeConversationState,
@@ -192,7 +192,7 @@ export function useIntakeFlow({
   sendMessage,
   sendMessageOverWs,
   onError,
-  onOpenPayment,
+  onOpenPayment: _onOpenPayment,
 }: UseIntakeFlowOptions): UseIntakeFlowResult {
   const { session, isAnonymous } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;

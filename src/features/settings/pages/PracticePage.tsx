@@ -31,7 +31,6 @@ import { getFrontendHost } from '@/config/urls';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { ContentPageLayout } from '@/shared/ui/layout';
-import { _SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingRow } from '@/features/settings/components/SettingRow';
@@ -110,10 +109,6 @@ const resolveOnboardingData = (practice: Practice | null, details: PracticeDetai
   return { ...baseFromPractice, ...baseFromDetails };
 };
 
-const _truncateText = (value: string, maxLength: number) => {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength).trim()}...`;
-};
 
 const isValidHttpUrl = (value: string): boolean => {
   try {

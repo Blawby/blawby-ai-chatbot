@@ -75,10 +75,8 @@ export const buildFileUrl = (value: string): string => {
   if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('/')) return trimmed;
   
-  // Check cache first
-  if (fileUrlCache.has(trimmed)) {
-    return fileUrlCache.get(trimmed)!;
-  }
+  const cached = fileUrlCache.get(trimmed);
+  if (cached) return cached;
   
   // Build and cache URL
   const url = `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;

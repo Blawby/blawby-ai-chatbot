@@ -23,7 +23,6 @@ import {
   PencilSquareIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
@@ -303,7 +302,7 @@ export const PracticeMattersPage = ({
     () => resolveQueryValue(location.query?.convertIntake),
     [location.query?.convertIntake]
   );
-  const navigate = (path: string) => location.route(path);
+  const navigate = useCallback((path: string) => location.route(path), [location]);
   const goToList = () => navigate(basePath);
   const goToDetail = (id: string, section: Exclude<DetailSectionId, 'overview'> | null = null) =>
     navigate(section ? `${basePath}/${encodeURIComponent(id)}/${section}` : `${basePath}/${encodeURIComponent(id)}`);
@@ -335,9 +334,9 @@ export const PracticeMattersPage = ({
   const [noteRecords, setNoteRecords] = useState<BackendMatterNote[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
-  const [noteLoading, setNoteLoading] = useState(false);
-  const [noteError, setNoteError] = useState<string | null>(null);
-  const [noteRetryCount, setNoteRetryCount] = useState(0);
+  const [_noteLoading, setNoteLoading] = useState(false);
+  const [_noteError, setNoteError] = useState<string | null>(null);
+  const [_noteRetryCount, _setNoteRetryCount] = useState(0);
   const [activityRetryCount, setActivityRetryCount] = useState(0);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
@@ -368,7 +367,7 @@ export const PracticeMattersPage = ({
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
   const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
-  const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
+  const [_quickTimeEntryKey, _setQuickTimeEntryKey] = useState(0);
   const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -762,7 +761,7 @@ export const PracticeMattersPage = ({
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, noteRetryCount]);
+  }, [activePracticeId, selectedMatterId, _noteRetryCount]);
 
   // ── Data fetching: time stats (used by summary cards) ────────────────────
   useEffect(() => {
@@ -2222,7 +2221,7 @@ export const PracticeMattersPage = ({
             contentClassName="max-w-2xl"
           >
             <TimeEntryForm
-              key={`quick-time-${quickTimeEntryKey}`}
+              key={`quick-time-${_quickTimeEntryKey}`}
               onSubmit={handleQuickTimeSubmit}
               onCancel={() => setIsQuickTimeEntryOpen(false)}
             />

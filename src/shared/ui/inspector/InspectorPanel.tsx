@@ -327,8 +327,12 @@ export const InspectorPanel = ({
             try {
               const practiceDetail = await getPracticeDetails(practiceId, { signal: controller.signal });
               setPracticeDetail(practiceDetail);
-            } catch {
-              setPracticeDetail(null);
+            } catch (err: unknown) {
+              const error = err as Error;
+              // Only clear state for real errors, not aborted requests
+              if (!controller.signal.aborted && error?.name !== 'AbortError') {
+                setPracticeDetail(null);
+              }
             }
           } else {
             // Client view - set null if no prop details provided

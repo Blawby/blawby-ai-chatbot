@@ -5,13 +5,12 @@ import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
-import { ContactData, ContactForm } from '@/features/intake/components/ContactForm';
+import { ContactData } from '@/features/intake/components/ContactForm';
 import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
-import { useTranslation } from '@/shared/i18n/hooks';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
@@ -182,7 +181,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   mentionCandidates = [],
   onRegisterOpenPayment,
 }) => {
-  const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
