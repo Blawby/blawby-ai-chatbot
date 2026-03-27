@@ -112,7 +112,7 @@ const workerEndpoints = [
 	'status',
 	'ai',
 	'practices',
-	'user-details',
+	'clients',
 	'onboarding',
 	'practice',
 	'preferences',

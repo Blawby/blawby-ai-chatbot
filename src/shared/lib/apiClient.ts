@@ -854,7 +854,7 @@ export async function listUserDetails(
   }
   const { signal, ...queryParams } = params ?? {};
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}`,
     { params: queryParams, signal }
   );
   const payload = response.data;
@@ -879,7 +879,7 @@ export async function getUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}`,
     // Backend contract uses `client_id` even though this record is presented as Person in UI.
     { params: { client_id: userDetailId }, signal: config?.signal }
   );
@@ -902,7 +902,7 @@ export async function getUserDetailAddressById(
     throw new Error('practiceId and addressId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}/addresses/${encodeURIComponent(addressId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}/addresses/${encodeURIComponent(addressId)}`,
     { signal: config?.signal }
   );
   const payload = unwrapApiData(response.data);
@@ -1035,7 +1035,7 @@ export async function updateUserDetail(
   const { address, name, email, phone, status, currency, event_name, ...rest } = payload;
   const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
   const response = await apiClient.patch(
-    `/api/user-details/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(userDetailId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
     { ...rest, ...normalized }
   );
   const data = response.data;
@@ -1053,7 +1053,7 @@ export async function deleteUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   await apiClient.delete(
-    `/api/user-details/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(userDetailId)}`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`
   );
 }
 
@@ -1080,7 +1080,7 @@ export async function listUserDetailMemos(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data)) {
@@ -1101,7 +1101,7 @@ export async function createUserDetailMemo(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.post(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`,
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`,
     payload
   );
   const data = response.data;
@@ -1121,7 +1121,7 @@ export async function updateUserDetailMemo(
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
   const response = await apiClient.patch(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/update/${encodeURIComponent(memoId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`,
     payload
   );
   const data = response.data;
@@ -1140,7 +1140,7 @@ export async function deleteUserDetailMemo(
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
   await apiClient.delete(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/delete/${encodeURIComponent(memoId)}`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`
   );
 }
 

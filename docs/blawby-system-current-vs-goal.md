@@ -80,7 +80,7 @@ Backend-proxied responsibilities:
 - `/api/matters`
 - `/api/invoices`
 - `/api/practice/client-intakes`
-- `/api/user-details`
+- `/api/clients`
 - `/api/practice/*` except worker-local practice details helpers
 - `/api/preferences`
 - `/api/subscriptions`
