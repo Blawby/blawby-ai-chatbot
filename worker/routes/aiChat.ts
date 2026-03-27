@@ -41,6 +41,7 @@ import {
   buildIntakeConversationStatePrompt,
   mergeIntakeState,
   planNextIntakeStep,
+  type IntakeSubmissionGate,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
@@ -57,6 +58,46 @@ import {
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const readBooleanField = (record: Record<string, unknown> | null, keys: string[]): boolean | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    if (typeof record[key] === 'boolean') return record[key] as boolean;
+  }
+  return null;
+};
+
+const readFiniteNumberField = (record: Record<string, unknown> | null, keys: string[]): number | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return null;
+};
+
+const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, unknown> | null): boolean => {
+  if (!details) return false;
+  const prefillAmount = readFiniteNumberField(details, [
+    'paymentLinkPrefillAmount',
+    'payment_link_prefill_amount',
+    'prefillAmount',
+    'prefill_amount',
+  ]);
+  if (prefillAmount !== null && prefillAmount > 0) return true;
+
+  const consultationFee = readFiniteNumberField(details, [
+    'consultationFee',
+    'consultation_fee',
+  ]);
+  if (consultationFee !== null && consultationFee > 0) return true;
+
+  const paymentLinkEnabled = readBooleanField(details, [
+    'paymentLinkEnabled',
+    'payment_link_enabled',
+  ]);
+  return paymentLinkEnabled === true;
+};
 
 const buildCompactIntakeContextForExtraction = (
   state: Record<string, unknown> | null
@@ -386,10 +427,11 @@ const deriveQuickActionState = (params: {
   onboardingFields: Record<string, unknown> | null;
   details: Record<string, unknown> | null;
   promptMergedIntakeState: Record<string, unknown> | null;
+  submissionGate?: IntakeSubmissionGate | null;
 }) => {
   let onboardingFields = params.onboardingFields;
   let quickReplies: string[] | null = null;
-  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_submit' | 'onboardingFields' = 'none';
+  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'onboardingFields' = 'none';
   let onboardingProfile: Record<string, unknown> | null = null;
   let triggerEditModal: string | null = null;
   let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
@@ -417,13 +459,19 @@ const deriveQuickActionState = (params: {
     onboardingProfile = buildOnboardingProfileMetadata(params.details, onboardingFields);
   }
   if (params.isIntakeMode) {
-    plannerStep = planNextIntakeStep(params.promptMergedIntakeState);
+    plannerStep = planNextIntakeStep(params.promptMergedIntakeState, params.submissionGate);
     if (plannerStep.nextField === null) {
       quickReplies = ['__submit__'];
       quickRepliesSource = 'planner_submit';
     } else if (plannerStep.chips.length > 0) {
       quickReplies = plannerStep.chips;
-      quickRepliesSource = plannerStep.chipSource === 'urgency' ? 'planner_urgency' : 'planner_hasDocuments';
+      quickRepliesSource = plannerStep.chipSource === 'urgency'
+        ? 'planner_urgency'
+        : plannerStep.chipSource === 'hasDocuments'
+          ? 'planner_hasDocuments'
+          : plannerStep.chipSource === 'payment'
+            ? 'planner_payment'
+            : 'planner_hasDocuments';
     }
   }
 
@@ -469,6 +517,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     intakeSubmitted?: boolean;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
     additionalContext?: string;
+    sourceBubbleId?: string;
   };
   Logger.info('AI chat timing: request body parsed', {
     conversationId: body.conversationId ?? null,
@@ -821,12 +870,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
     const startedAt = Date.now();
     let responseClosed = false;
-
-      // Add timeout for the initial AI request
-      const controller = new AbortController();
-      let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-        controller.abort();
-      }, AI_TIMEOUT_MS);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
       if (isIntakeMode || isOnboardingMode) {
@@ -861,9 +905,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const deterministicIntakePatch = isIntakeMode
-        ? deriveDeterministicIntakePatchFromLatestMessage(lastUserMessage?.content, storedIntakeState)
+        ? deriveDeterministicIntakePatchFromLatestMessage(lastUserMessage?.content, storedIntakeState, {
+            paymentRequiredBeforeSubmit:
+              (consultation?.submission?.paymentRequired === true)
+              || resolvePracticeRequiresPaymentBeforeSubmission(details),
+            paymentCompleted: consultation?.submission?.paymentReceived === true,
+          })
         : null;
-      const extractionPlannerStep = planNextIntakeStep(storedIntakeState);
+      const intakeSubmissionGate: IntakeSubmissionGate = {
+        paymentRequiredBeforeSubmit:
+          (consultation?.submission?.paymentRequired === true)
+          || resolvePracticeRequiresPaymentBeforeSubmission(details),
+        paymentCompleted: consultation?.submission?.paymentReceived === true,
+      };
+      const extractionPlannerStep = planNextIntakeStep(storedIntakeState, intakeSubmissionGate);
       const intakeTurnMetrics = isIntakeMode
         ? {
             extractionRan: false,
@@ -916,7 +971,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
         ].join('\n\n');
         const intakeDynamicPrompt = [
-          buildIntakeConversationStatePrompt(servicesForPrompt, promptMergedIntakeState, body.messages.length),
+          buildIntakeConversationStatePrompt(servicesForPrompt, promptMergedIntakeState, body.messages.length, intakeSubmissionGate),
           body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
         ].filter(Boolean).join('\n\n');
 
@@ -934,6 +989,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const conversationRequestStartedAt = Date.now();
       let conversationTTFTMs: number | null = null;
+      // Conversation timeout should start only when the conversation request starts,
+      // not during intake pre-processing/extraction work.
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, AI_TIMEOUT_MS);
       const streamWrite = (payload: Record<string, unknown>) => {
         if (conversationTTFTMs === null && typeof payload.token === 'string' && payload.token.length > 0) {
           conversationTTFTMs = Date.now() - conversationRequestStartedAt;
@@ -1072,6 +1133,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingFields,
         details,
         promptMergedIntakeState,
+        submissionGate: intakeSubmissionGate,
       });
       onboardingFields = quickActionState.onboardingFields;
       onboardingProfile = quickActionState.onboardingProfile;
@@ -1154,6 +1216,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           metadata: {
             source: 'ai',
             model: model,
+            ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
             ...(aigStep ? { aigStep } : {}),
             ...(intakeFields ? { intakeFields } : {}),
             ...(onboardingFields ? { onboardingFields } : {}),

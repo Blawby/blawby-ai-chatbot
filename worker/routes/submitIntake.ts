@@ -37,6 +37,8 @@ interface IntakeConversationState {
   description?: string | null;
   urgency?: 'routine' | 'time_sensitive' | 'emergency' | null;
   opposingParty?: string | null;
+  city?: string | null;
+  state?: string | null;
   desiredOutcome?: string | null;
   courtDate?: string | null;
   hasDocuments?: boolean | null;
@@ -121,6 +123,8 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
     description: parseStr(raw.description),
     urgency,
     opposingParty: parseStr(raw.opposingParty),
+    city: parseStr(raw.city),
+    state: parseStr(raw.state),
     desiredOutcome: parseStr(raw.desiredOutcome),
     courtDate: parseStr(raw.courtDate),
     hasDocuments: typeof raw.hasDocuments === 'boolean' ? raw.hasDocuments : null,
@@ -136,6 +140,30 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
   }
 
   return Object.keys(state).length > 0 ? state : null;
+};
+
+const readStringField = (record: Record<string, unknown> | null | undefined, keys: string[]): string | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
+  if (!state) return false;
+  const draftRecord = draft as unknown as Record<string, string | undefined> | null | undefined;
+  const hasDescription = Boolean(state.description?.trim() || draftRecord?.description?.trim());
+  const hasLocation = Boolean(state.city?.trim() || draftRecord?.city?.trim())
+    && Boolean(state.state?.trim() || draftRecord?.state?.trim());
+  const hasOpposingParty = Boolean(state.opposingParty?.trim() || draftRecord?.opposing_party?.trim());
+  const hasUrgency = Boolean(state.urgency?.trim());
+  const hasDesiredOutcome = Boolean(state.desiredOutcome?.trim());
+  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
+  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 const buildIntakePayload = (
@@ -174,8 +202,10 @@ const buildIntakePayload = (
   }
 
   if (draft.phone) payload.phone = draft.phone;
-  if (draft.city) payload.city = draft.city;
-  if (draft.state) payload.state = draft.state;
+  const city = intake?.city?.trim() || draft.city;
+  const state = intake?.state?.trim() || draft.state;
+  if (city) payload.city = city;
+  if (state) payload.state = state;
 
   // Merge AI-enriched fields — intake fields take precedence over draft
   const description = intake?.description?.trim() || draft.description?.trim();
@@ -212,6 +242,12 @@ export async function handleSubmitIntake(
     throw HttpErrors.unauthorized('Authentication required');
   }
   const userId = authContext.user.id;
+  Logger.info('[submitIntake] Request received', {
+    conversationId,
+    authUserId: userId,
+    isAnonymous: authContext.isAnonymous === true,
+    previousAnonUserId: authContext.previousAnonUserId ?? null,
+  });
 
   // Practice context: preserve the public-widget practiceId during anon -> auth handoff.
   const requestWithContext = await withPracticeContext(request, env, {
@@ -220,8 +256,35 @@ export async function handleSubmitIntake(
     allowAuthenticatedUrlPracticeId: true,
   });
   const practiceId = getPracticeId(requestWithContext);
+  Logger.info('[submitIntake] Practice context resolved', {
+    conversationId,
+    practiceId,
+    authUserId: userId,
+  });
   const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+  Logger.info('[submitIntake] Membership check evaluated', {
+    conversationId,
+    practiceId,
+    authUserId: userId,
+    membershipInput: {
+      practiceId,
+      userId,
+      hasAuthCookie: Boolean(authContext.cookie?.trim()),
+      activeOrganizationId: authContext.activeOrganizationId ?? null,
+    },
+    membershipResult: {
+      isMember: membership.isMember,
+      memberRole: membership.memberRole ?? null,
+    },
+  });
   if (membership.isMember) {
+    Logger.warn('[submitIntake] Rejecting submit-intake because user is classified as practice member', {
+      conversationId,
+      practiceId,
+      authUserId: userId,
+      reason: 'practice_member_blocked',
+      memberRole: membership.memberRole ?? null,
+    });
     throw HttpErrors.forbidden('Practice members cannot submit visitor intake');
   }
 
@@ -236,6 +299,24 @@ export async function handleSubmitIntake(
   const conversation = await conversationService.getConversation(conversationId, practiceId, { repair: true });
   const userInfo = (conversation.user_info ?? {}) as ConversationUserInfo;
   const consultation = resolveConsultationState(userInfo);
+  const linkedContactId = readStringField(userInfo as Record<string, unknown>, [
+    'linkedContactId',
+    'linked_contact_id',
+    'contactId',
+    'contact_id',
+    'clientId',
+    'client_id',
+  ]);
+  Logger.info('[submitIntake] Conversation loaded for submission', {
+    conversationId,
+    practiceId,
+    authUserId: userId,
+    linkedContactId: linkedContactId ?? null,
+    consultationStatus: consultation?.status ?? null,
+    hasConsultationContact: Boolean(consultation?.contact),
+    hasConsultationCase: Boolean(consultation?.case),
+    hasExistingIntakeUuid: Boolean(consultation?.submission.intakeUuid || userInfo.intakeUuid),
+  });
 
   // Early exit if already submitted (best-effort check before lock)
   if (consultation?.submission.intakeUuid || userInfo.intakeUuid) {
@@ -265,12 +346,24 @@ export async function handleSubmitIntake(
   // Resolve slug — stored during handleSlimFormContinue
   const slug = typeof userInfo.practiceSlug === 'string' ? userInfo.practiceSlug.trim() : '';
   if (!slug) {
+    Logger.warn('[submitIntake] Rejecting submit-intake due to missing practice slug', {
+      conversationId,
+      practiceId,
+      authUserId: userId,
+      reason: 'missing_practice_slug',
+    });
     throw HttpErrors.badRequest('Practice slug not found on conversation — cannot submit intake');
   }
 
   // Validate draft
   const draft = normalizeSlimContactDraft(consultation?.contact ?? userInfo.intakeSlimContactDraft);
   if (!draft) {
+    Logger.warn('[submitIntake] Rejecting submit-intake due to incomplete contact draft', {
+      conversationId,
+      practiceId,
+      authUserId: userId,
+      reason: 'missing_contact_details',
+    });
     throw HttpErrors.badRequest('Contact details are incomplete — name and email are required');
   }
 
@@ -311,10 +404,60 @@ export async function handleSubmitIntake(
     });
     return null;
   });
+  const paymentRequiredBeforeSubmit = Boolean((intakeSettings?.prefillAmount ?? 0) > 0);
+  const paymentReceived = consultation?.submission?.paymentReceived === true;
+  const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';
+  const caseInfoComplete = isCaseInfoComplete(intake, draft);
+  const submitEligibility = caseInfoComplete && (generatePaymentLinkOnly || !paymentRequiredBeforeSubmit || paymentReceived);
+  Logger.info('[submitIntake] Submit eligibility evaluated', {
+    conversationId,
+    practiceId,
+    practiceSlug: slug,
+    authUserId: userId,
+    linkedContactId: linkedContactId ?? null,
+    caseInfoComplete,
+    paymentRequiredBeforeSubmit,
+    paymentReceived,
+    submitEligibility,
+    intakeStateKeys: intake ? Object.keys(intake) : [],
+  });
+  if (!submitEligibility) {
+    Logger.warn('[submitIntake] Submission blocked because intake is not yet eligible', {
+      conversationId,
+      practiceId,
+      practiceSlug: slug,
+      authUserId: userId,
+      linkedContactId: linkedContactId ?? null,
+      caseInfoComplete,
+      paymentRequiredBeforeSubmit,
+      paymentReceived,
+    });
+    throw HttpErrors.badRequest(
+      'Intake is not yet ready to submit. Please complete the missing details or payment step first.'
+    );
+  }
 
-  // Build backend payload
+  // Build backend payload.
+  // When intakeSettings is null (fetch failed) and payment IS required, sending
+  // amount: 0 causes the backend to reject the submission. Use 50 minor units
+  // (i.e. $0.50) as a safe non-zero floor so the record is created; the actual
+  // charge will be determined by the Stripe payment-link amount, not this field.
+  const resolvedAmountMinor = typeof intakeSettings?.prefillAmount === 'number'
+    ? intakeSettings.prefillAmount
+    : (() => {
+        // Only use fallback when intakeSettings fetch failed (null), not when it's available but payment isn't required
+        if (intakeSettings === null) {
+          Logger.warn('[submitIntake] intakeSettings unavailable (fetch failed); using safe fallback amount=50', {
+            conversationId,
+            practiceId,
+            slug,
+          });
+          return 50;
+        }
+        return undefined;
+      })();
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
-    amountMinor: typeof intakeSettings?.prefillAmount === 'number' ? intakeSettings.prefillAmount : undefined,
+    amountMinor: resolvedAmountMinor,
     userId,
   });
 
@@ -322,6 +465,7 @@ export async function handleSubmitIntake(
     conversationId,
     practiceId,
     slug,
+    payloadKeys: Object.keys(intakePayload),
     hasIntakeFields: Boolean(intake),
     amountMinor: intakePayload.amount,
     hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
@@ -337,17 +481,20 @@ export async function handleSubmitIntake(
       request
     );
   } catch (error) {
+    const httpStatus = typeof (error as { status?: unknown })?.status === 'number'
+      ? (error as { status: number }).status
+      : null;
+    const isRemoteBadRequest = httpStatus === 400;
     Logger.error('[submitIntake] Backend intake create request failed before response handling', {
       conversationId,
       practiceId,
+      practiceSlug: slug,
+      authUserId: userId,
+      linkedContactId: linkedContactId ?? null,
       slug,
       error: error instanceof Error ? error.message : String(error),
-      status: typeof (error as { status?: unknown })?.status === 'number'
-        ? (error as { status: number }).status
-        : null,
-      context: typeof (error as { context?: unknown })?.context === 'object'
-        ? (error as { context: unknown }).context
-        : null,
+      status: httpStatus,
+      returnPathReason: isRemoteBadRequest ? 'remote_create_intake_400' : 'remote_create_intake_error',
     });
     throw error;
   }

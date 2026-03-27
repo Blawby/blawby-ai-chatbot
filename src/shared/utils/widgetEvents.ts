@@ -54,9 +54,37 @@ export const resolveAllowedParentOrigins = (): string[] => {
   return Array.from(origins);
 };
 
-export const postToParentFrame = (message: unknown) => {
+export const postToParentFrame = (message: unknown, allowAnyOrigin = false) => {
   if (typeof window === 'undefined') return;
   if (window.parent === window) return;
+
+  const isMessageObject = message && typeof message === 'object' && 'type' in message;
+  const messageType = isMessageObject ? (message as { type: string }).type : null;
+
+  // For sensitive requests like closing, or when explicitly requested via allowAnyOrigin,
+  // we restrict wildcard posting to a strict allow-list of non-sensitive message types.
+  const isSafeForWildcard = messageType === 'blawby:close-request';
+
+  if (allowAnyOrigin || isSafeForWildcard) {
+    try {
+      // If we are posting to '*', only send safe message types and sanitize the payload
+      // to avoid leaking arbitrary state to untrusted parent origins.
+      if (isSafeForWildcard) {
+        window.parent.postMessage({ type: 'blawby:close-request' }, '*');
+      } else if (allowAnyOrigin) {
+        // If allowAnyOrigin is true but it's not a known safe-list type, we still
+        // skip wildcard to be safe, or we could log a warning.
+        // For now, we only allow explicit safe types to go to '*'.
+        console.warn('[WidgetEvents] allowAnyOrigin requested but message type is not in safe-list; skipping wildcard');
+      }
+    } catch (error) {
+      console.warn('[WidgetEvents] Failed to notify parent frame via wildcard', error);
+    }
+
+    // If it was a close request, we are done (it's already sent to '*').
+    // If it's another type, we fall through to try trusted origins if any exist.
+    if (isSafeForWildcard) return;
+  }
 
   const allowedOrigins = resolveAllowedParentOrigins();
   if (allowedOrigins.length === 0) {

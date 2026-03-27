@@ -14,7 +14,7 @@ import type { ReplyTarget } from '@/features/chat/types';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { LayoutMode } from '@/app/MainApp';
 import type { IntakeConversationState } from '@/shared/types/intake';
-import { isIntakeReadyForSubmission } from '@/shared/utils/consultationState';
+import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
@@ -80,7 +80,7 @@ export interface ChatContainerProps {
   onBuildBrief?: () => void;
   onSubmitNow?: () => void | Promise<void>;
   /** Phase 2: called after payment is confirmed; creates the intake record */
-  onFinalizeSubmit?: () => void | Promise<void>;
+  onFinalizeSubmit?: () => void | Promise<{ paymentLinkUrl: string | null }>;
   slimContactDraft?: {
     name: string;
     email: string;
@@ -291,7 +291,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
-    const canHandleCta = isIntakeReadyForSubmission(intakeConversationState) && intakeConversationState?.ctaResponse !== 'ready';
+    const canHandleCta = isIntakeSubmittable(intakeConversationState, {
+      paymentRequired: intakeStatus?.paymentRequired ?? null,
+      paymentReceived: intakeStatus?.paymentReceived ?? null,
+    }) && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
     const isAffirmative = affirmative.test(normalized);
@@ -333,6 +336,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   const onSubmitNowRef = useRef(onSubmitNow);
+  const submitActionInFlightRef = useRef(false);
   useEffect(() => {
     onSubmitNowRef.current = onSubmitNow;
   }, [onSubmitNow]);
@@ -371,11 +375,25 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   }, [rememberPostAuthContext, showAuthPrompt]);
 
   const handleSubmitNowAction = async () => {
-    if (onSubmitNow) {
-      await onSubmitNow();
+    if (submitActionInFlightRef.current) {
       return;
     }
-    onIntakeCtaResponse?.('ready');
+    submitActionInFlightRef.current = true;
+    if (onSubmitNow) {
+      try {
+        await onSubmitNow();
+      } finally {
+        submitActionInFlightRef.current = false;
+      }
+      return;
+    }
+    try {
+      if (onIntakeCtaResponse) {
+        await Promise.resolve(onIntakeCtaResponse('ready'));
+      }
+    } finally {
+      submitActionInFlightRef.current = false;
+    }
   };
 
   useEffect(() => {
@@ -526,7 +544,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     // Phase 2: now that payment is confirmed, create the intake record.
     if (onFinalizeSubmit) {
       try {
-        await onFinalizeSubmit();
+        const result = await onFinalizeSubmit();
+        if (result && typeof result === 'object' && 'paymentLinkUrl' in result && result.paymentLinkUrl) {
+          openPayment({
+            intakeUuid: paymentRequest?.intakeUuid ?? '',
+            paymentLinkUrl: result.paymentLinkUrl,
+            practiceId: paymentRequest?.practiceId ?? '',
+            conversationId: paymentRequest?.conversationId ?? '',
+          });
+        }
       } catch (finalizeError) {
         console.error('[ChatContainer] handleFinalizeSubmit failed after payment success', finalizeError);
       }

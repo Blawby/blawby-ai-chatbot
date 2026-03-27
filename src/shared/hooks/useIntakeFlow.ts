@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
+import { fetchIntakePaymentStatus, isPaidIntakeStatus, isTerminalUnpaidStatus } from '@/shared/utils/intakePayments';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
@@ -170,7 +171,7 @@ interface UseIntakeFlowResult {
    * Phase 2: call the submit-intake API and post the success/payment-prompt message.
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
-  handleFinalizeSubmit: () => Promise<void>;
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
   /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
   handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
@@ -197,7 +198,8 @@ export function useIntakeFlow({
   const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
   const phase1InFlightRef = useRef(false);
-  const finalizeRef = useRef<() => Promise<void>>(async () => {});
+  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
+  const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
   // Derived State
@@ -511,36 +513,136 @@ export function useIntakeFlow({
       quickActionDebugLog('payment gate evaluated', { prefillAmount, paymentRequired, effectivePracticeSlug });
 
       if (paymentRequired) {
-        // Open the payment UI directly (imperative, not via metadata parsing).
-        // ChatContainer's handleOpenPayment sets isPaymentModalOpen + paymentRequest state,
-        // which renders ChatActionCard. After payment succeeds, handlePaymentSuccess calls
-        // onFinalizeSubmit → finalizeRef.current() to create the intake record.
-        if (onOpenPayment) {
-          const paymentGateRequest: IntakePaymentRequest = {
-            practiceId: practiceId ?? undefined,
-            conversationId: conversationId ?? undefined,
-            // prefillAmount is in minor units (cents) as returned by the backend.
-            amount: prefillAmount as MinorAmount,
-            practiceSlug: effectivePracticeSlug,
-            returnTo:
-              typeof window !== 'undefined'
-                ? `${window.location.pathname}${window.location.search}`
-                : undefined,
+        // ── Conversational payment flow ──────────────────────────────────────
+        // Step 1: Create the intake record. handleFinalizeSubmit now returns
+        // paymentLinkUrl directly — reading it from conversation metadata was
+        // always wrong because handleFinalizeSubmit stores it in the system
+        // *message* metadata, not in the conversation metadata object.
+        const finalizeResult = await finalizeRef.current({ generatePaymentLinkOnly: true });
+        const paymentLinkUrl = finalizeResult?.paymentLinkUrl ?? null;
+
+        // Step 2: Read the intakeUuid that handleFinalizeSubmit just persisted
+        // into conversation metadata (updateConversationMetadata runs inside it).
+        const latestConsultation = resolveConsultationState(conversationMetadataRef.current);
+        const intakeUuid = latestConsultation?.submission?.intakeUuid ?? null;
+
+        if (intakeUuid && paymentLinkUrl && conversationId && practiceId) {
+          const formattedAmount = prefillAmount > 0
+            ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(prefillAmount / 100)
+            : null;
+          const practiceName =
+            (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
+            ?? 'The practice';
+          const content = formattedAmount
+            ? `Your brief looks great. ${practiceName} charges a ${formattedAmount} consultation fee to review your case. Tap below to pay and submit.`
+            : `Your brief looks great. ${practiceName} requires a consultation fee to review your case. Tap below to pay and submit.`;
+
+          try {
+            const paymentMsg = await postSystemMessage(conversationId, practiceId, {
+              clientId: `system-intake-pay-prompt-${intakeUuid}`,
+              content,
+              metadata: {
+                intakeUuid,
+                paymentRequired: true,
+                quickReplies: [`__pay__:${paymentLinkUrl}`],
+              },
+            });
+            if (paymentMsg) applyServerMessages([paymentMsg]);
+          } catch (msgError) {
+            console.warn('[handleConfirmSubmit] Failed to post conversational payment prompt', msgError);
+          }
+
+          // ── Payment confirmation polling ──────────────────────────────────
+          // Uses recursive setTimeout (not setInterval) so slow fetches cannot
+          // overlap with the next scheduled check. An inFlight bool adds a
+          // second layer of protection. On timeout we surface an error so the
+          // user knows to refresh rather than waiting indefinitely.
+          if (paymentPollingTimerRef.current !== null) {
+            clearTimeout(paymentPollingTimerRef.current);
+            paymentPollingTimerRef.current = null;
+          }
+          const POLL_INTERVAL_MS = 5_000;
+          const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
+          const pollStart = Date.now();
+          let inFlight = false;
+
+          // Dedicated confirmation: only posts the success message and bypasses
+          // the intakeUuid existence guard inside handleFinalizeSubmit, which
+          // would otherwise cause the callback to return early with no message.
+          const capturedConversationId = conversationId;
+          const capturedPracticeId = practiceId;
+          const postPaymentConfirmedMessage = async () => {
+            const name =
+              (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
+              ?? 'the practice';
+            const messageId = `system-intake-paid-${intakeUuid}`;
+            try {
+              const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
+                clientId: messageId,
+                content: `Payment received. ${name} will review your intake and follow up with you here shortly.`,
+                metadata: { intakeUuid, intakeSubmitted: true, paymentStatus: 'succeeded' },
+              });
+              if (msg) applyServerMessages([msg]);
+            } catch (msgError) {
+              console.warn('[handleConfirmSubmit] Failed to post payment confirmation message', msgError);
+            }
           };
-          onOpenPayment(paymentGateRequest);
-        } else {
-          // Fallback: post a system message so payment context survives page reload.
-          // parsePaymentRequestMetadata requires a paymentLinkUrl to be present to
-          // activate the payment card, so we cannot pre-populate it here without
-          // a checkout session. This path is only reached if the host does not
-          // provide onOpenPayment — surface an error instead of blocking silently.
-          console.warn(
-            '[handleConfirmSubmit] Payment is required but no onOpenPayment callback was provided. ' +
-            'The intake cannot be created until payment is confirmed.'
-          );
-          onError?.('Payment is required before submitting. Please refresh and try again.');
+
+          const pollOnce = () => {
+            if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
+              if (paymentPollingTimerRef.current !== null) {
+                clearTimeout(paymentPollingTimerRef.current);
+                paymentPollingTimerRef.current = null;
+              }
+              onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
+              return;
+            }
+            if (inFlight) {
+              // Previous fetch still running — skip this tick and reschedule.
+              paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+              return;
+            }
+            inFlight = true;
+            fetchIntakePaymentStatus(intakeUuid)
+              .then(async (status) => {
+                if (isPaidIntakeStatus(status)) {
+                  if (paymentPollingTimerRef.current !== null) {
+                    clearTimeout(paymentPollingTimerRef.current);
+                    paymentPollingTimerRef.current = null;
+                  }
+                  await postPaymentConfirmedMessage();
+                } else if (isTerminalUnpaidStatus(status)) {
+                  if (paymentPollingTimerRef.current !== null) {
+                    clearTimeout(paymentPollingTimerRef.current);
+                    paymentPollingTimerRef.current = null;
+                  }
+                  const name =
+                    (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
+                    ?? 'the practice';
+                  try {
+                    const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
+                      clientId: `system-intake-pay-failed-${intakeUuid}`,
+                      content: `Payment failed or was canceled. Please try again when you're ready, or reach out to ${name} directly.`,
+                      metadata: { intakeUuid, paymentStatus: status },
+                    });
+                    if (msg) applyServerMessages([msg]);
+                  } catch (msgError) {
+                    console.warn('[handleConfirmSubmit] Failed to post payment failed message', msgError);
+                  }
+                } else {
+                  paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+                }
+              })
+              .catch((pollErr) => {
+                console.warn('[handleConfirmSubmit] Payment status poll failed', pollErr);
+                paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+              })
+              .finally(() => { inFlight = false; });
+          };
+
+          paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
         }
-        // Do NOT call finalizeRef.current() — the intake record must not be created yet.
+
         return;
       }
 
@@ -559,7 +661,6 @@ export function useIntakeFlow({
     currentUserId,
     isAnonymous,
     onError,
-    onOpenPayment,
     practiceId,
     resolvedSlimContactDraft,
     updateConversationMetadata,
@@ -572,8 +673,8 @@ export function useIntakeFlow({
    *   - directly by handleConfirmSubmit when no payment is required, OR
    *   - by the payment UI's onSuccess callback after payment completes.
    */
-  const handleFinalizeSubmit = useCallback(async () => {
-    if (!conversationId || !practiceId) return;
+  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null }> => {
+    if (!conversationId || !practiceId) return { paymentLinkUrl: null };
 
     const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
     if (existingSubmission?.intakeUuid) {
@@ -584,7 +685,7 @@ export function useIntakeFlow({
           intakeUuid: existingSubmission.intakeUuid,
         });
       }
-      return;
+      return { paymentLinkUrl: null };
     }
     if (submitInFlightRef.current) {
       if (import.meta.env.DEV) {
@@ -593,12 +694,13 @@ export function useIntakeFlow({
           practiceId,
         });
       }
-      return;
+      return { paymentLinkUrl: null };
     }
     submitInFlightRef.current = true;
     try {
+      const generatePaymentLinkParam = options?.generatePaymentLinkOnly ? '&generatePaymentLinkOnly=true' : '';
       const response = await fetch(
-        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
+        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}${generatePaymentLinkParam}`,
         { method: 'POST', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' },
       );
       if (!response.ok) {
@@ -628,44 +730,9 @@ export function useIntakeFlow({
         requiresPayment: Boolean(paymentLinkUrl),
       });
 
-      // Post the appropriate system message: payment prompt or plain success.
-      if (paymentLinkUrl) {
-        const paymentPromptMessageId = `system-intake-payment-${intakeUuid}`;
-        const paymentPromptMetadata: Record<string, unknown> = {
-          intakeUuid,
-          intakeSubmitted: true,
-          paymentRequired: true,
-          paymentRequest: {
-            intakeUuid,
-            paymentLinkUrl,
-            practiceId,
-            conversationId,
-            returnTo: typeof window !== 'undefined'
-              ? `${window.location.pathname}${window.location.search}`
-              : undefined,
-          },
-        };
-        quickActionDebugLog('posting payment prompt system message', {
-          conversationId,
-          practiceId,
-          clientId: paymentPromptMessageId,
-          metadataKeys: Object.keys(paymentPromptMetadata),
-          hasPaymentRequest: true,
-          paymentRequestKeys: Object.keys(
-            (paymentPromptMetadata.paymentRequest as Record<string, unknown>) ?? {}
-          ),
-        });
-        try {
-          const paymentPromptMessage = await postSystemMessage(conversationId, practiceId, {
-            clientId: paymentPromptMessageId,
-            content: 'Your request has been submitted. To continue, please complete payment using the button below.',
-            metadata: paymentPromptMetadata,
-          });
-          if (paymentPromptMessage) applyServerMessages([paymentPromptMessage]);
-        } catch (msgError) {
-          console.warn('[handleFinalizeSubmit] Failed to post payment prompt message', msgError);
-        }
-      } else {
+      // If no payment is required, post the standard success message.
+      // (If payment is required, the prompt is handled by handleConfirmSubmit).
+      if (!paymentLinkUrl) {
         const practiceName =
           (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
           ?? 'the practice';
@@ -700,9 +767,11 @@ export function useIntakeFlow({
           { mirrorLegacyFields: true }
         )
       );
+      return { paymentLinkUrl: paymentLinkUrl ?? null };
     } catch (error) {
       console.error('[handleFinalizeSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+      return { paymentLinkUrl: null };
     } finally {
       submitInFlightRef.current = false;
     }
@@ -716,7 +785,19 @@ export function useIntakeFlow({
     intakeConversationState,
   ]);
 
-  finalizeRef.current = handleFinalizeSubmit;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
+
+  // Cancel any in-flight payment polling when the hook unmounts.
+  useEffect(() => {
+    return () => {
+      if (paymentPollingTimerRef.current !== null) {
+        clearTimeout(paymentPollingTimerRef.current);
+        paymentPollingTimerRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Backward-compat alias for callers that don't have a payment UI wired */
   const handleSubmitNow = useCallback(async () => {

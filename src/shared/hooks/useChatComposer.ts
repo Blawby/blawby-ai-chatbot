@@ -396,9 +396,81 @@ export const useChatComposer = ({
       if (dataLine) await processEvent(dataLine.slice(6));
     }
 
+    // Final reconciliation pass: if the persisted assistant message is already present,
+    // collapse the temporary stream bubble immediately (no orphan timer).
+    const bubbleIdToHandle = bubbleId;
+    const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
+    
+    // Helper for stricter similarity test
+    const computeOverlapRatio = (str1: string, str2: string): number => {
+      const tokens1 = new Set(str1.split(' ').filter(token => token.length > 2)); // ignore very short tokens
+      const tokens2 = new Set(str2.split(' ').filter(token => token.length > 2));
+      
+      if (tokens1.size === 0 || tokens2.size === 0) return 0;
+      
+      let shared = 0;
+      for (const token of tokens1) {
+        if (tokens2.has(token)) shared++;
+      }
+      
+      return shared / Math.min(tokens1.size, tokens2.size);
+    };
+    
+    const isSufficientlySimilar = (str1: string, str2: string): boolean => {
+      if (str1 === str2) return true;
+      
+      // Normalized fallback for short, identical responses like "Hello." vs "hello"
+      const norm1 = str1.trim().toLowerCase().replace(/[.,!?;:]+$/, '');
+      const norm2 = str2.trim().toLowerCase().replace(/[.,!?;:]+$/, '');
+      if (norm1 === norm2) return true;
+      
+      const minLength = 20; // minimum length for similarity check
+      if (str1.length < minLength || str2.length < minLength) return false;
+      
+      const overlapRatio = computeOverlapRatio(str1, str2);
+      return overlapRatio >= 0.6; // threshold for sufficient similarity
+    };
+    
+    const currentMessages = messagesRef.current;
+    const currentBubble = currentMessages.find(m => m.id === bubbleIdToHandle);
+    const normalizedBubble = typeof currentBubble?.content === 'string' && currentBubble.content.trim().length > 0
+      ? normalizeMessage(currentBubble.content)
+      : null;
+    const hasMatchingPersistedAssistant = Boolean(
+      normalizedBubble && currentMessages.some(message => {
+        if (message.id === bubbleIdToHandle) return false;
+        if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
+        const isAiMessage = message.role === 'assistant' || (message.role === 'system' && message.metadata?.source === 'ai');
+        if (!isAiMessage) return false;
+        // Prefer explicit linkage when present, but allow strong text similarity
+        // as fallback to avoid temporary duplicate bubbles in delayed SSE handoffs.
+        const isLinked =
+          message.reply_to_message_id === bubbleIdToHandle ||
+          (message.metadata && message.metadata.sourceBubbleId === bubbleIdToHandle);
+
+        if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
+        const normalizedAssistant = normalizeMessage(message.content);
+        if (isLinked) return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
+
+        const messageAgeMs = Math.abs(Date.now() - message.timestamp);
+        const RECENT_PERSISTED_ASSISTANT_WINDOW_MS = 15_000;
+        if (messageAgeMs > RECENT_PERSISTED_ASSISTANT_WINDOW_MS) return false;
+        return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
+      })
+    );
+
+    if (hasMatchingPersistedAssistant) {
+      setMessages(prev => prev.filter(message => message.id !== bubbleIdToHandle));
+      pendingStreamMessageIdRef.current = null;
+      if (orphanTimerRef.current !== null) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
+      return;
+    }
+
     // Handle orphan bubble (no realtime reconciliation arrived)
     if (pendingStreamMessageIdRef.current === null) {
-      const bubbleIdToHandle = bubbleId;
       let orphanedBubble: ChatMessageUI | null = null;
       const orphanExpiryMs = 30_000;
 
@@ -595,6 +667,7 @@ export const useChatComposer = ({
             ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
             mode: effectiveMode, intakeSubmitted, messages: aiMessages,
             additionalContext: options?.additionalContext,
+            sourceBubbleId: bubbleId,
           }),
         });
 

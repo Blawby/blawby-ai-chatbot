@@ -149,13 +149,24 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
 	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
 	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
-	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
 	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
 		if (reply === '__submit__') {
 			return Boolean(onSubmitNow || onIntakeCtaResponse);
 		}
+		if (reply === '__continue_payment__') {
+			return Boolean(onSubmitNow || onIntakeCtaResponse);
+		}
+		if (reply.startsWith('__pay__:')) {
+			return true;
+		}
 		return Boolean(onQuickReply);
 	}));
+	const showCtaButtons = Boolean(
+		showIntakeCta
+		&& (onIntakeCtaResponse || onSubmitNow)
+		&& intakeConversationState?.ctaResponse !== 'ready'
+		&& !hasRenderableQuickReply
+	);
 	const leadIntake = leadReview?.intake;
 	const formatLeadAmount = (amount?: number, currency?: string) => {
 		if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
@@ -311,6 +322,25 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{isLast && quickReplies && quickReplies.length > 0 && hasRenderableQuickReply && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
+						reply === '__continue_payment__' ? (
+							(onSubmitNow || onIntakeCtaResponse) ? (
+								<Button
+									key="__continue_payment__"
+									variant="primary"
+									size="sm"
+									className="shrink-0"
+									onClick={() => {
+										if (onSubmitNow) {
+											void onSubmitNow();
+										} else {
+											onIntakeCtaResponse?.('ready');
+										}
+									}}
+								>
+									{t('chat.continue')}
+								</Button>
+							) : null
+						) : (
 						reply === '__submit__' ? (
 							(onSubmitNow || onIntakeCtaResponse) ? (
 								<Button
@@ -326,9 +356,46 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										}
 									}}
 								>
-									{t('chat.submitRequest')}
+									{intakeStatus?.paymentRequired ? t('chat.continue') : t('chat.submitRequest')}
 								</Button>
 							) : null
+						) : reply.startsWith('__pay__:') ? (
+							(() => {
+								const payUrl = reply.slice('__pay__:'.length);
+								if (!payUrl) return null;
+								
+								// Validate URL protocol
+								let isValidUrl = false;
+								try {
+									const url = new URL(payUrl);
+									isValidUrl = url.protocol === 'http:' || url.protocol === 'https:';
+								} catch {
+									isValidUrl = false;
+								}
+								
+								if (!isValidUrl) return null;
+								
+								// Generate unique React key based on full URL
+								const uniqueKey = `pay-${encodeURIComponent(payUrl)}`;
+								
+								return (
+									<Button
+										key={uniqueKey}
+										variant="primary"
+										size="sm"
+										className="shrink-0"
+										onClick={() => {
+											if (onOpenPayment) {
+												onOpenPayment({ paymentLinkUrl: payUrl });
+											} else {
+												window.open(payUrl, '_blank', 'noopener,noreferrer');
+											}
+										}}
+									>
+									{t('chat.payAndSubmit')}
+								</Button>
+							);
+							})()
 						) : (
 							onQuickReply ? (
 								<Button
@@ -341,6 +408,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{reply}
 								</Button>
 							) : null
+						)
 						)
 					))}
 				</div>
@@ -383,7 +451,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						}
 						onIntakeCtaResponse?.('ready');
 					}}>
-						{t('chat.submitRequest')}
+						{intakeStatus?.paymentRequired ? t('chat.continue') : t('chat.submitRequest')}
 					</Button>
 				</div>
 			)}
