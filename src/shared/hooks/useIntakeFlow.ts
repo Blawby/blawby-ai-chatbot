@@ -711,44 +711,9 @@ export function useIntakeFlow({
         requiresPayment: Boolean(paymentLinkUrl),
       });
 
-      // Post the appropriate system message: payment prompt or plain success.
-      if (paymentLinkUrl) {
-        const paymentPromptMessageId = `system-intake-payment-${intakeUuid}`;
-        const paymentPromptMetadata: Record<string, unknown> = {
-          intakeUuid,
-          intakeSubmitted: true,
-          paymentRequired: true,
-          paymentRequest: {
-            intakeUuid,
-            paymentLinkUrl,
-            practiceId,
-            conversationId,
-            returnTo: typeof window !== 'undefined'
-              ? `${window.location.pathname}${window.location.search}`
-              : undefined,
-          },
-        };
-        quickActionDebugLog('posting payment prompt system message', {
-          conversationId,
-          practiceId,
-          clientId: paymentPromptMessageId,
-          metadataKeys: Object.keys(paymentPromptMetadata),
-          hasPaymentRequest: true,
-          paymentRequestKeys: Object.keys(
-            (paymentPromptMetadata.paymentRequest as Record<string, unknown>) ?? {}
-          ),
-        });
-        try {
-          const paymentPromptMessage = await postSystemMessage(conversationId, practiceId, {
-            clientId: paymentPromptMessageId,
-            content: 'Your request has been submitted. To continue, please complete payment using the button below.',
-            metadata: paymentPromptMetadata,
-          });
-          if (paymentPromptMessage) applyServerMessages([paymentPromptMessage]);
-        } catch (msgError) {
-          console.warn('[handleFinalizeSubmit] Failed to post payment prompt message', msgError);
-        }
-      } else {
+      // If no payment is required, post the standard success message.
+      // (If payment is required, the prompt is handled by handleConfirmSubmit).
+      if (!paymentLinkUrl) {
         const practiceName =
           (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
           ?? 'the practice';

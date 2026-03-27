@@ -329,7 +329,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										}
 									}}
 								>
-									{t('chat.submitRequest')}
+									{intakeStatus?.paymentRequired ? t('chat.continue') : t('chat.submitRequest')}
 								</Button>
 							) : null
 						) : reply.startsWith('__pay__:') ? (
@@ -417,7 +417,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						}
 						onIntakeCtaResponse?.('ready');
 					}}>
-						{t('chat.submitRequest')}
+						{intakeStatus?.paymentRequired ? t('chat.continue') : t('chat.submitRequest')}
 					</Button>
 				</div>
 			)}
