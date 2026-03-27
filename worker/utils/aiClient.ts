@@ -57,9 +57,9 @@ export const createAiClient = (env: AiClientEnv, options: AiClientOptions = {}):
       return fetcher(chatCompletionsUrl, {
         method: 'POST',
         headers: {
+          ...(requestOptions?.headers ?? {}),
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${env.CF_AIG_TOKEN}`,
-          ...(requestOptions?.headers ?? {}),
         },
         body: JSON.stringify(payload),
         signal,

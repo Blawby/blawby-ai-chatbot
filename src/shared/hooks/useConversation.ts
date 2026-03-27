@@ -550,7 +550,7 @@ export const useConversation = ({
               next = next.filter(m => m.id !== streamingBubble.id);
             }
           } else {
-            const candidateAdditions = additions.filter(m => m.role === 'assistant' || m.role === 'system');
+            const candidateAdditions = additions.filter(m => m.role === 'assistant');
             if (candidateAdditions.length === 1) {
               const messageCandidate = candidateAdditions[0];
               const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'

@@ -242,8 +242,33 @@ export async function handleSubmitIntake(
     throw HttpErrors.badRequest('Contact details are incomplete — name and email are required');
   }
 
-  const intake = (consultation?.case as IntakeConversationState | null | undefined)
+  let clientMergedIntakeState: IntakeConversationState | null = null;
+  if (request.body) {
+    try {
+      const clonedRequest = request.clone();
+      const bodyText = await clonedRequest.text();
+      if (bodyText) {
+        const body = JSON.parse(bodyText);
+        if (body && typeof body === 'object' && 'mergedIntakeState' in body && typeof body.mergedIntakeState === 'object' && body.mergedIntakeState !== null) {
+          clientMergedIntakeState = body.mergedIntakeState as IntakeConversationState;
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors, fallback to DB only
+    }
+  }
+
+  let intake = (consultation?.case as IntakeConversationState | null | undefined)
     ?? userInfo.intakeConversationState as IntakeConversationState | null | undefined;
+
+  if (clientMergedIntakeState) {
+    intake = { ...(intake ?? {}), ...clientMergedIntakeState };
+    Logger.info('[submitIntake] Merged client-provided mergedIntakeState into case to avoid stale reads', {
+      conversationId,
+      practiceId,
+      clientKeys: Object.keys(clientMergedIntakeState),
+    });
+  }
 
   const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request).catch((error) => {
     Logger.warn('[submitIntake] Failed to load intake settings; using fallback amount', {

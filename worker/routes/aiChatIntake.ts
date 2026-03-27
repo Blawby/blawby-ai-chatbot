@@ -286,7 +286,7 @@ const parseHasDocumentsFromLatestMessage = (content: string): boolean | null => 
   if (!normalized) return null;
 
   const bareYes = /^(yes|yep|yeah|y|affirmative)$/i.test(normalized);
-  const bareNo = /\b(no|nope|nah|n|negative|not yet|false)\b/i.test(normalized);
+  const bareNo = /^(no|nope|nah|n|negative|not yet|false)$/i.test(normalized);
   if (/^(true)$/.test(normalized)) return true;
   if (bareYes) return true;
   if (bareNo) return false;
