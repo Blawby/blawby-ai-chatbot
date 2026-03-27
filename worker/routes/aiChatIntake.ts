@@ -94,8 +94,9 @@ export const buildIntakeConversationPrompt = (
   }
 
   const compactKnownFields = knownFields.slice(0, MAX_KNOWN_FIELDS_IN_PROMPT);
+  const omittedKnownCount = Math.max(0, knownFields.length - compactKnownFields.length);
   const knownSection = compactKnownFields.length > 0
-    ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}`
+    ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}${omittedKnownCount > 0 ? `\n- ...and ${omittedKnownCount} more known fields omitted` : ''}`
     : '';
 
   const isSubmissionReady = isIntakeStateReadyForSubmission(mergedState);
