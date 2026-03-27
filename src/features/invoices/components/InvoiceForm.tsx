@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useCallback, useMemo, useState } from 'preact/hooks';
+import { forwardRef, useImperativeHandle } from 'preact/compat';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
 import { asMajor, safeAdd } from '@/shared/utils/money';
@@ -7,11 +8,13 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { createInvoice, sendInvoice, updateInvoice } from '@/features/invoices/services/invoicesService';
-import { LineItemsBuilder } from '@/features/invoices/components/LineItemsBuilder';
+import { InvoiceLineItemsForm } from '@/features/invoices/components/InvoiceLineItemsForm';
 import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
 import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDialog';
+import type { InvoicePageMode } from '@/features/invoices/utils/invoicePageConfig';
 
-type InvoiceBuilderProps = {
+type InvoiceFormProps = {
+  mode?: InvoicePageMode;
   practiceId: string;
   matter?: MatterDetail | null;
   connectedAccountId?: string | null;
@@ -25,6 +28,8 @@ type InvoiceBuilderProps = {
   initialMemo?: string;
   initialInvoiceType?: Invoice['invoice_type'];
   editMode?: boolean;
+  readOnly?: boolean;
+  hideFooterActions?: boolean;
   invoiceContext?: 'default' | 'milestone' | 'retainer';
   existingInvoiceId?: string;
   closeAfterSuccess?: boolean;
@@ -40,6 +45,10 @@ type InvoiceBuilderProps = {
   billingIncrementMinutes?: number | null;
 };
 
+export type InvoiceFormHandle = {
+  requestSend: () => void;
+};
+
 type InvoiceUpdatePayload = {
   due_date?: string;
   notes?: string;
@@ -52,7 +61,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 const buildDefaultDueDate = () => {
   const next = new Date();
-  next.setDate(next.getDate() + 30);
+  next.setDate(next.getDate() + 1);
   const year = next.getFullYear();
   const month = String(next.getMonth() + 1).padStart(2, '0');
   const day = String(next.getDate()).padStart(2, '0');
@@ -108,7 +117,8 @@ const buildInvoiceUpdatePayload = ({
 
 const serializeInvoiceUpdatePayload = (payload: InvoiceUpdatePayload) => JSON.stringify(payload);
 
-export const InvoiceBuilder = ({
+export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
+  mode,
   practiceId,
   matter = null,
   connectedAccountId = null,
@@ -122,6 +132,8 @@ export const InvoiceBuilder = ({
   initialMemo,
   initialInvoiceType,
   editMode = false,
+  readOnly = false,
+  hideFooterActions = false,
   invoiceContext = 'default',
   existingInvoiceId,
   closeAfterSuccess = true,
@@ -131,8 +143,18 @@ export const InvoiceBuilder = ({
   practiceLogoUrl = null,
   practiceEmail = null,
   billingIncrementMinutes = null,
-}: InvoiceBuilderProps) => {
+}, ref) => {
   const { showError } = useToastContext();
+  const resolvedMode: InvoicePageMode = useMemo(() => {
+    if (mode) return mode;
+    if (readOnly) return 'readOnly';
+    if (editMode) return 'edit';
+    return 'create';
+  }, [editMode, mode, readOnly]);
+  const resolvedReadOnly = resolvedMode === 'readOnly' || readOnly;
+  const resolvedEditMode = resolvedMode === 'edit' || resolvedMode === 'readOnly' || editMode;
+  const resolvedHideFooterActions = hideFooterActions || resolvedMode === 'create';
+
   const defaultInvoiceType = detectDefaultInvoiceType(
     initialLineItems,
     invoiceContext,
@@ -144,15 +166,20 @@ export const InvoiceBuilder = ({
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(initialLineItems);
   const [notes, setNotes] = useState(initialNotes ?? '');
   const [memo, setMemo] = useState(initialMemo ?? '');
-  const [dueDate, setDueDate] = useState(initialDueDate ?? buildDefaultDueDate());
+  const defaultDueDate = useMemo(() => buildDefaultDueDate(), []);
+  const [dueDate, setDueDate] = useState(initialDueDate ?? defaultDueDate);
+  const [dueDateMode, setDueDateMode] = useState<'tomorrow' | 'custom'>(() => {
+    const initial = initialDueDate ?? defaultDueDate;
+    return initial === defaultDueDate ? 'tomorrow' : 'custom';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(
-    editMode ? existingInvoiceId ?? null : null
+    resolvedEditMode ? existingInvoiceId ?? null : null
   );
   const [lastPersistedSnapshot, setLastPersistedSnapshot] = useState<string | null>(() => (
-    editMode && existingInvoiceId
+    resolvedEditMode && existingInvoiceId
       ? serializeInvoiceUpdatePayload(
           buildInvoiceUpdatePayload({
             dueDate: initialDueDate ?? buildDefaultDueDate(),
@@ -208,20 +235,35 @@ export const InvoiceBuilder = ({
     () => serializeInvoiceUpdatePayload(currentUpdatePayload),
     [currentUpdatePayload]
   );
-  const previewIssueDate = useMemo(() => {
-    const explicitIssueDate = (currentUpdatePayload as { issue_date?: string | Date | null }).issue_date;
-    return explicitIssueDate ?? new Date();
-  }, [currentUpdatePayload]);
+  const previewIssueDate = useMemo(() => new Date(), []);
 
   const isValidConnectedAccount = useMemo(
     () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
     [connectedAccountId]
   );
-  const disableActions = isSaving || isSending || !isValidConnectedAccount || lineItems.length === 0;
+  const disableActions = isSaving || isSending || resolvedReadOnly || !isValidConnectedAccount || lineItems.length === 0;
+
+  const openSendDialog = useCallback(() => {
+    if (resolvedReadOnly) return;
+    if (!isValidConnectedAccount) {
+      showError('Cannot send invoice', 'Complete Stripe onboarding before sending invoices.');
+      return;
+    }
+    if (!resolvedClientId) {
+      showError('Cannot send invoice', 'Choose a person first.');
+      return;
+    }
+    if (lineItems.length === 0) {
+      showError('Cannot send invoice', 'Add at least one line item.');
+      return;
+    }
+    if (isSaving || isSending) return;
+    setShowSendDialog(true);
+  }, [isSaving, isSending, isValidConnectedAccount, lineItems.length, resolvedClientId, resolvedReadOnly, showError]);
 
   const logInvoiceAction = (action: string, details: Record<string, unknown>) => {
     if (import.meta.env.DEV) {
-      console.info('[Billing][InvoiceBuilder]', action, details);
+      console.info('[Billing][InvoiceForm]', action, details);
     }
   };
 
@@ -243,58 +285,18 @@ export const InvoiceBuilder = ({
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!resolvedClientId) {
-      showError('Could not save invoice', 'Choose a person before creating the invoice.');
-      return;
-    }
-    if (disableActions || !connectedAccountId) return;
-    setIsSaving(true);
-    setSendError(null);
-    try {
-      const targetInvoiceId = existingInvoiceId ?? createdInvoiceId;
-      let nextInvoiceId: string | null = targetInvoiceId;
-      if (targetInvoiceId) {
-        const payload = currentUpdatePayload;
-        logInvoiceAction('update-draft', {
-          invoiceId: targetInvoiceId,
-          invoiceType: payload.invoice_type
-        });
-        const updated = await updateInvoice(practiceId, targetInvoiceId, payload);
-        nextInvoiceId = updated?.id ?? targetInvoiceId;
-        setCreatedInvoiceId(nextInvoiceId);
-        setLastPersistedSnapshot(currentUpdateSnapshot);
-      } else {
-        const payload = buildCreatePayload(connectedAccountId);
-        logInvoiceAction('create-draft', {
-          connectedAccountId: payload.connected_account_id,
-          invoiceType: payload.invoice_type,
-          lineItemCount: payload.line_items.length
-        });
-        const created = await createInvoice(practiceId, payload);
-        nextInvoiceId = created?.id ?? null;
-        setCreatedInvoiceId(nextInvoiceId);
-        setLastPersistedSnapshot(currentUpdateSnapshot);
-      }
-      await finalizeSuccess(nextInvoiceId);
-    } catch (error) {
-      showError('Could not save invoice', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleSendInvoice = async () => {
     if (!resolvedClientId) {
       showError('Could not send invoice', 'Choose a person before creating the invoice.');
       return;
     }
     if (disableActions || !connectedAccountId) return;
+    setIsSaving(true);
     setIsSending(true);
     setSendError(null);
     let invoiceId = createdInvoiceId;
     try {
-      if (editMode && existingInvoiceId) {
+      if (resolvedEditMode && existingInvoiceId) {
         const payload = currentUpdatePayload;
         logInvoiceAction('update-before-send', {
           invoiceId: existingInvoiceId,
@@ -342,9 +344,14 @@ export const InvoiceBuilder = ({
       );
     } finally {
       setIsSending(false);
+      setIsSaving(false);
       setShowSendDialog(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    requestSend: openSendDialog,
+  }), [openSendDialog]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
@@ -352,7 +359,7 @@ export const InvoiceBuilder = ({
         <div className="grid min-h-0 flex-1 gap-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-10">
           <div className="min-h-0 overflow-y-auto">
             <div className="space-y-5">
-              {!isValidConnectedAccount ? (
+              {!resolvedReadOnly && !isValidConnectedAccount ? (
                 <div className="status-warning rounded-xl px-4 py-3 text-sm">
                   Complete Stripe onboarding to enable invoicing.
                 </div>
@@ -365,6 +372,7 @@ export const InvoiceBuilder = ({
                     onChange={handleClientChange}
                     options={clientOptions}
                     placeholder="Choose a person"
+                    disabled={resolvedReadOnly}
                   />
                   <Combobox
                     label="Matter (optional)"
@@ -379,7 +387,7 @@ export const InvoiceBuilder = ({
                       label: option.label,
                     }))}
                     placeholder={clientId ? 'Link a matter' : 'Choose a person first'}
-                    disabled={!clientId}
+                    disabled={resolvedReadOnly || !clientId}
                     clearable
                   />
                   <Combobox
@@ -389,6 +397,7 @@ export const InvoiceBuilder = ({
                     options={INVOICE_TYPE_OPTIONS}
                     searchable={false}
                     clearable={false}
+                    disabled={resolvedReadOnly}
                   />
                 </div>
               ) : (
@@ -399,21 +408,58 @@ export const InvoiceBuilder = ({
                   options={INVOICE_TYPE_OPTIONS}
                   searchable={false}
                   clearable={false}
+                  disabled={resolvedReadOnly}
                 />
               )}
-              <LineItemsBuilder 
+              <InvoiceLineItemsForm
                 lineItems={lineItems} 
                 onChange={setLineItems} 
                 billingIncrementMinutes={billingIncrementMinutes} 
+                readOnly={resolvedReadOnly}
               />
-              <Input
-                label="Due date"
-                type="date"
-                value={dueDate}
-                onChange={setDueDate}
-              />
-              <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} />
-              <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} />
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-input-text">Request payment</h3>
+                <p className="text-xs text-input-placeholder">
+                  Choose when this invoice should be due.
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm text-input-text">
+                    <input
+                      type="radio"
+                      name="due-date-mode"
+                      checked={dueDateMode === 'tomorrow'}
+                      onChange={() => {
+                        setDueDateMode('tomorrow');
+                        setDueDate(defaultDueDate);
+                      }}
+                      disabled={resolvedReadOnly}
+                    />
+                    <span>Due tomorrow ({defaultDueDate})</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-input-text">
+                    <input
+                      type="radio"
+                      name="due-date-mode"
+                      checked={dueDateMode === 'custom'}
+                      onChange={() => setDueDateMode('custom')}
+                      disabled={resolvedReadOnly}
+                    />
+                    <span>Custom due date</span>
+                  </label>
+                </div>
+                {dueDateMode === 'custom' ? (
+                  <Input
+                    label="Due date"
+                    type="date"
+                    value={dueDate}
+                    onChange={setDueDate}
+                    disabled={resolvedReadOnly}
+                    min={defaultDueDate}
+                  />
+                ) : null}
+              </section>
+              <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} disabled={resolvedReadOnly} />
+              <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} disabled={resolvedReadOnly} />
               {sendError ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
                   <p>{sendError}</p>
@@ -447,48 +493,53 @@ export const InvoiceBuilder = ({
           </div>
         </div>
 
-        <footer className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <p className="text-sm font-semibold text-input-text">
-            Total: {formatCurrency(total)}
-          </p>
-          {!isValidConnectedAccount ? (
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              <strong className="block font-semibold">Payment account not connected.</strong>
-              Finish Stripe onboarding to save or send invoices.
+        {!resolvedHideFooterActions ? (
+          <footer className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-sm font-semibold text-input-text">
+              Total: {formatCurrency(total)}
+            </p>
+            {!resolvedReadOnly && !isValidConnectedAccount ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                <strong className="block font-semibold">Payment account not connected.</strong>
+                Finish Stripe onboarding to save or send invoices.
+              </div>
+            ) : null}
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={onClose} disabled={isSaving || isSending}>
+                {resolvedReadOnly ? 'Back' : 'Cancel'}
+              </Button>
+              {!resolvedReadOnly ? (
+                <>
+                  <Button onClick={openSendDialog} disabled={disableActions}>
+                    Send invoice
+                  </Button>
+                </>
+              ) : null}
             </div>
-          ) : null}
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onClose} disabled={isSaving || isSending}>
-              Cancel
-            </Button>
-            <Button variant="secondary" onClick={() => void handleSaveDraft()} disabled={disableActions}>
-              {isSaving ? 'Saving...' : 'Save draft'}
-            </Button>
-            <Button onClick={() => setShowSendDialog(true)} disabled={disableActions}>
-              Send invoice
-            </Button>
-          </div>
-        </footer>
+          </footer>
+        ) : null}
       </div>
 
-      <SendInvoiceDialog
-        isOpen={showSendDialog}
-        totalAmount={total}
-        onConfirm={handleSendInvoice}
-        onCancel={() => setShowSendDialog(false)}
-        loading={isSending}
-        lineItems={lineItems}
-        dueDate={dueDate}
-        previewTitle={previewTitle}
-        previewReferenceLabel={previewReferenceLabel}
-        previewIssueDate={previewIssueDate}
-        practiceName={practiceName}
-        practiceLogoUrl={practiceLogoUrl}
-        practiceEmail={practiceEmail}
-        clientName={resolvedClientLabel || null}
-        clientEmail={resolvedClientEmail}
-        billingIncrementMinutes={billingIncrementMinutes}
-      />
+      {!resolvedReadOnly ? (
+        <SendInvoiceDialog
+          isOpen={showSendDialog}
+          totalAmount={total}
+          onConfirm={handleSendInvoice}
+          onCancel={() => setShowSendDialog(false)}
+          loading={isSending}
+          lineItems={lineItems}
+          dueDate={dueDate}
+          previewTitle={previewTitle}
+          previewReferenceLabel={previewReferenceLabel}
+          previewIssueDate={previewIssueDate}
+          practiceName={practiceName}
+          practiceLogoUrl={practiceLogoUrl}
+          practiceEmail={practiceEmail}
+          clientName={resolvedClientLabel || null}
+          clientEmail={resolvedClientEmail}
+          billingIncrementMinutes={billingIncrementMinutes}
+        />
+      ) : null}
     </div>
   );
-};
+});

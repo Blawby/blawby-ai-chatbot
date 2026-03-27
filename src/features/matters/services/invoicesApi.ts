@@ -4,7 +4,6 @@ import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
   asMajor,
-  _safeMultiply,
   toMajorUnits,
   toMinorUnitsValue,
   type MajorAmount

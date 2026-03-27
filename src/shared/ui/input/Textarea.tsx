@@ -67,6 +67,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   autoFocus,
   onKeyDown
 }, ref) => {
+  const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Generate stable ID for accessibility
   const generatedId = useUniqueId('textarea');
   const textareaId = id || generatedId;
@@ -157,6 +158,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   const isNearLimit = maxLength && currentLength > maxLength * 0.8;
   const isOverLimit = maxLength && currentLength > maxLength;
 
+  useEffect(() => {
+    if (!autoFocus || disabled) return;
+    localTextareaRef.current?.focus();
+  }, [autoFocus, disabled]);
+
   return (
     <div className="w-full">
       {displayLabel && (
@@ -168,7 +174,16 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
       
       <textarea
         id={textareaId}
-        ref={ref}
+        ref={(node) => {
+          localTextareaRef.current = node;
+          if (typeof ref === 'function') {
+            ref(node);
+            return;
+          }
+          if (ref && typeof ref === 'object') {
+            (ref as { current: HTMLTextAreaElement | null }).current = node;
+          }
+        }}
         value={actualValue}
         onChange={(e) => {
           const newValue = (e.target as HTMLTextAreaElement).value;
@@ -201,7 +216,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         disabled={disabled}
         required={required}
         rows={rows}
-        autoFocus={autoFocus}
         onKeyDown={onKeyDown}
         maxLength={enforceMaxLength === 'soft' ? undefined : maxLength}
         className={textareaClasses}

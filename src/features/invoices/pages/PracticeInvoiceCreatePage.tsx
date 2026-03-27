@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
 import { useLocation } from 'preact-iso';
-import { Breadcrumbs } from '@/shared/ui/navigation';
 import { Page } from '@/shared/ui/layout/Page';
-import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -13,11 +11,13 @@ import {
   type UserDetailRecord,
 } from '@/shared/lib/apiClient';
 import { listMatters, type BackendMatter, updateMatterMilestone } from '@/features/matters/services/mattersApi';
-import { InvoiceBuilder } from '@/features/invoices/components/InvoiceBuilder';
+import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
+import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
 import {
   clearPendingInvoiceDraftContext,
   readPendingInvoiceDraftContext,
 } from '@/features/invoices/utils/invoiceDraftContext';
+import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
@@ -90,6 +90,7 @@ export function PracticeInvoiceCreatePage({
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const builderRef = useRef<InvoiceFormHandle | null>(null);
 
   // Read cached practice identity — no extra requests; usePracticeManagement uses shared snapshot cache
   const { currentPractice } = usePracticeManagement({
@@ -114,14 +115,10 @@ export function PracticeInvoiceCreatePage({
     return `/practice/${encodeURIComponent(practiceSlug)}/invoices`;
   }, [practiceSlug]);
   const returnPath = draftContext?.returnPath?.trim() || invoicesPath;
-  const breadcrumbLabel = draftContext?.returnLabel?.trim() || 'Invoices';
   const missingDraftError = draftId && !draftContext
     ? 'Invoice draft context was not found. Start invoice creation from the matter or invoices page again.'
     : null;
   const displayError = loadError ?? missingDraftError;
-  const pageSubtitle = draftContext?.matterId
-    ? 'Draft a new invoice for this matter, review the preview, and send it when ready.'
-    : 'Draft a new invoice, choose who it belongs to, and optionally link it to a matter.';
 
   useEffect(() => {
     if (!practiceId) return;
@@ -171,6 +168,14 @@ export function PracticeInvoiceCreatePage({
 
     return () => controller.abort();
   }, [practiceId]);
+
+  useEffect(() => {
+    const handleSendRequest = () => {
+      builderRef.current?.requestSend();
+    };
+    window.addEventListener(INVOICE_CREATE_SEND_EVENT, handleSendRequest);
+    return () => window.removeEventListener(INVOICE_CREATE_SEND_EVENT, handleSendRequest);
+  }, []);
 
   const clientOptions = useMemo(() => {
     return clients.map((client) => ({
@@ -235,14 +240,6 @@ export function PracticeInvoiceCreatePage({
   return (
     <Page className="min-h-full">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <Breadcrumbs
-          items={[{ label: breadcrumbLabel, href: returnPath ?? undefined }, { label: 'Create invoice' }]}
-          onNavigate={navigate}
-        />
-        <PageHeader
-          title="Create Invoice"
-          subtitle={pageSubtitle}
-        />
         {displayError ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {displayError}
@@ -253,7 +250,9 @@ export function PracticeInvoiceCreatePage({
             <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
           </Panel>
         ) : missingDraftError || !practiceId ? null : (
-          <InvoiceBuilder
+          <InvoiceForm
+            ref={builderRef}
+            mode="create"
             practiceId={practiceId}
             connectedAccountId={connectedAccountId}
             clientOptions={clientOptions}

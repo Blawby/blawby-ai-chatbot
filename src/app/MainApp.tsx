@@ -47,7 +47,7 @@ import {
   peekPostAuthConversationContext,
 } from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { InformationCircleIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -57,6 +57,7 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,6 @@ type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'c
 export type LayoutMode = 'widget' | 'mobile' | 'desktop';
 
 const WorkspaceSubviewFallback = () => <LoadingBlock className="p-6" />;
-
 // ─── component ────────────────────────────────────────────────────────────────
 
 export function MainApp({
@@ -1119,6 +1119,12 @@ export function MainApp({
               onClick: () => navigate(`${practiceMattersPath}/new`),
               icon: PlusIcon,
             }
+          : resolvedWorkspaceView === 'invoiceCreate' && isPracticeWorkspace
+            ? {
+                label: 'Send Invoice',
+                onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
+                icon: PaperAirplaneIcon,
+              }
           : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
             ? {
                 label: 'New Invoice',
