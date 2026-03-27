@@ -419,6 +419,21 @@ export async function handleSubmitIntake(
     submitEligibility,
     intakeStateKeys: intake ? Object.keys(intake) : [],
   });
+  if (!submitEligibility) {
+    Logger.warn('[submitIntake] Submission blocked because intake is not yet eligible', {
+      conversationId,
+      practiceId,
+      practiceSlug: slug,
+      authUserId: userId,
+      linkedContactId: linkedContactId ?? null,
+      caseInfoComplete,
+      paymentRequiredBeforeSubmit,
+      paymentReceived,
+    });
+    throw HttpErrors.badRequest(
+      'Intake is not yet ready to submit. Please complete the missing details or payment step first.'
+    );
+  }
 
   // Build backend payload
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {

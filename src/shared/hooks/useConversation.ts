@@ -530,6 +530,25 @@ export const useConversation = ({
         const streamingBubblesNewestFirst = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp);
         if (streamingBubbles.length > 0) {
           const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
+          const MIN_COLLAPSE_TEXT_LENGTH = 5;
+          const FALLBACK_STREAM_RECENCY_WINDOW_MS = 10_000;
+          const getTokenSet = (value: string): Set<string> => new Set(
+            normalizeMessage(value).split(' ').filter((token) => token.length > 0)
+          );
+          const hasMeaningfulTokenOverlap = (left: string, right: string): boolean => {
+            const leftTokens = getTokenSet(left);
+            const rightTokens = getTokenSet(right);
+            if (leftTokens.size === 0 || rightTokens.size === 0) return false;
+            let shared = 0;
+            for (const token of leftTokens) {
+              if (rightTokens.has(token)) shared++;
+            }
+            const overlapRatio = shared / Math.min(leftTokens.size, rightTokens.size);
+            return overlapRatio >= 0.5;
+          };
+          const canUseSubstringMatching = (left: string, right: string): boolean => (
+            left.length >= MIN_COLLAPSE_TEXT_LENGTH && right.length >= MIN_COLLAPSE_TEXT_LENGTH
+          );
           const assistantAdditionIndexes = additions
             .map((message, index) => ({ message, index }))
             .filter(({ message }) => message.role === 'assistant');
@@ -572,9 +591,12 @@ export const useConversation = ({
                 if (usedAdditionIndexes.has(index)) return false;
                 if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
                 const normalizedAssistant = normalizeMessage(message.content);
-                return normalizedAssistant === normalizedBubble
-                  || normalizedAssistant.includes(normalizedBubble)
-                  || normalizedBubble.includes(normalizedAssistant);
+                if (normalizedAssistant === normalizedBubble) return true;
+                if (canUseSubstringMatching(normalizedAssistant, normalizedBubble)) {
+                  return normalizedAssistant.includes(normalizedBubble)
+                    || normalizedBubble.includes(normalizedAssistant);
+                }
+                return hasMeaningfulTokenOverlap(normalizedAssistant, normalizedBubble);
               });
               if (!matchingAssistant) continue;
               bubbleIdsToRemove.add(bubble.id);
@@ -587,8 +609,21 @@ export const useConversation = ({
           // collapse the newest stream bubble to avoid duplicate assistant bubbles.
           if (bubbleIdsToRemove.size === 0 && assistantAdditionIndexes.length === 1 && streamingBubbles.length > 0) {
             const newestBubble = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp)[0];
-            bubbleIdsToRemove.add(newestBubble.id);
-            carryBubbleTimestampToAddition(newestBubble, assistantAdditionIndexes[0].index);
+            const newestBubbleContent = typeof newestBubble.content === 'string' ? normalizeMessage(newestBubble.content) : '';
+            const assistantContent = typeof assistantAdditionIndexes[0].message.content === 'string'
+              ? normalizeMessage(assistantAdditionIndexes[0].message.content)
+              : '';
+            const bubbleIsRecent = Date.now() - newestBubble.timestamp <= FALLBACK_STREAM_RECENCY_WINDOW_MS;
+            const bubbleHasSimilarity = assistantContent.length >= MIN_COLLAPSE_TEXT_LENGTH
+              && newestBubbleContent.length >= MIN_COLLAPSE_TEXT_LENGTH
+              && (assistantContent === newestBubbleContent
+                || assistantContent.includes(newestBubbleContent)
+                || newestBubbleContent.includes(assistantContent)
+                || hasMeaningfulTokenOverlap(assistantContent, newestBubbleContent));
+            if (bubbleIsRecent || bubbleHasSimilarity) {
+              bubbleIdsToRemove.add(newestBubble.id);
+              carryBubbleTimestampToAddition(newestBubble, assistantAdditionIndexes[0].index);
+            }
           }
 
           if (bubbleIdsToRemove.size > 0) {
