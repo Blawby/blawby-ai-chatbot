@@ -121,7 +121,7 @@ const resolveUserDetailAddressValue = (detail: PersonRecord): unknown => {
     return nestedAddress;
   }
 
-  // Some user-details responses include flattened address fields instead of a nested object.
+  // Some clients responses include flattened address fields instead of a nested object.
   const flattened: Record<string, unknown> = {};
   const line1 = typeof detailRecord.line1 === 'string'
     ? detailRecord.line1

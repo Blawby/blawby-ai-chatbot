@@ -73,7 +73,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       path.startsWith('/api/matters') ||
       path.startsWith('/api/invoices') ||
       path.startsWith('/api/practice/client-intakes') ||
-      path.startsWith('/api/user-details') ||
+      path.startsWith('/api/clients') ||
       ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
         !path.startsWith('/api/practice/details/') &&
         !path.startsWith('/api/practices')) ||

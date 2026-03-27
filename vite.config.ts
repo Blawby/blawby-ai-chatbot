@@ -112,7 +112,7 @@ const workerEndpoints = [
 	'status',
 	'ai',
 	'practices',
-	'user-details',
+	'clients',
 	'onboarding',
 	'practice',
 	'preferences',
@@ -170,7 +170,7 @@ const fixDecodeNamedCharacterReference = (): Plugin => {
 				}
 			};
 		},
-		resolveId(id, importer) {
+		resolveId(id, _importer) {
 			if (id === 'decode-named-character-reference') {
 				// Dynamically resolve the package entry instead of hardcoding a pnpm path.
 				// We want the non-DOM build (default export) so use Node resolution with
@@ -225,7 +225,7 @@ const serveStaticHtmlPlugin = (): Plugin => {
 								res.setHeader('Content-Type', urlPath.endsWith('.js') ? 'application/javascript' : 'text/html');
 								res.end(content);
 								return;
-							} catch (e) {
+							} catch (_e) {
 								// File not found in public/, let Vite handle it (SPA fallback or 404)
 							}
 						}

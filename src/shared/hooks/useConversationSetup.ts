@@ -3,7 +3,6 @@ import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api'
 import type { ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
-import { rememberConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { clearConsultationMetadata } from '@/shared/utils/consultationState';
 
@@ -155,7 +154,7 @@ export function useConversationSetup({
       setIsCreatingConversation(false);
       creationPromiseRef.current = null;
     }
-  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, currentUserId, setConversationIdWithRef]);
+  }, [isPracticeWorkspace, practiceId, currentUserId, setConversationIdWithRef]);
 
   const ensureConversation = useCallback(async (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }): Promise<string | null> => {
     // Read from ref to get latest value and avoid stale closure

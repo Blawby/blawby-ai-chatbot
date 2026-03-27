@@ -43,7 +43,7 @@ test.describe('Clients', () => {
     }
 
     const createResponsePromise = page.waitForResponse((response) => {
-      return response.url().includes('/api/user-details/practice/') && response.request().method() === 'POST';
+      return response.url().includes('/api/clients/') && response.request().method() === 'POST';
     });
     await page.getByRole('button', { name: 'Add Client' }).last().click();
     const createResponse = await createResponsePromise;
@@ -58,7 +58,7 @@ test.describe('Clients', () => {
     const memoEdit = `E2E memo updated ${suffix}`;
     await page.getByLabel('Add your comment').fill(memo);
     const memoCreateResponsePromise = page.waitForResponse((response) => {
-      return response.url().includes('/api/user-details/practice/') &&
+      return response.url().includes('/api/clients/') &&
         response.url().includes('/memos') &&
         response.request().method() === 'POST';
     });
@@ -71,9 +71,9 @@ test.describe('Clients', () => {
     await memoItem.getByRole('button', { name: 'Edit' }).click();
     await memoItem.getByRole('textbox').fill(memoEdit);
     const memoUpdateResponsePromise = page.waitForResponse((response) => {
-      return response.url().includes('/api/user-details/practice/') &&
+      return response.url().includes('/api/clients/') &&
         response.url().includes('/memos') &&
-        response.request().method() === 'PUT';
+        response.request().method() === 'PATCH';
     });
     await memoItem.getByRole('button', { name: 'Save' }).click();
     const memoUpdateResponse = await memoUpdateResponsePromise;
@@ -82,7 +82,7 @@ test.describe('Clients', () => {
 
     const updatedMemoItem = page.locator('li', { hasText: memoEdit }).first();
     const memoDeleteResponsePromise = page.waitForResponse((response) => {
-      return response.url().includes('/api/user-details/practice/') &&
+      return response.url().includes('/api/clients/') &&
         response.url().includes('/memos') &&
         response.request().method() === 'DELETE';
     });
@@ -118,7 +118,7 @@ test.describe('Clients', () => {
       }
     }
     const clientUpdateResponsePromise = page.waitForResponse((response) => {
-      return response.url().includes('/api/user-details/practice/') && response.request().method() === 'PUT';
+      return response.url().includes('/api/clients/') && response.request().method() === 'PATCH';
     });
     await page.getByRole('button', { name: 'Save Changes' }).click();
     const clientUpdateResponse = await clientUpdateResponsePromise;
@@ -128,7 +128,7 @@ test.describe('Clients', () => {
     await page.getByLabel('Open client actions').click();
     page.once('dialog', (dialog) => dialog.accept());
     const clientDeleteResponsePromise = page.waitForResponse((response) => {
-      return response.url().includes('/api/user-details/practice/') && response.request().method() === 'DELETE';
+      return response.url().includes('/api/clients/') && response.request().method() === 'DELETE';
     });
     await actionsDropdown.getByRole('button', { name: 'Delete' }).click();
     const clientDeleteResponse = await clientDeleteResponsePromise;

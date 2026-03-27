@@ -453,7 +453,6 @@ const MessageComposer = ({
                     onKeyDown(event, sanitizedMentionIds);
                   }}
                   aria-label="Message input"
-                  aria-expanded={mentionMenuOpen}
                   aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
                   aria-activedescendant={mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined}
                   disabled={isComposerDisabled}

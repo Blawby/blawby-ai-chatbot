@@ -13,8 +13,8 @@ export const SettingsSubheader = ({
   variant = 'default'
 }: SettingsSubheaderProps) => {
   const variantClasses = {
-    default: 'text-[11px] font-semibold uppercase tracking-wide text-input-placeholder',
-    section: 'text-sm font-semibold text-input-text'
+    default: 'text-xs font-medium text-input-placeholder tracking-tight',
+    section: 'text-base font-semibold text-input-text pt-4 pb-2'
   };
 
   return (

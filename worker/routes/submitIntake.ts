@@ -378,7 +378,7 @@ export async function handleSubmitIntake(
           clientMergedIntakeState = sanitizeMergedIntakeState(body.mergedIntakeState);
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignore parse errors, fallback to DB only
     }
   }

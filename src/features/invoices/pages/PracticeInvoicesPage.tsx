@@ -47,7 +47,6 @@ export function PracticeInvoicesPage({
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
-  const isListOnly = renderMode === 'listOnly';
 
   const {
     items: invoices,

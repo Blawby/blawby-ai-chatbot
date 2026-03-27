@@ -28,7 +28,7 @@ const BACKEND_PATH_PREFIXES = [
   '/api/subscriptions',
   '/api/subscription',
   '/api/uploads',
-  '/api/user-details'
+  '/api/clients'
 ];
 
 const getBaseDomain = (host: string): string | null => {

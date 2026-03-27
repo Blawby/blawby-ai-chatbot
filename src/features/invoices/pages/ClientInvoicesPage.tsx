@@ -37,7 +37,6 @@ export function ClientInvoicesPage({
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
-  const isListOnly = renderMode === 'listOnly';
 
   const {
     items: invoices,

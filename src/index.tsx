@@ -93,7 +93,7 @@ export function App() {
 }
 
 function AppShell() {
-  const { isDark } = useTheme();
+  useTheme();
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
@@ -798,7 +798,7 @@ function PublicPracticeRoute({
 function WidgetRoute({
   practiceSlug,
   conversationId,
-  workspaceView = 'home'
+  workspaceView: _workspaceView = 'home'
 }: {
   practiceSlug: string;
   conversationId?: string;
@@ -926,7 +926,13 @@ function AppWithProviders() {
 }
 
 async function mountClientApp() {
-  const savedTheme = localStorage.getItem('theme');
+  let savedTheme: string | null = null;
+  try {
+    savedTheme = localStorage.getItem('theme');
+  } catch (_error) {
+    // Session storage or local storage may be unavailable (private mode, iframe restrictions, etc.)
+  }
+
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
 

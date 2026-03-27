@@ -382,7 +382,7 @@ export const NotificationsPage = ({
 
       <SectionDivider />
 
-      <SettingsSubheader variant="section" className="px-1 pb-2 text-left">
+      <SettingsSubheader variant="section" className="text-left">
         {t('settings:notifications.inApp.sectionTitle', { defaultValue: 'In-app bot messages' })}
       </SettingsSubheader>
 
