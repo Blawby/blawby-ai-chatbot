@@ -396,9 +396,40 @@ export const useChatComposer = ({
       if (dataLine) await processEvent(dataLine.slice(6));
     }
 
+    // Final reconciliation pass: if the persisted assistant message is already present,
+    // collapse the temporary stream bubble immediately (no orphan timer).
+    const bubbleIdToHandle = bubbleId;
+    const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
+    const currentMessages = messagesRef.current;
+    const currentBubble = currentMessages.find(m => m.id === bubbleIdToHandle);
+    const normalizedBubble = typeof currentBubble?.content === 'string' && currentBubble.content.trim().length > 0
+      ? normalizeMessage(currentBubble.content)
+      : null;
+    const hasMatchingPersistedAssistant = Boolean(
+      normalizedBubble && currentMessages.some(message => {
+        if (message.id === bubbleIdToHandle) return false;
+        if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
+        if (message.role !== 'assistant') return false;
+        if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
+        const normalizedAssistant = normalizeMessage(message.content);
+        return normalizedAssistant === normalizedBubble
+          || normalizedAssistant.includes(normalizedBubble)
+          || normalizedBubble.includes(normalizedAssistant);
+      })
+    );
+
+    if (hasMatchingPersistedAssistant) {
+      setMessages(prev => prev.filter(message => message.id !== bubbleIdToHandle));
+      pendingStreamMessageIdRef.current = null;
+      if (orphanTimerRef.current !== null) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
+      return;
+    }
+
     // Handle orphan bubble (no realtime reconciliation arrived)
     if (pendingStreamMessageIdRef.current === null) {
-      const bubbleIdToHandle = bubbleId;
       let orphanedBubble: ChatMessageUI | null = null;
       const orphanExpiryMs = 30_000;
 

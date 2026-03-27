@@ -527,6 +527,7 @@ export const useConversation = ({
       if (additions.length > 0) {
         const pendingId = pendingStreamMessageIdRef.current;
         const streamingBubbles = next.filter(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+        const streamingBubblesNewestFirst = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp);
         if (streamingBubbles.length > 0) {
           const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
           const assistantAdditionIndexes = additions
@@ -553,8 +554,8 @@ export const useConversation = ({
           // Preferred path: explicit message-id handoff.
           if (pendingId) {
             const pendingMatchIndex = additions.findIndex((message) => message.id === pendingId);
-            if (pendingMatchIndex >= 0 && streamingBubbles.length >= 1) {
-              const bubble = streamingBubbles[streamingBubbles.length - 1];
+            if (pendingMatchIndex >= 0 && streamingBubblesNewestFirst.length >= 1) {
+              const bubble = streamingBubblesNewestFirst[0];
               bubbleIdsToRemove.add(bubble.id);
               carryBubbleTimestampToAddition(bubble, pendingMatchIndex);
               usedAdditionIndexes.add(pendingMatchIndex);
@@ -563,7 +564,7 @@ export const useConversation = ({
 
           // Content-based fallback: collapse temporary stream bubble when persisted assistant text arrives.
           if (assistantAdditionIndexes.length > 0) {
-            for (const bubble of streamingBubbles) {
+            for (const bubble of streamingBubblesNewestFirst) {
               if (bubbleIdsToRemove.has(bubble.id)) continue;
               if (typeof bubble.content !== 'string' || bubble.content.trim().length === 0) continue;
               const normalizedBubble = normalizeMessage(bubble.content);

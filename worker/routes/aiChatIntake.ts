@@ -181,9 +181,10 @@ const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
   const hasDescription = hasNonEmptyStringField(state, 'description');
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
+  const hasUrgency = hasNonEmptyStringField(state, 'urgency');
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 export interface IntakeSubmissionGate {

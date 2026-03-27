@@ -37,6 +37,8 @@ interface IntakeConversationState {
   description?: string | null;
   urgency?: 'routine' | 'time_sensitive' | 'emergency' | null;
   opposingParty?: string | null;
+  city?: string | null;
+  state?: string | null;
   desiredOutcome?: string | null;
   courtDate?: string | null;
   hasDocuments?: boolean | null;
@@ -121,6 +123,8 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
     description: parseStr(raw.description),
     urgency,
     opposingParty: parseStr(raw.opposingParty),
+    city: parseStr(raw.city),
+    state: parseStr(raw.state),
     desiredOutcome: parseStr(raw.desiredOutcome),
     courtDate: parseStr(raw.courtDate),
     hasDocuments: typeof raw.hasDocuments === 'boolean' ? raw.hasDocuments : null,
@@ -149,19 +153,16 @@ const readStringField = (record: Record<string, unknown> | null | undefined, key
   return null;
 };
 
-const isCaseInfoComplete = (state: IntakeConversationState | null | undefined): boolean => {
+const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
   if (!state) return false;
-  const hasDescription = typeof state.description === 'string' && state.description.trim().length > 0;
-  const hasLocation = Boolean(
-    typeof (state as Record<string, unknown>).city === 'string'
-    && (state as Record<string, unknown>).city && String((state as Record<string, unknown>).city).trim().length > 0
-    && typeof (state as Record<string, unknown>).state === 'string'
-    && (state as Record<string, unknown>).state && String((state as Record<string, unknown>).state).trim().length > 0
-  );
-  const hasOpposingParty = typeof state.opposingParty === 'string' && state.opposingParty.trim().length > 0;
-  const hasDesiredOutcome = typeof state.desiredOutcome === 'string' && state.desiredOutcome.trim().length > 0;
+  const hasDescription = Boolean(state.description?.trim());
+  const hasLocation = Boolean(state.city?.trim() || draft?.city?.trim())
+    && Boolean(state.state?.trim() || draft?.state?.trim());
+  const hasOpposingParty = Boolean(state.opposingParty?.trim());
+  const hasUrgency = Boolean(state.urgency?.trim());
+  const hasDesiredOutcome = Boolean(state.desiredOutcome?.trim());
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 const buildIntakePayload = (
@@ -200,8 +201,10 @@ const buildIntakePayload = (
   }
 
   if (draft.phone) payload.phone = draft.phone;
-  if (draft.city) payload.city = draft.city;
-  if (draft.state) payload.state = draft.state;
+  const city = intake?.city?.trim() || draft.city;
+  const state = intake?.state?.trim() || draft.state;
+  if (city) payload.city = city;
+  if (state) payload.state = state;
 
   // Merge AI-enriched fields — intake fields take precedence over draft
   const description = intake?.description?.trim() || draft.description?.trim();
@@ -241,7 +244,6 @@ export async function handleSubmitIntake(
   Logger.info('[submitIntake] Request received', {
     conversationId,
     authUserId: userId,
-    authEmail: authContext.user.email ?? null,
     isAnonymous: authContext.isAnonymous === true,
     previousAnonUserId: authContext.previousAnonUserId ?? null,
   });
@@ -263,7 +265,6 @@ export async function handleSubmitIntake(
     conversationId,
     practiceId,
     authUserId: userId,
-    authEmail: authContext.user.email ?? null,
     membershipInput: {
       practiceId,
       userId,
@@ -404,7 +405,7 @@ export async function handleSubmitIntake(
   });
   const paymentRequiredBeforeSubmit = Boolean((intakeSettings?.prefillAmount ?? 0) > 0);
   const paymentReceived = consultation?.submission?.paymentReceived === true;
-  const caseInfoComplete = isCaseInfoComplete(intake);
+  const caseInfoComplete = isCaseInfoComplete(intake, draft);
   const submitEligibility = caseInfoComplete && (!paymentRequiredBeforeSubmit || paymentReceived);
   Logger.info('[submitIntake] Submit eligibility evaluated', {
     conversationId,
@@ -448,9 +449,6 @@ export async function handleSubmitIntake(
     const httpStatus = typeof (error as { status?: unknown })?.status === 'number'
       ? (error as { status: number }).status
       : null;
-    const errorContext = typeof (error as { context?: unknown })?.context === 'object'
-      ? (error as { context: unknown }).context
-      : null;
     const isRemoteBadRequest = httpStatus === 400;
     Logger.error('[submitIntake] Backend intake create request failed before response handling', {
       conversationId,
@@ -461,7 +459,6 @@ export async function handleSubmitIntake(
       slug,
       error: error instanceof Error ? error.message : String(error),
       status: httpStatus,
-      context: errorContext,
       returnPathReason: isRemoteBadRequest ? 'remote_create_intake_400' : 'remote_create_intake_error',
     });
     throw error;
