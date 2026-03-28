@@ -10,12 +10,12 @@ test.describe('Intake QuickAction Diagnosis', () => {
     const debugLogs: any[] = [];
     const practiceSlug = process.env.E2E_PRACTICE_SLUG || 'paul-yahoo';
 
-    // 1. Enable client-side debug logging
+    // Step 1: Enable client-side debug logging
     await anonPage.addInitScript(() => {
       (window as any).__blawbyQuickActionDebug = true;
     });
 
-    // 2. Capture console logs and network responses
+    // Step 2: Capture console logs and network responses
     anonPage.on('console', (msg) => {
       const text = msg.text();
       if (text.includes('[QuickActionDebug]')) {
@@ -55,28 +55,28 @@ test.describe('Intake QuickAction Diagnosis', () => {
       }
     });
 
-    // 3. Navigate to the public widget
+    // Step 3: Navigate to the public widget
     await anonPage.goto(`/public/${practiceSlug}?v=widget`, { 
       waitUntil: 'domcontentloaded',
       timeout: 60000 
     });
 
-    // 3. Trigger consultation
+    // Step 4: Trigger consultation
     const consultationCta = anonPage.locator('button:visible, a:visible').filter({ hasText: /request consultation/i }).first();
     await consultationCta.waitFor({ state: 'visible', timeout: 30000 });
     await consultationCta.click();
 
-    // 4. Fill slim form
+    // Step 5: Fill slim form
     const uniqueId = randomUUID().slice(0, 8);
     await anonPage.locator('input[placeholder*="full name" i]:visible').fill(`Diagnose E2E ${uniqueId}`);
     await anonPage.locator('input[type="email"]:visible').fill(`diagnose-${uniqueId}@example.com`);
     await anonPage.locator('input[type="tel"]:visible').fill('5551234567');
     
-    console.log('Step 4: Clicking slim form continue...');
+    console.log('Step 5: Clicking slim form continue...');
     await anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).click();
 
-    // 5. Explicitly handle the "contact_form_decision" step
-    console.log('Step 5: Waiting for decision CTA...');
+    // Step 6: Explicitly handle the "contact_form_decision" step
+    console.log('Step 6: Waiting for decision CTA...');
     const decisionPrompt = anonPage.locator('[data-testid="decision-prompt"]:visible, button:visible >> text=/Continue/i').first();
     try {
       await decisionPrompt.waitFor({ state: 'visible', timeout: 10000 });
@@ -86,12 +86,12 @@ test.describe('Intake QuickAction Diagnosis', () => {
       console.log('Decision CTA not found (or skipped), proceeding to chat...');
     }
 
-    // 6. Wait for the bot's first message and reply
+    // Step 7: Wait for the bot's first message and reply (Turn 1)
     const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
     await expect(messageInput).toBeEnabled({ timeout: 30000 });
 
     // Turn 1: Specify a practice area
-    console.log('Turn 1: Sending practice area...');
+    console.log('Step 7 (Turn 1): Sending practice area...');
     const response1Promise = anonPage.waitForResponse(r => r.url().includes('/api/ai/chat') && r.request().method() === 'POST');
     await messageInput.fill('I need help with a personal injury case');
     await anonPage.keyboard.press('Enter');
@@ -99,7 +99,7 @@ test.describe('Intake QuickAction Diagnosis', () => {
     await anonPage.waitForTimeout(5000); 
 
     // Turn 2: Provide more details
-    console.log('Turn 2: Sending details...');
+    console.log('Step 8 (Turn 2): Sending details...');
     const response2Promise = anonPage.waitForResponse(r => r.url().includes('/api/ai/chat') && r.request().method() === 'POST');
     await messageInput.fill('A car hit my bicycle yesterday in Nashville.');
     await anonPage.keyboard.press('Enter');
@@ -107,14 +107,14 @@ test.describe('Intake QuickAction Diagnosis', () => {
     await anonPage.waitForTimeout(5000);
 
     // Turn 3: Challenge with something that should trigger chips
-    console.log('Turn 3: Sending urgency...');
+    console.log('Step 9 (Turn 3): Sending urgency...');
     const response3Promise = anonPage.waitForResponse(r => r.url().includes('/api/ai/chat') && r.request().method() === 'POST');
     await messageInput.fill('It is quite urgent since I am in the hospital.');
     await anonPage.keyboard.press('Enter');
     await response3Promise;
     await anonPage.waitForTimeout(5000);
 
-    // 6. Write the collected logs to a temporary file for the runner script
+    // Step 10: Write collected logs to file for runner script
     const resultsPath = path.join(process.cwd(), 'intake-debug-results.json');
     fs.writeFileSync(resultsPath, JSON.stringify(debugLogs, null, 2));
     

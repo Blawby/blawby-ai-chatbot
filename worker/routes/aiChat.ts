@@ -1186,14 +1186,22 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
         // HEURISTIC: Strip common extraction hallucinations (e.g. user circumstances captured as names)
         if (intakeFields?.opposingParty && typeof intakeFields.opposingParty === 'string') {
-          const op = intakeFields.opposingParty.toLowerCase();
+          const originalValue = intakeFields.opposingParty;
+          const op = originalValue.toLowerCase();
+          const keywords = ['urgent', 'hospital', 'incident'];
+          const hitCount = keywords.filter(k => op.includes(k)).length;
+          
           const looksLikeHallucination = 
-            op.includes('urgent') || 
-            op.includes('hospital') || 
-            op.includes('incident') || 
-            (op.split(' ').length > 4 && op.includes(' '));
+            hitCount >= 2 || 
+            (hitCount >= 1 && op.split(' ').length > 4);
           
           if (looksLikeHallucination) {
+            Logger.warn('Stripping suspected opposingParty hallucination', {
+              conversationId: body.conversationId,
+              originalValue,
+              reason: hitCount >= 2 ? 'multiple_keywords' : 'keyword_and_sentence_structure',
+              hitCount
+            });
             delete intakeFields.opposingParty;
           }
         }

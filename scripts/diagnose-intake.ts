@@ -65,7 +65,11 @@ async function runDiagnosis() {
     if (fs.existsSync(resultsPath)) {
       sessionLogs = JSON.parse(fs.readFileSync(resultsPath, 'utf-8'));
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error(`❌ CRITICAL: Failed to read or parse session logs from ${resultsPath}`);
+    console.error(`   Error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
 
   const report = {
     date: now.toISOString(),

@@ -56,7 +56,11 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
   
   // Strip self-annotated quick replies from display text
   const displayContent = content.replace(/\n?\bQUICK_REPLIES:\s*.*(?:\n|$)/gi, '').trim();
-  if (!displayContent && !content.includes('QUICK_REPLIES:')) return null;
+  const hasQuickRepliesMarker = /\bQUICK_REPLIES:/i.test(content);
+  
+  if (!displayContent && (hasQuickRepliesMarker || !content.trim())) {
+    return null;
+  }
 
   // Special styling for analysis status messages
   const isAnalysisMessage = !isUser && (content.includes('📄 Analyzing document') || content.includes('🔍'));

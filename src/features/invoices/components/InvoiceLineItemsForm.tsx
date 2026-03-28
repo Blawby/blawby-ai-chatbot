@@ -123,7 +123,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
     const item = lineItems[index];
     const requiresConfirm = Boolean(item?.time_entry_id || item?.expense_id);
     if (requiresConfirm) {
-      const confirmed = typeof window === 'undefined' ? true : window.confirm('Remove this pre-filled line item?');
+      const confirmed = typeof window === 'undefined' ? false : window.confirm('Remove this pre-filled line item?');
       if (!confirmed) return;
     }
     onChange(lineItems.filter((_, idx) => idx !== index));
@@ -177,7 +177,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
             <tbody className="divide-y divide-line-glass/20">
               {lineItems.map((item, index) => {
                 const itemTotal = item.line_total ?? asMajor(0);
-                const qtyFormatted = Number(item.quantity || 1).toFixed(billingIncrementMinutes ? 2 : 1);
+                const qtyFormatted = Number(item.quantity ?? 1).toFixed(billingIncrementMinutes ? 2 : 1);
                 
                 return (
                   <tr key={item.id} className="group hover:bg-white/[0.04] transition-colors">
