@@ -42,7 +42,7 @@ const INTAKE_TOOL = {
           description: 'Plain-English summary of the case, max 300 chars'
         },
         urgency: { type: 'string', enum: ['routine', 'time_sensitive', 'emergency'] },
-        opposingParty: { type: 'string', description: 'Name or description of the opposing party if mentioned' },
+        opposingParty: { type: 'string', description: 'Name of the opposing person, company, or organization. Never extract descriptions, emotions, or circumstances (e.g. "at the hospital").' },
         city: { type: 'string' },
         state: { type: 'string', description: '2-letter US state code' },
         postalCode: { type: 'string' },
@@ -75,6 +75,7 @@ Rules:
 - Extract only what the user has explicitly stated. Do not infer or guess.
 - Use camelCase keys only (practiceArea, opposingParty, etc).
 - Map the practice area to the correct key from the list above.
+- opposingParty must be a person, company, or organization name explicitly mentioned by the user. Never extract a description, emotion, or circumstance as opposingParty.
 - Call the tool after every user message with everything known so far.
 - Do not write anything to the user. Only call the tool.
 - Tool arguments must be a raw JSON object only (no function name wrapper, no markdown fences, no XML tags).
@@ -119,7 +120,8 @@ Conversation rules:
 - Be warm and human — like a knowledgeable friend, not a form
 - Never give legal advice
 - Never ask for contact info (name, email, phone) — already collected
-- Never output JSON, tool names, or structured data`;
+- Never output JSON, tool names, or structured data
+- If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely.`;
 };
 
 const buildIntakeConversationStatePrompt = (
@@ -649,6 +651,9 @@ const buildCompactPracticeContextForPrompt = (
 
   return compact;
 };
+
+// Suggested quick-reply chips are now derived via model self-annotation (QUICK_REPLIES: ...)
+// parsed in aiChat.ts, so deriveQuickRepliesFromReply is deprecated/removed.
 
 export {
   INTAKE_TOOL,
