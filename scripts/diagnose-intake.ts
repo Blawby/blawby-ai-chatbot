@@ -102,7 +102,7 @@ function captureCodeSnapshots() {
     const src = fs.readFileSync(intakePath, 'utf-8');
     const toolMatch = src.match(/(?:const|export const) INTAKE_TOOL = {[\s\S]*?} as const;/);
     if (toolMatch) toolCode = toolMatch[0];
-    const promptMatch = src.match(/(?:const|export const) buildIntakeSystemPrompt = \([\s\S]*?\n};/);
+    const promptMatch = src.match(/(?:const|export const) buildIntakeSystemPrompt = \([\s\S]*?\n\s*};/);
     if (promptMatch) promptCode = promptMatch[0];
   }
   return { toolCode, promptCode };
@@ -115,7 +115,14 @@ function runLogAnalysis(logFile: string) {
     return;
   }
 
-  const report = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
+  let report;
+  try {
+    report = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
+  } catch (e) {
+    console.error(`❌ CRITICAL: Failed to parse intake log from ${logFile}`);
+    console.error(`   Error: ${e instanceof Error ? e.message : String(e)}`);
+    return;
+  }
   console.log(`\n📊 Analyzing Intake Log: ${logFile}`);
   console.log(`🎯 Results: ${report.summary}`);
   console.log('---');
