@@ -53,23 +53,31 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
   className = ''
 }) => {
   if (!content) return null;
+  
+  // Strip self-annotated quick replies from display text
+  const displayContent = content.replace(/\n?\bQUICK_REPLIES:\s*.*(?:\n|$)/gi, '').trim();
+  const hasQuickRepliesMarker = /\bQUICK_REPLIES:/i.test(content);
+  
+  if (!displayContent && (hasQuickRepliesMarker || !content.trim())) {
+    return null;
+  }
 
   // Special styling for analysis status messages
   const isAnalysisMessage = !isUser && (content.includes('📄 Analyzing document') || content.includes('🔍'));
-  const analysisAriaLabel = getAnalysisAriaLabel(content, isAnalysisMessage);
+  const analysisAriaLabel = getAnalysisAriaLabel(displayContent, isAnalysisMessage);
 
   if (isAnalysisMessage) {
     return (
       <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-lg ${className}`}>
         <LoadingSpinner size="md" ariaLabel={analysisAriaLabel} />
-        <ChatMarkdown text={content} isStreaming={isStreaming} variant={variant} size={size} />
+        <ChatMarkdown text={displayContent} isStreaming={isStreaming} variant={variant} size={size} />
       </div>
     );
   }
 
   return (
     <div className={`min-h-4 ${className}`}>
-      <ChatMarkdown text={content} isStreaming={isStreaming} variant={variant} size={size} />
+      <ChatMarkdown text={displayContent} isStreaming={isStreaming} variant={variant} size={size} />
     </div>
   );
 };

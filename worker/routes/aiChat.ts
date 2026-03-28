@@ -41,6 +41,7 @@ import {
   buildIntakeConversationStatePrompt,
   mergeIntakeState,
   planNextIntakeStep,
+  isIntakeSubmittable,
   type IntakeSubmissionGate,
   normalizeServicesForPrompt,
   extractServiceNames,
@@ -1067,14 +1068,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       });
 
       accumulatedReply = streamResult.reply;
-      const extractionAwaitStartedAt = Date.now();
-      intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
-      Logger.info('AI chat timing: extraction await complete', {
-        conversationId: body.conversationId,
-        waitedMs: Date.now() - extractionAwaitStartedAt,
-        hasIntakeFields: Boolean(intakeFields),
-      });
-      
       emittedAnyToken = streamResult.emittedToken;
 
       // Parse accumulated tool calls if present
@@ -1135,13 +1128,91 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         promptMergedIntakeState,
         submissionGate: intakeSubmissionGate,
       });
+
       onboardingFields = quickActionState.onboardingFields;
       onboardingProfile = quickActionState.onboardingProfile;
       const triggerEditModal = quickActionState.triggerEditModal;
       quickReplies = quickActionState.quickReplies;
       const quickRepliesSource = quickActionState.quickRepliesSource;
       const plannerStep = quickActionState.plannerStep;
-      const mergedIntakeState = promptMergedIntakeState;
+
+      // --- Deterministic Intake Quick Action Override ---
+      let intakeReady = false;
+      if (isIntakeMode) {
+        // Ensure extraction results are fully loaded before computing actions
+        intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
+
+        const mergedForReady = mergeIntakeState(storedIntakeState, intakeFields);
+        intakeReady = isIntakeSubmittable(mergedForReady, intakeSubmissionGate);
+
+        let finalQuickReplies: string[] | null = null;
+        let cleanedReply = accumulatedReply;
+
+        // Parse SELF-ANNOTATED quick replies first (stronger than regex/planner)
+        // Format: QUICK_REPLIES: Option 1 | Option 2 | Option 3
+        if (accumulatedReply.includes('QUICK_REPLIES:')) {
+          const qrParts = accumulatedReply.split(/QUICK_REPLIES:\s*/i);
+          if (qrParts.length > 1) {
+            const rawOptions = qrParts[1].split('\n')[0].trim();
+            const options = rawOptions
+              .split('|')
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0 && s.length < 30)
+              .slice(0, 3);
+            
+            if (options.length > 0) {
+              finalQuickReplies = options;
+              // Strip the metadata line from the text users see
+              cleanedReply = (qrParts[0].trim() + '\n' + qrParts[1].split('\n').slice(1).join('\n')).trim();
+            }
+          }
+        }
+
+        if (intakeReady) {
+          quickReplies = ['__submit__'];
+        } else {
+          // Use parsed chips if available, otherwise clear to avoid drift from planner
+          quickReplies = finalQuickReplies;
+        }
+
+        // Apply cleaning to accumulatedReply for persistence
+        accumulatedReply = cleanedReply;
+
+        Logger.info('Quick replies derived via self-annotation', {
+          conversationId: body.conversationId,
+          quickReplies: finalQuickReplies,
+          replyPreview: accumulatedReply.slice(0, 120),
+        });
+
+        // HEURISTIC: Strip common extraction hallucinations (e.g. user circumstances captured as names)
+        if (intakeFields?.opposingParty && typeof intakeFields.opposingParty === 'string') {
+          const originalValue = intakeFields.opposingParty;
+          const op = originalValue.toLowerCase();
+          const keywords = ['urgent', 'hospital', 'incident'];
+          const hitCount = keywords.filter(k => op.includes(k)).length;
+          
+          const looksLikeHallucination = 
+            hitCount >= 2 || 
+            (hitCount >= 1 && op.split(' ').length > 4);
+          
+          if (looksLikeHallucination) {
+            Logger.warn('Stripping suspected opposingParty hallucination', {
+              conversationId: body.conversationId,
+              originalValue,
+              reason: hitCount >= 2 ? 'multiple_keywords' : 'keyword_and_sentence_structure',
+              hitCount
+            });
+            delete intakeFields.opposingParty;
+          }
+        }
+
+        intakeFields = {
+          ...(intakeFields ?? {}),
+          intakeReady,
+          quickReplies: quickReplies ?? null,
+        } as typeof intakeFields;
+      }
+      const mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
       if (isIntakeMode && debugEnabled) {
         Logger.info('Intake state before persistence', {
           conversationId: body.conversationId,
@@ -1197,7 +1268,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // immediately without waiting for the DB write.
       write({
         done: true,
-        intakeFields: intakeFields ?? null,
+        intakeFields: mergedIntakeState ?? null,
         onboardingFields: onboardingFields ?? null,
         onboardingProfile: onboardingProfile ?? null,
         quickReplies: quickReplies ?? null,

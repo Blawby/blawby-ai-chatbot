@@ -406,7 +406,7 @@ export class ConversationService {
         if (value === null || value === undefined) return fallback;
         if (Array.isArray(fallback)) {
           if (Array.isArray(value)) return value as T;
-          console.error(`[ConversationService] Type mismatch [${label}]`, {
+          console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
             expected: 'array',
             actual: Array.isArray(value) ? 'array' : typeof value,
             value
@@ -415,7 +415,7 @@ export class ConversationService {
         }
         if (fallback !== null && typeof fallback !== 'object') {
           if (typeof value === typeof fallback) return value as T;
-          console.error(`[ConversationService] Type mismatch [${label}]`, {
+          console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
             expected: typeof fallback,
             actual: typeof value,
             value
@@ -424,14 +424,14 @@ export class ConversationService {
         }
         if (fallback !== null && typeof fallback === 'object') {
           if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
-          console.error(`[ConversationService] Type mismatch [${label}]`, {
+          console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
             expected: 'object',
             actual: Array.isArray(value) ? 'array' : typeof value,
             value
           });
           return fallback;
         }
-        console.error(`[ConversationService] Type mismatch [${label}]`, {
+        console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
           expected: 'null',
           actual: Array.isArray(value) ? 'array' : typeof value,
           value
