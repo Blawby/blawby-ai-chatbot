@@ -100,7 +100,7 @@ function captureCodeSnapshots() {
 
   if (fs.existsSync(intakePath)) {
     const src = fs.readFileSync(intakePath, 'utf-8');
-    const toolMatch = src.match(/(?:const|export const) INTAKE_TOOL = {[\s\S]*?} as const;/);
+    const toolMatch = src.match(/(?:const|export const) INTAKE_TOOL = {[\s\S]*?}(?:\s*as\s+const)?\s*;/);
     if (toolMatch) toolCode = toolMatch[0];
     const promptMatch = src.match(/(?:const|export const) buildIntakeSystemPrompt = \([\s\S]*?\n\s*};/);
     if (promptMatch) promptCode = promptMatch[0];
@@ -127,8 +127,9 @@ function runLogAnalysis(logFile: string) {
   console.log(`🎯 Results: ${report.summary}`);
   console.log('---');
 
+  const logs = Array.isArray(report?.logs) ? report.logs : [];
   let turnCount = 0;
-  report.logs.forEach((log: any) => {
+  logs.forEach((log: any) => {
     if (log.source === 'network') {
       turnCount++;
       const { intakeFields = {}, quickReplies = [] } = log.payload || {};
@@ -144,7 +145,7 @@ function runLogAnalysis(logFile: string) {
       }
 
       // Correlate console logs for drift
-      const driftLogs = report.logs.filter((cl: any) => 
+      const driftLogs = logs.filter((cl: any) => 
         cl.source === 'console' && cl.timestamp.startsWith(log.timestamp.slice(0, 19)) && cl.text.includes('mismatch')
       );
       driftLogs.forEach((cl: any) => console.warn(`  ⚠️  DRIFT: ${cl.text}`));
