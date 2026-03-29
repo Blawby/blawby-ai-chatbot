@@ -121,7 +121,7 @@ Conversation rules:
 - Never give legal advice
 - Never ask for contact info (name, email, phone) — already collected
 - Never output JSON, tool names, or structured data
-- If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely.`;
+- If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely. Never use QUICK_REPLIES for open-ended questions like description or desired outcome.`;
 };
 
 const buildIntakeConversationStatePrompt = (
@@ -178,15 +178,21 @@ const mergeIntakeState = (
   return { ...(base ?? {}), ...(patch ?? {}) };
 };
 
-const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
+const isMinimumViableBriefComplete = (state: Record<string, unknown> | null): boolean => {
   if (!state) return false;
   const hasDescription = hasNonEmptyStringField(state, 'description');
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
+  return hasDescription && hasLocation && hasOpposingParty;
+};
+
+const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
+  if (!isMinimumViableBriefComplete(state)) return false;
+  if (!state) return false;
   const hasUrgency = hasNonEmptyStringField(state, 'urgency');
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
+  return hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 export interface IntakeSubmissionGate {
@@ -198,7 +204,7 @@ const isIntakeSubmittable = (
   state: Record<string, unknown> | null,
   submissionGate?: IntakeSubmissionGate | null,
 ): boolean => {
-  if (!isCaseInfoComplete(state)) return false;
+  if (!isMinimumViableBriefComplete(state)) return false;
   const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
   const paymentCompleted = submissionGate?.paymentCompleted === true;
   return !paymentRequiredBeforeSubmit || paymentCompleted;

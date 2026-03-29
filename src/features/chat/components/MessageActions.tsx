@@ -150,11 +150,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
 	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
 	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
-		if (reply === '__submit__') {
-			return Boolean(onSubmitNow || onIntakeCtaResponse);
-		}
-		if (reply === '__continue_payment__') {
-			return Boolean(onSubmitNow || onIntakeCtaResponse);
+		if (reply === '__submit__' || reply === '__continue_payment__') {
+			return Boolean(onSubmitNow || onIntakeCtaResponse || (onOpenPayment && paymentRequest));
 		}
 		if (reply.startsWith('__pay__:')) {
 			return true;
@@ -323,14 +320,16 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
 						reply === '__continue_payment__' ? (
-							(onSubmitNow || onIntakeCtaResponse) ? (
+							(onSubmitNow || onIntakeCtaResponse || (onOpenPayment && paymentRequest)) ? (
 								<Button
 									key="__continue_payment__"
 									variant="primary"
 									size="sm"
 									className="shrink-0"
 									onClick={() => {
-										if (onSubmitNow) {
+										if (onOpenPayment && paymentRequest?.paymentLinkUrl) {
+											onOpenPayment(paymentRequest);
+										} else if (onSubmitNow) {
 											void onSubmitNow();
 										} else {
 											onIntakeCtaResponse?.('ready');
@@ -340,8 +339,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{t('chat.continue')}
 								</Button>
 							) : null
-						) : (
-						reply === '__submit__' ? (
+						) : reply === '__submit__' ? (
 							(onSubmitNow || onIntakeCtaResponse) ? (
 								<Button
 									key="__submit__"
@@ -408,7 +406,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{reply}
 								</Button>
 							) : null
-						)
 						)
 					))}
 				</div>

@@ -294,25 +294,26 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       paymentReceived: intakeStatus?.paymentReceived ?? null,
     }) && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
+    const isSentinelAffirmative = normalized === '__submit__' || normalized === '__continue_payment__';
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
-    const isAffirmative = affirmative.test(normalized);
+    const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    if (canHandleCta && onIntakeCtaResponse) {
-      if (isAffirmative) {
-        (async () => {
-          await handleSubmitNowAction();
-        })();
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
-      if (isNegative) {
-        onIntakeCtaResponse('not_yet');
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
+    // Treat either the affirmative regex pattern OR a literal sentinel string as actionable
+    if (onIntakeCtaResponse && (isSentinelAffirmative || (canHandleCta && isPatternAffirmative))) {
+      (async () => {
+        await handleSubmitNowAction();
+      })();
+      setInputValue('');
+      setReplyTarget(null);
+      return;
+    }
+
+    if (canHandleCta && onIntakeCtaResponse && isNegative) {
+      onIntakeCtaResponse('not_yet');
+      setInputValue('');
+      setReplyTarget(null);
+      return;
     }
 
     // Send message to API
