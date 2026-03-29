@@ -336,7 +336,7 @@ const extractIntakeFieldsForTurn = async (params: {
         Logger.warn('Failed to parse extraction tool call arguments', {
           conversationId: params.body.conversationId,
           error: parseError instanceof Error ? parseError.message : String(parseError),
-          ...(params.debugEnabled ? { rawToolArgsPreview: rawArgs.slice(0, 800) } : {}),
+          ...(params.debugEnabled ? { rawToolArgsLength: rawArgs.length } : {}),
         });
         return null;
       }
@@ -358,8 +358,9 @@ const extractIntakeFieldsForTurn = async (params: {
     const isParsedEmpty = !result || !result.parsed || Object.keys(result.parsed).length === 0;
     
     if (isParsedEmpty && params.body.fullMessages && params.body.fullMessages.length > 2) {
+      const INTAKE_FIELDS_ALLOWLIST = ['practiceArea', 'description', 'urgency', 'opposingParty', 'city', 'state', 'desiredOutcome', 'courtDate', 'hasDocuments'];
       const populatedFieldCount = params.storedIntakeState
-        ? Object.values(params.storedIntakeState).filter((v) => v !== null && v !== undefined && v !== '').length
+        ? Object.entries(params.storedIntakeState).filter(([k, v]) => INTAKE_FIELDS_ALLOWLIST.includes(k) && v !== null && v !== undefined && v !== '').length
         : 0;
         
       if (populatedFieldCount < 3) {
@@ -380,7 +381,7 @@ const extractIntakeFieldsForTurn = async (params: {
         conversationId: params.body.conversationId,
         finishReason: result.finishReason,
         toolCallCount: result.toolCallCount,
-        ...(result.contentPreview ? { messageContentPreview: result.contentPreview } : {}),
+        ...(result.contentPreview ? { messageContentLength: result.contentPreview.length } : {}),
       });
       return null;
     }
@@ -890,8 +891,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let accumulatedReply = '';
     let intakeFields: Record<string, unknown> | null = null;
     let onboardingFields: Record<string, unknown> | null = null;
-    let quickReplies: string[] | null = null;
-    let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
     const debugEnabled = isDebugEnabled(env.DEBUG);
 
@@ -1164,7 +1163,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingProfile = quickActionState.onboardingProfile;
         triggerEditModal = quickActionState.triggerEditModal;
         quickReplies = quickActionState.quickReplies;
-        quickRepliesSource = quickActionState.quickRepliesSource as any;
+        quickRepliesSource = quickActionState.quickRepliesSource as typeof quickRepliesSource;
       }
       
       // --- Deterministic Intake Quick Action Override ---
@@ -1226,8 +1225,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         Logger.info('Quick replies applied for intake', {
           conversationId: body.conversationId,
           source: quickRepliesSource,
-          quickReplies,
-          replyPreview: accumulatedReply.slice(0, 120),
+          quickRepliesCount: quickReplies?.length ?? 0,
+          replyLength: accumulatedReply.length,
         });
 
         // HEURISTIC: Strip common extraction hallucinations (e.g. user circumstances captured as names)
@@ -1244,7 +1243,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           if (looksLikeHallucination) {
             Logger.warn('Stripping suspected opposingParty hallucination', {
               conversationId: body.conversationId,
-              originalValue,
+              originalValueLength: originalValue.length,
               reason: hitCount >= 2 ? 'multiple_keywords' : 'keyword_and_sentence_structure',
               hitCount
             });

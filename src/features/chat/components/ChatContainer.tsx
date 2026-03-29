@@ -294,14 +294,27 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       paymentReceived: intakeStatus?.paymentReceived ?? null,
     }) && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
-    const isSentinelAffirmative = normalized === '__submit__' || normalized === '__continue_payment__';
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
     const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
     // Treat either the affirmative regex pattern OR a literal sentinel string as actionable.
     // Ensure we only process these if the intake is actually submittable (canHandleCta).
-    if (canHandleCta && onIntakeCtaResponse && (isSentinelAffirmative || isPatternAffirmative)) {
+    const isSubmitSentinel = normalized === '__submit__';
+    const isContinuePaymentSentinel = normalized === '__continue_payment__';
+    
+    if (canHandleCta && onIntakeCtaResponse && (isSubmitSentinel || isContinuePaymentSentinel || isPatternAffirmative)) {
+      if (isContinuePaymentSentinel) {
+        const lastMsgWithPayment = [...messages].reverse().find(m => !m.isUser && m.paymentRequest);
+        if (lastMsgWithPayment?.paymentRequest) {
+          handleOpenPayment(lastMsgWithPayment.paymentRequest);
+          setInputValue('');
+          setReplyTarget(null);
+          return;
+        }
+        // Fallback to standard submission if no explicit payment request is attached
+      }
+
       (async () => {
         try {
           await handleSubmitNowAction();

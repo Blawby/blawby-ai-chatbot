@@ -327,7 +327,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									size="sm"
 									className="shrink-0"
 									onClick={() => {
-										if (onOpenPayment && paymentRequest?.paymentLinkUrl) {
+										if (onOpenPayment && paymentRequest) {
 											onOpenPayment(paymentRequest);
 										} else if (onSubmitNow) {
 											void onSubmitNow();

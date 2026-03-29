@@ -82,6 +82,7 @@ const buildIntakeConversationCtaInstruction = (
   mergedState: Record<string, unknown> | null,
   messageCount: number,
   submissionGate?: IntakeSubmissionGate | null,
+  isPlannerFinished?: boolean,
 ): string => {
   const hasCaseInfo = isCaseInfoComplete(mergedState);
   const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
@@ -90,7 +91,7 @@ const buildIntakeConversationCtaInstruction = (
   if (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady) {
     return `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`;
   }
-  if (isSubmissionReady && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
+  if (isSubmissionReady && isPlannerFinished && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
     return `\nYou have all the required details to proceed. Briefly offer a recap to confirm readiness and prepare the user to submit. Do NOT ask any new questions.`;
   }
   if (hasCaseInfo && paymentRequiredBeforeSubmit && !paymentCompleted) {
@@ -154,6 +155,8 @@ const buildIntakeConversationStatePrompt = (
     : '';
 
   const plannerStep = planNextIntakeStep(mergedState, submissionGate);
+  const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
+  const isPlannerFinished = plannerStep?.nextField === null;
   
   const fieldLabels: Record<string, string> = {
     description: 'what happened',
@@ -164,11 +167,11 @@ const buildIntakeConversationStatePrompt = (
     hasDocuments: 'whether you have any documents',
   };
 
-  const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0
+  const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0 && !isSubmissionReady
     ? `\nIMPORTANT: The next missing piece is: ${fieldLabels[plannerStep.nextField] ?? plannerStep.nextField}. Ask about this specifically.`
     : '';
 
-  return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate)}`.trim();
+  return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate, isPlannerFinished)}`.trim();
 };
 
 export const buildIntakeConversationPrompt = (
