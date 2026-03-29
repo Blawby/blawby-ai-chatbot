@@ -45,10 +45,6 @@ const INTAKE_TOOL = {
         opposingParty: { type: 'string', description: 'Name of the opposing person, company, or organization. Never extract descriptions, emotions, or circumstances (e.g. "at the hospital").' },
         city: { type: 'string' },
         state: { type: 'string', description: '2-letter US state code' },
-        postalCode: { type: 'string' },
-        country: { type: 'string' },
-        addressLine1: { type: 'string' },
-        addressLine2: { type: 'string' },
         desiredOutcome: { type: 'string', description: 'What the user wants to achieve, max 150 chars' },
         courtDate: { type: 'string', description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated as a specific date.' },
         hasDocuments: { type: 'boolean', description: 'Whether the user has mentioned having relevant documents' },
@@ -156,7 +152,13 @@ const buildIntakeConversationStatePrompt = (
   const knownSection = compactKnownFields.length > 0
     ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}${omittedKnownCount > 0 ? `\n- ...and ${omittedKnownCount} more known fields omitted` : ''}`
     : '';
-  return `${knownSection}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate)}`.trim();
+
+  const plannerStep = planNextIntakeStep(mergedState, submissionGate);
+  const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0
+    ? `\nIMPORTANT: The next missing piece is: ${plannerStep.nextField}. Ask about this specifically.`
+    : '';
+
+  return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate)}`.trim();
 };
 
 export const buildIntakeConversationPrompt = (

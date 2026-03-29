@@ -120,10 +120,7 @@ const buildCompactIntakeContextForExtraction = (
   copyString('description', 220);
   copyString('city', 80);
   copyString('state', 2);
-  copyString('postalCode', 20);
-  copyString('country', 40);
-  copyString('addressLine1', 120);
-  copyString('addressLine2', 120);
+
   copyString('opposingParty', 120);
   copyString('urgency', 30);
   copyString('desiredOutcome', 180);
