@@ -299,13 +299,19 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    // Treat either the affirmative regex pattern OR a literal sentinel string as actionable
-    if (onIntakeCtaResponse && (isSentinelAffirmative || (canHandleCta && isPatternAffirmative))) {
+    // Treat either the affirmative regex pattern OR a literal sentinel string as actionable.
+    // Ensure we only process these if the intake is actually submittable (canHandleCta).
+    if (canHandleCta && onIntakeCtaResponse && (isSentinelAffirmative || isPatternAffirmative)) {
       (async () => {
-        await handleSubmitNowAction();
+        try {
+          await handleSubmitNowAction();
+          setInputValue('');
+          setReplyTarget(null);
+        } catch (error) {
+          console.error('[ChatContainer] Intake finalization failed:', error);
+          // Retain state so user can retry or see what they sent
+        }
       })();
-      setInputValue('');
-      setReplyTarget(null);
       return;
     }
 
