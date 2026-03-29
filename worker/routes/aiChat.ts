@@ -1147,19 +1147,26 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // The model-authored quickReplies field no longer exists in INTAKE_TOOL.
       // ─────────────────────────────────────────────────────────────────────────
 
-      const quickActionState = deriveQuickActionState({
-        isOnboardingMode,
-        onboardingFields,
-        details,
-      });
-
-      onboardingFields = quickActionState.onboardingFields;
-      onboardingProfile = quickActionState.onboardingProfile;
-      const triggerEditModal = quickActionState.triggerEditModal;
-      quickReplies = quickActionState.quickReplies;
-      let quickRepliesSource: 'none' | 'onboardingFields' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'self_annotation' = quickActionState.quickRepliesSource as any;
+      let onboardingProfile: Record<string, unknown> | null = null;
+      let triggerEditModal: string | null = null;
+      let quickReplies: string[] | null = null;
+      let quickRepliesSource: 'none' | 'onboardingFields' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'self_annotation' = 'none';
       let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
 
+      if (isOnboardingMode) {
+        const quickActionState = deriveQuickActionState({
+          isOnboardingMode,
+          onboardingFields,
+          details,
+        });
+
+        onboardingFields = quickActionState.onboardingFields;
+        onboardingProfile = quickActionState.onboardingProfile;
+        triggerEditModal = quickActionState.triggerEditModal;
+        quickReplies = quickActionState.quickReplies;
+        quickRepliesSource = quickActionState.quickRepliesSource as any;
+      }
+      
       // --- Deterministic Intake Quick Action Override ---
       let intakeReady = false;
       if (isIntakeMode) {
