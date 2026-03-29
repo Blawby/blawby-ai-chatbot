@@ -154,8 +154,18 @@ const buildIntakeConversationStatePrompt = (
     : '';
 
   const plannerStep = planNextIntakeStep(mergedState, submissionGate);
+  
+  const fieldLabels: Record<string, string> = {
+    description: 'what happened',
+    location: 'your city and state',
+    opposingParty: 'who the other party is',
+    urgency: 'how urgent this is',
+    desiredOutcome: 'what outcome you are hoping for',
+    hasDocuments: 'whether you have any documents',
+  };
+
   const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0
-    ? `\nIMPORTANT: The next missing piece is: ${plannerStep.nextField}. Ask about this specifically.`
+    ? `\nIMPORTANT: The next missing piece is: ${fieldLabels[plannerStep.nextField] ?? plannerStep.nextField}. Ask about this specifically.`
     : '';
 
   return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate)}`.trim();
